@@ -1,0 +1,1430 @@
+<title>Dossier ARLES RELAY</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;800;900&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  /* ---- Rampa de profundidad: hue 236.5 medido del cielo de la referencia ---- */
+  --bg-deep:#010E17; --bg:#041722; --surface:#0B222F; --raised:#142D3C;
+  --inter:#1E3A4B; --select:#204860;
+  --border:#263843; --border-control:#6F8390;
+  /* ---- Texto ---- */
+  --tx:#ECEEE5; --tx2:#ACBAC3; --tx3:#85959F; --tx-dis:#5E6B73; --tx-on:#071822;
+  /* ---- Acentos derivados de /REFERENCIA_DE_COLOR ---- */
+  --blue:#009ACB; --blue-lt:#62BEE7; --blue-dp:#006593;
+  --yellow:#F5D32B; --yellow-dim:#D4B629; --gold:#E8A127; --cream:#DFE2D2;
+  --info:#3AACDA; --warning:#EFA831;
+  /* ---- Extensiones declaradas (no existen en la referencia) ---- */
+  --success:#53C48E; --danger:#E8605B; --danger-dim:#BC4945;
+  --focus:#F5D32B;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --sans:"IBM Plex Sans",-apple-system,Segoe UI,system-ui,sans-serif;
+  --disp:"Montserrat","Mont",-apple-system,Segoe UI,sans-serif;
+  --rail:250px;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:15px;line-height:1.62;
+  -webkit-font-smoothing:antialiased;padding:0;margin:0}
+::selection{background:var(--yellow);color:var(--tx-on)}
+a{color:var(--blue-lt);text-decoration-color:color-mix(in srgb,var(--blue-lt) 40%,transparent);text-underline-offset:3px}
+a:hover{color:var(--yellow)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
+
+/* ================= LAYOUT ================= */
+.wrap{display:grid;grid-template-columns:var(--rail) minmax(0,1fr);gap:0;align-items:start}
+.rail{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--bg-deep);
+  border-right:1px solid var(--border);padding:26px 0 40px}
+.rail-brand{padding:0 20px 18px;border-bottom:1px solid var(--border);margin-bottom:14px}
+.wordmark{font-family:var(--disp);font-weight:900;letter-spacing:.055em;font-size:16px;color:var(--tx);
+  line-height:1.15}
+.wordmark em{font-style:normal;color:var(--yellow)}
+.rail-sub{font-family:var(--mono);font-size:10.5px;color:var(--tx3);letter-spacing:.09em;
+  text-transform:uppercase;margin-top:7px}
+.rail nav{display:flex;flex-direction:column;padding:0 10px}
+.rail a{display:grid;grid-template-columns:20px 1fr;gap:9px;align-items:baseline;
+  padding:6px 10px;border-radius:5px;color:var(--tx2);text-decoration:none;font-size:12.6px;line-height:1.4}
+.rail a b{font-family:var(--mono);font-size:10.5px;color:var(--tx-dis);font-weight:500}
+.rail a:hover{background:var(--surface);color:var(--tx)}
+.rail a:hover b{color:var(--yellow)}
+main{max-width:1120px;padding:0 clamp(20px,4vw,58px) 120px}
+.prose{max-width:74ch}
+
+/* ================= HERO ================= */
+header.hero{padding:64px 0 40px;border-bottom:1px solid var(--border);margin-bottom:44px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--yellow);margin-bottom:20px}
+h1{font-family:var(--disp);font-weight:900;font-size:clamp(34px,4.6vw,56px);line-height:1.02;
+  letter-spacing:-.015em;margin:0 0 18px;text-wrap:balance}
+h1 span{color:var(--blue-lt)}
+.lede{font-size:17.5px;color:var(--tx2);max-width:66ch;margin:0 0 26px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 22px;font-family:var(--mono);font-size:11.5px;color:var(--tx3);
+  padding-top:20px;border-top:1px solid var(--border)}
+.meta b{color:var(--tx2);font-weight:500}
+
+/* ================= SECCIONES ================= */
+section{padding:52px 0;border-top:1px solid var(--border)}
+section:first-of-type{border-top:none}
+.sec-head{display:grid;grid-template-columns:44px 1fr;gap:16px;align-items:start;margin-bottom:26px}
+.sec-letter{font-family:var(--disp);font-weight:900;font-size:30px;color:var(--yellow);line-height:.9;
+  padding-top:2px}
+h2{font-family:var(--disp);font-weight:800;font-size:26px;letter-spacing:-.01em;margin:0;line-height:1.16;
+  text-wrap:balance}
+.sec-head p{margin:6px 0 0;color:var(--tx3);font-size:13.5px}
+h3{font-family:var(--disp);font-weight:700;font-size:16.5px;margin:34px 0 12px;letter-spacing:.002em;color:var(--cream)}
+h4{font-size:13px;font-family:var(--mono);font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--tx3);margin:24px 0 10px}
+p{margin:0 0 14px}
+ul,ol{margin:0 0 16px;padding-left:20px}
+li{margin-bottom:6px}
+li::marker{color:var(--tx-dis)}
+strong{color:var(--cream);font-weight:600}
+code{font-family:var(--mono);font-size:.88em;background:var(--surface);border:1px solid var(--border);
+  padding:1px 5px;border-radius:4px;color:var(--blue-lt)}
+
+/* ================= COMPONENTES DOC ================= */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:20px 22px;margin:0 0 16px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+
+.chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px;
+  font-weight:600;letter-spacing:.07em;text-transform:uppercase;padding:3px 9px;border-radius:20px;
+  border:1px solid;white-space:nowrap}
+.chip::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+.c-block{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,transparent);background:color-mix(in srgb,var(--danger) 12%,transparent)}
+.c-risk{color:var(--warning);border-color:color-mix(in srgb,var(--warning) 40%,transparent);background:color-mix(in srgb,var(--warning) 12%,transparent)}
+.c-ok{color:var(--success);border-color:color-mix(in srgb,var(--success) 40%,transparent);background:color-mix(in srgb,var(--success) 12%,transparent)}
+.c-info{color:var(--info);border-color:color-mix(in srgb,var(--info) 40%,transparent);background:color-mix(in srgb,var(--info) 12%,transparent)}
+.c-nv{color:var(--tx3);border-color:var(--border-control);background:transparent}
+
+.callout{border-left:3px solid var(--yellow);background:linear-gradient(90deg,color-mix(in srgb,var(--yellow) 7%,transparent),transparent 65%);
+  padding:15px 20px;border-radius:0 8px 8px 0;margin:0 0 18px}
+.callout.dgr{border-left-color:var(--danger);background:linear-gradient(90deg,color-mix(in srgb,var(--danger) 9%,transparent),transparent 65%)}
+.callout.ok{border-left-color:var(--success);background:linear-gradient(90deg,color-mix(in srgb,var(--success) 8%,transparent),transparent 65%)}
+.callout h5{margin:0 0 7px;font-size:13.5px;font-family:var(--disp);font-weight:700;color:var(--cream);letter-spacing:.01em}
+.callout p:last-child{margin-bottom:0}
+
+/* PRIA: Problema-Riesgo-Impacto-Alternativa */
+.pria{background:var(--raised);border:1px solid var(--border);border-radius:9px;overflow:hidden;margin:0 0 18px}
+.pria-h{padding:13px 20px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.pria-h strong{font-family:var(--disp);font-size:14.5px;font-weight:700}
+.pria dl{margin:0;padding:16px 20px;display:grid;grid-template-columns:104px 1fr;gap:9px 16px;font-size:14px}
+.pria dt{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--tx3);padding-top:3px}
+.pria dd{margin:0;color:var(--tx2)}
+.pria dd.rec{color:var(--cream)}
+.pria dt.rec{color:var(--yellow)}
+
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:9px;margin:0 0 18px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13.2px;min-width:560px}
+th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--tx3);font-weight:600;padding:11px 14px;background:var(--bg);border-bottom:1px solid var(--border);
+  white-space:nowrap;position:sticky;top:0}
+td{padding:10px 14px;border-bottom:1px solid color-mix(in srgb,var(--border) 60%,transparent);vertical-align:top;color:var(--tx2)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--tx);font-weight:500}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.sw{width:15px;height:15px;border-radius:3px;display:inline-block;vertical-align:-3px;margin-right:8px;
+  border:1px solid rgba(255,255,255,.16)}
+
+/* ================= MOCKUPS ================= */
+.frame{border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--bg);margin:0 0 10px}
+.frame-bar{display:flex;align-items:center;gap:7px;padding:9px 13px;background:var(--bg-deep);
+  border-bottom:1px solid var(--border)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--border-control);opacity:.55}
+.frame-title{margin-left:8px;font-family:var(--mono);font-size:10.5px;color:var(--tx3);letter-spacing:.06em}
+.cap{font-size:12px;color:var(--tx3);margin:0 0 26px;font-family:var(--mono);letter-spacing:.02em}
+.cap b{color:var(--tx2);font-weight:500}
+
+/* App shell mock */
+.app{display:grid;grid-template-columns:186px 1fr;min-height:430px}
+.app-nav{background:var(--bg-deep);border-right:1px solid var(--border);padding:14px 0;display:flex;flex-direction:column}
+.app-brand{padding:4px 16px 14px;font-family:var(--disp);font-weight:900;font-size:13px;letter-spacing:.05em}
+.app-brand em{font-style:normal;color:var(--yellow)}
+.nav-grp{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--tx-dis);padding:14px 16px 5px}
+.nav-i{display:flex;align-items:center;gap:9px;padding:6px 16px;font-size:12.5px;color:var(--tx2);
+  border-left:2px solid transparent;cursor:default}
+.nav-i:hover{background:var(--surface);color:var(--tx)}
+.nav-i.on{background:var(--select);color:var(--tx);border-left-color:var(--yellow);font-weight:600}
+.nav-i .ic{width:14px;height:14px;flex:none;opacity:.9}
+.nav-i .badge{margin-left:auto;font-family:var(--mono);font-size:9.5px;background:var(--gold);
+  color:var(--tx-on);padding:0 5px;border-radius:8px;font-weight:600}
+.app-foot{margin-top:auto;padding:12px 16px 0;border-top:1px solid var(--border);
+  font-size:9.7px;color:var(--tx-dis);line-height:1.5}
+.app-foot b{color:var(--tx3);font-weight:500;letter-spacing:.04em}
+.app-main{display:flex;flex-direction:column;background:var(--bg)}
+.topbar{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid var(--border);
+  background:var(--surface)}
+.tb-title{font-family:var(--disp);font-weight:700;font-size:14.5px}
+.tb-crumb{font-family:var(--mono);font-size:10px;color:var(--tx3);letter-spacing:.06em}
+.search{margin-left:auto;display:flex;align-items:center;gap:7px;background:var(--bg);
+  border:1px solid var(--border-control);border-radius:6px;padding:5px 9px;width:190px;color:var(--tx3);font-size:11.5px}
+.kbd{font-family:var(--mono);font-size:9.5px;border:1px solid var(--border-control);border-radius:3px;
+  padding:0 4px;color:var(--tx3);margin-left:auto}
+.engine{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--success);border:1px solid color-mix(in srgb,var(--success) 40%,transparent);
+  background:color-mix(in srgb,var(--success) 11%,transparent);padding:4px 9px;border-radius:5px;font-weight:600}
+.pulse{width:6px;height:6px;border-radius:50%;background:var(--success)}
+@media(prefers-reduced-motion:no-preference){
+  .pulse{animation:p 2.4s ease-in-out infinite}
+  @keyframes p{0%,100%{opacity:1}50%{opacity:.35}}
+}
+.app-body{padding:18px;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.kpi .lb{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--tx3)}
+.kpi .vl{font-family:var(--disp);font-weight:800;font-size:25px;line-height:1.15;margin-top:5px;
+  font-variant-numeric:tabular-nums}
+.kpi .sb{font-size:10.5px;color:var(--tx3);margin-top:1px;font-family:var(--mono)}
+.kpi.acc{border-color:color-mix(in srgb,var(--yellow) 35%,transparent)}
+.kpi.acc .vl{color:var(--yellow)}
+
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.panel-h{display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.panel-h h6{margin:0;font-family:var(--disp);font-weight:700;font-size:12.5px}
+.panel-h .more{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--blue-lt)}
+
+/* tabla mock */
+table.mock{font-size:11.8px;min-width:0}
+table.mock th{padding:8px 12px;font-size:9.5px;background:var(--bg)}
+table.mock td{padding:8px 12px;font-size:11.8px}
+table.mock tr.sel td{background:var(--select)}
+table.mock tr.sel td:first-child{box-shadow:inset 2px 0 0 var(--yellow)}
+.st{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9.5px;font-weight:600;
+  letter-spacing:.05em;text-transform:uppercase}
+.st::before{content:"";width:6px;height:6px;border-radius:2px;background:currentColor}
+.st.a{color:var(--success)}.st.p{color:var(--gold)}.st.e{color:var(--danger)}.st.d{color:var(--tx3)}
+.st.q{color:var(--blue-lt)}
+
+/* barra de progreso */
+.bar{height:5px;border-radius:3px;background:var(--inter);overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:var(--yellow);border-radius:3px}
+.bar.b>i{background:var(--blue)}
+
+/* botones */
+.btns{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.btn{font-family:var(--sans);font-size:12.8px;font-weight:600;padding:7px 15px;border-radius:6px;
+  border:1px solid transparent;cursor:default;display:inline-flex;align-items:center;gap:7px;line-height:1.5}
+.btn.pri{background:var(--yellow);color:var(--tx-on);border-color:var(--yellow)}
+.btn.sec{background:transparent;color:var(--blue-lt);border-color:var(--border-control)}
+.btn.gho{background:transparent;color:var(--tx2);border-color:transparent}
+.btn.dgr{background:transparent;color:var(--danger);border-color:color-mix(in srgb,var(--danger) 50%,transparent)}
+.btn.dis{background:var(--inter);color:var(--tx-dis);border-color:transparent}
+.btn.fx{outline:2px solid var(--focus);outline-offset:2px}
+
+/* inputs */
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:13px}
+.field label{font-size:11.5px;color:var(--tx2);font-weight:500}
+.field label b{color:var(--tx3);font-weight:400;font-family:var(--mono);font-size:10px}
+.inp{background:var(--bg);border:1px solid var(--border-control);border-radius:6px;padding:7px 11px;
+  font-size:12.8px;color:var(--tx);font-family:var(--sans)}
+.inp.ph{color:var(--tx3)}
+.inp.fx{outline:2px solid var(--focus);outline-offset:1px;border-color:var(--focus)}
+.inp.err{border-color:var(--danger)}
+.hint{font-size:10.8px;color:var(--tx3)}
+.hint.err{color:var(--danger);display:flex;align-items:center;gap:5px}
+
+/* alerta */
+.alert{display:grid;grid-template-columns:20px 1fr;gap:12px;padding:14px 16px;border-radius:8px;
+  border:1px solid;font-size:12.8px;line-height:1.55}
+.alert.warn{border-color:color-mix(in srgb,var(--gold) 45%,transparent);background:color-mix(in srgb,var(--gold) 10%,transparent)}
+.alert.warn .ai{color:var(--gold)}
+.alert h6{margin:0 0 5px;font-family:var(--disp);font-weight:700;font-size:13px;color:var(--cream)}
+.alert p{margin:0 0 10px;color:var(--tx2)}
+
+/* modal */
+.modal-scrim{background:color-mix(in srgb,var(--bg-deep) 78%,transparent);padding:30px;display:flex;
+  align-items:center;justify-content:center}
+.modal{background:var(--raised);border:1px solid var(--border-control);border-radius:11px;width:100%;
+  max-width:420px;overflow:hidden;box-shadow:0 22px 50px -12px rgba(1,14,23,.85)}
+.modal-b{padding:20px 22px}
+.modal-b h6{margin:0 0 9px;font-family:var(--disp);font-weight:800;font-size:16px}
+.modal-b p{font-size:12.8px;color:var(--tx2);margin:0 0 12px}
+.modal-f{display:flex;gap:9px;justify-content:flex-end;padding:13px 22px;background:var(--surface);
+  border-top:1px solid var(--border)}
+.strip{height:3px;background:var(--danger)}
+
+/* wizard */
+.steps{display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--surface);overflow-x:auto}
+.step{padding:9px 14px;font-size:11.2px;color:var(--tx3);border-bottom:2px solid transparent;white-space:nowrap;
+  display:flex;align-items:center;gap:7px}
+.step i{font-family:var(--mono);font-size:9.5px;width:16px;height:16px;border-radius:50%;
+  border:1px solid var(--border-control);display:grid;place-items:center;font-style:normal;flex:none}
+.step.done{color:var(--tx2)}
+.step.done i{background:var(--success);border-color:var(--success);color:var(--tx-on);font-weight:700}
+.step.on{color:var(--tx);border-bottom-color:var(--yellow);font-weight:600}
+.step.on i{border-color:var(--yellow);color:var(--yellow)}
+
+.sim{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.sim-out{background:var(--bg-deep);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.sim-row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;
+  border-bottom:1px solid color-mix(in srgb,var(--border) 55%,transparent)}
+.sim-row:last-child{border:none}
+.sim-row b{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--tx);font-weight:500}
+.verdict{margin-top:12px;padding:9px 12px;border-radius:6px;font-family:var(--mono);font-size:11px;
+  font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  background:color-mix(in srgb,var(--success) 14%,transparent);color:var(--success);
+  border:1px solid color-mix(in srgb,var(--success) 40%,transparent);text-align:center}
+
+/* paleta */
+.pal{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin-bottom:18px}
+.pchip{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface)}
+.pchip .col{height:56px;display:flex;align-items:flex-end;padding:6px 8px}
+.pchip .col span{font-family:var(--mono);font-size:9px;letter-spacing:.05em;opacity:.9}
+.pchip .inf{padding:8px 10px}
+.pchip .nm{font-size:11.5px;font-weight:600;color:var(--tx)}
+.pchip .hx{font-family:var(--mono);font-size:10.5px;color:var(--tx3);margin-top:2px}
+.pchip .rt{font-family:var(--mono);font-size:9.5px;color:var(--success);margin-top:3px}
+.pchip .rt.na{color:var(--tx-dis)}
+
+/* escala tipografica */
+.type-row{display:grid;grid-template-columns:128px 1fr;gap:16px;align-items:baseline;
+  padding:9px 0;border-bottom:1px solid color-mix(in srgb,var(--border) 55%,transparent)}
+.type-row .m{font-family:var(--mono);font-size:10px;color:var(--tx3);letter-spacing:.05em;line-height:1.5}
+.t-disp{font-family:var(--disp);font-weight:900;font-size:32px;letter-spacing:-.015em;line-height:1.05}
+.t-h1{font-family:var(--disp);font-weight:800;font-size:24px;letter-spacing:-.01em}
+.t-h2{font-family:var(--disp);font-weight:700;font-size:19px}
+.t-h3{font-family:var(--disp);font-weight:700;font-size:15px}
+.t-bd{font-size:14px}.t-sm{font-size:12.5px;color:var(--tx2)}
+.t-cap{font-size:11px;color:var(--tx3)}
+.t-lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--tx3)}
+.t-num{font-family:var(--mono);font-size:17px;font-variant-numeric:tabular-nums;color:var(--yellow);font-weight:600}
+
+.q{background:var(--raised);border:1px solid var(--border);border-left:3px solid var(--blue);
+  border-radius:0 9px 9px 0;padding:16px 20px;margin-bottom:14px}
+.q .qq{font-family:var(--disp);font-weight:700;font-size:14.5px;color:var(--cream);margin-bottom:9px}
+.q dl{margin:0;display:grid;grid-template-columns:96px 1fr;gap:7px 14px;font-size:13.2px}
+.q dt{font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--tx3);padding-top:3px}
+.q dd{margin:0;color:var(--tx2)}
+.q dd.r{color:var(--cream)}
+.q dt.r{color:var(--yellow)}
+
+.flow{display:flex;flex-wrap:wrap;gap:7px;align-items:center;font-family:var(--mono);font-size:11px;
+  color:var(--tx2);margin-bottom:16px}
+.flow span{background:var(--surface);border:1px solid var(--border);padding:4px 10px;border-radius:5px}
+.flow i{color:var(--tx-dis);font-style:normal}
+.flow span.k{border-color:color-mix(in srgb,var(--yellow) 45%,transparent);color:var(--yellow)}
+
+.foot{border-top:1px solid var(--border);margin-top:60px;padding-top:24px;font-size:11.8px;color:var(--tx3)}
+.foot b{font-family:var(--disp);font-weight:800;color:var(--tx2);letter-spacing:.04em}
+
+@media(max-width:1080px){
+  .wrap{grid-template-columns:1fr}
+  .rail{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border)}
+  .rail nav{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  .app{grid-template-columns:1fr}.app-nav{display:none}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .sim{grid-template-columns:1fr}
+}
+</style>
+
+<div class="wrap">
+<aside class="rail">
+  <div class="rail-brand">
+    <div class="wordmark">ARLES <em>RELAY</em></div>
+    <div class="rail-sub">Fase 0 · Discovery</div>
+  </div>
+  <nav>
+    <a href="#a"><b>A</b><span>Resumen</span></a>
+    <a href="#b"><b>B</b><span>Inventario</span></a>
+    <a href="#c"><b>C</b><span>/RECURSOS</span></a>
+    <a href="#d"><b>D</b><span>Color</span></a>
+    <a href="#e"><b>E</b><span>Auditoría producto</span></a>
+    <a href="#f"><b>F</b><span>Alcance v1.2.0</span></a>
+    <a href="#g"><b>G</b><span>Arquitectura</span></a>
+    <a href="#h"><b>H</b><span>Tauri vs Electron</span></a>
+    <a href="#i"><b>I</b><span>Modelo de datos</span></a>
+    <a href="#j"><b>J</b><span>Motor de ejecución</span></a>
+    <a href="#k"><b>K</b><span>Seguridad</span></a>
+    <a href="#l"><b>L</b><span>UX</span></a>
+    <a href="#m"><b>M</b><span>Design System</span></a>
+    <a href="#n"><b>N</b><span>QA</span></a>
+    <a href="#o"><b>O</b><span>Performance</span></a>
+    <a href="#p"><b>P</b><span>Distribución</span></a>
+    <a href="#q"><b>Q</b><span>Licenciamiento</span></a>
+    <a href="#r"><b>R</b><span>Riesgos</span></a>
+    <a href="#s"><b>S</b><span>Roadmap</span></a>
+    <a href="#t"><b>T</b><span>Decisiones</span></a>
+    <a href="#u"><b>U</b><span>Recomendación</span></a>
+  </nav>
+</aside>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Fase 0 · Discovery · Auditoría · Arquitectura</div>
+  <h1>No escribimos código todavía.<br><span>Escribimos las razones.</span></h1>
+  <p class="lede">Inspección completa del repositorio, extracción cromática medida sobre la referencia oficial,
+  auditoría crítica del alcance y arquitectura propuesta para <strong>ARLES RELAY I v1.2.0</strong>.
+  Este documento contiene desacuerdos deliberados con el brief. Esa era la instrucción.</p>
+  <div class="meta">
+    <span><b>Producto</b> ARLES RELAY I</span>
+    <span><b>Versión objetivo</b> v1.2.0</span>
+    <span><b>Desarrolla</b> TELEMETRY INSIGHT</span>
+    <span><b>Repositorio</b> AdrianPazG/ARLES · 101 archivos · 0 líneas de código</span>
+    <span><b>Estado</b> Pendiente de autorización de Dirección</span>
+  </div>
+</header>
+
+<!-- ============ A ============ -->
+<section id="a">
+  <div class="sec-head"><div class="sec-letter">A</div><div>
+    <h2>Lo que entendí</h2>
+    <p>Definición del producto en una frase, y las cinco tensiones que lo definen.</p></div></div>
+  <div class="prose">
+  <p>ARLES RELAY es una <strong>consola de escritorio para operar campañas de correo bajo control explícito</strong>:
+  una empresa configura su organización, conecta una cuenta de correo propia, importa su base, define límites de
+  ritmo y horario, simula, prueba, activa, observa y pausa. Todo local. Todo auditable. Sin promesas de bandeja de entrada.</p>
+  <p>No es un ESP, no es Mailchimp y no es un CRM. Su valor no está en enviar más, sino en que
+  <strong>Dirección sepa exactamente qué se está enviando, a quién, desde dónde, cuándo y bajo qué techo</strong> — y
+  pueda detenerlo en un clic. La honestidad métrica no es un adorno del brief: es la propuesta de valor.</p>
+  <h3>Las cinco tensiones reales del producto</h3>
+  <ol>
+    <li><strong>Local-first vs. continuidad.</strong> Si la computadora duerme, la campaña se suspende. Esto es correcto
+    y honesto, pero es la limitación comercial más grande del producto y debe comunicarse desde la venta, no descubrirse en el uso.</li>
+    <li><strong>Control vs. fricción.</strong> Nueve pasos para activar una campaña es mucho. El diseño debe hacer que
+    esos pasos se sientan como copiloto, no como burocracia.</li>
+    <li><strong>Honestidad métrica vs. expectativa del cliente.</strong> El cliente querrá ver "abiertos". Le vamos a decir
+    que no los medimos. Esa conversación hay que ganarla con diseño, no con una nota al pie.</li>
+    <li><strong>Vender a cualquiera vs. depender de Google/Microsoft.</strong> Ambos exigen verificación del publicador.
+    Eso condiciona el calendario comercial más que el desarrollo.</li>
+    <li><strong>Identidad artística vs. legibilidad enterprise.</strong> Un cuadro de girasoles debe volverse una consola de
+    operación sobria. La referencia manda en el color; nunca en el contraste.</li>
+  </ol>
+  </div>
+</section>
+
+<!-- ============ B ============ -->
+<section id="b">
+  <div class="sec-head"><div class="sec-letter">B</div><div>
+    <h2>Inventario del repositorio</h2>
+    <p>Inspección exhaustiva. 101 archivos versionados, 2 commits, cero código fuente.</p></div></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Ruta</th><th class="num">Archivos</th><th>Contenido real</th><th>Utilidad</th></tr></thead>
+    <tbody>
+      <tr><td><code>/CONCEPTOS_DE_DISEÑO</code></td><td class="num">27</td>
+        <td>Carruseles de redes sociales «Do's and Don'ts of UI Design» de terceros (@uxwithvamshi, @pixelacademy). Incluye 1 anuncio.</td>
+        <td><span class="chip c-risk">Reglas UX, no identidad</span></td></tr>
+      <tr><td><code>/REFERENCIAS_VISUALES_DEL_SITIO</code></td><td class="num">8</td>
+        <td>7 capturas de dashboards fintech (modo claro, acentos verde/naranja) + 1 video stock de Rawpixel.</td>
+        <td><span class="chip c-info">Composición y densidad</span></td></tr>
+      <tr><td><code>/REFERENCIA_DE_COLOR</code></td><td class="num">1</td>
+        <td><code>farm-lifestyle-digital-art.jpg</code> — en realidad <strong>PNG de 2320×3080</strong> (7.1 M px). Pintura digital: cielo azul, nubes crema, campo de girasoles.</td>
+        <td><span class="chip c-ok">Autoridad cromática</span></td></tr>
+      <tr><td><code>/TIPOGRAFIA</code></td><td class="num">65</td>
+        <td>Familia Mont (8 pesos + itálicas) en <code>.ttf/.woff/.woff2/.eot</code>, más <code>font.zip</code> y un <code>demo.html</code> de Transfonter.</td>
+        <td><span class="chip c-block">Licencia sin resolver</span></td></tr>
+      <tr><td><code>README.md</code></td><td class="num">1</td><td>Una línea: <code># ARLES</code>.</td><td><span class="chip c-nv">Vacío</span></td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout dgr">
+    <h5>Hallazgo estructural: no existe <code>/RECURSOS</code></h5>
+    <p>El brief instruye once veces inspeccionar <code>/RECURSOS</code> antes de proponer interfaz, y obtener de ahí el
+    logo, teléfono, correo y sitio web de TELEMETRY INSIGHT (§118, §145, §170). <strong>Esa carpeta no existe en el
+    repositorio</strong>, y ningún archivo del repo contiene datos de contacto, logotipo ni identidad de TELEMETRY.
+    Las carpetas presentes cubren parcialmente su función, pero no la parte de identidad corporativa.</p>
+    <p>Consecuencia directa: <strong>el pie de aplicación de §118 no se puede construir</strong>. Y §118 prohíbe explícitamente
+    inventar esos datos. Queda como bloqueante para Dirección (ver sección T).</p>
+  </div>
+</section>
+
+<!-- ============ C ============ -->
+<section id="c">
+  <div class="sec-head"><div class="sec-letter">C</div><div>
+    <h2>Revisión de las carpetas de referencia</h2>
+    <p>Qué aportan realmente, y dónde se contradicen entre sí.</p></div></div>
+
+  <h3>/CONCEPTOS_DE_DISEÑO — no son conceptos de ARLES</h3>
+  <p class="prose">Las 27 imágenes son diapositivas de divulgación de UX de cuentas de terceros: «Radio button vs Card»,
+  «Don't use Placeholder as Label», «Single-Column Forms», «Anatomy of a card», «Balance the Border Radius».
+  Son <strong>heurísticas genéricas correctas</strong>, no una dirección visual de ARLES. Las trato como
+  <em>checklist de calidad de formularios</em> (útil, la incorporo al Design System) y no como identidad.</p>
+  <p class="prose">Además llevan marca de agua de sus autores y una es publicidad de un curso. <strong>No deben
+  distribuirse dentro del producto ni servir de base para copiar composiciones.</strong></p>
+
+  <h3>/REFERENCIAS_VISUALES_DEL_SITIO — la contradicción más importante del brief</h3>
+  <p class="prose">Las 7 referencias son dashboards financieros: rail de iconos a la izquierda, topbar con búsqueda y avatar,
+  fila de KPIs, tarjetas, tablas densas con chips de estado, gráficas de área. Buena densidad, buen ritmo — <strong>y todas
+  en modo claro</strong>, con acentos verde menta y naranja.</p>
+  <div class="pria">
+    <div class="pria-h"><strong>Referencias claras vs. mandato dark-first</strong><span class="chip c-risk">Contradicción</span></div>
+    <dl>
+      <dt>Problema</dt><dd>§18 ordena explorar ARLES como interfaz dark-first, pero el 100% de las referencias de composición aportadas son interfaces claras.</dd>
+      <dt>Riesgo</dt><dd>Que Dirección apruebe «dark-first» en texto y luego rechace el resultado visual porque mentalmente esperaba las referencias que entregó.</dd>
+      <dt>Impacto</dt><dd>Retrabajo completo del Design System después de Fase 2. Es el retrabajo más caro posible.</dd>
+      <dt>Alternativa</dt><dd>Tokenizar desde el día uno de forma que el tema claro sea un intercambio de valores, no una reescritura de componentes.</dd>
+      <dt>Trade-off</dt><dd>Cuesta ~1 día extra de disciplina en Fase 2 y prohíbe cualquier color literal en componentes.</dd>
+      <dt class="rec">Recomiendo</dt><dd class="rec">Dark-first se envía en v1.2.0 — es lo correcto para una consola de operación de sesión larga y para esta paleta. Pero la arquitectura de tokens contempla el tema claro desde el inicio y se libera en v1.3.0. <strong>Necesito confirmación explícita de Dirección sobre esto antes de Fase 2.</strong></dd>
+    </dl>
+  </div>
+
+  <h3>/TIPOGRAFIA — Mont es un bloqueante legal, no un detalle</h3>
+  <p class="prose">Leí los metadatos internos de los archivos. Mont es de <strong>Fontfabric</strong> (Svetoslav Simov, Mirela Belova),
+  versión 1.003. Es una <strong>fuente comercial</strong>. Los archivos del repositorio son un kit web convertido con
+  <em>Transfonter</em>: incluyen <code>.eot</code> — un formato que solo servía para Internet Explorer y que hoy no tiene
+  ningún uso legítimo — y <strong>no incluyen ningún EULA, licencia ni registro de licencia dentro de la fuente</strong>.</p>
+  <div class="callout dgr">
+    <h5>§21 dice: si hay duda sobre licenciamiento comercial, detener esa parte y reportarlo. La hay.</h5>
+    <p>Distribuir Mont incrustada en un instalador comercial de Windows y macOS requiere una licencia de aplicación/embedding
+    de Fontfabric, distinta de la licencia de escritorio y de la de webfont. El campo técnico <code>fsType</code> de estos
+    archivos dice «Installable», pero <strong><code>fsType</code> no es la licencia</strong>: es una bandera técnica que no
+    sustituye al contrato. Vender ARLES con esta fuente sin licencia adecuada expone a TELEMETRY a reclamación del fundidor.</p>
+  </div>
+  <div class="callout">
+    <h5>Trampa técnica adicional que ya detecté en los archivos</h5>
+    <p>Los pesos de este kit están <strong>desalineados</strong> respecto a lo que su nombre sugiere. Medido archivo por archivo:</p>
+    <div class="tbl-wrap" style="margin-top:10px"><table>
+      <thead><tr><th>Archivo</th><th class="num">usWeightClass declarado</th><th>Qué pasa si usas <code>font-weight</code> ingenuamente</th></tr></thead>
+      <tbody>
+        <tr><td>Mont-Thin</td><td class="num">200</td><td>—</td></tr>
+        <tr><td>Mont-ExtraLight</td><td class="num">300</td><td>—</td></tr>
+        <tr><td>Mont-Light</td><td class="num">400</td><td><strong><code>font-weight:400</code> te da Light, no Regular.</strong> Todo el texto corrido saldría demasiado fino.</td></tr>
+        <tr><td>Mont-Regular</td><td class="num">600</td><td>Se activaría solo pidiendo 600, donde esperarías semibold.</td></tr>
+        <tr><td>Mont-SemiBold</td><td class="num">700</td><td>Ocupa el lugar de «bold».</td></tr>
+        <tr><td>Mont-Bold</td><td class="num">800</td><td>—</td></tr>
+        <tr><td>Mont-Heavy / Black</td><td class="num">900 / 950</td><td>950 no es un valor CSS habitual; hay que mapearlo a mano.</td></tr>
+      </tbody>
+    </table></div>
+    <p style="margin-top:10px">Mitigación obligatoria: declarar cada <code>@font-face</code> con su <code>font-weight</code> numérico
+    explícito y no confiar nunca en los metadatos incrustados. Sin esto, la app entera se ve mal y nadie sabe por qué.</p>
+  </div>
+</section>
+
+<!-- ============ D ============ -->
+<section id="d">
+  <div class="sec-head"><div class="sec-letter">D</div><div>
+    <h2>Referencia cromática oficial</h2>
+    <p>Medición sobre el archivo original a resolución completa. Sin capturas, sin paletas externas.</p></div></div>
+  <p class="prose"><strong>Archivo usado:</strong> <code>/REFERENCIA_DE_COLOR/farm-lifestyle-digital-art.jpg</code> —
+  PNG real de 2320×3080, 7 145 600 píxeles, sin recomprimir. Análisis por <em>k-means (k=12) en espacio OKLab</em>
+  sobre 400 000 píxeles muestreados con semilla fija, más una segunda pasada de <em>minería de acentos</em> que busca
+  color saturado por familia de tono <strong>aunque ocupe poca superficie</strong> — exactamente lo que pide §16 sobre el amarillo.</p>
+
+  <h4>Clusters dominantes medidos</h4>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Color</th><th class="num">% área</th><th class="num">L (OKLab)</th><th class="num">Croma</th><th>Familia</th><th>Rol en la imagen</th></tr></thead>
+    <tbody>
+      <tr><td><span class="sw" style="background:#0B6690"></span><code>#0B6690</code></td><td class="num">23.12</td><td class="num">0.483</td><td class="num">0.102</td><td>Azul profundo</td><td>Cielo dominante</td></tr>
+      <tr><td><span class="sw" style="background:#50A6C3"></span><code>#50A6C3</code></td><td class="num">14.01</td><td class="num">0.683</td><td class="num">0.093</td><td>Azul medio</td><td>Cielo alto / bruma</td></tr>
+      <tr><td><span class="sw" style="background:#2586A9"></span><code>#2586A9</code></td><td class="num">9.90</td><td class="num">0.580</td><td class="num">0.101</td><td>Azul</td><td>Transición cielo</td></tr>
+      <tr><td><span class="sw" style="background:#92C1C5"></span><code>#92C1C5</code></td><td class="num">6.80</td><td class="num">0.780</td><td class="num">0.050</td><td>Cian pálido</td><td>Borde de nube</td></tr>
+      <tr><td><span class="sw" style="background:#DFE2D3"></span><code>#DFE2D3</code></td><td class="num">6.68</td><td class="num">0.906</td><td class="num">0.021</td><td>Crema</td><td>Nubes</td></tr>
+      <tr><td><span class="sw" style="background:#22262A"></span><code>#22262A</code></td><td class="num">6.45</td><td class="num">0.266</td><td class="num">0.009</td><td>Oscuro neutro</td><td>Sombras profundas</td></tr>
+      <tr><td><span class="sw" style="background:#F7D42C"></span><code>#F7D42C</code></td><td class="num">5.94</td><td class="num">0.874</td><td class="num">0.170</td><td><strong>Amarillo girasol</strong></td><td>Pétalos iluminados</td></tr>
+      <tr><td><span class="sw" style="background:#EAA11C"></span><code>#EAA11C</code></td><td class="num">4.51</td><td class="num">0.762</td><td class="num">0.155</td><td>Oro</td><td>Pétalos en sombra</td></tr>
+      <tr><td><span class="sw" style="background:#C77617"></span><code>#C77617</code></td><td class="num">5.98</td><td class="num">0.642</td><td class="num">0.140</td><td>Ámbar profundo</td><td>Corazón del girasol</td></tr>
+      <tr><td><span class="sw" style="background:#61401D"></span><code>#61401D</code></td><td class="num">5.22</td><td class="num">0.402</td><td class="num">0.068</td><td>Tierra</td><td>Base del campo</td></tr>
+    </tbody>
+  </table></div>
+  <p class="prose"><strong>Relaciones de luminosidad observadas.</strong> La imagen se organiza en dos mitades:
+  el tercio superior vive entre L 0.55 y 0.72 en tonos 218°–229° (azules); el tercio inferior cae a L 0.43–0.64 en
+  tonos 80°–83° (amarillos y tierras). El crema de las nubes (L 0.91) es el punto más claro y actúa como respiración.
+  El único negro real es sombra de girasol, no fondo.</p>
+  <div class="callout">
+    <h5>La consecuencia de diseño más importante de esta medición</h5>
+    <p>El azul más oscuro de la referencia es <code>#055480</code> (L 0.43). <strong>Eso es demasiado claro y demasiado
+    saturado para ser un fondo de aplicación.</strong> Si lo usáramos como fondo, el texto crema quedaría en ~4.1:1 y el
+    amarillo dejaría de destacar. Por eso la rampa de profundidad de ARLES <em>extiende el tono medido hacia abajo</em>
+    (mismo hue 236.5°, croma reducido, L de 0.155 a 0.385) en vez de tomar colores literales. El resultado son fondos
+    que son inequívocamente azules — nunca gris ni negro — pero que soportan una jornada de trabajo de ocho horas.</p>
+  </div>
+</section>
+
+<!-- ============ E ============ -->
+<section id="e">
+  <div class="sec-head"><div class="sec-letter">E</div><div>
+    <h2>Auditoría del producto</h2>
+    <p>Lo que está bien pensado, lo que cambiaría, lo que quitaría y lo que falta.</p></div></div>
+
+  <h3>Lo que está bien y hay que defender</h3>
+  <ul class="prose">
+    <li><strong>La honestidad métrica (§66, §156).</strong> Distinguir «aceptado por el proveedor» de «entregado» es correcto y es un diferenciador comercial real frente a herramientas que mienten.</li>
+    <li><strong>Suppression list inmune a importaciones (§39).</strong> Es la decisión de arquitectura más valiosa del brief. Protege al cliente de sí mismo.</li>
+    <li><strong>Prohibir la compensación por ráfagas tras suspensión (§54).</strong> Correcta y poco común.</li>
+    <li><strong>Rechazar open/click tracking (§67, §68).</strong> Correcto por privacidad y por honestidad.</li>
+    <li><strong>Simulador previo a activación (§50).</strong> Convierte una decisión ciega en una decisión informada. Es el corazón del producto.</li>
+    <li><strong>Separar definición de campaña y motor de ejecución (§127).</strong> Es lo único que hace viable ARLES Cloud después.</li>
+  </ul>
+
+  <h3>Lo que cambiaría</h3>
+
+  <div class="pria">
+    <div class="pria-h"><strong>1 · El nombre «ARLES RELAY I»</strong><span class="chip c-risk">Marca</span></div>
+    <dl>
+      <dt>Problema</dt><dd>«ARLES RELAY I v1.2.0» expone dos sistemas de versión simultáneos y contradictorios. La «I» se lee como número romano uno.</dd>
+      <dt>Riesgo</dt><dd>Cuando salga la siguiente generación: ¿«ARLES RELAY I v2.0» o «ARLES RELAY II v1.0»? Cualquiera de las dos confunde al cliente y rompe la lista de precios y el soporte.</dd>
+      <dt>Impacto</dt><dd>Bajo hoy, alto y caro después: renombrar un producto instalado implica migrar identificadores de actualización, firmas e instaladores.</dd>
+      <dt>Alternativa</dt><dd>Producto = <strong>ARLES RELAY</strong>. La generación se expresa con SemVer, y la segmentación comercial con las ediciones que §78 ya contempla (Individual / Business / Enterprise).</dd>
+      <dt>Trade-off</dt><dd>Se pierde el matiz de «primera edición» en el nombre. Se gana un sistema de versión único y legible.</dd>
+      <dt class="rec">Recomiendo</dt><dd class="rec">Retirar la «I» del nombre comercial y conservarla, si gusta, como nombre clave interno de la generación. <strong>No la modifico sin autorización</strong> (§2).</dd>
+    </dl>
+  </div>
+
+  <div class="pria">
+    <div class="pria-h"><strong>2 · Empezar en v1.2.0</strong><span class="chip c-risk">Coherencia</span></div>
+    <dl>
+      <dt>Problema</dt><dd>SemVer 1.2.0 afirma que existieron 1.0.0 y 1.1.0. No existieron: el repositorio tiene dos commits y cero código.</dd>
+      <dt>Riesgo</dt><dd>El propio brief exige no mentir en las métricas (§156) y registrar migraciones en el CHANGELOG (§3). ¿Migrar desde qué esquema? No hay ninguno anterior.</dd>
+      <dt>Impacto</dt><dd>Un cliente técnico o un auditor lo notará. Erosiona precisamente la credibilidad que el producto vende.</dd>
+      <dt>Alternativa</dt><dd>Publicar como <strong>1.0.0</strong>, que es lo que realmente es.</dd>
+      <dt>Trade-off</dt><dd>«1.0» puede percibirse comercialmente como menos maduro que «1.2».</dd>
+      <dt class="rec">Recomiendo</dt><dd class="rec">Si el número 1.2.0 ya está comprometido comercialmente, lo respetamos — pero el <code>CHANGELOG.md</code> debe abrir declarando que 1.2.0 es la primera versión pública y que no existe linaje 1.0/1.1. Eso mantiene la honestidad sin costo comercial.</dd>
+    </dl>
+  </div>
+
+  <div class="pria">
+    <div class="pria-h"><strong>3 · El umbral de 50 envíos diarios</strong><span class="chip c-risk">Producto</span></div>
+    <dl>
+      <dt>Problema</dt><dd>50 es un número redondo sin fundamento técnico verificable. Presentado por la app adquiere autoridad que no tiene.</dd>
+      <dt>Riesgo</dt><dd>Contradice §156 y §168. Además el riesgo real no es el volumen aislado: es volumen alto sobre un dominio nuevo, sin calentamiento y con lista de baja calidad. Un dominio consolidado con lista propia a 80/día puede ser más seguro que uno nuevo a 30/día.</dd>
+      <dt>Impacto</dt><dd>Advertencias que el usuario aprende a ignorar. Una advertencia desacreditada no protege a nadie.</dd>
+      <dt>Alternativa</dt><dd>Conservar la advertencia (es valiosa), pero (a) hacer el umbral configurable por perfil de proveedor, (b) etiquetarla siempre como <strong>«Recomendación de ARLES»</strong> y nunca como límite del proveedor, y (c) ponderarla con la antigüedad del remitente en ARLES y su histórico de errores.</dd>
+      <dt>Trade-off</dt><dd>Más lógica en el motor de recomendación. Vale la pena: es la respuesta directa a la pregunta 14 de §142.</dd>
+      <dt class="rec">Recomiendo</dt><dd class="rec">Separación visual estricta y permanente entre <span class="chip c-info">Recomendación ARLES</span> y <span class="chip c-block">Límite del proveedor</span>. Nunca comparten color, icono ni componente.</dd>
+    </dl>
+  </div>
+
+  <div class="pria">
+    <div class="pria-h"><strong>4 · Rebotes sin acceso al buzón: contradicción interna del brief</strong><span class="chip c-block">Bloqueante conceptual</span></div>
+    <dl>
+      <dt>Problema</dt><dd>§39 exige suprimir automáticamente los <em>hard bounce</em> y §64 exige mostrar «rebotes conocidos». Pero §69 y §85 prohíben pedir permisos de lectura de buzón, y §27/§28 exigen el permiso mínimo. <strong>Sin leer el buzón, ARLES no puede enterarse de un rebote asíncrono.</strong></dd>
+      <dt>Riesgo</dt><dd>Construir una pantalla «Salud del remitente» que muestra siempre cero rebotes y que el cliente interpreta como «todo va bien». Es exactamente el tipo de métrica deshonesta que §156 prohíbe.</dd>
+      <dt>Impacto</dt><dd>Afecta a Salud del Remitente, a Supresión automática y a Métricas. Tres módulos.</dd>
+      <dt>Alternativa</dt><dd>(a) Rebotes de captura manual en v1.2.0; (b) añadir un permiso de lectura acotado en v1.3 con función aprobada; (c) en SMTP propio, aprovechar los rechazos síncronos en el diálogo SMTP, que sí vemos.</dd>
+      <dt>Trade-off</dt><dd>(a) es honesto pero deja trabajo al usuario. (b) contradice el principio de mínimo privilegio hasta que exista función aprobada.</dd>
+      <dt class="rec">Recomiendo</dt><dd class="rec">Opción (a) + (c) para v1.2.0. La UI debe decir literalmente «<strong>ARLES no lee tu buzón; los rebotes registrados aquí son los que el proveedor rechazó en el momento del envío o los que capturaste manualmente</strong>». El campo <code>SuppressionEntry.source</code> se diseña desde ahora admitiendo orígenes automáticos futuros.</dd>
+    </dl>
+  </div>
+
+  <h3>Lo que quitaría de v1.2.0</h3>
+  <div class="grid2">
+    <div class="card"><h4 style="margin-top:0">Usuarios internos de aplicación</h4>
+      <p style="font-size:13.5px;margin:0">§32 lista <code>ApplicationUser</code>. En una app local con base local, un login propio <strong>no añade seguridad</strong>: quien controla la sesión del sistema operativo ya tiene el archivo. Añade almacenamiento de contraseñas — o sea, superficie de ataque — a cambio de una sensación falsa de protección. La frontera de seguridad real es la cuenta del sistema operativo y el cifrado de disco.
+      <br><br><strong>En su lugar:</strong> registrar en <code>AuditLog</code> el usuario del sistema operativo y el dispositivo. Se cumple §90 sin inventar autenticación. Responde a la pregunta 6 de §142.</p></div>
+    <div class="card"><h4 style="margin-top:0">Microsoft en el primer envío</h4>
+      <p style="font-size:13.5px;margin:0">No por dificultad técnica, sino por calendario: Google y Microsoft exigen verificación del publicador antes de que clientes reales puedan conectar. Hacer los tres a la vez triplica el riesgo del hito más incierto del proyecto. Detalle en la sección F.</p></div>
+    <div class="card"><h4 style="margin-top:0">Vistas guardadas de filtros</h4>
+      <p style="font-size:13.5px;margin:0">§38 las admite «si no añaden complejidad excesiva». Sí la añaden: persistencia, versionado, migración e interacción con campos personalizados. <strong>Posponer a v1.3.</strong> Filtros ad-hoc bien hechos cubren el 90% del uso real.</p></div>
+    <div class="card"><h4 style="margin-top:0">Firmas como módulo aparte</h4>
+      <p style="font-size:13.5px;margin:0">§23 propone «Mensajes › Firmas» como sección propia. Una firma es una plantilla parcial. <strong>Modelarla como un tipo de plantilla</strong>, no como entidad y navegación separadas. Menos código, menos pantallas, mismo resultado.</p></div>
+  </div>
+
+  <h3>Lo que falta y hay que añadir</h3>
+  <ul class="prose">
+    <li><strong>Congelar la audiencia al activar.</strong> El brief nunca lo dice y es crítico: si la audiencia se resuelve por filtro en tiempo de ejecución, agregar contactos a media campaña cambia el total, rompe el simulador y hace que los contadores mientan. <code>CampaignRecipient</code> debe ser una <em>instantánea materializada en el momento de la activación</em>. La supresión, en cambio, sí se evalúa en el instante del envío — para que §108 («un contacto se suprime con la campaña activa») funcione.</li>
+    <li><strong>Un único escritor de base de datos.</strong> El motor y la interfaz escriben ambos. SQLite admite un solo escritor. Sin un actor de escritura dedicado, «SQLite bloqueada» (§108) no es un caso de prueba: es un defecto de diseño garantizado.</li>
+    <li><strong>Declarar la ventana residual de duplicado.</strong> Ver sección J. No es opcional: es honestidad de ingeniería.</li>
+    <li><strong>Modo «solo pausa» ante fallo de licencia.</strong> Una licencia vencida jamás debe detener una campaña en vuelo.</li>
+    <li><strong>Verificación de integridad al abrir</strong> (<code>PRAGMA quick_check</code>) y copia previa a migraciones críticas (§116).</li>
+  </ul>
+</section>
+
+<!-- ============ F ============ -->
+<section id="f">
+  <div class="sec-head"><div class="sec-letter">F</div><div>
+    <h2>¿Es razonable el alcance de v1.2.0?</h2>
+    <p>Respuesta corta: el objetivo de §171 sí; el conjunto completo del brief, no.</p></div></div>
+  <p class="prose">§171 define veinte pasos que deben funcionar de punta a punta. Ese objetivo es correcto, medible y alcanzable.
+  El problema es que el resto del brief añade alrededor de esos veinte pasos una cantidad de superficie que no es necesaria
+  para cumplirlos. Mi lectura es que <strong>hay dos alcances mezclados en un solo documento</strong>: el producto mínimo
+  honesto, y la visión a dos años.</p>
+
+  <div class="callout dgr">
+    <h5>El riesgo de calendario real no es el código: es la verificación de los proveedores</h5>
+    <p><strong>Google.</strong> El permiso <code>gmail.send</code> está clasificado como <em>sensible</em>. Requiere completar
+    el proceso de verificación de la app antes de que usuarios reales puedan otorgar acceso. Mientras tanto, la app funciona
+    en modo de prueba con un tope de 100 cuentas añadidas manualmente, y muestra a cada usuario una pantalla de advertencia
+    de «app no verificada».</p>
+    <p><strong>Microsoft.</strong> Las solicitudes de apps multi-inquilino no verificadas suelen requerir consentimiento del
+    administrador del inquilino. Sin verificación del publicador, los usuarios corporativos ven una advertencia de
+    «publicador no verificado» y muchas organizaciones bloquean el consentimiento de usuario por política.</p>
+    <p style="margin-bottom:0"><strong>Traducción comercial:</strong> ARLES puede estar técnicamente terminado y aun así no poder
+    venderse a un cliente con Google Workspace o Microsoft 365, porque el trámite no depende de nosotros. <strong>SMTP no tiene
+    ninguna de estas puertas.</strong> Es la única vía de conexión que podemos garantizar el día del lanzamiento.</p>
+  </div>
+
+  <h3>Alcance que recomiendo para la primera versión</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Módulo</th><th>Entra</th><th>Por qué</th></tr></thead>
+    <tbody>
+      <tr><td>Empresa + Onboarding</td><td><span class="chip c-ok">Sí</span></td><td>Pasos 2 de §171. Barato y define la identidad del producto.</td></tr>
+      <tr><td>Contactos, listas, importación XLSX/CSV</td><td><span class="chip c-ok">Sí</span></td><td>Pasos 4–5. Núcleo.</td></tr>
+      <tr><td>Lista de supresión</td><td><span class="chip c-ok">Sí</span></td><td>Paso 17. Innegociable.</td></tr>
+      <tr><td>Proveedor SMTP</td><td><span class="chip c-ok">Sí</span></td><td>Paso 3 sin dependencia de terceros. Valida toda la abstracción <code>EmailProvider</code>.</td></tr>
+      <tr><td>Proveedor Google (OAuth + PKCE)</td><td><span class="chip c-ok">Sí</span></td><td>Mercado principal. <strong>Iniciar el trámite de verificación en la semana 1</strong>, no al final.</td></tr>
+      <tr><td>Proveedor Microsoft</td><td><span class="chip c-risk">v1.3.0</span></td><td>Segunda verificación en paralelo multiplica el riesgo. La abstracción queda lista; el adaptador se añade después sin tocar el núcleo.</td></tr>
+      <tr><td>Plantillas + variables + versionado</td><td><span class="chip c-ok">Sí</span></td><td>Paso 6.</td></tr>
+      <tr><td>Asistente de campaña + simulador + preflight</td><td><span class="chip c-ok">Sí</span></td><td>Pasos 7–11. Es el producto.</td></tr>
+      <tr><td>Motor: cola, límites, pausa/reanudar/detener</td><td><span class="chip c-ok">Sí</span></td><td>Pasos 12–15. Es el producto.</td></tr>
+      <tr><td>Salud del remitente (SPF/DKIM/DMARC por DNS)</td><td><span class="chip c-ok">Sí, acotado</span></td><td>Consulta DNS real y verificable. Sin puntuaciones inventadas. Sin rebotes automáticos (ver E-4).</td></tr>
+      <tr><td>Copia de seguridad y restauración</td><td><span class="chip c-ok">Sí</span></td><td>Pasos 18–20. Obligatorio en local-first.</td></tr>
+      <tr><td>Actualizaciones firmadas</td><td><span class="chip c-ok">Sí</span></td><td>Sin esto no se puede parchear una vulnerabilidad en campo. Es requisito de seguridad, no función.</td></tr>
+      <tr><td>Licenciamiento</td><td><span class="chip c-risk">Solo estructura</span></td><td>Esquema y entitlements en la base. Activación en línea a v1.3. Ver sección Q.</td></tr>
+      <tr><td>Tema claro / vistas guardadas / usuarios internos</td><td><span class="chip c-block">No</span></td><td>Ver sección E.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="prose"><strong>Veredicto.</strong> Con estos cortes, los 20 puntos de §171 se cumplen íntegros. Sin ellos, el
+  riesgo no es que falte una función: es que las funciones existan a medias y ninguna alcance la «Definición de Terminado»
+  de §139, que es un listón muy alto — trece condiciones por función, incluyendo pruebas en ambos sistemas operativos.</p>
+</section>
+
+<!-- ============ G ============ -->
+<section id="g">
+  <div class="sec-head"><div class="sec-letter">G</div><div>
+    <h2>Arquitectura propuesta</h2>
+    <p>Monolito modular en un workspace de Cargo. Sin microservicios, sin colas distribuidas.</p></div></div>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Capa</th><th>Decisión</th><th>Motivo</th><th>Alternativa descartada</th></tr></thead>
+    <tbody>
+      <tr><td>Shell de escritorio</td><td><strong>Tauri 2</strong></td><td>Ver sección H. Verificado: línea 2.x madura, plugin de actualizador con firma criptográfica.</td><td>Electron</td></tr>
+      <tr><td>Interfaz</td><td><strong>Vue 3 + TypeScript estricto + Vite</strong></td><td>Aprobado sin objeción. Composition API y <code>&lt;script setup&gt;</code> dan componentes tipados y legibles.</td><td>React (indiferente aquí)</td></tr>
+      <tr><td>Estado de UI</td><td><strong>Pinia</strong></td><td>Store oficial de Vue, tipado, herramientas de depuración, mínima ceremonia. Ninguna función de ARLES justifica algo mayor.</td><td>Vuex (obsoleto), Redux</td></tr>
+      <tr><td>Puente Rust↔TS</td><td><strong>Comandos con tipos generados</strong></td><td>Una única superficie tipada elimina el <code>any</code> que §132 prohíbe. Evaluar <code>tauri-specta</code> con auditoría previa de dependencia (§131).</td><td><code>invoke</code> a mano con strings</td></tr>
+      <tr><td>Núcleo</td><td><strong>Rust, workspace multi-crate</strong></td><td>Fronteras de módulo verificadas por el compilador, no por convención.</td><td>Crate único</td></tr>
+      <tr><td>Base de datos</td><td><strong>SQLite (WAL) + SQLx</strong></td><td>Consultas verificadas <em>en tiempo de compilación</em> contra el esquema: elimina una clase entera de fallos en el punto donde la integridad importa más. Migraciones de primera clase. Abarata el futuro puerto a Postgres de §127.</td><td><code>rusqlite</code> síncrono: más simple, pero sin verificación en compilación ni camino a Cloud. Diesel/SeaORM: más magia, menos control del SQL.</td></tr>
+      <tr><td>Secretos</td><td><strong>Almacén del sistema operativo</strong></td><td>Keychain en macOS; Credential Manager (DPAPI) en Windows. La base de datos <strong>nunca</strong> guarda un secreto: guarda una referencia.</td><td>Cifrar en SQLite (la clave acabaría en disco)</td></tr>
+      <tr><td>Envío SMTP</td><td><strong><code>lettre</code></strong></td><td>Construcción y codificación MIME por biblioteca madura. §88 prohíbe escribir un parser propio, y con razón.</td><td>MIME artesanal</td></tr>
+      <tr><td>Motor de ejecución</td><td><strong>Tarea Tokio supervisada, ajena a la ventana</strong></td><td>§51: minimizar la ventana no detiene la campaña. Icono de bandeja/menú y estado siempre visible.</td><td>Ejecutar en el WebView (moriría al cerrar)</td></tr>
+      <tr><td>Actualizaciones</td><td><strong>Plugin actualizador de Tauri + manifiesto firmado</strong></td><td>Verificación de firma antes de ejecutar. Clave privada fuera del repositorio (§80).</td><td>Descarga manual</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Dominios del workspace</h3>
+  <div class="flow">
+    <span>arles-domain</span><i>→</i><span>arles-db</span><i>→</i><span>arles-providers</span><i>→</i>
+    <span class="k">arles-engine</span><i>→</i><span>arles-app (Tauri)</span><i>+</i><span>arles-ui (Vue)</span>
+  </div>
+  <ul class="prose">
+    <li><code>arles-domain</code> — entidades, reglas, estados, validación. <strong>Cero dependencias de E/S.</strong> Aquí viven la máquina de estados del mensaje, el cálculo del simulador y las reglas de límite. Es el crate que se puede probar exhaustivamente sin tocar red, disco ni reloj.</li>
+    <li><code>arles-db</code> — esquema, migraciones, repositorios, y el <strong>actor único de escritura</strong>.</li>
+    <li><code>arles-providers</code> — el rasgo <code>EmailProvider</code> y los adaptadores SMTP / Google / Microsoft. Ninguna capa superior conoce a Gmail.</li>
+    <li><code>arles-engine</code> — planificador, cola, limitador, reintentos, cortacircuitos. <strong>Consume definiciones de campaña; no las crea.</strong> Ésta es la costura que hace posible ARLES Cloud (§127) y también la separación que hace posible el white-label (§124): la marca vive solo en <code>arles-ui</code>.</li>
+    <li><code>arles-app</code> — comandos Tauri, capacidades, bandeja, ciclo de vida. Superficie mínima expuesta al WebView.</li>
+  </ul>
+  <div class="callout ok">
+    <h5>Respuesta a §124 (white-label) y §160 («¿podríamos entregar esto mañana a otra empresa?»)</h5>
+    <p>La separación anterior ya lo resuelve sin construir nada hoy: si la identidad visual vive exclusivamente en tokens
+    dentro de <code>arles-ui</code> y ningún crate de Rust contiene una cadena de marca, el white-label futuro es un
+    intercambio de hoja de tokens y de logotipo — no una refactorización. La única disciplina que hay que imponer desde
+    el día uno es: <strong>ninguna cadena de texto visible al usuario dentro de Rust</strong>, todas en los archivos de i18n (§135).</p>
+  </div>
+</section>
+
+<!-- ============ H ============ -->
+<section id="h">
+  <div class="sec-head"><div class="sec-letter">H</div><div>
+    <h2>Tauri 2 frente a Electron</h2>
+    <p>Evaluado en los trece criterios que pide §9. Recomendación: Tauri, con dos advertencias honestas.</p></div></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Criterio</th><th>Tauri 2</th><th>Electron</th><th>Gana</th></tr></thead>
+    <tbody>
+      <tr><td>Superficie de ataque</td><td>Núcleo Rust; sin Node en el proceso de UI; permisos por capacidad, denegado por defecto</td><td>Node completo accesible desde el proceso principal; aislamiento correcto es responsabilidad del desarrollador</td><td><span class="chip c-ok">Tauri</span></td></tr>
+      <tr><td>Memoria RAM</td><td>Usa el WebView del sistema; sin segundo motor JS</td><td>Chromium + Node incrustados por aplicación</td><td><span class="chip c-ok">Tauri</span></td></tr>
+      <tr><td>Tamaño de instalación</td><td>Binario Rust + activos; WebView provisto por el sistema</td><td>Chromium completo en cada instalador</td><td><span class="chip c-ok">Tauri</span></td></tr>
+      <tr><td>Rendimiento del núcleo</td><td>Rust nativo: importación, criptografía y consultas sin recolector de basura</td><td>Trabajo pesado en Node o en módulos nativos</td><td><span class="chip c-ok">Tauri</span></td></tr>
+      <tr><td>Madurez</td><td>Línea 2.x estable y en mantenimiento activo durante 2026</td><td>Una década de producción; ecosistema enorme</td><td><span class="chip c-risk">Electron</span></td></tr>
+      <tr><td>Actualizaciones</td><td>Plugin actualizador con verificación de firma incorporada</td><td>Squirrel / electron-updater, muy rodado</td><td>Empate</td></tr>
+      <tr><td>Consistencia de renderizado</td><td><strong>WebView2 en Windows y WKWebView en macOS: dos motores distintos</strong></td><td>El mismo Chromium en todas partes</td><td><span class="chip c-block">Electron</span></td></tr>
+      <tr><td>Desarrollo</td><td>Requiere gente con Rust</td><td>Solo JavaScript</td><td><span class="chip c-risk">Electron</span></td></tr>
+      <tr><td>Pruebas E2E</td><td>Vía WebDriver; Playwright no se conecta al WebView del sistema de forma directa</td><td>Playwright habla con Electron de forma nativa</td><td><span class="chip c-block">Electron</span></td></tr>
+      <tr><td>Mantenimiento</td><td>Menos superficie que parchear; Rust previene clases enteras de fallos de memoria</td><td>Hay que seguir el ritmo de parches de Chromium</td><td><span class="chip c-ok">Tauri</span></td></tr>
+      <tr><td>Distribución Windows</td><td>MSI y NSIS; firma estándar</td><td>Equivalente</td><td>Empate</td></tr>
+      <tr><td>Distribución macOS</td><td>DMG, firma y notarización</td><td>Equivalente</td><td>Empate</td></tr>
+      <tr><td>Aptitud para este producto</td><td>App local con criptografía, base de datos y motor persistente: exactamente el perfil de Rust</td><td>Se pagaría Chromium por cada instalación sin usarlo</td><td><span class="chip c-ok">Tauri</span></td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout dgr">
+    <h5>Las dos advertencias que Tauri sí impone, y cómo las pago</h5>
+    <p><strong>1. Dos motores de renderizado.</strong> Windows usa WebView2 (base Chromium) y macOS usa WKWebView (base WebKit).
+    No son el mismo motor: difieren en tipografía, en soporte de CSS reciente y en comportamiento de desplazamiento.
+    §139 exige que toda función funcione en ambos sistemas, así que esto <em>debe</em> presupuestarse. <strong>Mitigación:</strong>
+    prohibir CSS de vanguardia sin comprobación previa, mantener una tabla de compatibilidad, y ejecutar la suite visual en
+    ambos sistemas operativos en CI desde el primer hito — no al final.</p>
+    <p style="margin-bottom:0"><strong>2. Playwright no cubre el E2E real.</strong> §9 lo pide «cuando sea compatible con los flujos»,
+    y esa salvedad es exacta: Playwright funciona perfecto para la interfaz servida por Vite en el navegador, pero no
+    controla el WebView del sistema. <strong>Mitigación:</strong> dos niveles. Playwright contra la UI con el backend simulado
+    (rápido, cubre estados vacío/carga/error/éxito de §138) y WebDriver contra la aplicación empaquetada para el puñado
+    de recorridos críticos de §106. No prometemos «E2E con Playwright» sin esta distinción.</p>
+  </div>
+  <p class="prose"><strong>Recomendación: Tauri 2, mantener.</strong> No por moda: porque este producto guarda credenciales de
+  correo de terceros y ejecuta un motor persistente. En esa combinación, «menos superficie de ataque» y «sin fallos de memoria»
+  valen más que «renderizado idéntico». Si Dirección prefiere Electron, el argumento defendible sería la escasez de perfiles
+  Rust en el equipo — <strong>ése es un motivo legítimo</strong>, y si es el caso hay que decirlo ahora, no en la fase 9.</p>
+</section>
+
+<!-- ============ I ============ -->
+<section id="i">
+  <div class="sec-head"><div class="sec-letter">I</div><div>
+    <h2>Modelo de datos</h2>
+    <p>Auditoría de las 27 entidades propuestas, con cambios estructurales justificados.</p></div></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Entidad</th><th>Cambio</th><th>Justificación</th></tr></thead>
+    <tbody>
+      <tr><td><code>Company</code></td><td>Se conserva. Fila única en v1.2.0, pero con <code>company_id</code> real en todas las tablas hijas.</td><td>El coste hoy es cero y habilita multi-empresa y Cloud sin migración destructiva.</td></tr>
+      <tr><td><code>ApplicationUser</code></td><td><span class="chip c-block">Eliminada</span> → <code>AuditActor</code> embebido en <code>AuditLog</code></td><td>Ver sección E. Un login local no protege nada y sí crea riesgo.</td></tr>
+      <tr><td><code>EmailAccount</code></td><td>Añade <code>secret_ref</code> y <code>auth_status</code>. <strong>Sin campos de secreto.</strong></td><td>§30. La base de datos no es un almacén de contraseñas improvisado.</td></tr>
+      <tr><td><code>Contact</code></td><td>Añade <code>email_normalized</code> (único por empresa) y <code>deleted_at</code></td><td>Deduplicación determinista (§36) y borrado suave (§148).</td></tr>
+      <tr><td><code>CampaignRecipient</code></td><td><span class="chip c-risk">Redefinida</span> como <strong>instantánea materializada al activar</strong></td><td>El cambio más importante de esta sección. Sin congelar la audiencia, el simulador miente y los totales cambian solos.</td></tr>
+      <tr><td><code>Template</code> / <code>TemplateVersion</code></td><td>La campaña referencia <code>template_version_id</code>, nunca <code>template_id</code></td><td>§43: editar una plantilla no puede reescribir el pasado.</td></tr>
+      <tr><td><code>Message</code></td><td>Añade <code>idempotency_key</code> con índice único y <code>rendered_hash</code></td><td>§55. El asunto y el cuerpo renderizados quedan sellados con el mensaje.</td></tr>
+      <tr><td><code>MessageAttempt</code></td><td>Se conserva. Un intento por llamada al proveedor, con clasificación de error.</td><td>§59: sin esto no se puede razonar sobre reintentos ni cortacircuitos.</td></tr>
+      <tr><td><code>SuppressionEntry</code></td><td>Clave por <code>(company_id, email_normalized)</code>. <code>source</code> como enumerado. <strong>Sin borrado en cascada desde importaciones.</strong></td><td>§39. Debe hacerlo cumplir la base de datos, no la interfaz (§113).</td></tr>
+      <tr><td><code>SendQuotaWindow</code></td><td><span class="chip c-ok">Nueva</span> — contadores persistentes por cuenta/hora/día/campaña</td><td>§57 exige que los contadores sobrevivan a un reinicio. Sin tabla propia, no sobreviven.</td></tr>
+      <tr><td><code>EngineState</code></td><td><span class="chip c-ok">Nueva</span> — fila única con el estado real del motor</td><td>§52: la app nunca debe ocultar si está ejecutando. El estado se lee, no se supone.</td></tr>
+      <tr><td><code>DomainHealthCheck</code></td><td>Se conserva, con <code>checked_at</code> y registro DNS crudo</td><td>Mostramos la evidencia, no una puntuación inventada (§64).</td></tr>
+      <tr><td><code>License</code> / <code>Device</code></td><td>Se conservan como esquema; sin lógica de servidor en v1.2.0</td><td>Sección Q.</td></tr>
+      <tr><td>Resto (<code>ContactList</code>, <code>Tag</code>, <code>CustomField</code>, <code>Import</code>, <code>BackupRecord</code>, <code>UpdateRecord</code>, <code>ApplicationSetting</code>…)</td><td>Se conservan</td><td>Correctamente planteadas en el brief.</td></tr>
+    </tbody>
+  </table></div>
+  <h4>Reglas transversales de integridad</h4>
+  <ul class="prose">
+    <li><code>PRAGMA foreign_keys=ON</code> en cada conexión — SQLite lo desactiva por defecto y es un error clásico.</li>
+    <li>Fechas en UTC ISO-8601 más el identificador de zona IANA de la empresa. <strong>Nunca fechas ingenuas</strong> (§109).</li>
+    <li>Toda transición de estado ocurre dentro de una transacción con comparación-e-intercambio: <code>UPDATE … WHERE state = &lt;esperado&gt;</code> comprobando filas afectadas. Nunca leer-luego-escribir.</li>
+    <li>Claves primarias UUIDv7 (ordenables por tiempo) — mejor localidad de índice que UUIDv4 e igual de únicas para un futuro Cloud.</li>
+  </ul>
+</section>
+
+<!-- ============ J ============ -->
+<section id="j">
+  <div class="sec-head"><div class="sec-letter">J</div><div>
+    <h2>Modelo de ejecución</h2>
+    <p>Planificador, cola, recuperación y límites. Es el corazón técnico del producto.</p></div></div>
+
+  <h3>El planificador no tiene atrasos que drenar</h3>
+  <p class="prose">Ésta es la respuesta a §54 y a la pregunta 10 de §142, y es una decisión de diseño, no una función.
+  Un planificador ingenuo guarda «envíos pendientes de las 10:00» y al despertar los descarga de golpe — exactamente lo
+  que §54 prohíbe. El planificador de ARLES <strong>no guarda atrasos</strong>. En cada ciclo responde a una sola pregunta:</p>
+  <div class="callout">
+    <p style="margin:0"><em>«Dado el reloj de ahora, el calendario y la zona horaria de la empresa, y los contadores
+    persistidos de esta hora y de este día — <strong>¿cuántos mensajes puedo enviar en este instante?</strong>»</em></p>
+  </div>
+  <p class="prose">Si la máquina durmió cuatro horas, esas cuatro ventanas horarias simplemente pasaron. No se acumulan
+  porque nunca existieron como deuda. La consecuencia es que la suspensión, el cambio de zona horaria, el cambio de horario
+  de verano y el reinicio se comportan todos igual, sin código especial para cada caso.</p>
+
+  <h3>Estados del mensaje</h3>
+  <div class="flow">
+    <span>Preparado</span><i>→</i><span>Aprobado</span><i>→</i><span>Programado</span><i>→</i><span>En cola</span><i>→</i>
+    <span class="k">Procesando</span><i>→</i><span>Aceptado por proveedor</span>
+  </div>
+  <div class="flow">
+    <i>desvíos:</i><span>Fallido</span><i>·</i><span>Suprimido</span><i>·</i><span>Cancelado</span>
+    <i>— evaluados en el instante del envío, no al planificar</i>
+  </div>
+
+  <h3>Idempotencia — y su límite honesto</h3>
+  <p class="prose">Clave determinista: <code>UUIDv5(campaign_id + contact_id + template_version_id)</code>, con índice único.
+  El doble clic y el reinicio quedan cubiertos por construcción. La transición a <em>Procesando</em> es una reclamación
+  atómica: un solo proceso puede tomar cada mensaje.</p>
+  <div class="callout dgr">
+    <h5>Lo que NO puedo garantizar, y hay que decirlo</h5>
+    <p><strong>La entrega exactamente-una-vez a través de una red no existe.</strong> Si ARLES envía a Google, Google lo
+    acepta, y la aplicación muere antes de escribir ese resultado en disco, al reiniciar ARLES no puede distinguir
+    «nunca se envió» de «se envió y no lo registré».</p>
+    <p style="margin-bottom:0"><strong>Mitigación:</strong> escribir un registro de intención <em>antes</em> de la llamada de red;
+    al recuperarse, cualquier mensaje que estuviera en <em>Procesando</em> se marca <em>Incierto</em> y <strong>se muestra al
+    usuario para que decida</strong>, en lugar de reintentar en silencio. Prefiero un mensaje no enviado y visible a un
+    mensaje duplicado e invisible. §168 exige no inventar: esta ventana existe y va documentada en
+    <code>CAMPAIGN_EXECUTION.md</code>.</p>
+  </div>
+
+  <h3>Límites, throttling y cortacircuitos</h3>
+  <ul class="prose">
+    <li><strong>Contadores persistidos</strong> por cuenta / hora / día / campaña en <code>SendQuotaWindow</code>, decrementados
+    dentro de la misma transacción que reclama el mensaje. Sin ventana de carrera.</li>
+    <li><strong>Escritor único.</strong> Motor e interfaz enrutan toda escritura por un actor dedicado. Resuelve «SQLite bloqueada» por diseño.</li>
+    <li><strong>Los límites del proveedor se aprenden, no se codifican</strong> (respuesta a la pregunta 12 de §142). ARLES no debe
+    afirmar conocer las cuotas de Google o Microsoft: no son públicas de forma estable ni uniformes por plan. Lo correcto es
+    <em>observar</em>: ante un 429 con <code>Retry-After</code>, obedecer el valor indicado; registrar el episodio; mostrarlo en
+    Salud del Remitente como <span class="chip c-block">Límite del proveedor</span>, claramente distinto de
+    <span class="chip c-info">Recomendación ARLES</span>. Cualquier cifra que mostremos será una <strong>observación fechada</strong>,
+    no una regla.</li>
+    <li><strong>Reintentos clasificados:</strong> 401 → reautenticar, sin reintento ciego · 403 → detener y avisar · 429 → obedecer
+    <code>Retry-After</code> · 5xx → retroceso exponencial con dispersión aleatoria · red → reintentar acotado. <strong>Un rechazo de
+    dirección jamás se reintenta.</strong></li>
+    <li><strong>Cortacircuitos por cuenta:</strong> N fallos consecutivos abren el circuito, la cuenta pasa a pausa temporal y el
+    usuario ve por qué. Impide la cascada de cientos de fallos que teme §60.</li>
+  </ul>
+  <p class="prose"><strong>Detención de emergencia (§61):</strong> escribe un indicador de parada que el bucle comprueba antes de
+  <em>cada</em> mensaje, no entre lotes. Los envíos ya aceptados por el proveedor no se pueden recuperar y la interfaz lo dirá
+  con esas palabras (§62).</p>
+</section>
+
+<!-- ============ K ============ -->
+<section id="k">
+  <div class="sec-head"><div class="sec-letter">K</div><div>
+    <h2>Modelo de seguridad</h2>
+    <p>Modelo de amenazas preliminar. Ninguna afirmación de «100% seguro» (§83).</p></div></div>
+  <p class="prose"><strong>Frontera de confianza principal:</strong> la cuenta del sistema operativo. ARLES no puede defender
+  al usuario de malware que ya ejecuta con sus privilegios; puede evitar ser el eslabón que <em>facilite</em> el daño.
+  Ésa es la promesa honesta y así debe redactarse <code>SECURITY.md</code>.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Amenaza</th><th>Vector</th><th>Mitigación</th><th>Residual</th></tr></thead>
+    <tbody>
+      <tr><td>Robo de tokens OAuth</td><td>Lectura de disco, volcado de memoria</td><td>Tokens solo en Keychain/DPAPI; nunca en SQLite, JSON ni registros; refresco en Rust, jamás expuestos al WebView</td><td>Malware con los privilegios del usuario puede pedirlos al sistema. <strong>No mitigable en local.</strong></td></tr>
+      <tr><td>Interceptación de OAuth</td><td>Captura del redirect, app maliciosa a la escucha</td><td>Código de autorización + PKCE; navegador del sistema, nunca WebView incrustado; escucha en <code>127.0.0.1</code> con puerto efímero; validación estricta de <code>state</code>; <strong>sin client secret</strong> (§27)</td><td>Baja</td></tr>
+      <tr><td>Inyección de cabeceras / CRLF</td><td>Nombre de contacto o asunto con <code>\r\n</code></td><td>Rechazo de CR/LF en todo campo que llegue a cabecera, <strong>en el dominio</strong> y no solo en la UI; MIME construido por <code>lettre</code></td><td>Baja</td></tr>
+      <tr><td>XSS en la vista previa</td><td>HTML malicioso en plantilla o campo importado</td><td>Sanitizado con lista blanca; sin <code>&lt;script&gt;</code>, sin <code>on*</code>, sin <code>javascript:</code>; previsualización en marco aislado; CSP estricta de Tauri</td><td>Baja</td></tr>
+      <tr><td>Inyección de fórmulas CSV</td><td>Celda que empieza con <code>=</code> <code>+</code> <code>-</code> <code>@</code> tab o CR</td><td>En importación: tratar como texto, jamás evaluar. En exportación: prefijar con comilla simple (§147)</td><td>Baja</td></tr>
+      <tr><td>Importación hostil</td><td>Bomba ZIP en XLSX, campos enormes, Unicode problemático</td><td>Límite de tamaño y de ratio de descompresión; lectura en flujo, no en memoria; tope de longitud por celda; normalización Unicode; parseo en tarea aislada</td><td>Media — requiere pruebas dedicadas</td></tr>
+      <tr><td>Recorrido de rutas</td><td>Nombre de archivo con <code>../../</code></td><td>Capacidades de Tauri restringidas a directorios concretos; canonicalizar y verificar prefijo; ignorar el nombre externo al escribir</td><td>Baja</td></tr>
+      <tr><td>Actualización insegura</td><td>Manifiesto o paquete manipulado</td><td>Verificación de firma antes de ejecutar; solo HTTPS; comprobación de versión monótona; clave privada fuera del repositorio y en almacén de secretos de CI</td><td>Fuga de la clave de firma = compromiso total. <strong>Rotación documentada obligatoria.</strong></td></tr>
+      <tr><td>Robo de copia de seguridad</td><td>Archivo <code>.arles</code> copiado</td><td>Contiene datos personales de clientes: cifrado con contraseña provista por el usuario (derivación por Argon2id); <strong>los secretos nunca se incluyen</strong></td><td>Contraseña débil elegida por el usuario</td></tr>
+      <tr><td>Cadena de suministro</td><td>Dependencia comprometida</td><td><code>cargo-audit</code> y <code>npm audit</code> en cada CI; versiones fijadas; SBOM; revisión manual de toda dependencia que toque criptografía, correo o secretos (§131)</td><td>Media — riesgo estructural del ecosistema</td></tr>
+      <tr><td>Fuga por registros</td><td>Token o cuerpo en un log de depuración</td><td>Registro estructurado con lista blanca de campos; tipo <code>Secret&lt;T&gt;</code> cuyo <code>Debug</code> imprime <code>[oculto]</code>; prueba automática que falla si un token aparece en un log</td><td>Baja</td></tr>
+      <tr><td>Abuso del propio software</td><td>Uso para spam</td><td>Sin rotación de cuentas, sin evasión de límites, sin simulación de comportamiento humano, sin falsificación de cabeceras (§93). Registro de auditoría completo</td><td><strong>Aceptado:</strong> es software instalable; no podemos controlar el uso posterior</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout">
+    <h5>Configuración de Tauri que hay que fijar en el hito 1, no al final</h5>
+    <p style="margin-bottom:0">CSP estricta sin <code>unsafe-inline</code> · sin conexiones remotas desde el WebView (todo pasa por comandos de Rust)
+    · capacidades por ventana y denegadas por defecto · sin plugin de shell · plugin de sistema de archivos limitado a directorios concretos
+    · apertura de enlaces externos restringida a <code>https:</code>. Retrofitear seguridad después de tener cincuenta comandos es
+    dos órdenes de magnitud más caro (§86).</p>
+  </div>
+</section>
+
+<!-- ============ L ============ -->
+<section id="l">
+  <div class="sec-head"><div class="sec-letter">L</div><div>
+    <h2>Arquitectura de experiencia</h2>
+    <p>La navegación de §23 es buena. Le hago tres ajustes con motivo.</p></div></div>
+  <div class="grid2">
+    <div class="card">
+      <h4 style="margin-top:0">Navegación propuesta</h4>
+      <ul style="font-size:13.4px;margin:0">
+        <li><strong>Inicio</strong> — Panel</li>
+        <li><strong>Campañas</strong> — Todas · Programadas · Historial</li>
+        <li><strong>Contactos</strong> — Todos · Listas · Etiquetas · Importaciones · Exclusiones</li>
+        <li><strong>Mensajes</strong> — Plantillas <em>(las firmas viven aquí como tipo de plantilla)</em></li>
+        <li><strong>Correo</strong> — Cuentas conectadas · Salud del remitente</li>
+        <li><strong>Actividad</strong> — Ejecución · Eventos · Errores</li>
+        <li><strong>Ajustes</strong> — Empresa · Licencia · Preferencias · Copias · Actualizaciones · Sistema</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">Los tres ajustes</h4>
+      <p style="font-size:13.4px;margin:0 0 10px"><strong>1.</strong> «Firmas» deja de ser sección propia. Es un tipo de plantilla. Una pantalla menos, un modelo menos, cero pérdida funcional.</p>
+      <p style="font-size:13.4px;margin:0 0 10px"><strong>2.</strong> El <strong>estado del motor es global y permanente</strong> en la barra superior, presente en las siete secciones. §52 dice que la app nunca debe ocultar si está ejecutando: eso no puede depender de en qué pantalla estés.</p>
+      <p style="font-size:13.4px;margin:0"><strong>3.</strong> «Exclusiones» se renombra a <strong>«Lista de supresión»</strong> y se muestra siempre el conteo. Es la función que protege legalmente al cliente; esconderla como subelemento sin cifra la vuelve invisible.</p>
+    </div>
+  </div>
+  <h3>Flujo crítico: crear y activar una campaña</h3>
+  <div class="flow">
+    <span>1 Información</span><i>→</i><span>2 Audiencia</span><i>→</i><span>3 Remitente</span><i>→</i><span>4 Mensaje</span><i>→</i>
+    <span>5 Ejecución</span><i>→</i><span class="k">6 Simulación</span><i>→</i><span class="k">7 Preflight</span><i>→</i>
+    <span>8 Prueba</span><i>→</i><span>9 Activación</span>
+  </div>
+  <p class="prose">Nueve pasos son muchos, y el riesgo de abandono es real. Tres decisiones lo compensan:
+  <strong>(a)</strong> los pasos 6 y 7 no son formularios sino <em>respuestas</em> — el usuario no llena nada, ARLES le
+  dice qué va a pasar; <strong>(b)</strong> guardado como borrador en cada paso, siempre reanudable — lo que responde a la
+  pregunta 5 de §142: <em>sí, los borradores valen la pena</em>, y no como función extra sino como consecuencia natural
+  del asistente; <strong>(c)</strong> los pasos 1–5 son navegables libremente, mientras que 6–9 se desbloquean en orden
+  porque cada uno depende del anterior.</p>
+  <p class="prose"><strong>Teclado (§99):</strong> <code>Ctrl/Cmd+K</code> búsqueda · <code>Ctrl/Cmd+N</code> nueva campaña ·
+  <code>Ctrl/Cmd+S</code> guardar · <code>Esc</code> cerrar diálogo · <code>g</code> + inicial para navegar.
+  <strong>Ningún atajo activa, envía ni detiene una campaña.</strong> Activar y detener exigen siempre confirmación explícita
+  con el ratón (§99 advierte justamente de esto).</p>
+</section>
+
+<!-- ============ M ============ -->
+<section id="m">
+  <div class="sec-head"><div class="sec-letter">M</div><div>
+    <h2>Sistema de diseño</h2>
+    <p>Lo que pide §143, para validar antes de programar: «esto se siente como ARLES RELAY».</p></div></div>
+
+  <h3>Paleta propuesta — derivada y verificada</h3>
+  <p class="prose">Cada color se obtuvo tomando el tono medido en la referencia y ajustando luminosidad y croma
+  hasta cumplir contraste. <strong>Las cifras de abajo están calculadas, no estimadas.</strong> Toda la interfaz de este
+  documento usa exactamente estos tokens: lo que ve es el resultado real.</p>
+
+  <h4>Rampa de profundidad · tono 236.5° medido del cielo</h4>
+  <div class="pal">
+    <div class="pchip"><div class="col" style="background:#010E17"></div><div class="inf"><div class="nm">background-deep</div><div class="hx">#010E17</div></div></div>
+    <div class="pchip"><div class="col" style="background:#041722"></div><div class="inf"><div class="nm">background</div><div class="hx">#041722</div></div></div>
+    <div class="pchip"><div class="col" style="background:#0B222F"></div><div class="inf"><div class="nm">surface</div><div class="hx">#0B222F</div></div></div>
+    <div class="pchip"><div class="col" style="background:#142D3C"></div><div class="inf"><div class="nm">surface-raised</div><div class="hx">#142D3C</div></div></div>
+    <div class="pchip"><div class="col" style="background:#1E3A4B"></div><div class="inf"><div class="nm">surface-interactive</div><div class="hx">#1E3A4B</div></div></div>
+    <div class="pchip"><div class="col" style="background:#204860"></div><div class="inf"><div class="nm">surface-selected</div><div class="hx">#204860</div></div></div>
+  </div>
+
+  <h4>Texto y bordes · contraste verificado sobre <code>surface</code></h4>
+  <div class="pal">
+    <div class="pchip"><div class="col" style="background:#ECEEE5"></div><div class="inf"><div class="nm">text-primary</div><div class="hx">#ECEEE5</div><div class="rt">13.96:1 · AAA</div></div></div>
+    <div class="pchip"><div class="col" style="background:#ACBAC3"></div><div class="inf"><div class="nm">text-secondary</div><div class="hx">#ACBAC3</div><div class="rt">8.23:1 · AAA</div></div></div>
+    <div class="pchip"><div class="col" style="background:#85959F"></div><div class="inf"><div class="nm">text-tertiary</div><div class="hx">#85959F</div><div class="rt">5.29:1 · AA</div></div></div>
+    <div class="pchip"><div class="col" style="background:#6F8390"></div><div class="inf"><div class="nm">border-control</div><div class="hx">#6F8390</div><div class="rt">4.15:1 · AA no-texto</div></div></div>
+    <div class="pchip"><div class="col" style="background:#263843"></div><div class="inf"><div class="nm">border-subtle</div><div class="hx">#263843</div><div class="rt na">1.35:1 · decorativo</div></div></div>
+  </div>
+
+  <h4>Acentos derivados de la referencia</h4>
+  <div class="pal">
+    <div class="pchip"><div class="col" style="background:#F5D32B"><span style="color:#071822">girasol</span></div><div class="inf"><div class="nm">yellow</div><div class="hx">#F5D32B</div><div class="rt">11.09:1 · AAA</div></div></div>
+    <div class="pchip"><div class="col" style="background:#E8A127"><span style="color:#071822">oro</span></div><div class="inf"><div class="nm">gold / warning</div><div class="hx">#E8A127</div><div class="rt">7.44:1 · AAA</div></div></div>
+    <div class="pchip"><div class="col" style="background:#009ACB"></div><div class="inf"><div class="nm">blue-primary</div><div class="hx">#009ACB</div><div class="rt">5.05:1 · AA</div></div></div>
+    <div class="pchip"><div class="col" style="background:#62BEE7"></div><div class="inf"><div class="nm">blue-light</div><div class="hx">#62BEE7</div><div class="rt">7.82:1 · AAA</div></div></div>
+    <div class="pchip"><div class="col" style="background:#3AACDA"></div><div class="inf"><div class="nm">info</div><div class="hx">#3AACDA</div><div class="rt">6.30:1 · AAA</div></div></div>
+    <div class="pchip"><div class="col" style="background:#DFE2D2"></div><div class="inf"><div class="nm">cream</div><div class="hx">#DFE2D2</div><div class="rt">12.42:1 · AAA</div></div></div>
+  </div>
+
+  <h4>Extensiones declaradas · <span class="chip c-nv">no existen en la referencia</span></h4>
+  <div class="pal">
+    <div class="pchip"><div class="col" style="background:#53C48E"></div><div class="inf"><div class="nm">success</div><div class="hx">#53C48E</div><div class="rt">7.52:1 · AAA</div></div></div>
+    <div class="pchip"><div class="col" style="background:#E8605B"></div><div class="inf"><div class="nm">danger</div><div class="hx">#E8605B</div><div class="rt">4.87:1 · AA</div></div></div>
+  </div>
+  <p class="prose" style="font-size:13.5px;color:var(--tx3)">La referencia no contiene rojo ni verde: es una pintura de
+  cielo y girasoles. Un producto que ejecuta envíos <strong>necesita</strong> señales inequívocas de éxito y de peligro, así
+  que extiendo la paleta de forma consciente y lo declaro aquí en vez de fingir que salieron de la imagen (§168).
+  Se eligieron con el mismo croma y luminosidad que el resto para que convivan sin romper la armonía.</p>
+
+  <div class="callout">
+    <h5>Cómo se usa el amarillo — la regla que evita que ARLES parezca un aviso de tránsito</h5>
+    <p style="margin-bottom:0">El girasol es el color de <strong>lo que exige tu atención o tu decisión</strong>: la acción principal
+    de cada pantalla, el elemento de navegación activo, el anillo de foco, el progreso de la campaña en curso. Nada más.
+    El azul es el color de <strong>lo navegable</strong>: enlaces, acciones secundarias, información. Si en una pantalla hay
+    dos cosas amarillas, una de las dos está mal (§18).</p>
+  </div>
+
+  <h3>Tipografía</h3>
+  <div class="frame"><div class="frame-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="frame-title">escala tipográfica</span></div>
+  <div style="padding:18px 22px">
+    <div class="type-row"><div class="m">Display<br>Black · 32/1.05</div><div class="t-disp">ARLES RELAY</div></div>
+    <div class="type-row"><div class="m">H1<br>Bold · 24/1.2</div><div class="t-h1">Campañas activas</div></div>
+    <div class="type-row"><div class="m">H2<br>SemiBold · 19/1.3</div><div class="t-h2">Logística CDMX — Q3</div></div>
+    <div class="type-row"><div class="m">H3<br>SemiBold · 15/1.4</div><div class="t-h3">Configuración de ejecución</div></div>
+    <div class="type-row"><div class="m">Cuerpo<br>Regular · 14/1.6</div><div class="t-bd">La campaña se detendrá automáticamente al alcanzar el máximo diario configurado para esta cuenta.</div></div>
+    <div class="type-row"><div class="m">Pequeño<br>Regular · 12.5/1.55</div><div class="t-sm">Último envío aceptado por el proveedor a las 11:07 (America/Mexico_City).</div></div>
+    <div class="type-row"><div class="m">Etiqueta<br>Mono · 10.5 · +9%</div><div class="t-lbl">Máximo diario por remitente</div></div>
+    <div class="type-row"><div class="m">Numérico<br>Mono tabular · 17</div><div class="t-num">1 284 / 3 500</div></div>
+  </div></div>
+  <p class="cap"><b>Nota honesta:</b> este documento se renderiza con Montserrat como sustituto visual de Mont, porque
+  Mont es una fuente comercial sin licencia resuelta (sección C) y no debe distribuirse en una página publicada.
+  Las proporciones y la jerarquía son las propuestas; la personalidad exacta de las letras cambiará al usar Mont.</p>
+
+  <h3>Navegación lateral y barra superior</h3>
+  <div class="frame">
+    <div class="frame-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="frame-title">ARLES RELAY — Panel · 1440×900</span></div>
+    <div class="app">
+      <div class="app-nav">
+        <div class="app-brand">ARLES <em>RELAY</em></div>
+        <div class="nav-grp">Inicio</div>
+        <div class="nav-i on"><svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.8" y="1.8" width="5" height="5" rx="1"/><rect x="9.2" y="1.8" width="5" height="5" rx="1"/><rect x="1.8" y="9.2" width="5" height="5" rx="1"/><rect x="9.2" y="9.2" width="5" height="5" rx="1"/></svg>Panel</div>
+        <div class="nav-grp">Campañas</div>
+        <div class="nav-i"><svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.8 4.2h12.4v7.6H1.8z" rx="1"/><path d="m1.8 4.6 6.2 4.2 6.2-4.2"/></svg>Todas<span class="badge">3</span></div>
+        <div class="nav-i"><svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.4V8l2.4 1.6"/></svg>Programadas</div>
+        <div class="nav-i"><svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.4 8a5.6 5.6 0 1 0 1.7-4"/><path d="M2.2 2.4v3.2h3.2"/></svg>Historial</div>
+        <div class="nav-grp">Contactos</div>
+        <div class="nav-i"><svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="6" cy="5.4" r="2.5"/><path d="M1.6 13.2c.5-2.4 2.3-3.6 4.4-3.6s3.9 1.2 4.4 3.6"/><path d="M11 4.2a2.4 2.4 0 0 1 0 4.4"/></svg>Todos</div>
+        <div class="nav-i"><svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.4 4h11.2M2.4 8h11.2M2.4 12h7"/></svg>Listas</div>
+        <div class="nav-i"><svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6.2"/><path d="M4.6 4.6l6.8 6.8"/></svg>Supresión<span class="badge">41</span></div>
+        <div class="nav-grp">Correo</div>
+        <div class="nav-i"><svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.9 13.4 4v4c0 3-2.3 5.2-5.4 6.1C4.9 13.2 2.6 11 2.6 8V4z"/></svg>Salud del remitente</div>
+        <div class="app-foot"><b>TELEMETRY INSIGHT</b><br>Software desarrollado por</div>
+      </div>
+      <div class="app-main">
+        <div class="topbar">
+          <div><div class="tb-crumb">INICIO</div><div class="tb-title">Panel</div></div>
+          <div class="search"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.6"/><path d="m10.6 10.6 3 3"/></svg>Buscar<span class="kbd">⌘K</span></div>
+          <div class="engine"><span class="pulse"></span>Motor activo</div>
+        </div>
+        <div class="app-body">
+          <div class="kpis">
+            <div class="kpi acc"><div class="lb">Enviando hoy</div><div class="vl">12/35</div><div class="sb">próximo 11:34</div><div class="bar"><i style="width:34%"></i></div></div>
+            <div class="kpi"><div class="lb">Aceptados</div><div class="vl">1 284</div><div class="sb">por el proveedor</div></div>
+            <div class="kpi"><div class="lb">En cola</div><div class="vl">2 216</div><div class="sb">3 campañas</div></div>
+            <div class="kpi"><div class="lb">Fallidos</div><div class="vl" style="color:var(--danger)">7</div><div class="sb">requieren revisión</div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-h"><h6>Ejecución en curso</h6><span class="more">Ver actividad →</span></div>
+            <div class="tbl-wrap" style="margin:0;border:none;border-radius:0"><table class="mock">
+              <thead><tr><th>Campaña</th><th>Cuenta remitente</th><th>Estado</th><th class="num">Progreso hoy</th><th class="num">Próximo</th></tr></thead>
+              <tbody>
+                <tr class="sel"><td>Logística CDMX</td><td>ventas@empresa.com</td><td><span class="st a">Activa</span></td><td class="num">12 / 35</td><td class="num">11:34</td></tr>
+                <tr><td>Reactivación Q3</td><td>hola@empresa.com</td><td><span class="st p">Pausada</span></td><td class="num">0 / 25</td><td class="num">—</td></tr>
+                <tr><td>Seguimiento feria</td><td>ventas@empresa.com</td><td><span class="st q">Programada</span></td><td class="num">0 / 40</td><td class="num">mar 09:00</td></tr>
+                <tr><td>Bienvenida mayoristas</td><td>soporte@empresa.com</td><td><span class="st e">Error de cuenta</span></td><td class="num">0 / 20</td><td class="num">—</td></tr>
+              </tbody>
+            </table></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="cap"><b>Muestra de panel.</b> Rail de navegación · barra superior con estado del motor permanente · KPIs que
+  distinguen «aceptado» de «entregado» · tabla con estado codificado en forma y color, nunca solo en color (§19).</p>
+
+  <h3>Botones, campos y estados</h3>
+  <div class="grid2">
+    <div class="frame"><div class="frame-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="frame-title">botones</span></div>
+      <div style="padding:20px 22px;display:flex;flex-direction:column;gap:14px">
+        <div class="btns"><button class="btn pri">Activar campaña</button><button class="btn sec">Enviar prueba</button><button class="btn gho">Cancelar</button></div>
+        <div class="btns"><button class="btn dgr">Detener ejecución</button><button class="btn dis">Activar campaña</button></div>
+        <div class="btns"><button class="btn pri fx">Foco visible</button><span class="hint">anillo de foco = girasol, 12.37:1 sobre el fondo</span></div>
+      </div>
+    </div>
+    <div class="frame"><div class="frame-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="frame-title">campos</span></div>
+      <div style="padding:20px 22px">
+        <div class="field"><label>Nombre de la campaña</label><div class="inp">Logística CDMX — Q3</div></div>
+        <div class="field"><label>Máximo diario por remitente <b>recomendación ARLES: 35</b></label><div class="inp fx">35</div></div>
+        <div class="field"><label>Responder a <b>opcional</b></label><div class="inp ph">ventas@empresa.com</div>
+          <span class="hint">Si se deja vacío se usa la dirección del remitente.</span></div>
+        <div class="field"><label>Asunto</label><div class="inp err">Hola {{nombre}}, tenemos algo para {{empersa}}</div>
+          <span class="hint err"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6.4"/><path d="M8 4.8v4M8 11.1v.1"/></svg>La variable <code style="background:none;border:none;padding:0;color:inherit">{{empersa}}</code> no existe. ¿Quisiste decir <code style="background:none;border:none;padding:0;color:inherit">{{empresa}}</code>?</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="cap"><b>Nota de accesibilidad:</b> los errores llevan icono y texto, nunca solo el borde rojo. Las etiquetas
+  son etiquetas, no textos de marcador de posición — es la primera regla que aparece en <code>/CONCEPTOS_DE_DISEÑO</code>.</p>
+
+  <h3>La advertencia de volumen (§48) y la confirmación de detención (§61)</h3>
+  <div class="grid2">
+    <div class="frame"><div class="frame-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="frame-title">alerta de volumen</span></div>
+      <div style="padding:18px 20px">
+        <div class="alert warn">
+          <svg class="ai" width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 1.9 15 14H1z"/><path d="M8 6.2v3.4M8 11.6v.1"/></svg>
+          <div>
+            <h6>Estás configurando más de 50 envíos diarios para este remitente</h6>
+            <p>Un volumen mayor no garantiza mejores resultados y puede aumentar rebotes, quejas o restricciones,
+            según la reputación del dominio, la calidad de la audiencia y las políticas de tu proveedor.</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px">
+              <span class="chip c-info">Recomendación ARLES</span>
+              <span class="chip c-nv">No es un límite del proveedor</span>
+            </div>
+            <div class="btns"><button class="btn sec">Revisar configuración</button><button class="btn gho">Entiendo y deseo continuar</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="frame"><div class="frame-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="frame-title">confirmación destructiva</span></div>
+      <div class="modal-scrim">
+        <div class="modal">
+          <div class="strip"></div>
+          <div class="modal-b">
+            <h6>Detener «Logística CDMX»</h6>
+            <p>Se detendrán los <strong>2 216 mensajes pendientes</strong>. Una campaña detenida no se puede reanudar;
+            tendrías que crear una nueva.</p>
+            <p style="color:var(--tx3);font-size:12px">Los 12 mensajes ya aceptados por el proveedor no se pueden recuperar.</p>
+            <div class="field" style="margin-top:14px;margin-bottom:0"><label>Motivo <b>opcional, queda en auditoría</b></label><div class="inp ph">Lista incorrecta</div></div>
+          </div>
+          <div class="modal-f"><button class="btn gho">Cancelar</button><button class="btn dgr">Detener definitivamente</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="cap"><b>Redacción (§94–§97):</b> qué pasó, qué puedes hacer y qué <em>no</em> se pierde. Sin «¡Ups!», sin
+  signos de exclamación, sin ocultar que lo entregado al proveedor es irrecuperable.</p>
+
+  <h3>Simulador de campaña (§50)</h3>
+  <div class="frame">
+    <div class="frame-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="frame-title">Nueva campaña — paso 6 de 9</span></div>
+    <div class="steps">
+      <div class="step done"><i>✓</i>Información</div><div class="step done"><i>✓</i>Audiencia</div>
+      <div class="step done"><i>✓</i>Remitente</div><div class="step done"><i>✓</i>Mensaje</div>
+      <div class="step done"><i>✓</i>Ejecución</div><div class="step on"><i>6</i>Simulación</div>
+      <div class="step"><i>7</i>Preflight</div><div class="step"><i>8</i>Prueba</div><div class="step"><i>9</i>Activación</div>
+    </div>
+    <div style="padding:20px 22px;background:var(--bg)">
+      <div class="sim">
+        <div>
+          <h4 style="margin-top:0">Configuración</h4>
+          <div class="field"><label>Días de envío</label><div class="inp">Lunes · Martes · Miércoles</div></div>
+          <div class="field"><label>Ventana horaria <b>America/Mexico_City</b></label><div class="inp">09:00 — 18:00</div></div>
+          <div class="field"><label>Máximo diario / máximo por hora</label><div class="inp">35 · 8</div></div>
+        </div>
+        <div>
+          <h4 style="margin-top:0">Resultado</h4>
+          <div class="sim-out">
+            <div class="sim-row"><span>Destinatarios tras supresión</span><b>105</b></div>
+            <div class="sim-row"><span>Capacidad diaria</span><b>35</b></div>
+            <div class="sim-row"><span>Capacidad por ventana horaria</span><b>72</b></div>
+            <div class="sim-row"><span>Días hábiles necesarios</span><b>3</b></div>
+            <div class="sim-row"><span>Inicio estimado</span><b>lun 1 sep · 09:00</b></div>
+            <div class="sim-row"><span>Fin estimado</span><b>mié 3 sep · 12:40</b></div>
+            <div class="verdict">Configuración viable</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="cap"><b>Muestra de creación de campaña.</b> El paso 6 no pide datos: <em>responde</em>. El usuario ve la
+  consecuencia de sus límites antes de comprometerse, que es exactamente el principio de §154.</p>
+</section>
+
+<!-- ============ N ============ -->
+<section id="n">
+  <div class="sec-head"><div class="sec-letter">N</div><div>
+    <h2>Estrategia de calidad</h2>
+    <p>Dónde concentrar el esfuerzo. No todo merece la misma cobertura.</p></div></div>
+  <div class="grid3">
+    <div class="card"><h4 style="margin-top:0">Unitarias · Rust</h4>
+      <p style="font-size:13.3px;margin:0"><code>arles-domain</code> no toca E/S, así que se puede probar de forma exhaustiva
+      y determinista. Objetivo alto de cobertura aquí y solo aquí: aritmética de límites, planificador, ventanas horarias con
+      cambio de horario de verano, resolución de variables, deduplicación, precedencia de supresión, clasificación de errores,
+      transiciones de estado. <strong>Pruebas basadas en propiedades</strong> para la más importante: <em>ningún camino produce
+      dos mensajes con la misma clave de idempotencia</em>.</p></div>
+    <div class="card"><h4 style="margin-top:0">Integración</h4>
+      <p style="font-size:13.3px;margin:0">SQLite con base temporal real (migraciones, claves foráneas, contención de escritor).
+      Proveedores contra servidor SMTP local y contra servidores HTTP simulados que reproduzcan 401, 403, 429 con
+      <code>Retry-After</code>, 5xx y corte de conexión. <strong>Google y Microsoft reales no se pueden probar en CI</strong>
+      — requieren credenciales y consentimiento humano. Se marca <span class="chip c-nv">no verificado</span> y se ejecuta
+      manualmente antes de cada versión, con evidencia registrada.</p></div>
+    <div class="card"><h4 style="margin-top:0">E2E · dos niveles</h4>
+      <p style="font-size:13.3px;margin:0">Playwright contra la UI con backend simulado: rápido, cubre los cuatro estados de
+      §138 en cada pantalla. WebDriver contra la app empaquetada: solo los recorridos de §106, en Windows y macOS.
+      Ver la advertencia de la sección H.</p></div>
+    <div class="card"><h4 style="margin-top:0">Seguridad</h4>
+      <p style="font-size:13.3px;margin:0"><code>cargo-audit</code> · <code>npm audit</code> · escaneo de secretos ·
+      Clippy con <code>-D warnings</code> · TypeScript estricto sin <code>any</code> · revisión manual de OAuth y del
+      actualizador. <strong>Una prueba que falla si un token aparece en un log.</strong></p></div>
+    <div class="card"><h4 style="margin-top:0">Volumen (§102)</h4>
+      <p style="font-size:13.3px;margin:0">Conjuntos generados de 1 k / 10 k / 50 k / 100 k contactos. <strong>No se
+      afirmará soporte de ninguna cifra que no se haya ejecutado.</strong> El número que se publique será el que se midió,
+      con el hardware con el que se midió.</p></div>
+    <div class="card"><h4 style="margin-top:0">Los casos de §108</h4>
+      <p style="font-size:13.3px;margin:0">Cada uno de los veintitantos casos obligatorios se convierte en una prueba
+      con nombre. Los que no se puedan automatizar (suspensión del sistema, disco lleno, cambio de reloj) van a una
+      <strong>lista de verificación manual firmada</strong> antes de liberar. No se marcan como hechos sin evidencia (§167).</p></div>
+  </div>
+</section>
+
+<!-- ============ O ============ -->
+<section id="o">
+  <div class="sec-head"><div class="sec-letter">O</div><div>
+    <h2>Presupuesto de rendimiento</h2>
+    <p>Objetivos propuestos. <span class="chip c-nv">Ninguno medido todavía</span></p></div></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Operación</th><th class="num">Objetivo</th><th>Cómo se consigue</th></tr></thead>
+    <tbody>
+      <tr><td>Arranque en frío hasta interfaz usable</td><td class="num">&lt; 2.0 s</td><td>Migraciones diferidas; el panel carga con agregados, no con filas</td></tr>
+      <tr><td>Apertura de base y verificación de integridad</td><td class="num">&lt; 400 ms</td><td><code>quick_check</code>, no <code>integrity_check</code>, al inicio</td></tr>
+      <tr><td>Primer pintado de 100 000 contactos</td><td class="num">&lt; 300 ms</td><td>Virtualización + paginación por cursor. §100 lo exige</td></tr>
+      <tr><td>Filtro sobre 100 000 contactos</td><td class="num">&lt; 150 ms p95</td><td>Índices sobre email normalizado, país, ciudad, etiqueta, lista</td></tr>
+      <tr><td>Importación de 50 000 filas</td><td class="num">&lt; 60 s</td><td>Lectura en flujo, inserción por lotes en una transacción, en hilo aparte con progreso y cancelación (§103)</td></tr>
+      <tr><td>Ciclo del motor</td><td class="num">&lt; 50 ms</td><td>Consulta sobre índice; el motor jamás compite con la UI por el escritor</td></tr>
+      <tr><td>Copia de seguridad de 100 000 contactos</td><td class="num">&lt; 30 s</td><td><code>VACUUM INTO</code> más compresión en flujo</td></tr>
+      <tr><td>Memoria en reposo</td><td class="num">&lt; 250 MB</td><td>Sin cargar la base en memoria; nada de conjuntos completos en el estado de UI</td></tr>
+    </tbody>
+  </table></div>
+  <p class="prose">Se medirá en un equipo de referencia de gama media definido y documentado en <code>PERFORMANCE.md</code>,
+  con el número real y la fecha. Un objetivo sin medición es una promesa, y §168 las prohíbe.</p>
+</section>
+
+<!-- ============ P ============ -->
+<section id="p">
+  <div class="sec-head"><div class="sec-letter">P</div><div>
+    <h2>Distribución</h2>
+    <p>Firma, notarización y actualizaciones. Con los costos que nadie presupuesta.</p></div></div>
+  <div class="grid2">
+    <div class="card"><h4 style="margin-top:0">Windows</h4>
+      <ul style="font-size:13.3px;margin:0"><li>Instalador NSIS y MSI: <code>ARLES-Relay-Setup-1.2.0.exe</code></li>
+      <li>Firma con certificado de firma de código de una autoridad reconocida</li>
+      <li><strong>Advertencia de reputación:</strong> un certificado nuevo dispara avisos de SmartScreen hasta acumular
+      historial de descargas. Un certificado EV suele reducirlo. <strong>Es un costo real y un plazo real</strong>, no un detalle de última semana</li>
+      <li>Probar instalación limpia, actualización sobre versión previa, desinstalación y reversión</li></ul></div>
+    <div class="card"><h4 style="margin-top:0">macOS</h4>
+      <ul style="font-size:13.3px;margin:0"><li><code>ARLES-Relay-1.2.0.dmg</code>, universal (Apple Silicon + Intel)</li>
+      <li>Requiere <strong>Apple Developer Program</strong> (cuota anual), firma con Developer ID y <strong>notarización</strong></li>
+      <li>Sin notarizar, Gatekeeper impide abrir la aplicación. No es opcional</li>
+      <li>Verificar los permisos que el sistema pide en el primer arranque</li></ul></div>
+  </div>
+  <div class="callout">
+    <h5>Actualizaciones (§79, §80)</h5>
+    <p style="margin-bottom:0">Plugin actualizador de Tauri con manifiesto firmado sobre HTTPS. El par de claves se genera
+    con la herramienta de firma de Tauri; <strong>la clave privada vive en el almacén de secretos de CI, jamás en el
+    repositorio</strong>. La app verifica la firma antes de ejecutar el paquete, y solo acepta versiones superiores.
+    Antes de cualquier migración de esquema destructiva, copia automática (§116). Hay que documentar desde ahora el
+    <strong>procedimiento de rotación de la clave de firma</strong>: si se filtra, es un compromiso total del canal de actualización.</p>
+  </div>
+</section>
+
+<!-- ============ Q ============ -->
+<section id="q">
+  <div class="sec-head"><div class="sec-letter">Q</div><div>
+    <h2>Licenciamiento</h2>
+    <p>Respuesta a las preguntas 3 y 7 de §142.</p></div></div>
+  <div class="q">
+    <div class="qq">¿La licencia se limita por dispositivo o por empresa?</div>
+    <dl>
+      <dt>Importa porque</dt><dd>Define el modelo de datos, el discurso comercial y qué ocurre cuando un cliente cambia de computadora un viernes por la tarde.</dd>
+      <dt class="r">Recomiendo</dt><dd class="r"><strong>La licencia pertenece a la empresa; los dispositivos se cuentan contra ella.</strong> Una empresa compra «ARLES Business, hasta 3 equipos». Encaja con cómo compran las empresas, permite reemplazar un equipo sin renegociar, y hace natural la edición Enterprise con más equipos.</dd>
+      <dt>Alternativas</dt><dd>Por dispositivo: más fácil de aplicar, peor de vender y genera soporte cada vez que alguien cambia de laptop. Sin límite: no defendible comercialmente.</dd>
+    </dl>
+  </div>
+  <div class="q">
+    <div class="qq">¿Hace falta un backend de TELEMETRY para licencias y actualizaciones?</div>
+    <dl>
+      <dt>Importa porque</dt><dd>Levantar un servicio implica operarlo, protegerlo y responder por su disponibilidad. Y §146 exige privacidad por diseño: cuanto menos sepa TELEMETRY de sus clientes, mejor.</dd>
+      <dt class="r">Recomiendo</dt><dd class="r"><strong>Para v1.2.0: nada de servidor de licencias.</strong> Un <strong>archivo de licencia firmado</strong> (Ed25519) que el cliente recibe al comprar; ARLES verifica la firma <em>sin conexión</em>. Para actualizaciones basta un <strong>manifiesto firmado alojado estáticamente</strong>. Cero lógica de servidor, cero base de datos de clientes, cero superficie de ataque nueva, cero disponibilidad que garantizar.</dd>
+      <dt>Alternativas</dt><dd>Servidor de activación en v1.3, cuando exista volumen que lo justifique y ya sepamos qué necesita el negocio. Construirlo ahora es infraestructura especulativa.</dd>
+    </dl>
+  </div>
+  <div class="callout dgr">
+    <h5>Regla innegociable sobre el comportamiento ante fallo de licencia (§77)</h5>
+    <p style="margin-bottom:0">Una licencia vencida, no verificable o con período de gracia agotado <strong>nunca detiene una campaña
+    en ejecución y nunca bloquea el acceso a los datos del cliente</strong>. Degradación permitida: impedir <em>crear</em> campañas
+    nuevas y mostrar un aviso persistente. Detener envíos en curso por un problema de facturación destruiría la confianza del
+    cliente en el peor momento posible, y sus datos son suyos (§146). El período de gracia se propone en 30 días.</p>
+  </div>
+</section>
+
+<!-- ============ R ============ -->
+<section id="r">
+  <div class="sec-head"><div class="sec-letter">R</div><div>
+    <h2>Registro de riesgos</h2>
+    <p>Ordenado por exposición. Los tres primeros no son técnicos.</p></div></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Riesgo</th><th>Prob.</th><th>Impacto</th><th>Mitigación</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Verificación de Google/Microsoft retrasa la venta</strong></td><td><span class="chip c-block">Alta</span></td><td>Crítico</td><td>Iniciar el trámite en la semana 1, no al final. Enviar con SMTP funcionando desde el día uno como vía sin puertas. Comunicar el plazo a Dirección antes de comprometer fechas comerciales.</td></tr>
+      <tr><td><strong>Licencia de Mont sin resolver</strong></td><td><span class="chip c-block">Alta</span></td><td>Alto</td><td>Bloqueante de la sección T. Adquirir licencia de aplicación de Fontfabric o sustituir por una fuente geométrica con licencia libre. <strong>No se puede liberar sin resolver.</strong></td></tr>
+      <tr><td><strong>Datos de TELEMETRY inexistentes en el repositorio</strong></td><td><span class="chip c-block">Alta</span></td><td>Medio</td><td>§118 prohíbe inventarlos. Dirección debe proporcionarlos. El pie queda con la atribución textual hasta entonces.</td></tr>
+      <tr><td>Alcance excede la capacidad de la primera versión</td><td><span class="chip c-risk">Alta</span></td><td>Alto</td><td>Cortes de la sección F. Microsoft a v1.3.</td></tr>
+      <tr><td>Divergencia de renderizado WebView2 / WKWebView</td><td><span class="chip c-risk">Media</span></td><td>Medio</td><td>CI en ambos sistemas desde el hito 1. Tabla de compatibilidad CSS. Sin funciones de vanguardia sin verificar.</td></tr>
+      <tr><td>Duplicación de mensajes por caída</td><td><span class="chip c-risk">Media</span></td><td>Crítico</td><td>Clave de idempotencia, registro de intención previo, estado <em>Incierto</em> resuelto por el usuario. Ventana residual documentada.</td></tr>
+      <tr><td>Corrupción de SQLite por disco lleno</td><td><span class="chip c-risk">Media</span></td><td>Alto</td><td>Comprobar espacio antes de importar, copiar y actualizar (§150). WAL. Verificación al abrir. Copia previa a migración.</td></tr>
+      <tr><td>Cliente espera métricas de apertura</td><td><span class="chip c-risk">Media</span></td><td>Medio</td><td>Explicarlo en el material de venta y en el producto. Convertir la ausencia de rastreo en argumento de privacidad, no en carencia.</td></tr>
+      <tr><td>Uso abusivo del producto por un cliente</td><td><span class="chip c-risk">Media</span></td><td>Alto (reputacional)</td><td>Detección de anomalías (§93), auditoría completa, condiciones de uso. Sin funciones de evasión. <strong>Riesgo residual aceptado</strong>: es software instalable.</td></tr>
+      <tr><td>Fuga de la clave de firma de actualizaciones</td><td><span class="chip c-ok">Baja</span></td><td>Crítico</td><td>Clave solo en secretos de CI, procedimiento de rotación documentado, firmas reproducibles.</td></tr>
+      <tr><td>Retraso por reputación de SmartScreen</td><td><span class="chip c-risk">Media</span></td><td>Medio</td><td>Adquirir el certificado pronto; evaluar EV. Presupuestarlo ahora.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============ S ============ -->
+<section id="s">
+  <div class="sec-head"><div class="sec-letter">S</div><div>
+    <h2>Roadmap</h2>
+    <p>Reordené las fases del brief. Explico por qué.</p></div></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Hito</th><th>Entrega</th><th>Depende de</th><th>Auditoría</th></tr></thead>
+    <tbody>
+      <tr><td><strong>0 · Fundamentos</strong></td><td>Workspace, CI en Windows y macOS, esquema y migraciones, capacidades de Tauri y CSP, registro estructurado, <strong>almacén de secretos funcionando</strong>, tokens de diseño. <em>Trámite de verificación de Google iniciado.</em></td><td>Autorización de Dirección</td><td>A + B</td></tr>
+      <tr><td><strong>1 · Empresa</strong></td><td>Configuración de empresa, onboarding con lista de verificación, ajustes, i18n, pie de aplicación</td><td>0</td><td>D</td></tr>
+      <tr><td><strong>2 · Contactos</strong></td><td>Contactos, listas, etiquetas, campos personalizados, importación XLSX/CSV con mapeo y deduplicación, <strong>supresión</strong>, exportación segura</td><td>1</td><td>B + C</td></tr>
+      <tr><td><strong>3 · Proveedores</strong></td><td>Rasgo <code>EmailProvider</code>, adaptador SMTP completo, adaptador Google con OAuth y PKCE, probar conexión, enviar prueba</td><td>0</td><td>B</td></tr>
+      <tr><td><strong>4 · Mensajes</strong></td><td>Plantillas con versionado, variables, editor simple sanitizado, vista previa por contacto</td><td>2</td><td>D</td></tr>
+      <tr><td><strong>5 · Campañas</strong></td><td>Asistente de 9 pasos, <strong>audiencia congelada al activar</strong>, simulador, preflight, modo de prueba</td><td>2,3,4</td><td>A + D</td></tr>
+      <tr><td><strong>6 · Motor</strong></td><td>Planificador, cola persistente, límites, reintentos, cortacircuitos, pausa/reanudar/detener, bandeja, recuperación tras caída</td><td>5</td><td>A + B + C</td></tr>
+      <tr><td><strong>7 · Observabilidad</strong></td><td>Panel, actividad en vivo por eventos, historial, salud del remitente con DNS, diagnóstico del sistema</td><td>6</td><td>C + D</td></tr>
+      <tr><td><strong>8 · Continuidad</strong></td><td>Copia y restauración, copia automática con retención, migración entre equipos, actualizaciones firmadas, esquema de licencia</td><td>6</td><td>B + C</td></tr>
+      <tr><td><strong>9 · Endurecimiento</strong></td><td>Pruebas de volumen, casos de §108, revisión de seguridad, accesibilidad, instaladores firmados y notarizados, documentación completa</td><td>todos</td><td>A + B + C + D</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout">
+    <h5>Tres cambios respecto al orden propuesto en §141, con motivo</h5>
+    <p><strong>1. Los proveedores suben a hito 3, en paralelo con contactos.</strong> El brief los pone en fase 6. Es el bloque
+    con más incertidumbre externa (verificación, OAuth, comportamiento real de las APIs). <strong>Lo incierto va primero</strong>:
+    descubrir un problema de OAuth en la fase 6 de 15 es recuperable; descubrirlo en la 13 no.</p>
+    <p><strong>2. Los secretos entran en el hito 0, no cuando se conecta la primera cuenta.</strong> Si el almacén de credenciales
+    no funciona en ambos sistemas operativos, todo el módulo de proveedores es papel. Es la dependencia técnica más silenciosa del proyecto.</p>
+    <p style="margin-bottom:0"><strong>3. Copia de seguridad sube al hito 8, no al final.</strong> En cuanto el motor envía correos reales
+    hay datos que un cliente no puede permitirse perder. La copia deja de ser una función y pasa a ser un requisito de operación.</p>
+  </div>
+</section>
+
+<!-- ============ T ============ -->
+<section id="t">
+  <div class="sec-head"><div class="sec-letter">T</div><div>
+    <h2>Decisiones que requieren Dirección</h2>
+    <p>Solo lo que no pude resolver por mi cuenta. Cada una con recomendación, no con pregunta abierta (§164).</p></div></div>
+
+  <div class="q" style="border-left-color:var(--danger)">
+    <div class="qq">1 · Licencia de la familia tipográfica Mont <span class="chip c-block" style="margin-left:8px">Bloqueante</span></div>
+    <dl>
+      <dt>Importa porque</dt><dd>Mont es de Fontfabric, es comercial, y los archivos del repositorio son un kit web convertido sin ningún EULA. Distribuirla dentro de un instalador comercial sin licencia de aplicación expone a TELEMETRY a reclamación del fundidor. §21 ordena detenerse y reportarlo.</dd>
+      <dt class="r">Recomiendo</dt><dd class="r">Adquirir la licencia de aplicación/embedding de Mont directamente con Fontfabric. Es la fuente corporativa y vale la inversión. <strong>Necesito la confirmación de compra o el documento de licencia antes de incrustar un solo archivo en la app.</strong></dd>
+      <dt>Alternativas</dt><dd>(a) Usar Mont solo en material de marketing y una fuente con licencia libre dentro del producto — se pierde coherencia de marca. (b) Sustituir por una geométrica de licencia abierta. (c) Si TELEMETRY ya tiene la licencia adquirida, basta con enviarme el comprobante y este punto se cierra.</dd>
+    </dl>
+  </div>
+
+  <div class="q" style="border-left-color:var(--danger)">
+    <div class="qq">2 · Datos oficiales de TELEMETRY INSIGHT <span class="chip c-block" style="margin-left:8px">Bloqueante</span></div>
+    <dl>
+      <dt>Importa porque</dt><dd>§118 y §170 exigen mostrar logotipo, teléfono, correo y sitio web en el pie. §118 prohíbe inventarlos y ordena buscarlos en <code>/RECURSOS</code>. Esa carpeta no existe y ningún archivo del repositorio contiene esos datos.</dd>
+      <dt class="r">Recomiendo</dt><dd class="r">Que Dirección proporcione el logotipo vectorial y los datos de contacto definitivos. Mientras tanto el pie muestra solo el texto «Software desarrollado por TELEMETRY INSIGHT», sin datos inventados.</dd>
+      <dt>Alternativas</dt><dd>Ninguna. No voy a inventar un teléfono ni un dominio.</dd>
+    </dl>
+  </div>
+
+  <div class="q">
+    <div class="qq">3 · Recorte de alcance: ¿Microsoft entra en la primera versión?</div>
+    <dl>
+      <dt>Importa porque</dt><dd>Es la decisión que más afecta a la fecha de entrega. Dos procesos de verificación simultáneos con dos plataformas distintas duplican el riesgo del hito más incierto.</dd>
+      <dt class="r">Recomiendo</dt><dd class="r"><strong>SMTP + Google en v1.2.0; Microsoft en v1.3.0.</strong> La abstracción <code>EmailProvider</code> queda completa desde el hito 3, así que añadir Microsoft después no toca el núcleo: es un adaptador nuevo. Si Dirección tiene un cliente concreto con Microsoft 365 esperando, cambia la prioridad y lo asumo — pero entonces debemos mover la fecha, no comprimir el alcance.</dd>
+      <dt>Alternativas</dt><dd>Los tres a la vez, aceptando riesgo alto de calendario. O Microsoft en vez de Google si el mercado objetivo es corporativo.</dd>
+    </dl>
+  </div>
+
+  <div class="q">
+    <div class="qq">4 · Confirmación de la dirección visual dark-first</div>
+    <dl>
+      <dt>Importa porque</dt><dd>Todas las referencias de composición que entregaron son interfaces claras, pero el brief ordena dark-first. Necesito que la aprobación sea consciente de esa contradicción, no accidental.</dd>
+      <dt class="r">Recomiendo</dt><dd class="r">Dark-first en v1.2.0 — es lo correcto para una consola de operación de jornada larga y es lo que la paleta de la referencia pide. Tema claro tokenizado desde el inicio y liberado en v1.3.0. <strong>Confirmen mirando las muestras de la sección M</strong>, que es exactamente lo que pide §143.</dd>
+      <dt>Alternativas</dt><dd>Claro primero, siguiendo literalmente las referencias entregadas. Ambos temas en v1.2.0: añade aproximadamente un 25% de trabajo en interfaz y de superficie de pruebas visuales.</dd>
+    </dl>
+  </div>
+
+  <div class="q">
+    <div class="qq">5 · Nombre y numeración de versión</div>
+    <dl>
+      <dt>Importa porque</dt><dd>«ARLES RELAY I v1.2.0» mezcla dos sistemas de versión, y 1.2.0 afirma un linaje que no existe. Cambiarlo después de distribuir instaladores es caro.</dd>
+      <dt class="r">Recomiendo</dt><dd class="r">Producto <strong>ARLES RELAY</strong> (sin la «I»), primera versión <strong>1.0.0</strong>. Si el 1.2.0 ya está comprometido, lo respetamos y lo declaramos en el CHANGELOG. <strong>No modifico el nombre sin autorización</strong> (§2); esto es una recomendación, no un cambio.</dd>
+      <dt>Alternativas</dt><dd>Conservar «ARLES RELAY I» como está y usar la «I» solo como nombre clave interno de generación.</dd>
+    </dl>
+  </div>
+
+  <div class="q">
+    <div class="qq">6 · Cómo se comunican los rebotes que no podemos detectar</div>
+    <dl>
+      <dt>Importa porque</dt><dd>Sin leer el buzón no hay rebotes asíncronos (ver E-4). Afecta a tres módulos y toca directamente la promesa de honestidad del producto.</dd>
+      <dt class="r">Recomiendo</dt><dd class="r">Rebotes manuales en v1.2.0 más los rechazos síncronos que SMTP sí nos da, y decirlo con todas sus letras en la interfaz. Evaluar un permiso de lectura acotado en v1.3 <em>solo</em> si Dirección aprueba una función concreta que lo justifique — nunca «por si acaso» (§85).</dd>
+      <dt>Alternativas</dt><dd>Pedir permiso de lectura desde v1.2.0: contradice el principio de mínimo privilegio y complica la verificación con Google, que examina precisamente el alcance solicitado.</dd>
+    </dl>
+  </div>
+</section>
+
+<!-- ============ U ============ -->
+<section id="u">
+  <div class="sec-head"><div class="sec-letter">U</div><div>
+    <h2>Recomendación final</h2>
+    <p>Qué construiría exactamente, y bajo qué condiciones.</p></div></div>
+  <div class="prose">
+  <p>Construiría <strong>una aplicación de escritorio Tauri 2 + Vue 3, local-first, con núcleo Rust y SQLite</strong>, que hace
+  bien exactamente una cosa: <em>permitir que una empresa ejecute campañas de correo desde su propia cuenta, bajo límites
+  que ella define, con visibilidad total y capacidad de detención inmediata</em>.</p>
+  <p>Enviaría <strong>SMTP y Google</strong> en la primera versión, con la abstracción de proveedor completa para que Microsoft
+  entre después sin tocar el núcleo. Sin usuarios internos. Sin rastreo de aperturas ni de clics. Sin puntuaciones de
+  entregabilidad inventadas. Con la lista de supresión protegida por la base de datos y no por la interfaz. Con la audiencia
+  congelada al activar. Con contadores de límite que sobreviven a un reinicio. Y con una <strong>ventana residual de duplicado
+  documentada abiertamente</strong>, porque la entrega exactamente-una-vez no existe y fingir lo contrario sería el primer
+  incumplimiento del principio de honestidad que este producto vende.</p>
+  <p>Visualmente: <strong>dark-first sobre una rampa de azules extendida desde el cielo de la referencia</strong>, con el amarillo
+  girasol reservado para lo que exige atención o decisión, contraste verificado numéricamente en cada token, y la información
+  de estado codificada siempre en forma <em>y</em> color. Sobrio, denso, operativo. Un instrumento, no un cuadro.</p>
+
+  <div class="callout ok">
+    <h5>Las tres condiciones para empezar a programar</h5>
+    <p style="margin-bottom:0"><strong>1.</strong> Resolver la licencia de Mont, o autorizar una sustitución. <strong>2.</strong> Recibir los
+    datos oficiales de TELEMETRY INSIGHT. <strong>3.</strong> Autorizar el recorte de alcance de la sección F y la dirección
+    visual de la sección M. Con esas tres cosas resueltas, empiezo por el hito 0 y no toco una línea de interfaz hasta que
+    el almacén de secretos funcione en Windows y macOS.</p>
+  </div>
+
+  <p><strong>Lo que más me preocupa de este proyecto no es técnico.</strong> El brief está mejor pensado que la mayoría de las
+  especificaciones que se ven en producto: los principios de honestidad, autonomía y simplicidad son correctos y poco comunes.
+  El riesgo real es que el alcance escrito es aproximadamente el doble de lo que cabe en una primera versión que cumpla la
+  Definición de Terminado de §139 — trece condiciones por función, en dos sistemas operativos. La forma de fallar de este
+  proyecto no es construir mal: es construir <em>todo</em> a medias y no poder liberar nada.</p>
+  <p><strong>No he escrito código de producción</strong>, según §1 y §175. Queda a la espera de la autorización de Dirección.</p>
+  </div>
+  <div class="foot">
+    <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:flex-end">
+      <div>ARLES RELAY I · v1.2.0 · Fase 0 — Discovery, Auditoría y Arquitectura<br>
+      Análisis cromático medido sobre <code>/REFERENCIA_DE_COLOR/farm-lifestyle-digital-art.jpg</code> · 2320×3080 · k-means OKLab</div>
+      <div style="text-align:right"><b>TELEMETRY INSIGHT</b><br>Software desarrollado por</div>
+    </div>
+  </div>
+</section>
+</main>
+</div>
