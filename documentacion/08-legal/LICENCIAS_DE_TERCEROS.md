@@ -9,9 +9,9 @@
 
 ## 1. Estado
 
-| Activo | Situación | Bloquea |
+| Activo | Situación | Puerta |
 |---|---|---|
-| **Mont (Fontfabric)** | 🔴 **Licencia no verificada** | **Fase 2** |
+| **Mont (Fontfabric)** | 🟡 **Licencia no verificada** · desarrollo autorizado (D-5) | **Antes de la demo** |
 | Referencia cromática | 🟡 Stock de IA de terceros — uso interno | No |
 | Conceptos de diseño | 🟡 IP de terceros — estudio | No |
 | Referencias visuales | 🟡 IP de terceros — estudio | No |
@@ -19,9 +19,21 @@
 
 ---
 
-## 2. Mont — Fontfabric 🔴
+## 2. Mont — Fontfabric 🟡
 
-**Bloqueante. Decisión D-3. Riesgo R-01. Pregunta P-01.**
+**Decisiones D-3 y D-5. Riesgo R-01. Pregunta P-01.**
+
+> **Qué aplica hoy (D-5, 2026-09-11).** Se desarrolla con Mont con normalidad. Lo que sigue requiriendo la App License es **incrustar el binario de la fuente en un artefacto que se instala o se enseña como producto**. Mientras el binario no salga del equipo de desarrollo, no hay supuesto de distribución.
+>
+> | Uso | ¿Autorizado hoy? |
+> |---|---|
+> | Documentos, láminas, maquetas | **Sí** — uso de documento |
+> | Compilaciones en máquinas del equipo | **Sí** |
+> | Logotipo como SVG con contornos | **Sí** — es geometría, no contiene la fuente |
+> | **Instalar la app con Mont incrustada fuera del equipo** | **No** |
+> | **Enseñar la app a un cliente o prospecto** | **No** |
+>
+> La pregunta se vuelve a plantear al planificar la demo (Fase 9).
 
 ### Qué hay en el repositorio
 
@@ -182,10 +194,10 @@ Requisito de MIT, Apache-2.0 y BSD — y buena práctica en cualquier caso.
 
 ## 7. Pendiente de Dirección y Legal
 
-| # | Asunto | Bloquea |
+| # | Asunto | Puerta |
 |---|---|---|
-| 1 | **Licencia de Mont: tipo y comprobante** (P-01) | **Fase 2** |
-| 2 | Activos de marca de ARLES (P-02) | Fase 2 |
+| 1 | **Licencia de Mont: tipo y comprobante** (P-01) | **Antes de la demo** (D-5) |
+| 2 | ~~Activos de marca de ARLES (P-02)~~ | ✅ cerrada por D-5 |
 | 3 | Confirmar que se enlaza SQLCipher Community | Fase 1 |
 | 4 | Reparto responsable/encargado en los términos de licencia | v1.3 |
 | 5 | Aviso de privacidad para la verificación de Google (P-05) | Fase 5 |

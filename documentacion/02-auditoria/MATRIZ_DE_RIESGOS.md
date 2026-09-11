@@ -14,13 +14,17 @@
 ## Riesgos críticos y altos
 
 ### R-01 · Licencia de Mont insuficiente para distribución
-**Prob.** Alta · **Impacto** Alto · **Dueño:** Dirección · **Estado:** 🔴 abierto, bloqueante
+**Prob.** Alta · **Impacto** ~~Alto~~ **Medio** · **Dueño:** Dirección · **Estado:** 🟡 abierto, **ya no bloqueante**
+
+> **Revisado el 2026-09-11 (D-5).** Se desarrolla con Mont; la puerta pasa de la Fase 2 a **antes de la demo**. El impacto baja de Alto a Medio porque el plan B cuesta una línea: toda la tipografía vive en `--arles-font-family`. Lo que se perdería si hay que activarlo es el ajuste fino tipográfico, no la arquitectura del Design System.
+>
+> **La línea que no se cruza:** el binario de la fuente no sale del equipo de desarrollo —ni instalado, ni enseñado como demo— hasta resolver D-3.
 
 Las licencias Desktop y Web de Fontfabric no cubren incrustar el binario de la fuente en una aplicación distribuida; eso exige una *App License* separada. No hay comprobante en el repositorio y el kit presente fue generado con Transfonter, lo que sugiere un origen de agregador.
 
 **Mitigación (D-3):** verificar el alcance exacto de la licencia que posee TELEMETRY y adquirir la App License si falta. Comprobante en `08-legal/`. Plan B documentado en `05-diseno/TIPOGRAFIA.md`: Mont sólo en marketing, logotipo como SVG con contornos, geométrica de licencia libre dentro de la aplicación.
 
-**Disparador de escalada:** si al inicio de la Fase 2 no hay comprobante, se activa el plan B sin más discusión.
+**Disparador de escalada:** si al planificar la demo no hay comprobante, se activa el plan B sin más discusión.
 
 ---
 
@@ -96,11 +100,13 @@ Es el coste aceptado de elegir Tauri (ADR-0001). WebView2 es Chromium; WKWebView
 ---
 
 ### R-08 · No existen activos de marca
-**Prob.** Alta · **Impacto** Medio · **Dueño:** Dirección · **Estado:** 🔴 abierto
+**Prob.** Alta · **Impacto** Bajo · **Dueño:** Diseño · **Estado:** 🟢 resuelto por D-5
 
-No hay logotipo, isotipo, flecha ni escudo en el repositorio, pese a que T-9 los menciona. El §21 define el logotipo como puramente tipográfico, lo que lo hace además dependiente de R-01.
+No hay logotipo, isotipo, flecha ni escudo en el repositorio, pese a que T-9 los menciona.
 
-**Disparador:** bloquea el cierre de la Fase 2.
+**Resuelto.** El §21 define el logotipo como **exclusivamente tipográfico** —«ARLES RELAY» en Mont Black, sin isotipo—, así que con Mont autorizada para desarrollo (D-5) el logotipo se produce aquí, en la Fase 2. La flecha y el escudo **no son necesarios**: el §21 los excluye por diseño.
+
+Queda como recomendación para v1.3 que Dirección entregue un brandbook propio, pero ya no bloquea nada.
 
 ---
 
@@ -164,6 +170,8 @@ Certificado OV/EV de Windows: de una a tres semanas. Apple Developer ID y notari
 
 | Estado | Riesgos |
 |---|---|
-| 🔴 **Abiertos y bloqueantes** | R-01 (licencia Mont), R-08 (activos de marca) |
-| 🟡 **Abiertos, mitigados parcialmente** | R-03, R-05, R-06, R-10, R-13, R-14 |
-| 🟢 **Mitigados por diseño o proceso** | R-02, R-04, R-07, R-09, R-11, R-12 |
+| 🔴 **Abiertos y bloqueantes** | *ninguno* |
+| 🟡 **Abiertos, mitigados parcialmente** | R-01 (licencia Mont, puerta en la demo), R-03, R-05, R-06, R-10, R-13, R-14 |
+| 🟢 **Mitigados o resueltos** | R-02, R-04, R-07, R-08, R-09, R-11, R-12 |
+
+**Revisión del 2026-09-11 (D-5):** R-01 pasa de bloqueante a seguimiento con la puerta en la demo, y R-08 se resuelve porque el logotipo es tipográfico por diseño (§21). **No quedan bloqueantes para arrancar las Fases 1 y 2.**

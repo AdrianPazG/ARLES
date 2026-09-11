@@ -1,11 +1,15 @@
 # Tipografía
 
 **Proyecto:** ARLES RELAY I · v1.2.0
-**Estado:** ⚠️ **BLOQUEADO POR D-3** — la licencia de Mont no está verificada
+**Estado:** ✅ **Desarrollo con Mont autorizado (D-5)** · la licencia se resuelve **antes de la demo**
+
+> **Qué aplica hoy (D-5).** Se desarrolla con Mont con normalidad: documentos, maquetas, compilaciones del equipo y el logotipo. Lo que sigue requiriendo la App License es **instalar o enseñar la aplicación con la fuente incrustada** fuera del equipo de desarrollo. La pregunta se vuelve a plantear al planificar la demo.
+>
+> El plan B de §3 sigue vigente y listo; ahora cuesta una línea activarlo.
 
 ---
 
-## 1. El bloqueo, primero
+## 1. El asunto de la licencia
 
 `/TIPOGRAFIA` contiene la familia **Mont** de **Fontfabric** (Svetoslav Simov, Mirela Belova, v1.003), verificado leyendo la tabla `name` de los TTF.
 
@@ -25,9 +29,9 @@ T-2 afirma que TELEMETRY posee «la licencia comercial de Mont para uso de texto
 
 Un bundle de Tauri lleva los archivos de fuente **dentro del binario que se instala en la máquina del cliente**. Ése es exactamente el supuesto de la App License, y ni la Desktop ni la Web lo autorizan.
 
-El §21 del propio brief ordena detenerse ante esto. Nos detenemos.
+El §21 del propio brief ordena detenerse ante esto — y nos detuvimos en el punto que importa: **el binario de la fuente no sale del equipo de desarrollo hasta que la licencia esté resuelta** (D-5).
 
-**Riesgo R-01 · Pregunta P-01 · Decisión D-3.**
+**Riesgo R-01 · Pregunta P-01 · Decisiones D-3 y D-5.**
 
 ---
 
@@ -78,7 +82,7 @@ Pesos a incrustar: Regular 400, Medium 500, SemiBold 600, Bold 700, Black 900. *
 
 ## 3. Plan B — si D-3 no se resuelve
 
-**Se activa automáticamente si al inicio de la Fase 2 no hay comprobante de licencia.** No requiere una decisión nueva.
+**Se activa si al planificar la demo no hay comprobante de licencia** (D-5). No requiere una decisión nueva.
 
 ### Reparto
 
@@ -175,4 +179,6 @@ Lo que hay que hacer:
 
 **P-01.** Tipo exacto de licencia de Mont, y comprobante en `documentacion/08-legal/`.
 
-**Sin comprobante al inicio de la Fase 2, se activa el plan B sin más discusión.** No es una amenaza: es que el Design System no puede quedarse bloqueado indefinidamente, y el plan B es perfectamente bueno.
+**Disparador (D-5): al planificar la demo de la aplicación**, antes de generar el primer instalador destinado a enseñarse fuera del equipo. Sin comprobante en ese momento, se activa el plan B sin más discusión.
+
+**Por qué esperar no cuesta.** Toda la tipografía vive en `--arles-font-family` y todos los colores en `tokens.json`. Cambiar de familia es editar una línea; lo que se perdería es el ajuste fino tipográfico —interletrado, pesos ópticos, verificación de métricas en Windows y macOS—, medido en días, no semanas.

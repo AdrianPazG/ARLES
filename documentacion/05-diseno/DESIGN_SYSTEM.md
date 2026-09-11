@@ -2,7 +2,7 @@
 
 **Proyecto:** ARLES RELAY I · v1.2.0
 **Depende de:** `COLOR_SYSTEM.md` · `TIPOGRAFIA.md`
-**Estado:** ⚠️ **bloqueado por D-3** (licencia de Mont) para congelar la capa tipográfica
+**Estado:** ✅ **desbloqueado por D-5** — se desarrolla con Mont; la licencia se resuelve antes de la demo
 
 ---
 
@@ -225,12 +225,20 @@ La última línea es la que más a menudo se olvida y la que ADR-0001 nos obliga
 
 ---
 
-## 11. Bloqueo activo
+## 11. Tokens: fuente única
 
-⚠️ **El Design System no se congela hasta que se resuelva D-3** (licencia de Mont).
+Los colores **no se escriben aquí ni en ningún componente**. Viven en [`herramientas/design-tokens/tokens.json`](../../herramientas/design-tokens/README.md) y de ahí se genera el CSS que consume el frontend:
 
-Lo que **sí** puede avanzar: color, espaciado, elevación, movimiento, comportamiento de componentes y accesibilidad. Todo eso es independiente de la tipografía.
+```bash
+./herramientas/design-tokens/generar.py --todo
+```
 
-Lo que **no**: la escala tipográfica definitiva, el logotipo y cualquier captura o material con Mont incrustada.
+`--verificar` comprueba los contratos de contraste y falla la compilación ante una regresión — es el paso 5 del CI de `ESTRATEGIA_QA.md` §6.
 
-Ver `TIPOGRAFIA.md` para el plan B.
+**Para añadir un color:** se edita `tokens.json`, se declara su contrato de contraste, y se regenera. Si el contraste no pasa, el color no entra.
+
+## 12. Estado de la tipografía
+
+✅ **Desbloqueado por D-5.** Se desarrolla con Mont: escala tipográfica, logotipo y componentes.
+
+La puerta de la licencia se traslada a **antes de la demo** — el binario de la fuente no sale del equipo de desarrollo hasta resolver D-3. El plan B de `TIPOGRAFIA.md` §3 sigue listo y cuesta una línea: `--arles-font-family`.

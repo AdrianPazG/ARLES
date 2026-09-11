@@ -263,7 +263,7 @@ El §21 del propio brief instruye: «si la fuente tiene problemas de licencia pa
 | A-04 | La paleta real no es la del brief (0.73 % azul profundo) | Alta | D-2 · rampas derivadas |
 | A-05 | `#2CA4D4` falla WCAG como superficie | Alta | `COLOR_SYSTEM.md` · rol restringido |
 | A-06 | No existe ningún activo de marca de ARLES | Alta | Pendiente de Dirección |
-| A-07 | Licencia de Mont no cubre app embedding | **Crítica** | **D-3 · bloqueante de Fase 2** |
+| A-07 | Licencia de Mont no cubre app embedding | Alta | **D-5** · se desarrolla con Mont; puerta antes de la demo |
 
 ---
 

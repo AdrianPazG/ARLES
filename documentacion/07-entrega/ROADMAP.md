@@ -12,9 +12,7 @@
 
 Este cuerpo documental.
 
-**Puerta de salida:** Dirección aprueba `AUDITORIA_DISCOVERY.md` · se resuelve D-3 · se responden P-01 a P-04.
-
-**No se escribe código de producción hasta cruzarla.**
+**Puerta de salida:** ✅ **cruzada el 2026-09-11.** Dirección aprobó la auditoría, D-5 desbloqueó la tipografía y P-02 quedó cerrada.
 
 ---
 
@@ -36,11 +34,11 @@ Arrancarlos aquí es la diferencia entre que estén listos cuando hagan falta y 
 
 ### Fase 2 — Design System
 
-⚠️ **Bloqueada por D-3** (licencia de Mont) y por P-02 (activos de marca).
+✅ **Desbloqueada por D-5.** Se desarrolla con Mont; la puerta de la licencia se traslada a antes de la demo.
 
-Tokens de color con verificación de contraste en CI · primitivas: botón, entrada, selector, modal, tabla virtualizada, menú, insignia, aviso, pestañas · los cuatro estados por componente · accesibilidad AA verificada en Windows y macOS.
+Tokens de color con verificación de contraste en CI · escala tipográfica sobre Mont · **logotipo tipográfico** (§21, ya producible) · primitivas: botón, entrada, selector, modal, tabla virtualizada, menú, insignia, aviso, pestañas · los cuatro estados por componente · accesibilidad AA verificada en Windows y macOS.
 
-**Lo que sí puede avanzar aunque D-3 siga abierta:** color, espaciado, elevación, movimiento y comportamiento. La tipografía es lo único bloqueado, y el plan B de `TIPOGRAFIA.md` se activa automáticamente si al inicio de la fase no hay comprobante.
+Los tokens de color ya están operativos en [`herramientas/design-tokens/`](../../herramientas/design-tokens/README.md), con `--verificar` listo para el paso 5 del CI.
 
 ---
 
@@ -98,6 +96,8 @@ Exportación e importación `.arles` · migración entre sistemas con manejo ele
 
 Instaladores firmados y notarizados · updater · `CHANGELOG.md` · despliegue interno en TELEMETRY (D-4).
 
+⚠️ **Puerta de la licencia de Mont (D-5).** Antes de generar el primer instalador destinado a enseñarse o instalarse fuera del equipo de desarrollo, se vuelve a plantear **P-01**. Sin comprobante, se activa el plan B de `TIPOGRAFIA.md` §3 — una línea en `--arles-font-family`.
+
 ---
 
 ## Los dos cambios respecto al brief
@@ -123,7 +123,7 @@ Arrancarlos al final es la forma más común de que un producto terminado no se 
 ## Dependencias
 
 ```
-Fase 0 ──► Fase 1 ──┬──► Fase 2 (bloqueada por D-3, P-02)
+Fase 0 ──► Fase 1 ──┬──► Fase 2 (desbloqueada por D-5)
                     │         │
                     ├──► Fase 3 ◄─┘
                     │         │

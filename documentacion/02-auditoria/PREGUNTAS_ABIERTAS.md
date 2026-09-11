@@ -8,10 +8,12 @@
 
 ---
 
-## Bloqueantes de la Fase 2 (Design System)
+## Puerta en la demo
 
 ### P-01 · ¿Qué licencia de Mont posee exactamente TELEMETRY?
-**Bloquea:** congelar el Design System · **Riesgo:** R-01 · **Decisión relacionada:** D-3
+**Disparador:** al planificar la **demo de la aplicación** · **Riesgo:** R-01 · **Decisiones:** D-3, **D-5**
+
+> **D-5 (2026-09-11):** se desarrolla con Mont con normalidad. Esta pregunta **ya no bloquea la Fase 2**; se vuelve a plantear antes de generar el primer instalador destinado a enseñarse fuera del equipo de desarrollo.
 
 T-2 afirma que TELEMETRY posee «la licencia comercial de Mont para uso de texto». El alcance importa:
 
@@ -30,18 +32,15 @@ Un bundle de Tauri lleva los archivos de fuente dentro del binario que se instal
 
 **Plan B, ya documentado y listo:** Mont queda para marketing y material comercial; el logotipo ARLES RELAY se entrega como **SVG con contornos** (uso legítimo de una licencia de escritorio, porque ya no hay fuente que incrustar); la interfaz usa una geométrica de licencia libre con métricas similares.
 
-**Si al inicio de la Fase 2 no hay comprobante, se activa el plan B.**
+**Si al planificar la demo no hay comprobante, se activa el plan B.**
 
 ---
 
-### P-02 · ¿Quién produce los activos de marca?
-**Bloquea:** cerrar la Fase 2 · **Riesgo:** R-08
+### P-02 · ¿Quién produce los activos de marca? — ✅ CERRADA
 
-No existe **ningún** activo de marca de ARLES en el repositorio: ni logotipo, ni isotipo, ni la flecha ni el escudo que menciona T-9, ni guía de marca, ni archivo de paleta.
+**Cerrada el 2026-09-11 por D-5.** El §21 define el logotipo como **exclusivamente tipográfico** («ARLES RELAY» en Mont Black, sin isotipo), así que con Mont autorizada para desarrollo el logotipo se produce en la Fase 2, aquí. La flecha y el escudo que menciona T-9 **no son necesarios**: el §21 los excluye por diseño.
 
-El §21 define el logotipo como puramente tipográfico («ARLES RELAY» en Mont Black), sin isotipo. Eso simplifica el problema, pero lo encadena a P-01.
-
-**Opciones:** (a) Dirección entrega los archivos existentes, si los hay en otro sitio · (b) se encargan a un diseñador externo · (c) se producen en este proyecto a partir del sistema de diseño.
+Queda como recomendación para v1.3 que Dirección entregue un brandbook propio —eliminaría el stock de IA del linaje de la marca (A-03)— pero ya no bloquea nada.
 
 ---
 
@@ -124,11 +123,13 @@ El enforcement está fuera de v1.2.0 (T-6, D-4), pero el **esquema** se define a
 
 | # | Pregunta | Bloquea | Riesgo | Estado |
 |---|---|---|---|---|
-| P-01 | Licencia de Mont | Fase 2 | R-01 | 🔴 |
-| P-02 | Activos de marca | Fase 2 | R-08 | 🔴 |
+| P-01 | Licencia de Mont | **La demo** | R-01 | 🟡 |
+| P-02 | Activos de marca | — | R-08 | ✅ cerrada (D-5) |
 | P-03 | Origen de los contactos | Fase 3 | R-13 | 🟡 |
 | P-04 | Rebotes parciales aceptados | Fase 3 | R-06 | 🟡 |
 | P-05 | Dominio y aviso de privacidad | Fase 5 | R-02 | 🟡 |
 | P-06 | Volumen operativo real | Fase 4 | R-09 | 🟡 |
 | P-07 | Modelo comercial | v1.3 | — | ⚪ |
 | P-08 | Consolidación de `/RECURSOS` | — | R-15 | ⚪ |
+
+**No queda ninguna pregunta bloqueante de las Fases 1 y 2.** P-03 y P-05 se necesitan más adelante y conviene irlas resolviendo en paralelo.

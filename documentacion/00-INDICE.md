@@ -100,20 +100,25 @@
 
 ## Estado del proyecto
 
-### 🔴 Bloqueantes
+### Fase 0 ✅ cerrada · Fase 1 en curso
 
-| # | Asunto | Bloquea | Dueño |
+La puerta de salida se cruzó el **2026-09-11**: Dirección aprobó la auditoría, **D-5** autorizó desarrollar con Mont, y **P-02** quedó cerrada porque el logotipo es tipográfico por diseño (§21).
+
+**No quedan bloqueantes para las Fases 1 y 2.**
+
+### 🟡 En seguimiento
+
+| # | Asunto | Puerta | Dueño |
 |---|---|---|---|
-| **P-01** | Licencia de Mont sin verificar | Fase 2 | Dirección |
-| **P-02** | No existen activos de marca de ARLES | Fase 2 | Dirección |
+| **P-01** | Licencia de Mont | **Antes de la demo** (D-5) | Dirección |
+| P-03 | Origen y consentimiento de los contactos | Fase 3 | Dirección + Legal |
+| P-05 | Dominio y aviso de privacidad para Google | Fase 5 | Dirección |
 
-### Puerta de salida de la Fase 0
+### Herramientas
 
-No se escribe código de producción hasta que:
-
-- [ ] Dirección apruebe [AUDITORIA_DISCOVERY](02-auditoria/AUDITORIA_DISCOVERY.md)
-- [ ] Se resuelva D-3 (licencia de Mont)
-- [ ] Se respondan P-01 a P-04
+| | |
+|---|---|
+| [Generador de tokens](../herramientas/design-tokens/README.md) | Fuente única de color → CSS, lámina y verificación WCAG en CI |
 
 ---
 

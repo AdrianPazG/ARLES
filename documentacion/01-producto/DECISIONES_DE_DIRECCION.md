@@ -97,8 +97,10 @@ Tomadas por Dirección el 2026-09-11, tras la presentación de los hallazgos de 
 
 ---
 
-### D-3 · Verificar o adquirir la App License de Fontfabric antes de la Fase 2
-**Decisión.** **Bloqueante duro.** Dirección confirma el alcance exacto de la licencia de Mont que posee y, si no cubre app embedding, la adquiere. El comprobante se archiva en `documentacion/08-legal/`. **El Design System no se congela hasta entonces.**
+### D-3 · Verificar o adquirir la App License de Fontfabric
+**Decisión.** Dirección confirma el alcance exacto de la licencia de Mont que posee y, si no cubre app embedding, la adquiere. El comprobante se archiva en `documentacion/08-legal/`.
+
+> ⚠️ **Revisada por D-5 (2026-09-11).** La puerta ya no está en la Fase 2, sino antes de la demo. Lee D-5 para saber qué aplica hoy.
 
 **Contexto.** El kit del repositorio fue generado con Transfonter y contiene `.eot` —formato muerto desde IE11—, perfil característico de un paquete de agregador y no de una entrega comercial de Fontfabric. La tabla `name` identifica la fuente como Mont de Fontfabric (Svetoslav Simov, Mirela Belova). No hay licencia, factura ni comprobante en el repositorio. Un bundle de Tauri lleva la fuente dentro del binario instalado en la máquina del cliente: eso es exactamente el supuesto de la App License, que las licencias Desktop y Web no cubren.
 
@@ -122,11 +124,41 @@ El §21 del propio brief ordena detenerse ante esto.
 
 ---
 
+### D-5 · Mont se usa durante el desarrollo; la licencia se resuelve antes de la demo
+**Decisión.** Se desarrolla con Mont con normalidad. **La pregunta por la licencia se vuelve a plantear cuando llegue el momento de la demo de la aplicación**, y esa es la puerta que sustituye a la de la Fase 2.
+
+**Qué desbloquea.** La Fase 2 arranca sin esperar. El Design System puede congelarse, incluida la escala tipográfica y el logotipo.
+
+**Y también desbloquea P-02.** El §21 define el logotipo como **exclusivamente tipográfico** —«ARLES RELAY» en Mont Black, sin isotipo—, así que con Mont disponible el logotipo se puede producir aquí. La flecha y el escudo que menciona T-9 no son necesarios: el §21 los excluye por diseño.
+
+**Dónde está la línea real, para que nadie la cruce por descuido.**
+
+| Uso | ¿Autorizado hoy? |
+|---|---|
+| Componer documentos, láminas y maquetas con Mont | **Sí** — uso de documento, cubierto por una licencia de escritorio |
+| Compilaciones de desarrollo en máquinas del equipo | **Sí** |
+| Logotipo entregado como SVG con contornos | **Sí** — es geometría, no contiene la fuente |
+| **Instalar la aplicación con Mont incrustada en cualquier máquina fuera del equipo de desarrollo** | **No, hasta resolver D-3** |
+| **Enseñar la aplicación a un cliente o prospecto como demo** | **No, hasta resolver D-3** |
+
+Lo que exige la App License no es el desarrollo: es **incrustar el binario de la fuente en un artefacto que se instala o se enseña como producto**. Mientras el binario no salga del equipo, no hay supuesto de distribución.
+
+**Cómo se vuelve a preguntar.** Al planificar la demo, antes de generar el primer instalador destinado a enseñarse. Registrado como **P-01** con disparador actualizado, y como elemento de la puerta de salida de la Fase 9.
+
+**Por qué es razonable ahora.** El plan B —Mont en marketing, logotipo en SVG con contornos, Figtree en la interfaz— sigue listo, **y es más barato de activar que antes**: toda la tipografía vive en `--arles-font-family` y los colores en `tokens.json`. Cambiar de familia es editar una línea, no rehacer el Design System. Desarrollar con Mont no crea deuda: crea una sustitución de una línea.
+
+**Riesgo residual, dicho con claridad.** Si la licencia no llega y hay que activar el plan B, el trabajo perdido es el ajuste fino tipográfico —interletrado, pesos ópticos, verificación de métricas en ambas plataformas—, no la arquitectura del Design System. Lo estimo en días, no semanas. Registrado en **R-01**, ahora con impacto rebajado de Alto a Medio.
+
+---
+
 ## Decisiones pendientes
 
-Ver **`02-auditoria/PREGUNTAS_ABIERTAS.md`** para el registro completo. Las bloqueantes:
+Ver **`02-auditoria/PREGUNTAS_ABIERTAS.md`** para el registro completo.
 
 | # | Pregunta | Bloquea |
 |---|---|---|
-| P-01 | ¿Qué licencia de Mont posee exactamente TELEMETRY? | Fase 2 |
-| P-02 | ¿Quién produce los activos de marca? | Fase 2 |
+| P-01 | ¿Qué licencia de Mont posee exactamente TELEMETRY? | **La demo** (antes: Fase 2) |
+| P-03 | Origen y consentimiento de los contactos | Fase 3 |
+| P-05 | Dominio y aviso de privacidad para Google | Fase 5 |
+
+**Ya no hay bloqueantes de la Fase 2.**

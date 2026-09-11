@@ -1,0 +1,28 @@
+/* Generado por herramientas/design-tokens/generar.py — NO EDITAR A MANO.
+ * Fuente: herramientas/design-tokens/tokens.json
+ * ARLES RELAY I v1.2.0 · WCAG 2.2 AA · ADR-0005 (D-2)
+ */
+
+:root {
+  /* Superficies · rampa derivada */
+  --arles-bg-deep       : #041A25;  /* Fondo de aplicación */
+  --arles-surface       : #053048;  /* Paneles, barra lateral */
+  --arles-border        : #0A4E71;  /* Separadores */
+  --arles-surface-raised: #045686;  /* Tarjetas, modales */
+  --arles-surface-hover : #0C6F9D;  /* Estado transitorio */
+  --arles-border-strong : #1380AE;  /* Bordes de énfasis */
+
+  /* Contenido y acento */
+  --arles-text      : #F4ECE4;  /* Texto primario */
+  --arles-text-muted: #E4E4CC;  /* Texto secundario */
+  --arles-accent    : #FCCC0C;  /* Acento · una vez por pantalla */
+  --arles-info      : #2CA4D4;  /* Trazo, borde, foco — nunca relleno */
+
+  /* Semánticos */
+  --arles-success: #4FC3A1;  /* Aceptado */
+  --arles-warning: #E08A1C;  /* Advertencia */
+  --arles-danger : #F06A5A;  /* Error, detener */
+
+  /* Alias */
+  --arles-text-on-accent: var(--arles-bg-deep);  /* Texto sobre rellenos claros. Existe para que nadie ponga texto claro sobre relleno claro. */
+}
