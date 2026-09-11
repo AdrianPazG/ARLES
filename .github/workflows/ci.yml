@@ -101,9 +101,53 @@ jobs:
           # licenses:   GPL y AGPL prohibidas (binario comercial)
           # sources:    solo crates.io
 
+  # ── Pasos 1 y 2 · Frontend ────────────────────────────────────────────────
+  frontend:
+    name: Frontend (lint, tipos, tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - run: npm ci
+
+      - name: eslint
+        run: npm run lint
+
+      # TypeScript estricto (§9): la webview es la superficie con más exposición
+      # a contenido no confiable, y `any` desactiva ahí lo que importa.
+      - name: Comprobación de tipos
+        run: npm run typecheck
+
+      # Estos tests codifican principios del producto: que ningún estado diga
+      # «Entregado» (§65), que todo error tenga sus tres partes (§95) y que el
+      # tono no sea infantil (§94).
+      - name: vitest
+        run: npm test
+
+      - name: Compilación de producción
+        run: npm run build
+
+      # Dos umbrales distintos, a propósito. Lo que se empaqueta en la
+      # aplicación llega a la máquina del cliente, así que se exige más: ahí
+      # cualquier aviso a partir de moderado rompe la compilación. Las
+      # herramientas de desarrollo nunca se distribuyen, así que se toleran los
+      # moderados y solo los graves detienen el trabajo.
+      - name: npm audit (dependencias que se distribuyen)
+        run: npm audit --omit=dev --audit-level=moderate
+
+      - name: npm audit (herramientas de desarrollo)
+        run: npm audit --audit-level=high
+
   # ── Pendientes de sus fases del roadmap ───────────────────────────────────
   #
-  # Fase 2  · frontend: eslint, tsc --noEmit, vitest, npm audit
   # Fase 4  · rendimiento: presupuestos con 500 000 contactos sintéticos
   #           (PRESUPUESTO_RENDIMIENTO.md §5)
   # Fase 6  · E2E: Playwright del camino dorado en Windows y macOS

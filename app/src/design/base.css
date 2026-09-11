@@ -1,0 +1,120 @@
+/* Capa base de ARLES RELAY.
+ *
+ * Los colores vienen de @tokens/arles-tokens.css, generado desde
+ * herramientas/design-tokens/tokens.json. Ningún hex se escribe aquí (§17).
+ *
+ * Ver documentacion/05-diseno/DESIGN_SYSTEM.md
+ */
+
+:root {
+  /* Espaciado · base 4px */
+  --arles-space-1: 4px;
+  --arles-space-2: 8px;
+  --arles-space-3: 12px;
+  --arles-space-4: 16px;
+  --arles-space-5: 24px;
+  --arles-space-6: 32px;
+  --arles-space-7: 48px;
+  --arles-space-8: 64px;
+
+  /* Radios · contenidos: los radios grandes leen como software de consumo */
+  --arles-radius-sm: 4px;
+  --arles-radius-md: 6px;
+  --arles-radius-lg: 8px;
+
+  --arles-border-width: 1px;
+  --arles-focus-width: 2px;
+
+  /* Tipografía · plan A Mont, plan B Figtree (D-5 / TIPOGRAFIA.md §3).
+   * Cambiar de familia es editar esta línea. */
+  --arles-font-family: 'Mont', 'Figtree', system-ui, -apple-system, 'Segoe UI',
+    sans-serif;
+
+  --arles-font-size-display: 32px;
+  --arles-line-height-display: 40px;
+  --arles-font-size-h1: 24px;
+  --arles-line-height-h1: 32px;
+  --arles-font-size-h2: 20px;
+  --arles-line-height-h2: 28px;
+  --arles-font-size-h3: 16px;
+  --arles-line-height-h3: 24px;
+  --arles-font-size-body: 14px;
+  --arles-line-height-body: 20px;
+  --arles-font-size-small: 13px;
+  --arles-line-height-small: 18px;
+  --arles-font-size-caption: 12px;
+  --arles-line-height-caption: 16px;
+
+  --arles-font-weight-regular: 400;
+  --arles-font-weight-medium: 500;
+  --arles-font-weight-semibold: 600;
+  --arles-font-weight-bold: 700;
+  --arles-font-weight-black: 900;
+
+  /* Movimiento · con propósito, nunca decorativo (§98) */
+  --arles-duration-fast: 120ms;
+  --arles-duration-normal: 200ms;
+  --arles-duration-slow: 320ms;
+  --arles-ease: cubic-bezier(0.2, 0, 0.2, 1);
+
+  /* Layout */
+  --arles-nav-width: 240px;
+  --arles-window-min-width: 1120px;
+  --arles-window-min-height: 720px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--arles-bg-deep);
+  color: var(--arles-text);
+  font-family: var(--arles-font-family);
+  font-size: var(--arles-font-size-body);
+  line-height: var(--arles-line-height-body);
+  -webkit-font-smoothing: antialiased;
+
+  /* Aplicación de escritorio: la selección de texto se habilita donde aporta,
+   * no por defecto. Arrastrar por una tabla no debe seleccionar media pantalla. */
+  user-select: none;
+}
+
+/* Las cifras en columnas deben alinearse: ARLES está lleno de tablas con
+ * números que se actualizan en vivo. Sin esto, bailan al refrescarse. */
+table,
+[data-numeric] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* El foco es innegociable (§100). Nunca `outline: none` sin sustituto visible.
+ * El acento pasa AA no textual contra las cuatro superficies (COLOR_SYSTEM §5). */
+:focus-visible {
+  outline: var(--arles-focus-width) solid var(--arles-accent);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Obligatorio, no opcional (§98). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

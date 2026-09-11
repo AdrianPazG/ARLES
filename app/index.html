@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- CSP estricta: sin unsafe-inline, sin unsafe-eval, sin orígenes remotos.
+         Ver THREAT_MODEL.md §4.5. La política definitiva la impone Tauri desde
+         tauri.conf.json; esta es la red de seguridad para `vite preview`. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost"
+    />
+    <!-- ADR-0010: el numeral «I» no aparece junto al número de versión. -->
+    <title>ARLES RELAY</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
