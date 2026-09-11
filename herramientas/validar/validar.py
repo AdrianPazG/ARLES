@@ -230,10 +230,44 @@ def fase_1(rapido):
           "'unsafe-eval'" not in csp_txt and "'unsafe-inline'" not in csp.get("script-src", ""),
           "Una CSP laxa devuelve a la webview la capacidad de ejecutar lo que le inyecten.")
 
-    eslint = leer("app", "eslint.config.js") or ""
-    check(1, "El frontend tiene prohibido fetch y localStorage",
-          "fetch" in eslint and "localStorage" in eslint,
-          "Regla de frontera 3.1 y §30: el I/O y los secretos viven en Rust, no en la webview.")
+    # Se comprueba **ejecutando eslint** contra código que viola la regla, no
+    # buscando texto en la configuración. Una búsqueda de texto pasa mientras la
+    # palabra aparezca en cualquier sitio —un comentario, otro mensaje— y por
+    # eso no detecta que alguien desactivó la regla.
+    app_dir = os.path.join(RAIZ, "app")
+    if not os.path.isdir(os.path.join(app_dir, "node_modules")):
+        omitir(1, "El frontend tiene prohibido fetch y localStorage",
+               "Falta node_modules: ejecuta `npm ci` en app/")
+    else:
+        cebo = os.path.join(app_dir, "src", "__validacion_frontera.ts")
+        try:
+            with open(cebo, "w", encoding="utf-8") as f:
+                f.write(
+                    "// Archivo temporal del validador. Debe ser rechazado por eslint.\n"
+                    "export async function viola() {\n"
+                    "  const r = await fetch('https://ejemplo.com')\n"
+                    "  localStorage.setItem('token', 'secreto')\n"
+                    "  return r\n"
+                    "}\n"
+                )
+            codigo, salida, seg = corre(
+                ["npx", "eslint", "src/__validacion_frontera.ts"], cwd=app_dir, timeout=300
+            )
+            # Se cuentan los errores en vez de buscar palabras en los mensajes:
+            # el texto está en español y se puede reescribir, pero las dos
+            # violaciones del cebo tienen que seguir produciendo dos errores.
+            errores = sum(1 for l in salida.splitlines() if " error " in l)
+            R.añadir(
+                1, "El frontend tiene prohibido fetch y localStorage",
+                "ok" if codigo != 0 and errores >= 2 else "falla",
+                salida or "eslint aceptó código que usa fetch y localStorage",
+                "Regla de frontera 3.1 y §30: el I/O y los secretos viven en Rust, "
+                "no en la webview. Si eslint no lo rechaza, la frontera es decorativa.",
+                seg,
+            )
+        finally:
+            if os.path.exists(cebo):
+                os.remove(cebo)
 
     # ── Rust ──
     print(f"{GRIS}  rust{FIN}")

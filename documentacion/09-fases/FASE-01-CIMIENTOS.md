@@ -161,6 +161,13 @@ Ese mismo desfase reapareció luego recortando los iconos por abajo. Esa vez sí
 
 La lección que queda escrita: **medir antes de arreglar**. Un cambio sobre un diagnóstico equivocado parece funcionar y deja el código peor.
 
+### El validador tenía una comprobación que era teatro
+Al terminar se probó el validador contra sí mismo: se inyectó `shell:allow-execute` en las capabilities y **lo detectó**; se desactivaron las reglas de eslint que prohíben `fetch` y `localStorage` y **no se enteró**.
+
+El motivo: esa comprobación era una búsqueda de texto en el archivo de configuración, y pasaba mientras la palabra apareciera en cualquier sitio. Se sustituyó por una que **ejecuta eslint contra un archivo cebo** que viola ambas reglas y exige que las rechace, contando errores en vez de buscar palabras —el texto está en español y puede reescribirse; las dos violaciones tienen que seguir produciendo dos errores.
+
+Queda como regla de método: **una comprobación que nunca se ha visto fallar no está verificada**. Romper algo a propósito y confirmar que salta es parte de escribirla.
+
 ### El shell filtraba `rusqlite`
 `arles-app` usaba tipos del motor de base de datos directamente. El compilador lo detectó al faltar la dependencia, y la tentación era declararla. Se resolvió al revés: `arles-db` expone una API tipada y el shell no conoce el motor.
 
