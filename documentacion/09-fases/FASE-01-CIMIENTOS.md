@@ -1,8 +1,9 @@
 # Fase 1 · Cimientos
 
 **Estado:** ✅ cerrada y **revisada** · **Fecha:** 2026-09-11
-**Validación:** 30/30 comprobaciones, 0 omitidas — `validar.py --fase 1`
-**Revisión:** 13 hallazgos, todos corregidos — ver §8
+**Validación:** 32/32 comprobaciones, 0 omitidas — `validar.py --fase 1`
+**Revisión:** 13 hallazgos, todos corregidos — ver §6
+**Para Dirección:** el mismo contenido sin tecnicismos en [FASE-01-PARA-DIRECCION.md](FASE-01-PARA-DIRECCION.md)
 
 > **Objetivo.** Levantar el esqueleto sobre el que se construye todo lo demás, y —más importante— **hacer que las decisiones documentadas sean ejecutables**. Un principio que solo vive en un documento se erosiona; convertido en test o en regla de lint, se defiende solo.
 
@@ -33,7 +34,7 @@ SQLite con SQLCipher, migraciones con `refinery`, y un asa tipada que **no deja 
 - `conexion.rs` — `ClaveMaestra` (32 bytes) y apertura con `PRAGMA key` primero
 - `db.rs` — `Db`: métodos tipados, un solo escritor
 - `migraciones.rs` — migraciones embebidas en el binario
-- `migrations/V1__esquema_inicial.sql` — **19 tablas, 346 líneas**
+- `migrations/V1__esquema_inicial.sql` — **19 tablas, 367 líneas**
 
 **Por qué el asa tipada.** El shell pedía la conexión y usaba `rusqlite` directamente; eso filtraba el motor de base de datos a la capa de presentación. Se corrigió moviendo las consultas a `arles-db`: ahora el SQL vive en un solo sitio y se puede auditar de una pasada ([ADR-0002](../03-arquitectura/adr/0002-rusqlite-sqlcipher-refinery.md)).
 
@@ -65,9 +66,10 @@ Vue 3 con TypeScript estricto, Pinia, vue-router e i18n, consumiendo el CSS gene
 
 ### Infraestructura
 
-`deny.toml` (licencias y avisos) · `.github/workflows/ci.yml` (7 jobs) · `.gitignore`
+`deny.toml` (licencias y avisos) · `.github/workflows/ci.yml` (6 jobs) · `.gitignore`
 
-**Volumen:** ~2 400 líneas de Rust, ~500 de TypeScript y Vue, ~1 100 de herramientas.
+**Volumen:** ~2 970 líneas de Rust (1 073 en `arles-core`, 990 en `arles-db`, 909 en
+`arles-app`), ~850 de TypeScript y Vue, ~1 190 de herramientas.
 
 ---
 
@@ -89,7 +91,7 @@ Lo que se empaqueta llega a la máquina del cliente, así que no tolera avisos m
 
 ## 3. Qué se verificó, y cómo
 
-**30 comprobaciones automáticas, 0 omitidas.** Reproducible con `validar.py --fase 1`.
+**32 comprobaciones automáticas, 0 omitidas.** Reproducible con `validar.py --fase 1`.
 
 ### Fronteras de arquitectura
 
@@ -101,8 +103,9 @@ Lo que se empaqueta llega a la máquina del cliente, así que no tolera avisos m
 | La CSP no permite `unsafe-inline` ni `unsafe-eval` en scripts | Análisis de `tauri.conf.json` |
 | Borrar un contacto no borra el registro de envío | Análisis de la migración |
 | El frontend tiene prohibido `fetch` y `localStorage` | **Se ejecuta eslint** contra un archivo cebo que viola ambas reglas |
+| El PDF para Dirección corresponde a su Markdown | Huella SHA-256 del `.md` de origen, escrita al generar |
 
-Estas seis no las cubre ningún test: son las que evitan que la arquitectura se erosione sin que nadie lo note.
+Estas siete no las cubre ningún test: son las que evitan que la arquitectura se erosione sin que nadie lo note.
 
 ### Decisiones convertidas en tests
 
@@ -148,7 +151,7 @@ Y una limitación de método que conviene tener presente: el validador comprueba
 
 ---
 
-## 5. Problemas encontrados
+## 5. Problemas encontrados durante la fase
 
 ### Un test encontró un caso que merecía pensarse
 `"juan@empresa.com\r"` se recortaba antes de la comprobación anti-inyección. Revisado: **es correcto** — un CSV de Windows deja ese carácter y la dirección resultante es limpia. Se ajustó la expectativa del test, no el código, y quedaron dos tests que fijan ambos comportamientos: CRLF **alrededor** se recorta, CRLF **dentro** se rechaza.
@@ -175,32 +178,7 @@ Queda como regla de método: **una comprobación que nunca se ha visto fallar no
 
 ---
 
-## 6. Pendiente
-
-| Qué | Dónde |
-|---|---|
-| Trámite de verificación OAuth de Google | Arrancado en paralelo — P-05 |
-| Certificados de firma (Windows OV/EV, Apple Developer ID) | Plazos externos de 1–3 semanas — R-14 |
-| Licencia de Mont | Puerta antes de la demo — D-5, P-01 |
-| Jobs de CI de rendimiento y E2E | Fases 4 y 6 |
-
-## 7. Cómo reproducir esta validación
-
-```bash
-# Dependencias de Linux (Windows y macOS no las necesitan)
-sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
-                        libayatana-appindicator3-dev librsvg2-dev \
-                        gnome-keyring dbus-x11
-
-npm --prefix app ci
-python3 herramientas/validar/validar.py --fase 1
-```
-
-Salida esperada: **30 pasan, 0 fallan, 0 omitidos**.
-
----
-
-## 8. Revisión a fondo de la fase
+## 6. Revisión a fondo de la fase
 
 Tras cerrar la fase se hizo una revisión completa del rango de commits. **Encontró 13 defectos que la validación no veía**, y esa es la conclusión más útil: un validador comprueba que las fronteras siguen donde se pusieron, no que la lógica dentro de ellas sea correcta.
 
@@ -247,9 +225,34 @@ Leer y crear ahora están separados, porque **una función «obtener-o-crear» n
 Tres defectos estaban **en el aparato de verificación**, no en el producto:
 
 1. **Los tests del llavero compartían una cuenta fija.** Uno borraba la entrada mientras otro corría en paralelo. Los resultados parecían correctos. El llavero es ahora inyectable y cada test usa la suya.
-2. **Una comprobación del validador era una búsqueda de texto.** Pasaba mientras la palabra apareciera en cualquier sitio. Se descubrió rompiendo cosas a propósito: detectó un permiso de `shell` inyectado, pero no que se hubieran desactivado las reglas de eslint.
+2. **Una comprobación del validador era una búsqueda de texto** en vez de una ejecución real. El caso completo está en §5.
 3. **Un test nuevo era demasiado permisivo.** Comprobaba que cada error tuviera tres partes, y el texto genérico también las tiene: pasaba con las diez claves cayendo en el genérico. Ahora exige que ninguna lo haga.
 
-La regla que queda: **una comprobación que nunca se ha visto fallar no está verificada.** Romper algo a propósito y confirmar que salta es parte de escribirla.
+Los tres confirman la regla de método de §5: **una comprobación que nunca se ha visto fallar no está verificada.**
 
 ---
+
+## 7. Pendiente
+
+| Qué | Dónde |
+|---|---|
+| Trámite de verificación OAuth de Google | Arrancado en paralelo — P-05 |
+| Certificados de firma (Windows OV/EV, Apple Developer ID) | Plazos externos de 1–3 semanas — R-14 |
+| Licencia de Mont | Puerta antes de la demo — D-5, P-01 |
+| Jobs de CI de rendimiento y E2E | Fases 4 y 6 |
+
+---
+
+## 8. Cómo reproducir esta validación
+
+```bash
+# Dependencias de Linux (Windows y macOS no las necesitan)
+sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+                        libayatana-appindicator3-dev librsvg2-dev \
+                        gnome-keyring dbus-x11
+
+npm --prefix app ci
+python3 herramientas/validar/validar.py --fase 1
+```
+
+Salida esperada: **32 pasan, 0 fallan, 0 omitidos**.

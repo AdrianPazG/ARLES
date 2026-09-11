@@ -13,6 +13,7 @@ Sin dependencias externas: solo stdlib de Python 3.
 """
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -407,6 +408,40 @@ def fase_1(rapido):
         "central del producto y la única forma de comprobarla es ejecutarla.",
         seg,
     )
+
+    # ── Documentación ──
+    print(f"{GRIS}  documentación{FIN}")
+
+    md_dir = os.path.join(RAIZ, "documentacion/09-fases/FASE-01-PARA-DIRECCION.md")
+    pdf_dir = os.path.join(RAIZ, "documentacion/09-fases/FASE-01-PARA-DIRECCION.pdf")
+    huella_dir = pdf_dir + ".sha256"
+
+    check(
+        1, "existe el informe de fase para Dirección (md y pdf)",
+        os.path.exists(md_dir) and os.path.exists(pdf_dir),
+        "Una fase que sólo se puede entender leyendo código no está entregada: "
+        "Dirección aprueba lo que puede leer.",
+    )
+
+    if os.path.exists(md_dir) and os.path.exists(huella_dir):
+        actual = hashlib.sha256(open(md_dir, "rb").read()).hexdigest()
+        registrada = open(huella_dir, encoding="utf-8").read().split()[0]
+        check(
+            1, "el PDF para Dirección corresponde a su Markdown",
+            actual == registrada,
+            "Un PDF es binario: si se queda atrás respecto al texto que lo "
+            "origina, nadie lo nota en una revisión y Dirección lee una versión "
+            "que ya no es cierta. Regenerar con "
+            "herramientas/informe-direccion/generar-pdf.py.",
+            f"md={actual[:12]}… registrada={registrada[:12]}…",
+        )
+    else:
+        check(
+            1, "el PDF para Dirección corresponde a su Markdown", False,
+            "Falta la huella del Markdown de origen; sin ella no hay forma de "
+            "saber si el PDF está al día.",
+            f"no existe {huella_dir}",
+        )
 
 
 FASES = {0: fase_0, 1: fase_1}

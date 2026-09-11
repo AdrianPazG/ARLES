@@ -12,7 +12,8 @@ Desarrollado por **TELEMETRY INSIGHT**
 | Fase | | Validación |
 |---|---|---|
 | [00 · Discovery y auditoría](documentacion/09-fases/FASE-00-DISCOVERY.md) | ✅ cerrada | 4/4 |
-| [01 · Cimientos](documentacion/09-fases/FASE-01-CIMIENTOS.md) | ✅ cerrada y revisada | 30/30 |
+| [01 · Cimientos](documentacion/09-fases/FASE-01-CIMIENTOS.md) | ✅ cerrada y revisada | 32/32 |
+| ↳ [Resumen para Dirección](documentacion/09-fases/FASE-01-PARA-DIRECCION.md) | sin tecnicismos | — |
 | 02 · Design System | ⬜ siguiente | — |
 
 ```bash

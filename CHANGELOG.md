@@ -14,9 +14,11 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ### Fase 1 — Cimientos ✅ cerrada
 
-**Validación: 34/34 comprobaciones, 0 omitidas** — `herramientas/validar/validar.py`.
-Revisión a fondo: **13 hallazgos, todos corregidos** (ver §8 del documento de fase).
-Resumen completo en [`documentacion/09-fases/FASE-01-CIMIENTOS.md`](documentacion/09-fases/FASE-01-CIMIENTOS.md).
+**Validación: 32/32 comprobaciones de la fase, 0 omitidas** — `validar.py --fase 1`
+(36/36 contando las 4 de la Fase 0 en la ejecución completa).
+Revisión a fondo: **13 hallazgos, todos corregidos** (§6 del documento de fase).
+Resumen completo en [`FASE-01-CIMIENTOS.md`](documentacion/09-fases/FASE-01-CIMIENTOS.md);
+versión sin tecnicismos para Dirección en [`FASE-01-PARA-DIRECCION.md`](documentacion/09-fases/FASE-01-PARA-DIRECCION.md).
 
 
 - **`arles-core`** — tipos de dominio sin I/O: ids tipados con UUID v7, `Secret<T>`

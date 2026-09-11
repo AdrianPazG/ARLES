@@ -103,17 +103,18 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 |---|---|
 | [README · índice de fases](09-fases/README.md) | — |
 | [Fase 00 · Discovery y auditoría](09-fases/FASE-00-DISCOVERY.md) | ✅ 4/4 |
-| [Fase 01 · Cimientos](09-fases/FASE-01-CIMIENTOS.md) | ✅ 29/29 |
+| [Fase 01 · Cimientos](09-fases/FASE-01-CIMIENTOS.md) | ✅ 32/32 |
+| [Fase 01 · resumen para Dirección](09-fases/FASE-01-PARA-DIRECCION.md) | Sin tecnicismos |
 
 ---
 
 ## Estado del proyecto
 
-### Fase 0 ✅ cerrada · Fase 1 en curso
+### Fases 0 y 1 ✅ cerradas · Fase 2 es la siguiente
 
 La puerta de salida se cruzó el **2026-09-11**: Dirección aprobó la auditoría, **D-5** autorizó desarrollar con Mont, y **P-02** quedó cerrada porque el logotipo es tipográfico por diseño (§21).
 
-**No quedan bloqueantes para las Fases 1 y 2.**
+**No quedan bloqueantes para la Fase 2.**
 
 ### 🟡 En seguimiento
 
