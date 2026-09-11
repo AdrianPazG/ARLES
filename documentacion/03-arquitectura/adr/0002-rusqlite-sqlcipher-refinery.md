@@ -15,9 +15,18 @@ Dos restricciones acotan la elección:
 
 ## Decisión
 
-- **`rusqlite`** con la característica `bundled-sqlcipher-vendored-openssl`
-- **`refinery`** para migraciones SQL versionadas y embebidas
+- **`rusqlite` 0.37** con la característica `bundled-sqlcipher-vendored-openssl`
+- **`refinery` 0.9** para migraciones SQL versionadas y embebidas
 - **Capa de repositorios propia**, sin ORM
+
+> **Nota de implementación (2026-09-11).** Las versiones importan más de lo
+> habitual aquí: `refinery` 0.8 fija `rusqlite` entre 0.23 y 0.26, y como ambos
+> declaran `links = "sqlite3"`, **no pueden coexistir** con el `rusqlite` 0.37
+> que necesita SQLCipher. Cargo lo rechaza en la resolución, no en el enlazado.
+> `refinery` 0.9 sí admite `rusqlite` 0.37.
+>
+> Al subir cualquiera de los dos, hay que comprobar la compatibilidad **antes**:
+> el fallo no es sutil, pero sí bloqueante.
 
 ## Justificación
 
