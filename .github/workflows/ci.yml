@@ -1,0 +1,113 @@
+name: CI
+
+# Pipeline de documentacion/06-calidad/ESTRATEGIA_QA.md §6.
+#
+# Estado: los pasos 1-5 están activos. Los de frontend, rendimiento, E2E y
+# build de instaladores se añaden cuando aterricen sus fases del roadmap; los
+# huecos están marcados abajo para que no se olviden.
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Paso 5 · Contraste de tokens de diseño ────────────────────────────────
+  #
+  # Va primero a propósito: es de segundos y detecta una regresión de
+  # accesibilidad antes de gastar minutos compilando.
+  contraste:
+    name: Contraste de tokens (WCAG)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar contratos y advertencias
+        run: python3 herramientas/design-tokens/generar.py --verificar
+
+      # Los tokens generan el CSS que consume el frontend. Si el CSS del
+      # repositorio no coincide con lo que produce tokens.json, alguien lo
+      # editó a mano y el §17 dejó de cumplirse.
+      - name: El CSS generado está al día
+        run: |
+          python3 herramientas/design-tokens/generar.py --css
+          git diff --exit-code herramientas/design-tokens/dist/ \
+            || { echo "::error::dist/arles-tokens.css no coincide con tokens.json. Ejecuta generar.py --css y confirma el resultado."; exit 1; }
+
+  # ── Paso 1 · Formato y análisis estático ──────────────────────────────────
+  formato:
+    name: rustfmt y clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+
+      - name: rustfmt
+        run: cargo fmt --all --check
+
+      # §138: sin unwrap ni panic indiscriminados. El workspace los deniega y
+      # aquí se hace cumplir.
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  # ── Pasos 2 y 3 · Tests unitarios y de integración ────────────────────────
+  #
+  # Los crates de dominio no dependen del shell de Tauri, así que corren en
+  # Linux sin webkit2gtk. Es la prueba práctica de que la frontera de
+  # ARQUITECTURA.md §2 es real y no decorativa.
+  tests:
+    name: Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # SQLCipher se compila desde fuente junto con OpenSSL: la primera
+      # ejecución es lenta, la caché absorbe las siguientes.
+      - name: cargo test
+        run: cargo test --workspace --all-targets
+
+      - name: doctests
+        run: cargo test --workspace --doc
+
+  # ── Paso 4 · Seguridad y licencias ────────────────────────────────────────
+  dependencias:
+    name: Avisos de seguridad y licencias
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          # advisories: CVEs y crates retirados
+          # bans:       duplicados y el conflicto de libsqlite3-sys
+          # licenses:   GPL y AGPL prohibidas (binario comercial)
+          # sources:    solo crates.io
+
+  # ── Pendientes de sus fases del roadmap ───────────────────────────────────
+  #
+  # Fase 2  · frontend: eslint, tsc --noEmit, vitest, npm audit
+  # Fase 4  · rendimiento: presupuestos con 500 000 contactos sintéticos
+  #           (PRESUPUESTO_RENDIMIENTO.md §5)
+  # Fase 6  · E2E: Playwright del camino dorado en Windows y macOS
+  #           (ESTRATEGIA_QA.md §2)
+  # Fase 9  · build: instaladores firmados y notarizados
+  #           El job de Tauri necesita webkit2gtk en Linux; en Windows y macOS
+  #           no hace falta, y son los únicos objetivos de v1.2.0 (§4).

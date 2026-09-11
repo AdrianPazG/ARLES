@@ -7,6 +7,11 @@ node_modules/
 dist/
 .vite/
 
+# ...pero el CSS de tokens SÍ se versiona: lo consume el frontend sin tener que
+# ejecutar Python, y el CI lo regenera y compara para detectar ediciones a mano.
+!herramientas/design-tokens/dist/
+!herramientas/design-tokens/dist/*.css
+
 # Tauri
 /crates/arles-app/gen/
 

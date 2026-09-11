@@ -1,0 +1,69 @@
+# Política de dependencias de ARLES RELAY.
+# Ver documentacion/08-legal/LICENCIAS_DE_TERCEROS.md §5.
+#
+#   cargo deny check
+
+[graph]
+all-features = true
+
+# ─── Licencias ──────────────────────────────────────────────────────────────
+#
+# ARLES se distribuye como binario comercial. Enlazar código GPL o AGPL
+# obligaría a liberar el código fuente del producto, así que no se permite.
+# Una licencia no listada rompe la compilación: se decide explícitamente, no
+# por omisión.
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "MPL-2.0",           # Copyleft por archivo: compatible con enlazado propietario
+    "CDLA-Permissive-2.0",
+    "OpenSSL",
+]
+
+# SQLCipher Community es BSD-3-Clause; entra por la lista de arriba.
+# Ver el punto 3 de «Pendiente de Dirección y Legal»: hay que confirmar que se
+# enlaza la edición Community y no una comercial de Zetetic.
+
+[[licenses.exceptions]]
+name = "unicode-ident"
+allow = ["Unicode-DFS-2016"]
+
+# ─── Avisos de seguridad ────────────────────────────────────────────────────
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = []
+
+# ─── Fuentes ────────────────────────────────────────────────────────────────
+#
+# Solo crates.io. Una dependencia de git es código sin versionar que puede
+# cambiar bajo nuestros pies entre dos compilaciones.
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+
+# ─── Duplicados ─────────────────────────────────────────────────────────────
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+# Nunca debe haber dos versiones de esto: ambas declaran links="sqlite3" y el
+# enlazado fallaría. Fue justo el conflicto entre refinery 0.8 y rusqlite 0.37
+# (ver ADR-0002).
+[[bans.deny]]
+name = "libsqlite3-sys"
+wrappers = ["rusqlite"]
