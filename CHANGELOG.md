@@ -12,7 +12,32 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
-### Añadido
+### Fase 1 — Cimientos (en curso)
+
+- **`arles-core`** — tipos de dominio sin I/O: ids tipados con UUID v7, `Secret<T>`
+  con `Debug`/`Display` redactados, normalización de correo y máquina de estados
+  de intento. 35 tests.
+- **`arles-db`** — SQLite cifrado con SQLCipher, migraciones con `refinery` y el
+  esquema inicial completo. 22 tests, incluidos los que verifican que el archivo
+  en disco está realmente cifrado y que los invariantes del esquema se cumplen.
+- **`app/`** — andamiaje de Vue 3 con TypeScript estricto, Pinia, vue-router e
+  i18n, consumiendo el CSS generado desde `tokens.json`. 11 tests.
+- **`herramientas/design-tokens/`** — fuente única de color: genera el CSS, la
+  lámina de la paleta y la verificación WCAG de CI.
+- **CI** — contraste, rustfmt, clippy con `-D warnings`, tests en Linux, Windows
+  y macOS, `cargo-deny` y auditoría de npm con dos umbrales.
+
+### Decisiones
+
+- **D-5** — Se desarrolla con Mont; la puerta de la licencia pasa de la Fase 2 a
+  **antes de la demo**. Cierra P-02: el logotipo es tipográfico por diseño (§21).
+- **ADR-0002** — `refinery` 0.9, no 0.8: la 0.8 fija `rusqlite` ≤ 0.26 y ambos
+  declaran `links = "sqlite3"`, así que no coexisten con el 0.37 que SQLCipher
+  necesita.
+
+### Fase 0 — Discovery y auditoría
+
+#### Añadido
 - Cuerpo documental completo de la Fase 0 en `documentacion/`:
   - Auditoría de discovery con el entregable A–U del §163
   - Inventario forense de assets con 7 hallazgos
