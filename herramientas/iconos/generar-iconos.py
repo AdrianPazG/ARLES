@@ -158,6 +158,15 @@ def recortar_png(ruta, alto):
 
     if alto_actual == alto:
         return
+    if alto_actual < alto:
+        # Si `desfase_ventana` no pudo medir y devolvió 0, la captura sale más
+        # baja de lo pedido. Recortar «hacia arriba» escribiría un IHDR que
+        # declara más filas de las que hay: un PNG corrupto, que además acabaría
+        # empaquetado dentro del .ico y el .icns sin que nadie lo notara.
+        sys.exit(
+            f"ERROR: la captura mide {alto_actual}px de alto y se esperaban {alto}. "
+            f"El desfase de ventana no se midió bien; revisa Chromium."
+        )
 
     canales = {0: 1, 2: 3, 4: 2, 6: 4}[tipo_color]
     paso = ancho * canales

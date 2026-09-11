@@ -1,7 +1,12 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 
 import { SECCIONES } from '@/app/router'
+import { useAppStore } from '@/app/stores/app'
+
+const app = useAppStore()
+onMounted(() => void app.cargar())
 </script>
 
 <template>
@@ -36,7 +41,7 @@ import { SECCIONES } from '@/app/router'
           {{ $t('producto.atribucion') }}
         </p>
         <p class="version">
-          v1.2.0
+          v{{ app.info.version }}
         </p>
       </footer>
     </nav>

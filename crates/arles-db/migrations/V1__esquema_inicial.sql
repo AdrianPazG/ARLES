@@ -249,12 +249,19 @@ CREATE INDEX idx_campaign_company_status ON campaign(company_id, status);
 
 -- Audiencia CONGELADA al activar. Es lo que hace la campaña reproducible y
 -- auditable: sin esto, «¿a quién le llegó esto?» no tendría respuesta.
+--
+-- Congelada significa que sobrevive a lo que pase después con el contacto. Por
+-- eso la clave es la dirección y el contact_id se anula al borrar, en vez de
+-- arrastrar la fila: si la instantánea encogiera sola, no sería una instantánea.
 CREATE TABLE campaign_audience (
-    campaign_id TEXT NOT NULL REFERENCES campaign(id) ON DELETE CASCADE,
-    contact_id  TEXT NOT NULL REFERENCES contact(id) ON DELETE CASCADE,
-    added_at    TEXT NOT NULL,
-    PRIMARY KEY (campaign_id, contact_id)
+    campaign_id   TEXT NOT NULL REFERENCES campaign(id) ON DELETE CASCADE,
+    contact_email TEXT NOT NULL,
+    contact_id    TEXT REFERENCES contact(id) ON DELETE SET NULL,
+    added_at      TEXT NOT NULL,
+    PRIMARY KEY (campaign_id, contact_email)
 ) STRICT;
+
+CREATE INDEX idx_audiencia_contacto ON campaign_audience(contact_id);
 
 -- ─── La tabla crítica ───────────────────────────────────────────────────────
 
@@ -267,7 +274,16 @@ CREATE TABLE campaign_audience (
 CREATE TABLE message_attempt (
     id                  TEXT PRIMARY KEY NOT NULL,
     campaign_id         TEXT NOT NULL REFERENCES campaign(id) ON DELETE CASCADE,
-    contact_id          TEXT NOT NULL REFERENCES contact(id) ON DELETE CASCADE,
+    -- SET NULL, no CASCADE: borrar un contacto NO puede borrar la prueba de que
+    -- se le envió un correo. Se conserva el intento y su resultado, se elimina
+    -- la identidad — que es exactamente lo que MODELO_DE_DATOS.md §3.4 describe
+    -- para el derecho de cancelación.
+    contact_id          TEXT REFERENCES contact(id) ON DELETE SET NULL,
+    -- La clave REAL de idempotencia. Por el mismo motivo que la supresión se
+    -- indexa por dirección y no por contact_id (§39): si alguien borra un
+    -- contacto y lo vuelve a importar, obtiene un id nuevo — y con una
+    -- restricción basada en contact_id, la campaña le enviaría OTRA VEZ.
+    contact_email       TEXT NOT NULL,
     email_account_id    TEXT REFERENCES email_account(id) ON DELETE SET NULL,
     -- UUID generado y persistido ANTES de llamar al proveedor. Viaja como
     -- Message-Id del correo. Ver ADR-0004.
@@ -289,11 +305,16 @@ CREATE TABLE message_attempt (
     updated_at          TEXT NOT NULL
 ) STRICT;
 
+-- Un intento por campaña y DIRECCIÓN, no por campaña y contact_id.
+-- Es lo que hace que borrar y reimportar un contacto no abra la puerta a un
+-- segundo envío (§55, ADR-0004).
 CREATE UNIQUE INDEX idx_attempt_unique
-    ON message_attempt(campaign_id, contact_id);
+    ON message_attempt(campaign_id, contact_email);
 
 CREATE UNIQUE INDEX idx_attempt_idempotency
     ON message_attempt(idempotency_key);
+
+CREATE INDEX idx_attempt_contacto ON message_attempt(contact_id);
 
 -- Índice PARCIAL: solo cubre filas accionables. En una campaña de 500 000 con
 -- 499 000 completadas, este índice tiene 1 000 entradas, no 500 000.

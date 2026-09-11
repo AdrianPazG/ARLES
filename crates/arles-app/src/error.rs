@@ -13,6 +13,21 @@ pub enum AppError {
     #[error("el almacén de credenciales del sistema no está disponible: {0}")]
     LlaveroNoDisponible(String),
 
+    /// Hay una base de datos en disco pero su clave ya no está en el llavero.
+    ///
+    /// Ocurre al reinstalar el sistema, cambiar de equipo o corromperse el
+    /// perfil de usuario. **La base es irrecuperable sin esa clave** — es la
+    /// propiedad que se buscaba al cifrarla (riesgo R-10).
+    ///
+    /// Se distingue de [`Self::LlaveroNoDisponible`] porque la acción del
+    /// usuario es completamente distinta: allí hay que desbloquear el llavero;
+    /// aquí hay que restaurar un respaldo.
+    #[error(
+        "la clave de la base de datos ya no está en el almacén de credenciales \
+         del sistema"
+    )]
+    ClaveMaestraPerdida,
+
     #[error("no se pudo determinar el directorio de datos de la aplicación")]
     DirectorioDeDatos,
 
@@ -28,6 +43,7 @@ impl AppError {
     pub fn clave_i18n(&self) -> &'static str {
         match self {
             Self::LlaveroNoDisponible(_) => "error.app.llavero_no_disponible",
+            Self::ClaveMaestraPerdida => "error.app.clave_maestra_perdida",
             Self::DirectorioDeDatos => "error.app.directorio_de_datos",
             Self::Db(e) => e.clave_i18n(),
             Self::Core(e) => e.clave_i18n(),
@@ -56,9 +72,31 @@ impl From<AppError> for ErrorIpc {
     fn from(e: AppError) -> Self {
         Self {
             clave: e.clave_i18n().to_owned(),
-            detalle: e.to_string(),
+            detalle: redactar_rutas(&e.to_string()),
         }
     }
+}
+
+/// Sustituye cualquier fragmento con pinta de ruta por `[ruta]`.
+///
+/// `AppError` envuelve errores de `rusqlite` y del llavero, y esos **sí**
+/// incluyen rutas del sistema de archivos en su mensaje. Sin esto, el campo
+/// contradecía su propia documentación en cuanto el error venía de una capa
+/// inferior, y el test que lo vigilaba solo cubría las dos variantes que nunca
+/// podían contener una (THREAT_MODEL.md §4.1).
+fn redactar_rutas(mensaje: &str) -> String {
+    mensaje
+        .split(' ')
+        .map(|palabra| {
+            let limpia = palabra.trim_matches(|c: char| !c.is_alphanumeric());
+            if limpia.contains('/') || limpia.contains('\\') || limpia.contains(":\\") {
+                "[ruta]"
+            } else {
+                palabra
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 #[cfg(test)]
@@ -89,11 +127,49 @@ mod tests {
     fn los_errores_no_revelan_rutas() {
         for e in [
             AppError::DirectorioDeDatos,
+            AppError::ClaveMaestraPerdida,
             AppError::Db(arles_db::DbError::ClaveIncorrecta),
         ] {
             let t = e.to_string();
             assert!(!t.contains('/'), "el error revela una ruta: {t}");
             assert!(!t.contains('\\'), "el error revela una ruta: {t}");
         }
+    }
+
+    /// Hallazgo F7. El test de arriba solo cubría variantes que **nunca** pueden
+    /// contener una ruta. Las que envuelven a `rusqlite` o al llavero sí las
+    /// llevan, y cruzaban la frontera IPC intactas.
+    #[test]
+    fn el_error_ipc_redacta_las_rutas_de_las_capas_inferiores() {
+        let e = AppError::LlaveroNoDisponible(
+            "no se pudo abrir /home/ana/.local/share/keyrings/login.keyring".into(),
+        );
+        let ipc: ErrorIpc = e.into();
+
+        assert!(
+            !ipc.detalle.contains("/home/ana"),
+            "la ruta cruzó la frontera IPC: {}",
+            ipc.detalle
+        );
+        assert!(ipc.detalle.contains("[ruta]"));
+        // Sigue siendo útil para diagnosticar: el resto del mensaje se conserva.
+        assert!(ipc.detalle.contains("no se pudo abrir"));
+    }
+
+    #[test]
+    fn la_redaccion_tambien_cubre_rutas_de_windows() {
+        let ipc: ErrorIpc = AppError::LlaveroNoDisponible(
+            r"fallo en C:\Users\Ana\AppData\Roaming\ArlesRelay".into(),
+        )
+        .into();
+        assert!(!ipc.detalle.contains("Users"), "{}", ipc.detalle);
+        assert!(ipc.detalle.contains("[ruta]"));
+    }
+
+    #[test]
+    fn la_redaccion_no_estropea_un_mensaje_sin_rutas() {
+        let ipc: ErrorIpc = AppError::ClaveMaestraPerdida.into();
+        assert!(!ipc.detalle.contains("[ruta]"));
+        assert!(ipc.detalle.contains("clave"));
     }
 }

@@ -95,6 +95,32 @@ export const es = {
         salvo: 'Las operaciones incompletas se revirtieron por completo.',
       },
     },
+    app: {
+      llavero_no_disponible: {
+        que: 'No se puede acceder al almacén de credenciales de tu sistema.',
+        como:
+          'Verifica que esté disponible y desbloqueado, y vuelve a abrir ARLES. ' +
+          'Sin él, ARLES no puede descifrar tus datos.',
+        salvo: 'Tus datos están intactos: la base de datos no se ha modificado.',
+      },
+      // Hallazgo F2: se distingue de «llavero no disponible» porque la acción
+      // del usuario es completamente distinta. Allí hay que desbloquear el
+      // llavero; aquí lo único que recupera los datos es un respaldo.
+      clave_maestra_perdida: {
+        que: 'La clave que cifraba tu base de datos ya no está en tu sistema.',
+        como:
+          'Restaura tu último respaldo .arles. Sin esa clave, los datos ' +
+          'existentes no se pueden leer: es la propiedad que los protegía.',
+        salvo: 'El archivo no se ha modificado ni borrado: sigue donde estaba.',
+      },
+      directorio_de_datos: {
+        que: 'No se pudo acceder a la carpeta de datos de ARLES.',
+        como:
+          'Comprueba que tu usuario tiene permiso de escritura en la carpeta ' +
+          'de datos de las aplicaciones.',
+        salvo: 'No se ha creado ni modificado ningún archivo.',
+      },
+    },
   },
 
   vacio: {

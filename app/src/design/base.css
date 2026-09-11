@@ -84,8 +84,19 @@ body {
   line-height: var(--arles-line-height-body);
   -webkit-font-smoothing: antialiased;
 
-  /* Aplicación de escritorio: la selección de texto se habilita donde aporta,
-   * no por defecto. Arrastrar por una tabla no debe seleccionar media pantalla. */
+  /* El texto SE SELECCIONA. Es una aplicación llena de direcciones de correo,
+   * nombres y mensajes de error: copiar un dato es una de las cosas que más va
+   * a hacer el usuario. Un `user-select: none` global lo impedía por completo.
+   *
+   * Se desactiva solo en los elementos de navegación y control, donde arrastrar
+   * seleccionaría etiquetas sin ningún valor. */
+  user-select: text;
+}
+
+.nav,
+button,
+[role='button'],
+[role='tab'] {
   user-select: none;
 }
 

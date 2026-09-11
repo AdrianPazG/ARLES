@@ -14,21 +14,23 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ### Fase 1 — Cimientos ✅ cerrada
 
-**Validación: 33/33 comprobaciones, 0 omitidas** — `herramientas/validar/validar.py`.
+**Validación: 34/34 comprobaciones, 0 omitidas** — `herramientas/validar/validar.py`.
+Revisión a fondo: **13 hallazgos, todos corregidos** (ver §8 del documento de fase).
 Resumen completo en [`documentacion/09-fases/FASE-01-CIMIENTOS.md`](documentacion/09-fases/FASE-01-CIMIENTOS.md).
 
 
 - **`arles-core`** — tipos de dominio sin I/O: ids tipados con UUID v7, `Secret<T>`
   con `Debug`/`Display` redactados, normalización de correo y máquina de estados
-  de intento. 35 tests.
+  de intento. 40 tests.
 - **`arles-db`** — SQLite cifrado con SQLCipher, migraciones con `refinery` y el
-  esquema inicial completo. 22 tests, incluidos los que verifican que el archivo
+  esquema inicial completo. Incluye los tests que verifican que el archivo
   en disco está realmente cifrado y que los invariantes del esquema se cumplen.
+  29 tests.
 - **`arles-app`** — shell de Tauri 2 con capabilities denegadas por defecto, CSP
   estricta, integración con el llavero del sistema e iconos generados desde los
-  tokens. 12 tests, incluido el arranque en sus dos ramas.
+  tokens. 19 tests, incluido el arranque en sus dos ramas.
 - **`app/`** — andamiaje de Vue 3 con TypeScript estricto, Pinia, vue-router e
-  i18n, consumiendo el CSS generado desde `tokens.json`. 11 tests.
+  i18n, consumiendo el CSS generado desde `tokens.json`. 14 tests.
 - **`herramientas/design-tokens/`** — fuente única de color: genera el CSS, la
   lámina de la paleta y la verificación WCAG de CI.
 - **`herramientas/iconos/`** — iconos de la aplicación desde los mismos tokens,
@@ -72,9 +74,13 @@ Resumen completo en [`documentacion/09-fases/FASE-01-CIMIENTOS.md`](documentacio
 - T-4 frente a T-6 (beta comercial sin licenciamiento) → D-4
 - §16 frente a la paleta medida (0.73 % de azul profundo) → D-2 y ADR-0005
 
-### Pendiente
-- 🔴 **P-01** — Licencia de Mont sin verificar. Bloquea la Fase 2
-- 🔴 **P-02** — No existe ningún activo de marca de ARLES. Bloquea la Fase 2
+### Pendiente tras la Fase 0
+- 🔴 **P-01** — Licencia de Mont sin verificar. Bloqueaba la Fase 2
+- 🔴 **P-02** — No existe ningún activo de marca de ARLES. Bloqueaba la Fase 2
+
+*Ambas resueltas en la Fase 1 por D-5: se desarrolla con Mont y la puerta de la
+licencia pasa a antes de la demo; P-02 se cierra porque el logotipo es
+tipográfico por diseño (§21).*
 
 ---
 

@@ -11,7 +11,7 @@ Existen porque los ADR explican *por qué* se decidió algo y el código muestra
 | Fase | Nombre | Estado | Comprobaciones |
 |---|---|---|---|
 | [00](FASE-00-DISCOVERY.md) | Discovery, auditoría y arquitectura | ✅ cerrada | 4 / 4 |
-| [01](FASE-01-CIMIENTOS.md) | Cimientos | ✅ cerrada | 29 / 29 |
+| [01](FASE-01-CIMIENTOS.md) | Cimientos | ✅ cerrada y revisada | 30 / 30 |
 | 02 | Design System | ⬜ pendiente | — |
 | 03 | Empresa y contactos | ⬜ pendiente | — |
 | 04 | Motor de ejecución | ⬜ pendiente | — |

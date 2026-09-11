@@ -1,7 +1,8 @@
 # Fase 1 · Cimientos
 
-**Estado:** ✅ cerrada · **Fecha:** 2026-09-11
-**Validación:** 29/29 comprobaciones, 0 omitidas — `validar.py --fase 1`
+**Estado:** ✅ cerrada y **revisada** · **Fecha:** 2026-09-11
+**Validación:** 30/30 comprobaciones, 0 omitidas — `validar.py --fase 1`
+**Revisión:** 13 hallazgos, todos corregidos — ver §8
 
 > **Objetivo.** Levantar el esqueleto sobre el que se construye todo lo demás, y —más importante— **hacer que las decisiones documentadas sean ejecutables**. Un principio que solo vive en un documento se erosiona; convertido en test o en regla de lint, se defiende solo.
 
@@ -9,7 +10,7 @@
 
 ## 1. Qué se construyó
 
-### `crates/arles-core` — dominio sin I/O · 34 tests
+### `crates/arles-core` — dominio sin I/O · 40 tests
 
 Tipos que no tocan base de datos, red ni disco. Es la regla de frontera 3.2 de [ARQUITECTURA.md](../03-arquitectura/ARQUITECTURA.md), y lo que permite probar la lógica sin levantar nada.
 
@@ -25,7 +26,7 @@ Tipos que no tocan base de datos, red ni disco. Es la regla de frontera 3.2 de [
 
 **Por qué UUID v7 y no v4.** Lleva marca de tiempo en los bits altos, así que ordena por creación y mantiene los índices compactos. Un v4 aleatorio dispersa las escrituras por todo el índice — con 500 000 contactos, eso se nota.
 
-### `crates/arles-db` — datos cifrados · 26 tests
+### `crates/arles-db` — datos cifrados · 29 tests
 
 SQLite con SQLCipher, migraciones con `refinery`, y un asa tipada que **no deja salir `rusqlite` del crate**.
 
@@ -38,7 +39,7 @@ SQLite con SQLCipher, migraciones con `refinery`, y un asa tipada que **no deja 
 
 **Por qué un mutex y no un pool.** SQLite con WAL admite lectores concurrentes pero un único escritor. Serializar las escrituras **elimina de raíz** la clase de errores `SQLITE_BUSY`, en vez de gestionarlos con reintentos que funcionan el 99 % de las veces.
 
-### `crates/arles-app` — shell de escritorio · 12 tests
+### `crates/arles-app` — shell de escritorio · 19 tests
 
 Tauri 2 con **capabilities denegadas por defecto**.
 
@@ -50,7 +51,7 @@ Tauri 2 con **capabilities denegadas por defecto**.
 - `capabilities/principal.json` — sin `shell`, sin `fs`, sin `http`
 - `icons/` — generados desde los tokens
 
-### `app/` — interfaz · 11 tests
+### `app/` — interfaz · 14 tests
 
 Vue 3 con TypeScript estricto, Pinia, vue-router e i18n, consumiendo el CSS generado desde `tokens.json`.
 
@@ -88,7 +89,7 @@ Lo que se empaqueta llega a la máquina del cliente, así que no tolera avisos m
 
 ## 3. Qué se verificó, y cómo
 
-**29 comprobaciones automáticas, 0 omitidas.** Reproducible con `validar.py --fase 1`.
+**30 comprobaciones automáticas, 0 omitidas.** Reproducible con `validar.py --fase 1`.
 
 ### Fronteras de arquitectura
 
@@ -97,10 +98,11 @@ Lo que se empaqueta llega a la máquina del cliente, así que no tolera avisos m
 | `arles-core` no hace I/O | Búsqueda de `std::fs`, `std::net`, `rusqlite`, `reqwest` en su código |
 | `arles-core` no depende de `arles-db` | Inspección del `Cargo.toml` |
 | Las capabilities no exponen `shell`, `fs` ni `http` | Análisis de `principal.json` |
-| La CSP no permite `unsafe-inline` ni `unsafe-eval` | Análisis de `tauri.conf.json` |
-| El frontend tiene prohibido `fetch` y `localStorage` | Reglas de eslint |
+| La CSP no permite `unsafe-inline` ni `unsafe-eval` en scripts | Análisis de `tauri.conf.json` |
+| Borrar un contacto no borra el registro de envío | Análisis de la migración |
+| El frontend tiene prohibido `fetch` y `localStorage` | **Se ejecuta eslint** contra un archivo cebo que viola ambas reglas |
 
-Estas cinco no las cubre ningún test: son las que evitan que la arquitectura se erosione sin que nadie lo note.
+Estas seis no las cubre ningún test: son las que evitan que la arquitectura se erosione sin que nadie lo note.
 
 ### Decisiones convertidas en tests
 
@@ -182,8 +184,6 @@ Queda como regla de método: **una comprobación que nunca se ha visto fallar no
 | Licencia de Mont | Puerta antes de la demo — D-5, P-01 |
 | Jobs de CI de rendimiento y E2E | Fases 4 y 6 |
 
----
-
 ## 7. Cómo reproducir esta validación
 
 ```bash
@@ -196,4 +196,60 @@ npm --prefix app ci
 python3 herramientas/validar/validar.py --fase 1
 ```
 
-Salida esperada: **29 pasan, 0 fallan, 0 omitidos**.
+Salida esperada: **30 pasan, 0 fallan, 0 omitidos**.
+
+---
+
+## 8. Revisión a fondo de la fase
+
+Tras cerrar la fase se hizo una revisión completa del rango de commits. **Encontró 13 defectos que la validación no veía**, y esa es la conclusión más útil: un validador comprueba que las fronteras siguen donde se pusieron, no que la lógica dentro de ellas sea correcta.
+
+Cada hallazgo se **reprodujo antes de arreglarlo**. Los dos críticos tenían en común que los tests existentes pasaban mientras la garantía estaba rota.
+
+### Críticos
+
+**F1 · Borrar un contacto borraba la prueba de que se le envió un correo.**
+`message_attempt` y `campaign_audience` cascadeaban desde `contact`. Reproducido: insertar un envío, borrar el contacto, y el registro desaparece. Rompía dos garantías a la vez — la auditoría («¿a quién le llegó esto?» se quedaba sin respuesta) y la idempotencia, porque la fila única que impide el duplicado ya no existía: **reimportar al contacto permitía enviarle otra vez**.
+
+La causa de fondo era la misma que el §39 ya había resuelto para la supresión, y que aquí no se aplicó: **la clave tiene que ser la dirección, no el `contact_id`**. Un contacto borrado y reimportado es un id nuevo; una dirección es la misma persona. Ahora `message_attempt` y `campaign_audience` llevan `contact_email`, la unicidad va por ahí, y el `contact_id` se anula al borrar —se conserva el hecho, se elimina la identidad—, que es justo lo que `MODELO_DE_DATOS.md` §3.4 describía para el derecho de cancelación.
+
+**F2 · Perder la clave del llavero generaba otra en silencio.**
+Si la entrada desaparecía —reinstalación, cambio de equipo, perfil corrupto— pero la base seguía en disco, `obtener_o_crear_clave_maestra` hacía lo que su nombre decía: creaba una nueva. El usuario veía «no se pudo descifrar la base de datos» y nada más. No se enteraba de que sus datos seguían ahí, ni de que lo único que los recupera es un respaldo.
+
+Leer y crear ahora están separados, porque **una función «obtener-o-crear» no puede distinguir el primer arranque de una entrada perdida**. Quien llama sí sabe si hay base en disco, así que la decisión le corresponde. Hay un error propio, `ClaveMaestraPerdida`, con su acción propia.
+
+### Altos
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| F3 | `EmailAddress` comparaba por `raw`, así que `VENTAS@…` y `ventas@…` eran valores distintos y la deduplicación fallaba en cualquier `HashSet` | Igualdad y hash por `normalized` |
+| F4 | El `Deserialize` derivado saltaba `parse()`: serde podía construir una dirección con CRLF —la carga de inyección que los tests daban por imposible— o con `normalized` contradiciendo a `raw` | Serialización como cadena; toda deserialización pasa por `parse` |
+| F5 | `como_message_id` interpolaba un dominio sin validar en una cabecera SMTP | Toma una `EmailAddress` ya validada: el caso deja de ser representable |
+| F6 | Con `windows_subsystem = "windows"`, el fallo de arranque iba a `eprintln!` y **en Windows la aplicación moría sin decir nada** — el fallo silencioso que ADR-0011 existe para evitar | Cuadro de diálogo nativo, y el mensaje pasa a ser una estructura de tres campos que el compilador obliga a rellenar |
+
+### Medios
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| F7 | `ErrorIpc.detalle` reenviaba mensajes de `rusqlite` y del llavero con rutas dentro, contradiciendo su propia documentación | Redacción de rutas antes de cruzar la frontera IPC |
+| F8 | `verificar_clave` convertía **cualquier** error en «clave incorrecta», así que un disco lleno mandaba al usuario a buscar un problema de credenciales inexistente | Se distingue `NotADatabase` del resto |
+| F9 | El validador moría con `AttributeError` si la CSP se escribía como cadena | Acepta ambas formas |
+| F10 | `recortar_png` escribía un PNG corrupto si la captura salía más baja de lo pedido | Falla explícitamente |
+| F11 | La versión del pie estaba escrita a mano y habría quedado obsoleta en la siguiente subida | La reporta el núcleo; la reserva es un guion visible, no un `1.2.0` que se confundiría con el valor real |
+| F12 | `createWebHistory` en una aplicación empaquetada: recargar en `/campanas` daría una ventana en blanco, enmascarado por `vite dev` | Historial por hash |
+| F13 | El hexadecimal de la clave maestra dejaba 32 `String` sin limpiar en el montón, dentro del código que se toma la molestia de limpiar todo lo demás | Escritura en un búfer ya reservado |
+| F14 | `THREAT_MODEL.md` afirmaba una CSP «sin `unsafe-inline`» que no correspondía con la implementación: `style-src` sí lo lleva | Registrado como riesgo aceptado, con el motivo — el vector real es el script, y `script-src` sí es estricto |
+| F15 | Las claves de i18n de Rust son planas y en los textos cada error es un objeto: `$t('error.db.sqlite')` devolvía **el objeto** y la interfaz habría mostrado `[object Object]` | Resolución explícita a tres partes, y un test que exige que **ninguna** clave del núcleo caiga en el genérico |
+| F16 | `user-select: none` global impedía copiar direcciones en una aplicación llena de datos | El texto se selecciona; se desactiva solo en navegación y controles |
+
+### Lo que la revisión enseñó sobre los propios tests
+
+Tres defectos estaban **en el aparato de verificación**, no en el producto:
+
+1. **Los tests del llavero compartían una cuenta fija.** Uno borraba la entrada mientras otro corría en paralelo. Los resultados parecían correctos. El llavero es ahora inyectable y cada test usa la suya.
+2. **Una comprobación del validador era una búsqueda de texto.** Pasaba mientras la palabra apareciera en cualquier sitio. Se descubrió rompiendo cosas a propósito: detectó un permiso de `shell` inyectado, pero no que se hubieran desactivado las reglas de eslint.
+3. **Un test nuevo era demasiado permisivo.** Comprobaba que cada error tuviera tres partes, y el texto genérico también las tiene: pasaba con las diez claves cayendo en el genérico. Ahora exige que ninguna lo haga.
+
+La regla que queda: **una comprobación que nunca se ha visto fallar no está verificada.** Romper algo a propósito y confirmar que salta es parte de escribirla.
+
+---

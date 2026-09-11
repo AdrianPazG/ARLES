@@ -224,16 +224,42 @@ def fase_1(rapido):
           f"Permisos problemáticos: {prohibidos}")
 
     conf = json.loads(leer("crates/arles-app", "tauri.conf.json") or "{}")
-    csp = conf.get("app", {}).get("security", {}).get("csp", {})
-    csp_txt = json.dumps(csp)
+    csp = conf.get("app", {}).get("security", {}).get("csp")
+    # Tauri admite la CSP como objeto o como una sola cadena. Suponer el objeto
+    # hacía que el validador muriera con AttributeError en vez de informar.
+    if isinstance(csp, str):
+        script_src = csp
+        csp_txt = csp
+    elif isinstance(csp, dict):
+        script_src = str(csp.get("script-src", ""))
+        csp_txt = json.dumps(csp)
+    else:
+        script_src = csp_txt = ""
     check(1, "La CSP no permite unsafe-inline ni unsafe-eval en scripts",
-          "'unsafe-eval'" not in csp_txt and "'unsafe-inline'" not in csp.get("script-src", ""),
-          "Una CSP laxa devuelve a la webview la capacidad de ejecutar lo que le inyecten.")
+          bool(csp_txt) and "'unsafe-eval'" not in csp_txt
+          and "'unsafe-inline'" not in script_src,
+          "Una CSP laxa devuelve a la webview la capacidad de ejecutar lo que le "
+          "inyecten. `style-src` sí lleva unsafe-inline —los estilos scoped de Vue "
+          "lo exigen— y está registrado como riesgo aceptado en THREAT_MODEL.md §7.")
 
     # Se comprueba **ejecutando eslint** contra código que viola la regla, no
     # buscando texto en la configuración. Una búsqueda de texto pasa mientras la
     # palabra aparezca en cualquier sitio —un comentario, otro mensaje— y por
     # eso no detecta que alguien desactivó la regla.
+    # Hallazgo F1 de la revisión de la Fase 1: un CASCADE desde `contact` borraba
+    # el registro de envío, así que reimportar un contacto abría la puerta a
+    # reenviarle. Los tests de `arles-db` lo cubren; esto lo detecta en la
+    # migración siguiente, antes de que haya que razonarlo otra vez.
+    esquema = leer("crates/arles-db/migrations", "V1__esquema_inicial.sql") or ""
+    check(1, "Borrar un contacto no borra el registro de envío",
+          "contact_email" in esquema
+          and "ON DELETE SET NULL" in esquema
+          and "idx_attempt_unique\n    ON message_attempt(campaign_id, contact_email)"
+          in esquema,
+          "Si el intento cascadea con el contacto, se pierden a la vez la "
+          "auditoría y la protección contra duplicados: reimportar al contacto "
+          "permitiría enviarle otra vez (§55, ADR-0004).")
+
     app_dir = os.path.join(RAIZ, "app")
     if not os.path.isdir(os.path.join(app_dir, "node_modules")):
         omitir(1, "El frontend tiene prohibido fetch y localStorage",

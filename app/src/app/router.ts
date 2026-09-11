@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
 
 /**
  * Las seis secciones de UX_NAVEGACION.md §2.
@@ -31,6 +31,10 @@ const rutas: RouteRecordRaw[] = [
 ]
 
 export const router = createRouter({
-  history: createWebHistory(),
+  // Historial por hash, no por ruta. En una aplicación empaquetada los archivos
+  // se sirven desde el sistema de archivos, sin servidor que reescriba rutas:
+  // con `createWebHistory`, recargar en `/campanas` daría una ventana en blanco.
+  // El modo de desarrollo lo enmascara porque Vite sí reescribe.
+  history: createWebHashHistory(),
   routes: rutas,
 })

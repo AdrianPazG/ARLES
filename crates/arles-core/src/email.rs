@@ -17,10 +17,51 @@ const MAX_LONGITUD: usize = 320;
 ///
 /// `raw` conserva lo que el usuario escribió, para poder mostrarlo tal cual.
 /// `normalized` es la clave de deduplicación y de supresión.
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+///
+/// **La igualdad se decide por `normalized`, no por `raw`.** Con la comparación
+/// derivada, `VENTAS@empresa.com` y `ventas@EMPRESA.com` eran valores distintos,
+/// así que meterlos en un `HashSet` daba dos entradas y la deduplicación fallaba
+/// justo donde el documento afirma que funciona.
+#[derive(Clone)]
 pub struct EmailAddress {
     raw: String,
     normalized: String,
+}
+
+impl PartialEq for EmailAddress {
+    fn eq(&self, otro: &Self) -> bool {
+        self.normalized == otro.normalized
+    }
+}
+
+impl Eq for EmailAddress {}
+
+impl std::hash::Hash for EmailAddress {
+    fn hash<H: std::hash::Hasher>(&self, estado: &mut H) {
+        self.normalized.hash(estado);
+    }
+}
+
+/// Se serializa como la cadena original, no como una estructura de dos campos.
+///
+/// Así `normalized` no puede llegar desde fuera contradiciendo a `raw`.
+impl Serialize for EmailAddress {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&self.raw)
+    }
+}
+
+/// Toda deserialización pasa por [`EmailAddress::parse`].
+///
+/// Con la implementación derivada, una entrada JSON podía construir directamente
+/// una dirección cuyo `raw` contuviera CRLF —la carga de inyección de cabeceras
+/// que los tests daban por imposible— o cuyo `normalized` no correspondiera a
+/// `raw`. Validar solo en el constructor no sirve si hay otra puerta de entrada.
+impl<'de> Deserialize<'de> for EmailAddress {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(d)?;
+        Self::parse(&s).map_err(serde::de::Error::custom)
+    }
 }
 
 impl EmailAddress {
@@ -88,6 +129,17 @@ impl EmailAddress {
     /// Tal y como lo escribió el usuario (sin espacios al principio ni al final).
     pub fn raw(&self) -> &str {
         &self.raw
+    }
+
+    /// La parte del dominio, ya validada.
+    ///
+    /// Se expone para construir cabeceras como `Message-Id`, donde interpolar un
+    /// dominio sin validar permitiría inyectar cabeceras SMTP.
+    pub fn dominio(&self) -> &str {
+        // `parse` garantizó que hay exactamente una arroba.
+        self.normalized
+            .split_once('@')
+            .map_or(&self.normalized, |(_, d)| d)
     }
 
     /// Clave de deduplicación y de supresión.
@@ -223,6 +275,77 @@ mod tests {
     fn rechaza_direcciones_desmesuradas() {
         let larga = format!("{}@empresa.com", "a".repeat(400));
         assert!(EmailAddress::parse(&larga).is_err());
+    }
+
+    /// Hallazgo F3 de la revisión de la Fase 1.
+    ///
+    /// Con la igualdad derivada sobre `raw`, dos escrituras de la misma
+    /// dirección eran valores distintos y la deduplicación fallaba en cualquier
+    /// `HashSet` o `HashMap` — justo donde el documento afirma que funciona.
+    #[test]
+    fn la_igualdad_se_decide_por_la_forma_normalizada() {
+        use std::collections::HashSet;
+
+        let a = EmailAddress::parse("VENTAS@empresa.com").expect("válida");
+        let b = EmailAddress::parse("ventas@EMPRESA.com").expect("válida");
+
+        assert_eq!(
+            a, b,
+            "dos escrituras de la misma dirección deben ser iguales"
+        );
+
+        let mut set = HashSet::new();
+        set.insert(a);
+        set.insert(b);
+        assert_eq!(
+            set.len(),
+            1,
+            "el HashSet no dedujo que son la misma dirección"
+        );
+    }
+
+    #[test]
+    fn direcciones_distintas_siguen_siendo_distintas() {
+        let a = EmailAddress::parse("ana@empresa.com").expect("válida");
+        let b = EmailAddress::parse("beto@empresa.com").expect("válida");
+        assert_ne!(a, b);
+    }
+
+    /// Hallazgo F4. Validar solo en el constructor no sirve si serde abre otra
+    /// puerta: la implementación derivada aceptaba `raw` con CRLF y un
+    /// `normalized` que no correspondía.
+    #[test]
+    fn deserializar_pasa_por_la_validacion() {
+        // La forma antigua —estructura de dos campos— ya no se acepta.
+        let estructura: Result<EmailAddress, _> = serde_json::from_str(
+            r#"{"raw":"juan@x.com\r\nBcc: victima@y.com","normalized":"otra@cosa.com"}"#,
+        );
+        assert!(
+            estructura.is_err(),
+            "serde aceptó una dirección sin validar"
+        );
+
+        // Una cadena con inyección tampoco pasa.
+        let inyeccion: Result<EmailAddress, _> =
+            serde_json::from_str(r#""juan@x.com\r\nBcc: victima@y.com""#);
+        assert!(inyeccion.is_err(), "serde aceptó CRLF en la dirección");
+    }
+
+    #[test]
+    fn la_serializacion_va_y_vuelve() {
+        let original = EmailAddress::parse("Ana.Perez@Empresa.com").expect("válida");
+        let json = serde_json::to_string(&original).expect("serializa");
+        assert_eq!(json, "\"Ana.Perez@Empresa.com\"");
+
+        let vuelta: EmailAddress = serde_json::from_str(&json).expect("deserializa");
+        assert_eq!(vuelta.raw(), original.raw());
+        assert_eq!(vuelta.normalized(), original.normalized());
+    }
+
+    #[test]
+    fn el_dominio_se_extrae_normalizado() {
+        let e = EmailAddress::parse("Ana@Empresa.COM").expect("válida");
+        assert_eq!(e.dominio(), "empresa.com");
     }
 
     #[test]

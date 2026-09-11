@@ -52,6 +52,15 @@ fn base() -> (tempfile::TempDir, Connection) {
     (dir, conn)
 }
 
+/// El correo del contacto, que es la clave real de idempotencia.
+fn correo_de(contacto: &str) -> &'static str {
+    match contacto {
+        CONTACTO_A => "ana@empresa.com",
+        CONTACTO_B => "beto@empresa.com",
+        _ => "desconocido@empresa.com",
+    }
+}
+
 fn insertar_intento(
     conn: &Connection,
     id: &str,
@@ -59,10 +68,10 @@ fn insertar_intento(
     clave: &str,
 ) -> rusqlite::Result<usize> {
     conn.execute(
-        "INSERT INTO message_attempt (id, campaign_id, contact_id, idempotency_key,
-                                      created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
-        params![id, CAMPANA, contacto, clave, AHORA],
+        "INSERT INTO message_attempt (id, campaign_id, contact_id, contact_email,
+                                      idempotency_key, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+        params![id, CAMPANA, contacto, correo_de(contacto), clave, AHORA],
     )
 }
 
@@ -121,6 +130,97 @@ fn el_estado_del_intento_solo_admite_los_valores_de_la_maquina_de_estados() {
         [],
     )
     .expect("presumed_sent debe ser un estado válido");
+}
+
+/// Hallazgo F1 de la revisión de la Fase 1.
+///
+/// Borrar un contacto **no puede** borrar la prueba de que se le envió un
+/// correo. Si lo hiciera, se perdería a la vez la auditoría y la garantía de
+/// idempotencia: sin la fila, reimportar al contacto dejaría enviarle otra vez.
+#[test]
+fn borrar_el_contacto_no_borra_el_registro_de_envio() {
+    let (_d, conn) = base();
+    insertar_intento(&conn, "i1", CONTACTO_A, "k1").expect("inserta");
+
+    conn.execute("DELETE FROM contact WHERE id = ?1", params![CONTACTO_A])
+        .expect("borra el contacto");
+
+    let (quedan, con_identidad, correo): (i64, i64, String) = conn
+        .query_row(
+            "SELECT count(*), count(contact_id), max(contact_email) FROM message_attempt",
+            [],
+            |f| Ok((f.get(0)?, f.get(1)?, f.get(2)?)),
+        )
+        .expect("consulta");
+
+    assert_eq!(
+        quedan, 1,
+        "el registro de envío desapareció al borrar el contacto: se pierden la \
+         auditoría y la protección contra duplicados"
+    );
+    assert_eq!(
+        con_identidad, 0,
+        "el contact_id debería anularse: se conserva el hecho, no la identidad"
+    );
+    assert_eq!(
+        correo, "ana@empresa.com",
+        "la dirección debe conservarse: es la clave de idempotencia"
+    );
+}
+
+/// El corolario que da sentido al cambio: reimportar a alguien ya contactado
+/// **no** abre la puerta a un segundo envío dentro de la misma campaña.
+#[test]
+fn reimportar_un_contacto_no_permite_reenviarle() {
+    let (_d, conn) = base();
+    insertar_intento(&conn, "i1", CONTACTO_A, "k1").expect("primer envío");
+
+    conn.execute("DELETE FROM contact WHERE id = ?1", params![CONTACTO_A])
+        .expect("borra");
+    conn.execute(
+        "INSERT INTO contact (id, company_id, email_raw, email_normalized,
+                              created_at, updated_at)
+         VALUES ('c-nuevo', ?1, 'ana@empresa.com', 'ana@empresa.com', ?2, ?2)",
+        params![EMPRESA, AHORA],
+    )
+    .expect("reimporta con un id nuevo");
+
+    let segundo = conn.execute(
+        "INSERT INTO message_attempt (id, campaign_id, contact_id, contact_email,
+                                      idempotency_key, created_at, updated_at)
+         VALUES ('i2', ?1, 'c-nuevo', 'ana@empresa.com', 'k2', ?2, ?2)",
+        params![CAMPANA, AHORA],
+    );
+
+    assert!(
+        segundo.is_err(),
+        "se permitió un segundo envío a la misma dirección en la misma campaña \
+         tras borrar y reimportar el contacto"
+    );
+}
+
+/// La audiencia congelada tiene que seguir congelada.
+#[test]
+fn borrar_el_contacto_no_encoge_la_audiencia() {
+    let (_d, conn) = base();
+    conn.execute(
+        "INSERT INTO campaign_audience (campaign_id, contact_email, contact_id, added_at)
+         VALUES (?1, 'ana@empresa.com', ?2, ?3)",
+        params![CAMPANA, CONTACTO_A, AHORA],
+    )
+    .expect("congela la audiencia");
+
+    conn.execute("DELETE FROM contact WHERE id = ?1", params![CONTACTO_A])
+        .expect("borra el contacto");
+
+    let quedan: i64 = conn
+        .query_row("SELECT count(*) FROM campaign_audience", [], |f| f.get(0))
+        .expect("cuenta");
+    assert_eq!(
+        quedan, 1,
+        "la audiencia encogió sola: si la instantánea cambia después, no es una \
+         instantánea y «¿a quién le llegó esto?» se queda sin respuesta"
+    );
 }
 
 // ─── Supresión ──────────────────────────────────────────────────────────────

@@ -12,7 +12,7 @@ Desarrollado por **TELEMETRY INSIGHT**
 | Fase | | Validación |
 |---|---|---|
 | [00 · Discovery y auditoría](documentacion/09-fases/FASE-00-DISCOVERY.md) | ✅ cerrada | 4/4 |
-| [01 · Cimientos](documentacion/09-fases/FASE-01-CIMIENTOS.md) | ✅ cerrada | 29/29 |
+| [01 · Cimientos](documentacion/09-fases/FASE-01-CIMIENTOS.md) | ✅ cerrada y revisada | 30/30 |
 | 02 · Design System | ⬜ siguiente | — |
 
 ```bash
@@ -77,12 +77,15 @@ Mailchimp · un CRM · un ERP · una plataforma omnicanal · una herramienta de 
 
 ---
 
-## Bloqueantes actuales
+## En seguimiento
 
-| # | Asunto | Bloquea |
+No hay bloqueantes. Lo que sigue abierto, con su puerta:
+
+| # | Asunto | Puerta |
 |---|---|---|
-| 🔴 **P-01** | La licencia de Mont no cubre verificadamente incrustar la fuente en una aplicación distribuida | Fase 2 |
-| 🔴 **P-02** | No existe ningún activo de marca de ARLES en el repositorio | Fase 2 |
+| 🟡 **P-01** | Licencia de Mont para incrustar la fuente en la aplicación distribuida | Antes de la demo (D-5) |
+| 🟡 **P-03** | Origen y consentimiento de los contactos | Fase 3 |
+| 🟡 **P-05** | Dominio y aviso de privacidad para la verificación de Google | Fase 5 |
 
 Detalle en [PREGUNTAS_ABIERTAS](documentacion/02-auditoria/PREGUNTAS_ABIERTAS.md).
 

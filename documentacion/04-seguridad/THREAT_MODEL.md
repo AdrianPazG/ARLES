@@ -90,7 +90,7 @@ Todo dato que entra desde fuera es no confiable. Las fuentes reales:
 | Amenaza | Vector | Mitigación |
 |---|---|---|
 | **Elevación** | XSS → acceso al sistema de archivos | **Capabilities denegadas por defecto.** Sin plugin `shell`. Sin `fs` amplio. Sólo el diálogo de archivos con alcance acotado |
-| **Elevación** | Ejecución de script inyectado | **CSP estricta**: sin `unsafe-inline`, sin `unsafe-eval`, sin orígenes remotos |
+| **Elevación** | Ejecución de script inyectado | **CSP estricta en scripts**: `script-src 'self'`, sin `unsafe-inline`, sin `unsafe-eval`, sin orígenes remotos. Ver la excepción de `style-src` en §7 |
 | **Tampering** | Actualización maliciosa | Verificación de **firma criptográfica** antes de aplicar (§79). Clave pública empaquetada; la privada nunca entra al repositorio |
 | **Elevación** | Navegación a origen externo | Navegación restringida. Los enlaces externos se abren en el navegador del sistema, no en la webview |
 
@@ -148,6 +148,7 @@ Decisiones conscientes, no descuidos:
 | **Detección de rebotes parcial** | Contradicción §37/§69 (ADR-0009) | Declarado en la interfaz |
 | **El «client secret» de Google es extraíble** | Inherente a las aplicaciones instaladas (RFC 8252) | PKCE aporta la seguridad real. No se documenta como secreto verdadero |
 | **Un usuario legítimo puede enviar spam** | ARLES no puede verificar el consentimiento de los contactos | Afirmación de origen lícito registrada · sin rotación de remitentes · avisos |
+| **`style-src 'unsafe-inline'` en la CSP** | Los estilos scoped de Vue se inyectan en tiempo de ejecución; sin esto la interfaz no tiene estilos. Detectado en la revisión de la Fase 1, donde este documento afirmaba una CSP sin `unsafe-inline` que no correspondía con la implementación | El vector real es la ejecución de script, y **`script-src` sí es estricto**: `'self'`, sin `unsafe-inline` ni `unsafe-eval`. Un CSS inyectado puede alterar la apariencia, no ejecutar código. Se revisará si Vue permite nonces sin coste desproporcionado |
 | **Pérdida de la clave maestra = datos irrecuperables** | Es la propiedad buscada del cifrado | Advertencia en el primer arranque · respaldo como vía de recuperación |
 
 ---

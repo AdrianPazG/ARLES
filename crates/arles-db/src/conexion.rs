@@ -64,12 +64,22 @@ impl ClaveMaestra {
     }
 
     /// Literal hexadecimal para `PRAGMA key`, en la forma `x'...'`.
+    ///
+    /// Se escribe carácter a carácter en un búfer ya reservado. La versión con
+    /// `format!("{b:02x}")` dejaba 32 `String` temporales con trozos de la clave
+    /// en el montón, **sin limpiar**, justo dentro del código que se toma la
+    /// molestia de limpiar todo lo demás.
     fn como_pragma(&self) -> Secret<String> {
+        const NIBBLE: fn(u8) -> char = |n| match n {
+            0..=9 => (b'0' + n) as char,
+            _ => (b'a' + n - 10) as char,
+        };
+
         let mut hex = String::with_capacity(LONGITUD_CLAVE * 2 + 3);
         hex.push_str("x'");
         for b in self.0.expose_secret() {
-            // Escribir en un String no puede fallar.
-            hex.push_str(&format!("{b:02x}"));
+            hex.push(NIBBLE(b >> 4));
+            hex.push(NIBBLE(b & 0x0F));
         }
         hex.push('\'');
         Secret::new(hex)
@@ -120,12 +130,27 @@ pub fn abrir(ruta: &Path, clave: &ClaveMaestra) -> Result<Connection, DbError> {
 }
 
 /// SQLCipher no falla al fijar la clave: falla al tocar la base.
+///
+/// Se distingue «la clave no descifra» de «el disco falló». Antes todo error se
+/// reportaba como clave incorrecta, así que un disco lleno o un permiso denegado
+/// mandaban al usuario a buscar un problema de credenciales que no existía — y
+/// el §95 exige decirle qué pasó de verdad y cómo arreglarlo.
 fn verificar_clave(conn: &Connection) -> Result<(), DbError> {
-    conn.query_row("SELECT count(*) FROM sqlite_schema", [], |f| {
+    match conn.query_row("SELECT count(*) FROM sqlite_schema", [], |f| {
         f.get::<_, i64>(0)
-    })
-    .map(|_| ())
-    .map_err(|_| DbError::ClaveIncorrecta)
+    }) {
+        Ok(_) => Ok(()),
+
+        // Lo que devuelve SQLCipher cuando los datos no se descifran: el
+        // archivo deja de parecer una base de datos.
+        Err(rusqlite::Error::SqliteFailure(e, _))
+            if e.code == rusqlite::ErrorCode::NotADatabase =>
+        {
+            Err(DbError::ClaveIncorrecta)
+        }
+
+        Err(otro) => Err(DbError::Sqlite(otro)),
+    }
 }
 
 #[cfg(test)]

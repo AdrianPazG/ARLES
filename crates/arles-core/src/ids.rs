@@ -135,9 +135,14 @@ impl IdempotencyKey {
     ///
     /// El dominio lo aporta el remitente, así que el mensaje es rastreable
     /// hasta la cuenta que lo envió.
+    ///
+    /// Toma una [`EmailAddress`] ya validada y no una cadena suelta: el dominio
+    /// acaba en una cabecera SMTP, y con un `&str` cualquiera un CR o LF ahí
+    /// permitiría inyectar cabeceras arbitrarias (THREAT_MODEL.md §4.2). Con la
+    /// dirección del remitente como entrada, el tipo garantiza la validación.
     #[must_use]
-    pub fn como_message_id(&self, dominio: &str) -> String {
-        format!("<{}@{}>", self.0, dominio)
+    pub fn como_message_id(&self, remitente: &crate::EmailAddress) -> String {
+        format!("<{}@{}>", self.0, remitente.dominio())
     }
 }
 
@@ -194,11 +199,29 @@ mod tests {
 
     #[test]
     fn el_message_id_sigue_el_rfc_5322() {
+        let remitente = crate::EmailAddress::parse("ventas@empresa.com").expect("válida");
         let clave = IdempotencyKey::nueva();
-        let mid = clave.como_message_id("empresa.com");
+        let mid = clave.como_message_id(&remitente);
         assert!(mid.starts_with('<'));
         assert!(mid.ends_with("@empresa.com>"));
         assert!(mid.contains(&clave.to_string()));
+    }
+
+    /// Hallazgo F5. El `Message-Id` acaba en una cabecera SMTP: si el dominio
+    /// pudiera llevar CR o LF, se podrían inyectar cabeceras arbitrarias.
+    ///
+    /// Exigir una `EmailAddress` ya validada hace que el caso no sea
+    /// representable — no hay forma de construir una con saltos de línea.
+    #[test]
+    fn el_message_id_no_puede_llevar_saltos_de_linea() {
+        assert!(
+            crate::EmailAddress::parse("ventas@empresa.com\r\nBcc: victima@otra.com").is_err(),
+            "si esto se aceptara, el dominio inyectaría cabeceras en el Message-Id"
+        );
+
+        let remitente = crate::EmailAddress::parse("ventas@empresa.com").expect("válida");
+        let mid = IdempotencyKey::nueva().como_message_id(&remitente);
+        assert!(!mid.contains(['\r', '\n']));
     }
 
     #[test]

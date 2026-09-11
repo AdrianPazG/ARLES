@@ -15,6 +15,7 @@
     "tokens": "python3 ../herramientas/design-tokens/generar.py --css"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
     "pinia": "^3.0.0",
     "vue": "^3.5.0",
     "vue-i18n": "^11.0.0",

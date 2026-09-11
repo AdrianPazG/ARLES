@@ -36,3 +36,9 @@ tempfile = "3"
 
 [lints]
 workspace = true
+
+# Solo para el cuadro de diálogo del fallo de arranque: con
+# `windows_subsystem = "windows"` el stderr no va a ninguna parte, y la
+# aplicación moriría en silencio. Ver `mostrar_fallo_de_arranque`.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging"] }
