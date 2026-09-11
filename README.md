@@ -14,7 +14,7 @@ Desarrollado por **TELEMETRY INSIGHT**
 | [00 · Discovery y auditoría](documentacion/09-fases/FASE-00-DISCOVERY.md) | ✅ cerrada | 4/4 |
 | [01 · Cimientos](documentacion/09-fases/FASE-01-CIMIENTOS.md) | ✅ cerrada y revisada | 32/32 |
 | ↳ [Resumen para Dirección](documentacion/09-fases/FASE-01-PARA-DIRECCION.md) | sin tecnicismos | — |
-| [02 · Design System](documentacion/09-fases/FASE-02-DESIGN-SYSTEM.md) | ✅ cerrada | 12/12 |
+| [02 · Design System](documentacion/09-fases/FASE-02-DESIGN-SYSTEM.md) | ✅ cerrada y revisada | 16/16 |
 | 03 · Empresa y contactos | ⬜ siguiente | — |
 
 ```bash

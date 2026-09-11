@@ -14,8 +14,10 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ### Fase 2 — Design System ✅ cerrada
 
-**Validación: 12/12 comprobaciones de la fase, 0 omitidas** — `validar.py --fase 2`
-(48/48 en la ejecución completa). 17 tests de componente.
+**Validación: 16/16 comprobaciones de la fase, 0 omitidas** — `validar.py --fase 2`
+(52/52 en la ejecución completa). 23 tests de componente y **tres sondas de
+navegador**. Revisión adversaria: **8 hallazgos, todos corregidos** (§8 del
+documento de fase).
 Resumen en [`FASE-02-DESIGN-SYSTEM.md`](documentacion/09-fases/FASE-02-DESIGN-SYSTEM.md).
 
 - **Once primitivas** en `app/src/design/componentes/`: botón, entrada,
@@ -28,10 +30,41 @@ Resumen en [`FASE-02-DESIGN-SYSTEM.md`](documentacion/09-fases/FASE-02-DESIGN-SY
 - **Tokens nuevos** con contrato de contraste verificado en CI:
   `--arles-accent-hover`, `--arles-danger-hover` y `--arles-text-disabled`;
   más alturas de control y de fila, anchos de modal y menú, y las dos sombras.
-- **7 comprobaciones nuevas** en el validador, todas probadas rompiéndolas a
-  propósito.
+- **11 comprobaciones nuevas** en el validador, todas probadas rompiéndolas a
+  propósito, tres de ellas sondas que manejan un navegador de verdad
+  (`app/pruebas/sondas/`): virtualización real, teclado y foco, y CSP.
+
+#### Seguridad
+
+- **La CSP del producto deja de admitir `unsafe-inline`.** La Fase 1 lo había
+  registrado como riesgo aceptado (F14) con el argumento de que los estilos
+  *scoped* de Vue lo necesitan. Sólo era cierto en desarrollo: en el bundle,
+  Vite los extrae a un `.css` y los `:style` de Vue se aplican con
+  `element.style.setProperty()`, que la CSP no gobierna. Medido sirviendo el
+  build bajo la política exacta de `tauri.conf.json` y recorriendo tabla, modal
+  y menú: cero violaciones. `style-src` pasa a `'self'`.
+- **Los campos ya no ofrecen autocompletado ni corrector.** WebView2 hereda el
+  gestor de contraseñas de Edge y WKWebView el de Safari: un formulario SMTP
+  con autorrelleno acabaría guardando la credencial del cliente en el almacén
+  del navegador, que es lo que prohíbe el §30. Barandilla puesta antes de que
+  exista el formulario (Fase 5).
+- **Una búsqueda por clave alcanzaba `Object.prototype`.** `acciones[evento.key]`
+  encontraba lo heredado: una tecla llamada `constructor` devolvía una función
+  invocable, se llamaba a `preventDefault()` y la tecla quedaba tragada. No era
+  explotable —ningún teclado produce ese valor—, pero ya no ocurre: el
+  despacho pasa por `Object.hasOwn`.
 
 #### Corregido
+
+- **La tabla no virtualizaba: renderizaba las 5 001 filas.** `.tabla` no tenía
+  altura, así que nada desbordaba y el virtualizador concluía que cabían todas.
+  Invisible en una captura e invisible en jsdom, donde el contenedor mide 0 px
+  y no se renderiza ninguna fila. Habría llegado a la Fase 4 y allí, con 500 000
+  contactos (T-7), habría tirado la ventana. De **5 001 nodos a 18**.
+- **Las fuentes daban 403 en desarrollo** y caían a la reserva en silencio: el
+  alias apunta fuera de la raíz de Vite. Sólo fallaba donde se trabaja.
+- El panel de pestañas era una parada de tabulación **sin anillo de foco**
+  (§100), y cambiar la pestaña desde fuera **robaba el foco**.
 
 - **El botón deshabilitado no se leía.** `opacity: 0.45` daba **1.89:1** en el
   primario y **3.56:1** en un secundario ocupado. WCAG exime a los controles

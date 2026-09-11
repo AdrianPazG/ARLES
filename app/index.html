@@ -3,9 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- CSP estricta: sin unsafe-inline, sin unsafe-eval, sin orígenes remotos.
-         Ver THREAT_MODEL.md §4.5. La política definitiva la impone Tauri desde
-         tauri.conf.json; esta es la red de seguridad para `vite preview`. -->
+    <!-- La política del PRODUCTO la impone Tauri desde tauri.conf.json, y ahí
+         `style-src` es `'self'` a secas: verificado en `pruebas/sondas/csp.mjs`
+         ejercitando tabla, modal y menú sin una sola violación.
+
+         Aquí sí aparece `'unsafe-inline'` en `style-src`, y sólo por el modo
+         de desarrollo: `vite dev` inyecta las hojas de los componentes como
+         etiquetas <style>, mientras que el build las extrae a un .css. Cuando
+         las dos políticas coinciden —la aplicación empaquetada— **gana la más
+         estricta**, así que lo que se instala en la máquina del cliente no
+         admite estilo en línea.
+
+         Ver THREAT_MODEL.md §4.5. -->
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost"

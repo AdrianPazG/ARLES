@@ -13,6 +13,7 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, useId } from 'vue'
 
 import AIcono, { type NombreDeIcono } from './AIcono.vue'
+import { despachar } from './teclado'
 
 export interface AccionDeMenu {
   id: string
@@ -87,19 +88,23 @@ function enfocarExtremo(final: boolean) {
 }
 
 function teclaDelMenu(evento: KeyboardEvent) {
-  const acciones: Record<string, () => void> = {
-    ArrowDown: () => moverFoco(1),
-    ArrowUp: () => moverFoco(-1),
-    Home: () => enfocarExtremo(false),
-    End: () => enfocarExtremo(true),
-    Escape: () => cerrar(),
-    Tab: () => cerrar(false),
+  // Tab va aparte: tiene que seguir moviendo el foco fuera del menú, así que
+  // es lo único que se maneja sin `preventDefault`.
+  if (evento.key === 'Tab') {
+    cerrar(false)
+    return
   }
-  const accion = acciones[evento.key]
-  if (!accion) return
-  // Tab sí debe seguir moviendo el foco fuera: sólo se cierra el menú.
-  if (evento.key !== 'Tab') evento.preventDefault()
-  accion()
+
+  despachar(
+    {
+      ArrowDown: () => moverFoco(1),
+      ArrowUp: () => moverFoco(-1),
+      Home: () => enfocarExtremo(false),
+      End: () => enfocarExtremo(true),
+      Escape: () => cerrar(),
+    },
+    evento,
+  )
 }
 
 function alPulsarEnElDocumento(evento: MouseEvent) {

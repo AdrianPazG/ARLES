@@ -475,6 +475,76 @@ def primitivas():
     )
 
 
+def hay_navegador(app):
+    """¿Se puede correr una sonda? Devuelve el motivo si no."""
+    if not os.path.isdir(os.path.join(app, "node_modules", "playwright-core")):
+        return "falta playwright-core: npm --prefix app ci"
+    ejecutable = os.environ.get(
+        "ARLES_CHROMIUM", "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
+    )
+    if not os.path.exists(ejecutable):
+        return f"no hay Chromium en {ejecutable} (ARLES_CHROMIUM lo cambia)"
+    return None
+
+
+def sondas(rapido, app):
+    """Las tres sondas de navegador de la Fase 2.
+
+    Se omiten **con motivo** si falta el navegador, nunca se dan por buenas:
+    un omitido no es un fallo, pero tampoco es una validación.
+    """
+    definidas = [
+        (
+            "sonda: la tabla virtualiza de verdad",
+            "sonda:tabla",
+            True,
+            "Sin altura que desborde, el virtualizador concluye que caben todas "
+            "las filas y renderiza la lista entera. Se veía perfecto en una "
+            "captura y habría tirado la ventana con 500 000 contactos (T-7).",
+        ),
+        (
+            "sonda: teclado y foco",
+            "sonda:teclado",
+            True,
+            "§100: el atrapado de foco del modal y el anillo en cada parada de "
+            "tabulación no se pueden comprobar sin un orden de tabulación real.",
+        ),
+        (
+            "sonda: la CSP del producto no necesita estilo en línea",
+            "sonda:csp",
+            False,
+            "La CSP que se instala en la máquina del cliente. Si alguien vuelve "
+            "a meter `unsafe-inline`, aquí salta.",
+        ),
+    ]
+
+    motivo = hay_navegador(app)
+    servidor = None
+    try:
+        for nombre, script, necesita_servidor, porque in definidas:
+            if motivo:
+                omitir(2, nombre, motivo)
+                continue
+            if rapido and not necesita_servidor:
+                omitir(2, nombre, "--rapido")
+                continue
+            if necesita_servidor and servidor is None:
+                servidor = subprocess.Popen(
+                    ["npm", "run", "dev", "--silent"],
+                    cwd=app, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+                time.sleep(8)
+            check_cmd(2, nombre, ["npm", "run", script, "--silent"],
+                      porque, cwd=app, timeout=900)
+    finally:
+        if servidor is not None:
+            servidor.terminate()
+            try:
+                servidor.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                servidor.kill()
+
+
 def fase_2(rapido):
     titulo("FASE 2 · Design System")
 
@@ -565,6 +635,25 @@ def fase_2(rapido):
                     if token not in definidos:
                         huerfanos.add(f"{n}: {token}")
 
+    # ── El catálogo no puede llegar a la máquina del cliente ──
+    #
+    # Dos razones para comprobarlo, y la segunda es la que importa: la sonda de
+    # CSP **edita este archivo** para forzar el catálogo dentro, compila, y lo
+    # restaura al terminar. Si algo la interrumpe entre medias, el `if (true)`
+    # se queda escrito. Esta comprobación es lo que impide que eso se suba.
+    router = leer("app/src/app/router.ts") or ""
+    check(
+        2, "el catálogo está limitado al modo de desarrollo",
+        "if (import.meta.env.DEV) {" in router
+        and "CatalogoDelSistema" in router
+        and "if (true)" not in router,
+        "El catálogo es una pantalla de desarrollo. En el bundle del cliente "
+        "sería superficie de ataque sin contrapartida, y la sonda de CSP fuerza "
+        "temporalmente su inclusión: si se interrumpe, deja el interruptor "
+        "abierto.",
+        "el interruptor no es import.meta.env.DEV",
+    )
+
     check(
         2, "todo token que se usa está definido", not huerfanos,
         "Un `var(--arles-bg-deeep)` mal escrito no da error: el navegador lo "
@@ -581,9 +670,15 @@ def fase_2(rapido):
             cuerpo = f.read()
         for bloque in re.finditer(r"([^{}]*)\{([^{}]*outline:\s*none[^{}]*)\}", cuerpo):
             selector = bloque.group(1).strip().splitlines()[-1].strip()
-            # `:focus:not(:focus-visible)` y `.panel:focus` sí pueden quitarlo:
-            # el anillo lo pone `:focus-visible`, que no se toca.
-            if "focus-visible" in selector or ":focus" in selector:
+            # La ÚNICA excepción es `:focus:not(:focus-visible)`: apaga el
+            # anillo al llegar por ratón y lo deja intacto para el teclado.
+            #
+            # La versión anterior perdonaba cualquier selector que contuviera
+            # `:focus`, y así dejó pasar un `.panel:focus { outline: none }`
+            # que apagaba el anillo también para el teclado — lo encontró la
+            # sonda de teclado, no esta comprobación. Ahora la excepción es
+            # literal: si alguien quiere otra, tiene que discutirla.
+            if re.search(r":focus:not\(\s*:focus-visible\s*\)\s*$", selector):
                 continue
             con_outline_none.append(f"{os.path.relpath(ruta, RAIZ)}: {selector}")
 
@@ -617,6 +712,7 @@ def fase_2(rapido):
 
     # ── Se construye y pasa sus tests ──
     print(f"{GRIS}  frontend{FIN}")
+    app = os.path.join(RAIZ, "app")
     if rapido:
         omitir(2, "build con las primitivas", "--rapido")
     else:
@@ -624,8 +720,17 @@ def fase_2(rapido):
             2, "build con las primitivas",
             ["npm", "run", "build", "--silent"],
             "Un componente que no entra en el bundle no existe para el usuario.",
-            cwd=os.path.join(RAIZ, "app"), timeout=600,
+            cwd=app, timeout=600,
         )
+
+    # ── Sondas de navegador ──
+    #
+    # Comprueban lo que jsdom NO puede: allí el contenedor de la tabla mide 0px
+    # de alto (así que el virtualizador no renderiza nada y un test de
+    # virtualización pasaría en vacío), no hay orden de tabulación real, y no
+    # hay CSP. Las tres encontraron defectos que los tests daban por buenos.
+    print(f"{GRIS}  sondas de navegador{FIN}")
+    sondas(rapido, app)
 
 
 FASES = {0: fase_0, 1: fase_1, 2: fase_2}

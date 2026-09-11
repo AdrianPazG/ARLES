@@ -5,6 +5,9 @@
 # Node
 node_modules/
 dist/
+# La sonda de CSP compila aquí un build de verificación y lo borra al acabar.
+# Ignorado por si un fallo la interrumpe antes de la limpieza.
+dist-csp/
 .vite/
 
 # ...pero el CSS de tokens SÍ se versiona: lo consume el frontend sin tener que

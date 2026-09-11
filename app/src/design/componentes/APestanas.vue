@@ -9,7 +9,9 @@
  *
  * `Inicio` y `Fin` saltan a los extremos; las flechas dan la vuelta.
  */
-import { computed, ref, useId, watch } from 'vue'
+import { computed, nextTick, ref, useId } from 'vue'
+
+import { despachar } from './teclado'
 
 export interface Pestana {
   id: string
@@ -40,32 +42,38 @@ function mover(delta: number) {
   if (siguiente) seleccionar(siguiente.id)
 }
 
-function alPulsarTecla(evento: KeyboardEvent) {
-  const acciones: Record<string, () => void> = {
-    ArrowRight: () => mover(1),
-    ArrowLeft: () => mover(-1),
-    Home: () => {
-      const primera = seleccionables.value[0]
-      if (primera) seleccionar(primera.id)
-    },
-    End: () => {
-      const ultima = seleccionables.value.at(-1)
-      if (ultima) seleccionar(ultima.id)
-    },
-  }
-  const accion = acciones[evento.key]
-  if (!accion) return
-  evento.preventDefault()
-  accion()
+async function enfocarLaActiva() {
+  await nextTick()
+  const indice = props.pestanas.findIndex((p) => p.id === activa.value)
+  botones.value[indice]?.focus()
 }
 
-// Al cambiar con el teclado, el foco tiene que seguir a la selección; si no,
-// la siguiente flecha se calcula desde donde estaba el foco y no desde lo que
-// el usuario ve marcado.
-watch(activa, (id) => {
-  const indice = props.pestanas.findIndex((p) => p.id === id)
-  botones.value[indice]?.focus()
-})
+function alPulsarTecla(evento: KeyboardEvent) {
+  const movio = despachar(
+    {
+      ArrowRight: () => mover(1),
+      ArrowLeft: () => mover(-1),
+      Home: () => {
+        const primera = seleccionables.value[0]
+        if (primera) seleccionar(primera.id)
+      },
+      End: () => {
+        const ultima = seleccionables.value.at(-1)
+        if (ultima) seleccionar(ultima.id)
+      },
+    },
+    evento,
+  )
+
+  // El foco sigue a la selección SÓLO cuando la movió el teclado. Si esto
+  // viviera en un `watch` sobre el modelo, cualquier cambio desde fuera —una
+  // ruta, un botón de otra parte de la pantalla— arrancaría el foco de donde
+  // el usuario lo tuviera y lo dejaría en la tira de pestañas.
+  //
+  // Y tiene que seguirla: si no, la siguiente flecha se calcularía desde
+  // donde quedó el foco y no desde lo que el usuario ve marcado.
+  if (movio) void enfocarLaActiva()
+}
 </script>
 
 <template>
@@ -151,10 +159,18 @@ watch(activa, (id) => {
   padding-top: var(--arles-space-4);
 }
 
-/* El panel es enfocable para que el teclado pueda entrar al contenido, pero
-   no debe dibujar el anillo al llegar por clic. `:focus-visible` ya lo evita;
-   esto sólo quita el resalte por defecto del contenedor. */
-.panel:focus {
+/* El panel es enfocable para que el teclado pueda entrar al contenido. Como
+   ES una parada de tabulación, tiene que dibujar su anillo: un elemento que
+   recibe el foco sin señal visible deja al usuario de teclado sin saber dónde
+   está, que es justo lo que prohíbe el §100.
+   
+   La versión anterior ponía `outline: none` sobre `:focus` a secas y lo
+   apagaba también para el teclado. Lo encontró la sonda de teclado; el
+   validador lo dejó pasar porque su regla perdonaba cualquier selector con
+   `:focus`, y esa laguna se cerró a la vez.
+   
+   `:focus:not(:focus-visible)` es lo único que se apaga: llegar por clic. */
+.panel:focus:not(:focus-visible) {
   outline: none;
 }
 </style>

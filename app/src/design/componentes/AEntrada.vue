@@ -10,6 +10,30 @@
  * El mensaje se enlaza con `aria-describedby` y se marca `aria-invalid`, así
  * que un lector de pantalla lo anuncia al entrar al campo en vez de dejar al
  * usuario descubrirlo al enviar.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * AUTOCOMPLETADO Y CORRECTOR: DESACTIVADOS POR DEFECTO
+ *
+ * La webview no es una página web cualquiera: WebView2 hereda el gestor de
+ * contraseñas y el autorrelleno de Edge, y WKWebView el de Safari. Un campo
+ * de credenciales SMTP con el autorrelleno activo acaba con la contraseña
+ * del cliente guardada **en el almacén del navegador**, que es exactamente
+ * lo que el §30 prohíbe: las credenciales viven en el llavero del sistema
+ * operativo, no en almacenamiento del navegador.
+ *
+ * Como el alta de remitentes aún no existe (Fase 5), esto es una barandilla
+ * puesta antes del precipicio: el día que alguien escriba ese formulario,
+ * el comportamiento seguro ya es el de por defecto y hay que pedir el otro
+ * a propósito.
+ *
+ * `spellcheck="false"` acompaña por el mismo motivo: un corrector puede
+ * enviar el texto a un servicio remoto, y por estos campos pasan
+ * direcciones y nombres de contactos reales (LFPDPPP).
+ *
+ * `autocompletado` permite activarlo donde sí tenga sentido —el nombre de
+ * una empresa, no una contraseña— y es una decisión explícita de quien
+ * escribe la pantalla.
+ * ─────────────────────────────────────────────────────────────────────────
  */
 import { computed, useId } from 'vue'
 
@@ -27,12 +51,21 @@ const props = withDefaults(
     requerido?: boolean
     /** Cifras: activa figuras tabulares para que las columnas alineen. */
     numerico?: boolean
+    /**
+     * Valor de `autocomplete`. **Desactivado por defecto**: ver la nota de
+     * cabecera. Sólo se activa donde el dato no sea sensible.
+     */
+    autocompletado?: string
+    /** El corrector sólo se enciende a propósito. */
+    corrector?: boolean
   }>(),
   {
     tipo: 'text',
     deshabilitado: false,
     requerido: false,
     numerico: false,
+    autocompletado: 'off',
+    corrector: false,
   },
 )
 
@@ -75,6 +108,8 @@ const descrito = computed(() => {
       :disabled="deshabilitado"
       :required="requerido"
       :data-numeric="numerico || undefined"
+      :autocomplete="autocompletado"
+      :spellcheck="corrector"
       :aria-invalid="error ? true : undefined"
       :aria-describedby="descrito"
     >

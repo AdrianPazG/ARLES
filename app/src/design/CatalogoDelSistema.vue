@@ -62,6 +62,8 @@ interface FilaDeMuestra {
 // para que un `<table>` sin virtualizar se viera lento en comparación.
 const TOTAL = 5000
 
+const filtro = ref('')
+
 const filas = computed<FilaDeMuestra[]>(() => {
   const estados = ['En cola', 'Aceptado', 'Reintentando', 'Envío no confirmado']
   const lista = Array.from({ length: TOTAL }, (_, i) => ({
@@ -72,11 +74,23 @@ const filas = computed<FilaDeMuestra[]>(() => {
     estado: estados[i % estados.length]!,
   }))
 
+  // Un filtro es como un usuario encoge una tabla de verdad, y el encogido
+  // brusco es donde un virtualizador mal atado se queda con índices que ya no
+  // existen. Aquí está para poder ejercitarlo, no de adorno.
+  const aguja = filtro.value.trim().toLowerCase()
+  const vistas = aguja
+    ? lista.filter(
+        (f) =>
+          f.nombre.toLowerCase().includes(aguja) ||
+          f.correo.toLowerCase().includes(aguja),
+      )
+    : lista
+
   const signo = ordenDireccion.value === 'asc' ? 1 : -1
   const clave = ordenPor.value as keyof FilaDeMuestra
   // Las cifras se ordenan como cifras: comparar «1200» y «37» como texto da
   // el orden equivocado, que es el defecto clásico de una tabla de datos.
-  return lista.sort((a, b) =>
+  return vistas.sort((a, b) =>
     clave === 'enviados'
       ? signo * (Number(a.enviados) - Number(b.enviados))
       : signo * a[clave].localeCompare(b[clave], 'es'),
@@ -392,13 +406,40 @@ const ESCALA = [
 
       <!-- ── Tabla ───────────────────────────────────────────────────── -->
       <template v-else-if="seccion === 'tabla'">
+        <div class="barra-de-tabla">
+          <AEntrada
+            v-model="filtro"
+            etiqueta="Filtrar"
+            :ayuda="`${filas.length.toLocaleString('es-MX')} de ${TOTAL.toLocaleString('es-MX')} filas`"
+            marcador="nombre o correo"
+          />
+        </div>
         <p class="bloque-nota">
           {{ TOTAL.toLocaleString('es-MX') }} filas, virtualizadas. Flechas,
           <code>Inicio</code>, <code>Fin</code>, <code>Re Pág</code>,
           <code>Av Pág</code> y <code>Enter</code>. La selección se marca con
           fondo <strong>y</strong> barra de acento.
         </p>
-        <div class="caja-de-tabla">
+        <div
+          v-if="filas.length === 0"
+          class="caja-de-tabla"
+        >
+          <EstadoVacio
+            titulo="Ningún contacto coincide con el filtro."
+            cuerpo="Prueba con menos letras, o borra el filtro para volver a ver la lista completa."
+          >
+            <template #accion>
+              <ABoton @click="filtro = ''">
+                Borrar el filtro
+              </ABoton>
+            </template>
+          </EstadoVacio>
+        </div>
+
+        <div
+          v-else
+          class="caja-de-tabla"
+        >
           <ATabla
             v-model:seleccionada="seleccionada"
             etiqueta="Contactos de muestra"
@@ -605,6 +646,11 @@ const ESCALA = [
   display: flex;
   flex-direction: column;
   gap: var(--arles-space-4);
+}
+
+.barra-de-tabla {
+  max-width: 380px;
+  margin-bottom: var(--arles-space-4);
 }
 
 .caja-de-tabla {

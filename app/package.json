@@ -12,7 +12,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint . --max-warnings 0",
-    "tokens": "python3 ../herramientas/design-tokens/generar.py --css"
+    "tokens": "python3 ../herramientas/design-tokens/generar.py --css",
+    "sonda:tabla": "node pruebas/sondas/tabla.mjs",
+    "sonda:csp": "node pruebas/sondas/csp.mjs",
+    "sonda:teclado": "node pruebas/sondas/teclado.mjs"
   },
   "dependencies": {
     "@tanstack/vue-virtual": "^3.13.38",
@@ -30,10 +33,11 @@
     "eslint-plugin-vue": "^10.0.0",
     "globals": "^17.12.0",
     "jsdom": "^26.0.0",
+    "playwright-core": "^1.63.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.0.0",
     "vite": "^7.0.0",
-    "vitest": "^3.0.0",
+    "vitest": "^3.2.7",
     "vue-tsc": "^2.2.0"
   }
 }

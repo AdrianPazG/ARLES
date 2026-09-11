@@ -31,6 +31,22 @@ export default ts.config(
   },
 
   {
+    // Las sondas de `pruebas/` son scripts de Node que manejan un navegador,
+    // no código de la webview: corren en la máquina de quien desarrolla y
+    // nunca se empaquetan. Necesitan `process` y escriben su informe por
+    // consola, que es su única salida.
+    //
+    // El bloque va ANTES de las reglas generales para que éstas sigan
+    // aplicándose a `pruebas/`: aquí sólo se añaden globales y se permite la
+    // consola. Las prohibiciones de `fetch` y `localStorage` siguen vigentes.
+    files: ['pruebas/**/*.mjs'],
+    languageOptions: {
+      globals: globals.node,
+      sourceType: 'module',
+    },
+  },
+
+  {
     rules: {
       // La webview es la superficie con más exposición a contenido no
       // confiable: `any` desactiva ahí justo las comprobaciones que importan.
@@ -75,5 +91,12 @@ export default ts.config(
       // ejecución, donde el tipo no dice nada.
       'vue/require-default-prop': 'off',
     },
+  },
+
+  {
+    // Va al final para que gane sobre el `no-console` general: el informe de
+    // una sonda ES su salida. Sólo afecta a `pruebas/`.
+    files: ['pruebas/**/*.mjs'],
+    rules: { 'no-console': 'off' },
   },
 )

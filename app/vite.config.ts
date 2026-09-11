@@ -28,6 +28,24 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
+
+    // El servidor de desarrollo sólo sirve archivos bajo la raíz del proyecto;
+    // cualquier otro devuelve 403. Los .woff2 de Mont viven en /TIPOGRAFIA, un
+    // nivel por encima, así que sin esto **la fuente no cargaba en desarrollo
+    // y la interfaz caía en la reserva sin decir nada**: los 403 sólo se veían
+    // abriendo la consola. En el build de producción no pasaba —Vite copia el
+    // archivo al bundle—, así que el fallo sólo existía donde se trabaja.
+    //
+    // La lista es explícita y de sólo dos entradas: abrir la raíz entera
+    // dejaría el servidor sirviendo cualquier archivo del repositorio, incluido
+    // lo que no debe salir de él.
+    fs: {
+      allow: [
+        fileURLToPath(new URL('.', import.meta.url)),
+        fileURLToPath(new URL('../TIPOGRAFIA', import.meta.url)),
+        fileURLToPath(new URL('../herramientas/design-tokens/dist', import.meta.url)),
+      ],
+    },
   },
 
   build: {

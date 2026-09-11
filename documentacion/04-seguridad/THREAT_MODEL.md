@@ -90,7 +90,7 @@ Todo dato que entra desde fuera es no confiable. Las fuentes reales:
 | Amenaza | Vector | Mitigación |
 |---|---|---|
 | **Elevación** | XSS → acceso al sistema de archivos | **Capabilities denegadas por defecto.** Sin plugin `shell`. Sin `fs` amplio. Sólo el diálogo de archivos con alcance acotado |
-| **Elevación** | Ejecución de script inyectado | **CSP estricta en scripts**: `script-src 'self'`, sin `unsafe-inline`, sin `unsafe-eval`, sin orígenes remotos. Ver la excepción de `style-src` en §7 |
+| **Elevación** | Ejecución de script inyectado | **CSP estricta, sin excepciones**: `script-src 'self'` y `style-src 'self'`, sin `unsafe-inline`, sin `unsafe-eval`, sin orígenes remotos. Verificado ejercitando la aplicación bajo esa política (`app/pruebas/sondas/csp.mjs`) |
 | **Tampering** | Actualización maliciosa | Verificación de **firma criptográfica** antes de aplicar (§79). Clave pública empaquetada; la privada nunca entra al repositorio |
 | **Elevación** | Navegación a origen externo | Navegación restringida. Los enlaces externos se abren en el navegador del sistema, no en la webview |
 
@@ -148,8 +148,36 @@ Decisiones conscientes, no descuidos:
 | **Detección de rebotes parcial** | Contradicción §37/§69 (ADR-0009) | Declarado en la interfaz |
 | **El «client secret» de Google es extraíble** | Inherente a las aplicaciones instaladas (RFC 8252) | PKCE aporta la seguridad real. No se documenta como secreto verdadero |
 | **Un usuario legítimo puede enviar spam** | ARLES no puede verificar el consentimiento de los contactos | Afirmación de origen lícito registrada · sin rotación de remitentes · avisos |
-| **`style-src 'unsafe-inline'` en la CSP** | Los estilos scoped de Vue se inyectan en tiempo de ejecución; sin esto la interfaz no tiene estilos. Detectado en la revisión de la Fase 1, donde este documento afirmaba una CSP sin `unsafe-inline` que no correspondía con la implementación | El vector real es la ejecución de script, y **`script-src` sí es estricto**: `'self'`, sin `unsafe-inline` ni `unsafe-eval`. Un CSS inyectado puede alterar la apariencia, no ejecutar código. Se revisará si Vue permite nonces sin coste desproporcionado |
 | **Pérdida de la clave maestra = datos irrecuperables** | Es la propiedad buscada del cifrado | Advertencia en el primer arranque · respaldo como vía de recuperación |
+
+### 7.1 Riesgos cerrados
+
+**`style-src 'unsafe-inline'` — retirado en la Fase 2.**
+
+La Fase 1 lo dejó aquí como riesgo aceptado, con el argumento de que los
+estilos *scoped* de Vue se inyectan en tiempo de ejecución y sin
+`unsafe-inline` la interfaz se quedaría sin estilos.
+
+El argumento resultó cierto **sólo en el modo de desarrollo**. En la
+aplicación empaquetada:
+
+- Vite extrae las hojas de los componentes a un `.css` servido desde `'self'`.
+- Los enlaces `:style` de Vue se aplican con `element.style.setProperty()`,
+  que la CSP **no gobierna**: la directiva alcanza al atributo `style=` del
+  HTML y a las etiquetas `<style>`, no a la API del DOM.
+
+Medido sirviendo el build bajo la política exacta de `tauri.conf.json` y
+recorriendo la tabla virtualizada, el modal y el menú —las tres primitivas
+que usan estilo en línea—: **cero violaciones**. `style-src` pasó a `'self'`.
+
+`app/index.html` conserva `'unsafe-inline'` en su `<meta>` porque `vite dev`
+sí inyecta `<style>`. Cuando las dos políticas coinciden —la aplicación
+instalada— **gana la intersección**, así que lo que llega a la máquina del
+cliente no admite estilo en línea. La sonda `csp.mjs` lo comprueba cada vez.
+
+La lección que deja: **un riesgo aceptado sin medir es una suposición con
+formato de decisión.** Éste llevaba una fase entero y costaba veinte minutos
+de comprobación.
 
 ---
 
@@ -159,7 +187,8 @@ Decisiones conscientes, no descuidos:
 - [ ] `Secret<T>` envuelve todo secreto; la capa de redacción de `tracing` está activa
 - [ ] Ningún comando Tauri devuelve una credencial
 - [ ] Capabilities denegadas por defecto; sin `shell`; `fs` acotado
-- [ ] CSP sin `unsafe-inline` ni `unsafe-eval`
+- [x] CSP sin `unsafe-inline` ni `unsafe-eval` — verificado en la Fase 2 ejercitando la aplicación bajo la política del producto (`sonda:csp`)
+- [x] Ningún campo de entrada ofrece autocompletado ni corrector por defecto: las credenciales no pueden acabar en el gestor de contraseñas de la webview (§30)
 - [ ] Sanitizado HTML en Rust, al guardar **y** al usar
 - [ ] Topes de zip bomb, filas, celdas y timeout verificados con archivos reales
 - [ ] Neutralización de fórmulas en la **exportación** CSV

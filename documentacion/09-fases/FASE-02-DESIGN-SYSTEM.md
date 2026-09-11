@@ -1,7 +1,8 @@
 # Fase 2 · Design System
 
-**Estado:** ✅ cerrada · **Fecha:** 2026-09-11
-**Validación:** 12/12 comprobaciones, 0 omitidas — `validar.py --fase 2`
+**Estado:** ✅ cerrada y **revisada** · **Fecha:** 2026-09-11
+**Validación:** 16/16 comprobaciones, 0 omitidas — `validar.py --fase 2`
+**Revisión adversaria:** 8 hallazgos, todos corregidos — ver §8
 
 > **Objetivo.** Convertir el sistema de diseño escrito en la Fase 0 en
 > **componentes que lo hacen cumplir**. Una regla de diseño en un documento se
@@ -156,8 +157,9 @@ el examen, no que el usuario vaya a poder leerlo.
 
 ## 5. Qué se verificó, y cómo
 
-**12 comprobaciones automáticas, 0 omitidas** (`validar.py --fase 2`), más 17
-tests de componente. Las siete comprobaciones nuevas **se probaron rompiéndolas
+**16 comprobaciones automáticas, 0 omitidas** (`validar.py --fase 2`), más 23
+tests de componente —17 de reglas del sistema y 6 de sondas adversarias— y
+tres sondas de navegador (§8). Las siete comprobaciones nuevas **se probaron rompiéndolas
 a propósito** antes de darlas por buenas.
 
 | Comprobación | Cómo se rompió para probarla |
@@ -199,9 +201,8 @@ siguen en pie**.
 | **La aplicación en una ventana de escritorio real** | El catálogo se revisó en Chromium sobre Linux, que es el motor de WebView2 pero no WebView2. Sigue sin verse una ventana nativa | Fase 3, en un equipo con escritorio |
 | **WKWebView (macOS)** | El motor de Safari difiere en suavizado, `appearance` del `<select>` y `<dialog>`. Es R-07, el coste aceptado de ADR-0001 | Fase 3, pantalla por pantalla |
 | **Escalado de Windows al 125–200 %** (§22) | Necesita Windows real | Fase 3 |
-| **La modalidad real del `<dialog>`** | jsdom no la simula, y los tests no la afirman. El relleno de `entorno.ts` cubre abrir y cerrar, nada más | Con la revisión en ventana real |
+| **El lector de pantalla real** | Los roles y atributos están puestos y probados con sondas; NVDA y VoiceOver no se han pasado por encima | Fase 3 |
 | **500 000 filas en la tabla** | El catálogo carga 5 000. La virtualización está, el presupuesto no se ha medido | Fase 4 |
-| **Lector de pantalla real** | Los roles y atributos están puestos y probados; NVDA y VoiceOver no se han pasado por encima | Fase 3 |
 
 Y la limitación de método que se arrastra: el validador comprueba **que las
 reglas del sistema siguen aplicadas**, no que el resultado sea bonito ni
@@ -216,17 +217,149 @@ utilizable. Eso lo decide una persona con el catálogo delante.
 | Licencia de Mont para distribuir la fuente incrustada | Puerta antes de la demo — D-5, P-01. La fuente ya está en el árbol de fuentes, **no en ningún instalador** |
 | Revisión del catálogo en Windows y macOS | Fase 3 |
 | Densidad cómoda de tabla como preferencia del usuario | Existe como propiedad; falta dónde elegirla — Fase 6 |
+| **Aviso moderado de `vitest`** (GHSA-82fw-gwwq-j7x9, lectura arbitraria de archivos) | Sólo en herramienta de desarrollo: no viaja al cliente, y `npm audit --omit=dev` da 0. La corrección es `vitest` ≥ 4.1.11, y el intento de subir aquí lo bloquea un fallo de `npm` al resolver el *peer* opcional `canvas` de `jsdom` (`Cannot read properties of null`). **Se reintenta al actualizar la imagen de CI**; si el runner tiene otra versión de npm, subirá sin más |
 
 ---
 
-## 8. Cómo reproducir esta validación
+## 8. Revisión adversaria de la fase
+
+La fase se cerró con 12 comprobaciones en verde, 17 tests y las primitivas
+revisadas a ojo en una captura. Después se atacó a propósito. **Aparecieron 8
+defectos.** Tres eran de seguridad o de accesibilidad; uno habría hundido el
+producto en la Fase 4; dos estaban en el aparato de verificación.
+
+### El grave
+
+**R1 · La tabla no virtualizaba. Renderizaba las 5 001 filas.**
+
+`.tabla` no tenía altura: crecía hasta el alto de su contenido, `.cuerpo` no
+llegaba a desbordar nunca, y el virtualizador —que decide cuántas filas
+renderizar a partir del alto visible— concluía que cabían todas.
+
+Lo que hace este defecto peligroso no es la causa, que es una línea de CSS.
+Es que **era invisible por todos los caminos que teníamos**:
+
+- La captura de pantalla se veía perfecta.
+- Los tests de jsdom no podían verlo: allí el contenedor mide 0 px de alto y
+  no se renderiza **ninguna** fila, así que un test de virtualización habría
+  pasado sin ejercitar nada.
+- Con 5 000 filas de demostración, el navegador aguanta.
+
+Habría llegado a la Fase 4 y allí, con los 500 000 contactos que pide T-7,
+habría tirado la ventana. Se arregló con `height: 100%` y se midió: de **5 001
+nodos de fila a 18**.
+
+### Los de seguridad
+
+**R2 · La CSP del producto admitía `unsafe-inline` sin necesitarlo.**
+La Fase 1 lo había registrado como riesgo aceptado (F14). Al medirlo resultó
+que el argumento sólo valía para el modo de desarrollo: en la aplicación
+empaquetada, Vite extrae las hojas a un `.css` y los `:style` de Vue se
+aplican con `element.style.setProperty()`, que la CSP no gobierna. Servido el
+build bajo la política exacta de `tauri.conf.json` y recorridas tabla, modal y
+menú: **cero violaciones**. `style-src` pasó a `'self'`. Detalle en
+[THREAT_MODEL §7.1](../04-seguridad/THREAT_MODEL.md).
+
+**R3 · Los campos ofrecían autocompletado y corrector.**
+La webview no es una página cualquiera: WebView2 hereda el gestor de
+contraseñas de Edge y WKWebView el de Safari. Un formulario de credenciales
+SMTP con el autorrelleno activo acaba con la contraseña del cliente **en el
+almacén del navegador**, que es justo lo que prohíbe el §30. El alta de
+remitentes es de la Fase 5, así que esto es una barandilla puesta antes del
+precipicio: `autocomplete="off"` y `spellcheck="false"` son ahora el defecto,
+y activarlos es una decisión explícita.
+
+**R4 · Una búsqueda por clave alcanzaba `Object.prototype`.**
+`acciones[evento.key]` sobre un objeto literal encuentra también lo heredado:
+una tecla llamada `constructor`, `toString` o `valueOf` devuelve una función
+invocable, así que el despachador la daba por buena, llamaba a
+`preventDefault()` y **se tragaba la tecla**. Ningún teclado produce hoy esos
+valores de `KeyboardEvent.key`, así que no era explotable — pero es una
+búsqueda que devuelve algo que nadie puso ahí, y ese patrón no se deja escrito
+en código que procesa entrada del usuario. Ahora pasa por `despachar()`, que
+usa `Object.hasOwn`.
+
+### Los de accesibilidad y comportamiento
+
+**R5 · El panel de pestañas era una parada de tabulación sin anillo de foco.**
+Llevaba `outline: none` sobre `:focus` a secas, lo que también lo apagaba para
+el teclado. Es el §100 exacto. Ahora sólo se apaga en
+`:focus:not(:focus-visible)`.
+
+**R6 · Cambiar la pestaña desde fuera robaba el foco.**
+El foco seguía a la selección desde un `watch` sobre el modelo, así que
+cualquier cambio ajeno al teclado —una ruta, un botón de otra parte de la
+pantalla— arrancaba el foco de donde el usuario lo tuviera. Ahora sólo lo
+mueve el propio teclado.
+
+**R7 · Las fuentes daban 403 en desarrollo y caían a la reserva en silencio.**
+El alias `@fuentes` apunta a `/TIPOGRAFIA`, fuera de la raíz de Vite, que sólo
+sirve archivos de dentro. En el build no pasaba —Vite copia el archivo—, así
+que el fallo existía **sólo donde se trabaja**, y la pila de reserva lo
+escondía: la interfaz se veía bien, con la fuente del sistema. Se abrió la
+ruta de forma explícita, y la sonda de navegador comprueba ahora que los
+cuatro cortes cargan de verdad.
+
+### Los del propio aparato de verificación
+
+**R8 · Dos comprobaciones no comprobaban.**
+
+- La de `prefers-reduced-motion` era una búsqueda de texto: pasaba con la
+  propiedad escrita como `prefers-reduced-motionXX`. Es la misma trampa que la
+  Fase 1 encontró en la comprobación de eslint. Ahora exige la regla `@media`
+  completa **y** que apague animación y transición.
+- La del anillo de foco perdonaba cualquier selector que contuviera `:focus`,
+  y por ahí se coló R5. Ahora la excepción es literal:
+  `:focus:not(:focus-visible)` y nada más.
+
+Y un tercero que era mío y no del código: la primera sonda de teclado contaba
+como «fuga» que el foco pasara por `<body>` al dar la vuelta dentro del modal.
+**No lo es**: es el relevo normal del navegador, ningún control del fondo lo
+recibe, y en una ventana de Tauri no hay barra de direcciones a la que ir. Una
+sonda que contara eso estaría midiendo el navegador, no la aplicación.
+
+### Lo que añadió la revisión
+
+**Tres sondas de navegador**, en `app/pruebas/sondas/`, que comprueban lo que
+jsdom no puede. Las tres se probaron rompiendo el código a propósito:
+
+| Sonda | Qué defiende | Cebo con el que se probó |
+|---|---|---|
+| `tabla.mjs` | Virtualización real, encogido brusco de la lista, recorrido por teclado, `aria-rowcount` | Quitar `height: 100%` → 5 001 nodos |
+| `teclado.mjs` | Atrapado de foco del modal, retorno del foco, anillo en cada parada | `.panel:focus { outline: none }` |
+| `csp.mjs` | La aplicación funciona bajo la CSP del producto, sin estilo en línea | Devolver `'unsafe-inline'` a `tauri.conf.json` |
+
+Y una comprobación que nació de las sondas: **el catálogo está limitado al modo
+de desarrollo.** La sonda de CSP edita `router.ts` para forzarlo dentro,
+compila y lo restaura; si algo la interrumpe entre medias, el interruptor se
+queda abierto. La comprobación es lo que impide que eso llegue a un commit.
+
+La lección de esta fase, que es la de la Fase 1 con otra ropa: **un entorno de
+prueba que no puede fallar de una forma, no está probando esa forma.** jsdom
+no tiene layout; por eso no podía ver el defecto más grave de la fase, y por
+eso un test que lo afirmara habría sido peor que no tenerlo.
+
+---
+
+## 9. Cómo reproducir esta validación
 
 ```bash
 npm --prefix app ci
 python3 herramientas/validar/validar.py --fase 2
 
+# Las sondas por separado (necesitan el servidor de desarrollo en marcha,
+# salvo la de CSP, que compila lo suyo):
+npm --prefix app run dev &
+npm --prefix app run sonda:tabla
+npm --prefix app run sonda:teclado
+npm --prefix app run sonda:csp
+
 # Y para verlo con los ojos:
-npm --prefix app run dev    # luego http://localhost:1420/#/catalogo
+#   http://localhost:1420/#/catalogo
 ```
 
-Salida esperada: **12 pasan, 0 fallan, 0 omitidos**.
+Salida esperada: **16 pasan, 0 fallan, 0 omitidos**.
+
+Las tres sondas de navegador necesitan `playwright-core` y un Chromium. Si
+faltan, el validador las **omite con motivo** —nunca las da por buenas—, y lo
+dice en el resumen.

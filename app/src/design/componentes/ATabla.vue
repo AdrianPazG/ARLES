@@ -29,6 +29,7 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, ref, watch } from 'vue'
 
 import AIcono from './AIcono.vue'
+import { despachar } from './teclado'
 
 export interface ColumnaDeTabla<F> {
   id: string
@@ -118,23 +119,22 @@ function seleccionarPorIndice(indice: number) {
 
 function alPulsarTecla(evento: KeyboardEvent) {
   const actual = indiceSeleccionado.value
-  const acciones: Record<string, () => void> = {
-    ArrowDown: () => seleccionarPorIndice(actual + 1),
-    ArrowUp: () => seleccionarPorIndice(actual - 1),
-    Home: () => seleccionarPorIndice(0),
-    End: () => seleccionarPorIndice(props.filas.length - 1),
-    PageDown: () => seleccionarPorIndice(actual + 10),
-    PageUp: () => seleccionarPorIndice(actual - 10),
-    ' ': () => seleccionarPorIndice(actual < 0 ? 0 : actual),
-    Enter: () => {
-      const fila = props.filas[actual]
-      if (fila) emit('activar', fila)
+  despachar(
+    {
+      ArrowDown: () => seleccionarPorIndice(actual + 1),
+      ArrowUp: () => seleccionarPorIndice(actual - 1),
+      Home: () => seleccionarPorIndice(0),
+      End: () => seleccionarPorIndice(props.filas.length - 1),
+      PageDown: () => seleccionarPorIndice(actual + 10),
+      PageUp: () => seleccionarPorIndice(actual - 10),
+      ' ': () => seleccionarPorIndice(actual < 0 ? 0 : actual),
+      Enter: () => {
+        const fila = props.filas[actual]
+        if (fila) emit('activar', fila)
+      },
     },
-  }
-  const accion = acciones[evento.key]
-  if (!accion) return
-  evento.preventDefault()
-  accion()
+    evento,
+  )
 }
 
 function alternarOrden(columna: ColumnaDeTabla<T>) {
@@ -255,7 +255,24 @@ watch(
 .tabla {
   display: flex;
   flex-direction: column;
+
+  /* ─────────────────────────────────────────────────────────────────────
+     `height: 100%` NO es cosmética: es lo que hace que la tabla virtualice.
+
+     Sin ella la rejilla crecía hasta el alto de su contenido, `.cuerpo` no
+     llegaba a desbordar nunca y el virtualizador —que decide cuántas filas
+     renderizar a partir del alto visible— concluía que cabían todas. Medido
+     con la sonda de navegador: **5 001 nodos de fila para 5 000 filas**.
+
+     Se veía perfecta en una captura. Habría llegado a la Fase 4 y allí, con
+     500 000 contactos (T-7), habría tirado la ventana.
+
+     `min-height: 0` acompaña: sin ella un hijo flex no puede encogerse por
+     debajo de su contenido y el desbordamiento se va al contenedor de fuera.
+     ───────────────────────────────────────────────────────────────────── */
+  height: 100%;
   min-height: 0;
+
   border: var(--arles-border-width) solid var(--arles-border);
   border-radius: var(--arles-radius-md);
   overflow: hidden;
