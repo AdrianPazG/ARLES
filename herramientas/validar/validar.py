@@ -16,6 +16,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -444,7 +445,190 @@ def fase_1(rapido):
         )
 
 
-FASES = {0: fase_0, 1: fase_1}
+# ─── Fase 2 · Design System ──────────────────────────────────────────────────
+
+# Sin acentos graves ni comillas: el nombre de un componente dentro de un
+# comentario no debe contar como uso de un token.
+RE_COMENTARIO_CSS = re.compile(r"/\*.*?\*/", re.S)
+RE_COMENTARIO_JS = re.compile(r"^\s*//.*$", re.M)
+RE_HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
+RE_MS = re.compile(r"\b\d+ms\b")
+# Píxeles sueltos de 4 en adelante. Los de 1 a 3 son filetes y desplazamientos
+# de borde, no decisiones de diseño: ver §2.1 del DESIGN_SYSTEM.
+RE_PX = re.compile(r"[^-0-9a-z(]([4-9]|[1-9][0-9]+)px")
+RE_USO_DE_TOKEN = re.compile(r"var\(\s*(--arles-[a-z0-9-]+)")
+RE_DEF_DE_TOKEN = re.compile(r"^\s*(--arles-[a-z0-9-]+)\s*:", re.M)
+
+
+def sin_comentarios(texto):
+    return RE_COMENTARIO_JS.sub("", RE_COMENTARIO_CSS.sub("", texto))
+
+
+def primitivas():
+    carpeta = os.path.join(RAIZ, "app/src/design/componentes")
+    if not os.path.isdir(carpeta):
+        return []
+    return sorted(
+        os.path.join(carpeta, n)
+        for n in os.listdir(carpeta)
+        if n.endswith(".vue")
+    )
+
+
+def fase_2(rapido):
+    titulo("FASE 2 · Design System")
+
+    # ── Estructura ──
+    print(f"{GRIS}  estructura{FIN}")
+    for ruta, porque in [
+        ("app/src/design/tipografia.css", "Sin las @font-face la escala cae en la fuente de reserva sin avisar."),
+        ("app/src/design/componentes/index.ts", "El punto de entrada único es lo que impide que aparezca un décimo botón local."),
+        ("app/src/design/CatalogoDelSistema.vue", "Sin catálogo, las primitivas no se pueden revisar con los ojos."),
+    ]:
+        check(2, f"existe {ruta}", os.path.exists(os.path.join(RAIZ, ruta)), porque)
+
+    cortes = ["Regular", "SemiBold", "Bold", "Black"]
+    faltan = [
+        c for c in cortes
+        if not os.path.exists(os.path.join(RAIZ, f"TIPOGRAFIA/Mont-{c}.woff2"))
+    ]
+    referencias = sum(
+        f"@fuentes/Mont-{c}.woff2" in (leer("app/src/design/tipografia.css") or "")
+        for c in cortes
+    )
+    check(
+        2, "los cuatro cortes de Mont están incrustados",
+        not faltan and referencias == len(cortes),
+        "La escala usa Regular, SemiBold, Bold y Black. Si falta uno, el motor "
+        "lo sintetiza engordando el trazo y la tipografía deja de ser Mont sin "
+        "que nada falle.",
+        f"faltan: {', '.join(faltan)}" if faltan else "",
+    )
+
+    # Sin comentarios: la cabecera de tipografia.css menciona «@font-face» al
+    # explicar la regla, y contarla daría una cara de más.
+    css_tipografia = sin_comentarios(leer("app/src/design/tipografia.css") or "")
+    caras = css_tipografia.count("@font-face")
+    pesos = len(re.findall(r"font-weight:\s*\d+", css_tipografia))
+    check(
+        2, "cada @font-face declara su font-weight", caras > 0 and caras == pesos,
+        "El usWeightClass de este kit está desplazado (Mont-Regular declara "
+        "600). Si un @font-face no fija su peso, el motor usa el del archivo y "
+        "asigna el corte equivocado (TIPOGRAFIA.md §2).",
+        f"{caras} caras, {pesos} pesos declarados",
+    )
+
+    # ── §17 · ningún componente contiene un valor de diseño literal ──
+    print(f"{GRIS}  tokens{FIN}")
+    hex_sueltos, ms_sueltos, px_sueltos = [], [], []
+    for ruta in primitivas():
+        with open(ruta, encoding="utf-8") as f:
+            cuerpo = sin_comentarios(f.read())
+        corto = os.path.relpath(ruta, RAIZ)
+        hex_sueltos += [f"{corto}: {m}" for m in RE_HEX.findall(cuerpo)]
+        ms_sueltos += [f"{corto}: {m}" for m in RE_MS.findall(cuerpo)]
+        px_sueltos += [f"{corto}: {m}px" for m in RE_PX.findall(cuerpo)]
+
+    check(
+        2, "ninguna primitiva contiene un color literal", not hex_sueltos,
+        "§17: el color tiene una sola fuente, tokens.json, porque es la única "
+        "que pasa por la verificación de contraste de CI. Un hex escrito en un "
+        "componente se salta esa verificación entera.",
+        " · ".join(hex_sueltos[:6]),
+    )
+    check(
+        2, "ninguna primitiva contiene una duración literal", not ms_sueltos,
+        "§98: el movimiento tiene tres duraciones y una curva. Una duración "
+        "suelta es una cuarta que nadie decidió.",
+        " · ".join(ms_sueltos[:6]),
+    )
+    check(
+        2, "ninguna primitiva contiene una medida suelta", not px_sueltos,
+        "§17: alturas, anchos y sombras salen de tokens. Los filetes de 1 a 3 "
+        "px sí se escriben (DESIGN_SYSTEM §2.1): son detalle de borde, no una "
+        "decisión de escala.",
+        " · ".join(px_sueltos[:6]),
+    )
+
+    # ── Todo token usado existe ──
+    definidos = set()
+    for ruta in ("app/src/design/base.css", "herramientas/design-tokens/dist/arles-tokens.css"):
+        definidos |= set(RE_DEF_DE_TOKEN.findall(leer(ruta) or ""))
+
+    huerfanos = set()
+    for base, _, archivos in os.walk(os.path.join(RAIZ, "app/src")):
+        for n in archivos:
+            if not n.endswith((".vue", ".css", ".ts")):
+                continue
+            with open(os.path.join(base, n), encoding="utf-8") as f:
+                for token in RE_USO_DE_TOKEN.findall(f.read()):
+                    if token not in definidos:
+                        huerfanos.add(f"{n}: {token}")
+
+    check(
+        2, "todo token que se usa está definido", not huerfanos,
+        "Un `var(--arles-bg-deeep)` mal escrito no da error: el navegador lo "
+        "resuelve a nada y el elemento se queda transparente. Es el fallo de "
+        "CSS que más lejos llega sin que nadie lo vea.",
+        " · ".join(sorted(huerfanos)[:6]),
+    )
+
+    # ── Accesibilidad estructural ──
+    print(f"{GRIS}  accesibilidad{FIN}")
+    con_outline_none = []
+    for ruta in primitivas() + [os.path.join(RAIZ, "app/src/design/base.css")]:
+        with open(ruta, encoding="utf-8") as f:
+            cuerpo = f.read()
+        for bloque in re.finditer(r"([^{}]*)\{([^{}]*outline:\s*none[^{}]*)\}", cuerpo):
+            selector = bloque.group(1).strip().splitlines()[-1].strip()
+            # `:focus:not(:focus-visible)` y `.panel:focus` sí pueden quitarlo:
+            # el anillo lo pone `:focus-visible`, que no se toca.
+            if "focus-visible" in selector or ":focus" in selector:
+                continue
+            con_outline_none.append(f"{os.path.relpath(ruta, RAIZ)}: {selector}")
+
+    check(
+        2, "nadie quita el anillo de foco sin sustituto", not con_outline_none,
+        "DESIGN_SYSTEM §5: es la regla que más a menudo se rompe en una "
+        "revisión de diseño y la que más rompe la navegación por teclado "
+        "(§100).",
+        " · ".join(con_outline_none[:6]),
+    )
+
+    # La regla completa, no la subcadena: una búsqueda de texto pasaría con
+    # `prefers-reduced-motionXX` escrito por error. Es la misma trampa que la
+    # Fase 1 encontró en la comprobación de eslint.
+    base = leer("app/src/design/base.css") or ""
+    regla = re.search(
+        r"@media[^{]*\(\s*prefers-reduced-motion\s*:\s*reduce\s*\)\s*\{(.*?)\n\}",
+        base, re.S,
+    )
+    cuerpo = regla.group(1) if regla else ""
+    check(
+        2, "se respeta prefers-reduced-motion",
+        bool(regla)
+        and "animation-duration" in cuerpo
+        and "transition-duration" in cuerpo,
+        "§98: obligatorio, no opcional. Y tiene que apagar las dos cosas: una "
+        "regla que sólo neutraliza `transition` deja corriendo cualquier "
+        "`animation`, como la del esqueleto de carga.",
+        "no se encontró la regla" if not regla else "la regla no apaga ambas",
+    )
+
+    # ── Se construye y pasa sus tests ──
+    print(f"{GRIS}  frontend{FIN}")
+    if rapido:
+        omitir(2, "build con las primitivas", "--rapido")
+    else:
+        check_cmd(
+            2, "build con las primitivas",
+            ["npm", "run", "build", "--silent"],
+            "Un componente que no entra en el bundle no existe para el usuario.",
+            cwd=os.path.join(RAIZ, "app"), timeout=600,
+        )
+
+
+FASES = {0: fase_0, 1: fase_1, 2: fase_2}
 
 
 def main():

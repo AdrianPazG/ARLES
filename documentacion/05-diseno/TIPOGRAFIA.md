@@ -52,7 +52,7 @@ Base **14 px**, escala ~1.2. Densidad de aplicación de escritorio, no de págin
 | Body small | 13 / 18 | Regular 400 | Celdas de tabla densas |
 | Caption | 12 / 16 | Regular 400 | Ayudas, marcas de tiempo |
 | Button | 14 / 20 | SemiBold 600 | Botones |
-| **Numeric** | **14 / 20** | Medium 500, **tabulares** | **Cifras en tablas** |
+| **Numeric** | **14 / 20** | Regular 400, **tabulares** | **Cifras en tablas** |
 
 ### Mont Black se usa con moderación (§20)
 
@@ -70,13 +70,51 @@ font-variant-numeric: tabular-nums;
 
 Sin esto, las cifras bailan al actualizarse y las columnas no se alinean. En una interfaz de tablas es la diferencia entre parecer una herramienta profesional y parecer un prototipo.
 
-**Verificar que el corte de Mont disponible incluye figuras tabulares.** Si no, es un argumento adicional a favor del plan B.
+**Verificado en la Fase 2.** Los cuatro cortes declaran `tnum` en su tabla
+GSUB, junto con `pnum`, `frac`, `numr`, `dnom` y `case`. `font-variant-numeric:
+tabular-nums` funciona.
+
+### No existe un corte Medium 500 — corregido en la Fase 2
+
+La escala pedía **Medium 500** para las cifras. El kit no lo tiene. Medidos los
+grosores reales sobre el asta de la «I», los cortes disponibles saltan de
+Regular (87 por mil) a SemiBold (115), sin nada intermedio.
+
+Las cifras usan **Regular 400 con `tabular-nums`**, que además es lo correcto
+según §6 de este documento: texto claro sobre fondo oscuro pesa más de lo que
+aparenta, y un peso intermedio en columnas de números las haría destacar sobre
+el texto al que acompañan. `--arles-font-weight-medium` se conserva como token
+—el plan B sí tiene ese peso— pero **no se usa en ningún componente**.
 
 ### Formatos a incrustar
 
 **Sólo `.woff2`.** Es lo único que WebView2 y WKWebView necesitan. `.eot`, `.ttf` y `.woff` no se incluyen en el bundle: son peso muerto y, en el caso del `.eot`, una señal confusa sobre la procedencia del kit.
 
-Pesos a incrustar: Regular 400, Medium 500, SemiBold 600, Bold 700, Black 900. **Sin cursivas** salvo que algún componente las requiera — cada peso son unos 45 KB.
+Pesos incrustados (Fase 2): **Regular 400,
+SemiBold 600, Bold 700 y Black 900**. 180 KB en total. **Sin cursivas**: ningún
+componente las usa.
+
+### El `usWeightClass` del kit está mal, y hay que saberlo
+
+Leído en los TTF, el peso que cada archivo declara de sí mismo está desplazado
+un escalón hacia arriba:
+
+| Archivo | Declara | Grosor real del asta de la «I» | Peso que le asigna ARLES |
+|---|---|---|---|
+| `Mont-Light` | 400 | 50 por mil | — (no se incrusta) |
+| `Mont-Regular` | **600** | 87 | **400** |
+| `Mont-SemiBold` | **700** | 115 | **600** |
+| `Mont-Bold` | **800** | 152 | **700** |
+| `Mont-Black` | **950** | 238 | **900** |
+
+Los archivos **son** lo que su nombre dice —el grosor medido crece de forma
+monótona y en orden—; lo que no es de fiar es su metadato. Cada corte se
+empaquetó además como una familia propia («Mont SemiBold», subfamilia
+«Regular»), que es como Transfonter exporta un archivo por peso.
+
+Por eso **cada `@font-face` de `app/src/design/tipografia.css` fija su
+`font-weight` explícitamente** y nunca se deja elegir al motor. Es también una
+señal más de que el kit no es una entrega comercial de Fontfabric (§1).
 
 ---
 

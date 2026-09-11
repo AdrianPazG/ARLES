@@ -26,9 +26,23 @@ const rutas: RouteRecordRaw[] = [
     component: () => import('@/app/PantallaPendiente.vue'),
     meta: { seccion: s },
   })),
-  // Una ruta desconocida no muestra un error: lleva a Inicio.
-  { path: '/:pathMatch(.*)*', redirect: '/inicio' },
 ]
+
+// El catálogo del design system es una pantalla de desarrollo: sirve para
+// revisar las primitivas con los ojos, en Windows y en macOS. No viaja en el
+// bundle que se instala en la máquina del cliente, y por eso se registra
+// aquí y no en SECCIONES —donde aparecería en la navegación.
+if (import.meta.env.DEV) {
+  rutas.push({
+    path: '/catalogo',
+    name: 'catalogo',
+    component: () => import('@/design/CatalogoDelSistema.vue'),
+  })
+}
+
+// Una ruta desconocida no muestra un error: lleva a Inicio. Va la última
+// porque el comodín captura todo lo que llegue después de ella.
+rutas.push({ path: '/:pathMatch(.*)*', redirect: '/inicio' })
 
 export const router = createRouter({
   // Historial por hash, no por ruta. En una aplicación empaquetada los archivos

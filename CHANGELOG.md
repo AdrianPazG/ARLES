@@ -12,6 +12,42 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Fase 2 — Design System ✅ cerrada
+
+**Validación: 12/12 comprobaciones de la fase, 0 omitidas** — `validar.py --fase 2`
+(48/48 en la ejecución completa). 17 tests de componente.
+Resumen en [`FASE-02-DESIGN-SYSTEM.md`](documentacion/09-fases/FASE-02-DESIGN-SYSTEM.md).
+
+- **Once primitivas** en `app/src/design/componentes/`: botón, entrada,
+  selector, insignia, aviso, modal, menú, pestañas, tabla virtualizada, icono y
+  logotipo. Más los cuatro estados de pantalla del §97.
+- **Mont incrustada** — Regular 400, SemiBold 600, Bold 700 y Black 900 en
+  `.woff2`, 180 KB. Cada `@font-face` fija su peso explícitamente.
+- **Catálogo del design system** en `/#/catalogo`, sólo en desarrollo: cada
+  primitiva en sus cuatro estados, para revisarla en Windows y en macOS.
+- **Tokens nuevos** con contrato de contraste verificado en CI:
+  `--arles-accent-hover`, `--arles-danger-hover` y `--arles-text-disabled`;
+  más alturas de control y de fila, anchos de modal y menú, y las dos sombras.
+- **7 comprobaciones nuevas** en el validador, todas probadas rompiéndolas a
+  propósito.
+
+#### Corregido
+
+- **El botón deshabilitado no se leía.** `opacity: 0.45` daba **1.89:1** en el
+  primario y **3.56:1** en un secundario ocupado. WCAG exime a los controles
+  deshabilitados, así que ninguna herramienta lo marcaba. Se pinta el estado en
+  vez de atenuar el elemento: 3.64:1. Y «ocupado» deja de atenuarse — pasa a
+  11.8:1, porque está trabajando, no deshabilitado.
+- **`TIPOGRAFIA.md` pedía un corte Medium 500 que el kit no tiene.** Medidos los
+  grosores reales, salta de Regular (87 por mil) a SemiBold (115). Las cifras
+  usan Regular 400 con figuras tabulares.
+- **El `usWeightClass` del kit está desplazado** un escalón: `Mont-Regular`
+  declara 600. Documentado, y cada `@font-face` fija su peso para no depender
+  del metadato.
+- La comprobación de `prefers-reduced-motion` era una búsqueda de texto y pasaba
+  con la propiedad mal escrita. Ahora exige la regla `@media` completa y que
+  apague animación **y** transición.
+
 ### Fase 1 — Cimientos ✅ cerrada
 
 **Validación: 32/32 comprobaciones de la fase, 0 omitidas** — `validar.py --fase 1`

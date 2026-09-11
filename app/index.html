@@ -10,6 +10,14 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost"
     />
+    <!-- El mismo icono que genera herramientas/iconos/ desde tokens.json.
+         Sin él, la webview pide /favicon.ico y deja un 404 en la consola que
+         luego nadie sabe de dónde sale. -->
+    <link
+      rel="icon"
+      type="image/png"
+      href="/favicon.png"
+    />
     <!-- ADR-0010: el numeral «I» no aparece junto al número de versión. -->
     <title>ARLES RELAY</title>
   </head>

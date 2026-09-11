@@ -15,6 +15,12 @@ export default defineConfig({
       '@tokens': fileURLToPath(
         new URL('../herramientas/design-tokens/dist', import.meta.url),
       ),
+      // Los .woff2 de Mont viven en /TIPOGRAFIA, que el §11 declara material
+      // de referencia de sólo lectura. Se leen desde ahí en vez de copiarlos:
+      // una copia dentro de app/ sería un segundo sitio del que retirarlos si
+      // P-01 se cierra en negativo, y ADR-0012 existe precisamente por eso.
+      // Sólo entran en el bundle los cuatro que tipografia.css referencia.
+      '@fuentes': fileURLToPath(new URL('../TIPOGRAFIA', import.meta.url)),
     },
   },
 
@@ -38,5 +44,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     include: ['src/**/*.spec.ts'],
+    // jsdom trae el elemento <dialog> pero no sus métodos. Ver el archivo.
+    setupFiles: ['src/pruebas/entorno.ts'],
   },
 })

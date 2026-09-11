@@ -13,15 +13,18 @@
   --arles-border-strong : #1380AE;  /* Bordes de énfasis */
 
   /* Contenido y acento */
-  --arles-text      : #F4ECE4;  /* Texto primario */
-  --arles-text-muted: #E4E4CC;  /* Texto secundario */
-  --arles-accent    : #FCCC0C;  /* Acento · una vez por pantalla */
-  --arles-info      : #2CA4D4;  /* Trazo, borde, foco — nunca relleno */
+  --arles-text         : #F4ECE4;  /* Texto primario */
+  --arles-text-muted   : #E4E4CC;  /* Texto secundario */
+  --arles-accent       : #FCCC0C;  /* Acento · una vez por pantalla */
+  --arles-info         : #2CA4D4;  /* Trazo, borde, foco — nunca relleno */
+  --arles-accent-hover : #FFD83A;  /* Acento en hover · relleno del botón primario */
+  --arles-text-disabled: #9FB4BF;  /* Texto de un control deshabilitado. Nunca para contenido. */
 
   /* Semánticos */
-  --arles-success: #4FC3A1;  /* Aceptado */
-  --arles-warning: #E08A1C;  /* Advertencia */
-  --arles-danger : #F06A5A;  /* Error, detener */
+  --arles-success     : #4FC3A1;  /* Aceptado */
+  --arles-warning     : #E08A1C;  /* Advertencia */
+  --arles-danger      : #F06A5A;  /* Error, detener */
+  --arles-danger-hover: #F4867A;  /* Peligro en hover · relleno del botón de peligro */
 
   /* Alias */
   --arles-text-on-accent: var(--arles-bg-deep);  /* Texto sobre rellenos claros. Existe para que nadie ponga texto claro sobre relleno claro. */

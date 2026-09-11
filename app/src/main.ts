@@ -1,8 +1,10 @@
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 
-// El orden importa: los tokens definen las variables que base.css consume.
+// El orden importa: los tokens definen las variables que base.css consume,
+// y las @font-face tienen que estar declaradas antes de que body las use.
 import '@tokens/arles-tokens.css'
+import '@/design/tipografia.css'
 import '@/design/base.css'
 
 import App from '@/app/App.vue'

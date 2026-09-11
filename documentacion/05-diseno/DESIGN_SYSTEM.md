@@ -29,6 +29,34 @@ Base de **4 px**.
 --arles-space-4: 16px;    --arles-space-8: 64px;
 ```
 
+### 2.1 Qué cuenta como «píxel suelto» — precisado en la Fase 2
+
+El principio del §1 dice que ningún componente contiene un píxel literal. Al
+implementar las primitivas quedó claro que eso, tomado al pie de la letra,
+obliga a inventar un token para cada filete de 1 px, y un sistema con cuarenta
+tokens de borde no es más riguroso: es menos legible.
+
+La línea que se trazó, y que el validador hace cumplir:
+
+| Medida | Regla | Por qué |
+|---|---|---|
+| **≥ 4 px** | **Token obligatorio** | Es una decisión de escala: altura de control, altura de fila, ancho de un modal, geometría de una sombra. Cambiarla afecta a toda la aplicación |
+| 1–3 px | Se escribe literal | Filetes, desplazamientos de borde y compensaciones ópticas. No son escala: son detalle de dibujo del propio componente |
+| Colores | **Token siempre, sin excepción** | Es lo único que pasa por la verificación de contraste de CI. Un hex escrito en un componente se salta esa verificación entera |
+| Duraciones | **Token siempre, sin excepción** | Hay tres. Una cuarta suelta es una que nadie decidió |
+
+Tokens de tamaño añadidos en la Fase 2: `--arles-control-height`,
+`--arles-control-height-compact`, `--arles-row-height-compact`,
+`--arles-row-height-comfortable`, `--arles-modal-max-width`,
+`--arles-menu-min-width`, `--arles-shadow-modal`, `--arles-shadow-menu` y
+`--arles-backdrop`.
+
+La regla se comprueba: «ninguna primitiva contiene un color literal», «…una
+duración literal» y «…una medida suelta», las tres en `validar.py --fase 2`,
+las tres probadas rompiéndolas a propósito.
+
+---
+
 **Ventana mínima: 1120 × 720.** Por debajo, el contenido se recorta en vez de reorganizarse: reorganizar es un patrón adaptable y aquí no aplica.
 
 **Diseño base:**
@@ -117,6 +145,25 @@ Radios contenidos. Los radios grandes leen como software de consumo; ARLES es un
 **El botón primario lleva texto oscuro.** 11.68:1. Con texto blanco sería 1.52:1 — ilegible (`COLOR_SYSTEM.md` §7.2).
 
 Altura 32 px (compacto) y 40 px (normal). Nunca menos de 32: el §22 pide escalado hasta 200 % y los objetivos pequeños se vuelven imprecisos.
+
+#### Deshabilitado no es opacidad — corregido en la Fase 2
+
+La primera implementación atenuaba el botón entero con `opacity: 0.45`. Medido
+en el catálogo abierto en el navegador: un **primario deshabilitado daba
+1.89:1** y un **secundario ocupado, 3.56:1**. La etiqueta no se leía.
+
+WCAG 1.4.3 exime a los controles deshabilitados del mínimo de contraste, así
+que ninguna herramienta automática lo habría marcado. Pero un botón cuyo texto
+no se distingue no comunica *qué* está deshabilitado, que es justo lo contrario
+de lo que pide el §95.
+
+El estado se pinta, no se atenúa: relleno `--arles-surface-raised` y texto
+`--arles-text-disabled` —3.64:1, verificado en CI—, iguales para las cuatro
+variantes, más `cursor: not-allowed` como segunda señal (7.3).
+
+Y **«ocupado» no se atenúa en absoluto**: no está deshabilitado por una regla
+de negocio, está trabajando, y el usuario lo está mirando precisamente ahora.
+Conserva su contraste completo y sólo deja de aceptar clics.
 
 ### Entradas
 

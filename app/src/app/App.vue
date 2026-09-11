@@ -4,6 +4,7 @@ import { RouterLink, RouterView } from 'vue-router'
 
 import { SECCIONES } from '@/app/router'
 import { useAppStore } from '@/app/stores/app'
+import { ALogotipo } from '@/design/componentes'
 
 const app = useAppStore()
 onMounted(() => void app.cargar())
@@ -15,9 +16,11 @@ onMounted(() => void app.cargar())
       class="nav"
       aria-label="Navegación principal"
     >
+      <!-- El logotipo vive en un componente: el §21 prohíbe estilizarlo, y
+           repetir su marcado en cada sitio es justo como se acaba estilizando
+           en uno de ellos. -->
       <div class="marca">
-        <span class="marca-arles">ARLES</span>
-        <span class="marca-relay">RELAY</span>
+        <ALogotipo />
       </div>
 
       <ul class="nav-lista">
@@ -71,18 +74,9 @@ onMounted(() => void app.cargar())
   padding: var(--arles-space-5) var(--arles-space-4);
 }
 
-/* El logotipo es exclusivamente tipográfico (§21). Sin isotipo. */
 .marca {
-  font-weight: var(--arles-font-weight-black);
-  font-size: var(--arles-font-size-h2);
-  letter-spacing: 0.02em;
   margin-bottom: var(--arles-space-7);
   padding-inline: var(--arles-space-2);
-}
-
-.marca-relay {
-  color: var(--arles-accent);
-  margin-left: 0.35ch;
 }
 
 .nav-lista {

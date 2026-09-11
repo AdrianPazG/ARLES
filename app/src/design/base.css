@@ -57,6 +57,28 @@
   --arles-duration-slow: 320ms;
   --arles-ease: cubic-bezier(0.2, 0, 0.2, 1);
 
+  /* Alturas de control · §22: por debajo de 32px el objetivo se vuelve
+   * impreciso al escalar Windows al 200 %. */
+  --arles-control-height: 40px;
+  --arles-control-height-compact: 32px;
+
+  /* Alturas de fila de tabla · DESIGN_SYSTEM §6, preferencia del usuario */
+  --arles-row-height-compact: 36px;
+  --arles-row-height-comfortable: 44px;
+
+  /* Las DOS únicas sombras del sistema. §3 del DESIGN_SYSTEM elige separar por
+   * luminosidad y borde, no por sombra: sobre #041A25 una sombra apenas se ve,
+   * WebView2 y WKWebView la dibujan distinto (R-07) y cuesta al desplazar
+   * tablas largas. Se conservan sólo donde la función no es elevar sino
+   * despegar del fondo oscurecido: el modal y la lista del menú. */
+  --arles-shadow-modal: 0 16px 48px rgb(0 0 0 / 45%);
+  --arles-shadow-menu: 0 8px 24px rgb(0 0 0 / 40%);
+  --arles-backdrop: rgb(0 0 0 / 55%);
+
+  /* Anchos de contenedores flotantes */
+  --arles-modal-max-width: 640px;
+  --arles-menu-min-width: 200px;
+
   /* Layout */
   --arles-nav-width: 240px;
   --arles-window-min-width: 1120px;
