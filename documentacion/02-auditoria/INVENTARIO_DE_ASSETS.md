@@ -21,7 +21,7 @@ La auditoría encontró cuatro discrepancias materiales entre lo que el brief af
 /CONCEPTOS_DE_DISEÑO/            27 JPEG, 1277×1600      2.0 MB
 /REFERENCIAS_VISUALES_DEL_SITIO/  7 JPEG + 1 MP4         4.7 MB
 /TIPOGRAFIA/                     89 archivos             11 MB
-/REFERENCIA_DE_COLOR/             1 archivo              9.3 MB
+/REFERENCIA_DE_COLOR/             1 archivo              9.3 MB   (+1 añadido después, ver §11)
 /RECURSOS/
    ├── CONCEPTOS_DE_DISEÑO/       1 JPEG
    ├── REFERENCIAS_VISUALES_DEL_SITIO/  8 archivos
@@ -264,3 +264,17 @@ El §21 del propio brief instruye: «si la fuente tiene problemas de licencia pa
 | A-05 | `#2CA4D4` falla WCAG como superficie | Alta | `COLOR_SYSTEM.md` · rol restringido |
 | A-06 | No existe ningún activo de marca de ARLES | Alta | Pendiente de Dirección |
 | A-07 | Licencia de Mont no cubre app embedding | **Crítica** | **D-3 · bloqueante de Fase 2** |
+
+---
+
+## 11. Añadido posterior a la auditoría
+
+`REFERENCIA_DE_COLOR/ARLES_RELAY-paleta-v1.2.0.png` — 2800×4400, 428 KB.
+
+Lámina de la paleta oficial: tokens, hex, RGB, HSL, luminancia relativa, matriz de contraste WCAG y las tres reglas de uso. Todos los valores proceden del cálculo descrito en `05-diseno/COLOR_SYSTEM.md` §6; ninguno está estimado.
+
+**Autorizado por Dirección** el 2026-09-11, pese a la marca de sólo lectura del §11 del brief. La operación fue **aditiva**: no se movió, renombró ni modificó ningún archivo existente.
+
+A diferencia del resto del contenido de estas carpetas, **este archivo sí es un activo propio de TELEMETRY INSIGHT**: es obra derivada de una medición, no del asset de stock. Los colores no son protegibles, así que la lámina no hereda ninguna carga de licencia de la imagen de referencia (ver A-03).
+
+La tipografía Mont se usó para **componer la lámina**, que es uso de documento cubierto por una licencia de escritorio. Esto es independiente de D-3, que trata de **incrustar el binario de la fuente en la aplicación distribuida** — un supuesto distinto y todavía bloqueado.

@@ -6,6 +6,8 @@
 
 > Todos los ratios de este documento están **calculados**, no estimados. El método está en §6 para que cualquiera pueda reproducirlos.
 
+📐 **Lámina visual:** [`/REFERENCIA_DE_COLOR/ARLES_RELAY-paleta-v1.2.0.png`](../../REFERENCIA_DE_COLOR/ARLES_RELAY-paleta-v1.2.0.png) — la paleta completa con tokens, valores y matriz de contraste en una sola hoja. Es la referencia rápida; **este documento sigue siendo la fuente de verdad.**
+
 ---
 
 ## 1. De dónde sale la paleta

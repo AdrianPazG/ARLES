@@ -38,9 +38,13 @@ Además, `REFERENCIA_DE_COLOR/farm-lifestyle-digital-art.jpg` **no es un JPEG**:
 RECURSOS/
 ├── README.md
 ├── REFERENCIA_DE_COLOR/
-│   └── farm-lifestyle-digital-art.png   PNG 2320×3080. Stock generado
-│                                        por IA (IPTC trainedAlgorithmicMedia).
-│                                        USO INTERNO. No se distribuye.
+│   ├── farm-lifestyle-digital-art.png   PNG 2320×3080. Stock generado
+│   │                                    por IA (IPTC trainedAlgorithmicMedia).
+│   │                                    USO INTERNO. No se distribuye.
+│   └── ARLES_RELAY-paleta-v1.2.0.png    Lámina de la paleta oficial derivada
+│                                        de la anterior. Activo PROPIO de
+│                                        TELEMETRY. Referencia rápida; la
+│                                        fuente de verdad es COLOR_SYSTEM.md
 ├── TIPOGRAFIA/                          Mont (Fontfabric). Licencia PENDIENTE (D-3).
 ├── CONCEPTOS_DE_DISEÑO/                 Carruseles de tips de UX de redes sociales
 │                                        (@ux_snacks, @uxwithvamshi). Heurística
