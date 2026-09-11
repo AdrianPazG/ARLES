@@ -12,7 +12,11 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
-### Fase 1 — Cimientos (en curso)
+### Fase 1 — Cimientos ✅ cerrada
+
+**Validación: 33/33 comprobaciones, 0 omitidas** — `herramientas/validar/validar.py`.
+Resumen completo en [`documentacion/09-fases/FASE-01-CIMIENTOS.md`](documentacion/09-fases/FASE-01-CIMIENTOS.md).
+
 
 - **`arles-core`** — tipos de dominio sin I/O: ids tipados con UUID v7, `Secret<T>`
   con `Debug`/`Display` redactados, normalización de correo y máquina de estados
@@ -20,12 +24,19 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 - **`arles-db`** — SQLite cifrado con SQLCipher, migraciones con `refinery` y el
   esquema inicial completo. 22 tests, incluidos los que verifican que el archivo
   en disco está realmente cifrado y que los invariantes del esquema se cumplen.
+- **`arles-app`** — shell de Tauri 2 con capabilities denegadas por defecto, CSP
+  estricta, integración con el llavero del sistema e iconos generados desde los
+  tokens. 12 tests, incluido el arranque en sus dos ramas.
 - **`app/`** — andamiaje de Vue 3 con TypeScript estricto, Pinia, vue-router e
   i18n, consumiendo el CSS generado desde `tokens.json`. 11 tests.
 - **`herramientas/design-tokens/`** — fuente única de color: genera el CSS, la
   lámina de la paleta y la verificación WCAG de CI.
+- **`herramientas/iconos/`** — iconos de la aplicación desde los mismos tokens,
+  con `.ico` e `.icns` empaquetados sin dependencias externas.
+- **`herramientas/validar/`** — valida una fase completa: estructura, fronteras
+  de arquitectura, compilación, tests y documentación. Emite informe JSON.
 - **CI** — contraste, rustfmt, clippy con `-D warnings`, tests en Linux, Windows
-  y macOS, `cargo-deny` y auditoría de npm con dos umbrales.
+  y macOS, `cargo-deny`, auditoría de npm con dos umbrales y validación de fase.
 
 ### Decisiones
 

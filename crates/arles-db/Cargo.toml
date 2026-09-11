@@ -15,6 +15,10 @@ refinery = { version = "0.9", features = ["rusqlite"] }
 getrandom = "0.3"
 thiserror.workspace = true
 
+[features]
+# Expone un escape a SQL crudo para tests de otros crates. Nunca en producción.
+test-util = []
+
 [dev-dependencies]
 tempfile = "3"
 

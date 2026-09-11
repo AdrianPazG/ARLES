@@ -94,7 +94,16 @@
 ### 08 · Legal
 | Documento | Contenido |
 |---|---|
-| [LICENCIAS_DE_TERCEROS](08-legal/LICENCIAS_DE_TERCEROS.md) | 🔴 Mont, assets stock/IA, dependencias |
+| [LICENCIAS_DE_TERCEROS](08-legal/LICENCIAS_DE_TERCEROS.md) | Mont, assets stock/IA, dependencias |
+
+### 09 · Fases
+Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verificar.
+
+| Documento | Estado |
+|---|---|
+| [README · índice de fases](09-fases/README.md) | — |
+| [Fase 00 · Discovery y auditoría](09-fases/FASE-00-DISCOVERY.md) | ✅ 4/4 |
+| [Fase 01 · Cimientos](09-fases/FASE-01-CIMIENTOS.md) | ✅ 29/29 |
 
 ---
 
@@ -119,6 +128,13 @@ La puerta de salida se cruzó el **2026-09-11**: Dirección aprobó la auditorí
 | | |
 |---|---|
 | [Generador de tokens](../herramientas/design-tokens/README.md) | Fuente única de color → CSS, lámina y verificación WCAG en CI |
+| `herramientas/iconos/generar-iconos.py` | Iconos de la app desde los mismos tokens, con `.ico` e `.icns` |
+| `herramientas/validar/validar.py` | Valida una fase completa y emite informe |
+
+```bash
+python3 herramientas/validar/validar.py            # todas las fases cerradas
+python3 herramientas/validar/validar.py --fase 1   # solo una
+```
 
 ---
 

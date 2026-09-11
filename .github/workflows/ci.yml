@@ -78,6 +78,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
 
+      # En Linux, Tauri necesita WebKitGTK, y el llavero necesita D-Bus más
+      # gnome-keyring. En Windows y macOS ambos son nativos.
+      - name: Dependencias de Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev \
+            gnome-keyring dbus-x11
+
       # SQLCipher se compila desde fuente junto con OpenSSL: la primera
       # ejecución es lenta, la caché absorbe las siguientes.
       - name: cargo test
@@ -85,6 +96,17 @@ jobs:
 
       - name: doctests
         run: cargo test --workspace --doc
+
+      # El arranque tiene dos ramas y las dos importan. Sin llavero se ejercita
+      # sola —es lo que ocurre en un contenedor— pero un «todo verde» que solo
+      # prueba el camino de error no es una validación, es una coincidencia.
+      - name: Arranque con llavero disponible (Linux)
+        if: runner.os == 'Linux'
+        run: ./herramientas/validar/con-llavero.sh cargo test -p arles-app --test arranque -- --nocapture
+
+      - name: Arranque con llavero nativo (Windows y macOS)
+        if: runner.os != 'Linux'
+        run: cargo test -p arles-app --test arranque -- --nocapture
 
   # ── Paso 4 · Seguridad y licencias ────────────────────────────────────────
   dependencias:
@@ -146,6 +168,45 @@ jobs:
       - name: npm audit (herramientas de desarrollo)
         run: npm audit --audit-level=high
 
+  # ── Validación de fase ────────────────────────────────────────────────────
+  #
+  # El mismo script que se corre en local. Su valor no es repetir los jobs de
+  # arriba, sino comprobar lo que ellos no ven: que las fronteras de la
+  # arquitectura siguen en pie, que las capabilities no se han abierto, y que la
+  # documentación no se ha quedado atrás del código.
+  validacion:
+    name: Validación de fase
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Dependencias de Linux
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev \
+            gnome-keyring dbus-x11
+
+      - run: npm ci
+        working-directory: app
+
+      - name: validar.py
+        run: python3 herramientas/validar/validar.py --json informe-validacion.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: informe-validacion
+          path: informe-validacion.json
+
   # ── Pendientes de sus fases del roadmap ───────────────────────────────────
   #
   # Fase 4  · rendimiento: presupuestos con 500 000 contactos sintéticos
@@ -153,5 +214,3 @@ jobs:
   # Fase 6  · E2E: Playwright del camino dorado en Windows y macOS
   #           (ESTRATEGIA_QA.md §2)
   # Fase 9  · build: instaladores firmados y notarizados
-  #           El job de Tauri necesita webkit2gtk en Linux; en Windows y macOS
-  #           no hace falta, y son los únicos objetivos de v1.2.0 (§4).

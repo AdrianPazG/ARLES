@@ -7,11 +7,17 @@ Desarrollado por **TELEMETRY INSIGHT**
 
 ---
 
-## Estado: Fase 0 — Discovery y auditoría
+## Estado
 
-**Este repositorio aún no contiene código de producción**, y no lo contendrá hasta que se cruce la puerta de salida de la Fase 0.
+| Fase | | Validación |
+|---|---|---|
+| [00 · Discovery y auditoría](documentacion/09-fases/FASE-00-DISCOVERY.md) | ✅ cerrada | 4/4 |
+| [01 · Cimientos](documentacion/09-fases/FASE-01-CIMIENTOS.md) | ✅ cerrada | 29/29 |
+| 02 · Design System | ⬜ siguiente | — |
 
-El proyecto está en la fase de entender, cuestionar y documentar antes de construir, tal como exige el brief maestro (§1, §175).
+```bash
+python3 herramientas/validar/validar.py     # valida todas las fases cerradas
+```
 
 👉 **[Empieza por la documentación](documentacion/00-INDICE.md)**
 

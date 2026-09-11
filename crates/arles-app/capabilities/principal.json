@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "principal",
+  "description": "Permisos de la ventana principal. Se deniega por defecto y solo se habilita lo imprescindible (§87, THREAT_MODEL.md §4.5).",
+  "windows": ["principal"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging"
+  ]
+}

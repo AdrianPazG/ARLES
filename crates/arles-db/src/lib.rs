@@ -9,8 +9,10 @@
 #![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 
 pub mod conexion;
+pub mod db;
 pub mod error;
 pub mod migraciones;
 
 pub use conexion::{ClaveMaestra, abrir};
+pub use db::{Db, ResumenArranque};
 pub use error::DbError;
