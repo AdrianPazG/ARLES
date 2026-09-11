@@ -35,7 +35,8 @@ Arrancarlos aquí es la diferencia entre que estén listos cuando hagan falta y 
 ### Fase 2 — Design System ✅ cerrada
 
 Once primitivas, los cuatro estados de pantalla, Mont incrustada y el catálogo
-visual. **16/16 comprobaciones**, más tres sondas de navegador y una revisión adversaria de 8 hallazgos. Resumen en
+visual. **18/18 comprobaciones**, tres sondas de navegador y una revisión
+adversaria de 10 hallazgos. Resumen en
 [FASE-02-DESIGN-SYSTEM.md](../09-fases/FASE-02-DESIGN-SYSTEM.md).
 
 ✅ **Desbloqueada por D-5.** Se desarrolla con Mont; la puerta de la licencia se traslada a antes de la demo.

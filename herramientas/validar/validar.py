@@ -412,37 +412,7 @@ def fase_1(rapido):
 
     # ── Documentación ──
     print(f"{GRIS}  documentación{FIN}")
-
-    md_dir = os.path.join(RAIZ, "documentacion/09-fases/FASE-01-PARA-DIRECCION.md")
-    pdf_dir = os.path.join(RAIZ, "documentacion/09-fases/FASE-01-PARA-DIRECCION.pdf")
-    huella_dir = pdf_dir + ".sha256"
-
-    check(
-        1, "existe el informe de fase para Dirección (md y pdf)",
-        os.path.exists(md_dir) and os.path.exists(pdf_dir),
-        "Una fase que sólo se puede entender leyendo código no está entregada: "
-        "Dirección aprueba lo que puede leer.",
-    )
-
-    if os.path.exists(md_dir) and os.path.exists(huella_dir):
-        actual = hashlib.sha256(open(md_dir, "rb").read()).hexdigest()
-        registrada = open(huella_dir, encoding="utf-8").read().split()[0]
-        check(
-            1, "el PDF para Dirección corresponde a su Markdown",
-            actual == registrada,
-            "Un PDF es binario: si se queda atrás respecto al texto que lo "
-            "origina, nadie lo nota en una revisión y Dirección lee una versión "
-            "que ya no es cierta. Regenerar con "
-            "herramientas/informe-direccion/generar-pdf.py.",
-            f"md={actual[:12]}… registrada={registrada[:12]}…",
-        )
-    else:
-        check(
-            1, "el PDF para Dirección corresponde a su Markdown", False,
-            "Falta la huella del Markdown de origen; sin ella no hay forma de "
-            "saber si el PDF está al día.",
-            f"no existe {huella_dir}",
-        )
+    informe_para_direccion(1, "FASE-01-PARA-DIRECCION")
 
 
 # ─── Fase 2 · Design System ──────────────────────────────────────────────────
@@ -475,16 +445,71 @@ def primitivas():
     )
 
 
+def informe_para_direccion(fase, base):
+    """Comprueba el informe sin tecnicismos de una fase, y que su PDF esté al día.
+
+    Sirve a cualquier fase: el nombre del archivo es el único parámetro. Antes
+    vivía dentro de `fase_1` con las rutas escritas dentro, así que la Fase 2
+    habría necesitado una copia — y una copia de una comprobación es una
+    comprobación que se queda atrás en una de las dos.
+    """
+    md = os.path.join(RAIZ, f"documentacion/09-fases/{base}.md")
+    pdf = os.path.join(RAIZ, f"documentacion/09-fases/{base}.pdf")
+    huella = pdf + ".sha256"
+
+    check(
+        fase, "existe el informe de fase para Dirección (md y pdf)",
+        os.path.exists(md) and os.path.exists(pdf),
+        "Una fase que sólo se puede entender leyendo código no está entregada: "
+        "Dirección aprueba lo que puede leer.",
+        f"falta {os.path.relpath(md if not os.path.exists(md) else pdf, RAIZ)}",
+    )
+
+    if not (os.path.exists(md) and os.path.exists(huella)):
+        check(
+            fase, "el PDF para Dirección corresponde a su Markdown", False,
+            "Falta la huella del Markdown de origen; sin ella no hay forma de "
+            "saber si el PDF está al día.",
+            f"no existe {os.path.relpath(huella, RAIZ)}",
+        )
+        return
+
+    actual = hashlib.sha256(open(md, "rb").read()).hexdigest()
+    registrada = open(huella, encoding="utf-8").read().split()[0]
+    check(
+        fase, "el PDF para Dirección corresponde a su Markdown",
+        actual == registrada,
+        "Un PDF es binario: si se queda atrás respecto al texto que lo origina, "
+        "nadie lo nota en una revisión y Dirección lee una versión que ya no es "
+        "cierta. Regenerar con herramientas/informe-direccion/generar-pdf.py.",
+        f"md={actual[:12]}… registrada={registrada[:12]}…",
+    )
+
+
 def hay_navegador(app):
-    """¿Se puede correr una sonda? Devuelve el motivo si no."""
+    """¿Se puede correr una sonda? Devuelve el motivo si no.
+
+    La búsqueda del navegador vive en `app/pruebas/sondas/navegador.mjs` y aquí
+    se le pregunta, en vez de repetir la lógica: dos copias de un localizador
+    de rutas divergen, y la que divergiría es la que decide si una sonda se
+    omite en silencio.
+    """
     if not os.path.isdir(os.path.join(app, "node_modules", "playwright-core")):
         return "falta playwright-core: npm --prefix app ci"
-    ejecutable = os.environ.get(
-        "ARLES_CHROMIUM", "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
+
+    codigo, salida, _ = corre(
+        [
+            "node",
+            "-e",
+            "import('./pruebas/sondas/navegador.mjs').then(m => {"
+            "  const r = m.buscarChromium();"
+            "  if (!r.ruta) { process.stderr.write(r.motivo); process.exit(1) }"
+            "})",
+        ],
+        cwd=app,
+        timeout=60,
     )
-    if not os.path.exists(ejecutable):
-        return f"no hay Chromium en {ejecutable} (ARLES_CHROMIUM lo cambia)"
-    return None
+    return None if codigo == 0 else (salida.strip() or "no se encontró Chromium")
 
 
 def sondas(rapido, app):
@@ -731,6 +756,10 @@ def fase_2(rapido):
     # hay CSP. Las tres encontraron defectos que los tests daban por buenos.
     print(f"{GRIS}  sondas de navegador{FIN}")
     sondas(rapido, app)
+
+    # ── Documentación ──
+    print(f"{GRIS}  documentación{FIN}")
+    informe_para_direccion(2, "FASE-02-PARA-DIRECCION")
 
 
 FASES = {0: fase_0, 1: fase_1, 2: fase_2}

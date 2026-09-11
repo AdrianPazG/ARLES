@@ -91,7 +91,7 @@ el texto al que acompañan. `--arles-font-weight-medium` se conserva como token
 **Sólo `.woff2`.** Es lo único que WebView2 y WKWebView necesitan. `.eot`, `.ttf` y `.woff` no se incluyen en el bundle: son peso muerto y, en el caso del `.eot`, una señal confusa sobre la procedencia del kit.
 
 Pesos incrustados (Fase 2): **Regular 400,
-SemiBold 600, Bold 700 y Black 900**. 180 KB en total. **Sin cursivas**: ningún
+SemiBold 600, Bold 700 y Black 900**. 188 KB en total. **Sin cursivas**: ningún
 componente las usa.
 
 ### El `usWeightClass` del kit está mal, y hay que saberlo

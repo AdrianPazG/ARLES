@@ -105,7 +105,8 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Fase 00 · Discovery y auditoría](09-fases/FASE-00-DISCOVERY.md) | ✅ 4/4 |
 | [Fase 01 · Cimientos](09-fases/FASE-01-CIMIENTOS.md) | ✅ 32/32 |
 | [Fase 01 · resumen para Dirección](09-fases/FASE-01-PARA-DIRECCION.md) | Sin tecnicismos |
-| [Fase 02 · Design System](09-fases/FASE-02-DESIGN-SYSTEM.md) | ✅ 16/16 |
+| [Fase 02 · Design System](09-fases/FASE-02-DESIGN-SYSTEM.md) | ✅ 18/18 |
+| [Fase 02 · resumen para Dirección](09-fases/FASE-02-PARA-DIRECCION.md) | Sin tecnicismos |
 
 ---
 

@@ -198,8 +198,46 @@ jobs:
       - run: npm ci
         working-directory: app
 
+      # Sin un Chromium instalado, el validador OMITE las tres sondas de
+      # navegador con su motivo. Un omitido no es un fallo, pero tampoco es una
+      # validación — y son justo las que encontraron el defecto más grave de la
+      # Fase 2: la tabla renderizando 5 001 filas en vez de virtualizarlas.
+      #
+      # Sin este paso, el informe diría «3 omitidos» y nadie lo miraría.
+      - name: Chromium para las sondas de navegador
+        run: npx playwright install --with-deps chromium
+        working-directory: app
+
+      - name: Ruta del Chromium instalado
+        run: |
+          RUTA=$(node -e "
+            const { chromium } = require('playwright-core')
+            process.stdout.write(chromium.executablePath())
+          ")
+          echo "ARLES_CHROMIUM=$RUTA" >> "$GITHUB_ENV"
+          echo "Chromium en $RUTA"
+        working-directory: app
+
       - name: validar.py
         run: python3 herramientas/validar/validar.py --json informe-validacion.json
+
+      # El validador ya falla si algo falla, pero un omitido NO lo hace fallar:
+      # existe para poder correr `--rapido` en local. En CI no hay excusa para
+      # omitir nada, así que aquí se exige que la cuenta sea cero.
+      - name: Ninguna comprobación quedó sin verificar
+        if: always()
+        run: |
+          python3 - <<'FIN'
+          import json, sys
+          informe = json.load(open("informe-validacion.json"))
+          omitidos = [c for c in informe["checks"] if c["estado"] == "omitido"]
+          if omitidos:
+              print("Comprobaciones omitidas en CI:")
+              for c in omitidos:
+                  print(f"  – Fase {c['fase']} · {c['nombre']}: {c['detalle'] or c['porque']}")
+              sys.exit(1)
+          print(f"{len(informe['checks'])} comprobaciones, 0 omitidas.")
+          FIN
 
       - uses: actions/upload-artifact@v4
         if: always()

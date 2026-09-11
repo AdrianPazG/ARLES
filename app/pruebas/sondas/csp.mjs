@@ -31,12 +31,14 @@ import { fileURLToPath } from 'node:url'
 
 import { chromium } from 'playwright-core'
 
+import { exigirChromium } from './navegador.mjs'
+
 const APP = fileURLToPath(new URL('../..', import.meta.url))
 const SALIDA = join(APP, 'dist-csp')
 const RUTA_ROUTER = join(APP, 'src/app/router.ts')
 const CONF = join(APP, '../crates/arles-app/tauri.conf.json')
-const EJECUTABLE =
-  process.env['ARLES_CHROMIUM'] ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
+// La ruta se localiza, no se escribe: ver navegador.mjs.
+const EJECUTABLE = exigirChromium()
 const PUERTO = 4173
 
 const problemas = []

@@ -12,7 +12,7 @@ Existen porque los ADR explican *por qué* se decidió algo y el código muestra
 |---|---|---|---|
 | [00](FASE-00-DISCOVERY.md) | Discovery, auditoría y arquitectura | ✅ cerrada | 4 / 4 |
 | [01](FASE-01-CIMIENTOS.md) | Cimientos | ✅ cerrada y revisada | 32 / 32 |
-| [02](FASE-02-DESIGN-SYSTEM.md) | Design System | ✅ cerrada y revisada | 16 / 16 |
+| [02](FASE-02-DESIGN-SYSTEM.md) | Design System | ✅ cerrada y revisada | 18 / 18 |
 | 03 | Empresa y contactos | ⬜ pendiente | — |
 | 04 | Motor de ejecución | ⬜ pendiente | — |
 | 05 | Proveedores de correo | ⬜ pendiente | — |
@@ -63,4 +63,5 @@ Cada comprobación dice **qué verifica y por qué importa**, para que un fallo 
 Cuando una fase tiene consecuencias que Dirección debe entender sin leer código,
 lleva además un documento `FASE-NN-PARA-DIRECCION.md`: el mismo contenido contado
 sin tecnicismos. La Fase 1 tiene el suyo en
-[FASE-01-PARA-DIRECCION.md](FASE-01-PARA-DIRECCION.md).
+[FASE-01-PARA-DIRECCION.md](FASE-01-PARA-DIRECCION.md) y la Fase 2 en
+[FASE-02-PARA-DIRECCION.md](FASE-02-PARA-DIRECCION.md).

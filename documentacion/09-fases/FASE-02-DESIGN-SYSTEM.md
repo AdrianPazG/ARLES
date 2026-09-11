@@ -1,8 +1,9 @@
 # Fase 2 · Design System
 
 **Estado:** ✅ cerrada y **revisada** · **Fecha:** 2026-09-11
-**Validación:** 16/16 comprobaciones, 0 omitidas — `validar.py --fase 2`
-**Revisión adversaria:** 8 hallazgos, todos corregidos — ver §8
+**Validación:** 18/18 comprobaciones, 0 omitidas — `validar.py --fase 2`
+**Revisión adversaria:** 10 hallazgos, todos corregidos — ver §6
+**Para Dirección:** el mismo contenido sin tecnicismos en [FASE-02-PARA-DIRECCION.md](FASE-02-PARA-DIRECCION.md)
 
 > **Objetivo.** Convertir el sistema de diseño escrito en la Fase 0 en
 > **componentes que lo hacen cumplir**. Una regla de diseño en un documento se
@@ -38,7 +39,7 @@ extremo a extremo.
 ### `app/src/design/tipografia.css` — Mont incrustada
 
 Cuatro cortes en `.woff2`: Regular 400, SemiBold 600, Bold 700 y Black 900.
-180 KB. Sin cursivas: ningún componente las usa.
+**188 KB** en total. Sin cursivas: ningún componente las usa.
 
 ### `app/src/design/CatalogoDelSistema.vue` — el catálogo
 
@@ -48,7 +49,7 @@ el router fuera de producción: no viaja en el bundle del cliente.
 Existe por un motivo concreto. La Fase 1 cerró con **«la aplicación abriéndose
 en una ventana real»** en la lista de lo no verificado. Este catálogo es lo que
 se abre en Windows y en macOS para cerrar ese punto —y es también donde se
-encontraron los dos defectos de contraste de §4.
+encontraron los dos defectos de contraste de §5.2.
 
 ### Tokens nuevos
 
@@ -64,6 +65,16 @@ encontraron los dos defectos de contraste de §4.
 
 Los tres primeros llevan **contrato de contraste verificado en CI**. Ninguno se
 escribió a mano: salen de `tokens.json` y el CSS se regenera.
+
+### Volumen al cerrar la fase
+
+| Qué | Líneas |
+|---|---|
+| `app/src/design/componentes/` — las once primitivas, los cuatro estados y el despachador de teclado | ~2 810 |
+| `app/src/design/CatalogoDelSistema.vue` | ~770 |
+| `app/pruebas/sondas/` — las tres sondas y el localizador de navegador | ~570 |
+
+El Rust no cambió en esta fase: sigue en ~2 970 líneas.
 
 ---
 
@@ -97,8 +108,76 @@ dos cosas convierte la regla en ruido y acaba con alguien desactivándola.
 
 ---
 
-## 3. Lo que la tipografía obligó a corregir
+## 3. Qué se verificó, y cómo
 
+**18 comprobaciones automáticas, 0 omitidas** (`validar.py --fase 2`), más 23
+tests de componente —17 de reglas del sistema y 6 de sondas adversarias— y
+tres sondas de navegador (§6).
+
+El frontend suma **37 tests** contando los 14 que ya traía la Fase 1.
+
+### Las comprobaciones nuevas, y el cebo con el que se probó cada una
+
+Ninguna se dio por buena sin verla fallar.
+
+| Comprobación | Cómo se rompió para probarla |
+|---|---|
+| Los cuatro cortes de Mont están incrustados | Borrando un `.woff2` |
+| Cada `@font-face` declara su `font-weight` | Quitando el peso de Bold |
+| Ninguna primitiva contiene un color literal | Escribiendo `#FCCC0C` en `ABoton` |
+| …una duración literal | Escribiendo `120ms` |
+| …una medida suelta | Escribiendo `min-height: 40px` |
+| Todo token que se usa está definido | Escribiendo `var(--arles-bg-deeep)` |
+| Nadie quita el anillo de foco sin sustituto | Añadiendo `outline: none` |
+| Se respeta `prefers-reduced-motion` | Ver abajo |
+| El catálogo está limitado al modo de desarrollo | Cambiando el interruptor a `if (true)` |
+| El PDF para Dirección corresponde a su Markdown | Añadiendo una línea al `.md` sin regenerar |
+| **Sonda:** la tabla virtualiza de verdad | Quitando `height: 100%` → 5 001 nodos |
+| **Sonda:** teclado y foco | `.panel:focus { outline: none }` |
+| **Sonda:** la CSP del producto no necesita estilo en línea | Devolviendo `'unsafe-inline'` a `tauri.conf.json` |
+
+La de `prefers-reduced-motion` encontró la trampa de siempre. La primera versión buscaba la cadena
+`prefers-reduced-motion` en `base.css`, y el cebo —renombrarla a
+`prefers-reduced-motionXX`— **la seguía pasando**: es exactamente la búsqueda
+de texto que la Fase 1 ya había encontrado en la comprobación de eslint. Se
+sustituyó por una que exige la regla `@media` completa **y** que apague las dos
+cosas, `animation-duration` y `transition-duration`: una que sólo neutralice
+`transition` deja corriendo la animación del esqueleto de carga.
+
+### Los tests de componente
+
+17 tests, y cada `describe` nombra la regla que defiende. Tres se comprobaron
+rompiendo el componente: quitarle el icono a la insignia, dejar que `Esc` cierre
+un modal destructivo y poner las tres pestañas en el orden de tabulación. Los
+tres hicieron fallar los tests correspondientes.
+
+No comprueban que las primitivas «se vean bien» —eso lo decide una persona
+mirando el catálogo—, sino que **las reglas que se pueden romper en silencio
+siguen en pie**.
+
+---
+
+## 4. Qué NO se verificó
+
+| Sin verificar | Motivo | Cuándo |
+|---|---|---|
+| **La aplicación en una ventana de escritorio real** | El catálogo se revisó en Chromium sobre Linux, que es el motor de WebView2 pero no WebView2. Sigue sin verse una ventana nativa | Fase 3, en un equipo con escritorio |
+| **WKWebView (macOS)** | El motor de Safari difiere en suavizado, `appearance` del `<select>` y `<dialog>`. Es R-07, el coste aceptado de ADR-0001 | Fase 3, pantalla por pantalla |
+| **Escalado de Windows al 125–200 %** (§22) | Necesita Windows real | Fase 3 |
+| **El lector de pantalla real** | Los roles y atributos están puestos y probados con sondas; NVDA y VoiceOver no se han pasado por encima | Fase 3 |
+| **500 000 filas en la tabla** | El catálogo carga 5 000. La virtualización está, el presupuesto no se ha medido | Fase 4 |
+
+Y la limitación de método que se arrastra: el validador comprueba **que las
+reglas del sistema siguen aplicadas**, no que el resultado sea bonito ni
+utilizable. Eso lo decide una persona con el catálogo delante.
+
+---
+
+## 5. Problemas encontrados durante la fase
+
+Los de esta sección salieron **mientras se construía**. Los ocho de §6 salieron después, atacando la fase ya cerrada.
+
+### 5.1 Lo que la tipografía obligó a corregir
 **No existe un corte Medium 500.** La escala del `TIPOGRAFIA.md` pedía Medium
 500 para las cifras. El kit no lo tiene. Medidos los grosores reales sobre el
 asta de la «I», los cortes saltan de Regular (87 por mil) a SemiBold (115), sin
@@ -128,10 +207,7 @@ Los cuatro cortes declaran `tnum` en su GSUB. Y medido en el navegador a 16 px:
 frente a 28.95. Casi ocho píxeles de diferencia entre dos cifras de cuatro
 dígitos — suficiente para que una columna de miles no alinee.
 
----
-
-## 4. Lo que sólo apareció al mirarlo
-
+### 5.2 Lo que sólo apareció al mirarlo
 Las primitivas pasaban tipos, lint y tests. Los dos defectos siguientes
 aparecieron al **abrir el catálogo en un navegador y medir los colores
 renderizados**, no antes.
@@ -155,78 +231,13 @@ el examen, no que el usuario vaya a poder leerlo.
 
 ---
 
-## 5. Qué se verificó, y cómo
-
-**16 comprobaciones automáticas, 0 omitidas** (`validar.py --fase 2`), más 23
-tests de componente —17 de reglas del sistema y 6 de sondas adversarias— y
-tres sondas de navegador (§8). Las siete comprobaciones nuevas **se probaron rompiéndolas
-a propósito** antes de darlas por buenas.
-
-| Comprobación | Cómo se rompió para probarla |
-|---|---|
-| Los cuatro cortes de Mont están incrustados | Borrando un `.woff2` |
-| Cada `@font-face` declara su `font-weight` | Quitando el peso de Bold |
-| Ninguna primitiva contiene un color literal | Escribiendo `#FCCC0C` en `ABoton` |
-| …una duración literal | Escribiendo `120ms` |
-| …una medida suelta | Escribiendo `min-height: 40px` |
-| Todo token que se usa está definido | Escribiendo `var(--arles-bg-deeep)` |
-| Nadie quita el anillo de foco sin sustituto | Añadiendo `outline: none` |
-| Se respeta `prefers-reduced-motion` | Ver abajo |
-
-La última encontró la trampa de siempre. La primera versión buscaba la cadena
-`prefers-reduced-motion` en `base.css`, y el cebo —renombrarla a
-`prefers-reduced-motionXX`— **la seguía pasando**: es exactamente la búsqueda
-de texto que la Fase 1 ya había encontrado en la comprobación de eslint. Se
-sustituyó por una que exige la regla `@media` completa **y** que apague las dos
-cosas, `animation-duration` y `transition-duration`: una que sólo neutralice
-`transition` deja corriendo la animación del esqueleto de carga.
-
-### Los tests de componente
-
-17 tests, y cada `describe` nombra la regla que defiende. Tres se comprobaron
-rompiendo el componente: quitarle el icono a la insignia, dejar que `Esc` cierre
-un modal destructivo y poner las tres pestañas en el orden de tabulación. Los
-tres hicieron fallar los tests correspondientes.
-
-No comprueban que las primitivas «se vean bien» —eso lo decide una persona
-mirando el catálogo—, sino que **las reglas que se pueden romper en silencio
-siguen en pie**.
-
----
-
-## 6. Qué NO se verificó
-
-| Sin verificar | Motivo | Cuándo |
-|---|---|---|
-| **La aplicación en una ventana de escritorio real** | El catálogo se revisó en Chromium sobre Linux, que es el motor de WebView2 pero no WebView2. Sigue sin verse una ventana nativa | Fase 3, en un equipo con escritorio |
-| **WKWebView (macOS)** | El motor de Safari difiere en suavizado, `appearance` del `<select>` y `<dialog>`. Es R-07, el coste aceptado de ADR-0001 | Fase 3, pantalla por pantalla |
-| **Escalado de Windows al 125–200 %** (§22) | Necesita Windows real | Fase 3 |
-| **El lector de pantalla real** | Los roles y atributos están puestos y probados con sondas; NVDA y VoiceOver no se han pasado por encima | Fase 3 |
-| **500 000 filas en la tabla** | El catálogo carga 5 000. La virtualización está, el presupuesto no se ha medido | Fase 4 |
-
-Y la limitación de método que se arrastra: el validador comprueba **que las
-reglas del sistema siguen aplicadas**, no que el resultado sea bonito ni
-utilizable. Eso lo decide una persona con el catálogo delante.
-
----
-
-## 7. Pendiente
-
-| Qué | Dónde |
-|---|---|
-| Licencia de Mont para distribuir la fuente incrustada | Puerta antes de la demo — D-5, P-01. La fuente ya está en el árbol de fuentes, **no en ningún instalador** |
-| Revisión del catálogo en Windows y macOS | Fase 3 |
-| Densidad cómoda de tabla como preferencia del usuario | Existe como propiedad; falta dónde elegirla — Fase 6 |
-| **Aviso moderado de `vitest`** (GHSA-82fw-gwwq-j7x9, lectura arbitraria de archivos) | Sólo en herramienta de desarrollo: no viaja al cliente, y `npm audit --omit=dev` da 0. La corrección es `vitest` ≥ 4.1.11, y el intento de subir aquí lo bloquea un fallo de `npm` al resolver el *peer* opcional `canvas` de `jsdom` (`Cannot read properties of null`). **Se reintenta al actualizar la imagen de CI**; si el runner tiene otra versión de npm, subirá sin más |
-
----
-
-## 8. Revisión adversaria de la fase
+## 6. Revisión adversaria de la fase
 
 La fase se cerró con 12 comprobaciones en verde, 17 tests y las primitivas
-revisadas a ojo en una captura. Después se atacó a propósito. **Aparecieron 8
-defectos.** Tres eran de seguridad o de accesibilidad; uno habría hundido el
-producto en la Fase 4; dos estaban en el aparato de verificación.
+revisadas a ojo en una captura. Después se atacó a propósito, en dos pasadas.
+**Aparecieron 10 defectos.** Tres eran de seguridad; uno habría hundido el
+producto en la Fase 4; dos estaban en el aparato de verificación; y los dos
+últimos, en dónde corre ese aparato.
 
 ### El grave
 
@@ -318,16 +329,46 @@ como «fuga» que el foco pasara por `<body>` al dar la vuelta dentro del modal.
 recibe, y en una ventana de Tauri no hay barra de direcciones a la que ir. Una
 sonda que contara eso estaría midiendo el navegador, no la aplicación.
 
+### Segunda pasada: dónde corren las sondas
+
+Con las tres sondas escritas y en verde, quedaba una pregunta que no se había
+hecho nadie: **¿corren también en CI?**
+
+**R9 · No. Se habrían omitido, en silencio.** El job `validacion` no instala
+ningún navegador, así que el validador habría marcado las tres como omitidas
+con su motivo y habría terminado en verde: un omitido no hace fallar nada,
+porque existe para poder correr `--rapido` en local. El informe habría dicho
+«3 omitidos» dentro de un artefacto JSON que nadie abre.
+
+Dicho de otro modo: las tres comprobaciones que encontraron el defecto más
+grave de la fase **no habrían protegido nada** en el único sitio donde la
+protección importa, que es el commit de otra persona.
+
+Ahora el job instala Chromium y, después de validar, **lee el informe y falla
+si queda una sola comprobación omitida**. En local un omitido es una decisión;
+en CI es un agujero.
+
+**R10 · Las sondas llevaban la ruta del navegador escrita a mano.**
+`/opt/pw-browsers/chromium-1194/chrome-linux/chrome` es la ruta de este
+contenedor. En cualquier otro sitio no habrían encontrado nada — y, por R9, se
+habrían omitido sin ruido. La búsqueda vive ahora en un solo lugar
+(`navegador.mjs`), va de lo explícito a lo adivinado, y **el validador le
+pregunta a ella** en vez de repetir la lógica: dos copias de un localizador de
+rutas divergen, y la que divergiría es justo la que decide si una sonda se
+salta.
+
 ### Lo que añadió la revisión
 
 **Tres sondas de navegador**, en `app/pruebas/sondas/`, que comprueban lo que
-jsdom no puede. Las tres se probaron rompiendo el código a propósito:
+jsdom no puede:
 
-| Sonda | Qué defiende | Cebo con el que se probó |
-|---|---|---|
-| `tabla.mjs` | Virtualización real, encogido brusco de la lista, recorrido por teclado, `aria-rowcount` | Quitar `height: 100%` → 5 001 nodos |
-| `teclado.mjs` | Atrapado de foco del modal, retorno del foco, anillo en cada parada | `.panel:focus { outline: none }` |
-| `csp.mjs` | La aplicación funciona bajo la CSP del producto, sin estilo en línea | Devolver `'unsafe-inline'` a `tauri.conf.json` |
+| Sonda | Qué defiende |
+|---|---|
+| `tabla.mjs` | Virtualización real, encogido brusco de la lista, recorrido por teclado, `aria-rowcount` |
+| `teclado.mjs` | Atrapado de foco del modal, retorno del foco, anillo en cada parada |
+| `csp.mjs` | La aplicación funciona bajo la CSP del producto, sin estilo en línea |
+
+El cebo con el que se probó cada una está en la tabla de §3, junto al resto.
 
 Y una comprobación que nació de las sondas: **el catálogo está limitado al modo
 de desarrollo.** La sonda de CSP edita `router.ts` para forzarlo dentro,
@@ -341,7 +382,18 @@ eso un test que lo afirmara habría sido peor que no tenerlo.
 
 ---
 
-## 9. Cómo reproducir esta validación
+## 7. Pendiente
+
+| Qué | Dónde |
+|---|---|
+| Licencia de Mont para distribuir la fuente incrustada | Puerta antes de la demo — D-5, P-01. La fuente ya está en el árbol de fuentes, **no en ningún instalador** |
+| Revisión del catálogo en Windows y macOS | Fase 3 |
+| Densidad cómoda de tabla como preferencia del usuario | Existe como propiedad; falta dónde elegirla — Fase 6 |
+| **Aviso moderado de `vitest`** (GHSA-82fw-gwwq-j7x9, lectura arbitraria de archivos) | Sólo en herramienta de desarrollo: no viaja al cliente, y `npm audit --omit=dev` da 0. La corrección es `vitest` ≥ 4.1.11, y el intento de subir aquí lo bloquea un fallo de `npm` al resolver el *peer* opcional `canvas` de `jsdom` (`Cannot read properties of null`). **Se reintenta al actualizar la imagen de CI**; si el runner tiene otra versión de npm, subirá sin más |
+
+---
+
+## 8. Cómo reproducir esta validación
 
 ```bash
 npm --prefix app ci
@@ -358,8 +410,14 @@ npm --prefix app run sonda:csp
 #   http://localhost:1420/#/catalogo
 ```
 
-Salida esperada: **16 pasan, 0 fallan, 0 omitidos**.
+Salida esperada: **18 pasan, 0 fallan, 0 omitidos**.
 
-Las tres sondas de navegador necesitan `playwright-core` y un Chromium. Si
-faltan, el validador las **omite con motivo** —nunca las da por buenas—, y lo
-dice en el resumen.
+Las tres sondas de navegador necesitan `playwright-core` y un Chromium. El
+localizador de `app/pruebas/sondas/navegador.mjs` lo busca en este orden:
+`ARLES_CHROMIUM`, el de Playwright, un rastreo de `PLAYWRIGHT_BROWSERS_PATH` y
+un Chromium del sistema. Si no hay ninguno, el validador las **omite con
+motivo** —nunca las da por buenas— y lo dice en el resumen.
+
+**En CI no se admite ninguna omisión.** El job `validacion` instala Chromium y
+después lee el informe JSON: si queda una sola comprobación omitida, falla. Un
+omitido en local es una decisión (`--rapido`); en CI sería un agujero.

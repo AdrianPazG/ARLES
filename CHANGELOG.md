@@ -14,25 +14,37 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ### Fase 2 — Design System ✅ cerrada
 
-**Validación: 16/16 comprobaciones de la fase, 0 omitidas** — `validar.py --fase 2`
-(52/52 en la ejecución completa). 23 tests de componente y **tres sondas de
-navegador**. Revisión adversaria: **8 hallazgos, todos corregidos** (§8 del
-documento de fase).
+**Validación: 18/18 comprobaciones de la fase, 0 omitidas** — `validar.py --fase 2`
+(54/54 en la ejecución completa). 23 tests de componente y **tres sondas de
+navegador**. Revisión adversaria: **10 hallazgos, todos corregidos** (§6 del
+documento de fase); versión sin tecnicismos para Dirección en
+[`FASE-02-PARA-DIRECCION.md`](documentacion/09-fases/FASE-02-PARA-DIRECCION.md).
 Resumen en [`FASE-02-DESIGN-SYSTEM.md`](documentacion/09-fases/FASE-02-DESIGN-SYSTEM.md).
 
 - **Once primitivas** en `app/src/design/componentes/`: botón, entrada,
   selector, insignia, aviso, modal, menú, pestañas, tabla virtualizada, icono y
   logotipo. Más los cuatro estados de pantalla del §97.
 - **Mont incrustada** — Regular 400, SemiBold 600, Bold 700 y Black 900 en
-  `.woff2`, 180 KB. Cada `@font-face` fija su peso explícitamente.
+  `.woff2`, 188 KB. Cada `@font-face` fija su peso explícitamente.
 - **Catálogo del design system** en `/#/catalogo`, sólo en desarrollo: cada
   primitiva en sus cuatro estados, para revisarla en Windows y en macOS.
 - **Tokens nuevos** con contrato de contraste verificado en CI:
   `--arles-accent-hover`, `--arles-danger-hover` y `--arles-text-disabled`;
   más alturas de control y de fila, anchos de modal y menú, y las dos sombras.
-- **11 comprobaciones nuevas** en el validador, todas probadas rompiéndolas a
+- **13 comprobaciones nuevas** en el validador, todas probadas rompiéndolas a
   propósito, tres de ellas sondas que manejan un navegador de verdad
   (`app/pruebas/sondas/`): virtualización real, teclado y foco, y CSP.
+
+#### Cambiado
+
+- **CI corre las tres sondas de navegador.** Sin Chromium instalado, el
+  validador las omitía con su motivo y el job terminaba en verde: las tres
+  comprobaciones que encontraron el defecto más grave de la fase no habrían
+  protegido nada en el único sitio donde importa, que es el commit de otra
+  persona. El job instala el navegador y, tras validar, **falla si queda una
+  sola comprobación omitida**.
+- La ruta del navegador dejó de estar escrita a mano en cada sonda: la busca
+  `app/pruebas/sondas/navegador.mjs`, y el validador le pregunta a ella.
 
 #### Seguridad
 
