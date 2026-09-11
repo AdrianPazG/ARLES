@@ -1,0 +1,37 @@
+[workspace]
+resolver = "3"
+members = ["crates/arles-core"]
+
+[workspace.package]
+version = "1.2.0"
+edition = "2024"
+rust-version = "1.85"
+license = "UNLICENSED"
+authors = ["TELEMETRY INSIGHT"]
+publish = false
+
+[workspace.dependencies]
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+uuid = { version = "1", features = ["v7", "serde"] }
+zeroize = { version = "1", features = ["zeroize_derive"] }
+time = { version = "0.3", features = ["serde", "macros", "formatting", "parsing"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+# §138: sin objetos-dios, sin números mágicos, sin unwrap indiscriminado.
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+indexing_slicing = "warn"
+missing_panics_doc = "warn"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

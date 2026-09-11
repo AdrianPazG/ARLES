@@ -1,0 +1,19 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Tauri
+/crates/arles-app/gen/
+
+# SO
+.DS_Store
+Thumbs.db
+
+# Local
+*.local
+.env
