@@ -58,10 +58,12 @@
 | [0006](03-arquitectura/adr/0006-plantillas-no-turing-completas.md) | Plantillas no Turing-completas | aceptado |
 | [0007](03-arquitectura/adr/0007-pinia-y-tanstack-virtual.md) | Pinia + TanStack Virtual | aceptado |
 | [0008](03-arquitectura/adr/0008-sin-rotacion-de-remitentes.md) | Sin rotación de remitentes | aceptado |
-| [0009](03-arquitectura/adr/0009-alcance-deteccion-rebotes.md) | Alcance de detección de rebotes | aceptado |
+| [0009](03-arquitectura/adr/0009-alcance-deteccion-rebotes.md) | Alcance de detección de rebotes | aceptado · **corregido por 0014** |
 | [0010](03-arquitectura/adr/0010-numeral-romano-i.md) | Numeral «I» | aceptado |
 | [0011](03-arquitectura/adr/0011-cifrado-en-reposo-y-clave-maestra.md) | Cifrado en reposo y clave maestra | aceptado |
 | [0012](03-arquitectura/adr/0012-recursos-fuente-unica.md) | `/RECURSOS` fuente única | **propuesto** |
+| [0013](03-arquitectura/adr/0013-origen-de-contactos-y-purificacion.md) | Origen de contactos, purificación y canario | aceptado |
+| [0014](03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md) | Detección de rebotes sin VERP | aceptado |
 
 ### 04 · Seguridad
 | Documento | Contenido |
@@ -191,7 +193,7 @@ Cada sección del brief tiene destino. **Ninguna queda sin resolver.**
 
 | Contradicción | Resolución |
 |---|---|
-| §37 (supresión automática por rebote) **vs** §69 (sin leer bandeja) | ADR-0009: parcial en v1.2.0 y **declarado en la interfaz**; VERP en v1.3 |
+| §37 (supresión automática por rebote) **vs** §69 (sin leer bandeja) | ADR-0009: parcial en v1.2.0 y **declarado en la interfaz**; buzón dedicado en v1.3 — por reenvío, no por VERP ([ADR-0014](03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md)) |
 | T-4 («beta comercial») **vs** T-6 (sin licenciamiento) | **D-4**: v1.2.0 es despliegue interno |
 | §16 (tres azules distintos) **vs** paleta medida (0.73 % azul profundo) | **D-2** / ADR-0005: extraer el carácter, construir la estructura |
 

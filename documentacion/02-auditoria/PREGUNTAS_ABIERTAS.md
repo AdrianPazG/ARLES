@@ -62,7 +62,9 @@ ARLES no puede verificar que el cliente tenga consentimiento para los contactos 
 
 El brief se contradice: §37 exige supresión automática por hard bounce, §69 prohíbe pedir permisos de lectura de bandeja. Sin leer un buzón no hay rebotes asíncronos.
 
-**Propuesta:** v1.2.0 captura sólo rechazos 5xx síncronos de SMTP y permite supresión manual. La solución completa —VERP con `Return-Path` único hacia un buzón de rebotes dedicado, leído por IMAP, sin tocar nunca la bandeja personal del usuario— entra en v1.3.
+**Propuesta:** v1.2.0 captura sólo rechazos 5xx síncronos de SMTP y permite supresión manual. La solución completa —buzón de rebotes dedicado leído por IMAP, sin tocar nunca la bandeja personal del usuario— entra en v1.3.
+
+> **Respondida el 2026-09-12.** Dirección pidió adelantarla y aceptó la degradación elegante. Al verificarlo, el VERP resultó **inviable** en los tres canales previstos; la arquitectura pasa a reenvío + IMAP. Ver [ADR-0014](../03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md).
 
 **Condición que pedimos aceptar:** la interfaz declara explícitamente que la detección es parcial en esta versión. Un cliente informado puede compensarlo; uno que se cree protegido descubre el problema cuando ya quemó su dominio.
 

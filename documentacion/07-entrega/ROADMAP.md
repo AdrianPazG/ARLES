@@ -49,9 +49,29 @@ Los tokens de color ya están operativos en [`herramientas/design-tokens/`](../.
 
 ### Fase 3 — Empresa y contactos
 
-Configuración de empresa · lista de verificación de onboarding · contactos con listas, etiquetas y campos personalizados · tabla virtualizada a 500 k · filtros · importación XLSX/CSV completa con todas las defensas del modelo de amenazas · **lista de supresión**.
+Configuración de empresa · lista de verificación de onboarding · contactos con listas, etiquetas y campos personalizados · tabla virtualizada a 500 k · filtros · importación XLSX/CSV completa con todas las defensas del modelo de amenazas · **lista de supresión** · derechos ARCO.
 
 **Primer valor tangible.** Al final de esta fase alguien puede cargar sus contactos y trabajar con ellos.
+
+#### Se parte en cinco entregas, cada una con su puerta
+
+| Entrega | Qué incluye | Puerta |
+|---|---|---|
+| **3.1** | Configuración de empresa · lista de onboarding | **Cierra los cuatro pendientes visuales de la Fase 2**: ventana nativa, WKWebView, escalado de Windows y lector de pantalla |
+| **3.2** | Contactos, listas, etiquetas, campos propios · filtros · la tabla medida con 500 k | Sonda de navegador con volumen real |
+| **3.3** | Importación XLSX/CSV con todas las defensas · purificación · informe de rechazados | Los archivos maliciosos con los que se atacó, y su resultado |
+| **3.4** | Lista de supresión · derechos ARCO | Borrar un contacto, reimportarlo, y comprobar que **sigue sin escribírsele** |
+| **3.5** | Cierre: documento de fase, informe para Dirección y PDF | `validar.py --fase 3` en verde, 0 omitidas |
+
+**Decisiones que gobiernan esta fase:**
+[ADR-0013](../03-arquitectura/adr/0013-origen-de-contactos-y-purificacion.md) —
+origen de contactos, purificación corregida y envío canario.
+[ADR-0014](../03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md) — sólo
+su parte de esquema; el resto llega en las Fases 5 y 7.
+
+> 🔴 **La 3.3 está bloqueada por P-09** hasta que haya revisión jurídica: es
+> donde viven los textos legales que el usuario lee. La 3.1 y la 3.2 no dependen
+> de ninguna pregunta abierta.
 
 ---
 
@@ -152,7 +172,7 @@ Trámites externos (arrancan en Fase 1, terminan cuando terminan):
 | Versión | Contenido |
 |---|---|
 | **v1.2.x** | `GoogleProvider` cuando Google verifique |
-| **v1.3** | `MicrosoftProvider` · detección de rebotes VERP+IMAP · cifrado de respaldos · licenciamiento · **lanzamiento comercial** |
+| **v1.3** | `MicrosoftProvider` · detección de rebotes por buzón dedicado + IMAP ([ADR-0014](../03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md)) · cifrado de respaldos · licenciamiento · **lanzamiento comercial** |
 | **v1.4+** | White labeling · tracking opcional si se justifica |
 
 Detalle y motivos en `01-producto/FUERA_DE_ALCANCE.md`.

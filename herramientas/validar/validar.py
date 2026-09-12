@@ -144,8 +144,12 @@ def fase_0(rapido):
         f for f in os.listdir(os.path.join(RAIZ, "documentacion/03-arquitectura/adr"))
         if f.endswith(".md")
     )
-    check(0, f"Los 12 ADRs están presentes ({len(adrs)})", len(adrs) >= 12,
-          "Cada decisión con coste debe tener su registro, o se vuelve a discutir cada seis meses.")
+    # El umbral sube cuando se añade un ADR: bajar de aquí significa que alguien
+    # borró un registro de decisión, y ésa es la forma en que una decisión se
+    # vuelve a discutir desde cero seis meses después.
+    check(0, f"Los ADR están presentes ({len(adrs)})", len(adrs) >= 14,
+          "Cada decisión con coste debe tener su registro, o se vuelve a discutir cada seis meses.",
+          f"se esperaban al menos 14, hay {len(adrs)}")
 
     # Enlaces internos
     import re

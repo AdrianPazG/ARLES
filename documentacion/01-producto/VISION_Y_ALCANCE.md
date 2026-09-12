@@ -124,7 +124,7 @@ El detalle, con destino explícito para cada elemento, está en **`FUERA_DE_ALCA
 |---|---|
 | `GoogleProvider` (OAuth) | v1.2.x — bloqueado por verificación de Google |
 | `MicrosoftProvider` | v1.3 |
-| Detección automática de rebotes (VERP + IMAP) | v1.3 |
+| Detección automática de rebotes (buzón dedicado por IMAP) | v1.3 · ver ADR-0014 |
 | Cifrado de respaldos | v1.3 |
 | Enforcement de licencias | v1.3 |
 | Tracking de aperturas y clics | v1.3+ |

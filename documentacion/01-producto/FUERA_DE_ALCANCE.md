@@ -48,14 +48,17 @@ Requisitos cuando entre: Authorization Code + PKCE, autenticación en el navegad
 
 Mismo patrón que Google: OAuth 2.0 con PKCE contra Microsoft Identity Platform. La abstracción ya lo contempla; sólo falta el adaptador y su proceso de verificación.
 
-### Detección automática de rebotes (VERP + IMAP)
+### Detección automática de rebotes (buzón dedicado por IMAP)
 **Motivo:** contradicción del brief entre §37 y §69 · **ADR:** 0009 · **Riesgo:** R-06 · **Pregunta:** P-04
 
 §37 exige que los hard bounces alimenten la lista de supresión. §69 prohíbe pedir permisos de lectura de bandeja. Sin leer un buzón no hay rebotes asíncronos — llegan como correo, minutos u horas después del envío.
 
 **En v1.2.0:** sólo rechazos **síncronos** 5xx de SMTP (atrapan buzones inexistentes que el servidor destino rechaza durante el diálogo SMTP) más supresión manual.
 
-**En v1.3:** `Return-Path` único por destinatario (VERP) apuntando a un **buzón de rebotes dedicado** que el cliente configura, leído por IMAP. Sólo esa cuenta, nunca la bandeja personal del usuario — respeta el espíritu del §69 cumpliendo el §37. Incluye parseo de DSN según RFC 3464 y clasificación duro/blando.
+**En v1.3:** un **buzón de rebotes dedicado** que el cliente configura, leído por IMAP. Sólo esa cuenta, nunca la bandeja personal del usuario — respeta el espíritu del §69 cumpliendo el §37. Incluye parseo de DSN según RFC 3464 y clasificación duro/blando.
+
+> ⚠️ **Corregido por [ADR-0014](../03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md) el 2026-09-12.** El VERP es **inviable** en la API de Gmail, en el SMTP de Gmail y en Microsoft 365: los tres reescriben o no exponen el `Return-Path`. La detección asíncrona se hace por **reenvío a un buzón externo leído por IMAP**, correlacionando por `Message-Id`; el VERP sólo aplica cuando el cliente envía desde su propio servidor SMTP.
+
 
 **Condición innegociable para v1.2.0:** la interfaz **declara explícitamente** que la detección es parcial. Un cliente informado puede compensarlo; uno que se cree protegido descubre el problema cuando ya quemó su dominio.
 

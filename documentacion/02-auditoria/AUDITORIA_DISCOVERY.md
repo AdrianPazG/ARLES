@@ -140,6 +140,14 @@ Aquí está lo que creemos que está mal en la idea, en el formato *Problema →
 **Alternativas.**
 - (a) Capturar sólo los rechazos **síncronos** 5xx de SMTP en el momento del envío. Atrapa buzones inexistentes que el servidor destino rechaza en el diálogo SMTP; no atrapa los asíncronos.
 - (b) VERP: `Return-Path` único por destinatario apuntando a un **buzón de rebotes dedicado** que el cliente configura, leído por IMAP. Sólo esa cuenta, nunca la bandeja personal del usuario. Respeta el espíritu del §69 (no fisgar correo del usuario) cumpliendo el §37.
+
+> ⚠️ **Corregido el 2026-09-12.** Este documento es el entregable con fecha de
+> la Fase 0 y no se reescribe; se anota. La opción (b) **no es realizable tal
+> como se planteó**: el VERP exige controlar el `MAIL FROM`, y la API de Gmail,
+> el SMTP de Gmail y Microsoft 365 lo reescriben o no lo exponen. El buzón
+> dedicado sigue siendo la solución, pero se alimenta por **reenvío** y se
+> correlaciona por `Message-Id`. Ver
+> [ADR-0014](../03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md).
 - (c) Diferir la detección automática y permitir sólo supresión manual en v1.2.0.
 
 **Trade-off.** (b) es la solución correcta y la que usa la industria, pero añade un dominio entero al alcance (configuración IMAP, parseo de DSN según RFC 3464, clasificación duro/blando) y pide al cliente que configure un buzón extra. (a) es barato pero parcial. (c) no resuelve nada por sí solo.

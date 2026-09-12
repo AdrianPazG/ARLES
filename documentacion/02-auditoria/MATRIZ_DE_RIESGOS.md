@@ -86,7 +86,7 @@ El producto permite deliberadamente que el cliente fije sus propios límites (§
 
 Contradicción del brief: §37 exige supresión automática por hard bounce, §69 prohíbe leer la bandeja de entrada. Sin buzón no hay rebotes asíncronos.
 
-**Mitigación:** en v1.2.0 sólo rechazos 5xx síncronos de SMTP y supresión manual. VERP + buzón dedicado por IMAP en v1.3 (ADR-0009). **La interfaz debe declarar que la detección es parcial** — un cliente que se cree protegido y no lo está está peor que uno informado.
+**Mitigación:** en v1.2.0 sólo rechazos 5xx síncronos de SMTP y supresión manual. Buzón de rebotes dedicado leído por IMAP en v1.3 — **por reenvío, no por VERP**, que resultó inviable en Gmail y Microsoft 365 (ADR-0009 corregido por [ADR-0014](../03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md)). **La interfaz debe declarar que la detección es parcial** — un cliente que se cree protegido y no lo está está peor que uno informado.
 
 ---
 

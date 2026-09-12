@@ -40,7 +40,8 @@ pub trait EmailProvider: Send + Sync {
 pub struct Capabilities {
     pub html_body: bool,
     pub custom_message_id: bool,   // ¿podemos fijar Message-Id?
-    pub custom_return_path: bool,  // VERP — necesario para rebotes en v1.3
+    pub custom_return_path: bool,  // VERP — sólo SMTP propio (ADR-0014)
+    pub bounce_forwarding: bool,   // admite reenviar rebotes a un buzón externo
     pub max_recipients_per_message: u32,
     pub max_message_bytes: u64,
     pub reports_sync_rejection: bool,  // ¿hay 5xx en el diálogo?
@@ -48,6 +49,17 @@ pub struct Capabilities {
 ```
 
 `custom_return_path` y `reports_sync_rejection` existen ya aunque la detección de rebotes esté diferida: son las capacidades que v1.3 necesitará consultar, y declararlas ahora evita tener que cambiar el trait después.
+
+> **Corregido por [ADR-0014](adr/0014-deteccion-de-rebotes-sin-verp.md).** Se
+> verificó y **`custom_return_path` será `false` en Gmail y en Microsoft 365**:
+> los dos reescriben o no exponen el `Return-Path`. Sólo es `true` con SMTP
+> propio del cliente. Por eso se añade `bounce_forwarding`, que es el camino
+> viable para la mayoría: el cliente reenvía los rebotes a un buzón externo y
+> ARLES los correlaciona por `Message-Id` —el que ya generamos desde la clave
+> de idempotencia (ADR-0004)—, sin pedir ningún scope de Google.
+>
+> Que la capacidad ya estuviera declarada es lo que hace que este cambio cueste
+> una línea en vez de un rediseño.
 
 ### `SendReceipt` — el tipo que hace cumplir la honestidad
 
@@ -109,7 +121,11 @@ Certificados: validación estricta. Sin opción de aceptar certificados autofirm
 Capabilities {
     html_body: true,
     custom_message_id: true,
-    custom_return_path: true,       // habilita VERP en v1.3
+    // OJO: true sólo con un servidor SMTP que admita un MAIL FROM arbitrario.
+    // El SMTP de Gmail y el de Microsoft 365 lo reescriben, así que el
+    // adaptador lo determina al conectar, no lo declara a ciegas (ADR-0014).
+    custom_return_path: true,
+    bounce_forwarding: true,        // el cliente puede reenviar a un buzón
     max_recipients_per_message: 1,  // ARLES siempre envía 1 a 1
     max_message_bytes: 25 * 1024 * 1024,
     reports_sync_rejection: true,   // el diálogo SMTP da 5xx inmediato

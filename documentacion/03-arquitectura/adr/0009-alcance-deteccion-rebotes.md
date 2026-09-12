@@ -3,6 +3,13 @@
 **Estado:** aceptado · **Fecha:** 2026-09-11 · **Decide:** Product + Dirección
 **Resuelve:** contradicción del brief entre §37 y §69
 
+> 🔴 **Corregido el 2026-09-12 por [ADR-0014](0014-deteccion-de-rebotes-sin-verp.md).**
+> La decisión de alcance para v1.2.0 —detección parcial, declarada en la
+> interfaz— **sigue vigente y era correcta**. Lo que no funciona es el plan de
+> v1.3 descrito más abajo: **el VERP es inviable** en la API de Gmail, en el
+> SMTP de Gmail y en Microsoft 365, porque los tres reescriben o no exponen el
+> `Return-Path`. Lee ADR-0014 antes de construir nada de esta sección.
+
 ---
 
 ## Contexto
@@ -39,7 +46,7 @@ El centro de entregabilidad y la pantalla de supresiones muestran, de forma visi
 
 > **La detección automática de rebotes es parcial en esta versión.** ARLES detecta los rechazos que el servidor de destino comunica durante el envío, pero no los que llegan después como correo a tu bandeja. Revisa tu bandeja periódicamente y suprime a mano las direcciones que reboten.
 
-### v1.3 — detección completa vía VERP
+### v1.3 — detección completa vía VERP ⚠️ INVIABLE, ver ADR-0014
 
 `Return-Path` único por destinatario apuntando a un **buzón de rebotes dedicado** que el cliente configura, leído por IMAP. Incluye parseo de DSN según RFC 3464 y clasificación duro/blando.
 

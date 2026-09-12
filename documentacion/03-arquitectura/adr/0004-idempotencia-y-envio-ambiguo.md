@@ -18,8 +18,14 @@ Un duplicado es el peor fallo posible del producto: es irreversible —no se pue
 
 ```sql
 CREATE UNIQUE INDEX idx_attempt_unique
-  ON message_attempt (campaign_id, contact_id);
+  ON message_attempt (campaign_id, contact_email);
 ```
+
+> **Corregido en la Fase 1 (hallazgo F1).** La clave era `contact_id`, y con
+> ella borrar un contacto y reimportarlo permitía **volver a enviarle**: el id
+> es nuevo, así que la fila única ya no colisionaba. La clave es la
+> **dirección**, igual que en la supresión (§39): un contacto borrado y
+> reimportado es un id nuevo; una dirección es la misma persona.
 
 Ningún fallo de lógica, ninguna condición de carrera y ningún doble clic pueden crear dos intentos para el mismo par. **La base de datos lo rechaza.** El §55 pasa a ser una propiedad estructural en vez de una esperanza depositada en el código.
 

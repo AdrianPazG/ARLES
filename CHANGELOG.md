@@ -12,6 +12,32 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Preparación de la Fase 3 — decisiones registradas
+
+- **ADR-0013 · Origen de contactos, purificación y envío canario.** Acepta la
+  delegación de responsabilidad por EULA más afirmación en dos momentos, con el
+  origen concreto y la versión del texto guardadas. Corrige la purificación
+  propuesta —MX **y si no hay, A/AAAA**, deduplicada por dominio, con topes y
+  caché— y añade el **envío canario**, que es lo que de verdad evita las pausas:
+  la comprobación de MX detecta dominios muertos, no buzones muertos.
+- **ADR-0014 · Detección de rebotes sin VERP.** Corrige el plan de v1.3 de
+  ADR-0009, que **no habría funcionado**: el VERP exige controlar el
+  `MAIL FROM`, y la API de Gmail no lo expone mientras el SMTP de Gmail y
+  Microsoft 365 lo reescriben. La detección asíncrona pasa a **reenvío a un
+  buzón externo leído por IMAP**, correlacionando por `Message-Id` —el que ya
+  generamos desde la clave de idempotencia—, sin ningún scope de Google.
+- **ADR-0004 corregido**: seguía mostrando el índice único por `contact_id`, que
+  la Fase 1 cambió a `contact_email` (hallazgo F1).
+- Nueve documentos que describían el VERP como el plan quedan corregidos o
+  anotados. `AUDITORIA_DISCOVERY.md` se **anota, no se reescribe**: es el
+  entregable con fecha de la Fase 0.
+- **R-20**: la Acceptable Use Policy de Google Workspace prohíbe facilitar
+  correo masivo no solicitado, y una revocación de la verificación OAuth
+  **apaga Gmail para todos los clientes a la vez**. Un EULA no protege de eso.
+- **P-09** (marco legal vigente, **bloquea la entrega 3.3**) y **P-10**
+  (cobertura real de correo en el DENUE).
+- El roadmap parte la Fase 3 en **cinco entregas con puerta propia**.
+
 ### Fase 2 — Design System ✅ cerrada
 
 **Validación: 18/18 comprobaciones de la fase, 0 omitidas** — `validar.py --fase 2`
@@ -140,6 +166,7 @@ versión sin tecnicismos para Dirección en [`FASE-01-PARA-DIRECCION.md`](docume
   - Matriz de riesgos (R-01…R-18) y preguntas abiertas (P-01…P-08)
   - Arquitectura, modelo de datos, motor de ejecución y abstracción de proveedores
   - 12 registros de decisión de arquitectura (ADR-0001…ADR-0012)
+    · ampliados a 14 al preparar la Fase 3 (ADR-0013 y ADR-0014)
   - Modelo de amenazas STRIDE, modelo de secretos y cumplimiento LFPDPPP
   - Sistema de color, design system, tipografía, UX y UX writing
   - Estrategia de QA y presupuesto de rendimiento
