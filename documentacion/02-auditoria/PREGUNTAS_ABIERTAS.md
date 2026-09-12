@@ -131,5 +131,43 @@ El enforcement está fuera de v1.2.0 (T-6, D-4), pero el **esquema** se define a
 | P-06 | Volumen operativo real | Fase 4 | R-09 | 🟡 |
 | P-07 | Modelo comercial | v1.3 | — | ⚪ |
 | P-08 | Consolidación de `/RECURSOS` | — | R-15 | ⚪ |
+| **P-09** | **¿Cuál es el marco de protección de datos vigente?** | **Antes de congelar cualquier texto legal visible** | **R-19** | 🔴 |
+| **P-10** | ¿Qué cobertura real de correo tiene la lista del DENUE? | Antes de la primera campaña | R-13 | 🟡 |
 
 **No queda ninguna pregunta bloqueante de las Fases 1 y 2.** P-03 y P-05 se necesitan más adelante y conviene irlas resolviendo en paralelo.
+
+---
+
+### P-09 · ¿Cuál es el marco de protección de datos vigente en México?
+**Riesgo:** R-19 · **Bloquea:** todo texto legal que la aplicación muestre al usuario
+
+Toda la documentación de privacidad se escribió contra la **LFPDPPP de 2010**.
+La investigación de la Fase 3 encontró indicios sólidos —en fuentes secundarias,
+no en el texto primario— de que esa ley fue **abrogada en marzo de 2025** por
+una nueva LFPDPPP, y de que el **INAI fue extinguido**, pasando sus facultades a
+la **Secretaría Anticorrupción y Buen Gobierno**.
+
+**Lo que necesitamos:** confirmación de un abogado mexicano sobre (a) qué ley
+rige hoy, (b) si el Reglamento de 2011 sigue aplicando, (c) qué obliga el marco
+vigente cuando los datos se obtienen **indirectamente de una fuente de acceso
+público**, y (d) qué exige para **mercadotecnia directa**.
+
+**Por qué bloquea:** un aviso de privacidad o una afirmación de consentimiento
+que cita una ley abrogada no protege a nadie — y es peor que no citar ninguna,
+porque aparenta rigor. Las decisiones de ingeniería no dependen de esto; los
+textos visibles, sí.
+
+Detalle en [PRIVACIDAD_LFPDPPP.md](../04-seguridad/PRIVACIDAD_LFPDPPP.md).
+
+---
+
+### P-10 · ¿Qué cobertura real de correo tiene la lista del DENUE?
+**Riesgo:** R-13
+
+El campo de correo del DENUE (`DIR_ELEC_1`) existe, pero **su captura es
+voluntaria** por parte de cada unidad económica. No hay cifra oficial publicada
+del porcentaje de los ~6 millones de establecimientos que lo tienen poblado.
+
+**Se resuelve en diez minutos**: descargar el CSV del DENUE y contar no nulos.
+Conviene hacerlo **antes** de dimensionar cualquier campaña sobre esa lista, y
+antes de decidir cuánto invertir en validación.

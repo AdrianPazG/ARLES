@@ -163,6 +163,8 @@ Certificado OV/EV de Windows: de una a tres semanas. Apple Developer ID y notari
 | R-16 | El numeral «I» junto a la versión confunde al usuario | Alta | Bajo | Product — ADR-0010 |
 | R-17 | La referencia cromática es PNG con extensión `.jpg` y rompe herramientas | Baja | Bajo | Frontend — renombrar al consolidar |
 | R-18 | Uso indebido del asset stock/IA como material de marca | Baja | Medio | Dirección — uso interno únicamente, registrado en `08-legal/` |
+| **R-19** | **La documentación de privacidad cita una ley probablemente abrogada** (LFPDPPP 2010 → nueva ley de marzo de 2025) | **Alta** | **Alto** | Aviso de vigencia en `PRIVACIDAD_LFPDPPP.md`; **ningún texto legal visible al usuario se congela sin revisión jurídica** — P-09 |
+| **R-20** | **Revocación de la verificación OAuth por parte de Google** si ARLES se asocia a correo no solicitado. La AUP de Workspace prohíbe expresamente facilitar correo masivo no solicitado, y la revocación afecta a **todos los clientes a la vez** | Media | **Crítico** | Cuentas y límites propios del cliente · sin rotación de remitentes (ADR-0008) · disyuntor por tasa de rebote · no posicionar Gmail para prospección en frío |
 
 ---
 

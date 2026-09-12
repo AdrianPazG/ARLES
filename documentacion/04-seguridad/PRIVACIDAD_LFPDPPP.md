@@ -8,6 +8,43 @@
 
 ---
 
+## 🔴 AVISO DE VIGENCIA — añadido el 2026-09-12
+
+**Este documento se escribió contra la LFPDPPP de 2010. Hay indicios sólidos de
+que esa ley está abrogada.**
+
+Lo que encontró la investigación de la Fase 3, en fuentes secundarias de
+despachos y consultoras (EY México, Littler):
+
+- Una **nueva LFPDPPP** se habría publicado el **20 de marzo de 2025**, en vigor
+  desde el **21 de marzo de 2025**, abrogando la de 2010.
+- El **INAI** habría sido extinguido por decreto constitucional de diciembre de
+  2024, y sus facultades sobre datos en posesión de particulares habrían pasado
+  a la **Secretaría Anticorrupción y Buen Gobierno**.
+- El **Reglamento de 2011 seguiría vigente en lo que no contradiga** a la ley
+  nueva.
+- Las multas serían de **100 a 160 000 UMA** y de **200 a 320 000 UMA** según la
+  infracción, duplicables en datos sensibles.
+
+**No está verificado contra el texto primario.** El entorno donde se investigó
+tiene bloqueado el acceso a `diputados.gob.mx` y al DOF, así que todo lo
+anterior viene de fuentes secundarias. **Es exactamente por eso que esto es un
+aviso y no una reescritura.**
+
+### Qué significa para el proyecto
+
+| | |
+|---|---|
+| **Las decisiones de ingeniería** de este documento | Siguen siendo válidas. Cifrado, ARCO por dirección, bitácora inmutable, afirmación de origen — ninguna depende del número de un artículo |
+| **Toda cita de artículo concreto** | Sospechosa. La numeración cambió |
+| **Cualquier texto que la aplicación MUESTRE al usuario** | **Bloqueado** hasta revisión jurídica. Un aviso de privacidad que cita una ley abrogada es peor que no citar ninguna |
+
+**Puerta:** ningún texto legal visible para el usuario final —afirmación de
+origen, aviso de privacidad, EULA— se congela sin que un abogado mexicano
+confirme el marco vigente. Registrado como **P-09** y **R-19**.
+
+---
+
 ## 1. Quién es quién
 
 Esta distinción determina todo lo demás.
