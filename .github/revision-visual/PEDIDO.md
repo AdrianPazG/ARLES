@@ -34,3 +34,4 @@ dejará de hacer falta.
 <!-- Añade tu línea aquí abajo. -->
 
 - 2026-09-14 · Primera compilación de revisión (Fase 2 → 3.1)
+- 2026-09-14 · Verificación del flujo tras corregir las rutas de tauri.conf.json
