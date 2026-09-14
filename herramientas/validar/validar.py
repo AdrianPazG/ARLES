@@ -1044,6 +1044,38 @@ def manual_de_entrega():
               "Separar los manuales sólo sirve si cada uno pide lo suyo.",
               ", ".join(intrusas))
 
+    # ── Los formatos distribuibles van con su origen ──
+    #
+    # El PDF y el .docx se generan desde el Markdown, no se editan a mano.
+    # La huella del ORIGEN guardada al lado delata el caso que importa: que
+    # alguien corrija el .md y reparta un PDF que dice otra cosa. Es el mismo
+    # mecanismo que ya protege los informes para Dirección.
+    for nombre, extension in [
+        ("MANUAL_WINDOWS", "pdf"), ("MANUAL_MAC", "pdf"),
+        ("PLANTILLA-WINDOWS", "docx"), ("PLANTILLA-MAC", "docx"),
+    ]:
+        md = os.path.join(base, f"{nombre}.md")
+        binario = os.path.join(base, f"{nombre}.{extension}")
+        marca = f"{binario}.sha256"
+
+        if not check(2, f"existe {nombre}.{extension}", os.path.isfile(binario),
+                     f"El .{extension} es lo que se manda a quien revisa; sin él sólo queda el Markdown."):
+            continue
+
+        if not os.path.isfile(marca):
+            check(2, f"{nombre}.{extension} lleva la huella de su Markdown", False,
+                  "Sin huella no hay forma de saber si se quedó atrás.")
+            continue
+
+        with open(md, "rb") as f:
+            esperada = hashlib.sha256(f.read()).hexdigest()
+        with open(marca, encoding="utf-8") as f:
+            anotada = f.read().split()[0]
+        check(2, f"{nombre}.{extension} corresponde a su Markdown",
+              esperada == anotada,
+              f"Regenera con la herramienta; un .{extension} viejo reparte instrucciones que ya no son.",
+              f"esperada {esperada[:12]}… · anotada {anotada[:12]}…")
+
     # El índice reparte hacia los dos. Si se queda sin uno, ese manual existe
     # pero nadie llega a él.
     indice = leer("documentacion", "06-calidad", "MANUAL_DE_ENTREGA.md") or ""

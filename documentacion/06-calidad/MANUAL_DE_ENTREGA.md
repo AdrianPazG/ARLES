@@ -14,8 +14,11 @@ Mezclados obligaban a saltarse media página.
 
 ### 🪟 Windows
 
-**[MANUAL_WINDOWS.md](MANUAL_WINDOWS.md)** · plantilla: [PLANTILLA-WINDOWS.md](PLANTILLA-WINDOWS.md)
-Página web: **https://claude.ai/artifact/RAbRXPpaPWAzda6hX4f8w4**
+| Formato | Manual | Plantilla |
+|---|---|---|
+| **PDF / Word** | [MANUAL_WINDOWS.pdf](MANUAL_WINDOWS.pdf) | [PLANTILLA-WINDOWS.docx](PLANTILLA-WINDOWS.docx) |
+| Web | https://claude.ai/artifact/RAbRXPpaPWAzda6hX4f8w4 | — |
+| Markdown | [MANUAL_WINDOWS.md](MANUAL_WINDOWS.md) | [PLANTILLA-WINDOWS.md](PLANTILLA-WINDOWS.md) |
 
 **9 capturas · unos 40 minutos.** Cierra **tres** de los cuatro pendientes: la
 ventana nativa, el escalado del sistema y el lector de pantalla. Lo más valioso
@@ -24,8 +27,11 @@ interfaces (§22).
 
 ### 🍎 Mac
 
-**[MANUAL_MAC.md](MANUAL_MAC.md)** · plantilla: [PLANTILLA-MAC.md](PLANTILLA-MAC.md)
-Página web: **https://claude.ai/artifact/9bDahVQ69DUPBf1J8QJx5Z**
+| Formato | Manual | Plantilla |
+|---|---|---|
+| **PDF / Word** | [MANUAL_MAC.pdf](MANUAL_MAC.pdf) | [PLANTILLA-MAC.docx](PLANTILLA-MAC.docx) |
+| Web | https://claude.ai/artifact/9bDahVQ69DUPBf1J8QJx5Z | — |
+| Markdown | [MANUAL_MAC.md](MANUAL_MAC.md) | [PLANTILLA-MAC.md](PLANTILLA-MAC.md) |
 
 **6 capturas · unos 25 minutos.** Cierra el cuarto pendiente, que es el más
 incierto: **el motor de macOS**. ARLES se dibuja con WKWebView, el de Safari,
@@ -47,6 +53,20 @@ diferencias frescas, y la sección 6 del manual de Mac es justamente comparar.
 **Hazlo igual y dímelo.** Media revisión sirve; ninguna, no. Los dos manuales
 funcionan por separado — cada uno lleva sus propias instrucciones de descarga,
 sus capturas de referencia y su plantilla.
+
+---
+
+## Qué formato usar
+
+| | Cuándo |
+|---|---|
+| **PDF** | Para leer el manual. Lleva las capturas de referencia dentro y funciona sin conexión |
+| **Word (.docx)** | Para rellenar la plantilla. Casillas ☐ y renglones donde escribir |
+| **Web** | Para leer en el móvil mientras trabajas en el ordenador. Lleva la cuenta de las capturas |
+| **Markdown** | Es el original. Los otros tres se generan de él, no se editan a mano |
+
+El PDF y el .docx llevan al lado la huella SHA-256 de su Markdown, y una
+comprobación falla si alguien corrige el texto y reparte un archivo viejo.
 
 ---
 

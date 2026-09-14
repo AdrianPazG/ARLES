@@ -25,3 +25,11 @@ Thumbs.db
 # Local
 *.local
 .env
+
+# Dependencias del generador de .docx: se instalan con `npm install docx` en
+# esa carpeta. No entran al repositorio.
+herramientas/plantilla-docx/node_modules/
+herramientas/plantilla-docx/package-lock.json
+herramientas/plantilla-docx/package.json
+
+__pycache__/

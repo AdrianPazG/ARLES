@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_JUSTIFY
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
@@ -29,6 +29,7 @@ from reportlab.platypus import (
     BaseDocTemplate,
     Frame,
     HRFlowable,
+    Image,
     KeepTogether,
     ListFlowable,
     ListItem,
@@ -56,8 +57,28 @@ MARGEN = 20 * mm
 # ─────────────────────────────── inline ────────────────────────────────
 
 
+# Helvetica no tiene emoji, y reportlab pinta un cuadrado negro por cada uno.
+# En pantalla ordenan; en papel son ruido y encima parecen un defecto de
+# impresión. Se quitan, y con ellos el espacio que arrastran.
+RE_EMOJI = re.compile(
+    "[\U0001F000-\U0001FAFF\U00002190-\U000021FF\U00002300-\U000027BF"
+    "\U00002B00-\U00002BFF\U0000FE00-\U0000FE0F\U0001F1E6-\U0001F1FF]+"
+)
+
+
+def sin_emoji(texto: str) -> str:
+    return re.sub(r"\s{2,}", " ", RE_EMOJI.sub("", texto)).strip()
+
+
 def inline(texto: str) -> str:
     """Convierte el Markdown de línea al mini-HTML que entiende reportlab."""
+    texto = sin_emoji(texto)
+    # El negrita se resuelve DENTRO de cada trozo de texto, así que un
+    # `**`código`**` dejaba los asteriscos a la vista: los marcadores caen a un
+    # lado y otro del trozo entre acentos graves, y la expresión no cruza de
+    # uno a otro. El negrita ahí sobra —el código ya va en otra fuente y otro
+    # color—, así que se quita el marcador en vez de intentar respetarlo.
+    texto = re.sub(r"\*\*(`[^`]+`)\*\*", r"\1", texto)
     partes: list[str] = []
     for i, trozo in enumerate(re.split(r"(`[^`]+`)", texto)):
         if i % 2:  # dentro de acentos graves: literal, sin más marcado
@@ -118,6 +139,12 @@ def estilos() -> dict[str, ParagraphStyle]:
         "pie": ParagraphStyle(
             "pie", base, fontName="Helvetica", fontSize=7.6, textColor=TENUE,
         ),
+        # El pie de una captura. Centrado y en cursiva para que no se confunda
+        # con el párrafo que viene después.
+        "pie_figura": ParagraphStyle(
+            "pie_figura", base, fontName="Helvetica-Oblique", fontSize=8.2,
+            leading=11.5, textColor=TENUE, alignment=TA_CENTER,
+        ),
     }
 
 
@@ -125,8 +152,17 @@ def estilos() -> dict[str, ParagraphStyle]:
 
 
 def construir_tabla(filas: list[list[str]], est, ancho: float) -> Table:
-    cab, *cuerpo = filas
-    datos = [[Paragraph(inline(c), est["celda_cab"]) for c in cab]]
+    # Una tabla escrita como `| | |` no tiene cabecera: es una rejilla de
+    # etiqueta y valor. Pintarle una barra azul con la primera fila de datos
+    # dentro convierte un dato en un título de columna, que es mentira.
+    con_cabecera = any(c.strip() for c in filas[0])
+
+    if con_cabecera:
+        cab, *cuerpo = filas
+        datos = [[Paragraph(inline(c), est["celda_cab"]) for c in cab]]
+    else:
+        cab, cuerpo = filas[0], filas[1:]
+        datos = []
     datos += [[Paragraph(inline(c), est["celda"]) for c in fila] for fila in cuerpo]
 
     n = len(cab)
@@ -139,19 +175,23 @@ def construir_tabla(filas: list[list[str]], est, ancho: float) -> Table:
         pesos = [0.30] + [0.70 / (n - 1)] * (n - 1)
     anchos = [ancho * p for p in pesos]
 
-    t = Table(datos, colWidths=anchos, repeatRows=1, hAlign="LEFT")
+    t = Table(datos, colWidths=anchos, repeatRows=1 if con_cabecera else 0,
+              hAlign="LEFT")
     estilo = [
-        ("BACKGROUND", (0, 0), (-1, 0), SUPERFICIE),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("GRID", (0, 0), (-1, -1), 0.4, BORDE),
-        ("LINEBELOW", (0, 0), (-1, 0), 1.1, ACENTO),
         ("TOPPADDING", (0, 0), (-1, -1), 5),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
         ("LEFTPADDING", (0, 0), (-1, -1), 7),
         ("RIGHTPADDING", (0, 0), (-1, -1), 7),
     ]
-    for i in range(1, len(datos)):
-        if i % 2 == 0:
+    if con_cabecera:
+        estilo.append(("BACKGROUND", (0, 0), (-1, 0), SUPERFICIE))
+        estilo.append(("LINEBELOW", (0, 0), (-1, 0), 1.1, ACENTO))
+    # El cebreado cuenta desde la primera fila de DATOS, tenga cabecera o no.
+    primera = 1 if con_cabecera else 0
+    for i in range(primera, len(datos)):
+        if (i - primera) % 2 == 1:
             estilo.append(("BACKGROUND", (0, i), (-1, i), CEBRA))
     t.setStyle(TableStyle(estilo))
     return t
@@ -161,14 +201,61 @@ def construir_tabla(filas: list[list[str]], est, ancho: float) -> Table:
 
 
 def es_separador(fila: list[str]) -> bool:
-    return all(re.fullmatch(r":?-{2,}:?", c.strip()) for c in fila if c.strip())
+    """La fila de guiones que separa la cabecera del cuerpo.
+
+    El `any` no es decorativo: sin él, una fila **enteramente vacía** —`| | |`,
+    que es como se escribe una tabla sin cabecera— pasaba por separador,
+    porque `all()` sobre cero elementos es cierto. La consecuencia era que la
+    primera fila de datos ascendía a cabecera y se pintaba en azul oscuro:
+    «Windows 10 u 11» salía como si fuera un título de columna.
+    """
+    celdas_con_texto = [c.strip() for c in fila if c.strip()]
+    return bool(celdas_con_texto) and all(
+        re.fullmatch(r":?-{2,}:?", c) for c in celdas_con_texto
+    )
 
 
 def celdas(linea: str) -> list[str]:
     return [c.strip() for c in linea.strip().strip("|").split("|")]
 
 
-def convertir(md: str, est, ancho: float) -> list:
+RE_IMAGEN = re.compile(r"^!\[([^\]]*)\]\(([^)]+)\)$")
+
+
+def imagen(alt: str, ruta: Path, ancho: float, est) -> list:
+    """Una captura, a lo ancho de la caja de texto y con su pie.
+
+    Las referencias se capturaron a 2240 px de ancho (2× de 1120). Aquí se
+    reducen a la caja del PDF conservando la proporción: en papel se ven con
+    el doble de densidad que el punto tipográfico, que es lo que hace que se
+    puedan ampliar en pantalla sin que se deshagan.
+    """
+    from reportlab.lib.utils import ImageReader
+
+    ancho_px, alto_px = ImageReader(str(ruta)).getSize()
+    # 78 % de la caja, centrada. Medido: a lo ancho completo el manual sale a
+    # 12 páginas y a 78 % a 11, así que el ahorro es modesto — casi siempre
+    # cabe una captura por página y el resto queda en blanco, porque una de
+    # 1120×720 ocupa un tercio largo de un A4 y el título de su sección va
+    # pegado a ella.
+    #
+    # Se deja así por legibilidad, no por ahorrar papel: la captura sigue
+    # entrando entera y a 2240 px en 133 mm son 428 ppp, de sobra para ampliar
+    # en pantalla sin que se deshaga.
+    util = ancho * 0.78
+    alto = util * alto_px / ancho_px
+    figura = Image(str(ruta), width=util, height=alto)
+    figura.hAlign = "CENTER"
+    partes = [figura]
+    if alt:
+        partes.append(Spacer(1, 3))
+        partes.append(Paragraph(inline(alt), est["pie_figura"]))
+    partes.append(Spacer(1, 11))
+    # KeepTogether para que el pie no se quede huérfano en la página siguiente.
+    return [KeepTogether(partes)]
+
+
+def convertir(md: str, est, ancho: float, base: Path) -> list:
     lineas = md.splitlines()
     flujo: list = []
     i = 0
@@ -200,6 +287,21 @@ def convertir(md: str, est, ancho: float) -> list:
             i += 1
             texto = "<br/>".join(c.replace(" ", "&nbsp;") for c in cuerpo)
             flujo.append(Paragraph(texto, est["codigo"]))
+            continue
+
+        # Imagen
+        m_img = RE_IMAGEN.match(desnuda)
+        if m_img:
+            alt, ruta = m_img.group(1), m_img.group(2)
+            archivo = (base / ruta).resolve()
+            if archivo.is_file():
+                flujo.extend(imagen(alt, archivo, ancho, est))
+            else:
+                # Una imagen que falta no se traga en silencio: en un manual
+                # cuyo valor son las capturas, el hueco tiene que verse.
+                flujo.append(Paragraph(
+                    f"[falta la imagen: {html.escape(ruta)}]", est["pie_figura"]))
+            i += 1
             continue
 
         # Tabla
@@ -338,7 +440,7 @@ def generar(origen: Path, destino: Path) -> None:
         )
     )
 
-    flujo = convertir(md, est, doc.width)
+    flujo = convertir(md, est, doc.width, origen.parent)
 
     # Evitar que un encabezado quede solo al pie de una página.
     agrupado: list = []
