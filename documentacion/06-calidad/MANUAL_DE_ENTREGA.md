@@ -11,6 +11,13 @@ herramientas de desarrollo.
 **Tiempo:** unos 40 minutos en Windows, unos 25 en Mac.
 Se puede partir en dos ratos; no hace falta hacerlo del tirón.
 
+> 📱 **Este mismo manual, como página web:**
+> **https://claude.ai/artifact/PTa8K9q6moJC6znzNeUk2D**
+>
+> Se lee bien en el móvil mientras haces la revisión en el ordenador, lleva una
+> cuenta de las capturas que ya tienes y un botón para copiar la plantilla.
+> El contenido es el mismo que este archivo.
+
 ---
 
 ## Índice
