@@ -424,6 +424,7 @@ def fase_1(rapido):
     invariantes_de_unsafe()
     caducidad_de_deny()
     dependencias_de_linux_en_ci()
+    rutas_de_tauri_conf()
 
     # ── Documentación ──
     print(f"{GRIS}  documentación{FIN}")
@@ -460,6 +461,54 @@ def invariantes_de_unsafe():
     check(1, "el workspace sigue denegando unsafe",
           'unsafe_code = "deny"' in politica,
           "Si alguien lo pone en `allow`, las dos raíces siguen protegidas pero arles-app deja de estarlo.")
+
+
+def rutas_de_tauri_conf():
+    """Las rutas de tauri.conf.json se resuelven contra DOS bases distintas.
+
+    `frontendDist` es relativa al **archivo de configuración**
+    (crates/arles-app/), pero `beforeBuildCommand` y `beforeDevCommand` se
+    ejecutan desde el **directorio padre** de esa carpeta (crates/), que es lo
+    que Tauri toma por raíz de la aplicación cuando la carpeta no se llama
+    `src-tauri`.
+
+    Las tres llevaban `../../app`, o sea la misma ruta para dos bases: una era
+    correcta y las otras dos apuntaban FUERA del repositorio. Nada lo delataba
+    —`cargo build` no ejecuta el beforeBuildCommand— hasta que el flujo de
+    revisión intentó generar el instalador y murió en los dos sistemas a la vez.
+
+    Medido, no deducido: con el repositorio en /home/user/ARLES, npm buscaba el
+    package.json en /home/user/app.
+    """
+    tauri = os.path.join(RAIZ, "crates", "arles-app")
+    crudo = leer("crates", "arles-app", "tauri.conf.json")
+    if crudo is None:
+        check(1, "existe tauri.conf.json", False, "Sin él no hay aplicación de escritorio.")
+        return
+    conf = json.loads(crudo).get("build", {})
+
+    destino = conf.get("frontendDist", "")
+    check(1, "frontendDist apunta a la carpeta real (base: el archivo de config)",
+          os.path.isdir(os.path.normpath(os.path.join(tauri, destino)))
+          or os.path.isdir(os.path.dirname(os.path.normpath(os.path.join(tauri, destino)))),
+          "Si apunta fuera del repositorio, el instalador sale sin interfaz.",
+          destino)
+
+    # `--prefix X` le dice a npm dónde está el package.json.
+    raiz_app = os.path.dirname(tauri)  # crates/
+    for clave in ("beforeBuildCommand", "beforeDevCommand"):
+        orden = conf.get(clave, "")
+        m = re.search(r"--prefix\s+(\S+)", orden)
+        if not m:
+            check(1, f"{clave} lleva un --prefix legible", False,
+                  "Sin poder leer la ruta no se puede comprobar a dónde apunta.", orden)
+            continue
+        resuelta = os.path.normpath(os.path.join(raiz_app, m.group(1)))
+        check(1, f"{clave} encuentra el package.json (base: la carpeta padre)",
+              os.path.isfile(os.path.join(resuelta, "package.json")),
+              "Tauri lo ejecuta desde crates/, no desde crates/arles-app/. "
+              "Con la base equivocada apunta fuera del repositorio y el instalador no se genera.",
+              f"{m.group(1)} → {resuelta}")
 
 
 RE_REVISAR = re.compile(r"REVISAR (\d{4}-\d{2}-\d{2})")
