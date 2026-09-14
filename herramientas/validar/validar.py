@@ -19,6 +19,7 @@ import json
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import time
@@ -493,6 +494,39 @@ def rutas_de_tauri_conf():
           or os.path.isdir(os.path.dirname(os.path.normpath(os.path.join(tauri, destino)))),
           "Si apunta fuera del repositorio, el instalador sale sin interfaz.",
           destino)
+
+    # ── Iconos ──
+    #
+    # Tauri 2 NO busca en icons/ por su cuenta: si `bundle.icon` no está
+    # declarado, la lista queda vacía. El empaquetado de Windows murió con
+    # «Couldn't find a .ico icon» después de quince minutos compilando, con los
+    # archivos ahí mismo y correctos.
+    bundle = json.loads(crudo).get("bundle", {})
+    iconos = bundle.get("icon", [])
+    check(1, "bundle.icon está declarado", bool(iconos),
+          "Sin la lista, Tauri no encuentra los iconos aunque estén en su sitio.")
+    faltan = [i for i in iconos if not os.path.isfile(os.path.join(tauri, i))]
+    check(1, "todos los iconos declarados existen", not faltan,
+          "Un icono declarado que no está rompe el empaquetado, no la compilación.",
+          ", ".join(faltan))
+
+    # Windows pinta el icono a 16 y 32 px en la barra de tareas. Un .ico con
+    # una sola imagen de 256 px se reescala y se ve blando: pasa el
+    # empaquetado y falla a la vista, que es peor.
+    ico = os.path.join(tauri, "icons", "icon.ico")
+    if os.path.isfile(ico):
+        with open(ico, "rb") as f:
+            cabecera = f.read(6)
+            _, tipo, cuantas = struct.unpack("<HHH", cabecera)
+            medidas = set()
+            for _ in range(cuantas):
+                ancho = struct.unpack("<B", f.read(1))[0] or 256
+                f.read(15)
+                medidas.add(ancho)
+        check(1, "el .ico trae las medidas pequeñas de Windows",
+              tipo == 1 and {16, 32}.issubset(medidas),
+              "A 16 y 32 px Windows reescala si no están, y el icono se ve blando en la barra de tareas.",
+              f"medidas: {sorted(medidas)}")
 
     # `--prefix X` le dice a npm dónde está el package.json.
     raiz_app = os.path.dirname(tauri)  # crates/

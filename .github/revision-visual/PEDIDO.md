@@ -35,3 +35,4 @@ dejará de hacer falta.
 
 - 2026-09-14 · Primera compilación de revisión (Fase 2 → 3.1)
 - 2026-09-14 · Verificación del flujo tras corregir las rutas de tauri.conf.json
+- 2026-09-14 · Segunda verificación: iconos declarados para el empaquetado de Windows
