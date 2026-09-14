@@ -5,8 +5,13 @@ members = ["crates/arles-core", "crates/arles-db", "crates/arles-app"]
 [workspace.package]
 version = "1.2.0"
 edition = "2024"
-rust-version = "1.85"
-license = "UNLICENSED"
+# 1.88 lo impone `time` 0.3.47, la primera versión sin RUSTSEC-2026-0009
+# (agotamiento de pila al parsear fechas RFC 2822 — justo el formato de las
+# cabeceras de correo que este producto va a leer).
+rust-version = "1.88"
+# «UNLICENSED» no es una expresión SPDX válida. `LicenseRef-` es la forma que
+# SPDX reserva para licencias fuera de su lista, y es la que cargo-deny entiende.
+license = "LicenseRef-TELEMETRY-Propietario"
 authors = ["TELEMETRY INSIGHT"]
 publish = false
 
@@ -18,7 +23,16 @@ zeroize = { version = "1", features = ["zeroize_derive"] }
 time = { version = "0.3", features = ["serde", "macros", "formatting", "parsing"] }
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
+# `deny`, no `forbid`, y la diferencia importa: `forbid` no se puede levantar
+# ni con un `#[allow]` local, así que el bloque `unsafe` de `arles-app` —el
+# MessageBoxW que evita que la aplicación muera en silencio en Windows— no
+# compilaba. El error solo aparecía al compilar PARA Windows, así que en Linux
+# no se veía.
+#
+# La garantía fuerte no se pierde: `arles-core` y `arles-db` llevan
+# `#![forbid(unsafe_code)]` en su raíz, y el validador comprueba que sigan
+# llevándolo y que `arles-app` tenga exactamente UNA excepción.
+unsafe_code = "deny"
 missing_debug_implementations = "warn"
 
 [workspace.lints.clippy]

@@ -5,9 +5,6 @@
 # Rust, ni el CLI de Tauri, ni las dependencias de cada plataforma. Descarga,
 # abre, y mira.
 #
-# Se lanza a mano desde la pestaña Actions del repositorio. No corre sola: es
-# una compilación de revisión, no una entrega.
-#
 # ⚠️ Estas compilaciones **NO están firmadas**. Windows y macOS mostrarán una
 # advertencia al abrirlas, y hay que saltársela a propósito — el procedimiento
 # está en documentacion/06-calidad/REVISION_VISUAL.md. La firma llega en la
@@ -20,12 +17,23 @@
 name: Revisión visual
 
 on:
+  # El botón «Run workflow» de la pestaña Actions **solo aparece si este
+  # archivo está en la rama por defecto del repositorio**. Hoy `main` no tiene
+  # ni carpeta .github/, así que el botón no existe y la instrucción de
+  # «entra a Actions y pulsa Run workflow» no se puede seguir.
   workflow_dispatch:
     inputs:
       rama:
         description: Rama a compilar
         default: claude/loving-faraday-5chmmy
         required: false
+
+  # Por eso hay una segunda puerta que **sí** funciona desde la rama de
+  # trabajo: tocar el archivo de pedido. Se edita desde el navegador, sin
+  # consola y sin permisos especiales. Ver .github/revision-visual/PEDIDO.md.
+  push:
+    paths:
+      - .github/revision-visual/PEDIDO.md
 
 permissions:
   contents: read
@@ -43,15 +51,23 @@ jobs:
           - os: windows-latest
             etiqueta: Windows (WebView2)
             artefacto: arles-revision-windows
-            ruta: crates/arles-app/target/release/bundle/nsis/*.exe
+            objetivo: ""
+            ruta: target/release/bundle/nsis/*.exe
           - os: macos-latest
             etiqueta: macOS (WKWebView)
             artefacto: arles-revision-macos
-            ruta: crates/arles-app/target/release/bundle/dmg/*.dmg
+            # `macos-latest` es Apple Silicon: un .dmg suyo NO abre en un Mac
+            # Intel. Como no sabemos qué Mac hay al otro lado, se compila
+            # universal y abre en los dos.
+            objetivo: universal-apple-darwin
+            ruta: target/universal-apple-darwin/release/bundle/dmg/*.dmg
 
     steps:
       - uses: actions/checkout@v4
         with:
+          # En `workflow_dispatch` se compila la rama que se pida; en el
+          # disparo por PEDIDO.md, `inputs.rama` viene vacío y checkout usa
+          # el commit que provocó el disparo, que es lo correcto.
           ref: ${{ inputs.rama }}
 
       - uses: actions/setup-node@v4
@@ -61,37 +77,53 @@ jobs:
           cache-dependency-path: app/package-lock.json
 
       - uses: dtolnay/rust-toolchain@stable
+      - name: Objetivos de macOS para el binario universal
+        if: matrix.objetivo != ''
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: crates
 
       - run: npm ci
         working-directory: app
 
-      # El catálogo es la única pantalla que usa todas las primitivas, así que
-      # es lo que hay que poder abrir para revisarlas. Fuera de aquí y de la
-      # sonda de CSP, no entra en ninguna compilación.
-      - name: Compilar la interfaz con el catálogo dentro
-        run: npm run build
-        working-directory: app
-        env:
-          VITE_ARLES_CATALOGO: '1'
-
       - name: CLI de Tauri
         run: cargo install tauri-cli --version '^2' --locked
 
-      # `cargo tauri build` compila el binario y genera el instalador. No hace
-      # falta un `cargo build` previo: lo hace él.
-      - name: Generar el instalador
-        run: cargo tauri build
+      # `cargo tauri build` compila el binario Y el frontend: el
+      # `beforeBuildCommand` de tauri.conf.json lanza `npm run build` él solo.
+      #
+      # Por eso VITE_ARLES_CATALOGO va AQUÍ y no en un paso previo de npm: la
+      # variable la hereda ese `npm run build` hijo. Un `npm run build` propio
+      # antes de esto no serviría de nada — Tauri lo volvería a compilar
+      # encima, sin la variable, y el instalador saldría SIN el catálogo, que
+      # es justamente lo único que hay que revisar.
+      - name: Generar el instalador con el catálogo dentro
+        run: cargo tauri build ${{ matrix.objetivo && format('--target {0}', matrix.objetivo) || '' }}
         working-directory: crates/arles-app
+        env:
+          VITE_ARLES_CATALOGO: '1'
+
+      # La ruta es `target/` en la RAÍZ, no `crates/arles-app/target/`: esto es
+      # un workspace de Cargo y el directorio de salida es único para todo él.
+      # Con la ruta equivocada el artefacto se subía vacío y `if-no-files-found:
+      # warn` lo dejaba pasar en verde.
+      - name: Comprobar que el instalador existe
+        shell: bash
+        run: |
+          shopt -s nullglob
+          archivos=(${{ matrix.ruta }})
+          if [ ${#archivos[@]} -eq 0 ]; then
+            echo "::error::No se generó ningún instalador en ${{ matrix.ruta }}"
+            find target -name '*.exe' -o -name '*.dmg' -o -name '*.msi' | head -20
+            exit 1
+          fi
+          printf 'Instalador: %s\n' "${archivos[@]}"
 
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: ${{ matrix.artefacto }}
-          path: |
-            ${{ matrix.ruta }}
-            crates/arles-app/target/release/bundle/**
-          if-no-files-found: warn
+          path: ${{ matrix.ruta }}
+          # `error`, no `warn`: un artefacto vacío que no rompe nada es peor
+          # que un fallo, porque se descubre al descargarlo.
+          if-no-files-found: error
           retention-days: 14

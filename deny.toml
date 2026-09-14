@@ -34,6 +34,17 @@ allow = [
 # Ver el punto 3 de «Pendiente de Dirección y Legal»: hay que confirmar que se
 # enlaza la edición Community y no una comercial de Zetetic.
 
+# Nuestros tres crates llevaban `license = "UNLICENSED"`, que NO es una
+# expresión SPDX válida: cargo-deny los daba por «sin licencia» y el job caía
+# por culpa de nuestro propio código, no de una dependencia. Se corrigen a
+# `LicenseRef-TELEMETRY-Propietario`, que es la forma que SPDX reserva para
+# licencias que no están en su lista.
+#
+# Y aun así se ignoran aquí: son `publish = false`, nunca salen a un registro,
+# y su licencia la decide el contrato con el cliente, no esta tabla.
+[licenses.private]
+ignore = true
+
 [[licenses.exceptions]]
 name = "unicode-ident"
 allow = ["Unicode-DFS-2016"]
@@ -43,7 +54,46 @@ allow = ["Unicode-DFS-2016"]
 [advisories]
 version = 2
 yanked = "deny"
-ignore = []
+
+# ── Excepciones, con fecha de caducidad ─────────────────────────────────────
+#
+# Las siete son **transitivas a través de Tauri**: no las elegimos nosotros y no
+# hay versión a la que subir. Un `ignore` sin argumento es una alfombra; estos
+# llevan por qué no nos alcanza y hasta cuándo vale la excusa.
+#
+# La caducidad va DENTRO del texto («REVISAR aaaa-mm-dd») porque cargo-deny
+# 0.20 solo admite las claves `id` y `reason`. Quien la hace cumplir es
+# validar.py: pasada la fecha, la comprobación falla. Sin eso, un `ignore`
+# fechado es un comentario, no una fecha de caducidad.
+#
+# Lo que NO se ignora: nada que llegue por una dependencia directa nuestra. El
+# RUSTSEC-2026-0009 de `time` —agotamiento de pila parseando fechas RFC 2822—
+# sí era nuestro, y se arregló subiendo a 0.3.47, que es lo que obliga a
+# rust-version = 1.88.
+ignore = [
+    # quick-xml 0.38 llega por `plist`, y `plist` está clavado en `^0.38`: la
+    # 0.41 que arregla esto no es alcanzable hasta que Tauri actualice.
+    # Por qué no nos alcanza: `plist` sirve para leer el Info.plist del propio
+    # bundle en macOS y para generarlo al compilar. El XML que pasa por ahí lo
+    # escribimos nosotros. ARLES no parsea XML de terceros en ningún punto.
+    # Si algún día importamos XML de un cliente, esto deja de valer.
+    { id = "RUSTSEC-2026-0194", reason = "quick-xml vía plist: solo procesa el Info.plist propio, nunca entrada de terceros · REVISAR 2026-12-31" },
+    { id = "RUSTSEC-2026-0195", reason = "quick-xml vía plist: solo procesa el Info.plist propio, nunca entrada de terceros · REVISAR 2026-12-31" },
+
+    # Las cinco unic-* son «sin mantenimiento», no vulnerabilidades. Llegan por
+    # urlpattern ← tauri-utils, que compara los patrones de URL de nuestro
+    # propio tauri.conf.json. El aviso dice literalmente «no safe upgrade is
+    # available».
+    { id = "RUSTSEC-2025-0075", reason = "unic-char-range sin mantener, vía urlpattern ← tauri-utils; sin versión a la que subir · REVISAR 2026-12-31" },
+    { id = "RUSTSEC-2025-0080", reason = "unic-common sin mantener, vía urlpattern ← tauri-utils; sin versión a la que subir · REVISAR 2026-12-31" },
+    { id = "RUSTSEC-2025-0081", reason = "unic-char-property sin mantener, vía urlpattern ← tauri-utils; sin versión a la que subir · REVISAR 2026-12-31" },
+    { id = "RUSTSEC-2025-0098", reason = "unic-ucd-version sin mantener, vía urlpattern ← tauri-utils; sin versión a la que subir · REVISAR 2026-12-31" },
+    { id = "RUSTSEC-2025-0100", reason = "unic-ucd-ident sin mantener, vía urlpattern ← tauri-utils; sin versión a la que subir · REVISAR 2026-12-31" },
+
+    # proc-macro-error es una macro de compilación: se ejecuta en la máquina
+    # que compila y no viaja dentro del binario que se instala.
+    { id = "RUSTSEC-2024-0370", reason = "proc-macro-error sin mantener; es de tiempo de compilación, no entra en el binario distribuido · REVISAR 2026-12-31" },
+]
 
 # ─── Fuentes ────────────────────────────────────────────────────────────────
 #
@@ -59,7 +109,16 @@ allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 
 [bans]
 multiple-versions = "warn"
+
+# Un `version = "*"` en una dependencia de crates.io es aceptar cualquier
+# versión futura sin leerla. Sigue denegado.
 wildcards = "deny"
+
+# Pero una dependencia por `path` dentro del propio workspace no lleva versión,
+# y cargo-deny la contaba como comodín: `arles-core` y `arles-db` hacían fallar
+# el job de licencias por ser nuestras. No hay nada que auditar ahí — es el
+# mismo repositorio, el mismo commit.
+allow-wildcard-paths = true
 
 # Nunca debe haber dos versiones de esto: ambas declaran links="sqlite3" y el
 # enlazado fallaría. Fue justo el conflicto entre refinery 0.8 y rusqlite 0.37

@@ -13,6 +13,7 @@ Sin dependencias externas: solo stdlib de Python 3.
 """
 
 import argparse
+import datetime
 import hashlib
 import json
 import os
@@ -414,9 +415,119 @@ def fase_1(rapido):
         seg,
     )
 
+    # ── Invariantes que solo se rompen en otra plataforma o con el tiempo ──
+    #
+    # Las tres nacen del mismo incidente: CI llevaba trece ejecuciones en rojo
+    # mientras el validador daba 54/54. Ninguna de ellas se puede comprobar
+    # ejecutando el código aquí, y por eso se comprueban leyendo.
+    print(f"{GRIS}  invariantes de plataforma y de política{FIN}")
+    invariantes_de_unsafe()
+    caducidad_de_deny()
+    dependencias_de_linux_en_ci()
+
     # ── Documentación ──
     print(f"{GRIS}  documentación{FIN}")
     informe_para_direccion(1, "FASE-01-PARA-DIRECCION")
+
+
+def invariantes_de_unsafe():
+    """El workspace deniega `unsafe`; la prohibición dura vive en las raíces.
+
+    Por qué no basta con `forbid` en el workspace: `forbid` NO se puede levantar
+    con un `#[allow]` local, y `arles-app` necesita exactamente uno —el
+    MessageBoxW que impide que la aplicación muera en silencio en Windows—. Con
+    `forbid` el crate no compilaba, pero el error solo aparecía al compilar PARA
+    Windows: en Linux el bloque está detrás de `#[cfg(windows)]` y ni se mira.
+
+    Así que la política pasó a `deny`, y estas comprobaciones son lo que impide
+    que ese relajamiento se convierta en barra libre.
+    """
+    for crate in ("arles-core", "arles-db"):
+        fuente = leer("crates", crate, "src", "lib.rs") or ""
+        check(1, f"{crate} prohíbe unsafe en su raíz",
+              "#![forbid(unsafe_code)]" in fuente,
+              "Un crate de dominio que acepta `unsafe` ha dejado de ser de dominio.")
+
+    app = leer("crates", "arles-app", "src", "lib.rs") or ""
+    permisos = app.count("#[allow(unsafe_code)]")
+    bloques = len(re.findall(r"\bunsafe\s*\{", app))
+    check(1, "arles-app tiene exactamente una excepción de unsafe",
+          permisos == 1 and bloques == 1,
+          "La excepción es UNA y está auditada. Dos ya es una política, y esta no lo es.",
+          f"{permisos} allow, {bloques} bloques unsafe")
+
+    politica = leer("Cargo.toml") or ""
+    check(1, "el workspace sigue denegando unsafe",
+          'unsafe_code = "deny"' in politica,
+          "Si alguien lo pone en `allow`, las dos raíces siguen protegidas pero arles-app deja de estarlo.")
+
+
+RE_REVISAR = re.compile(r"REVISAR (\d{4}-\d{2}-\d{2})")
+
+
+def caducidad_de_deny():
+    """Cada aviso de seguridad ignorado lleva fecha, y la fecha se hace cumplir.
+
+    cargo-deny 0.20 solo admite `id` y `reason` en un `ignore`: no hay `expires`.
+    Sin esto, la fecha escrita en el texto sería un comentario que nadie vuelve
+    a leer, y un aviso ignorado «temporalmente» se queda para siempre.
+    """
+    texto = leer("deny.toml")
+    if texto is None:
+        check(1, "deny.toml existe", False, "La política de licencias debe existir.")
+        return
+
+    entradas = re.findall(r"\{\s*id\s*=\s*\"([^\"]+)\"\s*,\s*reason\s*=\s*\"([^\"]*)\"", texto)
+    sin_fecha = [i for i, razon in entradas if not RE_REVISAR.search(razon)]
+    check(1, "todo aviso ignorado lleva fecha de revisión",
+          not sin_fecha,
+          "Un `ignore` sin fecha es una alfombra. Con fecha es una deuda con vencimiento.",
+          ", ".join(sin_fecha))
+
+    hoy = datetime.date.today()
+    vencidos = []
+    for ident, razon in entradas:
+        m = RE_REVISAR.search(razon)
+        if m and datetime.date.fromisoformat(m.group(1)) < hoy:
+            vencidos.append(f"{ident} venció el {m.group(1)}")
+    check(1, "ningún aviso ignorado ha caducado",
+          not vencidos,
+          "Pasada la fecha hay que volver a mirar si ya existe versión a la que subir.",
+          "; ".join(vencidos))
+
+
+def dependencias_de_linux_en_ci():
+    """Todo job de Linux que compile el workspace instala WebKitGTK.
+
+    Esta es la comprobación que importa de las tres, porque ataca la clase y no
+    el caso: el job `formato` corría `cargo clippy --workspace`, que arrastra
+    Tauri, sin instalar `libwebkit2gtk-4.1-dev`. Moría en el build script de
+    glib-sys —«Package glib-2.0 was not found»— y llevaba así desde el primer
+    push. El job `tests` sí las instalaba, así que el fallo no era del código
+    sino de un job que se quedó atrás del otro.
+    """
+    ci = leer(".github", "workflows", "ci.yml")
+    if ci is None:
+        check(1, "existe el flujo de CI", False, "Sin CI, nada de esto se hace cumplir.")
+        return
+
+    # Los jobs son las claves de dos espacios bajo `jobs:`.
+    bloques = re.split(r"\n  (?=[a-z][a-z0-9_-]*:\n)", ci.split("\njobs:\n", 1)[-1])
+    culpables = []
+    for bloque in bloques:
+        nombre = bloque.split(":", 1)[0].strip()
+        corre_workspace = re.search(r"cargo (clippy|build|test|check).*--workspace", bloque)
+        # Un job de matriz instala las dependencias bajo `if: runner.os == 'Linux'`;
+        # uno que solo corre en ubuntu las instala sin condición. Ambos valen.
+        instala = "libwebkit2gtk-4.1-dev" in bloque
+        toca_linux = "ubuntu-latest" in bloque or "matrix.os" in bloque
+        if corre_workspace and toca_linux and not instala:
+            culpables.append(nombre)
+
+    check(1, "todo job de Linux que compila el workspace instala WebKitGTK",
+          not culpables,
+          "arles-app arrastra Tauri, y Tauri en Linux enlaza WebKitGTK. Sin ella el job muere en glib-sys.",
+          ", ".join(culpables))
 
 
 # ─── Fase 2 · Design System ──────────────────────────────────────────────────

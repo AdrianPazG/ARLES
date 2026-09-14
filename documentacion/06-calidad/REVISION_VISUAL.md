@@ -26,16 +26,31 @@ Los instaladores se compilan solos en GitHub.
 
 ## 2. Conseguir los instaladores
 
-1. Entra al repositorio en GitHub → pestaña **Actions**.
-2. En la lista de la izquierda, elige **«Revisión visual»**.
-3. Botón **«Run workflow»** → deja la rama que viene por defecto → **«Run workflow»**.
-4. Espera. Tarda entre 10 y 20 minutos: compila para los dos sistemas a la vez.
-5. Cuando termine, entra a la ejecución y baja hasta **«Artifacts»**. Descarga:
+> **Si te dijeron «entra a Actions y pulsa Run workflow»: eso no funciona, y
+> era un error mío.** Ese botón solo aparece cuando el flujo está en la rama
+> por defecto del repositorio, y hoy `main` está vacía. Lo de abajo sí
+> funciona, desde el navegador y sin consola.
+
+1. Entra al repositorio en GitHub y cambia a la rama
+   **`claude/loving-faraday-5chmmy`** (el desplegable que pone `main`).
+2. Abre el archivo **`.github/revision-visual/PEDIDO.md`**.
+3. Pulsa el **lápiz** (✏️) de arriba a la derecha.
+4. Al final del archivo, añade una línea con la fecha. Da igual qué diga: lo
+   que dispara la compilación es que el archivo cambie.
+5. Botón verde **«Commit changes…»** → **«Commit changes»**.
+6. Ve a la pestaña **Actions**. Ahora sí verás **«Revisión visual»** en marcha.
+7. Espera entre **15 y 25 minutos**: compila para los dos sistemas a la vez, y
+   el de macOS sale universal (abre en Mac Intel y en Apple Silicon).
+8. Cuando termine, entra a la ejecución y baja hasta **«Artifacts»**. Descarga:
    - `arles-revision-windows` → dentro va un `.exe`
    - `arles-revision-macos` → dentro va un `.dmg`
 
 Si una de las dos plataformas falla, la otra se sube igual. Mándame el enlace
 de la ejecución y lo miro.
+
+**Si «Artifacts» sale vacío, es un fallo y hay que decírmelo**: la ejecución
+comprueba que el instalador existe antes de subirlo, así que un artefacto
+vacío no debería poder ocurrir.
 
 ---
 

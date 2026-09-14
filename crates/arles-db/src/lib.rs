@@ -7,6 +7,9 @@
 // El §138 prohíbe `unwrap()` y `panic!()` indiscriminados. En los tests son
 // legítimos; la denegación sigue activa en el código de producción.
 #![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
+// SQLCipher se habla por FFI, pero la parte `unsafe` vive dentro de `rusqlite`,
+// que la audita y la envuelve. Aquí no entra ninguna.
+#![forbid(unsafe_code)]
 
 pub mod conexion;
 pub mod db;
