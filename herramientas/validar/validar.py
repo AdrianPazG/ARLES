@@ -984,41 +984,72 @@ RE_CAPTURA = re.compile(r"\b([WM]-\d{2}-[a-z0-9-]+\.png)\b")
 
 
 def manual_de_entrega():
-    """El manual y su plantilla nombran las mismas capturas.
+    """Cada manual y su plantilla nombran exactamente las mismas capturas.
 
-    Los nombres de archivo están escritos en dos sitios: la tabla del manual y
-    la lista de la plantilla. Renombrar una captura en uno y no en el otro deja
-    a quien revisa siguiendo instrucciones que no concuerdan — y el fallo no se
-    ve leyendo ninguno de los dos por separado, que es lo que lo hace difícil.
+    Hay un manual por sistema porque las instrucciones se separan: SmartScreen
+    no es Gatekeeper y el escalado sólo existe en Windows. Eso multiplica por
+    dos la superficie donde algo puede quedarse atrás.
 
-    También: una imagen rota en un manual con imágenes lo vuelve inútil
-    justo en la parte que lo hacía claro.
+    Los nombres de archivo viven en dos sitios por pareja —la tabla del manual
+    y la lista de la plantilla—. Renombrar una captura en uno y no en el otro
+    deja a quien revisa siguiendo instrucciones que no concuerdan, y el fallo
+    no se ve leyendo ninguno de los dos por separado: eso es lo que lo hace
+    difícil de pillar a ojo.
+
+    Y se comprueban las dos direcciones de la separación:
+      · que ningún manual nombre capturas del otro sistema (una `M-` en el
+        manual de Windows significa que se copió un bloque sin adaptarlo),
+      · que el índice no se quede sin enlazar a uno de los dos.
     """
     base = os.path.join(RAIZ, "documentacion", "06-calidad")
-    manual = leer("documentacion", "06-calidad", "MANUAL_DE_ENTREGA.md")
-    plantilla = leer("documentacion", "06-calidad", "PLANTILLA-ENTREGA.md")
 
-    if not check(2, "existen el manual de entrega y su plantilla",
-                 manual is not None and plantilla is not None,
-                 "Sin ellos, la revisión visual depende de que yo explique lo mismo dos veces."):
-        return
-
-    rotas = [
-        ruta for ruta in RE_IMAGEN_MD.findall(manual)
-        if not ruta.startswith("http")
-        and not os.path.isfile(os.path.normpath(os.path.join(base, ruta)))
+    parejas = [
+        ("Windows", "MANUAL_WINDOWS.md", "PLANTILLA-WINDOWS.md", "W"),
+        ("Mac", "MANUAL_MAC.md", "PLANTILLA-MAC.md", "M"),
     ]
-    check(2, "todas las imágenes del manual existen", not rotas,
-          "Una imagen rota deja el manual sin lo que lo hacía claro.",
-          ", ".join(rotas))
 
-    en_manual = set(RE_CAPTURA.findall(manual))
-    en_plantilla = set(RE_CAPTURA.findall(plantilla))
-    check(2, "el manual y la plantilla nombran las mismas capturas",
-          bool(en_manual) and en_manual == en_plantilla,
-          "Si divergen, quien revisa sigue dos instrucciones distintas y no lo nota.",
-          f"sólo en el manual: {sorted(en_manual - en_plantilla)} · "
-          f"sólo en la plantilla: {sorted(en_plantilla - en_manual)}")
+    for sistema, nombre_manual, nombre_plantilla, prefijo in parejas:
+        manual = leer("documentacion", "06-calidad", nombre_manual)
+        plantilla = leer("documentacion", "06-calidad", nombre_plantilla)
+
+        if not check(2, f"existen el manual y la plantilla de {sistema}",
+                     manual is not None and plantilla is not None,
+                     "Sin ellos, la revisión de ese sistema depende de que yo "
+                     "explique lo mismo otra vez en el chat."):
+            continue
+
+        rotas = [
+            ruta for ruta in RE_IMAGEN_MD.findall(manual)
+            if not ruta.startswith("http")
+            and not os.path.isfile(os.path.normpath(os.path.join(base, ruta)))
+        ]
+        check(2, f"todas las imágenes del manual de {sistema} existen", not rotas,
+              "Una imagen rota deja el manual sin lo que lo hacía claro.",
+              ", ".join(rotas))
+
+        en_manual = set(RE_CAPTURA.findall(manual))
+        en_plantilla = set(RE_CAPTURA.findall(plantilla))
+        check(2, f"el manual y la plantilla de {sistema} nombran las mismas capturas",
+              bool(en_manual) and en_manual == en_plantilla,
+              "Si divergen, quien revisa sigue dos instrucciones distintas y no lo nota.",
+              f"sólo en el manual: {sorted(en_manual - en_plantilla)} · "
+              f"sólo en la plantilla: {sorted(en_plantilla - en_manual)}")
+
+        # Una captura del otro sistema es el rastro de un bloque copiado y no
+        # adaptado. En Windows son nueve y en Mac seis: si aparece una `M-` en
+        # el de Windows, alguien va a hacer una captura de más o de menos.
+        intrusas = sorted(c for c in en_manual | en_plantilla if not c.startswith(prefijo + "-"))
+        check(2, f"el material de {sistema} no nombra capturas del otro sistema",
+              not intrusas,
+              "Separar los manuales sólo sirve si cada uno pide lo suyo.",
+              ", ".join(intrusas))
+
+    # El índice reparte hacia los dos. Si se queda sin uno, ese manual existe
+    # pero nadie llega a él.
+    indice = leer("documentacion", "06-calidad", "MANUAL_DE_ENTREGA.md") or ""
+    check(2, "el índice enlaza a los dos manuales",
+          "MANUAL_WINDOWS.md" in indice and "MANUAL_MAC.md" in indice,
+          "Un manual al que no se llega es un manual que no existe.")
 
 
 FASES = {0: fase_0, 1: fase_1, 2: fase_2}
