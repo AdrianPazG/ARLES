@@ -617,6 +617,8 @@ def fase_2(rapido):
         f"{caras} caras, {pesos} pesos declarados",
     )
 
+    app = os.path.join(RAIZ, "app")
+
     # ── §17 · ningún componente contiene un valor de diseño literal ──
     print(f"{GRIS}  tokens{FIN}")
     hex_sueltos, ms_sueltos, px_sueltos = [], [], []
@@ -666,22 +668,39 @@ def fase_2(rapido):
 
     # ── El catálogo no puede llegar a la máquina del cliente ──
     #
-    # Dos razones para comprobarlo, y la segunda es la que importa: la sonda de
-    # CSP **edita este archivo** para forzar el catálogo dentro, compila, y lo
-    # restaura al terminar. Si algo la interrumpe entre medias, el `if (true)`
-    # se queda escrito. Esta comprobación es lo que impide que eso se suba.
-    router = leer("app/src/app/router.ts") or ""
-    check(
-        2, "el catálogo está limitado al modo de desarrollo",
-        "if (import.meta.env.DEV) {" in router
-        and "CatalogoDelSistema" in router
-        and "if (true)" not in router,
-        "El catálogo es una pantalla de desarrollo. En el bundle del cliente "
-        "sería superficie de ataque sin contrapartida, y la sonda de CSP fuerza "
-        "temporalmente su inclusión: si se interrumpe, deja el interruptor "
-        "abierto.",
-        "el interruptor no es import.meta.env.DEV",
-    )
+    # Esta comprobación mira **el bundle compilado**, no el texto del router.
+    # La versión anterior buscaba `if (import.meta.env.DEV)` en el archivo, y
+    # eso es una búsqueda de texto: habría pasado con el interruptor correcto y
+    # un segundo `rutas.push` del catálogo cinco líneas más abajo. Y se rompió
+    # sola en cuanto el interruptor cambió de forma, que es la otra cara del
+    # mismo defecto.
+    #
+    # Lo que importa no es cómo está escrito el interruptor: es si el catálogo
+    # acaba dentro de lo que se instala en la máquina del cliente.
+    dist = os.path.join(app, "dist")
+    if rapido and not os.path.isdir(dist):
+        omitir(2, "el catálogo no entra en el bundle de producción",
+               "--rapido y no hay dist/ previo que inspeccionar")
+    else:
+        if not os.path.isdir(dist):
+            corre(["npm", "run", "build", "--silent"], cwd=app, timeout=600)
+        rastro = []
+        for base, _, archivos in os.walk(dist):
+            for n in archivos:
+                if not n.endswith((".js", ".css", ".html")):
+                    continue
+                ruta = os.path.join(base, n)
+                with open(ruta, encoding="utf-8", errors="ignore") as f:
+                    if "Catálogo del design system" in f.read():
+                        rastro.append(os.path.relpath(ruta, app))
+        check(
+            2, "el catálogo no entra en el bundle de producción", not rastro,
+            "El catálogo es una pantalla de desarrollo: en el bundle del "
+            "cliente sería superficie de ataque sin contrapartida. Sólo entra "
+            "con VITE_ARLES_CATALOGO=1, que usan la sonda de CSP y la "
+            "compilación de revisión visual.",
+            " · ".join(rastro[:4]),
+        )
 
     check(
         2, "todo token que se usa está definido", not huerfanos,
@@ -741,7 +760,6 @@ def fase_2(rapido):
 
     # ── Se construye y pasa sus tests ──
     print(f"{GRIS}  frontend{FIN}")
-    app = os.path.join(RAIZ, "app")
     if rapido:
         omitir(2, "build con las primitivas", "--rapido")
     else:

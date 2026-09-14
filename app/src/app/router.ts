@@ -28,11 +28,30 @@ const rutas: RouteRecordRaw[] = [
   })),
 ]
 
-// El catálogo del design system es una pantalla de desarrollo: sirve para
-// revisar las primitivas con los ojos, en Windows y en macOS. No viaja en el
-// bundle que se instala en la máquina del cliente, y por eso se registra
-// aquí y no en SECCIONES —donde aparecería en la navegación.
-if (import.meta.env.DEV) {
+/**
+ * ¿Se registra el catálogo del design system?
+ *
+ * Siempre en desarrollo. Y además cuando se compila con
+ * `VITE_ARLES_CATALOGO=1`, que es lo que usan **la sonda de CSP** y **la
+ * compilación de revisión visual** — la que se abre en Windows y en macOS para
+ * mirar las primitivas en su sistema real.
+ *
+ * Nunca en una compilación normal de producción: ahí sería superficie de
+ * ataque sin contrapartida.
+ *
+ * Por qué una variable y no editar este archivo al vuelo: la sonda de CSP
+ * **lo hacía**, y si algo la interrumpía entre la edición y la restauración,
+ * dejaba el interruptor abierto en el árbol de trabajo. Una variable de
+ * entorno no deja residuo.
+ *
+ * Y por qué con **notación de punto**: Vite sólo sustituye así. Con corchetes
+ * la expresión queda dinámica, la rama sobrevive a la compilación y el
+ * catálogo entra en el bundle. Ver `src/entorno.d.ts`.
+ */
+export const CATALOGO_VISIBLE =
+  import.meta.env.DEV || import.meta.env.VITE_ARLES_CATALOGO === '1'
+
+if (CATALOGO_VISIBLE) {
   rutas.push({
     path: '/catalogo',
     name: 'catalogo',

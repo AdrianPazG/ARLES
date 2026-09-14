@@ -1,0 +1,97 @@
+# Compila ARLES para Windows y macOS y publica los instaladores como
+# artefactos descargables.
+#
+# Existe para que quien revise la interfaz **no tenga que instalar nada**: ni
+# Rust, ni el CLI de Tauri, ni las dependencias de cada plataforma. Descarga,
+# abre, y mira.
+#
+# Se lanza a mano desde la pestaña Actions del repositorio. No corre sola: es
+# una compilación de revisión, no una entrega.
+#
+# ⚠️ Estas compilaciones **NO están firmadas**. Windows y macOS mostrarán una
+# advertencia al abrirlas, y hay que saltársela a propósito — el procedimiento
+# está en documentacion/06-calidad/REVISION_VISUAL.md. La firma llega en la
+# Fase 9, cuando existan los certificados (R-14).
+#
+# Incluyen el **catálogo del design system**, que en una compilación normal no
+# viaja. Por eso el artefacto se llama «revision» y no «release»: para que
+# nadie lo confunda con algo instalable en casa de un cliente.
+
+name: Revisión visual
+
+on:
+  workflow_dispatch:
+    inputs:
+      rama:
+        description: Rama a compilar
+        default: claude/loving-faraday-5chmmy
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  compilar:
+    name: ${{ matrix.etiqueta }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Que falle una plataforma no debe dejarnos sin la otra: media revisión
+      # es mejor que ninguna.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            etiqueta: Windows (WebView2)
+            artefacto: arles-revision-windows
+            ruta: crates/arles-app/target/release/bundle/nsis/*.exe
+          - os: macos-latest
+            etiqueta: macOS (WKWebView)
+            artefacto: arles-revision-macos
+            ruta: crates/arles-app/target/release/bundle/dmg/*.dmg
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.rama }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates
+
+      - run: npm ci
+        working-directory: app
+
+      # El catálogo es la única pantalla que usa todas las primitivas, así que
+      # es lo que hay que poder abrir para revisarlas. Fuera de aquí y de la
+      # sonda de CSP, no entra en ninguna compilación.
+      - name: Compilar la interfaz con el catálogo dentro
+        run: npm run build
+        working-directory: app
+        env:
+          VITE_ARLES_CATALOGO: '1'
+
+      - name: CLI de Tauri
+        run: cargo install tauri-cli --version '^2' --locked
+
+      # `cargo tauri build` compila el binario y genera el instalador. No hace
+      # falta un `cargo build` previo: lo hace él.
+      - name: Generar el instalador
+        run: cargo tauri build
+        working-directory: crates/arles-app
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ matrix.artefacto }}
+          path: |
+            ${{ matrix.ruta }}
+            crates/arles-app/target/release/bundle/**
+          if-no-files-found: warn
+          retention-days: 14

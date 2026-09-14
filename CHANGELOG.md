@@ -12,6 +12,37 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Preparación de la Fase 3 — revisión visual
+
+- **Flujo «Revisión visual»** que compila los instaladores de Windows y macOS
+  y los publica como artefactos descargables. Quien revise la interfaz **no
+  instala nada**: ni Rust, ni el CLI de Tauri, ni dependencias de plataforma.
+  Sin firmar — los certificados son de la Fase 9 (R-14) —, así que la guía
+  explica cómo saltarse las advertencias de SmartScreen y Gatekeeper.
+- **`documentacion/06-calidad/REVISION_VISUAL.md`**: guía paso a paso de las
+  cuatro comprobaciones que sólo una persona con una pantalla real puede
+  hacer —ventana nativa, WKWebView, escalado de Windows y lector de pantalla—,
+  con qué capturar y qué escuchar. Incluye lo que **ya está verificado**, para
+  no gastar tiempo dos veces.
+- El catálogo se enciende con `VITE_ARLES_CATALOGO=1` en vez de editando
+  `router.ts` al vuelo. **La sonda de CSP lo parcheaba y lo restauraba**: si
+  algo la interrumpía entre medias, dejaba el interruptor abierto en el árbol
+  de trabajo. Una variable de entorno no deja residuo.
+- En una ventana nativa no hay barra de direcciones, así que el catálogo
+  existía pero no había forma de llegar a él. La navegación muestra el enlace
+  **sólo cuando el catálogo está compilado dentro**.
+
+#### Corregido
+
+- **La comprobación del catálogo era una búsqueda de texto** en `router.ts`:
+  habría pasado con el interruptor correcto y un segundo `rutas.push` cinco
+  líneas más abajo. Ahora **inspecciona el bundle compilado**.
+- Y encontró de inmediato un defecto recién introducido: con
+  `import.meta.env['VITE_ARLES_CATALOGO']` **entre corchetes**, Vite no
+  sustituye la variable en compilación, la rama sobrevive y **el catálogo
+  entraba en el bundle de producción** como un trozo cargado bajo demanda. Con
+  notación de punto, desaparece. Documentado en `app/src/entorno.d.ts`.
+
 ### Preparación de la Fase 3 — decisiones registradas
 
 - **ADR-0013 · Origen de contactos, purificación y envío canario.** Acepta la

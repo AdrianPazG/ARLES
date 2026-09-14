@@ -85,6 +85,7 @@
 | Documento | Contenido |
 |---|---|
 | [ESTRATEGIA_QA](06-calidad/ESTRATEGIA_QA.md) | Camino dorado, casos frontera, las 4 auditorías |
+| [REVISION_VISUAL](06-calidad/REVISION_VISUAL.md) | Cómo revisar la aplicación en Windows y macOS, paso a paso |
 | [PRESUPUESTO_RENDIMIENTO](06-calidad/PRESUPUESTO_RENDIMIENTO.md) | Objetivos a 500 k, medidos en CI |
 
 ### 07 · Entrega

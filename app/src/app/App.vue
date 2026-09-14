@@ -2,7 +2,7 @@
 import { onMounted } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 
-import { SECCIONES } from '@/app/router'
+import { CATALOGO_VISIBLE, SECCIONES } from '@/app/router'
 import { useAppStore } from '@/app/stores/app'
 import { ALogotipo } from '@/design/componentes'
 
@@ -36,6 +36,24 @@ onMounted(() => void app.cargar())
           </RouterLink>
         </li>
       </ul>
+
+      <!-- En una ventana nativa no hay barra de direcciones: sin este enlace,
+           el catálogo existe pero no hay forma de llegar a él. Sólo aparece
+           cuando el catálogo está compilado dentro — en desarrollo y en la
+           compilación de revisión visual.
+
+           Precisión: en producción `CATALOGO_VISIBLE` es `false`, así que el
+           enlace nunca se pinta y el componente del catálogo no entra en el
+           bundle. Lo que sí queda son estas pocas letras de plantilla. No es
+           superficie de ataque; es un detalle que conviene no vender como
+           «no viaja nada». -->
+      <RouterLink
+        v-if="CATALOGO_VISIBLE"
+        class="nav-enlace enlace-de-revision"
+        to="/catalogo"
+      >
+        Catálogo del sistema
+      </RouterLink>
 
       <!-- §121: la atribución vive aquí, discreta. NUNCA en los correos
            que el cliente envía. -->
@@ -110,6 +128,15 @@ onMounted(() => void app.cargar())
   background: var(--arles-surface-raised);
   color: var(--arles-text);
   box-shadow: inset 3px 0 0 var(--arles-accent);
+}
+
+/* Se distingue de la navegación real: no es una sección del producto, es una
+   herramienta de revisión que no viaja al cliente. */
+.enlace-de-revision {
+  margin-bottom: var(--arles-space-3);
+  font-size: var(--arles-font-size-caption);
+  color: var(--arles-text-disabled);
+  border: var(--arles-border-width) dashed var(--arles-border-strong);
 }
 
 .pie {

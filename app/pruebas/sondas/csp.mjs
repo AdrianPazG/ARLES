@@ -19,12 +19,12 @@
  *
  *     npm --prefix app run sonda:csp
  *
- * Compila con el catálogo forzado dentro —normalmente es sólo de desarrollo—
- * porque es la única pantalla que usa todas las primitivas. El artefacto es
- * temporal: se construye en `dist-csp/` y se borra al terminar.
+ * Compila con `VITE_ARLES_CATALOGO=1` —el catálogo es la única pantalla que
+ * usa todas las primitivas— y el artefacto es temporal: se construye en
+ * `dist-csp/` y se borra al terminar.
  */
 import { spawnSync } from 'node:child_process'
-import { readFile, rm, writeFile } from 'node:fs/promises'
+import { readFile, rm } from 'node:fs/promises'
 import http from 'node:http'
 import { extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -35,7 +35,6 @@ import { exigirChromium } from './navegador.mjs'
 
 const APP = fileURLToPath(new URL('../..', import.meta.url))
 const SALIDA = join(APP, 'dist-csp')
-const RUTA_ROUTER = join(APP, 'src/app/router.ts')
 const CONF = join(APP, '../crates/arles-app/tauri.conf.json')
 // La ruta se localiza, no se escribe: ver navegador.mjs.
 const EJECUTABLE = exigirChromium()
@@ -61,23 +60,18 @@ if (/unsafe-inline|unsafe-eval/.test(politica)) {
 }
 
 // ── Build de verificación con el catálogo dentro ──────────────────────────
-const routerOriginal = await readFile(RUTA_ROUTER, 'utf8')
 let servidor
 let navegador
 
 try {
-  await writeFile(
-    RUTA_ROUTER,
-    routerOriginal.replace(
-      'if (import.meta.env.DEV) {',
-      'if (true) { // forzado por la sonda de CSP',
-    ),
-  )
-
+  // El catálogo entra por variable, no editando router.ts. La versión anterior
+  // lo parcheaba y lo restauraba en el `finally`: si algo la interrumpía entre
+  // medias, dejaba el interruptor abierto en el árbol de trabajo. Una variable
+  // de entorno no deja residuo.
   const build = spawnSync(
     'npx',
     ['vite', 'build', '--outDir', 'dist-csp', '--emptyOutDir'],
-    { cwd: APP, encoding: 'utf8' },
+    { cwd: APP, encoding: 'utf8', env: { ...process.env, VITE_ARLES_CATALOGO: '1' } },
   )
   if (build.status !== 0) {
     anotar(`no compiló: ${(build.stderr || build.stdout).slice(-400)}`)
@@ -166,7 +160,6 @@ try {
   for (const v of violaciones) anotar(`violación: ${v}`)
   if (violaciones.length === 0) bien('ninguna violación de CSP en todo el recorrido')
 } finally {
-  await writeFile(RUTA_ROUTER, routerOriginal)
   await navegador?.close()
   servidor?.close()
   await rm(SALIDA, { recursive: true, force: true })
