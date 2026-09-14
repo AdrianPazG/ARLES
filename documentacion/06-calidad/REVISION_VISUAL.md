@@ -26,6 +26,30 @@ Los instaladores se compilan solos en GitHub.
 
 ## 2. Conseguir los instaladores
 
+### Atajo: ya están compilados
+
+**No hace falta que compiles nada.** Los dos instaladores están listos aquí:
+
+👉 **https://github.com/AdrianPazG/ARLES/actions/runs/34879107021**
+
+Baja hasta **«Artifacts»**, al final de la página, y descarga los dos. Caducan
+el **28 de septiembre de 2026**; pasada esa fecha hay que volver a compilar con
+el procedimiento de abajo.
+
+| Artefacto | Qué lleva dentro | Tamaño |
+|---|---|---|
+| `arles-revision-windows` | un `.exe` instalador | 4,4 MB |
+| `arles-revision-macos` | un `.dmg` **universal** (Intel y Apple Silicon) | 11,2 MB |
+
+GitHub los entrega dentro de un `.zip`: descomprímelo primero.
+
+---
+
+### Compilar una versión nueva
+
+Sólo hace falta cuando haya cambios que quieras ver, o si los artefactos de
+arriba caducaron.
+
 > **Si te dijeron «entra a Actions y pulsa Run workflow»: eso no funciona, y
 > era un error mío.** Ese botón solo aparece cuando el flujo está en la rama
 > por defecto del repositorio, y hoy `main` está vacía. Lo de abajo sí
@@ -39,11 +63,9 @@ Los instaladores se compilan solos en GitHub.
    que dispara la compilación es que el archivo cambie.
 5. Botón verde **«Commit changes…»** → **«Commit changes»**.
 6. Ve a la pestaña **Actions**. Ahora sí verás **«Revisión visual»** en marcha.
-7. Espera entre **15 y 25 minutos**: compila para los dos sistemas a la vez, y
-   el de macOS sale universal (abre en Mac Intel y en Apple Silicon).
-8. Cuando termine, entra a la ejecución y baja hasta **«Artifacts»**. Descarga:
-   - `arles-revision-windows` → dentro va un `.exe`
-   - `arles-revision-macos` → dentro va un `.dmg`
+7. Espera. **macOS tarda unos 20 minutos y Windows unos 22**, medido en la
+   ejecución real; compilan a la vez. El de macOS sale universal.
+8. Cuando termine, entra a la ejecución y baja hasta **«Artifacts»**.
 
 Si una de las dos plataformas falla, la otra se sube igual. Mándame el enlace
 de la ejecución y lo miro.
