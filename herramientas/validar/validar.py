@@ -976,6 +976,49 @@ def fase_2(rapido):
     # ── Documentación ──
     print(f"{GRIS}  documentación{FIN}")
     informe_para_direccion(2, "FASE-02-PARA-DIRECCION")
+    manual_de_entrega()
+
+
+RE_IMAGEN_MD = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
+RE_CAPTURA = re.compile(r"\b([WM]-\d{2}-[a-z0-9-]+\.png)\b")
+
+
+def manual_de_entrega():
+    """El manual y su plantilla nombran las mismas capturas.
+
+    Los nombres de archivo están escritos en dos sitios: la tabla del manual y
+    la lista de la plantilla. Renombrar una captura en uno y no en el otro deja
+    a quien revisa siguiendo instrucciones que no concuerdan — y el fallo no se
+    ve leyendo ninguno de los dos por separado, que es lo que lo hace difícil.
+
+    También: una imagen rota en un manual con imágenes lo vuelve inútil
+    justo en la parte que lo hacía claro.
+    """
+    base = os.path.join(RAIZ, "documentacion", "06-calidad")
+    manual = leer("documentacion", "06-calidad", "MANUAL_DE_ENTREGA.md")
+    plantilla = leer("documentacion", "06-calidad", "PLANTILLA-ENTREGA.md")
+
+    if not check(2, "existen el manual de entrega y su plantilla",
+                 manual is not None and plantilla is not None,
+                 "Sin ellos, la revisión visual depende de que yo explique lo mismo dos veces."):
+        return
+
+    rotas = [
+        ruta for ruta in RE_IMAGEN_MD.findall(manual)
+        if not ruta.startswith("http")
+        and not os.path.isfile(os.path.normpath(os.path.join(base, ruta)))
+    ]
+    check(2, "todas las imágenes del manual existen", not rotas,
+          "Una imagen rota deja el manual sin lo que lo hacía claro.",
+          ", ".join(rotas))
+
+    en_manual = set(RE_CAPTURA.findall(manual))
+    en_plantilla = set(RE_CAPTURA.findall(plantilla))
+    check(2, "el manual y la plantilla nombran las mismas capturas",
+          bool(en_manual) and en_manual == en_plantilla,
+          "Si divergen, quien revisa sigue dos instrucciones distintas y no lo nota.",
+          f"sólo en el manual: {sorted(en_manual - en_plantilla)} · "
+          f"sólo en la plantilla: {sorted(en_plantilla - en_manual)}")
 
 
 FASES = {0: fase_0, 1: fase_1, 2: fase_2}
