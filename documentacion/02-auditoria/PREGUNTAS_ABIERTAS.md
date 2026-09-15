@@ -176,8 +176,8 @@ antes de decidir cuánto invertir en validación.
 
 ---
 
-### P-11 · La barra lateral: ¿fija y plegable? · **decidido en la revisión visual**
-**Riesgo:** R-01 del informe de revisión · **Se construye en:** entrega 3.1
+### P-11 · La barra lateral: ¿fija y plegable? · ✅ **cerrada — construida en la 3.1**
+**Riesgo:** R-01 del informe de revisión · **Construida el:** 15 de septiembre de 2026
 
 Dirección pidió dos cosas al revisar la aplicación en Windows:
 
@@ -201,6 +201,26 @@ viewport CSS baja de 1120.
 
 Con esto **P-11 deja de ser una pregunta abierta** y pasa a ser trabajo de la
 entrega 3.1. Queda aquí como registro de qué se decidió y cuándo.
+
+### ✅ Construida — lo que salió distinto de lo previsto
+
+Las tres decisiones están en el producto. Dos notas sobre lo que cambió al
+hacerlo:
+
+**El umbral del plegado automático no salió del desbordamiento.** Se anunció
+que se mediría «donde la navegación deja de caber con holgura», y al medirlo
+resultó que **no deja de caber en ningún ancho hasta 600 px**: las pantallas de
+la 3.1 son fluidas y se estrechan en vez de cortarse. El umbral acabó siendo el
+ancho donde la pantalla más exigente pierde su **medida de diseño** —984 px—, y
+la medición entera está en
+[UMBRAL_DE_PLEGADO.md](../06-calidad/UMBRAL_DE_PLEGADO.md). El número volverá a
+moverse en la 3.2, cuando la tabla de contactos traiga un mínimo real.
+
+**«Se recuerda» acabó en la base de datos, no en el navegador.** `localStorage`
+habría sido una línea; vive en el perfil de la WebView, se borra con la caché
+del sistema y no entra en el respaldo. Una preferencia que se pierde al limpiar
+la caché no se recuerda. Costó una migración —`V2`— y encajó sin fricción
+porque la decisión llegó **antes** de escribir el esquema de configuración.
 
 ### Lo que arrastra cada decisión
 

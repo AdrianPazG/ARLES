@@ -49,8 +49,8 @@ fn sin_llavero_no_arranca_y_con_llavero_queda_migrada() {
 
             assert_eq!(
                 resumen.version_esquema,
-                Some(1),
-                "el arranque debe dejar el esquema migrado"
+                arles_db::ultima_version(),
+                "el arranque debe dejar el esquema en la última versión"
             );
             assert_eq!(
                 resumen.empresas, 0,

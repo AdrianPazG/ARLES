@@ -12,6 +12,57 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Entrega 3.1 — configuración de empresa y lista de alta
+
+- **Pantalla de Ajustes con la configuración de empresa**: nombre, país, zona
+  horaria, correo corporativo y sitio web. La validación es del núcleo, no del
+  formulario, y devuelve **todos** los campos malos de una vez con el motivo de
+  cada uno. Dos validaciones serían dos reglas que mantener iguales, y el día
+  que divergen el formulario aprueba lo que el núcleo rechaza.
+- **Las zonas horarias son una lista cerrada.** Comprobar sólo la forma dejaría
+  entrar `America/Mexico` —que no existe— y el fallo aparecería meses después,
+  al calcular una ventana de ejecución. El desplegable se llena con esa misma
+  lista, y el validador comprueba que las dos copias no divergen.
+- **Pantalla de Inicio con la lista de alta**, que **deriva** el estado de cada
+  paso de los datos reales en vez de guardar un booleano. Con el booleano,
+  borrar la única cuenta remitente dejaría ese paso en verde para siempre.
+  Enseña los seis pasos desde el primer día, con la entrega en que llega cada
+  uno: enseñar sólo lo construido haría que alguien viera la lista completa al
+  terminar el primero y concluyera que ya puede enviar.
+- **Barra lateral fija y plegable** (P-11): a mano y sola, en iconos sin texto,
+  y el estado se recuerda. Seis iconos de sección nuevos.
+- El **umbral del plegado automático está medido**: 984 px. Ver más abajo.
+- Migración **V2** con `ui_preference`. La preferencia va en la base cifrada y
+  no en `localStorage`, que vive en el perfil de la WebView: se borra con la
+  caché del sistema y no entra en el respaldo `.arles`.
+- Configurar la empresa deja constancia en `audit_log`, **en la misma
+  transacción** que el cambio. Registrarla aparte dejaría cambios sin rastro
+  ante un fallo entre las dos escrituras.
+
+#### Medido, no elegido
+
+- **La primera medición del umbral no encontró nada.** Buscando desbordamiento
+  con la barra desplegada, ninguna pantalla desbordó hasta 600 px: las de esta
+  entrega son fluidas. Con ese criterio el plegado automático no tenía
+  justificación, y redondear a 1000 px habría sido repetir cómo se escribió el
+  `min-width: 1120` que causó R-01. Lo que sí se pierde antes es la **medida de
+  diseño**: la lista de alta deja de alcanzar sus 78 ch a 984 px con la barra
+  desplegada, y plegar devuelve justo los 176 px que faltan.
+- `sonda:plegado` falla **por los dos lados** —umbral corto y umbral inflado—,
+  probada con 800 y con 1200.
+
+#### Comprobado
+
+- **Las migraciones publicadas no cambian**, comprobado por sha256. Editar una
+  ya aplicada deja dos instalaciones con el mismo número de versión y esquemas
+  distintos, y el fallo aparece mucho después.
+- La empresa se valida **también al leer**: una fila editada por fuera con una
+  zona inexistente se nombra en vez de devolverse como buena.
+- Validador: fase 3, 19 comprobaciones, 0 omitidas. Las cuatro nuevas, probadas
+  rompiéndolas.
+
+---
+
 ### Preparación de la Fase 3 — revisión visual
 
 - **Flujo «Revisión visual»** que compila los instaladores de Windows y macOS

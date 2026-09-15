@@ -17,6 +17,23 @@ mod embebidas {
     refinery::embed_migrations!("migrations");
 }
 
+/// La última versión de esquema que este binario sabe aplicar.
+///
+/// Se deriva de las migraciones embebidas en vez de escribirse a mano. El
+/// número estaba puesto a mano en dos pruebas, y al añadir la `V2` una de
+/// ellas —la del arranque— siguió esperando `Some(1)`: no falló en Linux
+/// porque esa rama sólo corre donde hay llavero, así que el fallo apareció en
+/// Windows y macOS, en CI, después de dar el trabajo por bueno.
+#[must_use]
+pub fn ultima_version() -> Option<i32> {
+    embebidas::migrations::runner()
+        .get_migrations()
+        .iter()
+        // `refinery` ya devuelve i32 aquí; no hay conversión que hacer.
+        .map(refinery::Migration::version)
+        .max()
+}
+
 /// Pone el esquema al día.
 ///
 /// # Errores
@@ -49,6 +66,20 @@ mod tests {
             .expect("consulta")
             .filter_map(Result::ok)
             .collect()
+    }
+
+    #[test]
+    fn la_ultima_version_sale_de_las_migraciones_embebidas() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
+        let archivos = std::fs::read_dir(dir)
+            .expect("hay migraciones")
+            .filter_map(Result::ok)
+            .count();
+        assert_eq!(
+            ultima_version(),
+            Some(i32::try_from(archivos).expect("caben")),
+            "la última versión debe corresponder al número de migraciones"
+        );
     }
 
     #[test]

@@ -57,7 +57,7 @@ Configuración de empresa · lista de verificación de onboarding · contactos c
 
 | Entrega | Qué incluye | Puerta |
 |---|---|---|
-| **3.1** | Configuración de empresa · lista de onboarding | **Cierra los cuatro pendientes visuales de la Fase 2**: ventana nativa, WKWebView, escalado de Windows y lector de pantalla |
+| **3.1** ✅ | Configuración de empresa · lista de onboarding · barra lateral fija y plegable (P-11) | **Cerrada el 15/09/2026**, 19/19. De los cuatro pendientes visuales de la Fase 2 se cerraron tres —ventana nativa, escalado de Windows y lector de pantalla—; **WKWebView sigue abierto** (R-07) y se declaró riesgo aceptado con fecha límite antes de la Fase 6 |
 | **3.2** | Contactos, listas, etiquetas, campos propios · filtros · la tabla medida con 500 k | Sonda de navegador con volumen real |
 | **3.3** | Importación XLSX/CSV con todas las defensas · purificación · informe de rechazados | Los archivos maliciosos con los que se atacó, y su resultado |
 | **3.4** | Lista de supresión · derechos ARCO | Borrar un contacto, reimportarlo, y comprobar que **sigue sin escribírsele** |

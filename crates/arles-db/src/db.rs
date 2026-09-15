@@ -128,7 +128,7 @@ mod tests {
         let r = db.resumen_arranque().expect("resumen");
         assert_eq!(
             r.version_esquema,
-            Some(2),
+            crate::migraciones::ultima_version(),
             "las migraciones deberían haber dejado el esquema en la última versión"
         );
     }

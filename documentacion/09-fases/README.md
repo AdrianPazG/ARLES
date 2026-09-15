@@ -13,7 +13,7 @@ Existen porque los ADR explican *por qué* se decidió algo y el código muestra
 | [00](FASE-00-DISCOVERY.md) | Discovery, auditoría y arquitectura | ✅ cerrada | 4 / 4 |
 | [01](FASE-01-CIMIENTOS.md) | Cimientos | ✅ cerrada y revisada | 32 / 32 |
 | [02](FASE-02-DESIGN-SYSTEM.md) | Design System | ✅ cerrada y revisada | 18 / 18 |
-| 03 | Empresa y contactos | ⬜ pendiente | — |
+| [03](FASE-03-EMPRESA-Y-CONTACTOS.md) | Empresa y contactos | 🟡 en curso · **3.1 cerrada** | 19 / 19 |
 | 04 | Motor de ejecución | ⬜ pendiente | — |
 | 05 | Proveedores de correo | ⬜ pendiente | — |
 | 06 | Campañas y mensajes | ⬜ pendiente | — |

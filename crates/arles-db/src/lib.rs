@@ -22,4 +22,5 @@ pub use conexion::{ClaveMaestra, abrir};
 pub use db::{Db, ResumenArranque};
 pub use empresa::EmpresaGuardada;
 pub use error::DbError;
+pub use migraciones::ultima_version;
 pub use preferencias::CLAVES_DE_INTERFAZ;

@@ -87,6 +87,7 @@
 | [ESTRATEGIA_QA](06-calidad/ESTRATEGIA_QA.md) | Camino dorado, casos frontera, las 4 auditorías |
 | [REVISION_VISUAL](06-calidad/REVISION_VISUAL.md) | Cómo revisar la aplicación en Windows y macOS, paso a paso |
 | [PRESUPUESTO_RENDIMIENTO](06-calidad/PRESUPUESTO_RENDIMIENTO.md) | Objetivos a 500 k, medidos en CI |
+| [UMBRAL_DE_PLEGADO](06-calidad/UMBRAL_DE_PLEGADO.md) | Dónde se pliega sola la barra lateral, y por qué ese número |
 
 ### 07 · Entrega
 | Documento | Contenido |
@@ -110,6 +111,7 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Fase 01 · resumen para Dirección](09-fases/FASE-01-PARA-DIRECCION.md) | Sin tecnicismos |
 | [Fase 02 · Design System](09-fases/FASE-02-DESIGN-SYSTEM.md) | ✅ 18/18 |
 | [Fase 02 · resumen para Dirección](09-fases/FASE-02-PARA-DIRECCION.md) | Sin tecnicismos |
+| [Fase 03 · Empresa y contactos](09-fases/FASE-03-EMPRESA-Y-CONTACTOS.md) | 🟡 en curso · entrega 3.1 ✅ 19/19 |
 
 ---
 
