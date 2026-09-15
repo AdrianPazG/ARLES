@@ -1190,6 +1190,35 @@ def claves_de_texto_del_nucleo():
           f"pasos sin texto: {faltan_pasos}")
 
 
+def nombres_de_las_opciones():
+    """Ninguna opción del desplegable se queda sin nombre legible.
+
+    El valor que viaja al núcleo es `MX` o `America/Mexico_City`; lo que se lee
+    es «México» o «Ciudad de México». Si falta el nombre se enseña el valor
+    crudo —feo, pero no engaña— y nadie se entera. Añadir una zona en Rust y
+    olvidar su nombre aquí es exactamente eso.
+    """
+    rust = leer("crates/arles-core/src", "empresa.rs") or ""
+    es = leer("app/src/app/locales", "es.ts") or ""
+
+    def lista(nombre):
+        m = re.search(rf"{nombre}: &\[&str\] = &\[(.*?)\];", rust, re.S)
+        return re.findall(r'"([^"]+)"', m.group(1)) if m else []
+
+    for constante, etiqueta in [
+        ("ZONAS_SOPORTADAS", "zona horaria"),
+        ("PAISES_SOPORTADOS", "país"),
+    ]:
+        valores = lista(constante)
+        # La clave se escribe entrecomillada si lleva barras, y suelta si no.
+        faltan = [v for v in valores if f"'{v}':" not in es and f"\n      {v}:" not in es]
+        check(3, f"toda opción de {etiqueta} tiene nombre legible",
+              bool(valores) and not faltan,
+              "Sin nombre se enseña el identificador crudo, y elegir la zona "
+              "obliga a saber qué es un identificador IANA.",
+              f"sin nombre: {faltan}")
+
+
 def claves_de_error_sin_texto():
     """Toda clave que emite Rust está declarada y tiene texto.
 
@@ -1321,6 +1350,7 @@ def fase_3(rapido):
     listas_cerradas_del_nucleo()
     claves_de_texto_del_nucleo()
     claves_de_error_sin_texto()
+    nombres_de_las_opciones()
     iconos_de_seccion()
     preferencias_fuera_del_navegador()
 

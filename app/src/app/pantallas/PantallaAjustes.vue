@@ -87,6 +87,26 @@ function errorDe(campo: keyof BorradorDeEmpresa): string {
   return te(clave) ? t(clave) : t('empresa.error.generico')
 }
 
+/**
+ * El nombre legible de una opción del desplegable.
+ *
+ * El valor que viaja al núcleo no cambia —sigue siendo `MX` o
+ * `America/Mexico_City`—: esto es sólo lo que se lee. Si falta el nombre se
+ * enseña el valor crudo, que es feo pero no engaña; el validador comprueba que
+ * no falte ninguno.
+ */
+function nombreDe(grupo: 'pais' | 'zona', valor: string): string {
+  const clave = `empresa.${grupo}.${valor}`
+  return te(clave) ? t(clave) : valor
+}
+
+const opcionesDePais = computed(() =>
+  empresa.configuracion.paises.map((p) => ({ valor: p, texto: nombreDe('pais', p) })),
+)
+const opcionesDeZona = computed(() =>
+  empresa.configuracion.zonas.map((z) => ({ valor: z, texto: nombreDe('zona', z) })),
+)
+
 async function enviar(): Promise<void> {
   const guardado = await empresa.guardar({ ...formulario })
   if (guardado) return
@@ -142,7 +162,7 @@ async function enviar(): Promise<void> {
         :etiqueta="$t('empresa.campo.pais')"
         :ayuda="$t('empresa.ayuda.pais')"
         :error="errorDe('pais')"
-        :opciones="empresa.configuracion.paises.map((p) => ({ valor: p, texto: p }))"
+        :opciones="opcionesDePais"
       />
 
       <ASelector
@@ -150,7 +170,7 @@ async function enviar(): Promise<void> {
         :etiqueta="$t('empresa.campo.zonaHoraria')"
         :ayuda="$t('empresa.ayuda.zonaHoraria')"
         :error="errorDe('zonaHoraria')"
-        :opciones="empresa.configuracion.zonas.map((z) => ({ valor: z, texto: z }))"
+        :opciones="opcionesDeZona"
       />
 
       <AEntrada

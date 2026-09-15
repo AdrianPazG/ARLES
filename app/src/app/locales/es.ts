@@ -93,6 +93,32 @@ export const es = {
       'Las ventanas de envío se calculan siempre en la zona de tu empresa, ' +
       'nunca en la del equipo donde esté ARLES. Así una campaña programada ' +
       'de 9 a 18 sale a esa hora aunque el equipo viaje a otro huso.',
+    // Nombres legibles de lo que ofrecen los desplegables.
+    //
+    // El **valor** sigue siendo el que exige el núcleo —`MX`,
+    // `America/Mexico_City`—; esto es sólo lo que se lee. Enseñar el
+    // identificador crudo obliga al usuario a saber qué es un identificador
+    // IANA para elegir su ciudad.
+    //
+    // El validador comprueba que ninguna opción del núcleo se queda sin
+    // nombre: si falta, se enseña el valor crudo y nadie se entera.
+    pais: {
+      MX: 'México',
+    },
+    zona: {
+      'America/Mexico_City': 'Ciudad de México',
+      'America/Cancun': 'Cancún · Quintana Roo',
+      'America/Merida': 'Mérida · Yucatán',
+      'America/Monterrey': 'Monterrey · Nuevo León',
+      'America/Matamoros': 'Matamoros · frontera',
+      'America/Chihuahua': 'Chihuahua',
+      'America/Ojinaga': 'Ojinaga · frontera',
+      'America/Mazatlan': 'Mazatlán · Sinaloa',
+      'America/Bahia_Banderas': 'Bahía de Banderas · Nayarit',
+      'America/Hermosillo': 'Hermosillo · Sonora',
+      'America/Tijuana': 'Tijuana · frontera',
+      UTC: 'UTC · tiempo universal',
+    },
     campo: {
       nombreComercial: 'Nombre comercial',
       pais: 'País',

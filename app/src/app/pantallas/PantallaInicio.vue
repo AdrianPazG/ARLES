@@ -19,7 +19,7 @@ import { RouterLink } from 'vue-router'
 
 import { useAppStore } from '@/app/stores/app'
 import { useEmpresaStore } from '@/app/stores/empresa'
-import { AIcono, AInsignia } from '@/design/componentes'
+import { AIcono } from '@/design/componentes'
 
 const empresa = useEmpresaStore()
 const app = useAppStore()
@@ -88,13 +88,19 @@ const pendientesDisponibles = computed(() =>
           </div>
 
           <!-- Un paso que todavía no existe lo dice, con su entrega. Es la
-               diferencia entre «no encuentro dónde hacerlo» y «aún no está». -->
-          <AInsignia
+               diferencia entre «no encuentro dónde hacerlo» y «aún no está».
+
+               Texto apagado y no `AInsignia`: con insignia —relleno sólido—
+               los cinco pasos que NO se pueden hacer pesaban más en la pantalla
+               que el único que sí, que es justo al revés de lo que la lista
+               tiene que decir. La insignia está para estados que hay que
+               atender; esto es una nota al margen. -->
+          <p
             v-if="!paso.disponible"
-            tono="neutro"
+            class="cuando"
           >
             {{ $t('inicio.llegaEn', { entrega: paso.entrega }) }}
-          </AInsignia>
+          </p>
         </li>
       </ol>
 
@@ -196,5 +202,15 @@ const pendientesDisponibles = computed(() =>
 .detalle {
   font-size: var(--arles-font-size-small);
   line-height: var(--arles-line-height-small);
+}
+
+.cuando {
+  margin: 0;
+  flex: none;
+  align-self: center;
+  color: var(--arles-text-muted);
+  font-size: var(--arles-font-size-caption);
+  line-height: var(--arles-line-height-caption);
+  white-space: nowrap;
 }
 </style>

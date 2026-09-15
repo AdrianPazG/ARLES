@@ -70,6 +70,10 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 - El enlace al catálogo desaparecía con la barra plegada, es decir **justo a
   partir del 200 % de escala**, que es la condición en la que hay que abrirlo.
 - Un comentario afirmaba que WCAG 2.2 AA pide 40 px de objetivo. Pide 24 × 24.
+- Los desplegables enseñaban **«MX»** y **«America/Mexico_City»**. Ahora se lee
+  «México» y «Ciudad de México»; el valor que viaja al núcleo no cambia.
+- En la lista de alta, los cinco pasos que **no** se pueden hacer llevaban
+  insignia de relleno sólido y pesaban más en la pantalla que el único que sí.
 
 #### Comprobado
 

@@ -114,6 +114,62 @@ instalaría en casa de un cliente no se pinta, y el catálogo **no va dentro del
 programa** — lo comprueba una verificación automática que inspecciona el
 paquete compilado, no el código.
 
+### 4.0 Lo nuevo de la entrega 3.1 · **empieza por aquí**
+
+Esta compilación trae **las dos primeras pantallas reales del producto** y la
+barra lateral que pediste. Es lo que no se ha visto nunca en una ventana de
+verdad, así que es lo primero que conviene mirar.
+
+#### Inicio · la lista de alta
+
+Abre directamente ahí. Debe decir **«Para poder enviar tu primera campaña»** y
+listar **seis pasos**, con «0 de 6» a la derecha.
+
+| Comprueba | Qué debe pasar |
+|---|---|
+| El primer paso, «Configurar tu empresa» | Es un **enlace**: al pulsarlo lleva a Ajustes |
+| Los otros cinco | Llevan una etiqueta gris: «Llega en la entrega 5», «3.2», «6»… y **no** son enlaces |
+| El icono de la izquierda de cada paso | Un reloj gris en los pendientes. Estado con icono **y** texto, nunca sólo color |
+
+Que los cinco últimos no se puedan pulsar **es lo correcto**: esas pantallas
+todavía no existen, y la lista lo dice en vez de llevarte a una pantalla vacía.
+
+📸 **Captura A:** Inicio recién abierto.
+
+#### Ajustes · la configuración de empresa
+
+| Comprueba | Qué debe pasar |
+|---|---|
+| Pulsa **«Guardar»** con todo vacío | Deben marcarse **dos campos en rojo, con su mensaje debajo**, y salir un aviso arriba. **No** debe quedarse sin hacer nada |
+| Escribe un correo mal, p. ej. `hola` | Debe decir «Revisa que el correo tenga la forma nombre@dominio.com» |
+| Rellena nombre y correo bien, y guarda | Debe salir **«Configuración guardada»** |
+| Empieza a escribir otra vez en cualquier campo | El «Configuración guardada» debe **desaparecer** |
+| Vuelve a **Inicio** | Ahora debe decir **«1 de 6»** y el primer paso, hecho |
+| Cierra ARLES y ábrelo otra vez | Tus datos deben seguir ahí |
+| El desplegable de **zona horaria** | Doce opciones, todas de México más UTC |
+
+> **El caso del correo mal escrito es el importante.** Justo ese error hacía que
+> la pantalla dejara de dibujarse, en silencio. Está corregido; esto es
+> comprobarlo en el motor real.
+
+📸 **Captura B:** el formulario con los campos en rojo.
+📸 **Captura C:** después de guardar bien.
+
+#### La barra lateral · lo que pediste (P-11)
+
+| Comprueba | Qué debe pasar |
+|---|---|
+| El botón de los **dos galones** `«` arriba de la barra | Pliega la barra a sólo iconos |
+| Estando plegada | Se sigue viendo en qué sección estás; al pasar el ratón por un icono sale su nombre |
+| **Cierra ARLES y vuelve a abrirlo** | Debe abrir **como la dejaste** |
+| Desplaza una pantalla larga | La barra **no se mueve**; sólo se desplaza el contenido |
+| Pon el escalado de Windows al **200 %** | La barra debe plegarse **sola**, y el botón queda apagado explicando por qué |
+
+📸 **Captura D:** la barra plegada.
+📸 **Captura E:** a 200 % de escala.
+
+---
+
 ### 4.1 La ventana nativa · **las dos plataformas**
 
 Lo primero es lo más simple y nunca se ha visto: **que la ventana abra bien**.

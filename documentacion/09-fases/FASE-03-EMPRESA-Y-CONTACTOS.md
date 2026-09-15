@@ -1,9 +1,9 @@
 # Fase 3 · Empresa y contactos
 
 **Estado:** 🟡 en curso — **entrega 3.1 cerrada** · **Fecha:** 2026-09-15
-**Validación:** 21/21 comprobaciones de la fase 3, 0 omitidas — `validar.py --fase 3`
+**Validación:** 23/23 comprobaciones de la fase 3, 0 omitidas — `validar.py --fase 3`
 **Pruebas:** 133 de Rust · 52 de frontend · 6 sondas de navegador
-**Auditoría de funcionamiento:** 7 hallazgos, los 7 corregidos — ver §3 bis
+**Auditoría de funcionamiento:** 9 hallazgos, los 9 corregidos — ver §3 bis
 
 > **Objetivo de la 3.1.** La primera pantalla real del producto: configurar la
 > empresa y saber qué falta para poder enviar. Y de paso, las dos peticiones
@@ -95,7 +95,7 @@ dos mitades se probaron rompiéndolas.
 | **`sonda:plegado`** | El umbral, por los dos lados, más los seis enlaces con nombre accesible estando plegados |
 | **`sonda:ancho`** | Sigue vigilando lo de R-01: que a ninguna escala de Windows se corte nada |
 | **`empresa.rs`, integración** | Arranca la aplicación de verdad, configura, cierra y reabre. CI lo corre **con llavero** en los tres sistemas |
-| **21 comprobaciones de fase** | Ver abajo |
+| **23 comprobaciones de fase** | Ver abajo |
 
 ### Comprobaciones nuevas del validador, y qué atacan
 
@@ -124,7 +124,7 @@ que el Rust real, haciendo lo que hace una persona: enviar el formulario vacío,
 corregirlo, guardar, volver a editar, plegar la barra, recargar y estrechar la
 ventana.
 
-**Siete hallazgos. Los siete corregidos.**
+**Nueve hallazgos. Los nueve corregidos.**
 
 ### A-1 · La pantalla de Ajustes reventaba al mostrar el error del correo · **grave**
 
@@ -198,6 +198,25 @@ los 40 px que pide WCAG 2.2 AA (2.5.8)». Falso por partida doble: el mínimo de
 AA son **24 × 24** px, y los 44 son del 2.5.5, que es AAA. Medido de verdad: el
 enlace plegado queda en 47 × 30 y el botón en 32 × 32, los dos por encima del
 mínimo real. Corregido el comentario con los números medidos.
+
+### A-8 · Los desplegables enseñaban identificadores, no nombres
+
+El país se leía **«MX»** y la zona **«America/Mexico_City»**. Son los valores
+que el núcleo exige, pero elegir tu ciudad no debería obligarte a saber qué es
+un identificador IANA. Ahora se lee «México» y «Ciudad de México»; el valor que
+viaja no cambia. El validador comprueba que **ninguna opción del núcleo se
+queda sin nombre**, porque si falta se enseña el identificador crudo y nadie se
+entera.
+
+### A-9 · Los pasos que no se pueden hacer pesaban más que el que sí
+
+«Llega en la entrega 5» iba en insignia de relleno sólido. En la pantalla, los
+**cinco pasos imposibles gritaban más que el único accionable** — al revés de
+lo que la lista tiene que decir. Ahora es una nota al margen, apagada. La
+insignia queda para estados que hay que atender.
+
+*(Estos dos salieron de mirar capturas de las pantallas, no de recorrerlas: son
+defectos de lo que la pantalla comunica, y eso no lo detecta ninguna aserción.)*
 
 ### Y lo que la auditoría dejó construido
 
