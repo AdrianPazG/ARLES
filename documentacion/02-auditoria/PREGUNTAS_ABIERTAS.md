@@ -191,14 +191,33 @@ revisión: por encima del **150 % de escala de Windows**, el armazón desborda
 horizontalmente porque `App.vue` fija `min-width: 1120px`, y a esa escala el
 viewport CSS baja de 1120.
 
-**Lo que hay que decidir, y no está decidido:**
+### ✅ Decidido por Dirección el 15 de septiembre de 2026
 
-1. ¿La barra se pliega **a mano**, **sola** por debajo de un ancho, o **las dos
-   cosas**?
-2. Plegada, ¿queda en **iconos** o **desaparece**? Con iconos hacen falta
-   iconos para las seis secciones, que hoy no existen.
-3. ¿Se **recuerda** el estado entre arranques? Si se recuerda, va a la
-   configuración, y eso es esquema.
+| Pregunta | Decisión |
+|---|---|
+| ¿Cómo se pliega? | **A mano y sola.** Un botón para plegarla a voluntad, y además se pliega automáticamente cuando la ventana se queda estrecha |
+| ¿Qué queda plegada? | **Iconos sin texto.** Se sigue viendo dónde estás y se puede navegar |
+| ¿Se recuerda al reabrir? | **Sí.** Si la dejaste plegada, abre plegada |
+
+Con esto **P-11 deja de ser una pregunta abierta** y pasa a ser trabajo de la
+entrega 3.1. Queda aquí como registro de qué se decidió y cuándo.
+
+### Lo que arrastra cada decisión
+
+**«Iconos sin texto» necesita seis iconos que hoy no existen.** `AIcono` tiene
+trece —cuatro semánticos, cuatro de estado de envío, cinco de interfaz— y
+**ninguno para Inicio, Campañas, Contactos, Remitentes, Actividad ni Ajustes**.
+Son seis trazos nuevos en el estilo del resto: 24 × 24, de línea, sin relleno.
+Trabajo pequeño, pero es del design system y no se improvisa en una pantalla.
+
+**«Se recuerda» toca el esquema.** El estado plegado se guarda en la
+configuración de la aplicación, que es justo lo que la 3.1 construye. Encaja
+sin coste extra *porque* se decidió antes de escribir esa tabla; decidirlo
+después habría costado una migración.
+
+**«A mano y sola» necesita un umbral.** Se fija en el ancho donde la
+navegación deja de caber con holgura, medido, no elegido a ojo — igual que se
+midió el umbral de R-01.
 
 **Por qué no se resuelve antes de 3.1:** hacerlo ahora sería construirlo sobre
 un armazón sin pantallas reales que lo pongan a prueba. **Por qué no después:**
