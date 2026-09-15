@@ -2,7 +2,7 @@
 
 **Quién revisó:** Adrián Paz (Dirección)
 **Equipo:** Windows 11, pantalla de 1920 × 1080, escala habitual sin declarar
-**Material:** 8 capturas de 9, plantilla rellenada, grabaciones de pantalla pendientes
+**Material:** las 9 capturas, plantilla rellenada y 4 grabaciones de pantalla
 **Duración real:** de 22:58 a 23:29 — 31 minutos, frente a los 40 estimados
 
 ---
@@ -137,7 +137,7 @@ que toque.
 |---|---|
 | **`W-01-ventana.png`** | El `.rar` llegó truncado. Dirección la reenvió como captura en el chat el 15/09: **ventana sin maximizar a su tamaño mínimo**, barra de título con «ARLES RELAY» e icono, `v1.2.0` en el pie, enlace al catálogo visible y la maqueta correcta a 1120 px. **Cierra el punto de la ventana nativa** |
 | **NVDA, sección 5 entera** | **Resuelto de otra forma.** Ver abajo: `sonda:lector` comprueba en cada compilación lo que esa sección pedía escuchar |
-| **Las grabaciones de pantalla** | Descartadas por Dirección — «no es muy relevante para tardar 30 min en analizarlas». De acuerdo: sin defectos que perseguir, los vídeos no aportan sobre las capturas |
+| **Las grabaciones de pantalla** | Recibidas y revisadas por fotogramas. **No añaden defectos** sobre las capturas. El de  confirma además el frenado de la ventana en su tamaño mínimo, que en una captura no se ve |
 
 ---
 

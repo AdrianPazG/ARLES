@@ -82,3 +82,18 @@ que quieres que mire y **qué estabas haciendo**:
 
 Sin eso miro el vídeo entero fotograma a fotograma buscando algo que tú ya
 sabías dónde estaba.
+
+---
+
+## Lo recibido
+
+| Vídeo | Duración | Qué confirma |
+|---|---|---|
+| `W-01-ventana.mp4` | 47 s | El redimensionado: se ve el cursor en el borde y la ventana frenando en su mínimo |
+| `W-02-maximizada.mp4` | 16 s | La ventana maximizada |
+| `W-03-primitivas.mp4` | 20 s | Recorrido de la pestaña de primitivas |
+| `W-04-estados.mp4` | 24 s | Los cuatro estados |
+
+Revisados por fotogramas el 15 de septiembre. **No añaden defectos** sobre las
+capturas: confirman lo mismo. Que no aporten nada nuevo es, en sí, un
+resultado — significa que las capturas cubrían lo que había que ver.
