@@ -36,3 +36,6 @@ dejará de hacer falta.
 - 2026-09-14 · Primera compilación de revisión (Fase 2 → 3.1)
 - 2026-09-14 · Verificación del flujo tras corregir las rutas de tauri.conf.json
 - 2026-09-14 · Segunda verificación: iconos declarados para el empaquetado de Windows
+- 2026-09-15 · **Entrega 3.1**, a petición de Dirección: Inicio con la lista de
+  alta, Ajustes con la configuración de empresa y la barra lateral fija y
+  plegable (P-11). Incluye los siete arreglos de la auditoría de funcionamiento
