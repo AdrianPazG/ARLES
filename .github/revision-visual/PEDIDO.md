@@ -39,3 +39,9 @@ dejará de hacer falta.
 - 2026-09-15 · **Entrega 3.1**, a petición de Dirección: Inicio con la lista de
   alta, Ajustes con la configuración de empresa y la barra lateral fija y
   plegable (P-11). Incluye los siete arreglos de la auditoría de funcionamiento
+- 2026-09-15 · **3.1, segunda pasada.** La compilación anterior se lanzó antes
+  de mirar las capturas, y mirarlas dejó dos arreglos más: los desplegables
+  enseñaban «MX» y «America/Mexico_City» en vez de «México» y «Ciudad de
+  México», y los pasos que aún no se pueden hacer pesaban más en la pantalla
+  que el único accionable. **Usa los instaladores de esta ejecución, no los de
+  la anterior.**
