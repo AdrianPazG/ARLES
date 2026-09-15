@@ -40,6 +40,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             comandos::info_app,
             comandos::estado_arranque,
+            comandos::configuracion_de_empresa,
+            comandos::guardar_empresa,
+            comandos::preferencias_de_interfaz,
+            comandos::guardar_barra_plegada,
         ])
         .run(tauri::generate_context!());
 

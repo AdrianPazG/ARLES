@@ -15,11 +15,18 @@
 
 pub mod attempt;
 pub mod email;
+pub mod empresa;
 pub mod error;
 pub mod ids;
+pub mod onboarding;
 pub mod secret;
 
 pub use attempt::{AttemptState, TransitionError};
 pub use email::EmailAddress;
+pub use empresa::{
+    BorradorDeEmpresa, CampoDeEmpresa, DatosDeEmpresa, ErrorDeCampo, PAISES_SOPORTADOS,
+    ZONAS_SOPORTADAS,
+};
 pub use error::CoreError;
+pub use onboarding::{ListaDeOnboarding, PasoDeOnboarding, RecuentoDeAlta};
 pub use secret::Secret;

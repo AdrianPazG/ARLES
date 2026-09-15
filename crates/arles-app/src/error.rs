@@ -31,6 +31,14 @@ pub enum AppError {
     #[error("no se pudo determinar el directorio de datos de la aplicación")]
     DirectorioDeDatos,
 
+    /// El formulario de empresa trae campos que no pasan la validación.
+    ///
+    /// Lleva **la lista de campos**, no un mensaje: la interfaz tiene que
+    /// señalar cada campo malo. Un formulario que dice «hay un error» sin decir
+    /// dónde obliga a revisarlo entero (§95).
+    #[error("los datos de la empresa no son válidos")]
+    EmpresaInvalida(Vec<arles_core::ErrorDeCampo>),
+
     #[error(transparent)]
     Db(#[from] arles_db::DbError),
 
@@ -45,6 +53,7 @@ impl AppError {
             Self::LlaveroNoDisponible(_) => "error.app.llavero_no_disponible",
             Self::ClaveMaestraPerdida => "error.app.clave_maestra_perdida",
             Self::DirectorioDeDatos => "error.app.directorio_de_datos",
+            Self::EmpresaInvalida(_) => "error.app.empresa_invalida",
             Self::Db(e) => e.clave_i18n(),
             Self::Core(e) => e.clave_i18n(),
         }
@@ -66,13 +75,24 @@ pub struct ErrorIpc {
     pub clave: String,
     /// Texto técnico, para la bitácora de diagnóstico. No se muestra tal cual.
     pub detalle: String,
+    /// Campos concretos que fallaron, cuando el error es de un formulario.
+    ///
+    /// Vacío en todo lo demás. Es lo que permite a la interfaz marcar el campo
+    /// en vez de mostrar un aviso general que obliga a revisarlo todo.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub campos: Vec<arles_core::ErrorDeCampo>,
 }
 
 impl From<AppError> for ErrorIpc {
     fn from(e: AppError) -> Self {
+        let campos = match &e {
+            AppError::EmpresaInvalida(c) => c.clone(),
+            _ => Vec::new(),
+        };
         Self {
             clave: e.clave_i18n().to_owned(),
             detalle: redactar_rutas(&e.to_string()),
+            campos,
         }
     }
 }
@@ -113,6 +133,31 @@ mod tests {
         for e in casos {
             assert!(e.clave_i18n().starts_with("error."));
         }
+    }
+
+    /// El error de formulario llega con sus campos; los demás, sin ninguno.
+    /// Si esto se rompiera, el formulario marcaría campos al azar o ninguno.
+    #[test]
+    fn solo_el_error_de_formulario_lleva_campos() {
+        use arles_core::{CampoDeEmpresa, ErrorDeCampo};
+
+        let con: ErrorIpc = AppError::EmpresaInvalida(vec![ErrorDeCampo {
+            campo: CampoDeEmpresa::ZonaHoraria,
+            clave: "empresa.error.zonaNoSoportada",
+        }])
+        .into();
+        assert_eq!(con.campos.len(), 1);
+        assert_eq!(
+            con.campos.first().map(|c| c.campo),
+            Some(CampoDeEmpresa::ZonaHoraria)
+        );
+
+        let sin: ErrorIpc = AppError::DirectorioDeDatos.into();
+        assert!(sin.campos.is_empty());
+        // Y no aparece en el JSON cuando está vacío: el frontend distingue
+        // «no hay campos» de «hay una lista vacía» sin tener que mirar dentro.
+        let json = serde_json::to_string(&sin).expect("serializa");
+        assert!(!json.contains("campos"), "{json}");
     }
 
     #[test]

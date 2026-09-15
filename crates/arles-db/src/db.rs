@@ -48,10 +48,13 @@ impl Db {
 
     /// Toma la conexión.
     ///
+    /// Es `pub(crate)` para que los repositorios de este crate la usen; **no
+    /// sale de `arles-db`**, que es lo que mantiene `rusqlite` dentro (ADR-0002).
+    ///
     /// Un mutex envenenado significa que otro hilo entró en pánico teniéndola
     /// tomada. Se recupera el guardia en vez de propagar el pánico: la conexión
     /// sigue siendo válida y tumbar la aplicación sería peor para el usuario.
-    fn con<T>(
+    pub(crate) fn con<T>(
         &self,
         f: impl FnOnce(&Connection) -> Result<T, rusqlite::Error>,
     ) -> Result<T, DbError> {
@@ -125,8 +128,8 @@ mod tests {
         let r = db.resumen_arranque().expect("resumen");
         assert_eq!(
             r.version_esquema,
-            Some(1),
-            "las migraciones deberían haber dejado el esquema en la versión 1"
+            Some(2),
+            "las migraciones deberían haber dejado el esquema en la última versión"
         );
     }
 

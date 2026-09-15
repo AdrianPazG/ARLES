@@ -75,12 +75,36 @@ mod tests {
             "message_attempt",
             "rate_budget",
             "audit_log",
+            "ui_preference",
         ] {
             assert!(
                 t.iter().any(|x| x == esperada),
                 "falta la tabla {esperada}; hay: {t:?}"
             );
         }
+    }
+
+    /// La regla del módulo: toda migración se prueba con una base **poblada**,
+    /// no vacía. Una migración que solo se ha visto correr sobre una base
+    /// recién creada no se ha visto correr sobre la de nadie.
+    #[test]
+    fn migrar_una_base_con_datos_no_los_toca() {
+        let (_d, mut conn) = base_de_prueba();
+        conn.execute(
+            "INSERT INTO company (id, commercial_name, country, timezone,
+                                  corporate_email, created_at, updated_at)
+             VALUES ('c1', 'TELEMETRY', 'MX', 'America/Mexico_City',
+                     'hola@t.mx', '2026-09-15T00:00:00Z', '2026-09-15T00:00:00Z')",
+            [],
+        )
+        .expect("inserta");
+
+        aplicar(&mut conn).expect("vuelve a migrar");
+
+        let nombre: String = conn
+            .query_row("SELECT commercial_name FROM company", [], |f| f.get(0))
+            .expect("sigue ahí");
+        assert_eq!(nombre, "TELEMETRY");
     }
 
     #[test]

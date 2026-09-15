@@ -69,6 +69,128 @@ pub fn estado_arranque(estado: tauri::State<'_, EstadoApp>) -> Result<EstadoArra
     })
 }
 
+/// Todo lo que la pantalla de configuración necesita, en **un solo cruce**.
+///
+/// Regla 1 de la frontera: comandos gruesos. Pedir la empresa, las zonas, los
+/// países y la lista de alta por separado son cuatro viajes y cuatro momentos
+/// en que la pantalla puede quedar a medias mostrando un estado que ya cambió.
+///
+/// Las listas de zonas y países las aporta **el núcleo**, no la interfaz. Es lo
+/// que impide que el desplegable ofrezca una opción que el validador rechaza:
+/// son el mismo dato, no dos copias.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfiguracionDeEmpresa {
+    /// `None` en una instalación nueva: toca el alta (§25).
+    pub empresa: Option<arles_core::DatosDeEmpresa>,
+    pub zonas: &'static [&'static str],
+    pub paises: &'static [&'static str],
+    pub onboarding: arles_core::ListaDeOnboarding,
+}
+
+fn configuracion(estado: &EstadoApp) -> Result<ConfiguracionDeEmpresa, crate::AppError> {
+    let empresa = estado.db().empresa()?.map(|e| e.datos);
+    let recuento = estado.db().recuento_de_alta()?;
+    Ok(ConfiguracionDeEmpresa {
+        empresa,
+        zonas: arles_core::ZONAS_SOPORTADAS,
+        paises: arles_core::PAISES_SOPORTADOS,
+        onboarding: arles_core::ListaDeOnboarding::desde(&recuento),
+    })
+}
+
+/// Lee la configuración de empresa y la lista de alta.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si la base no responde o si lo almacenado no pasa la
+/// validación del dominio.
+#[tauri::command]
+pub fn configuracion_de_empresa(
+    estado: tauri::State<'_, EstadoApp>,
+) -> Result<ConfiguracionDeEmpresa, ErrorIpc> {
+    configuracion(&estado).map_err(ErrorIpc::from)
+}
+
+/// Valida y guarda los datos de la empresa.
+///
+/// Devuelve **la misma configuración que se lee al abrir**, no un `()`: la
+/// lista de alta cambia al guardar, y con un comando que no devuelve nada la
+/// interfaz tendría que pedirla otra vez —otro cruce, y un instante en que la
+/// pantalla dice que el paso sigue pendiente.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] con `campos` relleno si el formulario no es válido; con
+/// `campos` vacío si el fallo es de la base.
+#[tauri::command]
+pub fn guardar_empresa(
+    estado: tauri::State<'_, EstadoApp>,
+    borrador: arles_core::BorradorDeEmpresa,
+) -> Result<ConfiguracionDeEmpresa, ErrorIpc> {
+    // La validación es del núcleo, no de aquí ni del formulario. El formulario
+    // valida para avisar pronto; esta es la que decide.
+    let datos = arles_core::DatosDeEmpresa::validar(&borrador)
+        .map_err(|campos| ErrorIpc::from(crate::AppError::EmpresaInvalida(campos)))?;
+
+    estado
+        .db()
+        .guardar_empresa(&datos)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    configuracion(&estado).map_err(ErrorIpc::from)
+}
+
+/// Preferencias de interfaz que se recuerdan entre sesiones (P-11).
+#[derive(Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreferenciasDeInterfaz {
+    /// `true` si la barra lateral quedó plegada la última vez.
+    pub barra_lateral_plegada: bool,
+}
+
+/// Clave de la única preferencia de v1.2.0. La lista cerrada vive en
+/// `arles_db::CLAVES_DE_INTERFAZ`, y el test de abajo comprueba que esta
+/// constante sigue estando en ella.
+const BARRA_PLEGADA: &str = "barra_lateral_plegada";
+
+/// Lee las preferencias de interfaz.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si la base no responde.
+#[tauri::command]
+pub fn preferencias_de_interfaz(
+    estado: tauri::State<'_, EstadoApp>,
+) -> Result<PreferenciasDeInterfaz, ErrorIpc> {
+    let valor = estado
+        .db()
+        .preferencia(BARRA_PLEGADA)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    Ok(PreferenciasDeInterfaz {
+        // Cualquier cosa que no sea «1» es desplegada. Una preferencia de
+        // interfaz corrupta no es motivo para no abrir la aplicación.
+        barra_lateral_plegada: valor.as_deref() == Some("1"),
+    })
+}
+
+/// Recuerda si la barra lateral queda plegada.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si la base no responde.
+#[tauri::command]
+pub fn guardar_barra_plegada(
+    estado: tauri::State<'_, EstadoApp>,
+    plegada: bool,
+) -> Result<(), ErrorIpc> {
+    estado
+        .db()
+        .guardar_preferencia(BARRA_PLEGADA, if plegada { "1" } else { "0" })
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -87,6 +209,30 @@ mod tests {
     #[test]
     fn la_version_coincide_con_la_del_paquete() {
         assert_eq!(info_app().version, "1.2.0");
+    }
+
+    /// La constante de la preferencia tiene que estar en la lista cerrada de
+    /// `arles-db`. Si alguien la renombra en un sitio y no en el otro, la barra
+    /// lateral deja de recordarse **en silencio**: el comando falla y la
+    /// interfaz se limita a no plegar nada.
+    #[test]
+    fn la_clave_de_la_barra_esta_declarada_en_la_capa_de_datos() {
+        assert!(
+            arles_db::CLAVES_DE_INTERFAZ.contains(&BARRA_PLEGADA),
+            "«{BARRA_PLEGADA}» no está en las claves admitidas: {:?}",
+            arles_db::CLAVES_DE_INTERFAZ
+        );
+    }
+
+    /// Lo que el desplegable ofrece y lo que el núcleo acepta son el mismo
+    /// dato. El comando no puede copiar la lista: la reexporta.
+    #[test]
+    fn la_configuracion_ofrece_las_zonas_del_nucleo() {
+        assert!(std::ptr::eq(
+            arles_core::ZONAS_SOPORTADAS,
+            arles_core::empresa::ZONAS_SOPORTADAS
+        ));
+        assert!(arles_core::ZONAS_SOPORTADAS.contains(&"America/Mexico_City"));
     }
 
     /// Regla de frontera 3.4: si algún día alguien añade un campo con una
