@@ -24,6 +24,17 @@ interface ImportMetaEnv {
    * abre en Windows y en macOS—. **Nunca una compilación de producción.**
    */
   readonly VITE_ARLES_CATALOGO?: string
+
+  /**
+   * Umbral de plegado automático de la barra lateral, en píxeles.
+   *
+   * **Sólo la sonda que mide el umbral lo pone**, a 1, para que la barra no se
+   * pliegue nunca sola y se pueda recorrer el eje de anchos con ella
+   * desplegada — sin el interruptor, el propio umbral impide llegar a los
+   * anchos donde se mediría. En cualquier otra compilación no existe, y vale el número
+   * medido de `stores/interfaz.ts`.
+   */
+  readonly VITE_ARLES_UMBRAL_PLEGADO?: string
 }
 
 interface ImportMeta {

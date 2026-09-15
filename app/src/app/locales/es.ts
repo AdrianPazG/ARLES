@@ -17,12 +17,110 @@ export const es = {
   },
 
   nav: {
+    principal: 'Navegación principal',
     inicio: 'Inicio',
     campanas: 'Campañas',
     contactos: 'Contactos',
     remitentes: 'Remitentes',
     actividad: 'Actividad',
     ajustes: 'Ajustes',
+    // P-11. El botón dice lo que va a hacer, no en qué estado está: «Plegar»
+    // cuando está abierta. Al revés obliga a deducir la acción del estado.
+    plegar: 'Plegar la navegación',
+    expandir: 'Expandir la navegación',
+    plegadaPorAncho:
+      'La navegación se pliega sola porque la ventana es estrecha. ' +
+      'Ensánchala para poder abrirla.',
+  },
+
+  inicio: {
+    titulo: 'Bienvenido a {producto}',
+    entradilla:
+      'ARLES ejecuta campañas de correo con tus propias cuentas, respetando ' +
+      'los límites que definas.',
+    alta: 'Para poder enviar tu primera campaña',
+    avance: '{hechos} de {total}',
+    hecho: 'Hecho',
+    pendiente: 'Pendiente',
+    llegaEn: 'Llega en la entrega {entrega}',
+    sinPasosDisponibles:
+      'Los siguientes pasos se construyen en las entregas indicadas. ' +
+      'No hay nada más que puedas hacer aquí todavía.',
+    paso: {
+      empresa: {
+        titulo: 'Configurar tu empresa',
+        detalle:
+          'El nombre, el país y la zona horaria. La zona decide a qué hora ' +
+          'sale cada correo.',
+      },
+      remitente: {
+        titulo: 'Conectar una cuenta remitente',
+        detalle:
+          'La cuenta desde la que se envía. ARLES no envía por su cuenta: ' +
+          'usa la tuya, con sus límites.',
+      },
+      contactos: {
+        titulo: 'Cargar tus contactos',
+        detalle:
+          'Importa tu lista desde un archivo. ARLES no incluye contactos ni ' +
+          'los compra.',
+      },
+      plantilla: {
+        titulo: 'Escribir una plantilla',
+        detalle: 'El mensaje, con los datos de cada contacto sustituidos.',
+      },
+      ventana: {
+        titulo: 'Definir una ventana de envío',
+        detalle:
+          'Los días y las horas en que se puede enviar, en la zona horaria ' +
+          'de tu empresa.',
+      },
+      campana: {
+        titulo: 'Crear tu primera campaña',
+        detalle: 'Une lo anterior y queda lista para revisarse antes de activarse.',
+      },
+    },
+  },
+
+  empresa: {
+    entradilla: 'Los datos de tu empresa y cómo afectan a los envíos.',
+    titulo: 'Configuración de empresa',
+    guardar: 'Guardar',
+    guardada: 'Configuración guardada.',
+    guardadaDetalle: 'Los envíos usarán estos datos a partir de ahora.',
+    porQueLaZona: '¿Por qué importa la zona horaria?',
+    porQueLaZonaDetalle:
+      'Las ventanas de envío se calculan siempre en la zona de tu empresa, ' +
+      'nunca en la del equipo donde esté ARLES. Así una campaña programada ' +
+      'de 9 a 18 sale a esa hora aunque el equipo viaje a otro huso.',
+    campo: {
+      nombreComercial: 'Nombre comercial',
+      pais: 'País',
+      zonaHoraria: 'Zona horaria',
+      correoCorporativo: 'Correo corporativo',
+      sitioWeb: 'Sitio web',
+    },
+    ayuda: {
+      nombreComercial: 'Como quieres que aparezca en tus correos.',
+      pais: 'Determina el marco legal aplicable. Esta versión opera en México.',
+      zonaHoraria: 'Decide a qué hora sale cada correo.',
+      correoCorporativo: 'Para avisos internos de ARLES. No se usa para enviar campañas.',
+      sitioWeb: 'Opcional. Con https:// delante.',
+    },
+    // Claves que devuelve `arles_core::empresa`. Una por motivo, porque «dato
+    // inválido» no dice qué corregir.
+    error: {
+      generico: 'Este dato no es válido.',
+      nombreVacio: 'Escribe el nombre comercial de tu empresa.',
+      nombreLargo: 'El nombre es demasiado largo: usa 120 caracteres o menos.',
+      nombreConSaltos: 'El nombre no puede contener saltos de línea.',
+      paisNoSoportado: 'Esta versión de ARLES opera en México.',
+      zonaNoSoportada: 'Elige una zona horaria de la lista.',
+      correoInvalido: 'Revisa que el correo tenga la forma nombre@dominio.com.',
+      sitioLargo: 'La dirección es demasiado larga.',
+      sitioSinEsquema: 'Escribe la dirección completa, empezando por https://.',
+      sitioInvalido: 'Esta dirección no es válida. Debe empezar por https:// o http://.',
+    },
   },
 
   /** Estados de un intento de envío. Ver arles-core::AttemptState. */
@@ -94,6 +192,13 @@ export const es = {
         como: 'Cierra ARLES y vuelve a abrirlo.',
         salvo: 'Las operaciones incompletas se revirtieron por completo.',
       },
+      dato_invalido: {
+        que: 'Un dato guardado no tiene la forma que ARLES espera.',
+        como:
+          'Vuelve a guardar la configuración desde Ajustes. Si el problema ' +
+          'persiste, restaura tu último respaldo.',
+        salvo: 'No se modificó ni se borró nada.',
+      },
     },
     app: {
       llavero_no_disponible: {
@@ -112,6 +217,19 @@ export const es = {
           'Restaura tu último respaldo .arles. Sin esa clave, los datos ' +
           'existentes no se pueden leer: es la propiedad que los protegía.',
         salvo: 'El archivo no se ha modificado ni borrado: sigue donde estaba.',
+      },
+      // No lo produce el núcleo: lo produce la interfaz cuando corre sin él
+      // (`vite dev`, las sondas). Fingir un guardado ahí sería enseñar una
+      // pantalla que miente sobre lo que acaba de pasar.
+      sin_nucleo: {
+        que: 'Esta ventana no está conectada al núcleo de ARLES.',
+        como: 'Abre ARLES desde su acceso directo, no desde el navegador.',
+        salvo: 'No se guardó ningún cambio.',
+      },
+      empresa_invalida: {
+        que: 'Algunos datos de la empresa no son válidos.',
+        como: 'Revisa los campos marcados y vuelve a guardar.',
+        salvo: 'No se guardó ningún cambio: la configuración anterior sigue activa.',
       },
       directorio_de_datos: {
         que: 'No se pudo acceder a la carpeta de datos de ARLES.',

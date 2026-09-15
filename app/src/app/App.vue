@@ -1,27 +1,79 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { RouterLink, RouterView } from 'vue-router'
 
-import { CATALOGO_VISIBLE, SECCIONES } from '@/app/router'
+import { CATALOGO_VISIBLE, ICONO_DE_SECCION, SECCIONES } from '@/app/router'
 import { useAppStore } from '@/app/stores/app'
-import { ALogotipo } from '@/design/componentes'
+import { useInterfazStore } from '@/app/stores/interfaz'
+import { AIcono, ALogotipo } from '@/design/componentes'
 
 const app = useAppStore()
-onMounted(() => void app.cargar())
+const interfaz = useInterfazStore()
+const { t } = useI18n()
+
+const etiquetaDelBoton = computed(() =>
+  interfaz.plegada ? t('nav.expandir') : t('nav.plegar'),
+)
+
+// Cuando la barra se pliega sola, el botón queda deshabilitado y **dice por
+// qué**. Un control deshabilitado sin explicación se lee como una avería.
+const explicacionDelBoton = computed(() =>
+  interfaz.alternableAhora ? etiquetaDelBoton.value : t('nav.plegadaPorAncho'),
+)
+
+function medir(): void {
+  interfaz.anotarAncho(window.innerWidth)
+}
+
+onMounted(() => {
+  void app.cargar()
+  void interfaz.cargar()
+  medir()
+  window.addEventListener('resize', medir)
+})
+
+onBeforeUnmount(() => window.removeEventListener('resize', medir))
 </script>
 
 <template>
-  <div class="marco">
+  <div
+    class="marco"
+    :class="{ plegado: interfaz.plegada }"
+  >
     <nav
+      id="navegacion-principal"
       class="nav"
-      aria-label="Navegación principal"
+      :aria-label="$t('nav.principal')"
     >
       <!-- El logotipo vive en un componente: el §21 prohíbe estilizarlo, y
            repetir su marcado en cada sitio es justo como se acaba estilizando
-           en uno de ellos. -->
-      <div class="marca">
+           en uno de ellos.
+
+           Plegada, el logotipo no cabe —«ARLES RELAY» en Mont Black no entra
+           en 64 px— y se oculta entero en vez de recortarse. El §21 prohíbe
+           condensarlo, y un logotipo cortado por la mitad es peor que ninguno.
+           La ventana sigue diciendo el nombre en su barra de título. -->
+      <div
+        v-if="!interfaz.plegada"
+        class="marca"
+      >
         <ALogotipo />
       </div>
+
+      <button
+        type="button"
+        class="plegador"
+        :class="{ 'plegador-solo-icono': interfaz.plegada }"
+        :disabled="!interfaz.alternableAhora"
+        :aria-expanded="!interfaz.plegada"
+        aria-controls="navegacion-principal"
+        :aria-label="etiquetaDelBoton"
+        :title="explicacionDelBoton"
+        @click="interfaz.alternar()"
+      >
+        <AIcono :nombre="interfaz.plegada ? 'expandir' : 'plegar'" />
+      </button>
 
       <ul class="nav-lista">
         <li
@@ -31,8 +83,16 @@ onMounted(() => void app.cargar())
           <RouterLink
             class="nav-enlace"
             :to="`/${seccion}`"
+            :title="interfaz.plegada ? $t(`nav.${seccion}`) : undefined"
           >
-            {{ $t(`nav.${seccion}`) }}
+            <AIcono :nombre="ICONO_DE_SECCION[seccion]" />
+            <!-- Plegada se quita el TEXTO, no el nombre accesible: el enlace
+                 sigue anunciándose «Campañas» porque el texto sigue en el
+                 árbol, sólo que oculto a la vista. Con `display: none` el
+                 lector de pantalla leería seis enlaces sin nombre. -->
+            <span :class="interfaz.plegada ? 'solo-lectores' : 'nav-texto'">
+              {{ $t(`nav.${seccion}`) }}
+            </span>
           </RouterLink>
         </li>
       </ul>
@@ -48,7 +108,7 @@ onMounted(() => void app.cargar())
            superficie de ataque; es un detalle que conviene no vender como
            «no viaja nada». -->
       <RouterLink
-        v-if="CATALOGO_VISIBLE"
+        v-if="CATALOGO_VISIBLE && !interfaz.plegada"
         class="nav-enlace enlace-de-revision"
         to="/catalogo"
       >
@@ -57,7 +117,10 @@ onMounted(() => void app.cargar())
 
       <!-- §121: la atribución vive aquí, discreta. NUNCA en los correos
            que el cliente envía. -->
-      <footer class="pie">
+      <footer
+        v-if="!interfaz.plegada"
+        class="pie"
+      >
         <p class="atribucion">
           {{ $t('producto.atribucion') }}
         </p>
@@ -89,7 +152,17 @@ onMounted(() => void app.cargar())
 
      Confundimos el mínimo de la VENTANA con el mínimo del DISEÑO. Lo
      encontró Dirección revisando a 200 %; lo vigila `sonda:ancho`. */
-  min-height: 100vh;
+
+  /* `height`, no `min-height`: es lo que hace que la barra lateral se quede
+     fija (P-11 a). Con `min-height` el armazón crece con el contenido y la
+     página entera se desplaza, llevándose la navegación hacia arriba. Con la
+     altura fijada, lo único que se desplaza es `.contenido`. */
+  height: 100vh;
+  overflow: hidden;
+}
+
+.marco.plegado {
+  grid-template-columns: var(--arles-nav-width-plegada) 1fr;
 }
 
 .nav {
@@ -98,11 +171,53 @@ onMounted(() => void app.cargar())
   background: var(--arles-surface);
   border-right: var(--arles-border-width) solid var(--arles-border);
   padding: var(--arles-space-5) var(--arles-space-4);
+  /* Una navegación con más secciones de las que caben tiene que poder
+     recorrerse. Hoy son seis y sobran; el día que no, se desplaza sola. */
+  overflow-y: auto;
+  transition: padding var(--arles-duration-normal) var(--arles-ease);
+}
+
+.plegado .nav {
+  padding-inline: var(--arles-space-2);
+  align-items: center;
 }
 
 .marca {
-  margin-bottom: var(--arles-space-7);
+  margin-bottom: var(--arles-space-5);
   padding-inline: var(--arles-space-2);
+}
+
+.plegador {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--arles-control-height-compact);
+  height: var(--arles-control-height-compact);
+  margin-bottom: var(--arles-space-4);
+  padding: 0;
+  border: var(--arles-border-width) solid transparent;
+  border-radius: var(--arles-radius-md);
+  background: transparent;
+  color: var(--arles-text-muted);
+  cursor: pointer;
+  transition:
+    background var(--arles-duration-fast) var(--arles-ease),
+    color var(--arles-duration-fast) var(--arles-ease);
+}
+
+.plegador:hover:not(:disabled) {
+  background: var(--arles-surface-raised);
+  color: var(--arles-text);
+}
+
+.plegador:disabled {
+  color: var(--arles-text-disabled);
+  cursor: not-allowed;
+}
+
+.plegador-solo-icono {
+  align-self: center;
 }
 
 .nav-lista {
@@ -113,16 +228,46 @@ onMounted(() => void app.cargar())
   flex-direction: column;
   gap: var(--arles-space-1);
   flex: 1;
+  width: 100%;
 }
 
 .nav-enlace {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--arles-space-3);
   padding: var(--arles-space-2) var(--arles-space-3);
   border-radius: var(--arles-radius-md);
   color: var(--arles-text-muted);
   text-decoration: none;
   font-weight: var(--arles-font-weight-semibold);
   transition: background var(--arles-duration-fast) var(--arles-ease);
+}
+
+.plegado .nav-enlace {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.nav-texto {
+  /* El texto no puede empujar el ancho de la barra mientras se pliega: sin
+     esto, la animación da un tirón cuando «Remitentes» deja de caber. */
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Visible para el lector de pantalla, invisible para la vista.
+   `display: none` lo sacaría del árbol de accesibilidad y dejaría seis
+   enlaces sin nombre — exactamente lo que `sonda:lector` prohíbe. */
+.solo-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .nav-enlace:hover {

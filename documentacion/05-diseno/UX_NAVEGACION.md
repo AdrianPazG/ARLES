@@ -57,17 +57,74 @@ Debe responder a tres preguntas en dos segundos: **¿está corriendo? ¿va bien?
 Nada de tours emergentes de veinte pasos (§25). Una **lista de verificación persistente** en INICIO, que se contrae al completarse y se puede volver a abrir desde AJUSTES.
 
 ```
-Configura ARLES                                  2 de 5
-✓ 1. Configurar empresa
-✓ 2. Conectar cuenta de correo
-  3. Preferencias de ejecución      [Configurar]
-  4. Importar contactos
-  5. Primera campaña
+Para poder enviar tu primera campaña                 1 de 6
+✓ Configurar tu empresa
+  Conectar una cuenta remitente        Llega en la entrega 5
+  Cargar tus contactos                 Llega en la entrega 3.2
+  Escribir una plantilla               Llega en la entrega 6
+  Definir una ventana de envío         Llega en la entrega 6
+  Crear tu primera campaña             Llega en la entrega 6
 ```
 
 Cada paso es funcional: al pulsar se va a hacer la cosa, no a leer sobre ella.
 
 **Los pasos no se bloquean entre sí.** Un usuario que quiera importar contactos antes de conectar una cuenta puede hacerlo. La lista sugiere un orden; no impone un embudo.
+
+### 4.1 Dos decisiones de la entrega 3.1
+
+**El estado de cada paso se deriva de los datos, no se guarda.** Lo cómodo sería
+un booleano por paso que se marca al terminarlo. Entonces basta que alguien
+borre su única cuenta remitente para que la lista siga diciendo, para siempre,
+que ese paso está hecho. Aquí cada paso es una consulta —¿hay alguna cuenta?
+¿hay algún contacto sin borrar?—, así que **no puede mentir**: si el dato
+desaparece, el paso vuelve a estar pendiente. Ver `arles_core::onboarding`.
+
+**Los seis pasos se enseñan desde el primer día, incluidos los que aún no
+existen**, cada uno con la entrega del roadmap que lo trae. La alternativa
+—enseñar sólo lo construido y que la lista crezca sola— hace que alguien vea
+la lista completa al terminar el primer paso y concluya que ya puede enviar.
+Un paso que avisa de que llega más adelante es información; un paso ausente es
+una promesa implícita de que no hace falta.
+
+---
+
+## 4.2 La barra lateral · fija y plegable (P-11)
+
+Dirección lo pidió en la revisión del 14 de septiembre de 2026, con estas
+palabras: *«necesito que el menú ubicado en la lateral permanezca fijo y que lo
+demás que está en pantalla sea posible desplazarse. También necesito que ese
+menú fijo pueda comprimirse.»*
+
+Son dos peticiones, y las dos se construyeron en la entrega 3.1:
+
+| | Qué hace | Cómo |
+|---|---|---|
+| **Fija** | Al desplazar una pantalla larga, la navegación no se va hacia arriba | El armazón tiene `height: 100vh`; lo único que se desplaza es el contenido. Con `min-height` la página entera crecía y se llevaba la navegación |
+| **Plegable** | Se reduce a sólo iconos | 240 px → 64 px |
+
+Las tres decisiones que Dirección tomó el 15 de septiembre:
+
+| Pregunta | Decisión | Consecuencia |
+|---|---|---|
+| ¿Cómo se pliega? | **A mano y sola** | Hay un botón, y además un umbral por debajo del cual se pliega sin que nadie lo pida |
+| ¿Qué queda plegada? | **Iconos sin texto** | Hicieron falta **seis iconos nuevos**: `AIcono` tenía trece y ninguno era de sección |
+| ¿Se recuerda al reabrir? | **Sí** | La preferencia vive en la base cifrada, no en `localStorage`: ver la migración `V2` |
+
+Tres detalles que no son obvios:
+
+1. **Plegada se quita el texto, no el nombre accesible.** El texto sigue en el
+   árbol de accesibilidad, oculto sólo a la vista. Con `display: none` un lector
+   de pantalla anunciaría seis enlaces sin nombre, que es justo lo que
+   `sonda:lector` prohíbe.
+2. **El plegado automático no pisa la preferencia del usuario.** Lo que eligió
+   se conserva; al ensanchar la ventana vuelve a aplicarse. Si el automático
+   sobrescribiera la preferencia, agrandar la ventana habría borrado una
+   elección que nadie tocó.
+3. **Mientras se pliega sola, el botón queda deshabilitado y dice por qué.**
+   Un control que se puede pulsar y no hace nada se lee como una avería.
+
+**El umbral está medido, no elegido.** Cómo, con qué resultado y qué queda
+pendiente: `documentacion/06-calidad/UMBRAL_DE_PLEGADO.md`.
 
 ---
 

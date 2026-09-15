@@ -1,5 +1,7 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
 
+import type { NombreDeIcono } from '@/design/componentes'
+
 /**
  * Las seis secciones de UX_NAVEGACION.md §2.
  *
@@ -18,9 +20,41 @@ export const SECCIONES = [
 
 export type Seccion = (typeof SECCIONES)[number]
 
+/**
+ * El icono de cada sección.
+ *
+ * `Record<Seccion, …>` y no un objeto suelto: añadir una séptima sección sin
+ * darle icono **no compila**. Es la garantía que necesita la decisión de P-11
+ * —«iconos sin texto» al plegar—, porque una sección sin icono queda plegada
+ * como un hueco en blanco que no se puede pulsar con criterio.
+ */
+export const ICONO_DE_SECCION: Record<Seccion, NombreDeIcono> = {
+  inicio: 'inicio',
+  campanas: 'campanas',
+  contactos: 'contactos',
+  remitentes: 'remitentes',
+  actividad: 'actividad',
+  ajustes: 'ajustes',
+}
+
 const rutas: RouteRecordRaw[] = [
   { path: '/', redirect: '/inicio' },
-  ...SECCIONES.map((s) => ({
+  {
+    path: '/inicio',
+    name: 'inicio',
+    component: () => import('@/app/pantallas/PantallaInicio.vue'),
+    meta: { seccion: 'inicio' },
+  },
+  {
+    path: '/ajustes',
+    name: 'ajustes',
+    component: () => import('@/app/pantallas/PantallaAjustes.vue'),
+    meta: { seccion: 'ajustes' },
+  },
+  // Las demás siguen siendo andamio hasta su entrega del roadmap. La lista de
+  // alta de Inicio dice en cuál llega cada una, así que la pantalla vacía no
+  // es una sorpresa.
+  ...SECCIONES.filter((s) => s !== 'inicio' && s !== 'ajustes').map((s) => ({
     path: `/${s}`,
     name: s,
     component: () => import('@/app/PantallaPendiente.vue'),

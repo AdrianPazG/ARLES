@@ -32,8 +32,26 @@ const TRAZOS = {
   // se sabe.
   incierto: 'M12 17h.01M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z',
 
+  // Secciones de la navegación (UX_NAVEGACION.md §2).
+  //
+  // Existen porque P-11 decidió que la barra lateral plegada se queda en
+  // «iconos sin texto»: sin un icono por sección, plegada no se puede navegar.
+  // Uno por sección y ninguno de más — el conjunto sigue cerrado.
+  inicio: 'M3 10.6 12 3.5l9 7.1M5.5 9.4V20.5h13V9.4',
+  campanas: 'M3 10v4h3l6 4V6L6 10H3ZM17.5 9.2a4 4 0 0 1 0 5.6',
+  contactos:
+    'M15.5 20v-1.5a4 4 0 0 0-4-4h-5a4 4 0 0 0-4 4V20M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M21.5 20v-1.5a4 4 0 0 0-3-3.87',
+  remitentes: 'M3.5 6.5h17v11h-17zM3.5 7.5l8.5 5.5 8.5-5.5',
+  actividad: 'M3 12h3.5l2.5 6 4-12 2.5 6H21',
+  ajustes: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4',
+
   // Interfaz
   cerrar: 'M18 6 6 18M6 6l12 12',
+  // Plegar y expandir la barra lateral. Dobles galones, no simples: un galón
+  // simple es el de «desplegar» de un menú, y en la misma pantalla los dos
+  // significarían cosas distintas con el mismo dibujo.
+  plegar: 'm13 6-6 6 6 6M19 6l-6 6 6 6',
+  expandir: 'm11 6 6 6-6 6M5 6l6 6-6 6',
   buscar: 'M21 21l-4.3-4.3M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z',
   desplegar: 'm6 9 6 6 6-6',
   ordenar: 'm7 15 5 5 5-5M7 9l5-5 5 5',

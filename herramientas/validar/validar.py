@@ -1102,7 +1102,207 @@ def manual_de_entrega():
           "Un manual al que no se llega es un manual que no existe.")
 
 
-FASES = {0: fase_0, 1: fase_1, 2: fase_2}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FASE 3 · Empresa y contactos
+# ─────────────────────────────────────────────────────────────────────────────
+
+# sha256 de las migraciones ya publicadas.
+#
+# La regla del módulo `migraciones.rs` dice «nunca se edita una migración ya
+# publicada»: hay bases con ella aplicada, y cambiarla produce divergencias
+# silenciosas —dos instalaciones con el mismo número de versión y esquemas
+# distintos—. Una regla escrita se erosiona; un hash no.
+#
+# Para añadir una migración: se añade su hash aquí. Para *cambiar* una ya
+# publicada: no se hace.
+MIGRACIONES_PUBLICADAS = {
+    "V1__esquema_inicial.sql":
+        "1a9e4d2bb22e02d89775d3a9543ae4bcb58369632a83a275972e548079b2b1ef",
+    "V2__preferencias_de_interfaz.sql":
+        "5ba0d6730f9d926d7137886bbbf34e4cc30d8f777c70be3b557ada37364c0b02",
+}
+
+
+def listas_cerradas_del_nucleo():
+    """Lo que ofrece el desplegable y lo que acepta el núcleo son el mismo dato.
+
+    El frontend lleva una copia de las zonas y los países para cuando corre sin
+    núcleo —`vite dev` y las sondas—. Es una costura real: en cuanto alguien
+    añada una zona en Rust y no en TypeScript, las capturas de revisión
+    enseñarían un desplegable que no es el del producto, y nadie lo notaría
+    porque las dos pantallas se ven bien.
+    """
+    rust = leer("crates/arles-core/src", "empresa.rs") or ""
+    ts = leer("app/src/app/stores", "empresa.ts") or ""
+
+    def lista_rust(nombre):
+        m = re.search(rf"{nombre}: &\[&str\] = &\[(.*?)\];", rust, re.S)
+        return re.findall(r'"([^"]+)"', m.group(1)) if m else []
+
+    def lista_ts(nombre):
+        m = re.search(rf"{nombre}: \[(.*?)\],", ts, re.S)
+        return re.findall(r"'([^']+)'", m.group(1)) if m else []
+
+    for nombre_rust, nombre_ts, etiqueta in [
+        ("ZONAS_SOPORTADAS", "zonas", "las zonas horarias"),
+        ("PAISES_SOPORTADOS", "paises", "los países"),
+    ]:
+        a, b = lista_rust(nombre_rust), lista_ts(nombre_ts)
+        check(3, f"{etiqueta} del núcleo y del frontend coinciden",
+              bool(a) and a == b,
+              "Si divergen, el usuario elige una opción de la lista y el núcleo "
+              "se la rechaza: un error imposible de entender desde fuera.",
+              f"núcleo: {a}\nfrontend: {b}")
+
+
+def claves_de_texto_del_nucleo():
+    """Toda clave de i18n que devuelve el núcleo existe en el catálogo.
+
+    El núcleo no manda mensajes: manda claves (§139). Una clave sin texto no
+    revienta nada —la pantalla enseña el texto genérico— y por eso se queda ahí
+    para siempre, diciéndole a alguien «este dato no es válido» sin decirle cuál
+    ni por qué.
+    """
+    rust = (leer("crates/arles-core/src", "empresa.rs") or "") + \
+           (leer("crates/arles-core/src", "onboarding.rs") or "")
+    es = leer("app/src/app/locales", "es.ts") or ""
+
+    claves = sorted(set(re.findall(r'clave: "(empresa\.error\.[A-Za-z]+)"', rust)))
+    faltan = [c for c in claves if c.rsplit(".", 1)[-1] not in es]
+    check(3, "toda clave de error del núcleo tiene texto en español",
+          bool(claves) and not faltan,
+          "Una clave sin texto no revienta nada: enseña un mensaje genérico y "
+          "se queda así para siempre.",
+          f"claves encontradas: {claves}\nsin texto: {faltan}")
+
+    # Y los pasos del alta: cada uno necesita título y detalle. Se leen sólo de
+    # `fn clave`, no de todo el archivo: `fn entrega` devuelve también cadenas
+    # con esa forma —«3.1», «5»— y la primera versión de esta comprobación las
+    # tomó por pasos y falló pidiendo un texto para el paso «5».
+    onboarding = leer("crates/arles-core/src", "onboarding.rs") or ""
+    bloque = onboarding.split("pub fn clave(self)", 1)[-1].split("}", 1)[0]
+    pasos = re.findall(r'=> "(\w+)"', bloque)
+    faltan_pasos = [p for p in set(pasos) if f"{p}: {{" not in es]
+    check(3, "todo paso del alta tiene título y detalle",
+          bool(pasos) and not faltan_pasos,
+          "Un paso sin texto sale en la lista como una clave cruda.",
+          f"pasos sin texto: {faltan_pasos}")
+
+
+def iconos_de_seccion():
+    """Las seis secciones tienen icono, y el mapa los usa.
+
+    P-11 decidió «iconos sin texto» al plegar. Una sección sin icono queda
+    plegada como un hueco en blanco que no se puede pulsar con criterio.
+    """
+    icono = leer("app/src/design/componentes", "AIcono.vue") or ""
+    router = leer("app/src/app", "router.ts") or ""
+
+    secciones = re.findall(r"'(\w+)',", router.split("] as const")[0])
+    faltan = [s for s in secciones if f"\n  {s}:" not in icono]
+    check(3, "cada sección de la navegación tiene su icono",
+          len(secciones) == 6 and not faltan,
+          "Plegada, la barra sólo enseña iconos: una sección sin el suyo queda "
+          "en blanco.",
+          f"secciones: {secciones}\nsin icono: {faltan}")
+
+    check(3, "el mapa de iconos está tipado por sección",
+          "Record<Seccion, NombreDeIcono>" in router,
+          "Con el tipo, añadir una séptima sección sin icono no compila. Sin "
+          "él, compila y se descubre mirando la barra plegada.")
+
+    check(3, "la barra plegada conserva el nombre accesible",
+          "solo-lectores" in (leer("app/src/app", "App.vue") or ""),
+          "Con `display: none` el texto sale del árbol de accesibilidad y un "
+          "lector de pantalla anuncia seis enlaces sin nombre.")
+
+
+def preferencias_fuera_del_navegador():
+    """Ninguna preferencia que deba recordarse vive en `localStorage`.
+
+    P-11 dice «se recuerda». `localStorage` vive en el perfil de la WebView: se
+    borra con la caché del sistema, no entra en el respaldo `.arles` y en
+    Windows depende del directorio de WebView2. Una preferencia que se pierde
+    al limpiar la caché no se recuerda.
+    """
+    usos = []
+    base = os.path.join(RAIZ, "app/src")
+    for dir_actual, _, archivos in os.walk(base):
+        for a in archivos:
+            ruta = os.path.join(dir_actual, a)
+            with open(ruta, encoding="utf-8") as f:
+                if "localStorage" in f.read():
+                    usos.append(os.path.relpath(ruta, RAIZ))
+    check(3, "ninguna preferencia se guarda en localStorage", not usos,
+          "Se borra con la caché, no entra en el respaldo y no viaja con los "
+          "datos del usuario.",
+          f"archivos: {usos}")
+
+
+def migraciones_no_se_editan():
+    """Una migración publicada no cambia.
+
+    Hay bases de clientes con ella aplicada. Editarla deja dos instalaciones
+    con el mismo número de versión y esquemas distintos, y el fallo aparece
+    mucho después, en una consulta que funciona en un equipo y no en otro.
+    """
+    dir_m = os.path.join(RAIZ, "crates/arles-db/migrations")
+    en_disco = sorted(os.listdir(dir_m))
+    for nombre in en_disco:
+        with open(os.path.join(dir_m, nombre), "rb") as f:
+            real = hashlib.sha256(f.read()).hexdigest()
+        esperado = MIGRACIONES_PUBLICADAS.get(nombre)
+        check(3, f"la migración {nombre} no ha cambiado",
+              esperado == real,
+              "Editar una migración publicada produce esquemas divergentes con "
+              "el mismo número de versión.",
+              f"esperado {esperado}\nreal     {real}")
+
+
+def fase_3(rapido):
+    titulo("FASE 3 · Empresa y contactos · entrega 3.1")
+
+    print(f"{GRIS}  estructura{FIN}")
+    for ruta, porque in [
+        ("crates/arles-core/src/empresa.rs", "La validación de la empresa es del dominio, no del formulario."),
+        ("crates/arles-core/src/onboarding.rs", "La lista de alta se deriva de los datos; sin este módulo volvería a ser un booleano por paso."),
+        ("crates/arles-db/migrations/V2__preferencias_de_interfaz.sql", "P-11 dice «se recuerda», y eso necesita una tabla."),
+        ("crates/arles-db/src/empresa.rs", "Sin repositorio, el SQL se derramaría al shell."),
+        ("app/src/app/pantallas/PantallaAjustes.vue", "Es el primer paso del alta (§25)."),
+        ("app/src/app/pantallas/PantallaInicio.vue", "La lista de alta vive en Inicio."),
+        ("app/src/app/stores/interfaz.ts", "El estado de la barra lateral (P-11)."),
+        ("documentacion/06-calidad/UMBRAL_DE_PLEGADO.md", "El umbral está medido: sin el documento, el número vuelve a ser una opinión."),
+    ]:
+        check(3, f"existe {ruta}", os.path.exists(os.path.join(RAIZ, ruta)), porque)
+
+    print(f"{GRIS}  invariantes{FIN}")
+    migraciones_no_se_editan()
+    listas_cerradas_del_nucleo()
+    claves_de_texto_del_nucleo()
+    iconos_de_seccion()
+    preferencias_fuera_del_navegador()
+
+    print(f"{GRIS}  sondas{FIN}")
+    app = os.path.join(RAIZ, "app")
+    motivo = hay_navegador(app)
+    nombre = "sonda: el umbral de plegado está medido y se aplica"
+    porque = (
+        "«A mano y sola» necesita un número, y un número elegido a ojo es lo que "
+        "produjo R-01. La sonda falla por los dos lados: si el umbral se queda "
+        "corto la pantalla no alcanza su medida, y si se infla la barra se pliega "
+        "sola donde cabe holgada."
+    )
+    if motivo:
+        omitir(3, nombre, motivo)
+    elif rapido:
+        omitir(3, nombre, "--rapido")
+    else:
+        check_cmd(3, nombre, ["npm", "run", "sonda:plegado", "--silent"],
+                  porque, cwd=app, timeout=900)
+
+
+FASES = {0: fase_0, 1: fase_1, 2: fase_2, 3: fase_3}
 
 
 def main():

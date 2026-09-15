@@ -81,6 +81,10 @@
 
   /* Layout */
   --arles-nav-width: 240px;
+  /* Barra lateral plegada (P-11): 24 px de icono más 20 px de holgura a cada
+     lado. Es el ancho mínimo que deja el objetivo de pulsación por encima de
+     los 40 px que pide WCAG 2.2 AA (2.5.8), no una cifra redonda. */
+  --arles-nav-width-plegada: 64px;
   --arles-window-min-width: 1120px;
   --arles-window-min-height: 720px;
 }

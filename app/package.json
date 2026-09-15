@@ -17,6 +17,7 @@
     "sonda:csp": "node pruebas/sondas/csp.mjs",
     "sonda:teclado": "node pruebas/sondas/teclado.mjs",
     "sonda:ancho": "node pruebas/sondas/ancho.mjs",
+    "sonda:plegado": "node pruebas/sondas/plegado.mjs",
     "sonda:lector": "node pruebas/sondas/lector.mjs"
   },
   "dependencies": {
