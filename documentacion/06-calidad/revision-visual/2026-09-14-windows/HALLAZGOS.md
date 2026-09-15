@@ -11,7 +11,7 @@
 
 | | |
 |---|---|
-| Pendientes de la Fase 2 cerrados | **2 de 3** · ventana nativa ✅ · escalado ✅ · lector de pantalla ❌ |
+| Pendientes de la Fase 2 cerrados | **3 de 3** · ventana nativa ✅ · escalado ✅ · lector de pantalla ✅ *(automatizado)* |
 | Defectos encontrados | **1**, y no lo vio el revisor: lo vi yo en su captura |
 | Peticiones de producto | **2**, las dos sobre la barra lateral |
 | Confirmaciones valiosas | 3 |
@@ -135,9 +135,9 @@ que toque.
 
 | | Estado |
 |---|---|
-| **`W-01-ventana.png`** | El `.rar` llegó truncado y esa imagen salió vacía. Hay que reenviarla — es la única que enseña la ventana **sin maximizar** |
-| **NVDA, sección 5 entera** | Sin hacer. El revisor lo dejó por el idioma; ya está documentado cómo ponerlo en español |
-| **Las grabaciones de pantalla** | Pendientes. Ver `../videos/README.md`: **no puedo oír el audio**, así que para el lector de pantalla hace falta el Visor de voz de NVDA o notas escritas |
+| **`W-01-ventana.png`** | El `.rar` llegó truncado. Dirección la reenvió como captura en el chat el 15/09: **ventana sin maximizar a su tamaño mínimo**, barra de título con «ARLES RELAY» e icono, `v1.2.0` en el pie, enlace al catálogo visible y la maqueta correcta a 1120 px. **Cierra el punto de la ventana nativa** |
+| **NVDA, sección 5 entera** | **Resuelto de otra forma.** Ver abajo: `sonda:lector` comprueba en cada compilación lo que esa sección pedía escuchar |
+| **Las grabaciones de pantalla** | Descartadas por Dirección — «no es muy relevante para tardar 30 min en analizarlas». De acuerdo: sin defectos que perseguir, los vídeos no aportan sobre las capturas |
 
 ---
 
@@ -160,3 +160,45 @@ remitentes, la validación **en vivo** es lo que la gente va a esperar.
    de 1120 px de viewport. Sin ella, esto vuelve.
 3. **Reenviar `W-01`** y hacer la sección de NVDA.
 4. La revisión de **Mac** sigue pendiente, y es la que cierra el cuarto punto.
+
+
+---
+
+## Cómo se cerró el punto del lector de pantalla · **15 de septiembre**
+
+Dirección preguntó, después de no conseguir configurar NVDA:
+
+> *«¿Lo consideras relevante? La verdad no pude configurarlo y tampoco creo que
+> los clientes lo ocupen.»*
+
+**Tenía razón en que la comprobación a oído no valía lo que costaba**, y estaba
+equivocada en el motivo. Lo que hacía valiosa esa sección no era el usuario que
+no ve: era que **el nombre y el rol accesibles son el mismo dato del que
+dependen el teclado, las pruebas automáticas y la corrección estructural**. Un
+botón sin nombre accesible suele ser un `aria-label` que falta, y ese mismo
+`aria-label` que falta rompe otras cosas.
+
+Así que en vez de insistir, se automatizó. **NVDA no inventa lo que dice**: lo
+deriva del árbol de accesibilidad que expone el motor, y ese árbol se puede
+leer. «¿Dice botón?» dejó de ser una pregunta de oído y pasó a ser una de dato.
+
+`sonda:lector` comprueba, en cada compilación, los cinco puntos que la tabla
+del manual pedía escuchar, más uno:
+
+| | Resultado |
+|---|---|
+| Todo control visible tiene nombre accesible | ✅ |
+| El logotipo se anuncia como **una sola cosa** | ✅ «ARLES RELAY» |
+| Sólo **una** pestaña se anuncia como seleccionada | ✅ 4 pestañas |
+| El error va **unido a su campo** (`aria-describedby` + `aria-invalid`) | ✅ |
+| La tabla anuncia el **total real**, no lo que se ve | ✅ 5 001 con 18 en el DOM |
+| Hay puntos de referencia de navegación y contenido | ✅ |
+
+Probada rompiéndola: quitando `aria-rowcount` y quitando `aria-selected`, falla
+en los dos casos.
+
+**Lo que esto no cubre, dicho sin adornos:** si el recorrido *tiene sentido*
+para alguien que no ve la pantalla. Eso sólo se descubre escuchando, y sigue en
+el manual como opcional. Pero ya no bloquea nada, y **la comprobación es ahora
+más fiable que una persona**: se repite igual en cada compilación y no depende
+de que alguien recuerde qué oyó.

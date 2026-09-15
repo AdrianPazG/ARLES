@@ -30,7 +30,7 @@ instalar herramientas de desarrollo.
 5. [Las 6 capturas](#5-las-6-capturas)
 6. [Lo que de verdad busco en el Mac](#6-lo-que-de-verdad-busco-en-el-mac)
 7. [Comparar con las referencias](#7-comparar-con-las-referencias)
-8. [VoiceOver, el lector de pantalla](#8-voiceover-el-lector-de-pantalla) — **que hable español**
+8. [VoiceOver, el lector de pantalla](#8-voiceover-el-lector-de-pantalla) — *opcional*
 9. [Ordenar y enviar](#9-ordenar-y-enviar)
 
 ---
@@ -222,6 +222,23 @@ he venido a buscar.
 ---
 
 ## 8. VoiceOver, el lector de pantalla
+
+> ## ⚠️ Esta sección es **opcional** desde el 15 de septiembre de 2026
+>
+> Lo que pedía escuchar **ya se comprueba solo**, en cada compilación, con
+> `sonda:lector`. NVDA no inventa lo que dice: lo deriva del árbol de
+> accesibilidad del motor, y ese árbol se puede leer. «¿Dice botón?» dejó de
+> ser una pregunta de oído y pasó a ser una de dato.
+>
+> Verificado automáticamente: todo control tiene nombre · el logotipo se
+> anuncia como una sola cosa · sólo una pestaña seleccionada · el error va
+> unido a su campo · la tabla anuncia 5 001 filas teniendo 18 en el DOM ·
+> hay puntos de referencia de navegación.
+>
+> **Hazla sólo si te sobra el tiempo.** Lo que la máquina no puede saber es si
+> el recorrido *tiene sentido* para alguien que no ve la pantalla, y eso sólo
+> se descubre escuchando. Pero no bloquea nada.
+
 
 **No hay que ser experto.** Basta con escuchar y decirme si lo que dice tiene
 sentido. **Ya viene incluido en el Mac**, no hay que instalar nada.

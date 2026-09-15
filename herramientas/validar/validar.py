@@ -740,6 +740,15 @@ def sondas(rapido, app):
             "a meter `unsafe-inline`, aquí salta.",
         ),
         (
+            "sonda: lo que anuncia un lector de pantalla",
+            "sonda:lector",
+            False,
+            "Sustituye a la sección de NVDA del manual, que era la comprobación "
+            "más cara y menos repetible de las cuatro. NVDA no inventa lo que "
+            "dice: lo deriva del árbol de accesibilidad, y ese árbol se lee. "
+            "«¿Dice botón?» deja de ser cuestión de oído y pasa a ser de dato.",
+        ),
+        (
             "sonda: ninguna escala de Windows desborda a lo ancho",
             "sonda:ancho",
             False,

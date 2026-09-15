@@ -28,7 +28,7 @@ instalar herramientas de desarrollo.
 5. [Las 6 primeras capturas](#5-las-6-primeras-capturas)
 6. [El escalado: capturas 7, 8 y 9](#6-el-escalado-capturas-7-8-y-9)
 7. [Comparar con las referencias](#7-comparar-con-las-referencias)
-8. [NVDA, el lector de pantalla](#8-nvda-el-lector-de-pantalla) — **ponlo en español**
+8. [NVDA, el lector de pantalla](#8-nvda-el-lector-de-pantalla) — *opcional*
 9. [Ordenar y enviar](#9-ordenar-y-enviar)
 
 ---
@@ -197,6 +197,23 @@ anótalo.
 ---
 
 ## 8. NVDA, el lector de pantalla
+
+> ## ⚠️ Esta sección es **opcional** desde el 15 de septiembre de 2026
+>
+> Lo que pedía escuchar **ya se comprueba solo**, en cada compilación, con
+> `sonda:lector`. NVDA no inventa lo que dice: lo deriva del árbol de
+> accesibilidad del motor, y ese árbol se puede leer. «¿Dice botón?» dejó de
+> ser una pregunta de oído y pasó a ser una de dato.
+>
+> Verificado automáticamente: todo control tiene nombre · el logotipo se
+> anuncia como una sola cosa · sólo una pestaña seleccionada · el error va
+> unido a su campo · la tabla anuncia 5 001 filas teniendo 18 en el DOM ·
+> hay puntos de referencia de navegación.
+>
+> **Hazla sólo si te sobra el tiempo.** Lo que la máquina no puede saber es si
+> el recorrido *tiene sentido* para alguien que no ve la pantalla, y eso sólo
+> se descubre escuchando. Pero no bloquea nada.
+
 
 **No hay que ser experto.** Basta con escuchar y decirme si lo que dice tiene
 sentido.
