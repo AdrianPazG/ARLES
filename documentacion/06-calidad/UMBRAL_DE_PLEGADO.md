@@ -77,6 +77,17 @@ medida = **983**, y el barrido lo encontró en 984.
 **El umbral es 984 px**, el de la pantalla más exigente. No se redondea: un
 número redondo invita a preguntar de dónde salió.
 
+### Una consecuencia que conviene tener presente
+
+El mínimo de la ventana son **1120 px lógicos**, y el umbral son 984. Así que
+**al 100 % de escala la barra no se pliega sola nunca**: la ventana no puede
+llegar a ser tan estrecha. Según la tabla de abajo, el plegado automático
+**empieza a actuar al 200 %** de escala de Windows en una pantalla de 1920 —a
+175 % quedan 1097 px, todavía por encima del umbral—.
+
+No es un defecto, es el orden correcto: a escala normal manda el botón, que es
+lo que Dirección pidió; lo automático es la red debajo.
+
 ### Qué pasa por debajo
 
 Plegada, la barra ocupa 64 px, así que la medida de Inicio se conserva hasta
