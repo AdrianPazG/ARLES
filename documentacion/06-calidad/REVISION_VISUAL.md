@@ -28,13 +28,14 @@ Los instaladores se compilan solos en GitHub.
 
 ### Atajo: ya están compilados
 
-**No hace falta que compiles nada.** Los dos instaladores están listos aquí:
+**No hace falta que compiles nada.** Los dos instaladores **de la entrega 3.1**
+están listos aquí:
 
-👉 **https://github.com/AdrianPazG/ARLES/actions/runs/34879107021**
+👉 **https://github.com/AdrianPazG/ARLES/actions/runs/35004815794**
 
-Baja hasta **«Artifacts»**, al final de la página, y descarga los dos. Caducan
-el **28 de septiembre de 2026**; pasada esa fecha hay que volver a compilar con
-el procedimiento de abajo.
+Baja hasta **«Artifacts»**, al final de la página, y descarga el de tu sistema.
+Caducan el **29 de septiembre de 2026**; pasada esa fecha hay que volver a
+compilar con el procedimiento de abajo.
 
 | Artefacto | Qué lleva dentro | Tamaño |
 |---|---|---|
@@ -42,6 +43,15 @@ el procedimiento de abajo.
 | `arles-revision-macos` | un `.dmg` **universal** (Intel y Apple Silicon) | 11,2 MB |
 
 GitHub los entrega dentro de un `.zip`: descomprímelo primero.
+
+> **Si ves dos ejecuciones de «Revisión visual» del 15 de septiembre, usa la
+> segunda** (la de arriba, la número 5). La primera se lanzó antes de mirar las
+> capturas, y mirarlas dejó dos arreglos más.
+>
+> Estos instaladores corresponden al commit `db4d722`. El único cambio
+> posterior —que Inicio enseñe el error en vez de la lista cuando no puede leer
+> los datos— **no se ve en una revisión normal**: sólo aparece si la base de
+> datos está corrupta.
 
 ---
 
