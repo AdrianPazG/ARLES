@@ -108,11 +108,19 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
            superficie de ataque; es un detalle que conviene no vender como
            «no viaja nada». -->
       <RouterLink
-        v-if="CATALOGO_VISIBLE && !interfaz.plegada"
+        v-if="CATALOGO_VISIBLE"
         class="nav-enlace enlace-de-revision"
         to="/catalogo"
+        :title="interfaz.plegada ? 'Catálogo del sistema' : undefined"
       >
-        Catálogo del sistema
+        <AIcono nombre="catalogo" />
+        <!-- Plegado sigue estando, con su icono. La primera versión lo
+             escondía, y eso lo hacía desaparecer justo a partir del 200 % de
+             escala —donde la barra se pliega sola—, que es exactamente la
+             condición en la que hay que abrir el catálogo para revisarlo. -->
+        <span :class="interfaz.plegada ? 'solo-lectores' : 'nav-texto'">
+          Catálogo del sistema
+        </span>
       </RouterLink>
 
       <!-- §121: la atribución vive aquí, discreta. NUNCA en los correos

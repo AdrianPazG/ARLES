@@ -171,7 +171,19 @@ export const useEmpresaStore = defineStore('empresa', () => {
     }
   }
 
+  /**
+   * Descarta el aviso de guardado.
+   *
+   * Lo llama la pantalla en cuanto el usuario toca un campo: «Configuración
+   * guardada» junto a un formulario que ya se está editando afirma algo que ha
+   * dejado de ser cierto.
+   */
+  function descartarAviso(): void {
+    guardadoConExito.value = false
+  }
+
   return {
+    descartarAviso,
     configuracion,
     empresa,
     onboarding,

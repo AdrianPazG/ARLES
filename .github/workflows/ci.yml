@@ -111,13 +111,21 @@ jobs:
       # El arranque tiene dos ramas y las dos importan. Sin llavero se ejercita
       # sola —es lo que ocurre en un contenedor— pero un «todo verde» que solo
       # prueba el camino de error no es una validación, es una coincidencia.
-      - name: Arranque con llavero disponible (Linux)
+      # Los dos archivos de integración necesitan llavero: `arranque` para el
+      # camino bueno del arranque, y `empresa` para el recorrido completo de la
+      # 3.1 —configurar, cerrar, reabrir y comprobar que sigue ahí—. Sin
+      # llavero se saltan diciéndolo, que es honesto pero no es verificar.
+      - name: Integración con llavero disponible (Linux)
         if: runner.os == 'Linux'
-        run: ./herramientas/validar/con-llavero.sh cargo test -p arles-app --test arranque -- --nocapture
+        run: |
+          ./herramientas/validar/con-llavero.sh cargo test -p arles-app --test arranque -- --nocapture
+          ./herramientas/validar/con-llavero.sh cargo test -p arles-app --test empresa -- --nocapture
 
-      - name: Arranque con llavero nativo (Windows y macOS)
+      - name: Integración con llavero nativo (Windows y macOS)
         if: runner.os != 'Linux'
-        run: cargo test -p arles-app --test arranque -- --nocapture
+        run: |
+          cargo test -p arles-app --test arranque -- --nocapture
+          cargo test -p arles-app --test empresa -- --nocapture
 
   # ── Paso 4 · Seguridad y licencias ────────────────────────────────────────
   dependencias:

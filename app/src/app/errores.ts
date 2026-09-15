@@ -55,7 +55,21 @@ export function resolverError(e: ErrorIpc): ErrorMostrable {
     nodo = (nodo as Record<string, unknown>)[parte]
   }
 
-  if (esMostrable(nodo)) return nodo
+  if (esMostrable(nodo)) {
+    // Se devuelve el texto **compilado**, no el del objeto. La diferencia
+    // importa: vue-i18n tiene gramática propia, y un texto con una arroba
+    // literal se escribe `{'@'}` porque `@` suelta abre un enlace a otra
+    // clave. Devolviendo el crudo, el usuario leería `nombre{'@'}dominio.com`.
+    //
+    // Compilar por partes —`clave.que`— y no la clave entera es lo que evita
+    // el fallo original: `t('error.db.sqlite')` apunta a un objeto y devolvía
+    // «[object Object]».
+    return {
+      que: i18n.global.t(`${e.clave}.que`),
+      como: i18n.global.t(`${e.clave}.como`),
+      salvo: i18n.global.t(`${e.clave}.salvo`),
+    }
+  }
 
   // Una clave que el núcleo emite y los textos no tienen es un bug, no algo
   // que deba pasar en silencio.

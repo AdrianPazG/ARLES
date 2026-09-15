@@ -82,8 +82,15 @@
   /* Layout */
   --arles-nav-width: 240px;
   /* Barra lateral plegada (P-11): 24 px de icono más 20 px de holgura a cada
-     lado. Es el ancho mínimo que deja el objetivo de pulsación por encima de
-     los 40 px que pide WCAG 2.2 AA (2.5.8), no una cifra redonda. */
+     lado.
+
+     Medido con la barra plegada: el enlace queda en 47 × 30 px y el botón de
+     plegar en 32 × 32. Los dos pasan el mínimo de 24 × 24 que pide WCAG 2.2 AA
+     (2.5.8 Target Size, Minimum) con margen.
+
+     (Una versión anterior de este comentario decía «los 40 px que pide 2.5.8».
+     Es falso por partida doble: el mínimo de AA son 24 px, y los 44 px son de
+     2.5.5, que es AAA y no es el objetivo declarado del proyecto.) */
   --arles-nav-width-plegada: 64px;
   --arles-window-min-width: 1120px;
   --arles-window-min-height: 720px;

@@ -4,7 +4,10 @@ import globals from 'globals'
 import ts from 'typescript-eslint'
 
 export default ts.config(
-  { ignores: ['dist/**', 'node_modules/**'] },
+  // `dist-*` son los builds temporales de las sondas. Si una se interrumpe
+  // antes de limpiar, sin esto eslint se pone a analizar bundles minificados y
+  // el lint se cae con seiscientos errores que no son de nadie.
+  { ignores: ['dist/**', 'dist-*/**', 'node_modules/**'] },
 
   js.configs.recommended,
   ...ts.configs.recommended,

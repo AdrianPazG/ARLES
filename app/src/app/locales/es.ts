@@ -116,7 +116,10 @@ export const es = {
       nombreConSaltos: 'El nombre no puede contener saltos de línea.',
       paisNoSoportado: 'Esta versión de ARLES opera en México.',
       zonaNoSoportada: 'Elige una zona horaria de la lista.',
-      correoInvalido: 'Revisa que el correo tenga la forma nombre@dominio.com.',
+      // `{'@'}` y no una arroba suelta: en la gramática de vue-i18n `@` abre
+      // un enlace a otra clave, y el texto no compila. Reventaba la pantalla
+      // entera, en silencio. Lo vigila una prueba que compila todos los textos.
+      correoInvalido: "Revisa que el correo tenga la forma nombre{'@'}dominio.com.",
       sitioLargo: 'La dirección es demasiado larga.',
       sitioSinEsquema: 'Escribe la dirección completa, empezando por https://.',
       sitioInvalido: 'Esta dirección no es válida. Debe empezar por https:// o http://.',
@@ -158,7 +161,7 @@ export const es = {
     // Cada error lleva sus tres partes (§95).
     email_invalido: {
       que: 'La dirección de correo no es válida.',
-      como: 'Revisa que tenga la forma nombre@dominio.com.',
+      como: "Revisa que tenga la forma nombre{'@'}dominio.com.",
       salvo: 'No se guardó ningún cambio.',
     },
     id_invalido: {

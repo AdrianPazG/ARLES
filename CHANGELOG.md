@@ -51,6 +51,26 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 - `sonda:plegado` falla **por los dos lados** —umbral corto y umbral inflado—,
   probada con 800 y con 1200.
 
+#### Corregido tras auditar el funcionamiento
+
+- **La pantalla de Ajustes reventaba al mostrar el error del correo.** El texto
+  llevaba una arroba suelta, y en la gramática de `vue-i18n` `@` abre un enlace
+  a otra clave: el mensaje no compila, la función de render falla y **la
+  pantalla entera deja de pintarse**, en silencio. Quien escribiera mal su
+  correo veía un botón que no hacía nada. Lo vigila una prueba que **compila
+  todos los textos**, que encontró de paso otro igual esperando desde la Fase 1.
+- Los textos de error se devolvían crudos: el usuario habría leído
+  `nombre{'@'}dominio.com`. Ahora se compilan.
+- La lista de claves de error que dice vigilar que ninguna se quede sin texto
+  **está escrita a mano y no se había actualizado**. Ahora el validador la
+  compara con las claves reales de Rust.
+- «Configuración guardada» se quedaba puesto mientras se editaba el formulario.
+- Al fallar el guardado, los campos malos se marcaban pero **no se anunciaban**:
+  ahora el foco va al primero y hay un aviso con `role="alert"`.
+- El enlace al catálogo desaparecía con la barra plegada, es decir **justo a
+  partir del 200 % de escala**, que es la condición en la que hay que abrirlo.
+- Un comentario afirmaba que WCAG 2.2 AA pide 40 px de objetivo. Pide 24 × 24.
+
 #### Comprobado
 
 - **Las migraciones publicadas no cambian**, comprobado por sha256. Editar una

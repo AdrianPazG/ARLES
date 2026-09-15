@@ -1,8 +1,9 @@
 # Fase 3 · Empresa y contactos
 
 **Estado:** 🟡 en curso — **entrega 3.1 cerrada** · **Fecha:** 2026-09-15
-**Validación:** 19/19 comprobaciones de la fase 3, 0 omitidas — `validar.py --fase 3`
-**Pruebas:** 128 de Rust · 49 de frontend · 6 sondas de navegador
+**Validación:** 21/21 comprobaciones de la fase 3, 0 omitidas — `validar.py --fase 3`
+**Pruebas:** 133 de Rust · 52 de frontend · 6 sondas de navegador
+**Auditoría de funcionamiento:** 7 hallazgos, los 7 corregidos — ver §3 bis
 
 > **Objetivo de la 3.1.** La primera pantalla real del producto: configurar la
 > empresa y saber qué falta para poder enviar. Y de paso, las dos peticiones
@@ -89,11 +90,12 @@ dos mitades se probaron rompiéndolas.
 
 | | Qué cubre |
 |---|---|
-| **128 pruebas de Rust** | Validación campo a campo, lista de alta derivada, guardado idempotente, bitácora en la misma transacción, preferencias con clave cerrada, migración sobre base poblada |
-| **49 pruebas de frontend** | P-11 escrito como pruebas: las dos formas de plegar, que el automático no pisa la preferencia, que sin núcleo no se finge un guardado |
+| **133 pruebas de Rust** | Validación campo a campo, lista de alta derivada, guardado idempotente, bitácora en la misma transacción, preferencias con clave cerrada, migración sobre base poblada |
+| **52 pruebas de frontend** | P-11 escrito como pruebas: las dos formas de plegar, que el automático no pisa la preferencia, que sin núcleo no se finge un guardado |
 | **`sonda:plegado`** | El umbral, por los dos lados, más los seis enlaces con nombre accesible estando plegados |
 | **`sonda:ancho`** | Sigue vigilando lo de R-01: que a ninguna escala de Windows se corte nada |
-| **19 comprobaciones de fase** | Ver abajo |
+| **`empresa.rs`, integración** | Arranca la aplicación de verdad, configura, cierra y reabre. CI lo corre **con llavero** en los tres sistemas |
+| **21 comprobaciones de fase** | Ver abajo |
 
 ### Comprobaciones nuevas del validador, y qué atacan
 
@@ -105,9 +107,111 @@ dos mitades se probaron rompiéndolas.
 | Cada sección tiene icono, y el mapa está tipado | Plegada, una sección sin icono es un hueco en blanco |
 | Ninguna preferencia en `localStorage` | «Se recuerda» que no se recuerda |
 
-**Las cuatro se probaron rompiéndolas** antes de darlas por buenas: quitando una
+| Toda clave de Rust está en la lista de `errores.spec.ts` | Esa lista afirma vigilar lo anterior y está escrita a mano: si no se actualiza, la afirmación es falsa |
+
+**Todas se probaron rompiéndolas** antes de darlas por buenas: quitando una
 zona de la copia del frontend, metiendo un `localStorage`, añadiendo un espacio
-a la migración `V2` y renombrando un icono de sección. Las cuatro fallaron.
+a la migración `V2`, renombrando un icono de sección y renombrando una clave de
+error. Todas fallaron.
+
+---
+
+## 3 bis. La auditoría del 15 de septiembre
+
+Dirección pidió auditar el funcionamiento antes de instalar nada. Se recorrieron
+las dos pantallas en un navegador, con un núcleo simulado que devuelve lo mismo
+que el Rust real, haciendo lo que hace una persona: enviar el formulario vacío,
+corregirlo, guardar, volver a editar, plegar la barra, recargar y estrechar la
+ventana.
+
+**Siete hallazgos. Los siete corregidos.**
+
+### A-1 · La pantalla de Ajustes reventaba al mostrar el error del correo · **grave**
+
+El texto decía «Revisa que el correo tenga la forma nombre@dominio.com». En la
+gramática de `vue-i18n` una **arroba suelta abre un enlace a otra clave**, así
+que el mensaje no compila: lanza `SyntaxError`, la función de render falla y
+**la pantalla entera deja de pintarse**.
+
+Lo peor era cómo fallaba: **en silencio**. El formulario se quedaba con lo
+último pintado —sin campos marcados, sin mensaje, sin nada— y el error sólo
+existía en la consola del navegador, que en una ventana de Tauri no ve nadie.
+Quien escribiera mal su correo vería un botón que no hace nada.
+
+Ningún test lo veía porque los textos se comprobaban **como datos** —que
+estuvieran, que tuvieran tres partes— y nunca **como textos**: nadie los pasaba
+por `t()`, que es lo que hace la interfaz.
+
+Corregido escribiendo la arroba como `{'@'}`. Y con una prueba nueva que
+compila **todos** los textos del catálogo: encontró de paso otro igual,
+`error.email_invalido.como`, que estaba ahí desde la Fase 1 esperando a la
+primera pantalla que lo mostrara.
+
+### A-2 · Los textos de error se mostraban crudos
+
+Arreglar A-1 abrió el siguiente: `resolverError` devolvía el texto **tal como
+está en el archivo**, así que el usuario habría leído literalmente
+`nombre{'@'}dominio.com`. Ahora devuelve el texto compilado, y una prueba
+comprueba que ninguna sintaxis de `vue-i18n` llega a la pantalla.
+
+### A-3 · La lista que vigila las claves de error no vigilaba nada
+
+`errores.spec.ts` lleva una lista escrita a mano con el comentario «si alguien
+añade una variante sin texto, este test falla». **Era falso**: la lista es
+manual, y las dos variantes nuevas de la 3.1 no estaban en ella.
+
+Es el mismo patrón que dejó obsoleto el `Some(1)` del test de arranque: un dato
+duplicado a mano que nadie compara. Ahora el validador extrae las claves del
+Rust y las compara contra el catálogo **y** contra esa lista.
+
+### A-4 · «Configuración guardada» se quedaba puesto mientras se editaba
+
+El aviso de éxito seguía en pantalla al empezar a cambiar los datos, afirmando
+algo que había dejado de ser cierto.
+
+El primer arreglo —vigilar el objeto del formulario— **lo rompió al revés**: al
+guardar, la respuesta del núcleo rellena el formulario con los valores
+normalizados, y eso es una escritura, así que el aviso desaparecía en el mismo
+instante en que aparecía. Se descubrió porque la auditoría se volvió a pasar
+entera después de corregir. La versión buena escucha el evento `input`, que
+sólo dispara una persona escribiendo.
+
+### A-5 · Los campos malos no se anunciaban ni recibían el foco
+
+Marcar el campo en rojo no le sirve a quien no ve la pantalla, ni a quien acaba
+de pulsar «Guardar» con el teclado y sigue con el foco en el botón. Ahora, al
+fallar, el foco va al primer campo malo —donde el lector de pantalla anuncia su
+etiqueta y su mensaje— y hay un aviso con `role="alert"` que resume que el
+formulario tiene campos que corregir.
+
+### A-6 · El catálogo desaparecía justo cuando hay que abrirlo
+
+El enlace al catálogo del sistema se escondía con la barra plegada. Como la
+barra se pliega sola a partir del 200 % de escala, el enlace **desaparecía
+exactamente en la condición en la que hay que abrir el catálogo para
+revisarlo** — la misma en la que apareció R-01. Ahora se queda, con icono.
+
+### A-7 · Un comentario afirmaba un requisito de accesibilidad falso
+
+El token de la barra plegada decía que 64 px dejan el objetivo «por encima de
+los 40 px que pide WCAG 2.2 AA (2.5.8)». Falso por partida doble: el mínimo de
+AA son **24 × 24** px, y los 44 son del 2.5.5, que es AAA. Medido de verdad: el
+enlace plegado queda en 47 × 30 y el botón en 32 × 32, los dos por encima del
+mínimo real. Corregido el comentario con los números medidos.
+
+### Y lo que la auditoría dejó construido
+
+Faltaba una prueba que recorriera el camino entero. Cada capa estaba probada
+por su lado —el dominio valida, la base guarda, el comando conecta— y **nada
+las recorría juntas**: una frontera mal puesta entre dos capas probadas pasa
+desapercibida porque cada test dice que su lado funciona.
+
+`crates/arles-app/tests/empresa.rs` arranca la aplicación de verdad —llavero,
+base cifrada, migraciones—, configura la empresa, comprueba que el alta avanza,
+cierra, vuelve a abrir y comprueba que sigue todo ahí. Lo mismo con la barra
+plegada, que es la mitad de P-11 que no se ve en una captura. Y CI lo corre
+**con llavero** en los tres sistemas, porque sin llavero esos tests se saltan
+solos.
 
 ---
 

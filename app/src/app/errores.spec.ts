@@ -24,6 +24,8 @@ const CLAVES_DEL_NUCLEO = [
   'error.app.llavero_no_disponible',
   'error.app.clave_maestra_perdida',
   'error.app.directorio_de_datos',
+  'error.app.empresa_invalida',
+  'error.db.dato_invalido',
 ] as const
 
 describe('resolución de errores del núcleo', () => {
@@ -52,6 +54,23 @@ describe('resolución de errores del núcleo', () => {
       const e = resolverError({ clave, detalle: 'prueba' })
       expect(String(e.que)).not.toContain('[object')
     }
+  })
+
+  /**
+   * Los textos se muestran **compilados**, no crudos.
+   *
+   * `vue-i18n` tiene gramática propia: una arroba literal se escribe `{'@'}`
+   * porque `@` suelta abre un enlace a otra clave. Devolviendo el texto tal
+   * como está en el archivo, el usuario leería `nombre{'@'}dominio.com`.
+   */
+  it('ningún texto llega con la sintaxis de vue-i18n sin resolver', () => {
+    for (const clave of CLAVES_DEL_NUCLEO) {
+      const e = resolverError({ clave, detalle: 'prueba' })
+      const todo = `${e.que} ${e.como} ${e.salvo}`
+      expect(todo, `${clave} muestra sintaxis sin compilar`).not.toMatch(/\{'/)
+    }
+    expect(resolverError({ clave: 'error.email_invalido', detalle: '' }).como)
+      .toContain('nombre@dominio.com')
   })
 
   it('una clave desconocida cae en el genérico y lo reporta', () => {

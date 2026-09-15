@@ -14,14 +14,37 @@
  *    validaciones son dos reglas que mantener iguales, y el día que divergen el
  *    formulario aprueba lo que el núcleo rechaza.
  */
-import { onMounted, reactive, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { resolverError } from '@/app/errores'
 import { useEmpresaStore, type BorradorDeEmpresa } from '@/app/stores/empresa'
 import { AAviso, ABoton, AEntrada, ASelector, EstadoExito } from '@/design/componentes'
 
 const empresa = useEmpresaStore()
 const { t, te } = useI18n()
+
+/**
+ * El error general, ya resuelto a sus tres partes.
+ *
+ * Pasa por `resolverError` y no por `$t('clave.que')` porque esa función es la
+ * que sabe qué hacer cuando **falta** el texto: deja constancia y cae en un
+ * genérico legible. Con `$t` a pelo, una clave sin texto se pinta cruda —el
+ * usuario leería `error.db.dato_invalido.que` como título del aviso.
+ */
+const errorGeneral = computed(() =>
+  empresa.errorGeneral
+    ? resolverError({ clave: empresa.errorGeneral, detalle: '' })
+    : null,
+)
+
+/** Hay campos marcados: se anuncia, además de marcarlos. */
+const hayErroresDeCampo = computed(
+  () => Object.keys(empresa.erroresDeCampo).length > 0,
+)
+const resumenDeCampos = computed(() =>
+  resolverError({ clave: 'error.app.empresa_invalida', detalle: '' }),
+)
 
 const formulario = reactive<BorradorDeEmpresa>({
   nombreComercial: '',
@@ -65,7 +88,16 @@ function errorDe(campo: keyof BorradorDeEmpresa): string {
 }
 
 async function enviar(): Promise<void> {
-  await empresa.guardar({ ...formulario })
+  const guardado = await empresa.guardar({ ...formulario })
+  if (guardado) return
+
+  // Marcar el campo en rojo no le sirve de nada a quien no ve la pantalla, y
+  // tampoco a quien acaba de pulsar con el teclado y sigue con el foco en el
+  // botón. Se lleva el foco al primer campo malo: el lector de pantalla
+  // anuncia ahí su etiqueta y su mensaje, enlazado por `aria-describedby`.
+  await nextTick()
+  const primero = document.querySelector<HTMLElement>('[aria-invalid="true"]')
+  primero?.focus()
 }
 </script>
 
@@ -80,9 +112,16 @@ async function enviar(): Promise<void> {
       </p>
     </header>
 
+    <!-- `@input` en el formulario y no un `watch` sobre el objeto: «Configuración
+         guardada» junto a un formulario que ya se está editando afirma algo que
+         ha dejado de ser cierto, pero vigilar el objeto descartaba el aviso en
+         el mismo instante en que aparecía —al guardar, la respuesta del núcleo
+         rellena el formulario con los valores normalizados, y eso es una
+         escritura—. El evento nativo sólo lo dispara una persona escribiendo. -->
     <form
       class="formulario"
       novalidate
+      @input="empresa.descartarAviso()"
       @submit.prevent="enviar"
     >
       <h2 class="subtitulo">
@@ -131,14 +170,26 @@ async function enviar(): Promise<void> {
         marcador="https://"
       />
 
+      <!-- Dos avisos distintos a propósito: uno dice que el formulario tiene
+           campos malos —y los campos están marcados—, y el otro que el fallo
+           no es del formulario. Mezclarlos haría buscar un campo rojo que no
+           existe. -->
       <AAviso
-        v-if="empresa.errorGeneral"
+        v-if="hayErroresDeCampo"
         tono="peligro"
         urgente
-        :titulo="$t(`${empresa.errorGeneral}.que`)"
+        :titulo="resumenDeCampos.que"
       >
-        {{ $t(`${empresa.errorGeneral}.como`) }}
-        {{ $t(`${empresa.errorGeneral}.salvo`) }}
+        {{ resumenDeCampos.como }} {{ resumenDeCampos.salvo }}
+      </AAviso>
+
+      <AAviso
+        v-if="errorGeneral"
+        tono="peligro"
+        urgente
+        :titulo="errorGeneral.que"
+      >
+        {{ errorGeneral.como }} {{ errorGeneral.salvo }}
       </AAviso>
 
       <EstadoExito

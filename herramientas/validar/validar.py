@@ -1190,6 +1190,46 @@ def claves_de_texto_del_nucleo():
           f"pasos sin texto: {faltan_pasos}")
 
 
+def claves_de_error_sin_texto():
+    """Toda clave que emite Rust está declarada y tiene texto.
+
+    Hay tres sitios que deben coincidir: los `clave_i18n()` de Rust, el catálogo
+    de textos y la lista de `errores.spec.ts`. Esa lista dice en su comentario
+    que un error nuevo sin texto la hace fallar — y no era verdad: la lista está
+    escrita a mano, así que una variante nueva simplemente no aparecía en ella.
+    Ocurrió en la 3.1, con dos variantes.
+
+    El patrón es el mismo que dejó `Some(1)` obsoleto en el test de arranque: un
+    dato duplicado a mano que nadie compara. Aquí se compara.
+    """
+    claves = set()
+    for crate in ("arles-core", "arles-db", "arles-app"):
+        d = os.path.join(RAIZ, "crates", crate, "src")
+        for archivo in os.listdir(d):
+            if archivo.endswith(".rs"):
+                texto = leer(f"crates/{crate}/src", archivo) or ""
+                claves |= set(re.findall(r'=> "(error\.[a-z_.]+)"', texto))
+
+    es = leer("app/src/app/locales", "es.ts") or ""
+    spec = leer("app/src/app", "errores.spec.ts") or ""
+
+    # En el catálogo cada error es un objeto anidado, así que se busca la última
+    # parte de la clave seguida de `: {`.
+    sin_texto = sorted(c for c in claves if f"{c.rsplit('.', 1)[-1]}: {{" not in es)
+    check(3, "toda clave de error de Rust tiene texto en el catálogo",
+          bool(claves) and not sin_texto,
+          "Sin texto, el usuario ve el mensaje genérico y nadie se entera.",
+          f"claves: {sorted(claves)}\nsin texto: {sin_texto}")
+
+    sin_vigilar = sorted(c for c in claves if f"'{c}'" not in spec)
+    check(3, "la lista de claves de errores.spec.ts está completa",
+          bool(claves) and not sin_vigilar,
+          "Esa lista afirma vigilar que ninguna clave se quede sin texto, y "
+          "está escrita a mano: si no se actualiza, la afirmación es falsa y "
+          "el test pasa sin comprobar nada de lo nuevo.",
+          f"claves sin vigilar: {sin_vigilar}")
+
+
 def iconos_de_seccion():
     """Las seis secciones tienen icono, y el mapa los usa.
 
@@ -1280,6 +1320,7 @@ def fase_3(rapido):
     migraciones_no_se_editan()
     listas_cerradas_del_nucleo()
     claves_de_texto_del_nucleo()
+    claves_de_error_sin_texto()
     iconos_de_seccion()
     preferencias_fuera_del_navegador()
 

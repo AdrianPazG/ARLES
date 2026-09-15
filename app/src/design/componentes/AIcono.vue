@@ -47,6 +47,10 @@ const TRAZOS = {
 
   // Interfaz
   cerrar: 'M18 6 6 18M6 6l12 12',
+  // Sólo para el enlace al catálogo del design system, que no viaja al cliente.
+  // Existe porque plegada la barra no tiene sitio para su texto, y sin icono el
+  // enlace desaparecía justo a las escalas altas donde hay que revisarlo.
+  catalogo: 'M4 4h6.5v6.5H4zM13.5 4H20v6.5h-6.5zM4 13.5h6.5V20H4zM13.5 13.5H20V20h-6.5z',
   // Plegar y expandir la barra lateral. Dobles galones, no simples: un galón
   // simple es el de «desplegar» de un menú, y en la misma pantalla los dos
   // significarían cosas distintas con el mismo dibujo.
