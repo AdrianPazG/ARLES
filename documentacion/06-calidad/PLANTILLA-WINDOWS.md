@@ -98,6 +98,8 @@ _____
 | | |
 |---|---|
 | Lo instalé o usé la versión portable | [ ] |
+| **Lo puse en español** (Insert+Ctrl+G → General → Language) | [ ] |
+| La voz también lee en español | [ ] |
 | Recorrí la aplicación sólo con el tabulador | [ ] |
 | El logotipo se lee como **una sola cosa** | [ ] |
 | Los botones dicen su texto y la palabra «botón» | [ ] |

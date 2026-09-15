@@ -123,6 +123,7 @@ _____
 | | |
 |---|---|
 | Lo encendí con `Cmd + F5` | [ ] |
+| **Habla en español** (o mi Mac ya estaba en español) | [ ] |
 | Hizo falta activar «Navegación por teclado» en Ajustes | [ ] |
 | Recorrí la aplicación sólo con el tabulador | [ ] |
 | El logotipo se lee como **una sola cosa** | [ ] |

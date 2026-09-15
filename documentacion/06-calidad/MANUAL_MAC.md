@@ -30,7 +30,7 @@ instalar herramientas de desarrollo.
 5. [Las 6 capturas](#5-las-6-capturas)
 6. [Lo que de verdad busco en el Mac](#6-lo-que-de-verdad-busco-en-el-mac)
 7. [Comparar con las referencias](#7-comparar-con-las-referencias)
-8. [VoiceOver, el lector de pantalla](#8-voiceover-el-lector-de-pantalla)
+8. [VoiceOver, el lector de pantalla](#8-voiceover-el-lector-de-pantalla) — **que hable español**
 9. [Ordenar y enviar](#9-ordenar-y-enviar)
 
 ---
@@ -238,7 +238,24 @@ sentido. **Ya viene incluido en el Mac**, no hay que instalar nada.
 > Es un ajuste de macOS que viene apagado, y sin él el tabulador sólo pasa por
 > los campos de texto.
 
-### Qué escuchar
+### 8.1 Que hable en español
+
+VoiceOver usa el idioma del sistema, así que **si tu Mac está en español no
+tienes que hacer nada**. Si lo tienes en inglés dirá *«button»*, *«tab»*,
+*«row 40 of 5001»*, y la tabla de abajo te pide escuchar «botón», «pestaña»,
+«fila 40 de 5001»: no podrías comprobar lo que hay que comprobar.
+
+Para cambiarlo sin tocar el idioma de todo el Mac:
+
+1. **`Cmd + F8`** abre la **Utilidad de Configuración de VoiceOver**.
+2. **Voz → Voz predeterminada**.
+3. Elige una voz en español — **Paulina** o **Juan** son las mexicanas.
+   Si no aparecen: **Personalizar…** y descárgalas ahí.
+
+> Lo que hay que juzgar es **qué** dice, no cómo suena. Cualquier voz en
+> español sirve.
+
+### 8.2 Qué escuchar
 
 | Al llegar a | Debe decir algo como |
 |---|---|

@@ -28,7 +28,7 @@ instalar herramientas de desarrollo.
 5. [Las 6 primeras capturas](#5-las-6-primeras-capturas)
 6. [El escalado: capturas 7, 8 y 9](#6-el-escalado-capturas-7-8-y-9)
 7. [Comparar con las referencias](#7-comparar-con-las-referencias)
-8. [NVDA, el lector de pantalla](#8-nvda-el-lector-de-pantalla)
+8. [NVDA, el lector de pantalla](#8-nvda-el-lector-de-pantalla) — **ponlo en español**
 9. [Ordenar y enviar](#9-ordenar-y-enviar)
 
 ---
@@ -204,12 +204,50 @@ sentido.
 1. Descarga **NVDA** de `nvaccess.org`. Es gratuito y de código abierto.
    Instálalo, o usa la **versión portable** si prefieres no instalar nada.
 2. Arráncalo. Empezará a leer en voz alta lo que tengas enfocado.
-3. Abre ARLES, ve al catálogo, y **navega sólo con el tabulador**. Nada de ratón.
-4. Escucha.
+3. **Ponlo en español** — ver abajo. Es obligatorio, no una comodidad.
+4. Abre ARLES, ve al catálogo, y **navega sólo con el tabulador**. Nada de ratón.
+5. Escucha.
 
 Para apagarlo: **`Insert + Q`**.
 
-### Qué escuchar
+### 8.1 Ponerlo en español · **no te saltes esto**
+
+NVDA suele instalarse en inglés, y entonces dice *«button»*, *«tab»*,
+*«row 40 of 5001»*. La tabla de aquí abajo te pide escuchar **«botón»**,
+**«pestaña»**, **«fila 40 de 5001»**: con NVDA en inglés no puedes comprobar
+lo que hay que comprobar, y acabarías reportando como fallo de ARLES algo que
+es sólo el idioma del lector.
+
+**No hace falta reinstalar.** Se cambia desde dentro:
+
+1. Con NVDA arrancado, **`Insert + N`** abre su menú.
+   *(En un portátil sin tecla Insert suele ser `Bloq Mayús + N`.)*
+2. **Preferences → Settings** — atajo directo: **`Insert + Ctrl + G`**.
+3. En la categoría **General**, el primer campo es **Language**.
+4. Elige **`Español (España)`** o **`Español (Estados Unidos)`**. Cualquiera de
+   los dos traduce la interfaz igual.
+5. **OK**. NVDA pide reiniciarse: acepta (**Restart now**).
+
+#### La voz es un ajuste distinto
+
+El idioma de la interfaz y **la voz que lee** son dos cosas separadas. Puedes
+acabar con NVDA en español leyendo con voz inglesa, y entonces el español suena
+a trabalenguas.
+
+1. **`Insert + Ctrl + V`** abre los ajustes de **Voz**.
+2. Si el sintetizador es **eSpeak NG** —el que viene por defecto—, en **Voz**
+   elige **`Spanish (Latin American)`**. Es la que mejor suena aquí.
+3. Si prefieres una voz más natural, cambia el sintetizador a **Windows
+   OneCore** con `Insert + Ctrl + S`. Ahí sólo saldrán voces en español si el
+   idioma está instalado en Windows: *Configuración → Hora e idioma → Idioma y
+   región → Agregar un idioma → Español (México)*, y dentro de sus opciones,
+   **Voz**.
+
+> **Para esta revisión, eSpeak en español basta de sobra.** Suena robótico,
+> pero lo que hay que juzgar es **qué** dice, no cómo suena. No gastes tiempo
+> instalando voces bonitas.
+
+### 8.2 Qué escuchar
 
 | Al llegar a | Debe decir algo como |
 |---|---|
