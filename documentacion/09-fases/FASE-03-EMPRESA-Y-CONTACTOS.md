@@ -2,8 +2,8 @@
 
 **Estado:** 🟡 en curso — **entrega 3.1 cerrada** · **Fecha:** 2026-09-15
 **Validación:** 23/23 comprobaciones de la fase 3, 0 omitidas — `validar.py --fase 3`
-**Pruebas:** 133 de Rust · 52 de frontend · 6 sondas de navegador
-**Auditoría de funcionamiento:** 9 hallazgos, los 9 corregidos — ver §3 bis
+**Pruebas:** 133 de Rust · 55 de frontend · 6 sondas de navegador
+**Auditoría de funcionamiento:** 10 hallazgos, los 10 corregidos — ver §3 bis
 
 > **Objetivo de la 3.1.** La primera pantalla real del producto: configurar la
 > empresa y saber qué falta para poder enviar. Y de paso, las dos peticiones
@@ -91,7 +91,7 @@ dos mitades se probaron rompiéndolas.
 | | Qué cubre |
 |---|---|
 | **133 pruebas de Rust** | Validación campo a campo, lista de alta derivada, guardado idempotente, bitácora en la misma transacción, preferencias con clave cerrada, migración sobre base poblada |
-| **52 pruebas de frontend** | P-11 escrito como pruebas: las dos formas de plegar, que el automático no pisa la preferencia, que sin núcleo no se finge un guardado |
+| **55 pruebas de frontend** | P-11 escrito como pruebas: las dos formas de plegar, que el automático no pisa la preferencia, que sin núcleo no se finge un guardado |
 | **`sonda:plegado`** | El umbral, por los dos lados, más los seis enlaces con nombre accesible estando plegados |
 | **`sonda:ancho`** | Sigue vigilando lo de R-01: que a ninguna escala de Windows se corte nada |
 | **`empresa.rs`, integración** | Arranca la aplicación de verdad, configura, cierra y reabre. CI lo corre **con llavero** en los tres sistemas |
@@ -124,7 +124,7 @@ que el Rust real, haciendo lo que hace una persona: enviar el formulario vacío,
 corregirlo, guardar, volver a editar, plegar la barra, recargar y estrechar la
 ventana.
 
-**Nueve hallazgos. Los nueve corregidos.**
+**Diez hallazgos. Los diez corregidos.**
 
 ### A-1 · La pantalla de Ajustes reventaba al mostrar el error del correo · **grave**
 
@@ -215,8 +215,20 @@ entera.
 lo que la lista tiene que decir. Ahora es una nota al margen, apagada. La
 insignia queda para estados que hay que atender.
 
-*(Estos dos salieron de mirar capturas de las pantallas, no de recorrerlas: son
-defectos de lo que la pantalla comunica, y eso no lo detecta ninguna aserción.)*
+### A-10 · Inicio enseñaba una lista que no sabía si era cierta
+
+Si la configuración no se podía leer —base corrupta, un dato editado por
+fuera—, Inicio pintaba **la lista de reserva**: «0 de 6», todo pendiente, como
+si fuera el estado real. Alguien con su empresa ya configurada habría vuelto a
+configurarla.
+
+Ahora, si no se pudo leer, **no se enseña la lista**: se enseña el error con
+sus tres partes. Hay prueba de pantalla que lo comprueba, y se probó
+rompiéndola.
+
+*(A-8, A-9 y A-10 salieron de mirar las pantallas, no de recorrerlas: son
+defectos de lo que la pantalla **comunica**, y eso no lo detecta ninguna
+aserción sobre el estado interno.)*
 
 ### Y lo que la auditoría dejó construido
 

@@ -17,12 +17,27 @@
 import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 
+import { resolverError } from '@/app/errores'
 import { useAppStore } from '@/app/stores/app'
 import { useEmpresaStore } from '@/app/stores/empresa'
-import { AIcono } from '@/design/componentes'
+import { AIcono, EstadoError } from '@/design/componentes'
 
 const empresa = useEmpresaStore()
 const app = useAppStore()
+
+/**
+ * Si los datos no se pudieron leer, **no se enseña la lista**.
+ *
+ * Sin esto, un fallo al leer dejaba la pantalla enseñando la lista de reserva
+ * —«0 de 6», todo pendiente— como si fuera el estado real. Una lista de alta
+ * que miente sobre lo que falta es peor que una pantalla que dice que no pudo
+ * leerlo: la primera hace que alguien vuelva a configurar lo que ya tenía.
+ */
+const error = computed(() =>
+  empresa.errorGeneral
+    ? resolverError({ clave: empresa.errorGeneral, detalle: '' })
+    : null,
+)
 
 onMounted(() => void empresa.cargar())
 
@@ -43,7 +58,17 @@ const pendientesDisponibles = computed(() =>
       </p>
     </header>
 
-    <section aria-labelledby="titulo-alta">
+    <EstadoError
+      v-if="error"
+      :que="error.que"
+      :como="error.como"
+      :salvo="error.salvo"
+    />
+
+    <section
+      v-else
+      aria-labelledby="titulo-alta"
+    >
       <div class="cabecera-alta">
         <h2
           id="titulo-alta"

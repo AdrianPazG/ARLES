@@ -74,6 +74,10 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
   «México» y «Ciudad de México»; el valor que viaja al núcleo no cambia.
 - En la lista de alta, los cinco pasos que **no** se pueden hacer llevaban
   insignia de relleno sólido y pesaban más en la pantalla que el único que sí.
+- **Inicio enseñaba una lista que no sabía si era cierta.** Si la configuración
+  no se podía leer, pintaba la de reserva —«0 de 6», todo pendiente— como si
+  fuera el estado real, y alguien con su empresa ya configurada habría vuelto a
+  configurarla. Ahora enseña el error con sus tres partes.
 
 #### Comprobado
 
