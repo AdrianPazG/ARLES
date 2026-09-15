@@ -15,7 +15,8 @@
     "tokens": "python3 ../herramientas/design-tokens/generar.py --css",
     "sonda:tabla": "node pruebas/sondas/tabla.mjs",
     "sonda:csp": "node pruebas/sondas/csp.mjs",
-    "sonda:teclado": "node pruebas/sondas/teclado.mjs"
+    "sonda:teclado": "node pruebas/sondas/teclado.mjs",
+    "sonda:ancho": "node pruebas/sondas/ancho.mjs"
   },
   "dependencies": {
     "@tanstack/vue-virtual": "^3.13.38",

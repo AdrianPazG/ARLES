@@ -739,6 +739,15 @@ def sondas(rapido, app):
             "La CSP que se instala en la máquina del cliente. Si alguien vuelve "
             "a meter `unsafe-inline`, aquí salta.",
         ),
+        (
+            "sonda: ninguna escala de Windows desborda a lo ancho",
+            "sonda:ancho",
+            False,
+            "El mínimo de la ventana está en píxeles lógicos: a 200 % de escala, "
+            "1120 lógicos son 2240 físicos, más que la pantalla. El armazón "
+            "fijaba min-width 1120 y desbordaba. Lo encontró Dirección revisando; "
+            "ninguna comprobación lo veía porque todas corrían por encima de 1120.",
+        ),
     ]
 
     motivo = hay_navegador(app)

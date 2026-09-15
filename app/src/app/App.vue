@@ -77,10 +77,18 @@ onMounted(() => void app.cargar())
 .marco {
   display: grid;
   grid-template-columns: var(--arles-nav-width) 1fr;
-  min-width: var(--arles-window-min-width);
-  /* 100vh en vez de 100%: no depende de que html, body y #app mantengan la
-     cadena de alturas porcentuales, que se rompe en cuanto alguien inserta un
-     envoltorio. */
+  /* Aquí había `min-width: var(--arles-window-min-width)` —1120 px—, con el
+     razonamiento de que la ventana no puede ser más estrecha, así que el
+     contenido tampoco tendría que serlo.
+
+     Es falso en cuanto la escala de Windows pasa del 100 %. El mínimo de
+     `tauri.conf.json` está en píxeles LÓGICOS: a 200 %, pedir 1120 lógicos es
+     pedir 2240 físicos, más que una pantalla de 1920 entera. La ventana no
+     puede cumplirlo, Windows la deja en 960 lógicos, y el suelo de CSS —que
+     no cedía— provocaba desplazamiento horizontal y contenido cortado.
+
+     Confundimos el mínimo de la VENTANA con el mínimo del DISEÑO. Lo
+     encontró Dirección revisando a 200 %; lo vigila `sonda:ancho`. */
   min-height: 100vh;
 }
 

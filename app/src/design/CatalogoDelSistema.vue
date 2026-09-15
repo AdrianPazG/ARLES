@@ -605,6 +605,15 @@ const ESCALA = [
   line-height: var(--arles-line-height-small);
 }
 
+/* A escala alta de Windows el viewport CSS se encoge: a 200 % en una pantalla
+   de 1920 quedan 960 px, y descontando la navegación el contenido baja de 720.
+   Dos columnas ahí no se leen. Por debajo de 900 px de ventana pasa a una. */
+@media (max-width: 900px) {
+  .rejilla {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .rejilla {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

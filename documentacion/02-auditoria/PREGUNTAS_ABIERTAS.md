@@ -173,3 +173,36 @@ del porcentaje de los ~6 millones de establecimientos que lo tienen poblado.
 **Se resuelve en diez minutos**: descargar el CSV del DENUE y contar no nulos.
 Conviene hacerlo **antes** de dimensionar cualquier campaña sobre esa lista, y
 antes de decidir cuánto invertir en validación.
+
+---
+
+### P-11 · La barra lateral: ¿fija y plegable? · **decidido en la revisión visual**
+**Riesgo:** R-01 del informe de revisión · **Se construye en:** entrega 3.1
+
+Dirección pidió dos cosas al revisar la aplicación en Windows:
+
+> *«necesito que el menú ubicado en la lateral permanezca fijo y que lo demás
+> que está en pantalla sea posible desplazarse. También necesito que ese menú
+> fijo pueda comprimirse.»*
+
+Son dos peticiones distintas —**barra fija** al desplazar, y **barra
+plegable**— y la segunda resuelve además un defecto encontrado en la misma
+revisión: por encima del **150 % de escala de Windows**, el armazón desborda
+horizontalmente porque `App.vue` fija `min-width: 1120px`, y a esa escala el
+viewport CSS baja de 1120.
+
+**Lo que hay que decidir, y no está decidido:**
+
+1. ¿La barra se pliega **a mano**, **sola** por debajo de un ancho, o **las dos
+   cosas**?
+2. Plegada, ¿queda en **iconos** o **desaparece**? Con iconos hacen falta
+   iconos para las seis secciones, que hoy no existen.
+3. ¿Se **recuerda** el estado entre arranques? Si se recuerda, va a la
+   configuración, y eso es esquema.
+
+**Por qué no se resuelve antes de 3.1:** hacerlo ahora sería construirlo sobre
+un armazón sin pantallas reales que lo pongan a prueba. **Por qué no después:**
+cada pantalla que se monte encima hereda el defecto y habrá que rehacerla.
+
+Medición completa en
+[revision-visual/2026-09-14-windows/HALLAZGOS.md](../06-calidad/revision-visual/2026-09-14-windows/HALLAZGOS.md).
