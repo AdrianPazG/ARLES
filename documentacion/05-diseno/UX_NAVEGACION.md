@@ -22,6 +22,14 @@ El §23 propone siete secciones. Dos se solapan:
 | **ACTIVIDAD** | Ejecución en vivo · Eventos · Errores |
 | **AJUSTES** | Empresa · Preferencias · Respaldos · Actualizaciones · Licencia |
 
+> 🔵 **Pendiente de revisión por la logística de los dos canales.**
+> [LOGISTICA_DE_CAMPANAS](../01-producto/LOGISTICA_DE_CAMPANAS.md) propone dos
+> cambios sobre esta tabla, ninguno decidido todavía: **REMITENTES** pasaría a
+> llamarse **CANALES** —ahí viven también los números de WhatsApp, y
+> «remitente» ya no los nombra— y aparecería una séptima sección,
+> **CONVERSACIONES**, **sólo cuando hay WhatsApp configurado**. Se decide en
+> P-13. Mientras tanto, las seis de abajo son las vigentes.
+
 **«REMITENTES» en vez de «EMAIL»** porque nombra lo que el usuario administra ahí —sus cuentas de envío— y no una tecnología. Todo en ARLES es «email»; ese nombre no distingue nada.
 
 **Las supresiones viven en CONTACTOS**, no escondidas en ajustes. Son una decisión sobre personas, y el usuario debe encontrarlas donde están las personas.

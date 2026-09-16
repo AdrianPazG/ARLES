@@ -27,7 +27,9 @@
 |---|---|
 | [VISION_Y_ALCANCE](01-producto/VISION_Y_ALCANCE.md) | Qué es y qué no es ARLES, bucle central, criterios de éxito |
 | [DECISIONES_DE_DIRECCION](01-producto/DECISIONES_DE_DIRECCION.md) | T-1…T-10 y D-1…D-4. **Registro autoritativo** |
-| [WHATSAPP-PARA-DIRECCION](01-producto/WHATSAPP-PARA-DIRECCION.md) | Por qué WhatsApp no funciona como el correo · nota para Dirección ([PDF](01-producto/WHATSAPP-PARA-DIRECCION.pdf)) |
+| [LOGISTICA_DE_CAMPANAS](01-producto/LOGISTICA_DE_CAMPANAS.md) | ⭐ **El recorrido completo, los dos canales.** Gobierna el rediseño, el esquema y las Fases 1 y 4-7 |
+| [WHATSAPP-RESUMEN-DIRECCION](01-producto/WHATSAPP-RESUMEN-DIRECCION.md) | Resumen ejecutivo de WhatsApp, 4 páginas ([PDF](01-producto/WHATSAPP-RESUMEN-DIRECCION.pdf)) |
+| [WHATSAPP-PARA-DIRECCION](01-producto/WHATSAPP-PARA-DIRECCION.md) | La versión larga: por qué WhatsApp no funciona como el correo ([PDF](01-producto/WHATSAPP-PARA-DIRECCION.pdf)) |
 | [FUERA_DE_ALCANCE](01-producto/FUERA_DE_ALCANCE.md) | Todo lo diferido, con destino explícito |
 | [GLOSARIO](01-producto/GLOSARIO.md) | Vocabulario compartido, incluido el de la interfaz |
 
@@ -79,7 +81,8 @@
 | [COLOR_SYSTEM](05-diseno/COLOR_SYSTEM.md) | Paleta medida, rampas, contraste calculado |
 | [DESIGN_SYSTEM](05-diseno/DESIGN_SYSTEM.md) | Tokens, componentes, movimiento, accesibilidad |
 | [TIPOGRAFIA](05-diseno/TIPOGRAFIA.md) | ⚠️ **Bloqueado por D-3**. Plan A y plan B |
-| [UX_NAVEGACION](05-diseno/UX_NAVEGACION.md) | 6 secciones, flujos, onboarding, teclado |
+| [MARCA_TELEMETRY](05-diseno/MARCA_TELEMETRY.md) | El logotipo horizontal dentro de ARLES: tinta, aire, enlace |
+| [UX_NAVEGACION](05-diseno/UX_NAVEGACION.md) | 6 secciones, flujos, onboarding, teclado. **La séptima se decide en P-13** |
 | [UX_WRITING](05-diseno/UX_WRITING.md) | Tono, errores, vocabulario de la honestidad |
 
 ### 06 · Calidad

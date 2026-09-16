@@ -6,6 +6,13 @@
 
 ---
 
+> 🔵 **Este roadmap fue escrito para un producto de un solo canal.**
+> [LOGISTICA_DE_CAMPANAS](../01-producto/LOGISTICA_DE_CAMPANAS.md) §10 detalla
+> qué le hace WhatsApp a cada fase. En resumen: la **Fase 1 tiene una migración
+> de esquema pendiente** —el contacto deja de ser un correo— que conviene hacer
+> **antes de la Fase 4**, y la Fase 7 gana la sección CONVERSACIONES. La Fase 2
+> no se toca. Nada de esto está aprobado: depende de P-12 a P-15.
+
 ## Fases
 
 ### Fase 0 — Discovery y auditoría ✅ *en curso*

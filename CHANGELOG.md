@@ -12,6 +12,52 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Logística de los dos canales, y el logotipo de TELEMETRY
+
+- **`documentacion/01-producto/LOGISTICA_DE_CAMPANAS.md`**: el recorrido
+  completo del usuario para correo y WhatsApp, en cuatro tiempos —lo que se
+  configura una vez, lo que se prepara en cada campaña, lo que corre solo y lo
+  que hay que atender—. Es el documento que Dirección pidió antes de rediseñar
+  nada, y del que sale el rediseño.
+- **Seis decisiones nuevas (L-1…L-6).** Las tres que cuestan dinero: una
+  campaña es de **un solo canal**, porque una mixta rompe el preflight, las
+  métricas, el registro de permiso y la parada de emergencia a la vez; el
+  contacto pasa a tener **canales** en lugar de ser un correo, lo que abre una
+  migración del esquema de la Fase 1; y WhatsApp obliga a una sección
+  **CONVERSACIONES** con el reloj de 24 horas, que aparece sólo cuando el canal
+  existe.
+- **Tres riesgos nuevos** en la matriz: R-21 (Meta inhabilita el número, y
+  puede llevarse la cuenta entera), R-22 (se pierde a quien respondió porque
+  nadie contesta dentro de la ventana) y R-23 (migrar el esquema después de la
+  Fase 4 obliga a reescribir el motor).
+- **Cuatro preguntas para Dirección** (P-12…P-15), de las que las dos primeras
+  bloquean el rediseño.
+- **`herramientas/marca/derivar-logos.py`**: el logotipo horizontal de
+  TELEMETRY, teñido con los colores de la paleta. Los dos originales llegaron en
+  tintas que no están en el sistema —`#EFE7DC` se lee como blanco sucio junto
+  al texto de la interfaz, y `#001638` es un azul de matiz 216° frente a los
+  200° de ARLES, así que sobre el fondo tira a violeta mientras todo lo demás
+  tira a cian—. La pieza es de un solo color sobre transparencia, de modo que
+  el color no es parte del dibujo: se tiñe desde `tokens.json` y los originales
+  de `/RECURSOS` no se tocan.
+- El script **comprueba que los dos originales siguen siendo la misma pieza**
+  antes de teñir uno solo; si divergieran, se producirían dos logotipos
+  distintos sin que nadie se entere. Probado rompiéndolo: apuntado a otra
+  imagen, para con «difieren en el 71,2 %».
+
+### Resumen de WhatsApp para Dirección
+
+- Versión de 4 páginas de la nota de WhatsApp, con la decisión de Dirección ya
+  incorporada: prueba con número prescindible y número propio sólo para
+  seguimiento.
+- **Corrige un dato falso de la versión larga.** Decía «0 apelaciones que suelan
+  prosperar»; Meta sí tiene proceso de apelación, lo que no tiene es plazo ni
+  interlocutor. Se retira también «1 día puede bastar», que no está medido.
+- Añade lo que faltaba: el castigo puede alcanzar a la **cuenta de empresa**, no
+  sólo al número señalado —de ahí que los dos números no puedan colgar de la
+  misma cuenta de Meta—, y la **ventana de 24 horas** obliga a tener a alguien
+  contestando el mismo día.
+
 ### Entrega 3.1 — configuración de empresa y lista de alta
 
 - **Pantalla de Ajustes con la configuración de empresa**: nombre, país, zona

@@ -165,6 +165,9 @@ Certificado OV/EV de Windows: de una a tres semanas. Apple Developer ID y notari
 | R-18 | Uso indebido del asset stock/IA como material de marca | Baja | Medio | Dirección — uso interno únicamente, registrado en `08-legal/` |
 | **R-19** | **La documentación de privacidad cita una ley probablemente abrogada** (LFPDPPP 2010 → nueva ley de marzo de 2025) | **Alta** | **Alto** | Aviso de vigencia en `PRIVACIDAD_LFPDPPP.md`; **ningún texto legal visible al usuario se congela sin revisión jurídica** — P-09 |
 | **R-20** | **Revocación de la verificación OAuth por parte de Google** si ARLES se asocia a correo no solicitado. La AUP de Workspace prohíbe expresamente facilitar correo masivo no solicitado, y la revocación afecta a **todos los clientes a la vez** | Media | **Crítico** | Cuentas y límites propios del cliente · sin rotación de remitentes (ADR-0008) · disyuntor por tasa de rebote · no posicionar Gmail para prospección en frío |
+| **R-21** | **Meta inhabilita el número de WhatsApp** por prospección en frío, y con él puede caer la **cuenta de empresa entera**, no sólo el número señalado. No hay a quién apelar en la práctica | **Alta** si se envía en frío | **Crítico** para el cliente | Dirección — prueba con número prescindible en **cuenta de Meta aparte** (L-e) · advertencia con casilla · ritmo lento · parada por umbral de bloqueos |
+| **R-22** | **Se pierde a quien respondió** porque nadie contesta dentro de la ventana de 24 h. Falsea además la medición que justifica la prueba, y el silencio empeora la calificación del número | **Alta** si no hay turno asignado | Alto | Dirección — asignar quién contesta y en qué horario (P-14) · sección CONVERSACIONES con el reloj visible (L-5) |
+| **R-23** | **El esquema de la Fase 1 supone que el contacto es un correo.** Migrarlo después de la Fase 4 obliga a reescribir el motor y las campañas ya guardadas | Media | Alto | Ingeniería — adoptar `contact_channel` antes de la Fase 4 (L-2, P-12) |
 
 ---
 

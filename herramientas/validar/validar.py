@@ -1295,10 +1295,16 @@ def preferencias_fuera_del_navegador():
     Windows depende del directorio de WebView2. Una preferencia que se pierde
     al limpiar la caché no se recuerda.
     """
+    # Sólo código. `app/src` también guarda activos binarios —el logotipo de
+    # TELEMETRY teñido— y leerlos como texto rompía el validador con un
+    # UnicodeDecodeError en vez de decir qué pasaba.
+    FUENTES = (".ts", ".js", ".vue", ".mts", ".cts", ".json", ".css", ".html")
     usos = []
     base = os.path.join(RAIZ, "app/src")
     for dir_actual, _, archivos in os.walk(base):
         for a in archivos:
+            if not a.endswith(FUENTES):
+                continue
             ruta = os.path.join(dir_actual, a)
             with open(ruta, encoding="utf-8") as f:
                 if "localStorage" in f.read():

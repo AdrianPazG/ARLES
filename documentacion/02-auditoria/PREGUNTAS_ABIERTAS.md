@@ -135,6 +135,14 @@ El enforcement está fuera de v1.2.0 (T-6, D-4), pero el **esquema** se define a
 | P-08 | Consolidación de `/RECURSOS` | — | R-15 | ⚪ |
 | **P-09** | **¿Cuál es el marco de protección de datos vigente?** | **Antes de congelar cualquier texto legal visible** | **R-19** | 🔴 |
 | **P-10** | ¿Qué cobertura real de correo tiene la lista del DENUE? | Antes de la primera campaña | R-13 | 🟡 |
+| **P-12** | ¿Se acepta **L-2** (canales por contacto) y con ello migrar el esquema de la Fase 1 ahora? | **El rediseño y la Fase 4** | R-23 | 🔴 |
+| **P-13** | ¿Se acepta **L-5** (séptima sección, CONVERSACIONES, condicional a WhatsApp)? | **El rediseño** | R-22 | 🔴 |
+| **P-14** | ¿Quién contesta a los interesados de WhatsApp, y en qué horario? | La primera campaña de WhatsApp | R-22 | 🔴 |
+| **P-15** | ¿WhatsApp entra en la v1.2.0 o el esquema se prepara y el canal llega en v1.2.x? | El roadmap | R-21 | 🔴 |
+
+Las cuatro nuevas salen de
+[LOGISTICA_DE_CAMPANAS](../01-producto/LOGISTICA_DE_CAMPANAS.md), que es donde
+están argumentadas. P-11 se cerró en la entrega 3.1.
 
 **No queda ninguna pregunta bloqueante de las Fases 1 y 2.** P-03 y P-05 se necesitan más adelante y conviene irlas resolviendo en paralelo.
 
