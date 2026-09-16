@@ -27,6 +27,7 @@
 |---|---|
 | [VISION_Y_ALCANCE](01-producto/VISION_Y_ALCANCE.md) | Qué es y qué no es ARLES, bucle central, criterios de éxito |
 | [DECISIONES_DE_DIRECCION](01-producto/DECISIONES_DE_DIRECCION.md) | T-1…T-10 y D-1…D-4. **Registro autoritativo** |
+| [WHATSAPP-PARA-DIRECCION](01-producto/WHATSAPP-PARA-DIRECCION.md) | Por qué WhatsApp no funciona como el correo · nota para Dirección ([PDF](01-producto/WHATSAPP-PARA-DIRECCION.pdf)) |
 | [FUERA_DE_ALCANCE](01-producto/FUERA_DE_ALCANCE.md) | Todo lo diferido, con destino explícito |
 | [GLOSARIO](01-producto/GLOSARIO.md) | Vocabulario compartido, incluido el de la interfaz |
 

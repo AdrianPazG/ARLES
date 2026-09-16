@@ -9,7 +9,7 @@ que pasó.**
 El PDF se genera desde este archivo:
 
 ```
-python3 herramientas/checklist/generar-checklist.py \
+python3 herramientas/documento/generar-pdf.py \
     documentacion/06-calidad/CHECKLIST-3.1.md
 ```
 

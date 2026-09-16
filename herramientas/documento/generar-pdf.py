@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Genera el PDF de una checklist de revisión a partir de su Markdown.
+"""Genera un PDF corporativo de ARLES a partir de su Markdown.
 
-    python3 herramientas/checklist/generar-checklist.py \
-        documentacion/06-calidad/CHECKLIST-3.1.md
+    python3 herramientas/documento/generar-pdf.py \
+        documentacion/01-producto/WHATSAPP-PARA-DIRECCION.md
 
 El PDF **no se edita a mano**: se edita el `.md` y se regenera. Igual que la
 lámina de la paleta se regenera desde `tokens.json`.
@@ -35,6 +35,8 @@ Convenciones del Markdown de entrada:
     !i texto                      información  (círculo con i)
     !x texto                      atención     (círculo con aspa)
     [[casilla]] Etiqueta          fila de resultado: Bien / Mal / notas
+    %% 3 | cifras | en | fila     tira de cifras destacadas (pares valor|texto)
+    @@ Etiqueta | Valor           dato de portada (varios seguidos)
     ![pie](ruta/imagen.png)       imagen con pie
     1. / -                        listas
     | tabla |                     tablas
@@ -215,6 +217,10 @@ class Filete(Flowable):
 
 # ─────────────────────────── Texto ───────────────────────────
 
+# Cualquier línea que empiece por una de estas marcas NO es texto corrido.
+# Estaba repetida en tres sitios; una sola definición evita que se separen.
+MARCAS = r"^(=>|!!|!i|!x|>|###|##|===|%%|@@|\[\[|!\[|\||```|- |\d+\. |---)"
+
 RE_EMOJI = re.compile(
     "[\U0001f000-\U0001faff☀-➿️←-⇿⬀-⯿]"
 )
@@ -284,6 +290,13 @@ def estilos() -> dict[str, ParagraphStyle]:
         "espera": e("es", fontSize=9.5, leading=13.5),
         "callout": e("ca", fontSize=9, leading=12.5),
         "callout_eti": e("ci", fontName=FUENTE_N, fontSize=7.5, leading=10),
+        "cita": e(
+            "ci2", fontSize=11.5, leading=16.5, textColor=PROFUNDO
+        ),
+        "cifra": e(
+            "cf", fontName=FUENTE_N, fontSize=19, leading=21, textColor=ORO_TEXTO
+        ),
+        "cifra_eti": e("ce", fontSize=8, leading=10.5, textColor=TINTA),
         "pie_figura": e(
             "pf", fontSize=8, leading=11, textColor=TENUE, alignment=TA_CENTER
         ),
@@ -322,7 +335,7 @@ def callout(clase: str, texto: str, est, ancho: float) -> Table:
     )
     cuerpo = [Paragraph(etiqueta, eti), Spacer(1, 2), Paragraph(inline(texto), est["callout"])]
 
-    t = Table([[izquierda, cuerpo]], colWidths=[18, ancho - 18])
+    t = Table([[izquierda, cuerpo]], colWidths=[22, ancho - 22])
     t.setStyle(
         TableStyle(
             [
@@ -340,13 +353,13 @@ def callout(clase: str, texto: str, est, ancho: float) -> Table:
     return t
 
 
-def caja_esperado(texto: str, est, ancho: float) -> Table:
+def caja_esperado(texto: str, est, ancho: float, etiqueta: str = "QUÉ DEBE PASAR") -> Table:
     contenido = [
-        Paragraph("QUÉ DEBE PASAR", est["espera_eti"]),
+        Paragraph(etiqueta, est["espera_eti"]),
         Spacer(1, 2.5),
         Paragraph(inline(texto), est["espera"]),
     ]
-    t = Table([[Simbolo("exito", 11), contenido]], colWidths=[18, ancho - 18])
+    t = Table([[Simbolo("exito", 11), contenido]], colWidths=[22, ancho - 22])
     t.setStyle(
         TableStyle(
             [
@@ -402,6 +415,61 @@ def fila_de_resultado(etiqueta: str, est, ancho: float) -> Table:
             ]
         )
     )
+    return t
+
+
+def cita(texto: str, est, ancho: float) -> Table:
+    """Cita destacada.
+
+    Es el recurso para la frase que hay que recordar. Antes no existía y las
+    líneas que empezaban por `>` salían con el símbolo a la vista, metidas
+    dentro del párrafo anterior.
+    """
+    t = Table([[Paragraph(inline(texto), est["cita"])]], colWidths=[ancho])
+    t.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), CREMA),
+                ("LINEBEFORE", (0, 0), (0, -1), 3.5, ORO),
+                ("LEFTPADDING", (0, 0), (-1, -1), 16),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 16),
+                ("TOPPADDING", (0, 0), (-1, -1), 12),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 13),
+            ]
+        )
+    )
+    return t
+
+
+def tira_de_cifras(pares: list[tuple[str, str]], est, ancho: float) -> Table:
+    """Cifras grandes con su etiqueta debajo, en fila.
+
+    Dan densidad donde un párrafo dejaría aire, y hacen que lo que importa se
+    lea antes de leer. La cifra va en oro oscurecido: sobre papel blanco el
+    `#FCCC0C` de marca da 1,5:1 y sería ilegible.
+    """
+    n = max(1, len(pares))
+    celdas_fila = []
+    for valor, etiqueta in pares:
+        celdas_fila.append(
+            [
+                Paragraph(inline(valor), est["cifra"]),
+                Spacer(1, 1),
+                Paragraph(inline(etiqueta), est["cifra_eti"]),
+            ]
+        )
+    t = Table([celdas_fila], colWidths=[ancho / n] * n)
+    estilo = [
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BACKGROUND", (0, 0), (-1, -1), CREMA),
+        ("TOPPADDING", (0, 0), (-1, -1), 9),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
+        ("LEFTPADDING", (0, 0), (-1, -1), 11),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 11),
+    ]
+    for i in range(1, n):
+        estilo.append(("LINEBEFORE", (i, 0), (i, 0), 0.7, colors.HexColor("#DED4C6")))
+    t.setStyle(TableStyle(estilo))
     return t
 
 
@@ -517,7 +585,54 @@ def construir_tabla(filas: list[list[str]], est, ancho: float) -> Table:
 
     n = max(len(f) for f in datos)
     datos = [f + [""] * (n - len(f)) for f in datos]
-    t = Table(datos, colWidths=[ancho / n] * n, repeatRows=1 if hay_cabecera else 0)
+
+    # Columnas proporcionales a lo que llevan dentro, no a partes iguales.
+    #
+    # Con reparto uniforme, una columna de números —«1», «2», «3»— se quedaba
+    # con un tercio de la página en blanco mientras la de al lado se partía en
+    # cuatro renglones. Se mide el texto de cada columna y se reparte, con topes
+    # para que ninguna quede ni ridícula ni acaparadora.
+    crudas = [
+        [re.sub(r"<[^>]+>", "", c) if isinstance(c, str) else "" for c in fila]
+        for fila in ([cab] if hay_cabecera else []) + cuerpo
+    ]
+    pesos = []
+    for col in range(n):
+        largo = max(
+            (len(fila[col]) for fila in crudas if col < len(fila)), default=1
+        )
+        pesos.append(max(6, min(largo, 70)))
+    total = sum(pesos)
+    anchos = [ancho * peso / total for peso in pesos]
+    # El suelo de cada columna es **la palabra más larga que lleva dentro**, no
+    # un porcentaje. Con un porcentaje, «Operaciones» se partía en
+    # «Operacione / s»: el reparto proporcional le daba poco ancho porque el
+    # resto de su columna era corto. Una palabra no se puede partir, así que es
+    # ella la que manda.
+    minimos = []
+    for col in range(n):
+        palabras = [
+            w
+            for fila in crudas
+            if col < len(fila)
+            for w in fila[col].split()
+        ]
+        ancha = max(
+            (stringWidth(w, FUENTE_N, 9) for w in palabras), default=0
+        )
+        minimos.append(min(ancho * 0.45, ancha + 16))
+
+    if sum(minimos) <= ancho:
+        # Se reparte lo que sobra por encima de los mínimos, en proporción.
+        sobrante = ancho - sum(minimos)
+        peso_total = sum(pesos) or 1
+        anchos = [
+            minimos[c] + sobrante * pesos[c] / peso_total for c in range(n)
+        ]
+    else:
+        anchos = [ancho * m / sum(minimos) for m in minimos]
+
+    t = Table(datos, colWidths=anchos, repeatRows=1 if hay_cabecera else 0)
     estilo = [
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("GRID", (0, 0), (-1, -1), 0.5, BORDE),
@@ -632,6 +747,18 @@ def convertir(md: str, est, ancho: float, base: Path) -> tuple[list, dict]:
             i += 1
             continue
 
+        # ── Cita destacada ──
+        if s.startswith(">"):
+            cerrar()
+            texto = s.lstrip("> ").strip()
+            while i + 1 < len(lineas) and lineas[i + 1].strip().startswith(">"):
+                i += 1
+                texto += " " + lineas[i].strip().lstrip("> ").strip()
+            flujo.append(cita(texto, est, ancho))
+            flujo.append(Spacer(1, 10))
+            i += 1
+            continue
+
         # ── Sección ──
         if s.startswith("=== "):
             cerrar()
@@ -639,13 +766,17 @@ def convertir(md: str, est, ancho: float, base: Path) -> tuple[list, dict]:
             letra, _, resto = titulo.partition("·")
             letra, resto = letra.strip(), resto.strip()
             meta["secciones"].append((letra, resto))
+            # `CondPageBreak` y no `PageBreak`: forzar página por sección dejaba
+            # media página en blanco cada vez. Sólo salta si lo que viene no
+            # cabe, que es cuando el salto sirve para algo.
             if not primera_seccion:
-                flujo.append(PageBreak())
+                flujo.append(Spacer(1, 14))
+                flujo.append(CondPageBreak(42 * mm))
             primera_seccion = False
             flujo.append(banda_de_seccion(letra, resto, est, ancho))
             flujo.append(Spacer(1, 4))
             flujo.append(Filete(ancho, 2.2, ORO))
-            flujo.append(Spacer(1, 11))
+            flujo.append(Spacer(1, 9))
             i += 1
             continue
 
@@ -658,7 +789,11 @@ def convertir(md: str, est, ancho: float, base: Path) -> tuple[list, dict]:
             if not resto:  # un ### sin identificador
                 ident, resto = "", titulo
             meta["pruebas"] += 1
-            flujo.append(CondPageBreak(60 * mm))
+            # 38 mm y no 60: reservar más deja huecos grandes al final de las
+            # páginas, que era la queja concreta de Dirección. Con 38 entra el
+            # encabezado y sus primeras líneas, que es lo que hay que evitar
+            # separar.
+            flujo.append(CondPageBreak(38 * mm))
             flujo.append(Spacer(1, 4))
             flujo.append(cabecera_de_prueba(ident, resto, est, ancho) if ident
                          else Paragraph(inline(resto), est["prueba"]))
@@ -682,12 +817,19 @@ def convertir(md: str, est, ancho: float, base: Path) -> tuple[list, dict]:
             texto = s[3:].strip()
             # Puede continuar en las líneas siguientes.
             while i + 1 < len(lineas) and lineas[i + 1].strip() and not re.match(
-                r"^(=>|!!|!i|!x|###|##|===|\[\[|!\[|\||```|- |\d+\. )", lineas[i + 1].strip()
+                MARCAS, lineas[i + 1].strip()
             ):
                 i += 1
                 texto += " " + lineas[i].strip()
             texto = re.sub(r"^Debe pasar:\s*", "", texto)
-            flujo.append(caja_esperado(texto, est, ancho))
+            # `=> ETIQUETA :: texto` permite renombrar la caja. Sin `::`, la
+            # etiqueta por defecto sigue siendo la de las checklists.
+            etiqueta = "QUÉ DEBE PASAR"
+            if "::" in texto:
+                posible, _, resto = texto.partition("::")
+                if len(posible) < 40:
+                    etiqueta, texto = posible.strip().upper(), resto.strip()
+            flujo.append(caja_esperado(texto, est, ancho, etiqueta))
             flujo.append(Spacer(1, 7))
             i += 1
             continue
@@ -699,12 +841,32 @@ def convertir(md: str, est, ancho: float, base: Path) -> tuple[list, dict]:
             clase = {"!": "aviso", "i": "info", "x": "peligro"}[m.group(1)]
             texto = m.group(2)
             while i + 1 < len(lineas) and lineas[i + 1].strip() and not re.match(
-                r"^(=>|!!|!i|!x|###|##|===|\[\[|!\[|\||```|- |\d+\. )", lineas[i + 1].strip()
+                MARCAS, lineas[i + 1].strip()
             ):
                 i += 1
                 texto += " " + lineas[i].strip()
             flujo.append(callout(clase, texto, est, ancho))
             flujo.append(Spacer(1, 8))
+            i += 1
+            continue
+
+        # ── Tira de cifras ──
+        if s.startswith("%% "):
+            cerrar()
+            partes = [p.strip() for p in s[3:].split("|")]
+            pares = [
+                (partes[i], partes[i + 1] if i + 1 < len(partes) else "")
+                for i in range(0, len(partes), 2)
+            ]
+            flujo.append(tira_de_cifras(pares, est, ancho))
+            flujo.append(Spacer(1, 9))
+            i += 1
+            continue
+
+        # ── Dato de portada ──
+        if s.startswith("@@ "):
+            etiqueta, _, valor = s[3:].partition("|")
+            meta.setdefault("datos", []).append((etiqueta.strip(), valor.strip()))
             i += 1
             continue
 
@@ -780,8 +942,20 @@ def convertir(md: str, est, ancho: float, base: Path) -> tuple[list, dict]:
             i += 1
             continue
 
+        # Texto corrido: se juntan las líneas hasta el siguiente hueco o marca.
+        #
+        # Sin esto cada línea del fuente era un párrafo suyo, con su propio
+        # interlineado, y una negrita que cruzara de línea salía con los
+        # asteriscos a la vista porque el patrón no cierra dentro de la línea.
         cerrar_lista()
-        flujo.append(Paragraph(inline(s), est["cuerpo"]))
+        texto = s
+        while i + 1 < len(lineas):
+            siguiente = lineas[i + 1].strip()
+            if not siguiente or re.match(MARCAS, siguiente):
+                break
+            i += 1
+            texto += " " + siguiente
+        flujo.append(Paragraph(inline(texto), est["cuerpo"]))
         i += 1
 
     cerrar()
@@ -792,25 +966,45 @@ def convertir(md: str, est, ancho: float, base: Path) -> tuple[list, dict]:
 
 
 def portada(canvas, doc, meta: dict) -> None:
+    """Portada a sangre completa.
+
+    Oscura de arriba abajo, y no a medias: la primera versión pintaba la banda
+    hasta el 42 % de la altura y la tabla de datos caía debajo, con texto crema
+    sobre papel blanco. Ilegible. Si el fondo es de una pieza, nada de lo que se
+    coloque encima puede quedarse sin contraste.
+    """
     ancho, alto = A4
     canvas.saveState()
 
     canvas.setFillColor(PROFUNDO)
-    canvas.rect(0, alto * 0.42, ancho, alto * 0.58, stroke=0, fill=1)
+    canvas.rect(0, 0, ancho, alto, stroke=0, fill=1)
+
+    # Filete de acento arriba, a sangre: da presencia sin ocupar espacio.
     canvas.setFillColor(ORO)
-    canvas.rect(0, alto * 0.42 - 4, ancho, 4, stroke=0, fill=1)
+    canvas.rect(0, alto - 6, ancho, 6, stroke=0, fill=1)
 
     # Marca. Es texto, no el logotipo: el logotipo es Mont Black y esta fuente
     # no lo es (P-01). Se escribe el nombre, no se imita la marca.
-    canvas.setFont(FUENTE_N, 13)
+    canvas.setFont(FUENTE_N, 12.5)
     canvas.setFillColor(CREMA)
-    canvas.drawString(MARGEN, alto - 32 * mm, "ARLES")
-    w = stringWidth("ARLES ", FUENTE_N, 13)
+    canvas.drawString(MARGEN, alto - 24 * mm, "ARLES")
+    w = stringWidth("ARLES ", FUENTE_N, 12.5)
     canvas.setFillColor(ORO)
-    canvas.drawString(MARGEN + w, alto - 32 * mm, "RELAY I")
+    canvas.drawString(MARGEN + w, alto - 24 * mm, "RELAY I")
     canvas.setFont(FUENTE, 8.5)
     canvas.setFillColor(colors.HexColor("#8FA9B8"))
-    canvas.drawRightString(ancho - MARGEN, alto - 32 * mm, "v1.2.0 · Entrega 3.1")
+    canvas.drawRightString(ancho - MARGEN, alto - 24 * mm, "v1.2.0")
+
+    # Pie de portada.
+    canvas.setStrokeColor(colors.HexColor("#123448"))
+    canvas.setLineWidth(0.6)
+    canvas.line(MARGEN, 24 * mm, ancho - MARGEN, 24 * mm)
+    canvas.setFont(FUENTE_N, 8.5)
+    canvas.setFillColor(CREMA)
+    canvas.drawString(MARGEN, 18 * mm, "TELEMETRY INSIGHT")
+    canvas.setFont(FUENTE, 8.5)
+    canvas.setFillColor(colors.HexColor("#8FA9B8"))
+    canvas.drawRightString(ancho - MARGEN, 18 * mm, "telemetrymx.com")
 
     canvas.restoreState()
 
@@ -840,18 +1034,18 @@ def cuerpo_pagina(canvas, doc, meta: dict) -> None:
 
 def bloque_de_portada(meta: dict, est, ancho: float) -> list:
     alto = A4[1]
-    flujo = [Spacer(1, alto * 0.24)]
+    flujo = [Spacer(1, alto * 0.26)]
     flujo.append(Paragraph(meta["titulo"], est["portada_titulo"]))
-    flujo.append(Spacer(1, 7))
+    flujo.append(Spacer(1, 8))
+    flujo.append(Filete(58, 3, ORO))
+    flujo.append(Spacer(1, 10))
     flujo.append(Paragraph(meta["subtitulo"], est["portada_sub"]))
-    flujo.append(Spacer(1, alto * 0.20))
+    flujo.append(Spacer(1, alto * 0.17))
 
-    datos = [
+    datos = meta.get("datos") or [
         ("PARA", "Dirección · Adrián Paz"),
         ("QUÉ SE REVISA", f"{meta['pruebas']} pruebas en {len(meta['secciones'])} bloques"),
         ("CUÁNTO TARDA", "Unos 35 minutos"),
-        ("FECHA DE LA REVISIÓN", "____ / ____ / ________"),
-        ("EQUIPO Y ESCALA", "_________________________________"),
     ]
     filas = []
     for eti, val in datos:
@@ -867,7 +1061,7 @@ def bloque_de_portada(meta: dict, est, ancho: float) -> list:
                 ("RIGHTPADDING", (0, 0), (-1, -1), 0),
                 ("TOPPADDING", (0, 0), (-1, -1), 5),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-                ("LINEBELOW", (0, 0), (-1, -2), 0.4, colors.HexColor("#1E3B4D")),
+                ("LINEBELOW", (0, 0), (-1, -1), 0.4, colors.HexColor("#123448")),
             ]
         )
     )
