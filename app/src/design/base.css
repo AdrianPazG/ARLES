@@ -143,7 +143,7 @@ table,
 /* El foco es innegociable (§100). Nunca `outline: none` sin sustituto visible.
  * El acento pasa AA no textual contra las cuatro superficies (COLOR_SYSTEM §5). */
 :focus-visible {
-  outline: var(--arles-focus-width) solid var(--arles-accent);
+  outline: var(--arles-focus-width) solid var(--arles-accent-ink);
   outline-offset: 2px;
 }
 

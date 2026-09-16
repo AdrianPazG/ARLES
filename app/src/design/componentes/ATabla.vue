@@ -325,7 +325,7 @@ watch(
 /* Fondo Y barra de acento: dos señales (regla 7.3). */
 .fila.seleccionada {
   background: var(--arles-surface-raised);
-  box-shadow: inset 3px 0 0 var(--arles-accent);
+  box-shadow: inset 3px 0 0 var(--arles-accent-ink);
 }
 
 .celda {
@@ -376,7 +376,7 @@ watch(
 }
 
 .marca-de-orden {
-  color: var(--arles-accent);
+  color: var(--arles-accent-ink);
   transform: rotate(180deg);
   transition: transform var(--arles-duration-fast) var(--arles-ease);
 }

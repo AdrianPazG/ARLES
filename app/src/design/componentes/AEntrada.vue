@@ -149,7 +149,7 @@ const descrito = computed(() => {
 }
 
 .requerido {
-  color: var(--arles-accent);
+  color: var(--arles-accent-ink);
   margin-left: 0.15em;
 }
 

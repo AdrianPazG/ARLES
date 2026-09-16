@@ -223,8 +223,138 @@ El resultado buscado: **tecnológico, corporativo, premium, sobrio.**
 
 ---
 
-## 11. Modo claro
+## 11. Tema claro
 
-**Fuera de alcance en v1.2.0.** El §18 pide explorar dark-first, y un segundo tema completo duplica el trabajo de verificación de contraste sin aportar al bucle central.
+> **Estado: entregado y medido. Pendiente de aprobación de Dirección.**
+> Reemplaza la versión anterior de esta sección, que lo declaraba fuera de
+> alcance para la v1.2.0. Dirección lo pidió el 16/09/2026: el tema arranca en
+> lo que diga el sistema operativo y un desplegable de Ajustes permite fijarlo.
 
-Lo que sí se hace para no cerrar la puerta: **todos los colores viven en tokens** (§17), así que añadir un tema claro en v1.3 es redefinir variables, no tocar componentes. Ningún componente contiene un hex literal.
+Lámina con los dos temas: `REFERENCIA_DE_COLOR/ARLES_RELAY-paleta-v1.2.0.png`.
+Pantallas reales en los dos temas: `imagenes/tema-*.png`, producidas por
+`node app/pruebas/sondas/temas.mjs`.
+
+### 11.1 El principio
+
+**El claro es una traducción del oscuro, no un sistema aparte.** Cada token
+lleva sus dos valores en `tokens.json` —`hex` es el oscuro, `claro` el
+traducido— y **los mismos contratos de contraste se miden en los dos**. Son 64
+comprobaciones, 32 por tema.
+
+Un contrato que sólo se verificara en el oscuro no serviría de nada: el claro es
+precisamente donde el oro se vuelve ilegible y donde los semánticos se
+invierten.
+
+### 11.2 La rampa se invierte
+
+| Token | Oscuro | Claro | |
+|---|---|---|---|
+| `--arles-bg-deep` | `#041A25` | `#F2EEE9` | la página |
+| `--arles-surface` | `#053048` | `#FAF8F5` | paneles, barra lateral |
+| `--arles-border` | `#0A4E71` | `#DCD3C8` | separadores |
+| `--arles-surface-raised` | `#045686` | `#FFFFFF` | tarjetas, modales |
+| `--arles-surface-hover` | `#0C6F9D` | `#E7DFD4` | estado transitorio |
+| `--arles-border-strong` | `#93D4EE` | `#8A7A64` | límite de control |
+
+En oscuro, *elevado* significa **más claro**. En claro significa **más blanco**,
+y el hover va al revés: **se oscurece**. Es lo que la gente espera, y contradecir
+esa expectativa se siente como un error aunque los ratios pasen.
+
+Los cremas del claro no son neutros: conservan el matiz cálido de
+`--arles-text` (30-36°), de modo que el papel de ARLES es el mismo papel de su
+crema, no un gris de plantilla.
+
+### 11.3 Tres cosas que el claro obligó a separar
+
+El tema claro no fue traducir dieciséis colores. Reveló que **tres tokens
+estaban haciendo dos trabajos cada uno**, y que el fondo oscuro lo perdonaba.
+
+#### El acento como tinta ≠ el acento como relleno
+
+`--arles-accent` (`#FCCC0C`) se usaba a la vez como texto, como trazo, como
+anillo de foco y como relleno de botón. Sobre fondo profundo las cuatro cosas
+funcionan. Sobre papel, el oro da **1.5:1**: ilegible.
+
+=> Se separa en dos. `--arles-accent` es **sólo relleno** y vale `#FCCC0C` en
+los dos temas. `--arles-accent-ink` es **texto, trazo y foco**: `#FCCC0C` en
+oscuro, `#7A5B00` en claro (5.47:1 contra la página).
+
+Siete de los diez usos del acento en los componentes eran tinta o trazo, y
+pasaron a `--arles-accent-ink`. Los tres que quedan son rellenos.
+
+#### La tinta sobre relleno no es una sola
+
+`--arles-text-on-accent` era un alias de `--arles-bg-deep`, con este argumento:
+«existe para que nadie ponga texto claro sobre relleno claro». En claro
+`--arles-bg-deep` **es** claro, así que el alias se volvía la trampa que venía a
+evitar.
+
+Y hay un motivo de fondo: **los rellenos semánticos se invierten entre temas.**
+En oscuro el peligro es un salmón claro que pide tinta oscura; en claro es un
+rojo oscuro que pide tinta blanca. Una sola tinta no puede servir a los dos.
+
+=> Tres tokens explícitos, uno por relleno: `--arles-text-on-accent`,
+`--arles-text-on-danger`, `--arles-text-on-info`.
+
+#### El relleno de acento necesita contorno en claro
+
+El oro sobre la página da **1.32:1**. El botón se lee —la etiqueta va a
+10.49:1— pero **como forma no existe**, y el 1.4.11 pide 3:1 para lo que
+identifica un control.
+
+=> En el tema claro todo relleno de acento lleva borde de
+`--arles-accent-ink`, que contra la página da 5.47:1. En oscuro no hace falta:
+allí el mismo oro ya recorta contra el fondo profundo.
+
+### 11.4 Un defecto del tema oscuro que apareció al medir el claro
+
+Al añadir el contrato «el borde de un control tiene que verse también dentro de
+una tarjeta», el **tema oscuro falló**: `--arles-border-strong` `#1380AE` sobre
+`--arles-surface-raised` `#045686` daba **1.76:1**.
+
+Traducido: **un campo de formulario dentro de una tarjeta, en el tema oscuro,
+tenía un contorno que prácticamente no se veía.** Está así desde la Fase 2.
+
+=> Corregido: `--arles-border-strong` sube a `#93D4EE`, que cumple 3:1 contra
+las cuatro superficies oscuras —página 10.93, panel 8.47, tarjeta 4.81, hover
+3.41— y no sólo contra la página.
+
+!i Es el argumento de por qué el segundo tema valía la pena aunque nadie lo
+hubiera pedido: **medir la misma regla dos veces encuentra lo que medirla una
+vez esconde.**
+
+### 11.5 Dos advertencias pasan a ser sólo del tema oscuro
+
+`--arles-info` y `--arles-surface-hover` guardan colores de familias distintas
+en cada tema, así que dos de las advertencias documentadas dejan de aplicar en
+claro y lo dicen en `tokens.json` con `"tema": "oscuro"`:
+
+| Advertencia | Por qué sólo en oscuro |
+|---|---|
+| El cian vivo no puede ser superficie con texto | En claro `--arles-info` es `#0A5E80`, un cian **entintado**: blanco encima da 7.18:1 |
+| Los semánticos no viven sobre superficies claras | En claro la pareja se invierte —superficie clara, tinta oscura— y pasa de sobra |
+
+Las reglas **no se debilitan**: siguen siendo verdad donde se escribieron. Lo
+que cambia es que el token guarda otro color.
+
+### 11.6 Cómo se activa
+
+```css
+:root                      { /* oscuro */ }
+:root[data-tema="claro"]   { /* claro  */ }
+```
+
+**Deliberadamente no se cuelga de `@media (prefers-color-scheme)`.** El sistema
+operativo es sólo el valor de partida: Dirección pidió que el usuario pueda
+fijarlo desde Ajustes, y esa elección tiene que ganarle al sistema. Lo único que
+puede saber si el usuario eligió o se dejó llevar es la aplicación, así que es
+ella quien escribe `data-tema`.
+
+### 11.7 Lo que falta
+
+| | Qué | Estado |
+|---|---|---|
+| **C-1** | El desplegable de tema en Ajustes, con la preferencia guardada en `ui_preference` | por construir |
+| **C-2** | Seguir `prefers-color-scheme` **mientras** el usuario no haya elegido | por construir |
+| **C-3** | El logotipo de TELEMETRY ya tiene su versión clara ([MARCA_TELEMETRY](MARCA_TELEMETRY.md)); falta colocarlo | por construir |
+| **C-4** | Revisión en WKWebView (R-07): el claro no se ha visto en macOS | abierto |

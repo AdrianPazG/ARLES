@@ -99,6 +99,14 @@ withDefaults(
   background: var(--arles-accent-hover);
 }
 
+/* En el tema claro el oro sobre papel da 1.32:1: el botón se lee, pero como
+   forma no existe. El borde es lo que le devuelve el contorno —5.47:1 contra
+   la página— y lo que cumple el 1.4.11. En oscuro no hace falta: ahí el mismo
+   oro ya recorta contra el fondo profundo. */
+:root[data-tema='claro'] .v-primario {
+  border-color: var(--arles-accent-ink);
+}
+
 .v-secundario {
   background: transparent;
   color: var(--arles-text);

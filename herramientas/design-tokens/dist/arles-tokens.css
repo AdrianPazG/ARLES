@@ -10,7 +10,7 @@
   --arles-border        : #0A4E71;  /* Separadores */
   --arles-surface-raised: #045686;  /* Tarjetas, modales */
   --arles-surface-hover : #0C6F9D;  /* Estado transitorio */
-  --arles-border-strong : #1380AE;  /* Bordes de énfasis */
+  --arles-border-strong : #93D4EE;  /* Borde de énfasis y límite de control. Sube hasta aquí porque tiene que verse también dentro de una tarjeta (1.4.11). */
 
   /* Contenido y acento */
   --arles-text         : #F4ECE4;  /* Texto primario */
@@ -19,6 +19,7 @@
   --arles-info         : #2CA4D4;  /* Trazo, borde, foco — nunca relleno */
   --arles-accent-hover : #FFD83A;  /* Acento en hover · relleno del botón primario */
   --arles-text-disabled: #9FB4BF;  /* Texto de un control deshabilitado. Nunca para contenido. */
+  --arles-accent-ink   : #FCCC0C;  /* Acento como texto, trazo y anillo de foco. En claro el oro de relleno es ilegible. */
 
   /* Semánticos */
   --arles-success     : #4FC3A1;  /* Aceptado */
@@ -26,6 +27,37 @@
   --arles-danger      : #F06A5A;  /* Error, detener */
   --arles-danger-hover: #F4867A;  /* Peligro en hover · relleno del botón de peligro */
 
-  /* Alias */
-  --arles-text-on-accent: var(--arles-bg-deep);  /* Texto sobre rellenos claros. Existe para que nadie ponga texto claro sobre relleno claro. */
+  /* Tintas sobre relleno */
+  --arles-text-on-accent: #041A25;  /* Texto sobre el relleno de acento. El oro es claro en los dos temas, asi que la tinta es oscura en los dos. */
+  --arles-text-on-danger: #041A25;  /* Texto sobre el relleno de peligro. En oscuro el rojo es claro; en claro es oscuro. La tinta se invierte. */
+  --arles-text-on-info  : #041A25;  /* Texto sobre relleno de info, si alguna vez lo hubiera. Misma inversion que peligro. */
+
+}
+
+/* Tema claro. Se activa con [data-tema="claro"] en <html>.
+ * No se cuelga de @media (prefers-color-scheme) porque el sistema es
+ * sólo el valor de partida: el usuario puede fijarlo desde Ajustes, y
+ * esa elección tiene que ganarle a la del sistema operativo.
+ */
+:root[data-tema="claro"] {
+  --arles-bg-deep       : #F2EEE9;
+  --arles-surface       : #FAF8F5;
+  --arles-border        : #DCD3C8;
+  --arles-surface-raised: #FFFFFF;
+  --arles-surface-hover : #E7DFD4;
+  --arles-border-strong : #8A7A64;
+  --arles-text          : #10242E;
+  --arles-text-muted    : #46585F;
+  --arles-accent        : #FCCC0C;
+  --arles-info          : #0A5E80;
+  --arles-accent-hover  : #EFBF00;
+  --arles-text-disabled : #78868D;
+  --arles-accent-ink    : #7A5B00;
+  --arles-success       : #0F6B52;
+  --arles-warning       : #8A5200;
+  --arles-danger        : #B0281B;
+  --arles-danger-hover  : #8E1F14;
+  --arles-text-on-accent: #10242E;
+  --arles-text-on-danger: #FFFFFF;
+  --arles-text-on-info  : #FFFFFF;
 }

@@ -145,7 +145,7 @@ function alPulsarTecla(evento: KeyboardEvent) {
 /* Seleccionada: color Y subrayado. Dos señales, no sólo color (regla 7.3). */
 .tira[aria-selected='true'] {
   color: var(--arles-text);
-  border-bottom-color: var(--arles-accent);
+  border-bottom-color: var(--arles-accent-ink);
 }
 
 .tira:disabled {

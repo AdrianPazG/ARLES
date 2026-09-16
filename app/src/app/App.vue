@@ -288,7 +288,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
 .nav-enlace.router-link-active {
   background: var(--arles-surface-raised);
   color: var(--arles-text);
-  box-shadow: inset 3px 0 0 var(--arles-accent);
+  box-shadow: inset 3px 0 0 var(--arles-accent-ink);
 }
 
 /* Se distingue de la navegación real: no es una sección del producto, es una

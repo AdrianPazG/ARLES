@@ -68,7 +68,7 @@ withDefaults(
 }
 
 .relay {
-  color: var(--arles-accent);
+  color: var(--arles-accent-ink);
   margin-left: 0.35ch;
 }
 </style>

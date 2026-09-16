@@ -12,6 +12,51 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Tema claro, medido en los mismos contratos que el oscuro
+
+- **Paleta clara completa.** Cada token lleva ahora sus dos valores en
+  `tokens.json`, y **los mismos contratos de contraste se miden en los dos
+  temas**: 64 comprobaciones, 32 por tema. Un contrato que sólo se verificara en
+  el oscuro no serviría de nada, porque el claro es precisamente donde el oro se
+  vuelve ilegible y donde los semánticos se invierten.
+- **El claro obligó a separar tres tokens que hacían dos trabajos.** El acento
+  se usaba a la vez como texto, trazo, anillo de foco y relleno de botón; sobre
+  fondo profundo las cuatro cosas funcionan, sobre papel el oro da 1.5:1. Ahora
+  `--arles-accent` es sólo relleno y `--arles-accent-ink` es tinta y trazo.
+  Siete de los diez usos del acento en los componentes eran tinta: se migraron.
+- **`--arles-text-on-accent` era un alias de `--arles-bg-deep`** con el
+  argumento de que «existe para que nadie ponga texto claro sobre relleno
+  claro». En el tema claro `--arles-bg-deep` **es** claro, así que el alias se
+  volvía la trampa que venía a evitar. Pasa a ser tres tokens explícitos, uno
+  por relleno, porque los rellenos semánticos se invierten entre temas: en
+  oscuro el peligro es un salmón claro que pide tinta oscura, en claro un rojo
+  oscuro que pide tinta blanca.
+- **En claro, el botón de acento lleva borde.** El oro sobre la página da
+  1.32:1: se lee, pero como forma no existe, y el 1.4.11 pide 3:1 para lo que
+  identifica un control.
+
+#### El defecto que apareció al medir
+
+- **El tema oscuro tenía los contornos de control casi invisibles dentro de una
+  tarjeta**, y llevaba así desde la Fase 2. Al añadir el contrato «el borde de
+  un control tiene que verse también dentro de una tarjeta», el oscuro falló:
+  `--arles-border-strong` sobre `--arles-surface-raised` daba **1.76:1**. Sube a
+  `#93D4EE`, que cumple 3:1 contra las cuatro superficies oscuras y no sólo
+  contra la página.
+- Es el argumento de por qué el segundo tema valía la pena: **medir la misma
+  regla dos veces encuentra lo que medirla una vez esconde.**
+
+#### Comprobado
+
+- El bait-test del verificador: con un gris secundario demasiado claro, falla en
+  **cuatro contratos y sólo en el tema claro**.
+- `node app/pruebas/sondas/temas.mjs` renderiza Inicio, Ajustes y el catálogo en
+  los dos temas, aplicando `data-tema` igual que lo hará la aplicación. Si
+  dejara de pintar el claro, sería porque el mecanismo real está roto.
+- La lámina de color enseña los dos temas por token y las dos matrices de
+  contraste. De paso se corrigió su alto: al pasar de tres reglas aparecía una
+  segunda fila y **el pie se salía de la imagen**.
+
 ### Logística de los dos canales, y el logotipo de TELEMETRY
 
 - **`documentacion/01-producto/LOGISTICA_DE_CAMPANAS.md`**: el recorrido
@@ -19,13 +64,27 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
   configura una vez, lo que se prepara en cada campaña, lo que corre solo y lo
   que hay que atender—. Es el documento que Dirección pidió antes de rediseñar
   nada, y del que sale el rediseño.
-- **Seis decisiones nuevas (L-1…L-6).** Las tres que cuestan dinero: una
-  campaña es de **un solo canal**, porque una mixta rompe el preflight, las
-  métricas, el registro de permiso y la parada de emergencia a la vez; el
-  contacto pasa a tener **canales** en lugar de ser un correo, lo que abre una
-  migración del esquema de la Fase 1; y WhatsApp obliga a una sección
-  **CONVERSACIONES** con el reloj de 24 horas, que aparece sólo cuando el canal
-  existe.
+- **Diez decisiones (L-1…L-10).** Las tres que cuestan dinero: una campaña tiene
+  **una o dos etapas y cada etapa es de un canal** —lo que no se mezcla es el
+  envío, no la campaña—; el contacto pasa a tener **canales** en lugar de ser un
+  correo, lo que abre una migración del esquema de la Fase 1; y WhatsApp obliga
+  a una sección **CONVERSACIONES** con el reloj de 24 horas, que aparece sólo
+  cuando el canal existe.
+- L-1 se escribió primero como «una campaña es de un solo canal», pensando en un
+  envío mixto simultáneo, y **estaba mal**: lo que Dirección pidió es una
+  secuencia sobre una misma tabla —sale el correo y quien pase los filtros
+  recibe después el WhatsApp—, que no rompe nada. Corregida el 16/09/2026.
+- **L-7: no se puede comprobar si un número está dado de alta en WhatsApp.** El
+  endpoint que servía para eso era de la API On-Premises, apagada en octubre de
+  2025, y antes de apagarla Meta ya lo había alterado para que devolviera
+  «válido» siempre. Las alternativas de terceros manejan WhatsApp Web por detrás
+  y exigen subir la lista del cliente a un extraño.
+- **L-8: se rota entre plantillas escritas por el usuario y se mide cuál rinde.**
+  No se genera ni muta texto para esquivar filtros: eso es evasión, y el §154 la
+  prohíbe. Además no serviría — lo que Meta mide son bloqueos, no repeticiones.
+- **L-9** (dos modos: «Seguimiento» y «Prospección Directa») y **L-10**
+  (CONVERSACIONES es para trabajar; las estadísticas van en ACTIVIDAD, y queda
+  escrito que Meta no dice quién te bloquea ni quién te reporta).
 - **Tres riesgos nuevos** en la matriz: R-21 (Meta inhabilita el número, y
   puede llevarse la cuenta entera), R-22 (se pierde a quien respondió porque
   nadie contesta dentro de la ventana) y R-23 (migrar el esquema después de la

@@ -74,17 +74,26 @@ def hsl(c):
 
 # ─── modelo ───────────────────────────────────────────────────────────────────
 
+#: Los dos temas, y de qué campo sale el color de cada uno. `hex` es el oscuro
+#: porque ARLES nació oscuro: el claro es su traducción, no un sistema aparte.
+TEMAS = (("oscuro", "hex"), ("claro", "claro"))
+
+
 def cargar():
     with open(TOKENS, encoding="utf-8") as f:
         d = json.load(f)
 
-    mapa = {}
-    for grupo in d["grupos"].values():
-        for c in grupo["colores"]:
-            mapa[c["token"]] = c["hex"]
-    for a in d.get("alias", []):
-        mapa[a["token"]] = mapa[a["valor"]]
-    d["_mapa"] = mapa
+    d["_mapas"] = {}
+    for tema, campo in TEMAS:
+        mapa = {}
+        for grupo in d["grupos"].values():
+            for c in grupo["colores"]:
+                if campo not in c:
+                    sys.exit(f"ERROR: {c['token']} no tiene valor para el tema {tema}")
+                mapa[c["token"]] = c[campo]
+        d["_mapas"][tema] = mapa
+    #: El oscuro sigue siendo el mapa por defecto de quien no pregunte por tema.
+    d["_mapa"] = d["_mapas"]["oscuro"]
     return d
 
 
@@ -100,34 +109,53 @@ def resolver(mapa, ref):
 # ─── verificación ─────────────────────────────────────────────────────────────
 
 def verificar(d):
-    mapa = d["_mapa"]
+    """Los mismos contratos, en los dos temas.
+
+    Un contrato que sólo se comprobara en el oscuro no serviría de nada: el
+    tema claro es donde el oro se vuelve ilegible y donde los semánticos se
+    invierten. Por eso la lista es una sola y se mide dos veces.
+    """
     fallos = []
-    print("Contratos de contraste")
-    print("─" * 74)
+    contados = 0
 
-    for c in d["contratos"]:
-        fg, bg = resolver(mapa, c["frente"]), resolver(mapa, c["fondo"])
-        v = contraste(rgb(bg), rgb(fg))
-        ok = v >= c["min"]
-        print(f"  {'OK ' if ok else 'FALLA'}  {v:6.2f}:1  (min {c['min']})  "
-              f"{c['frente']} sobre {c['fondo']}")
-        if not ok:
-            fallos.append(f"{c['frente']} sobre {c['fondo']}: {v:.2f}:1, "
-                          f"exigido {c['min']}:1 — {c['por_que']}")
+    for tema, _ in TEMAS:
+        mapa = d["_mapas"][tema]
+        print(f"Contratos de contraste · tema {tema}")
+        print("─" * 74)
+        for c in d["contratos"]:
+            fg, bg = resolver(mapa, c["frente"]), resolver(mapa, c["fondo"])
+            v = contraste(rgb(bg), rgb(fg))
+            ok = v >= c["min"]
+            contados += 1
+            print(f"  {'OK ' if ok else 'FALLA'}  {v:6.2f}:1  (min {c['min']})  "
+                  f"{c['frente']} sobre {c['fondo']}")
+            if not ok:
+                fallos.append(f"[{tema}] {c['frente']} sobre {c['fondo']}: "
+                              f"{v:.2f}:1, exigido {c['min']}:1 — {c['por_que']}")
+        print()
 
-    print("\nAdvertencias documentadas (deben seguir fallando)")
+    print("Advertencias documentadas (deben seguir fallando)")
     print("─" * 74)
+    avisos = 0
     for a in d["advertencias"]:
-        fg, bg = resolver(mapa, a["frente"]), resolver(mapa, a["fondo"])
-        v = contraste(rgb(bg), rgb(fg))
-        ok = v < a["max"]
-        print(f"  {'OK ' if ok else 'STALE'}  {v:6.2f}:1  (< {a['max']})  "
-              f"{a['frente']} sobre {a['fondo']}")
-        if not ok:
-            fallos.append(
-                f"DOCUMENTACION OBSOLETA: {a['frente']} sobre {a['fondo']} "
-                f"ahora da {v:.2f}:1 y ya pasaría AA. La regla de {a['regla']} "
-                f"dejó de ser cierta: actualízala o revierte el color.")
+        #: Una advertencia puede ser de un solo tema. La del cian vivo lo es:
+        #: en claro ese token guarda un cian entintado que sí carga texto.
+        for tema, _ in TEMAS:
+            if a.get("tema", "ambos") not in ("ambos", tema):
+                continue
+            mapa = d["_mapas"][tema]
+            fg, bg = resolver(mapa, a["frente"]), resolver(mapa, a["fondo"])
+            v = contraste(rgb(bg), rgb(fg))
+            ok = v < a["max"]
+            avisos += 1
+            print(f"  {'OK ' if ok else 'STALE'}  {v:6.2f}:1  (< {a['max']})  "
+                  f"[{tema}] {a['frente']} sobre {a['fondo']}")
+            if not ok:
+                fallos.append(
+                    f"DOCUMENTACION OBSOLETA [{tema}]: {a['frente']} sobre "
+                    f"{a['fondo']} ahora da {v:.2f}:1 y ya pasaría AA. La regla "
+                    f"de {a['regla']} dejó de ser cierta: actualízala o "
+                    f"revierte el color.")
 
     print()
     if fallos:
@@ -135,8 +163,8 @@ def verificar(d):
         for f in fallos:
             print(f"  · {f}")
         return 1
-    print(f"✓ {len(d['contratos'])} contratos y {len(d['advertencias'])} "
-          f"advertencias verificados.")
+    print(f"✓ {contados} comprobaciones de contrato y {avisos} advertencias, "
+          f"en los {len(TEMAS)} temas.")
     return 0
 
 
@@ -159,10 +187,26 @@ def generar_css(d):
         for c in grupo["colores"]:
             out.append(f"  {c['token']:<{ancho}}: {c['hex']};  /* {c['uso']} */")
         out.append("")
-    out.append("  /* Alias */")
-    for a in d.get("alias", []):
-        out.append(f"  {a['token']}: var({a['valor']});  /* {a['uso']} */")
     out += ["}", ""]
+
+    # El claro se aplica por atributo y NO por `prefers-color-scheme` a secas:
+    # Dirección pidió que el sistema mande de entrada pero que un desplegable
+    # pueda fijarlo. Eso lo decide la aplicación escribiendo `data-tema`, que es
+    # lo único que puede saber si el usuario eligió o se dejó llevar.
+    todos = [c for g in d["grupos"].values() for c in g["colores"]]
+    ancho = max(len(c["token"]) for c in todos)
+    claro = [f"  {c['token']:<{ancho}}: {c['claro']};" for c in todos]
+    out += [
+        "/* Tema claro. Se activa con [data-tema=\"claro\"] en <html>.",
+        " * No se cuelga de @media (prefers-color-scheme) porque el sistema es",
+        " * sólo el valor de partida: el usuario puede fijarlo desde Ajustes, y",
+        " * esa elección tiene que ganarle a la del sistema operativo.",
+        " */",
+        ':root[data-tema="claro"] {',
+        *claro,
+        "}",
+        "",
+    ]
 
     destino = os.path.join(DIST, "arles-tokens.css")
     with open(destino, "w", encoding="utf-8") as f:
@@ -200,13 +244,25 @@ def html_lamina(d):
         for n, w in pesos)
 
     def ficha(c):
+        """Cada token con sus dos tintas, la oscura y la clara, una sobre otra.
+
+        Van juntas a propósito: la pregunta que hay que poder contestar mirando
+        la lámina es «¿esto es el mismo color traducido, o me inventé otro?», y
+        eso no se ve con las dos paletas en hojas distintas.
+        """
         col = rgb(c["hex"])
         h = hsl(col)
-        return (f'<div class="sw"><div class="chip" style="background:{c["hex"]}"></div>'
-                f'<div class="meta"><div class="hex">{c["hex"]}</div>'
+        cl = rgb(c["claro"])
+        return (f'<div class="sw">'
+                f'<div class="par">'
+                f'<div class="chip" style="background:{c["hex"]}"></div>'
+                f'<div class="chip cl" style="background:{c["claro"]}"></div>'
+                f'</div>'
+                f'<div class="meta"><div class="hex">{c["hex"]}'
+                f'<em>{c["claro"]}</em></div>'
                 f'<div class="tok">{c["token"]}</div>'
-                f'<div class="num">RGB {col[0]} {col[1]} {col[2]} &nbsp;·&nbsp; '
-                f'HSL {h[0]}° {h[1]}% {h[2]}% &nbsp;·&nbsp; L {luminancia(col):.4f}</div>'
+                f'<div class="num">osc HSL {h[0]}° {h[1]}% {h[2]}% &nbsp;·&nbsp; '
+                f'cla HSL {hsl(cl)[0]}° {hsl(cl)[1]}% {hsl(cl)[2]}%</div>'
                 f'<div class="use">{c["uso"]}</div></div></div>')
 
     todos = [c for g in d["grupos"].values() for c in g["colores"]]
@@ -220,17 +276,25 @@ def html_lamina(d):
                       + "".join(ficha(c) for c in grupo["colores"]) + "</div>")
 
     cabecera = "".join(f"<th>{f['etiqueta']}</th>" for f in d["matriz"]["frentes"])
-    filas = ""
-    for bt in d["matriz"]["fondos"]:
-        bg = resolver(mapa, bt)
-        celdas = ""
-        for fr in d["matriz"]["frentes"]:
-            v = contraste(rgb(bg), rgb(resolver(mapa, fr["token"])))
-            lvl = "aa" if v >= 4.5 else ("ui" if v >= 3.0 else "no")
-            etq = {"aa": "AA", "ui": "UI", "no": "—"}[lvl]
-            celdas += f'<td class="{lvl}"><b>{v:.2f}</b><span>{etq}</span></td>'
-        filas += (f'<tr><th class="rh"><i style="background:{bg}"></i>{bg}</th>'
-                  f"{celdas}</tr>")
+
+    def matriz(tema):
+        """La misma rejilla, medida en el tema que se le pida."""
+        m = d["_mapas"][tema]
+        filas = ""
+        for bt in d["matriz"]["fondos"]:
+            bg = resolver(m, bt)
+            celdas = ""
+            for fr in d["matriz"]["frentes"]:
+                v = contraste(rgb(bg), rgb(resolver(m, fr["token"])))
+                lvl = "aa" if v >= 4.5 else ("ui" if v >= 3.0 else "no")
+                etq = {"aa": "AA", "ui": "UI", "no": "—"}[lvl]
+                celdas += f'<td class="{lvl}"><b>{v:.2f}</b><span>{etq}</span></td>'
+            filas += (f'<tr><th class="rh"><i style="background:{bg}"></i>{bg}</th>'
+                      f"{celdas}</tr>")
+        return filas
+
+    filas = matriz("oscuro")
+    filas_claro = matriz("claro")
 
     reglas = "".join(f'<div class="rule"><h3>{r["titulo"]}</h3><p>{r["cuerpo"]}</p></div>'
                      for r in d["reglas"])
@@ -246,8 +310,12 @@ def html_lamina(d):
         cols = 4 if n % 4 == 0 else 3
         n_filas = -(-n // cols)
         alto += TITULO_SECCION + n_filas * FICHA + (n_filas - 1) * HUECO
-    alto += TITULO_SECCION + 40 + 52 * len(d["matriz"]["fondos"])   # matriz
-    alto += TITULO_SECCION + 160                                    # reglas
+    #: Dos matrices, una por tema. Ver la nota del encabezado de `ficha`.
+    alto += 2 * (TITULO_SECCION + 40 + 52 * len(d["matriz"]["fondos"]))
+    #: Las reglas van en rejilla de 3. Al pasar de tres, aparece una segunda
+    #: fila y el pie se salía de la lámina: el alto tiene que contarlas.
+    FILA_REGLAS = 270
+    alto += TITULO_SECCION + FILA_REGLAS * -(-len(d["reglas"]) // 3)
     alto += 158 + 56                                                # pie + padding
     # El pie lleva holgura deliberada: prefiero unos píxeles de fondo de más a
     # una lámina con el pie cortado. Si alguna vez sobra mucho espacio, ajusta
@@ -278,9 +346,16 @@ h2::after{{content:'';flex:1;height:1px;background:{mapa['--arles-border']}}}
 .g4{{grid-template-columns:repeat(4,1fr)}}
 .sw{{background:{mapa['--arles-surface']};border:1px solid {mapa['--arles-border']};
  border-radius:8px;overflow:hidden}}
-.chip{{height:104px}}
+.par{{display:grid;grid-template-columns:1fr 1fr}}
+.chip{{height:104px;position:relative}}
+.chip::after{{content:'OSCURO';position:absolute;left:10px;bottom:8px;font-size:9px;
+ letter-spacing:.16em;font-weight:700;color:{mapa['--arles-text']};opacity:.55;
+ mix-blend-mode:difference}}
+.chip.cl::after{{content:'CLARO'}}
 .meta{{padding:16px 18px 18px}}
-.hex{{font-size:21px;font-weight:700;letter-spacing:.06em}}
+.hex{{font-size:21px;font-weight:700;letter-spacing:.06em;display:flex;
+ justify-content:space-between;align-items:baseline;gap:10px}}
+.hex em{{font-style:normal;font-size:15px;font-weight:600;opacity:.62}}
 .tok{{font-size:12px;font-weight:600;color:{mapa['--arles-info']};margin-top:5px}}
 .num{{font-size:10.5px;color:{mapa['--arles-text-muted']};opacity:.72;margin-top:10px}}
 .use{{font-size:12px;color:{mapa['--arles-text-muted']};margin-top:9px;line-height:1.45}}
@@ -321,10 +396,13 @@ footer b{{font-weight:700;opacity:1}}
 </header>
 <div class="band">{banda}</div>
 {secciones}
-<h2>Matriz de contraste</h2>
+<h2>Matriz de contraste · tema oscuro</h2>
 <table><thead><tr><th class="rh">Superficie</th>{cabecera}</tr></thead>
 <tbody>{filas}</tbody></table>
-<h2>Tres reglas que salen de los datos</h2>
+<h2>Matriz de contraste · tema claro</h2>
+<table><thead><tr><th class="rh">Superficie</th>{cabecera}</tr></thead>
+<tbody>{filas_claro}</tbody></table>
+<h2>Las reglas que salen de los datos</h2>
 <div class="rules">{reglas}</div>
 <footer>
   <div><b>Origen.</b> Cian, oro y cremas extraídos de <b>/REFERENCIA_DE_COLOR</b>
