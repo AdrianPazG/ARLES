@@ -178,6 +178,26 @@ de forma explícita en el alta y lo deja registrado.
 
 => Puerta: WhatsApp **no aparece como canal en el asistente** hasta que hay un número conectado, al menos una plantilla aprobada y la advertencia aceptada. Un canal a medias que se ofrece en el desplegable es una campaña fallida en diferido.
 
+### Los dos modos del canal
+
+=> **Decisión L-9 · WhatsApp se ofrece en dos modos separados, no como una función con una casilla.**
+
+| Modo | A quién escribe | Riesgo |
+|---|---|---|
+| **Seguimiento** | sólo a quien dio permiso o escribió primero | **ninguno** |
+| **Prospección Directa** | en frío, con el número que el cliente ponga | el de la sección 3 |
+
+Separarlos importa porque **la mayoría de los clientes sólo necesitan el
+primero**, y hoy la única forma de ofrecérselo sería dentro de la misma función
+que los expone al segundo.
+
+**Sobre el nombre.** «Prospección Directa» es comercial y es exacto; «directa»
+carga la connotación correcta. Lo que hay que evitar es un nombre que
+**anestesie** —del tipo «Modo Turbo» o «Impulso»—, y no por escrúpulo: el día
+que caiga un número, la pregunta será «¿le advirtieron?», y un nombre que
+ocultaba el riesgo es prueba en contra. El nombre puede ser atractivo; lo que no
+puede es mentir.
+
 ## Paso 7 · La ventana de ejecución
 
 **Dónde:** CANALES → Ventana · **Estado:** por construir (Fase 4)
@@ -204,7 +224,7 @@ campos propios, tabla a 500 000 filas.
 Hoy el modelo de datos trata el **correo como la identidad del contacto**.
 `message_attempt` supone una dirección de correo. Eso deja de valer.
 
-=> **Decisión L-2 · Un contacto tiene canales, y cada canal tiene su propio estado.**
+=> **Decisión L-2 · Un contacto tiene canales, y cada canal tiene su propio estado.** ✅ **Aprobada por Dirección el 16/09/2026.**
 
 ```
 contact           quién es          nombre, empresa, campos propios
@@ -218,9 +238,24 @@ La misma persona puede tener correo utilizable y WhatsApp prohibido, o al revés
 Meterlo todo en una fila obliga a inventar reglas en el código para algo que el
 esquema puede decir solo.
 
+**Y la clave única de los envíos gana el canal:**
+
+```
+antes   UNIQUE (campaign_id, contact_id)
+ahora   UNIQUE (campaign_id, contact_id, channel)
+```
+
+Sin esa tercera columna, mandarle a la misma persona el correo y el WhatsApp de
+la misma campaña **son dos filas idénticas**, y la base de datos rechaza la
+segunda. La protección contra duplicados no se debilita: se afina. Sigue siendo
+imposible mandarle dos correos, y ahora también dos WhatsApp.
+
 **Coste honesto:** es una migración del esquema de la Fase 1, con todo lo que
-toca detrás. Hacerlo ahora cuesta días. Hacerlo después de la Fase 6 cuesta
-reescribir el motor.
+toca detrás. Hacerlo ahora cuesta días **y no hay ninguna campaña guardada que
+convertir**. Hacerlo después de la Fase 4 obliga a reescribir el motor.
+
+**Lo que no cambia:** ni la importación, ni la tabla de contactos en pantalla,
+ni el motor, ni las pantallas ya construidas. Es fontanería, no arquitectura.
 
 ### El teléfono no se normaliza como el correo
 
@@ -267,7 +302,77 @@ guardan como borrador; los cuatro últimos son una secuencia.
 | **8** | **Envío de prueba** | verlo de verdad | obligatorio en los dos |
 | **9** | **Activar** | soltarlo | la única puerta irreversible |
 
-=> **Decisión L-1 · Una campaña es de un solo canal.** Una campaña «mixta» suena cómoda y rompe cuatro cosas a la vez: el preflight no puede dar un número, las métricas mezclan peras con manzanas, el registro de permiso se vuelve ambiguo y la parada de emergencia no sabe qué parar. Quien quiera los dos, hace dos campañas — y la sección 8 explica por qué ése es además el orden correcto.
+=> **Decisión L-1 · Una campaña tiene una o dos etapas, y cada etapa es de un solo canal.** ✅ **Corregida el 16/09/2026 a petición de Dirección.**
+
+**La versión anterior de esta decisión decía «una campaña es de un solo canal», y
+estaba mal.** Se escribió pensando en un envío mixto simultáneo. Lo que Dirección
+pidió es otra cosa: una **secuencia** sobre una misma tabla de contactos con
+columna de correo y columna de celular —sale el correo, y quien pase los filtros
+recibe después el WhatsApp—. Eso es mejor producto y no rompe nada.
+
+Lo que sigue sin mezclarse es el **envío**, no la campaña:
+
+| | |
+|---|---|
+| El preflight da **un número por etapa** | «1 190 por correo» y «0 por WhatsApp, 847 sin permiso» son dos frases, no una |
+| Las métricas **no se suman entre canales** | aceptado en correo y entregado en WhatsApp no son lo mismo |
+| El permiso se registra **por canal** | es lo que pide Meta si alguien reclama |
+| La parada de emergencia **sabe qué parar** | se puede apagar WhatsApp sin apagar el correo |
+
+Un envío mixto simultáneo, en cambio, rompe las cuatro a la vez. Por eso la
+regla se queda en la etapa.
+
+## El filtro que no se puede construir
+
+Dirección planteó, dentro de esa secuencia, un filtro razonable: mandar el
+WhatsApp **sólo si el contacto existe en WhatsApp**. No se puede, y conviene que
+conste por qué, porque es contraintuitivo.
+
+=> **Decisión L-7 · ARLES no comprueba si un número está dado de alta en WhatsApp. No hay forma legítima de hacerlo.**
+
+- El endpoint `contacts` que servía para eso pertenecía a la **API On-Premises**,
+  que **Meta apagó en octubre de 2025**.
+- Antes de apagarla, Meta ya había cambiado su comportamiento: **devolvía
+  «válido» y un identificador siempre**, existiera o no el número. No se rompió
+  — lo inutilizaron a propósito, porque se usaba justo para esto.
+- La **Cloud API actual no tiene equivalente**, y no es un olvido: enumerar
+  números es lo que Meta quiere impedir.
+
+!x Los servicios de terceros que lo ofrecen funcionan **manejando WhatsApp Web
+por detrás** — la automatización no oficial, que es exactamente el camino que
+lleva a que apaguen el número. Y obligan a **subir la lista de teléfonos del
+cliente a una empresa desconocida**, lo que con la LFPDPPP encima no es un
+detalle menor.
+
+**Lo que ARLES filtra en su lugar:** formato normalizado con certeza, no
+suprimido, y permiso registrado. Y el mejor filtro de todos es la etapa
+anterior: **quien respondió al correo o pulsó el botón de WhatsApp acaba de
+demostrar que está en WhatsApp.**
+
+!i Verificado en septiembre de 2026 contra la documentación de Meta y de
+integradores. Conviene reconfirmarlo antes de construir la Fase 5: es el tipo de
+cosa que Meta cambia sin avisar.
+
+## Las plantillas rotativas, y hasta dónde llegan
+
+Dirección propuso varias plantillas rotando, y texto variable para no parecer
+copiar y pegar. La respuesta es **distinta en cada canal**, y conviene no
+mezclarlas:
+
+| | Correo | WhatsApp |
+|---|---|---|
+| ¿Se puede rotar entre plantillas? | **sí** | **sí**, entre las ya aprobadas |
+| ¿Se puede variar el texto libremente? | sí | **no.** Meta aprueba el texto exacto; cada variante es otra aprobación, de días |
+| ¿Ayuda a que llegue? | **poco.** Pesan mucho más SPF/DKIM/DMARC, la reputación, la tasa de quejas y cómo se subió el volumen | **no.** Lo que Meta mide son bloqueos y reportes, no la repetición del texto |
+| ¿Para qué sirve entonces? | **para medir cuál funciona** | igual, y para no cansar al mismo destinatario |
+
+=> **Decisión L-8 · ARLES rota entre plantillas escritas por el usuario y mide cuál rinde. No genera ni muta texto para esquivar filtros.**
+
+La diferencia no es de matiz. «Varias plantillas buenas que rotan y se miden» es
+**A/B testing**, y es una virtud. «Un algoritmo que muta el texto para que no lo
+detecten» es **evasión**: si funcionara, convertiría a ARLES en una herramienta
+de spam, y el riesgo dejaría de ser del cliente para pasar a ser nuestro. El
+§154 ya lo dice — informar sin dictar, pero **nunca facilitar la evasión**.
 
 ## El paso 7 · Preflight, que es el paso que salva
 
@@ -339,10 +444,24 @@ Lo que sí cambia es **qué mira el semáforo**:
 | Velocidad del daño | días | horas |
 | Freno | disyuntor por cuenta | disyuntor **más agresivo**, y parada por umbral de bloqueos |
 
-=> **Decisión L-6 · Cada canal tiene su propio semáforo, visible siempre mientras hay campaña activa.** Verde, amarillo, rojo, y qué hacer en cada caso. Un número en amarillo que nadie ve es un número rojo mañana.
+=> **Decisión L-6 · Cada canal tiene su propio semáforo, visible siempre mientras hay campaña activa, y su propia parada.** Un número en amarillo que nadie ve es un número rojo mañana.
 
-**La parada de emergencia** detiene todo, de los dos canales, sin preguntar. Es
-un botón que existe para el peor día.
+### De qué se alimenta el semáforo de WhatsApp
+
+Esto hay que fijarlo con cuidado, porque **Meta no dice quién te bloqueó ni
+quién te reportó** (ver el tiempo D). Lo que llega es agregado y con retraso, así
+que el freno se construye sobre lo que sí existe:
+
+| Señal | De dónde llega | Qué hace ARLES |
+|---|---|---|
+| Baja la **calificación de calidad** del número | aviso automático de Meta (`phone_number_quality_update`) | 🟡 avisa y **baja el ritmo solo** |
+| **Restricción del nivel de mensajería** | aviso automático de Meta | 🔴 **para el canal** |
+| Suben los **no entregados** | conteo propio de ARLES | 🟡 avisa |
+| **Nadie responde** en N envíos seguidos | conteo propio de ARLES | 🟡 avisa, porque precede a la caída |
+
+**Parar WhatsApp no para el correo.** Son dos frenos independientes, y encima
+de los dos está **la parada de emergencia**, que apaga todo sin preguntar. Es un
+botón que existe para el peor día.
 
 ---
 
@@ -404,15 +523,45 @@ lo dice o porque bloquea.
 
 ## Las métricas, y lo que no se puede decir
 
-| Se puede decir | No se puede decir |
-|---|---|
-| **aceptado por el proveedor** | «entregado» |
-| **respondido** (WhatsApp) | «leído» en correo |
-| **rebotado** (rechazo 5xx) | tasa de rebote completa — ADR-0009, llega en v1.3 |
-| **dado de baja** | «interesado», salvo que una persona lo marque |
+=> **Decisión L-10 · CONVERSACIONES es para trabajar; las estadísticas de los dos canales van juntas en ACTIVIDAD.**
+
+Con doscientas conversaciones abiertas, meterle estadísticas encima a la bandeja
+la vuelve inservible. Y las cifras del correo y las de WhatsApp se comparan
+mejor una al lado de la otra que en dos sitios distintos.
+
+### Qué se puede medir de verdad, canal por canal
+
+| | Correo | WhatsApp |
+|---|---|---|
+| Enviado / aceptado | ✅ | ✅ |
+| **Entregado de verdad** | ❌ nunca | ✅ **sí** |
+| **Leído** | ❌ sólo con píxel, y Apple y Gmail ya lo falsean | ✅ si el destinatario no lo desactivó |
+| Respondido | ✅ | ✅ |
+| Sin contestar | ✅ | ✅ |
+| **Quién bloqueó** | — | ❌ **no** |
+| **Quién reportó** | — | ❌ **no** |
+| Rebotado / rechazado | ✅ parcial (ADR-0009) | ✅ |
+| Dado de baja | ✅ | ✅ |
+
+!x **Las dos casillas rojas son las que más se piden y no existen.** Meta no
+identifica a quien te bloquea o te reporta: lo que publica es una
+**calificación de calidad del número entero**, agregada y con retraso. Por eso
+el freno de L-6 se construye sobre esa calificación y no sobre bloqueos
+individuales, que nunca vamos a ver.
+
+!i **Y hay una asimetría que juega a favor.** WhatsApp sí dice si el mensaje
+llegó y si lo leyeron; el correo no. Es el mejor termómetro que vamos a tener de
+si el mensaje interesa — justo lo que la prueba aprobada por Dirección quiere
+medir.
+
+### Lo que la interfaz no puede decir
 
 Es el §65, y no se negocia: una cifra optimista en un panel se convierte en una
 promesa a un cliente.
+
+- «**entregado**» en correo, nunca. Se dice «aceptado por el proveedor».
+- «**leído**» en correo, nunca en v1.2.0.
+- «**interesado**», salvo que una persona lo haya marcado a mano.
 
 ---
 
@@ -492,7 +641,7 @@ Las cuatro primeras bloquean el rediseño.
 
 | | Decisión | Quién |
 |---|---|---|
-| **L-a** | ¿Se acepta **L-2** —canales por contacto— y con ello tocar el esquema de la Fase 1 ahora? | Dirección + Ingeniería |
+| ~~**L-a**~~ | ~~¿Se acepta **L-2** —canales por contacto—?~~ ✅ **Autorizada el 16/09/2026** | — |
 | **L-b** | ¿Se acepta **L-5** —la séptima sección, CONVERSACIONES, que aparece sola? | Dirección |
 | **L-c** | ¿Quién contesta a los interesados, y en qué horario? La ventana de 24 h no espera | Dirección |
 | **L-d** | ¿WhatsApp entra en la v1.2.0, o el esquema se prepara y el canal llega en v1.2.x? | Dirección |

@@ -151,6 +151,36 @@ Lo que exige la App License no es el desarrollo: es **incrustar el binario de la
 
 ---
 
+### D-6 · WhatsApp como segundo canal, y el contacto deja de ser un correo
+**Fecha:** 2026-09-16 · **Responsable:** Dirección · **Documento:** [LOGISTICA_DE_CAMPANAS](LOGISTICA_DE_CAMPANAS.md)
+
+Dirección autorizó **L-2**: el contacto pasa a tener **canales**, cada uno con su
+dirección, su permiso y su historial, y la clave única de los envíos gana la
+columna `channel`.
+
+**Qué lo hizo necesario.** No fue una preferencia de diseño. Dirección pidió que
+una misma campaña, sobre una tabla con columna de correo y columna de celular,
+mande el correo y después el WhatsApp. Con la clave única actual
+—`UNIQUE(campaign_id, contact_id)`— esos **dos envíos son la misma fila**, y la
+base de datos rechaza el segundo. La función pedida no se podía guardar.
+
+**Por qué ahora y no después.** Hoy no hay ninguna campaña guardada que
+convertir. Después de la Fase 4 habría que reescribir el motor, que concentra el
+70 % del riesgo técnico. Registrado como **R-23**.
+
+**Lo que no cambia:** la importación, la tabla de contactos en pantalla, el motor
+y las pantallas ya construidas. Es fontanería, no arquitectura.
+
+**Decisiones asociadas que quedan asentadas en la logística:** L-1 corregida
+(una campaña puede tener dos etapas, cada una de un canal), **L-7** (ARLES no
+comprueba si un número existe en WhatsApp — Meta apagó esa vía y las
+alternativas son no oficiales), **L-8** (se rota entre plantillas del usuario y
+se mide cuál rinde; no se genera ni muta texto para esquivar filtros), **L-9**
+(dos modos: «Seguimiento» y «Prospección Directa») y **L-10** (CONVERSACIONES es
+para trabajar; las estadísticas de los dos canales van en ACTIVIDAD).
+
+---
+
 ## Decisiones pendientes
 
 Ver **`02-auditoria/PREGUNTAS_ABIERTAS.md`** para el registro completo.
