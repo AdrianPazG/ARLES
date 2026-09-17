@@ -3,9 +3,30 @@
 > **Para:** Dirección · **Fecha:** 17 de septiembre de 2026
 > **Sobre:** ARLES RELAY I v1.2.0 · **31 % construido y verificado**
 
-Esto **no** es la lista de comprobaciones automáticas —ésas son 110 y corren
-solas con `validar.py`—. Esto es lo que **una persona tiene que mirar**, porque
-una máquina no puede decir si algo se entiende o si se ve bien.
+Esto **no** es la lista de comprobaciones automáticas —ésas corren solas con
+`validar.py`—. Esto es lo que **una persona tiene que mirar**, porque una
+máquina no puede decir si algo se entiende o si se ve bien.
+
+---
+
+## Con qué se recorre
+
+**Un solo archivo: `ARLES-vista-previa.html`.** Doble clic y se abre en el
+navegador. No hay que instalar nada, ni descomprimir, ni pasar por GitHub.
+
+| | |
+|---|---|
+| **Qué es** | La interfaz real: los mismos componentes, los mismos colores, los mismos textos y las dos versiones del tema |
+| **Qué hay detrás** | Un núcleo **simulado**, el mismo que usan las pruebas automáticas |
+| **Dónde se guarda lo que escribas** | En la pestaña del navegador. Sobrevive a **recargar** —que es el «cerrar y volver a abrir» de esta lista— y desaparece al cerrarla |
+
+!! **No es la aplicación de escritorio.** No hay ventana nativa, ni base de
+datos cifrada, ni llavero del sistema. Lo que se revisa aquí es **lo que se ve
+y lo que se entiende**, que es justo lo que una máquina no puede juzgar.
+
+=> **Para «cerrar y volver a abrir»**, recarga la página (**F5** en Windows,
+**⌘R** en Mac). Para **cerrar del todo y empezar de cero**, cierra la pestaña y
+vuelve a abrir el archivo.
 
 ---
 
@@ -52,9 +73,9 @@ qué hacer sin preguntar. Si dudas un segundo, es un hallazgo.
 | **B-2** | Mira la barra al cambiar de sección | La barra **crece**, no aparece de golpe. Dura un parpadeo (200 ms) |
 | **B-3** | Pulsa el botón de plegar (arriba a la derecha de la barra) | Quedan sólo iconos. **Los iconos no saltan de sitio** |
 | **B-4** | Con la barra plegada, mira el pie | Sigue el **símbolo** de TELEMETRY, sin el texto |
-| **B-5** | Cierra ARLES y vuelve a abrirlo | La barra sigue **como la dejaste**, plegada o abierta |
+| **B-5** | Recarga la página (**F5**) | La barra sigue **como la dejaste**, plegada o abierta |
 | **B-6** | Estrecha la ventana mucho | La barra se pliega **sola**, y el botón queda deshabilitado **explicando por qué** |
-| **B-7** | Pulsa el logotipo de TELEMETRY del pie | Abre **telemetrymx.com en tu navegador**, no dentro de la ventana |
+| **B-7** | Pulsa el logotipo de TELEMETRY del pie | Abre **telemetrymx.com en una pestaña nueva** |
 | **B-8** | Entra en Campañas, Contactos, Remitentes y Actividad | Cada una dice que aún no está y **en qué entrega llega** |
 
 ---
@@ -65,7 +86,7 @@ qué hacer sin preguntar. Si dudas un segundo, es un hallazgo.
 |---|---|---|
 | **C-1** | Ajustes → Apariencia → elige **Claro** | La pantalla cambia **al momento**, sin pulsar Guardar |
 | **C-2** | Revisa todo en tema claro: Inicio, Ajustes, la barra | Todo se lee. Ningún texto gris sobre gris, ningún borde invisible |
-| **C-3** | Cierra y vuelve a abrir | Sigue en **Claro** |
+| **C-3** | Recarga la página (**F5**) | Sigue en **Claro** |
 | **C-4** | Vuelve a **Automático** y cambia el tema de tu Windows o Mac | ARLES lo sigue **sin cerrarlo** |
 | **C-5** | Elige **Oscuro** a mano y vuelve a cambiar el del sistema | ARLES **no** le hace caso: tu elección manda |
 
@@ -111,7 +132,7 @@ Esto es lo que más rinde revisar, porque es donde una máquina no llega.
 |---|---|---|
 | **F-1** | Recorre toda la pantalla con **Tab**, sin ratón | Siempre se ve **dónde está el foco**, con un recuadro amarillo |
 | **F-2** | Llega al botón de plegar con Tab y pulsa **Espacio** | Funciona igual que con el ratón |
-| **F-3** | Pon Windows al **200 %** de escala | Nada se corta ni se solapa |
+| **F-3** | Amplía el navegador al **200 %** (**Ctrl** y **+**) | Nada se corta ni se solapa |
 | **F-4** | Activa «reducir movimiento» en el sistema | La barra de la sección activa deja de animarse: **llega directa** |
 
 ---
@@ -127,7 +148,8 @@ Para que no se busque:
 | Conectar una cuenta de correo | Fase 5 |
 | Conectar el número de WhatsApp | Pantalla de CANALES, siguiente paso — y además hace falta la cuenta de Meta |
 | Ver estadísticas | Fase 7 |
-| **Ver ARLES en un Mac** | **Nadie lo ha hecho.** Es el riesgo R-07, sigue abierto |
+| **Ver ARLES en un Mac** | **Nadie lo ha hecho.** Es el riesgo R-07, sigue abierto. Y esta vista previa **no cuenta**: ahí el motor es WKWebView y aquí es el del navegador |
+| La ventana nativa, el cifrado y el llavero | No existen en la vista previa. Se revisan cuando haya instalador |
 
 ---
 

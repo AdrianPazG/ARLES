@@ -12,6 +12,41 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Una vista previa en un solo archivo, que se abre con doble clic
+
+- Dirección pidió «sólo preocuparme de descargar y probar». El instalador no
+  puede salir de aquí —los bundles son de Windows y de macOS, y esto es Linux—
+  y construirlo en GitHub exige etiquetas y veinte minutos. Así que llega antes
+  otra cosa: **`ARLES-vista-previa.html`**, medio megabyte, sin nada al lado.
+- Es **la interfaz real** —mismos componentes, tokens, temas y textos— sobre el
+  **mismo núcleo simulado que usan las sondas**, guardando en la pestaña. Sirve
+  para los bloques A a F de la checklist. **No** es la aplicación de escritorio:
+  sin ventana nativa, sin base cifrada y sin llavero, y se dice en el propio
+  archivo por si alguien lo reenvía.
+- **Dos versiones salieron en blanco antes de que funcionara**, las dos sin dar
+  un error al generarlas:
+  - El enrutador carga cada pantalla con un `import()` dinámico, que produce un
+    archivo por pantalla. Desde `file://` el navegador se niega a cargarlos.
+    Arreglado forzando un solo bloque con una configuración de Vite aparte.
+  - La CSP del producto declara `default-src 'self'`, que **prohíbe el script en
+    línea** — y aquí todo va en línea. El navegador se negó a ejecutar nada, que
+    es exactamente su trabajo. Se relaja **sólo en esa copia**, y es la razón
+    más clara de por qué ese archivo no es el producto.
+- **`sonda:vista-previa`** lo mide abriéndolo desde `file://`, como lo abrirá
+  quien lo reciba: que pinte, que arranque en la portada de primera vez, que se
+  guarde la empresa, que el tema cambie el píxel y que todo sobreviva a
+  recargar. Servido por HTTP, los dos fallos de arriba desaparecen.
+- Y un fallo de la propia sonda, del mismo tipo que ya me pasó: medía el tema
+  con el navegador arrancado en claro, así que «Automático» ya era claro y
+  elegir «Claro» no cambiaba nada. Acusaba al producto de un defecto suyo.
+- La vista previa **sí lleva Mont** y el instalador no. No es contradicción: el
+  instalador se **distribuye**, que es lo que la licencia no cubre; esto es una
+  copia interna para quien tiene esa licencia. Se puede generar con
+  `--sin-mont`.
+- La checklist se actualiza para recorrerse sobre la vista previa: «cerrar y
+  volver a abrir» pasa a ser **recargar la página**, y el bloque G gana que la
+  vista previa **no cuenta** como la revisión de macOS.
+
 ### Entrega 3.2 · arranca por el núcleo, y una versión de prueba descargable
 
 - **`arles_core::contacto`**: valida un contacto con **varios canales** y

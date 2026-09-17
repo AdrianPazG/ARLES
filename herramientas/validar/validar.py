@@ -1513,6 +1513,22 @@ def fase_3(rapido):
         check_cmd(3, nombre, ["npm", "run", "sonda:tema", "--silent"],
                   porque, cwd=app, timeout=900)
 
+    nombre = "sonda: la vista previa de un archivo se abre desde el disco"
+    porque = (
+        "Es lo que Dirección abre con doble clic para revisar. Que el archivo "
+        "exista no dice nada: dos versiones se generaron sin error y salieron "
+        "EN BLANCO —por los trozos del enrutador y por la CSP del producto, que "
+        "prohíbe el script en línea—. Se mide desde `file://`, que es como se "
+        "va a abrir; servido por HTTP los dos fallos desaparecen."
+    )
+    if motivo:
+        omitir(3, nombre, motivo)
+    elif rapido:
+        omitir(3, nombre, "--rapido")
+    else:
+        check_cmd(3, nombre, ["npm", "run", "sonda:vista-previa", "--silent"],
+                  porque, cwd=app, timeout=900)
+
 
 FASES = {0: fase_0, 1: fase_1, 2: fase_2, 3: fase_3}
 

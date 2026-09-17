@@ -20,7 +20,8 @@
     "sonda:plegado": "node pruebas/sondas/plegado.mjs",
     "sonda:lector": "node pruebas/sondas/lector.mjs",
     "sonda:cabecera": "node pruebas/sondas/cabecera.mjs",
-    "sonda:tema": "node pruebas/sondas/tema.mjs"
+    "sonda:tema": "node pruebas/sondas/tema.mjs",
+    "sonda:vista-previa": "node pruebas/sondas/vista-previa.mjs"
   },
   "dependencies": {
     "@tanstack/vue-virtual": "^3.13.38",
