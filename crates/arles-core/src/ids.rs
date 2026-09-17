@@ -85,6 +85,15 @@ id_tipado!(
     ContactId
 );
 id_tipado!(
+    /// Canal de un contacto: una dirección de correo o un número de WhatsApp.
+    ///
+    /// Tiene identidad propia porque un canal se **retira** sin borrarse (queda
+    /// con `deleted_at`), y lo retirado se sigue nombrando en el registro de
+    /// envíos. Sin id propio no habría forma de distinguir dos direcciones
+    /// retiradas del mismo contacto.
+    ContactChannelId
+);
+id_tipado!(
     /// Lote de importación.
     ImportBatchId
 );

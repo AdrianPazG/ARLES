@@ -62,6 +62,22 @@ impl Db {
         f(&guardia).map_err(DbError::Sqlite)
     }
 
+    /// Igual que [`Db::con`], pero el cierre puede fallar con un error **del
+    /// dominio**, no sólo de SQLite.
+    ///
+    /// Hace falta cuando la decisión de abortar se toma **dentro** de la
+    /// transacción: al escribir los canales de un contacto, la segunda
+    /// dirección puede chocar con la de otro contacto, y entonces la primera no
+    /// debe quedar escrita. Convertir el error fuera del cierre —como hace
+    /// `guardar_empresa`— llegaría tarde: la transacción ya habría confirmado.
+    pub(crate) fn con_dominio<T>(
+        &self,
+        f: impl FnOnce(&Connection) -> Result<T, DbError>,
+    ) -> Result<T, DbError> {
+        let guardia = self.conexion.lock().unwrap_or_else(PoisonError::into_inner);
+        f(&guardia)
+    }
+
     /// Estado de la base al arrancar.
     ///
     /// # Errores

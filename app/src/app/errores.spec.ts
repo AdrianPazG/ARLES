@@ -37,6 +37,8 @@ const CLAVES_DEL_NUCLEO = [
   'error.app.tema_desconocido',
   'error.app.empresa_invalida',
   'error.db.dato_invalido',
+  'error.db.direccion_en_uso',
+  'error.db.contacto_no_existe',
 ] as const
 
 describe('resolución de errores del núcleo', () => {

@@ -12,6 +12,7 @@
 #![forbid(unsafe_code)]
 
 pub mod conexion;
+pub mod contactos;
 pub mod db;
 pub mod empresa;
 pub mod error;
@@ -19,6 +20,7 @@ pub mod migraciones;
 pub mod preferencias;
 
 pub use conexion::{ClaveMaestra, abrir};
+pub use contactos::{ContactoGuardado, MAX_POR_PAGINA, PaginaDeContactos};
 pub use db::{Db, ResumenArranque};
 pub use empresa::EmpresaGuardada;
 pub use error::DbError;

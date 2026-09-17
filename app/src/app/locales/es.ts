@@ -336,6 +336,21 @@ export const es = {
         como: 'Cierra ARLES y vuelve a abrirlo.',
         salvo: 'Las operaciones incompletas se revirtieron por completo.',
       },
+      direccion_en_uso: {
+        que: 'Esa dirección ya está registrada en otro contacto.',
+        como:
+          'Búscala en la lista de contactos para ver de quién es. Si de verdad ' +
+          'son la misma persona, edita el contacto que ya existe en vez de ' +
+          'crear uno nuevo.',
+        salvo:
+          'No se guardó nada: ni el contacto ni las direcciones que sí eran ' +
+          'nuevas. El contacto que ya existía no se tocó.',
+      },
+      contacto_no_existe: {
+        que: 'Ese contacto ya no está: alguien lo dio de baja.',
+        como: 'Actualiza la lista de contactos para ver cómo está ahora.',
+        salvo: 'No se modificó nada.',
+      },
       dato_invalido: {
         que: 'Un dato guardado no tiene la forma que ARLES espera.',
         como:

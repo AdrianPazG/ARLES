@@ -34,6 +34,25 @@ pub enum DbError {
     #[error("un dato almacenado no es válido: {motivo}")]
     DatoInvalido { motivo: &'static str },
 
+    /// Otro contacto de la misma empresa ya usa esa dirección.
+    ///
+    /// **Nombra la dirección en conflicto** a propósito: sin ella el usuario
+    /// tendría que adivinar cuál de los hasta diez canales del formulario está
+    /// repetido. Es la traducción del índice único parcial de `contact_channel`
+    /// (§95: el error dice qué pasó y cómo arreglarlo).
+    #[error("la dirección {direccion} ya está registrada en otro contacto ({canal})")]
+    DireccionEnUso {
+        canal: &'static str,
+        direccion: String,
+    },
+
+    /// El contacto no existe en esta empresa, o ya fue borrado.
+    ///
+    /// No se distingue «nunca existió» de «era de otra empresa»: decirlo
+    /// filtraría la existencia de datos ajenos.
+    #[error("el contacto no existe o ya fue borrado")]
+    ContactoNoExiste,
+
     #[error("error de SQLite: {0}")]
     Sqlite(#[from] rusqlite::Error),
 }
@@ -46,6 +65,8 @@ impl DbError {
             Self::ClaveMalFormada { .. } => "error.db.clave_mal_formada",
             Self::Migracion(_) => "error.db.migracion",
             Self::DatoInvalido { .. } => "error.db.dato_invalido",
+            Self::DireccionEnUso { .. } => "error.db.direccion_en_uso",
+            Self::ContactoNoExiste => "error.db.contacto_no_existe",
             Self::Sqlite(_) => "error.db.sqlite",
         }
     }
