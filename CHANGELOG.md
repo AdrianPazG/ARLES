@@ -12,6 +12,50 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Una campaña tiene etapas · migración V4 (L-1, L-6, L-11)
+
+- **`campaign_stage`.** Una campaña tiene una o dos etapas, cada una de un solo
+  canal, y cada una con **su** remitente, **su** plantilla, **su** ritmo, **su**
+  ventana y **su propio estado**. El correo primero y el WhatsApp después, sobre
+  la misma tabla de contactos.
+- **El estado por etapa es L-6**: apagar WhatsApp sin apagar el correo. Con un
+  solo `campaign.status`, «detener» sólo podía significar detenerlo todo, y el
+  día que el número se ponga en rojo habría que elegir entre arriesgar el número
+  o parar unos correos que no tienen nada que ver.
+- El ritmo baja a la etapa porque WhatsApp empieza en 5 a 10 diarios y el correo
+  en decenas. Un límite compartido obliga a frenar el correo o a quemar el número.
+- **La condición de la segunda etapa admite dos valores y sólo dos**: `always` y
+  `previous_not_failed`. «Sólo a quien no contestó» **no se puede evaluar** sin
+  leer el buzón (§69), y una condición que no se evalúa no filtra nada mientras
+  aparenta que sí.
+- Cuatro invariantes nuevos en el esquema, no en el código: una etapa por canal,
+  el remitente corresponde al canal, la firma sólo en correo, y la primera etapa
+  ni espera ni depende.
+- **`whatsapp_account`**, tabla aparte de `email_account`, con el modo (L-9), la
+  calificación de Meta y su historial para la gráfica de ACTIVIDAD.
+- **L-11 · Coexistencia**, decidida por Dirección hoy: al añadir el número hay
+  que confirmar que está dado de alta con Coexistencia. Se guarda como **fecha
+  con autor**, no como casilla. La explicación del producto lleva las **dos**
+  razones y en este orden: sin ella el agente no puede responder desde su
+  WhatsApp Business, y sólo después, que ARLES no podría contar las respuestas.
+  Explicarlo sólo como «ayuda a la estadística» lo haría parecer analítica
+  opcional, y es lo que sostiene la operación entera.
+- De paso se corrige este documento: decía que un número conectado a la API
+  **deja de funcionar en la app de WhatsApp**. Era cierto y ha dejado de serlo
+  desde que Meta publicó Coexistencia.
+
+- !! **La primera versión de la V4 borraba la audiencia congelada y el registro
+  de envíos, sin dar un solo error.** Reconstruía `campaign` con `DROP TABLE` +
+  `RENAME`; con `PRAGMA foreign_keys = ON`, soltar una tabla **padre** ejecuta un
+  borrado implícito que cascadea a `campaign_audience` y `message_attempt`. La
+  migración terminaba «bien» con las dos en cero filas: la instantánea de a
+  quién se le escribió y la prueba de que se le escribió, perdidas. Lo destapó
+  la prueba sobre base poblada — sobre una base vacía no habría pasado nada.
+  Ahora las columnas se quitan en su sitio con `ALTER TABLE … DROP COLUMN`, y
+  sólo se reconstruyen tablas de las que no cuelga nadie. Probado volviendo a
+  poner el `DROP`: el test lo detecta. El validador lo vigila en las migraciones
+  siguientes.
+
 ### Un contacto tiene canales · migración V3 (L-2, L-3, L-4)
 
 - **`contact_channel`.** La dirección deja de ser dos columnas de `contact` y

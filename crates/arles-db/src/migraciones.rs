@@ -89,6 +89,9 @@ mod tests {
         for esperada in [
             "company",
             "email_account",
+            "campaign_stage",
+            "whatsapp_account",
+            "whatsapp_quality_event",
             "contact",
             "contact_channel",
             "consent_entry",
@@ -257,6 +260,164 @@ mod tests {
         assert!(
             !columnas.iter().any(|c| c.starts_with("email")),
             "`contact` conserva la dirección: {columnas:?}"
+        );
+    }
+
+    /// La V4 sobre datos reales: una campaña con su cuenta, su plantilla y sus
+    /// intentos tiene que salir convertida en una campaña **con una etapa de
+    /// correo**, sin perder nada y sin dejar los intentos huérfanos.
+    ///
+    /// Igual que con la V3, sobre una base recién creada el traslado no mueve
+    /// ni una fila.
+    #[test]
+    fn la_v4_convierte_las_campanas_existentes_en_campanas_con_una_etapa() {
+        let dir = tempfile::tempdir().expect("directorio temporal");
+        let clave = ClaveMaestra::generar().expect("genera");
+        let mut conn = crate::conexion::abrir_crudo(&dir.path().join("vieja.db"), &clave)
+            .expect("abre sin migrar");
+
+        embebidas::migrations::runner()
+            .set_target(refinery::Target::Version(3))
+            .run(&mut conn)
+            .expect("migra hasta la V3");
+
+        conn.execute_batch(
+            "INSERT INTO company (id, commercial_name, country, timezone,
+                                  corporate_email, created_at, updated_at)
+             VALUES ('c1', 'TELEMETRY', 'MX', 'America/Mexico_City',
+                     'hola@t.mx', '2026-09-17T00:00:00Z', '2026-09-17T00:00:00Z');
+
+             INSERT INTO email_account (id, company_id, display_name, email_address,
+                                        provider_kind, credential_ref, daily_limit,
+                                        hourly_limit, created_at, updated_at)
+             VALUES ('ea1', 'c1', 'Ventas', 'ventas@t.mx', 'smtp', 'llavero://ea1',
+                     50, 10, '2026-09-17T00:00:00Z', '2026-09-17T00:00:00Z');
+
+             INSERT INTO campaign (id, company_id, name, status, email_account_id,
+                                   daily_limit, hourly_limit, created_at, updated_at)
+             VALUES ('cam1', 'c1', 'Clientes Q1', 'running', 'ea1', 40, 8,
+                     '2026-09-17T00:00:00Z', '2026-09-17T00:00:00Z');
+
+             -- Un borrador sin remitente: no puede producir etapa, y tampoco
+             -- puede perderse.
+             INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+             VALUES ('cam2', 'c1', 'Sin remitente aún', 'draft',
+                     '2026-09-17T00:00:00Z', '2026-09-17T00:00:00Z');
+
+             INSERT INTO contact (id, company_id, created_at, updated_at)
+             VALUES ('k1', 'c1', '2026-09-17T00:00:00Z', '2026-09-17T00:00:00Z');
+
+             INSERT INTO message_attempt (id, campaign_id, channel, contact_id,
+                                          contact_address, email_account_id,
+                                          idempotency_key, state, created_at, updated_at)
+             VALUES ('i1', 'cam1', 'email', 'k1', 'ana@empresa.com', 'ea1', 'k-1',
+                     'sent', '2026-09-17T00:00:00Z', '2026-09-17T00:00:00Z');
+
+             INSERT INTO campaign_audience (campaign_id, channel, contact_address,
+                                            contact_id, added_at)
+             VALUES ('cam1', 'email', 'ana@empresa.com', 'k1',
+                     '2026-09-17T00:00:00Z');
+
+             INSERT INTO rate_budget (email_account_id, window_kind, window_start,
+                                      consumed, updated_at)
+             VALUES ('ea1', 'daily', '2026-09-17T00:00:00Z', 7,
+                     '2026-09-17T00:00:00Z');",
+        )
+        .expect("puebla como la V3");
+
+        aplicar(&mut conn).expect("aplica la V4 sobre datos reales");
+
+        // Las dos campañas siguen ahí.
+        let campanas: i64 = conn
+            .query_row("SELECT count(*) FROM campaign", [], |f| f.get(0))
+            .expect("cuenta");
+        assert_eq!(campanas, 2, "se perdieron campañas al migrar");
+
+        // La que tenía remitente tiene ahora una etapa de correo con todo lo
+        // que antes colgaba de la campaña.
+        let (id, posicion, canal, cuenta, diario, estado): (
+            String,
+            i64,
+            String,
+            String,
+            i64,
+            String,
+        ) = conn
+            .query_row(
+                "SELECT id, position, channel, email_account_id, daily_limit, status
+                   FROM campaign_stage WHERE campaign_id = 'cam1'",
+                [],
+                |f| {
+                    Ok((
+                        f.get(0)?,
+                        f.get(1)?,
+                        f.get(2)?,
+                        f.get(3)?,
+                        f.get(4)?,
+                        f.get(5)?,
+                    ))
+                },
+            )
+            .expect("la campaña con remitente tiene etapa");
+        assert_eq!(posicion, 1);
+        assert_eq!(canal, "email");
+        assert_eq!(cuenta, "ea1");
+        assert_eq!(diario, 40, "el ritmo tenía que bajar a la etapa");
+        assert_eq!(estado, "running", "la etapa hereda el estado de la campaña");
+
+        // El borrador sin remitente no produce etapa —no pasaría el CHECK— pero
+        // tampoco se pierde.
+        let sin_etapa: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM campaign_stage WHERE campaign_id = 'cam2'",
+                [],
+                |f| f.get(0),
+            )
+            .expect("cuenta");
+        assert_eq!(sin_etapa, 0);
+
+        // ── Lo que la primera versión de la V4 borraba en silencio ──
+        //
+        // Reconstruía `campaign` con DROP + RENAME. Con las claves foráneas
+        // activas, soltar una tabla PADRE ejecuta un borrado implícito que
+        // **cascadea**: la audiencia congelada y el registro de envíos cuelgan
+        // de `campaign` con ON DELETE CASCADE. La migración terminaba sin un
+        // solo error, con la instantánea de a quién se le escribió y la prueba
+        // de que se le escribió en cero filas.
+        let audiencia: i64 = conn
+            .query_row("SELECT count(*) FROM campaign_audience", [], |f| f.get(0))
+            .expect("cuenta");
+        assert_eq!(
+            audiencia, 1,
+            "la audiencia congelada desapareció al migrar: «¿a quién le llegó \
+             esto?» se queda sin respuesta para todo lo ya enviado"
+        );
+
+        let intentos: i64 = conn
+            .query_row("SELECT count(*) FROM message_attempt", [], |f| f.get(0))
+            .expect("cuenta");
+        assert_eq!(intentos, 1, "se perdió el registro de envíos al migrar");
+
+        // El intento queda enganchado a esa etapa, no huérfano.
+        let etapa_del_intento: String = conn
+            .query_row(
+                "SELECT stage_id FROM message_attempt WHERE id = 'i1'",
+                [],
+                |f| f.get(0),
+            )
+            .expect("el intento conserva su etapa");
+        assert_eq!(etapa_del_intento, id);
+
+        // Y el cubo de ritmo conserva lo consumido, ahora sabiendo de qué canal es.
+        let (canal_cubo, consumido): (String, i64) = conn
+            .query_row("SELECT channel, consumed FROM rate_budget", [], |f| {
+                Ok((f.get(0)?, f.get(1)?))
+            })
+            .expect("consulta");
+        assert_eq!(canal_cubo, "email");
+        assert_eq!(
+            consumido, 7,
+            "se reinició el cubo al migrar: la campaña enviaría de más hoy"
         );
     }
 

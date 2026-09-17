@@ -15,6 +15,13 @@ const CLAVES_DEL_NUCLEO = [
   'error.email_invalido',
   'error.telefono_invalido',
   'error.canal_desconocido',
+  'error.etapa.sin_etapas',
+  'error.etapa.demasiadas',
+  'error.etapa.posiciones',
+  'error.etapa.canal_repetido',
+  'error.etapa.primera_no_espera',
+  'error.etapa.espera_desmesurada',
+  'error.etapa.condicion_desconocida',
   'error.id_invalido',
   'error.transicion_invalida',
   // arles-db

@@ -18,6 +18,7 @@ pub mod canal;
 pub mod email;
 pub mod empresa;
 pub mod error;
+pub mod etapa;
 pub mod ids;
 pub mod onboarding;
 pub mod secret;
@@ -30,5 +31,9 @@ pub use empresa::{
     ZONAS_SOPORTADAS,
 };
 pub use error::CoreError;
+pub use etapa::{
+    CondicionDeEtapa, ErrorDeSecuencia, EtapaPlanificada, MAX_ESPERA_HORAS, MAX_ETAPAS,
+    validar_secuencia,
+};
 pub use onboarding::{ListaDeOnboarding, PasoDeOnboarding, RecuentoDeAlta};
 pub use secret::Secret;

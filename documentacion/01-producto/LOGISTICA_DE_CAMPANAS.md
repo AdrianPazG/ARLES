@@ -163,10 +163,17 @@ Este paso no se resuelve dentro de ARLES. La mayor parte ocurre en Meta y
 | | Qué | Dónde | Cuánto |
 |---|---|---|---|
 | 6.1 | Cuenta de empresa en Meta, con la empresa verificada | Meta | semanas |
-| 6.2 | Número dedicado, que **deja de funcionar en la app de WhatsApp** | Meta | inmediato, e irreversible en la práctica |
+| 6.2 | Número dado de alta **con Coexistencia activada** | Meta | en el alta, y difícil de cambiar después |
 | 6.3 | Conectar el número a ARLES con sus credenciales | ARLES | minutos |
 | 6.4 | Plantillas aprobadas, una por una | Meta | días por plantilla |
 | 6.5 | Aceptar la advertencia de riesgo, con casilla | ARLES | una vez, y queda registrado |
+| 6.6 | Confirmar que Coexistencia está activada, con casilla | ARLES | una vez, y queda registrado |
+
+!! **Corrección de este documento (17/09/2026).** La fila 6.2 decía que un
+número conectado a la API **deja de funcionar en la app de WhatsApp**. Eso era
+cierto y ha dejado de serlo: Meta publicó **Coexistencia** en mayo de 2025 y
+desde mayo de 2026 está disponible en todos los países. Con ella, el mismo
+número vive a la vez en la app y en la API, con el historial sincronizado.
 
 !x **La condición que decide si la mitigación de Dirección funciona.** Se
 acordó probar con un número prescindible y usar el número propio sólo para dar
@@ -176,7 +183,44 @@ puede alcanzar al de seguimiento. Cuenta aparte, datos aparte, método de pago
 aparte. ARLES no puede comprobarlo —no ve dentro de Meta—, así que lo pregunta
 de forma explícita en el alta y lo deja registrado.
 
-=> Puerta: WhatsApp **no aparece como canal en el asistente** hasta que hay un número conectado, al menos una plantilla aprobada y la advertencia aceptada. Un canal a medias que se ofrece en el desplegable es una campaña fallida en diferido.
+=> Puerta: WhatsApp **no aparece como canal en el asistente** hasta que hay un número conectado, al menos una plantilla aprobada y las dos casillas aceptadas. Un canal a medias que se ofrece en el desplegable es una campaña fallida en diferido.
+
+### Coexistencia, obligatoria al dar de alta el número
+
+=> **Decisión L-11 · Al añadir el número, hay que confirmar que tiene Coexistencia activada. Es una casilla obligatoria, con su explicación.** ✅ **Dirección, 17/09/2026.**
+
+!i **Matiz sobre cómo explicarlo.** Dirección pidió explicarlo diciendo que
+«ayuda a recopilar la estadística». Eso es cierto pero es **la mitad**, y la
+mitad que se cae sola: si el texto sólo habla de estadísticas, quien lo lea lo
+tomará por analítica opcional y lo saltará. Lo que de verdad se cae sin
+Coexistencia es la operación entera.
+
+**Las dos cosas, en este orden:**
+
+1. **Tu agente de ventas puede contestar desde su teléfono.** Sin Coexistencia,
+   el número está en la API y **sale de la app de WhatsApp Business**: ARLES
+   envía y nadie puede responder desde el móvil. Ésta es la razón principal.
+2. **Y ARLES puede contar las respuestas.** Las respuestas llegan a ARLES como
+   aviso, se suman a la cifra de «respondidos» y **el texto se descarta**. Sin
+   Coexistencia esa cifra sería siempre cero, y «respondidos» es la métrica que
+   más protege al número: Meta premia que te contesten.
+
+**El texto de la casilla, para que quede fijado:**
+
+> Confirmo que este número está dado de alta en Meta con **Coexistencia**
+> activada. Sin ella, quien atienda no podrá responder desde la app de WhatsApp
+> Business y ARLES no podrá contar las respuestas.
+
+**ARLES no puede comprobarlo**, igual que no puede comprobar que los dos números
+cuelgan de cuentas distintas: no ve dentro de Meta. Así que lo pregunta, lo deja
+registrado con fecha en `audit_log`, y **lo repite en el preflight** de toda
+campaña de WhatsApp — una casilla marcada hace tres meses no es una comprobación
+de hoy.
+
+⚠ **Requisito operativo que nace de aquí:** con Coexistencia, la app de WhatsApp
+Business **tiene que abrirse al menos una vez cada 13 días** o la cuenta se
+desactiva. Si el agente se va tres semanas, se cae el canal. Conviene un segundo
+teléfono con la sesión abierta.
 
 ### Los dos modos del canal
 
@@ -315,7 +359,7 @@ guardan como borrador; los cuatro últimos son una secuencia.
 | **8** | **Envío de prueba** | verlo de verdad | obligatorio en los dos |
 | **9** | **Activar** | soltarlo | la única puerta irreversible |
 
-=> **Decisión L-1 · Una campaña tiene una o dos etapas, y cada etapa es de un solo canal.** ✅ **Corregida el 16/09/2026 a petición de Dirección.**
+=> **Decisión L-1 · Una campaña tiene una o dos etapas, y cada etapa es de un solo canal.** ✅ **Corregida el 16/09/2026 a petición de Dirección · implementada el 17/09/2026 en la migración `V4__etapas_de_campana.sql`.**
 
 **La versión anterior de esta decisión decía «una campaña es de un solo canal», y
 estaba mal.** Se escribió pensando en un envío mixto simultáneo. Lo que Dirección
@@ -334,6 +378,34 @@ Lo que sigue sin mezclarse es el **envío**, no la campaña:
 
 Un envío mixto simultáneo, en cambio, rompe las cuatro a la vez. Por eso la
 regla se queda en la etapa.
+
+### Lo que la etapa lleva dentro, ya construido
+
+| | Dónde vivía | Dónde vive |
+|---|---|---|
+| Cuenta remitente o número | campaña | **etapa** |
+| Plantilla y firma | campaña | **etapa** |
+| Ventana de ejecución | campaña | **etapa** |
+| Ritmo diario y por hora | campaña | **etapa** |
+| Estado de envío | campaña | **etapa** — y esto es L-6 |
+
+El ritmo por etapa no es simetría: WhatsApp empieza en 5 a 10 diarios y el
+correo en decenas. Un límite compartido obligaría a elegir entre frenar el
+correo o quemar el número.
+
+**La condición de la segunda etapa admite dos valores, y sólo dos:**
+
+| Valor | Qué hace |
+|---|---|
+| `always` | a todo el que tenga el canal y pase supresión y consentimiento |
+| `previous_not_failed` | sólo a quien el intento anterior **no** le falló de forma definitiva |
+
+!i **Lo que no puede estar ahí.** La condición natural sería «sólo a quien no
+contestó el correo», y **no se puede saber**: detectarlo exige leer el buzón,
+un permiso que v1.2.0 no pide (§69). «Sólo a quien lo abrió» está descartado
+por el mismo documento de fuera de alcance. Y «sólo si el número existe en
+WhatsApp» es L-7. Ofrecer una condición que no se puede evaluar sería peor que
+no ofrecerla: la campaña se activaría y el filtro no filtraría nada.
 
 ## El filtro que no se puede construir
 

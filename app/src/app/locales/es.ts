@@ -243,6 +243,50 @@ export const es = {
       como: "Revisa que tenga la forma nombre{'@'}dominio.com.",
       salvo: 'No se guardó ningún cambio.',
     },
+    // L-1 · las etapas de una campaña. No los puede provocar quien usa ARLES a
+    // ciegas: el asistente ofrece lo que se puede elegir. Están porque el
+    // núcleo valida igualmente, y un error sin texto se pinta como su clave.
+    etapa: {
+      sin_etapas: {
+        que: 'La campaña no tiene ninguna etapa.',
+        como: 'Añade al menos una: un canal, un remitente y un mensaje.',
+        salvo: 'La campaña sigue en borrador. No se envió nada.',
+      },
+      demasiadas: {
+        que: 'Una campaña admite como mucho dos etapas.',
+        como: 'Quita una, o crea una segunda campaña para el resto.',
+        salvo: 'La campaña sigue como estaba.',
+      },
+      posiciones: {
+        que: 'Las etapas están mal numeradas.',
+        como: 'Tienen que ser la 1 y la 2, sin huecos ni repetidas.',
+        salvo: 'La campaña sigue como estaba.',
+      },
+      canal_repetido: {
+        que: 'Las dos etapas usan el mismo canal.',
+        como:
+          'Una etapa por canal: si las dos son de correo, la segunda no ' +
+          'enviaría nada — para ARLES sería el mismo envío repetido.',
+        salvo: 'La campaña sigue en borrador. No se envió nada.',
+      },
+      primera_no_espera: {
+        que: 'La primera etapa no puede esperar ni depender de otra.',
+        como: 'Quita la espera y la condición de la etapa 1.',
+        salvo:
+          'La campaña sigue como estaba. Si se hubiera activado así, no ' +
+          'habría enviado nada y no habría forma de saber por qué.',
+      },
+      espera_desmesurada: {
+        que: 'La espera entre etapas pasa de 30 días.',
+        como: 'Ponla en 30 días o menos.',
+        salvo: 'La campaña sigue como estaba.',
+      },
+      condicion_desconocida: {
+        que: 'La condición de la etapa no es una de las admitidas.',
+        como: 'Vuelve a elegirla en el paso de ritmo de la campaña.',
+        salvo: 'La campaña sigue como estaba.',
+      },
+    },
     telefono_invalido: {
       que: 'El número de teléfono no es válido.',
       como:

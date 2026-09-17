@@ -196,14 +196,103 @@ id, company_id, name, body_html, body_text, is_default
 
 ### `campaign`
 
+> Cambiada en la **V4** (decisión L-1). Lo que decide **cómo** se envía bajó a
+> `campaign_stage`; aquí queda lo que decide **qué** es la campaña.
+
 ```
-id, company_id, name, status, email_account_id, template_version_id,
-signature_id, execution_window_id, daily_limit, hourly_limit,
-scheduled_start, activated_at, completed_at,
-over_50_warning_accepted_at, created_at, updated_at
+id, company_id, name, status, scheduled_start, activated_at,
+completed_at, over_50_warning_accepted_at, created_at, updated_at
 ```
 
-`status`: `draft` · `ready` · `scheduled` · `running` · `paused` · `stopped` · `completed`
+!! **Esta tabla no se reconstruyó al migrar, y las otras sí.** La primera
+versión de la V4 hacía lo de siempre —crear la nueva, copiar, `DROP TABLE`,
+renombrar— y **eso borraba la audiencia congelada y el registro de envíos**: con
+`PRAGMA foreign_keys = ON`, soltar una tabla padre ejecuta un borrado implícito
+que cascadea a `campaign_audience` y `message_attempt`. La migración terminaba
+sin un solo error y con las dos en cero filas. Lo destapó la prueba sobre base
+poblada; sobre una base vacía no habría pasado nada. Las columnas se quitan
+ahora con `ALTER TABLE … DROP COLUMN`, y sólo se reconstruyen tablas de las que
+no cuelga nadie.
+
+### `campaign_stage`
+
+> Nueva en la **V4**.
+
+```
+id, campaign_id, position, channel,
+email_account_id, whatsapp_account_id,
+template_version_id, signature_id, execution_window_id,
+daily_limit, hourly_limit, condition, wait_hours,
+status, activated_at, completed_at, created_at, updated_at
+```
+
+```sql
+CREATE UNIQUE INDEX idx_stage_posicion ON campaign_stage (campaign_id, position);
+CREATE UNIQUE INDEX idx_stage_canal    ON campaign_stage (campaign_id, channel);
+```
+
+Una campaña tiene **una o dos etapas**, cada una de **un solo canal**. Cada
+etapa lleva su remitente, su plantilla, su ritmo, su ventana y **su propio
+estado**.
+
+| Invariante | Cómo se impone | Qué evita |
+|---|---|---|
+| Una etapa por canal | índice único | dos etapas de correo se activarían y la segunda no enviaría **nada**, sin error: la unicidad de los intentos la rechaza contacto a contacto |
+| El remitente corresponde al canal | `CHECK` | una etapa de correo con un número de WhatsApp no falla al guardarse, falla al enviar, con la campaña ya activa |
+| La firma sólo en correo | `CHECK` | un campo que alguien rellena esperando que salga en el mensaje |
+| La primera etapa no espera ni depende | `CHECK` | una campaña activada que no envía nada y no puede explicar por qué |
+| La espera no pasa de 30 días | `CHECK`, el mismo tope que `arles_core::MAX_ESPERA_HORAS` | que el núcleo apruebe una secuencia que la base rechaza |
+
+**El estado por etapa es la decisión L-6**: apagar WhatsApp sin apagar el
+correo. Con un solo `campaign.status`, «detener» sólo podía significar
+detenerlo todo, y el día que el número se ponga en rojo habría que elegir entre
+arriesgar el número o parar unos correos que no tienen nada que ver.
+
+`condition` admite `always` y `previous_not_failed`, y **nada más**. La
+condición natural —«sólo a quien no contestó»— no se puede evaluar: exige leer
+el buzón (§69). Y «sólo si el número existe en WhatsApp» tampoco (L-7). Ofrecer
+una condición que no se puede evaluar sería peor que no ofrecerla: la campaña se
+activaría y el filtro no filtraría nada.
+
+### `whatsapp_account`
+
+> Nueva en la **V4**.
+
+```
+id, company_id, display_name, phone_e164, waba_id, phone_number_id,
+credential_ref, modo,
+coexistencia_confirmada_at, coexistencia_confirmada_by,
+riesgo_aceptado_at, riesgo_aceptado_by,
+calidad, calidad_actualizada_at, limite_diario_meta,
+status, created_at, updated_at
+```
+
+Tabla **aparte** de `email_account`, no una columna «tipo» dentro de ella: una
+guarda credenciales SMTP y límites que fija el usuario, la otra identificadores
+de Meta y límites que fija Meta y **cambia sola**. Una tabla con la mitad de las
+columnas nulas según el tipo es una tabla donde el `CHECK` de coherencia se
+olvida un día.
+
+**L-11 · Coexistencia.** Se guarda como **marca de tiempo con autor**, no como
+booleano: lo que hay que poder enseñar es cuándo se confirmó y quién. `NULL`
+significa sin confirmar, y entonces el canal no se ofrece. ARLES **no puede
+comprobarlo** —no ve dentro de Meta—, así que lo pregunta, lo registra aquí y en
+`audit_log`, y lo repite en el preflight de cada campaña: una casilla marcada
+hace tres meses no es una comprobación de hoy.
+
+### `whatsapp_quality_event`
+
+> Nueva en la **V4**.
+
+El historial de la calificación de Meta, para la gráfica de ACTIVIDAD. Meta da
+**el resultado, no los ingredientes**: no publica cuántos bloquearon ni cuántos
+reportaron, sólo un color calculado con esas señales entre otras. La línea de
+tiempo contesta «¿qué envío quemó el número?», que un contador de bloqueos no
+contestaría aunque existiera.
+
+`campaign.status`: `draft` · `ready` · `scheduled` · `running` · `paused` ·
+`stopped` · `completed`. Es el estado de la campaña **como conjunto**. Lo que ya
+no puede es decidir si un canal concreto está enviando: eso lo dice la etapa.
 
 `over_50_warning_accepted_at` registra la aceptación explícita del aviso del §48. También se duplica en `audit_log`: aquí para consultarlo rápido, allí para que sea imborrable.
 
@@ -218,12 +307,13 @@ Congelarla es lo que hace la campaña reproducible y auditable. Sin esto, «¿a 
 
 ### `message_attempt` — la tabla crítica
 
-> Cambiada en la **V3**: lleva canal, y `contact_email` pasó a llamarse
-> `contact_address`. Una columna llamada «email» que guarda un teléfono es una
+> Cambiada en la **V3** (lleva canal, y `contact_email` pasó a llamarse
+> `contact_address`) y en la **V4** (lleva `stage_id`). Una columna llamada «email» que guarda un teléfono es una
 > trampa para quien lea la consulta dentro de un año.
 
 ```
-id, campaign_id, channel, contact_id, contact_address, email_account_id,
+id, campaign_id, stage_id, channel, contact_id, contact_address,
+email_account_id, whatsapp_account_id,
 idempotency_key, state, attempt_count,
 scheduled_for, claimed_at, sent_at,
 provider_message_id, provider_response,

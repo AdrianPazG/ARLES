@@ -262,12 +262,13 @@ def fase_1(rapido):
     # esquema que corre. Comprobar la migración vieja daría un ✓ sobre algo que
     # otra migración pudo deshacer después.
     esquema = leer("crates/arles-db/migrations", "V3__canales_de_contacto.sql") or ""
+    ultima = leer("crates/arles-db/migrations", "V4__etapas_de_campana.sql") or ""
     check(1, "Borrar un contacto no borra el registro de envío",
-          "contact_address" in esquema
+          "contact_address" in ultima
           and "contact_id          TEXT REFERENCES contact(id) ON DELETE SET NULL"
-          in esquema
+          in ultima
           and "idx_attempt_unique\n    ON message_attempt(campaign_id, channel, contact_address)"
-          in esquema,
+          in ultima,
           "Si el intento cascadea con el contacto, se pierden a la vez la "
           "auditoría y la protección contra duplicados: reimportar al contacto "
           "permitiría enviarle otra vez (§55, ADR-0004).")
@@ -285,6 +286,20 @@ def fase_1(rapido):
           "aceptan. Una divergencia no se ve al compilar: se ve como filas "
           "rechazadas en tiempo de ejecución.",
           detalle=f"en Rust: {sorted(set(en_rust))}")
+
+    # La primera versión de la V4 reconstruía `campaign` con DROP + RENAME. Con
+    # las claves foráneas activas, soltar una tabla PADRE ejecuta un borrado
+    # implícito que cascadea a `campaign_audience` y `message_attempt`: la
+    # migración terminaba sin un solo error y con la audiencia congelada y el
+    # registro de envíos en cero filas. Lo cubre un test sobre base poblada;
+    # esto lo detecta en la migración SIGUIENTE, antes de razonarlo otra vez.
+    check(1, "Ninguna migración suelta una tabla de la que cuelgan otras",
+          not re.search(r"^DROP TABLE (campaign|contact|company|email_account)\s*;",
+                        ultima, re.MULTILINE),
+          "Soltar una tabla padre con las claves foráneas activas borra sus "
+          "hijas en cascada. Las columnas se quitan en su sitio con ALTER TABLE "
+          "… DROP COLUMN; sólo se reconstruyen tablas de las que no cuelga nada.",
+          detalle="revisado sobre la última migración")
 
     check(1, "El consentimiento es append-only y no bloquea el borrado",
           "consent_entry_sin_update" in esquema
@@ -1155,6 +1170,9 @@ MIGRACIONES_PUBLICADAS = {
         "1a9e4d2bb22e02d89775d3a9543ae4bcb58369632a83a275972e548079b2b1ef",
     "V2__preferencias_de_interfaz.sql":
         "5ba0d6730f9d926d7137886bbbf34e4cc30d8f777c70be3b557ada37364c0b02",
+    # L-1 y L-11, 17/09/2026.
+    "V4__etapas_de_campana.sql":
+        "2dd0cc3b5174e31d35706607df4811784edd48d95a84c38ffdfb1d546f7483de",
     # L-2 / D-6, 17/09/2026. A partir de aquí queda congelada como las otras dos.
     "V3__canales_de_contacto.sql":
         "bb057af229cf4b47ccb11063c8145631c61526b6fb8d00c3b782bf4a02c4dbdb",

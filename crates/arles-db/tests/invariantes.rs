@@ -432,11 +432,15 @@ fn no_se_puede_borrar_una_cuenta_remitente_en_uso() {
     )
     .expect("inserta cuenta");
 
+    // Desde la V4 el remitente vive en la ETAPA, no en la campaña: es lo que
+    // permite que una campaña tenga una etapa de correo y otra de WhatsApp.
     conn.execute(
-        "UPDATE campaign SET email_account_id = 'ea1' WHERE id = ?1",
-        params![CAMPANA],
+        "INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                     email_account_id, created_at, updated_at)
+         VALUES ('st1', ?1, 1, 'email', 'ea1', ?2, ?2)",
+        params![CAMPANA, AHORA],
     )
-    .expect("asigna la cuenta a la campaña");
+    .expect("asigna la cuenta a la etapa");
 
     assert!(
         conn.execute("DELETE FROM email_account WHERE id = 'ea1'", [])
@@ -779,4 +783,374 @@ fn el_canal_solo_admite_los_dos_que_existen() {
             "se admitió un canal que no existe"
         );
     }
+}
+
+// ─── L-1 · Una campaña tiene etapas ─────────────────────────────────────────
+
+const CUENTA_CORREO: &str = "ea-ventas";
+const CUENTA_WHATSAPP: &str = "wa-ventas";
+
+/// Deja las dos cuentas remitentes listas: una de correo y un número.
+fn con_remitentes(conn: &Connection) {
+    conn.execute(
+        "INSERT INTO email_account (id, company_id, display_name, email_address,
+                                    provider_kind, credential_ref, daily_limit,
+                                    hourly_limit, created_at, updated_at)
+         VALUES (?1, ?2, 'Ventas', 'ventas@empresa.com', 'smtp',
+                 'llavero://ea1', 50, 10, ?3, ?3)",
+        params![CUENTA_CORREO, EMPRESA, AHORA],
+    )
+    .expect("inserta cuenta de correo");
+
+    conn.execute(
+        "INSERT INTO whatsapp_account (id, company_id, display_name, phone_e164,
+                                       waba_id, phone_number_id, credential_ref,
+                                       created_at, updated_at)
+         VALUES (?1, ?2, 'Ventas WA', '+528100000000', 'waba-1', 'pn-1',
+                 'llavero://wa1', ?3, ?3)",
+        params![CUENTA_WHATSAPP, EMPRESA, AHORA],
+    )
+    .expect("inserta número de WhatsApp");
+}
+
+fn insertar_etapa(
+    conn: &Connection,
+    id: &str,
+    posicion: i64,
+    canal: &str,
+) -> rusqlite::Result<usize> {
+    let (correo, whatsapp) = match canal {
+        "email" => (Some(CUENTA_CORREO), None),
+        _ => (None, Some(CUENTA_WHATSAPP)),
+    };
+    conn.execute(
+        "INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                     email_account_id, whatsapp_account_id,
+                                     condition, wait_hours, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)",
+        params![
+            id,
+            CAMPANA,
+            posicion,
+            canal,
+            correo,
+            whatsapp,
+            if posicion == 1 {
+                "always"
+            } else {
+                "previous_not_failed"
+            },
+            if posicion == 1 { 0 } else { 48 },
+            AHORA
+        ],
+    )
+}
+
+/// **Lo que L-1 hace posible.** Correo primero, WhatsApp después, en la misma
+/// campaña y sobre la misma tabla de contactos.
+#[test]
+fn una_campana_admite_una_etapa_de_correo_y_otra_de_whatsapp() {
+    let (_d, conn) = base();
+    con_remitentes(&conn);
+
+    insertar_etapa(&conn, "st1", 1, "email").expect("primera etapa: correo");
+    insertar_etapa(&conn, "st2", 2, "whatsapp").expect("segunda etapa: WhatsApp");
+}
+
+/// Dos etapas del mismo canal no son una secuencia: son dos envíos iguales, y
+/// la unicidad de los intentos rechazaría el segundo contacto a contacto. Sin
+/// esta restricción la campaña se activaría y la segunda etapa no enviaría ni
+/// un mensaje, **sin ningún error a la vista**.
+#[test]
+fn una_campana_no_admite_dos_etapas_del_mismo_canal() {
+    let (_d, conn) = base();
+    con_remitentes(&conn);
+
+    insertar_etapa(&conn, "st1", 1, "email").expect("la primera entra");
+    assert!(
+        insertar_etapa(&conn, "st2", 2, "email").is_err(),
+        "se admitieron dos etapas de correo en la misma campaña"
+    );
+}
+
+#[test]
+fn las_posiciones_no_se_repiten_dentro_de_una_campana() {
+    let (_d, conn) = base();
+    con_remitentes(&conn);
+
+    insertar_etapa(&conn, "st1", 1, "email").expect("la primera entra");
+    assert!(
+        insertar_etapa(&conn, "st2", 1, "whatsapp").is_err(),
+        "se admitieron dos etapas en la posición 1"
+    );
+}
+
+/// El remitente tiene que corresponder al canal. Una etapa de correo colgada de
+/// un número de WhatsApp **no falla al guardarse**: falla al enviar, con la
+/// campaña ya activada. Por eso es un CHECK y no una regla del código.
+#[test]
+fn el_remitente_de_una_etapa_corresponde_a_su_canal() {
+    let (_d, conn) = base();
+    con_remitentes(&conn);
+
+    let cruzada = conn.execute(
+        "INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                     whatsapp_account_id, created_at, updated_at)
+         VALUES ('st-mal', ?1, 1, 'email', ?2, ?3, ?3)",
+        params![CAMPANA, CUENTA_WHATSAPP, AHORA],
+    );
+    assert!(
+        cruzada.is_err(),
+        "una etapa de correo aceptó un número de WhatsApp"
+    );
+
+    let sin_remitente = conn.execute(
+        "INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                     created_at, updated_at)
+         VALUES ('st-vacia', ?1, 1, 'email', ?2, ?2)",
+        params![CAMPANA, AHORA],
+    );
+    assert!(sin_remitente.is_err(), "se admitió una etapa sin remitente");
+
+    let con_los_dos = conn.execute(
+        "INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                     email_account_id, whatsapp_account_id,
+                                     created_at, updated_at)
+         VALUES ('st-dos', ?1, 1, 'email', ?2, ?3, ?4, ?4)",
+        params![CAMPANA, CUENTA_CORREO, CUENTA_WHATSAPP, AHORA],
+    );
+    assert!(
+        con_los_dos.is_err(),
+        "se admitió una etapa con dos remitentes"
+    );
+}
+
+/// La primera etapa no espera a nadie. Si esperara, la campaña quedaría
+/// activada sin enviar nada y sin que la pantalla pudiera explicar por qué.
+#[test]
+fn la_primera_etapa_no_puede_esperar_ni_depender() {
+    let (_d, conn) = base();
+    con_remitentes(&conn);
+
+    let con_espera = conn.execute(
+        "INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                     email_account_id, wait_hours,
+                                     created_at, updated_at)
+         VALUES ('st-mal', ?1, 1, 'email', ?2, 24, ?3, ?3)",
+        params![CAMPANA, CUENTA_CORREO, AHORA],
+    );
+    assert!(con_espera.is_err(), "la primera etapa aceptó una espera");
+
+    let con_condicion = conn.execute(
+        "INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                     email_account_id, condition,
+                                     created_at, updated_at)
+         VALUES ('st-mal2', ?1, 1, 'email', ?2, 'previous_not_failed', ?3, ?3)",
+        params![CAMPANA, CUENTA_CORREO, AHORA],
+    );
+    assert!(
+        con_condicion.is_err(),
+        "la primera etapa aceptó una condición"
+    );
+}
+
+/// El tope de espera del esquema es el mismo que `arles_core::MAX_ESPERA_HORAS`.
+/// Si divergieran, el núcleo aprobaría una secuencia que la base rechaza.
+#[test]
+fn la_espera_entre_etapas_tiene_el_mismo_tope_que_el_nucleo() {
+    let (_d, conn) = base();
+    con_remitentes(&conn);
+    insertar_etapa(&conn, "st1", 1, "email").expect("primera");
+
+    let meter = |id: &str, horas: u32| {
+        conn.execute(
+            "INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                         whatsapp_account_id, condition, wait_hours,
+                                         created_at, updated_at)
+             VALUES (?1, ?2, 2, 'whatsapp', ?3, 'always', ?4, ?5, ?5)",
+            params![id, CAMPANA, CUENTA_WHATSAPP, horas, AHORA],
+        )
+    };
+
+    meter("st-tope", arles_core::MAX_ESPERA_HORAS).expect("el tope exacto entra");
+    conn.execute("DELETE FROM campaign_stage WHERE id = 'st-tope'", [])
+        .expect("limpia");
+    assert!(
+        meter("st-pasada", arles_core::MAX_ESPERA_HORAS + 1).is_err(),
+        "el esquema admitió una espera que el núcleo rechaza"
+    );
+}
+
+/// **L-6 escrito como prueba.** Parar WhatsApp no para el correo. Con un solo
+/// estado en la campaña, «detener» sólo podía significar detenerlo todo.
+#[test]
+fn parar_una_etapa_no_para_la_otra() {
+    let (_d, conn) = base();
+    con_remitentes(&conn);
+    insertar_etapa(&conn, "st1", 1, "email").expect("correo");
+    insertar_etapa(&conn, "st2", 2, "whatsapp").expect("whatsapp");
+
+    conn.execute(
+        "UPDATE campaign_stage SET status = 'running' WHERE campaign_id = ?1",
+        params![CAMPANA],
+    )
+    .expect("las dos en marcha");
+
+    conn.execute(
+        "UPDATE campaign_stage SET status = 'stopped'
+          WHERE campaign_id = ?1 AND channel = 'whatsapp'",
+        params![CAMPANA],
+    )
+    .expect("se detiene WhatsApp");
+
+    let correo: String = conn
+        .query_row(
+            "SELECT status FROM campaign_stage
+              WHERE campaign_id = ?1 AND channel = 'email'",
+            params![CAMPANA],
+            |f| f.get(0),
+        )
+        .expect("consulta");
+    assert_eq!(
+        correo, "running",
+        "detener WhatsApp detuvo también el correo: L-6 no se sostiene"
+    );
+}
+
+/// Borrar una etapa no puede borrar la prueba de lo que se envió desde ella.
+/// Misma razón que con el contacto en la V1.
+#[test]
+fn borrar_una_etapa_no_borra_sus_intentos() {
+    let (_d, conn) = base();
+    con_remitentes(&conn);
+    insertar_etapa(&conn, "st1", 1, "email").expect("etapa");
+
+    conn.execute(
+        "INSERT INTO message_attempt (id, campaign_id, stage_id, channel, contact_id,
+                                      contact_address, idempotency_key,
+                                      created_at, updated_at)
+         VALUES ('i1', ?1, 'st1', 'email', ?2, 'ana@empresa.com', 'k1', ?3, ?3)",
+        params![CAMPANA, CONTACTO_A, AHORA],
+    )
+    .expect("inserta intento");
+
+    conn.execute("DELETE FROM campaign_stage WHERE id = 'st1'", [])
+        .expect("borra la etapa");
+
+    let (quedan, con_etapa): (i64, i64) = conn
+        .query_row(
+            "SELECT count(*), count(stage_id) FROM message_attempt",
+            [],
+            |f| Ok((f.get(0)?, f.get(1)?)),
+        )
+        .expect("consulta");
+    assert_eq!(
+        quedan, 1,
+        "se perdió la prueba del envío al borrar la etapa"
+    );
+    assert_eq!(con_etapa, 0, "el stage_id debería anularse");
+}
+
+/// Una cuenta remitente con una etapa que la usa no se borra en silencio.
+#[test]
+fn no_se_puede_borrar_un_numero_de_whatsapp_en_uso() {
+    let (_d, conn) = base();
+    con_remitentes(&conn);
+    insertar_etapa(&conn, "st1", 1, "whatsapp").expect("etapa de WhatsApp");
+
+    assert!(
+        conn.execute(
+            "DELETE FROM whatsapp_account WHERE id = ?1",
+            params![CUENTA_WHATSAPP]
+        )
+        .is_err(),
+        "se borró un número que una campaña sigue usando"
+    );
+}
+
+// ─── L-11 · Coexistencia ────────────────────────────────────────────────────
+
+/// La confirmación de Coexistencia se guarda como **fecha**, no como casilla.
+/// Lo que hay que poder enseñar es cuándo se confirmó y quién, no que alguien
+/// marcó algo alguna vez.
+#[test]
+fn la_coexistencia_se_registra_con_fecha_y_autor() {
+    let (_d, conn) = base();
+    con_remitentes(&conn);
+
+    let sin_confirmar: Option<String> = conn
+        .query_row(
+            "SELECT coexistencia_confirmada_at FROM whatsapp_account WHERE id = ?1",
+            params![CUENTA_WHATSAPP],
+            |f| f.get(0),
+        )
+        .expect("consulta");
+    assert!(
+        sin_confirmar.is_none(),
+        "un número recién conectado no puede nacer con la Coexistencia confirmada"
+    );
+
+    conn.execute(
+        "UPDATE whatsapp_account
+            SET coexistencia_confirmada_at = ?1, coexistencia_confirmada_by = 'direccion'
+          WHERE id = ?2",
+        params![AHORA, CUENTA_WHATSAPP],
+    )
+    .expect("confirma");
+
+    let (cuando, quien): (String, String) = conn
+        .query_row(
+            "SELECT coexistencia_confirmada_at, coexistencia_confirmada_by
+               FROM whatsapp_account WHERE id = ?1",
+            params![CUENTA_WHATSAPP],
+            |f| Ok((f.get(0)?, f.get(1)?)),
+        )
+        .expect("consulta");
+    assert_eq!(cuando, AHORA);
+    assert_eq!(quien, "direccion");
+}
+
+/// La calificación que da Meta se guarda con su historial. Meta da el
+/// resultado, no los ingredientes: no publica cuántos bloquearon ni cuántos
+/// reportaron. La línea de tiempo es lo que contesta «¿qué envío quemó el
+/// número?», que un contador de bloqueos no contestaría aunque existiera.
+#[test]
+fn la_calificacion_de_meta_guarda_su_historial() {
+    let (_d, conn) = base();
+    con_remitentes(&conn);
+
+    for (id, calidad, cuando) in [
+        ("q1", "green", "2026-09-01T00:00:00Z"),
+        ("q2", "yellow", "2026-09-15T00:00:00Z"),
+        ("q3", "red", "2026-09-17T00:00:00Z"),
+    ] {
+        conn.execute(
+            "INSERT INTO whatsapp_quality_event (id, whatsapp_account_id, calidad,
+                                                 ocurrido_at, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?4)",
+            params![id, CUENTA_WHATSAPP, calidad, cuando],
+        )
+        .expect("inserta evento");
+    }
+
+    let cuantos: i64 = conn
+        .query_row("SELECT count(*) FROM whatsapp_quality_event", [], |f| {
+            f.get(0)
+        })
+        .expect("cuenta");
+    assert_eq!(
+        cuantos, 3,
+        "el historial no puede quedarse sólo con el último"
+    );
+
+    assert!(
+        conn.execute(
+            "INSERT INTO whatsapp_quality_event (id, whatsapp_account_id, calidad,
+                                                 ocurrido_at, created_at)
+             VALUES ('q4', ?1, 'morado', ?2, ?2)",
+            params![CUENTA_WHATSAPP, AHORA],
+        )
+        .is_err(),
+        "se admitió una calificación que Meta no da"
+    );
 }
