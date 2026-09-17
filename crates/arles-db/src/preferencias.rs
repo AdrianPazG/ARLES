@@ -22,6 +22,12 @@ use crate::error::DbError;
 pub const CLAVES_DE_INTERFAZ: &[&str] = &[
     // P-11: «Sí, se recuerda». Valor «1» plegada, «0» desplegada.
     "barra_lateral_plegada",
+    // C-1: el tema que eligió el usuario. Valores «auto», «oscuro» o «claro».
+    //
+    // Qué significa cada uno lo decide `arles-app`, no esta capa: aquí sólo se
+    // guarda una cadena corta. Lo que sí es de aquí es que la clave exista en
+    // la lista, porque si no, guardarla se rechaza.
+    "tema",
 ];
 
 /// Tope del valor. Una preferencia de interfaz no necesita más, y sin tope la

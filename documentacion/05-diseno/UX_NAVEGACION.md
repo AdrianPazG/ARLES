@@ -346,6 +346,74 @@ falta por construir» dice la verdad en el mismo sitio.
 
 ---
 
+## 4.4 Apariencia · elegir el tema (C-1, C-2)
+
+La paleta clara existe y está medida desde el paso 2: **72 contratos de
+contraste**, los mismos en los dos temas. Lo que faltaba era el control que la
+elige. Hasta este paso, el tema claro sólo se veía escribiendo
+`data-tema="claro"` a mano en el inspector — para quien usa ARLES, lo mismo que
+si no existiera.
+
+### 4.4.1 Tres opciones, y «Automático» no es un tema
+
+| Opción | Qué hace |
+|---|---|
+| **Automático · el de tu sistema** | Sigue a `prefers-color-scheme`, también **en caliente** |
+| **Oscuro** | Fijo, gane lo que gane el sistema |
+| **Claro** | Fijo |
+
+=> Lo que se guarda es **la palabra elegida**, no el tema resultante. Si
+guardáramos el resultado, quien tiene su sistema en claro por la tarde y en
+oscuro por la noche reabriría ARLES en el tema de anoche, y ya no habría forma
+de volver a seguir al sistema sin volver a elegir: la elección del usuario y la
+respuesta del sistema habrían quedado fundidas en el mismo dato.
+
+«Automático» sigue al sistema **mientras ARLES está abierto**, con un oyente de
+`matchMedia`. No es un caso raro: macOS y Windows conmutan solos al anochecer, y
+sin eso ARLES se quedaría siendo la única ventana oscura del escritorio.
+
+### 4.4.2 Dónde vive, y por qué no tiene «Guardar»
+
+En **Ajustes**, columna de contexto, encima de la nota de la zona horaria. No
+lleva botón de guardar: el resultado se ve entero en la misma pantalla, así que
+confirmar algo que ya está a la vista sólo añade un paso.
+
+!i Y por eso mismo **no puede vivir dentro del `<form>` de empresa**: ese
+formulario descarta el aviso de «Configuración guardada» en cada `input`, y
+elegir un tema borraría un aviso que no tiene nada que ver.
+
+### 4.4.3 La preferencia va a la base, no a `localStorage`
+
+Misma regla que la barra plegada (`V2__preferencias_de_interfaz.sql`): clave
+`tema` en `ui_preference`, dentro de la base cifrada, y por tanto dentro del
+respaldo. `localStorage` vive en el perfil de la WebView y se va con la caché
+del sistema.
+
+La lista de valores admitidos está **cerrada en Rust** (`comandos::TEMAS`). El
+desplegable ofrece tres opciones, pero la frontera IPC admite cualquier cadena
+que alguien quiera mandarle, y lo que se guarde acaba escrito tal cual en
+`data-tema`.
+
+### 4.4.4 Qué se mide, y qué se rompió al comprobarlo
+
+`npm --prefix app run sonda:tema` mide cuatro cosas: que elegir «Claro»
+**cambia el color del píxel** (no sólo el atributo), que la elección sobrevive a
+recargar, que «Automático» sigue al sistema en caliente, y que las tres opciones
+del desplegable son las tres que el núcleo acepta.
+
+!! **La primera versión de esa sonda no comprobaba nada de la persistencia.**
+Recargaba con `goto()` a `#/ajustes` estando ya en `#/ajustes`, y con enrutado
+por hash eso es navegación dentro del mismo documento: el navegador no recarga.
+Se descubrió al romper a propósito la llamada que guarda el tema — la sonda
+siguió diciendo que se recordaba. Ahora recarga con `reload()` y el falso núcleo
+guarda fuera del documento.
+
+Las tres comprobaciones se probaron rompiéndolas: sin guardar, «no sobrevive a
+reabrir»; sin oyente de `matchMedia`, «el sistema cambió y no lo siguió»; con el
+atributo escrito en `<body>` en vez de `<html>`, «aplicó null».
+
+---
+
 ## 5. Flujo de campaña (§40)
 
 Nueve pasos, en un asistente con pasos visitables hacia atrás y borrador guardado automáticamente.

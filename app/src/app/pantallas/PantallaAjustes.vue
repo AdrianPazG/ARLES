@@ -20,6 +20,7 @@ import { RouterLink } from 'vue-router'
 
 import { resolverError } from '@/app/errores'
 import { useEmpresaStore, type BorradorDeEmpresa } from '@/app/stores/empresa'
+import { TEMAS, esTema, useInterfazStore } from '@/app/stores/interfaz'
 import {
   AAviso,
   ABoton,
@@ -30,7 +31,25 @@ import {
 } from '@/design/componentes'
 
 const empresa = useEmpresaStore()
+const interfaz = useInterfazStore()
 const { t, te } = useI18n()
+
+/**
+ * Las opciones del tema salen de la lista del almacén, no de tres líneas
+ * escritas aquí. Esa lista es la que el núcleo valida, así que una opción que
+ * el desplegable ofreciera de más sería una opción que el núcleo rechaza.
+ */
+const opcionesDeTema = computed(() =>
+  TEMAS.map((valor) => ({ valor, texto: t(`apariencia.${valor}`) })),
+)
+
+/**
+ * `ASelector` emite una cadena, y `elegirTema` quiere una de las tres palabras.
+ * Comprobarlo aquí es lo que permite que el almacén siga tipado sin un `as`.
+ */
+function elegirTema(valor: string): void {
+  if (esTema(valor)) void interfaz.elegirTema(valor)
+}
 
 /**
  * El error general, ya resuelto a sus tres partes.
@@ -248,6 +267,42 @@ async function enviar(): Promise<void> {
       </form>
 
       <aside class="contexto">
+        <!-- ── Apariencia (C-1 y C-2) ────────────────────────────────────────
+             Fuera del formulario de empresa **a propósito**: no tiene botón de
+             guardar. Se aplica al elegir, porque el resultado se ve entero en
+             la misma pantalla; un «Guardar» aquí obligaría a confirmar algo
+             que ya está a la vista.
+
+             Y por eso mismo no puede vivir dentro del `<form>`: comparte el
+             `@input` que descarta el aviso de «Configuración guardada», y
+             elegir un tema borraría un aviso que no tiene nada que ver. -->
+        <section
+          class="apariencia"
+          aria-labelledby="titulo-apariencia"
+        >
+          <h2
+            id="titulo-apariencia"
+            class="subtitulo"
+          >
+            {{ $t('apariencia.titulo') }}
+          </h2>
+
+          <ASelector
+            :model-value="interfaz.tema"
+            :etiqueta="$t('apariencia.campo')"
+            :ayuda="$t('apariencia.ayuda')"
+            :opciones="opcionesDeTema"
+            @update:model-value="elegirTema"
+          />
+
+          <AAviso
+            tono="info"
+            :titulo="$t('apariencia.porQue')"
+          >
+            {{ $t('apariencia.porQueDetalle') }}
+          </AAviso>
+        </section>
+
         <!-- §67: la zona horaria no es un dato decorativo. Decide a qué hora sale
          cada correo, y decirlo aquí evita la conversación de por qué una
          campaña salió a las tres de la mañana. -->
@@ -338,6 +393,12 @@ async function enviar(): Promise<void> {
 </template>
 
 <style scoped>
+.apariencia {
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-4);
+}
+
 .alta {
   display: flex;
   flex-direction: column;

@@ -12,6 +12,41 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### El tema ya se puede elegir (C-1, C-2)
+
+- **La paleta clara llevaba dos pasos existiendo sin que hubiera forma de
+  elegirla.** Estaba medida —72 contratos de contraste, los mismos en los dos
+  temas— pero sólo se veía escribiendo `data-tema="claro"` a mano en el
+  inspector. Ahora hay un desplegable en Ajustes › Apariencia.
+- Tres opciones: **Automático · el de tu sistema**, **Oscuro** y **Claro**.
+  «Automático» sigue a `prefers-color-scheme` **también en caliente**: macOS y
+  Windows conmutan solos al anochecer, y sin eso ARLES se quedaría siendo la
+  única ventana oscura del escritorio.
+- **Se guarda la palabra elegida, no el tema resultante.** Guardar el resultado
+  fundiría la elección del usuario y la respuesta del sistema en el mismo dato,
+  y ya no habría forma de volver a seguir al sistema sin volver a elegir.
+- La preferencia va a `ui_preference`, dentro de la base cifrada y del respaldo,
+  no a `localStorage`. La lista de valores admitidos está **cerrada en Rust**:
+  el desplegable tiene tres opciones, pero la frontera IPC admite cualquier
+  cadena, y lo que se guarde acaba escrito tal cual en `data-tema`.
+- Sin botón de guardar: el resultado se ve entero en la misma pantalla. Y fuera
+  del formulario de empresa, que descarta su aviso de «Configuración guardada»
+  en cada `input`.
+- **Se mide que cambia el píxel, no que cambia el atributo.** Un atributo bien
+  escrito con los tokens mal enlazados da el mismo atributo y la misma pantalla
+  oscura. `sonda:tema` compara el fondo real del `<body>`.
+- !! **La primera versión de esa sonda no comprobaba la persistencia.**
+  Recargaba con `goto()` a `#/ajustes` estando ya en `#/ajustes`, que con
+  enrutado por hash no recarga nada: medía el estado que seguía en memoria. Se
+  descubrió al romper a propósito la llamada que guarda el tema — la sonda
+  siguió diciendo que se recordaba. Corregida con `reload()` y un falso núcleo
+  que guarda fuera del documento.
+- Las tres comprobaciones probadas rompiéndolas: sin guardar, «no sobrevive a
+  reabrir»; sin oyente de `matchMedia`, «el sistema cambió y no lo siguió»; con
+  el atributo en `<body>` en vez de `<html>`, «aplicó null».
+- De paso, el validador encontró que `error.app.tema_desconocido` se había
+  quedado fuera de la lista de claves vigiladas.
+
 ### La sección activa se ve en los dos temas, y su barra crece
 
 - **El relleno del activo era invisible en tema claro.** Reutilizaba

@@ -60,11 +60,61 @@ export const UMBRAL_DE_PLEGADO_PX =
  * hiciéramos, al volver a agrandarla habría perdido su preferencia sin haber
  * tocado nada.
  */
+/**
+ * Los tres temas que ofrece el desplegable, en el orden en que se ofrecen.
+ *
+ * **`auto` no es un tema**: es «el que pida el sistema operativo». Lo que se
+ * guarda es la palabra, no el resultado de resolverla — guardar el resultado
+ * haría que quien cambia su sistema a claro por la noche reabriera ARLES en
+ * oscuro sin entender por qué.
+ *
+ * La lista tiene que ser la misma que `arles_app::comandos::TEMAS`. No se puede
+ * importar de Rust, así que la vigila la sonda: si divergen, el núcleo rechaza
+ * lo que el desplegable ofrece.
+ */
+export const TEMAS = ['auto', 'oscuro', 'claro'] as const
+
+export type Tema = (typeof TEMAS)[number]
+
+/** Lo que de verdad se escribe en `data-tema`. `auto` ya está resuelto. */
+export type TemaAplicado = 'oscuro' | 'claro'
+
 export const useInterfazStore = defineStore('interfaz', () => {
   /** Lo que el usuario eligió la última vez. Es lo que se recuerda. */
   const preferenciaPlegada = ref(false)
   const anchoVentana = ref(typeof window === 'undefined' ? 0 : window.innerWidth)
   const cargada = ref(false)
+
+  /**
+   * El tema elegido (C-1). `auto` mientras el usuario no elija otra cosa.
+   */
+  const tema = ref<Tema>('auto')
+
+  /**
+   * Lo que pide el sistema operativo ahora mismo (C-2).
+   *
+   * Es un dato que **cambia mientras la aplicación está abierta**: macOS y
+   * Windows conmutan a claro y a oscuro por hora del día. Por eso se guarda en
+   * un `ref` que el armazón refresca, y no se consulta al vuelo dentro del
+   * `computed` — `matchMedia` no es reactivo, así que leerlo ahí daría un valor
+   * que Vue nunca sabría que ha caducado.
+   *
+   * Por defecto oscuro: ARLES es dark-first (§18), así que cuando no se puede
+   * preguntar —un entorno sin `matchMedia`— se queda en el tema de la casa.
+   */
+  const temaDelSistema = ref<TemaAplicado>('oscuro')
+
+  /**
+   * El tema que se pinta. Es lo que acaba en `data-tema` del `<html>`.
+   *
+   * `auto` se resuelve **aquí y no al guardar**: si lo resolviéramos al
+   * guardar, la elección del usuario y la respuesta del sistema quedarían
+   * fundidas en el mismo dato y ya no habría forma de volver a seguir al
+   * sistema sin volver a elegir.
+   */
+  const temaAplicado = computed<TemaAplicado>(() =>
+    tema.value === 'auto' ? temaDelSistema.value : tema.value,
+  )
 
   /** La ventana no da para la barra desplegada sin apretar el contenido. */
   const estrecha = computed(() => anchoVentana.value < UMBRAL_DE_PLEGADO_PX)
@@ -92,10 +142,15 @@ export const useInterfazStore = defineStore('interfaz', () => {
     cargada.value = true
     if (!hayNucleo()) return
     try {
-      const p = await invocar<{ barraLateralPlegada: boolean }>(
+      const p = await invocar<{ barraLateralPlegada: boolean; tema: string }>(
         'preferencias_de_interfaz',
       )
       preferenciaPlegada.value = p.barraLateralPlegada
+      // El núcleo ya descarta los valores que no reconoce, pero esta capa no
+      // puede darlo por hecho: lo que llega por IPC se comprueba en el lado que
+      // lo va a usar. Un tema inventado acabaría escrito tal cual en
+      // `data-tema` y la aplicación se quedaría sin ningún tema aplicado.
+      if (esTema(p.tema)) tema.value = p.tema
     } catch {
       // Una preferencia de interfaz que no se puede leer **no** impide usar la
       // aplicación: se queda desplegada, que es el valor por defecto.
@@ -115,9 +170,34 @@ export const useInterfazStore = defineStore('interfaz', () => {
     }
   }
 
+  /**
+   * El usuario eligió un tema en Ajustes.
+   *
+   * El cambio se ve **antes** de guardarse, y se ve igual aunque guardar falle:
+   * un desplegable que no cambia la pantalla hasta que la base responda se lee
+   * como que no funciona.
+   */
+  async function elegirTema(nuevo: Tema): Promise<void> {
+    if (!esTema(nuevo) || nuevo === tema.value) return
+    tema.value = nuevo
+    if (!hayNucleo()) return
+    try {
+      await invocar('guardar_tema', { tema: nuevo })
+    } catch {
+      // Igual que con la barra: la pantalla ya cambió. Que no se recuerde al
+      // reabrir es peor que nada, pero mucho menos que un diálogo de error por
+      // haber elegido un color.
+    }
+  }
+
   /** La ventana cambió de tamaño. Lo llama el armazón. */
   function anotarAncho(ancho: number): void {
     anchoVentana.value = ancho
+  }
+
+  /** El sistema operativo cambió de tema. Lo llama el armazón. */
+  function anotarTemaDelSistema(claro: boolean): void {
+    temaDelSistema.value = claro ? 'claro' : 'oscuro'
   }
 
   return {
@@ -127,8 +207,18 @@ export const useInterfazStore = defineStore('interfaz', () => {
     estrecha,
     plegada,
     alternableAhora,
+    tema,
+    temaDelSistema,
+    temaAplicado,
     cargar,
     alternar,
+    elegirTema,
     anotarAncho,
+    anotarTemaDelSistema,
   }
 })
+
+/** ¿Es una de las tres palabras? Escrito una vez y usado en los dos bordes. */
+export function esTema(valor: unknown): valor is Tema {
+  return typeof valor === 'string' && (TEMAS as readonly string[]).includes(valor)
+}

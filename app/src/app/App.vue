@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, RouterView } from 'vue-router'
 
@@ -46,14 +46,48 @@ function medir(): void {
   interfaz.anotarAncho(window.innerWidth)
 }
 
+/**
+ * El tema del sistema operativo (C-2).
+ *
+ * `matchMedia` y el `<html>` son cosas del navegador, y el almacén no las toca:
+ * ahí vive la decisión —qué tema corresponde—, aquí la aplicación de esa
+ * decisión. Si el almacén escribiera el atributo, no se podría probar sin un
+ * documento montado.
+ *
+ * `null` cuando el entorno no ofrece `matchMedia`. Entonces no se escucha nada
+ * y «Automático» se queda en el tema de la casa, que es el oscuro (§18).
+ */
+const consultaDelSistema =
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-color-scheme: light)')
+    : null
+
+function anotarTema(e: MediaQueryList | MediaQueryListEvent): void {
+  interfaz.anotarTemaDelSistema(e.matches)
+}
+
+// Escribir el atributo en <html> y no en un div: `base.css` y los tokens lo
+// leen desde `:root`, y los portales —menús, diálogos— cuelgan de <body>, así
+// que un contenedor intermedio los dejaría con el tema anterior.
+watchEffect(() => {
+  document.documentElement.setAttribute('data-tema', interfaz.temaAplicado)
+})
+
 onMounted(() => {
   void app.cargar()
   void interfaz.cargar()
   medir()
   window.addEventListener('resize', medir)
+  if (consultaDelSistema) {
+    anotarTema(consultaDelSistema)
+    consultaDelSistema.addEventListener('change', anotarTema)
+  }
 })
 
-onBeforeUnmount(() => window.removeEventListener('resize', medir))
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', medir)
+  consultaDelSistema?.removeEventListener('change', anotarTema)
+})
 </script>
 
 <template>

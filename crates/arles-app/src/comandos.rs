@@ -215,12 +215,27 @@ pub fn guardar_empresa(
 pub struct PreferenciasDeInterfaz {
     /// `true` si la barra lateral quedó plegada la última vez.
     pub barra_lateral_plegada: bool,
+    /// Tema elegido: `auto`, `oscuro` o `claro`. Ver [`TEMAS`].
+    pub tema: String,
 }
 
-/// Clave de la única preferencia de v1.2.0. La lista cerrada vive en
-/// `arles_db::CLAVES_DE_INTERFAZ`, y el test de abajo comprueba que esta
-/// constante sigue estando en ella.
+/// Claves de las preferencias de v1.2.0. La lista cerrada vive en
+/// `arles_db::CLAVES_DE_INTERFAZ`, y el test de abajo comprueba que estas
+/// constantes siguen estando en ella.
 const BARRA_PLEGADA: &str = "barra_lateral_plegada";
+const TEMA: &str = "tema";
+
+/// Los tres temas admitidos.
+///
+/// `auto` no es un tema: es «el que pida el sistema operativo». Quién lo
+/// resuelve es la interfaz, que es la única que puede preguntárselo al sistema
+/// (`prefers-color-scheme`). Aquí se guarda la palabra, no el resultado — si
+/// guardáramos el resultado, alguien que cambia su sistema a claro por la noche
+/// reabriría ARLES en oscuro sin entender por qué.
+pub const TEMAS: &[&str] = &["auto", "oscuro", "claro"];
+
+/// C-2: mientras el usuario no elija, ARLES hace lo que haga el sistema.
+pub const TEMA_POR_DEFECTO: &str = "auto";
 
 /// Lee las preferencias de interfaz.
 ///
@@ -231,15 +246,25 @@ const BARRA_PLEGADA: &str = "barra_lateral_plegada";
 pub fn preferencias_de_interfaz(
     estado: tauri::State<'_, EstadoApp>,
 ) -> Result<PreferenciasDeInterfaz, ErrorIpc> {
-    let valor = estado
-        .db()
+    let db = estado.db();
+    let plegada = db
         .preferencia(BARRA_PLEGADA)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+    let tema = db
+        .preferencia(TEMA)
         .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
 
     Ok(PreferenciasDeInterfaz {
         // Cualquier cosa que no sea «1» es desplegada. Una preferencia de
         // interfaz corrupta no es motivo para no abrir la aplicación.
-        barra_lateral_plegada: valor.as_deref() == Some("1"),
+        barra_lateral_plegada: plegada.as_deref() == Some("1"),
+        // Y lo mismo con el tema: un valor que no reconocemos cae en el de por
+        // defecto en vez de propagarse a la interfaz, donde acabaría escrito
+        // tal cual en `data-tema` y dejaría la aplicación sin ningún tema.
+        tema: match tema {
+            Some(t) if TEMAS.contains(&t.as_str()) => t,
+            _ => TEMA_POR_DEFECTO.to_owned(),
+        },
     })
 }
 
@@ -256,6 +281,26 @@ pub fn guardar_barra_plegada(
     estado
         .db()
         .guardar_preferencia(BARRA_PLEGADA, if plegada { "1" } else { "0" })
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))
+}
+
+/// Recuerda el tema elegido (C-1).
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si el tema no es uno de [`TEMAS`], o si la base no responde.
+#[tauri::command]
+pub fn guardar_tema(estado: tauri::State<'_, EstadoApp>, tema: String) -> Result<(), ErrorIpc> {
+    // La webview manda la cadena, así que la cadena se comprueba aquí. Sin esto
+    // el desplegable es de tres opciones pero el comando es de infinitas, y lo
+    // que acabe en la base es lo que alguien escriba al otro lado de la IPC.
+    if !TEMAS.contains(&tema.as_str()) {
+        return Err(ErrorIpc::from(crate::AppError::TemaDesconocido));
+    }
+
+    estado
+        .db()
+        .guardar_preferencia(TEMA, &tema)
         .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))
 }
 
@@ -290,6 +335,39 @@ mod tests {
             "«{BARRA_PLEGADA}» no está en las claves admitidas: {:?}",
             arles_db::CLAVES_DE_INTERFAZ
         );
+    }
+
+    /// Lo mismo para el tema. Aquí el fallo silencioso sería peor: el usuario
+    /// elige «claro», la pantalla se pone clara, y al reabrir vuelve a oscuro
+    /// sin ningún mensaje.
+    #[test]
+    fn la_clave_del_tema_esta_declarada_en_la_capa_de_datos() {
+        assert!(
+            arles_db::CLAVES_DE_INTERFAZ.contains(&TEMA),
+            "«{TEMA}» no está en las claves admitidas: {:?}",
+            arles_db::CLAVES_DE_INTERFAZ
+        );
+    }
+
+    /// C-2: sin haber elegido nada, el tema es «auto», que es lo que hace que
+    /// ARLES siga al sistema operativo. Si el primero fuera «oscuro», una
+    /// instalación nueva ignoraría el sistema y nadie lo notaría hasta abrirla
+    /// en un equipo configurado en claro.
+    #[test]
+    fn el_tema_por_defecto_sigue_al_sistema() {
+        assert_eq!(TEMA_POR_DEFECTO, "auto");
+        assert!(TEMAS.contains(&TEMA_POR_DEFECTO));
+        assert_eq!(TEMAS, ["auto", "oscuro", "claro"]);
+    }
+
+    /// El valor guardado acaba escrito en `data-tema`. Si admitiéramos
+    /// cualquier cadena, el atributo podría llevar cualquier cosa.
+    #[test]
+    fn un_tema_inventado_no_es_admisible() {
+        assert!(!TEMAS.contains(&"rosa"));
+        assert!(!TEMAS.contains(&""));
+        let ipc: ErrorIpc = crate::AppError::TemaDesconocido.into();
+        assert_eq!(ipc.clave, "error.app.tema_desconocido");
     }
 
     /// Lo que el desplegable ofrece y lo que el núcleo acepta son el mismo

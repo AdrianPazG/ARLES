@@ -1392,6 +1392,22 @@ def fase_3(rapido):
         check_cmd(3, nombre, ["npm", "run", "sonda:cabecera", "--silent"],
                   porque, cwd=app, timeout=900)
 
+    nombre = "sonda: el desplegable de tema hace lo que dice"
+    porque = (
+        "La paleta clara estaba medida desde el paso 2 pero no había forma de "
+        "elegirla. Las cuatro afirmaciones del desplegable —cambia el color, "
+        "se recuerda, «Automático» sigue al sistema en caliente, y las "
+        "opciones son las que el núcleo acepta— son sobre el navegador y sobre "
+        "la persistencia, y ninguna se puede comprobar con un test de unidad."
+    )
+    if motivo:
+        omitir(3, nombre, motivo)
+    elif rapido:
+        omitir(3, nombre, "--rapido")
+    else:
+        check_cmd(3, nombre, ["npm", "run", "sonda:tema", "--silent"],
+                  porque, cwd=app, timeout=900)
+
 
 FASES = {0: fase_0, 1: fase_1, 2: fase_2, 3: fase_3}
 

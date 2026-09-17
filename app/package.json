@@ -19,7 +19,8 @@
     "sonda:ancho": "node pruebas/sondas/ancho.mjs",
     "sonda:plegado": "node pruebas/sondas/plegado.mjs",
     "sonda:lector": "node pruebas/sondas/lector.mjs",
-    "sonda:cabecera": "node pruebas/sondas/cabecera.mjs"
+    "sonda:cabecera": "node pruebas/sondas/cabecera.mjs",
+    "sonda:tema": "node pruebas/sondas/tema.mjs"
   },
   "dependencies": {
     "@tanstack/vue-virtual": "^3.13.38",

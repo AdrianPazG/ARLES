@@ -90,3 +90,71 @@ describe('la barra lateral se pliega a mano y sola (P-11)', () => {
     expect(i.plegada).toBe(false)
   })
 })
+
+/**
+ * C-1 y C-2 escritos como pruebas.
+ *
+ * Lo que se comprueba aquí es la **resolución**: qué tema corresponde dada una
+ * elección y un sistema operativo. Que el atributo llegue al `<html>` y que la
+ * elección sobreviva al cierre son afirmaciones sobre el navegador y sobre la
+ * base, y se miden en `sonda:tema`.
+ */
+describe('el tema se elige, o lo pone el sistema (C-1, C-2)', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  it('sin elegir nada, sigue al sistema', async () => {
+    const i = useInterfazStore()
+    expect(i.tema).toBe('auto')
+
+    i.anotarTemaDelSistema(true)
+    expect(i.temaAplicado).toBe('claro')
+    i.anotarTemaDelSistema(false)
+    expect(i.temaAplicado).toBe('oscuro')
+  })
+
+  it('elegido a mano, el sistema deja de mandar', async () => {
+    const i = useInterfazStore()
+    await i.elegirTema('claro')
+    expect(i.temaAplicado).toBe('claro')
+
+    // El sistema se va a oscuro y la pantalla NO le hace caso: el usuario
+    // eligió. Si esto se rompiera, su elección duraría hasta el anochecer.
+    i.anotarTemaDelSistema(false)
+    expect(i.temaAplicado).toBe('claro')
+  })
+
+  it('volver a «Automático» devuelve el mando al sistema', async () => {
+    const i = useInterfazStore()
+    await i.elegirTema('oscuro')
+    i.anotarTemaDelSistema(true)
+    expect(i.temaAplicado).toBe('oscuro')
+
+    await i.elegirTema('auto')
+    expect(i.temaAplicado).toBe('claro')
+  })
+
+  /**
+   * `auto` nunca se escribe en `data-tema`: no es un tema, es una instrucción.
+   * Si se escapara, los tokens no encontrarían ninguna regla que aplicar.
+   */
+  it('lo que se aplica siempre es oscuro o claro, nunca «auto»', async () => {
+    const i = useInterfazStore()
+    for (const elegido of ['auto', 'oscuro', 'claro'] as const) {
+      await i.elegirTema(elegido)
+      expect(['oscuro', 'claro']).toContain(i.temaAplicado)
+    }
+  })
+
+  it('un tema que no existe se ignora', async () => {
+    const i = useInterfazStore()
+    await i.elegirTema('rosa' as never)
+    expect(i.tema).toBe('auto')
+  })
+
+  /** Sin `matchMedia` —o sin haber preguntado aún— manda el dark-first (§18). */
+  it('sin saber nada del sistema, el tema de la casa es el oscuro', () => {
+    const i = useInterfazStore()
+    expect(i.temaDelSistema).toBe('oscuro')
+    expect(i.temaAplicado).toBe('oscuro')
+  })
+})

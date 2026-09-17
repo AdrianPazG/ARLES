@@ -116,6 +116,25 @@ export const es = {
     },
   },
 
+  // C-1 y C-2. Apariencia, no «tema»: quien busca cómo poner la pantalla
+  // clara no piensa en la palabra «tema».
+  apariencia: {
+    titulo: 'Apariencia',
+    campo: 'Tema de la interfaz',
+    ayuda: 'Se aplica al momento y se recuerda al reabrir ARLES.',
+    auto: 'Automático · el de tu sistema',
+    oscuro: 'Oscuro',
+    claro: 'Claro',
+    // No es un detalle cosmético: la elección cambia qué contrastes se aplican,
+    // y los dos temas están medidos. Decirlo evita la pregunta de si el claro
+    // es «el bueno» o un añadido a medias.
+    porQue: '¿Cambia algo más que el color?',
+    porQueDetalle:
+      'No. Los dos temas se miden con las mismas reglas de contraste, así ' +
+      'que ninguno se lee peor que el otro. «Automático» sigue a tu sistema ' +
+      'y cambia con él mientras ARLES está abierto.',
+  },
+
   empresa: {
     entradilla: 'Los datos de tu empresa y cómo afectan a los envíos.',
     titulo: 'Configuración de empresa',
@@ -305,6 +324,13 @@ export const es = {
         que: 'No se pudo abrir tu navegador.',
         como: 'Escribe telemetrymx.com en la barra de direcciones.',
         salvo: 'No cambió nada en ARLES: sólo no se abrió la página.',
+      },
+      // No lo puede provocar el desplegable, que tiene tres opciones. Si
+      // aparece, algo está hablando con ARLES por su cuenta.
+      tema_desconocido: {
+        que: 'No se pudo guardar el tema.',
+        como: 'Vuelve a elegirlo en Ajustes › Apariencia.',
+        salvo: 'La pantalla sigue con el tema que ves; sólo no se recordó.',
       },
     },
   },

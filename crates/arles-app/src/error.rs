@@ -39,6 +39,14 @@ pub enum AppError {
     #[error("no se pudo abrir el navegador del sistema: {0}")]
     SitioNoAbre(String),
 
+    /// La interfaz pidió guardar un tema que no existe.
+    ///
+    /// No lo puede provocar el usuario: el desplegable tiene tres opciones. Si
+    /// llega, es que alguien está hablando con la IPC por su cuenta, y por eso
+    /// se rechaza en vez de guardarse.
+    #[error("el tema pedido no es uno de los admitidos")]
+    TemaDesconocido,
+
     /// El formulario de empresa trae campos que no pasan la validación.
     ///
     /// Lleva **la lista de campos**, no un mensaje: la interfaz tiene que
@@ -62,6 +70,7 @@ impl AppError {
             Self::ClaveMaestraPerdida => "error.app.clave_maestra_perdida",
             Self::DirectorioDeDatos => "error.app.directorio_de_datos",
             Self::SitioNoAbre(_) => "error.app.sitio_no_abre",
+            Self::TemaDesconocido => "error.app.tema_desconocido",
             Self::EmpresaInvalida(_) => "error.app.empresa_invalida",
             Self::Db(e) => e.clave_i18n(),
             Self::Core(e) => e.clave_i18n(),
