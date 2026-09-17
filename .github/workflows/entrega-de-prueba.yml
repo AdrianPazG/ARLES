@@ -22,14 +22,26 @@
 #
 # ── Se lanza a mano, nunca sola ──
 #
-# `workflow_dispatch`: alguien entra en la pestaña Actions y pulsa. No se
-# dispara al hacer push. Una versión sin firmar que se publica sola es una
-# versión que acaba instalada en algún sitio donde nadie la pidió.
+# Dos formas de lanzarlo, y las dos son deliberadas:
+#
+#   1. **Una etiqueta `prueba-*`.** Es la que funciona hoy, porque el trabajo
+#      vive en una rama de desarrollo. Crear la etiqueta es el acto explícito.
+#   2. **El botón «Run workflow»** de la pestaña Actions. GitHub **sólo enseña
+#      ese botón cuando el archivo del flujo está en la rama por defecto**
+#      (`main`). Mientras esto viva en `claude/…`, el botón no aparece — no es
+#      un fallo del flujo, es cómo funciona GitHub. Queda declarado para que
+#      funcione el día que esto llegue a `main`.
+#
+# Lo que NO hay es un disparo por cada push. Una versión sin firmar que se
+# publica sola acaba instalada en algún sitio donde nadie la pidió.
 # ═══════════════════════════════════════════════════════════════════════════
 
 name: Entrega de prueba (sin firmar)
 
 on:
+  push:
+    tags:
+      - 'prueba-*'
   workflow_dispatch:
     inputs:
       nota:
@@ -125,9 +137,17 @@ jobs:
           path: instaladores
           merge-multiple: true
 
-      - name: Etiqueta con la fecha
+      # Si vino de una etiqueta, se reutiliza esa. Si vino del botón, se
+      # inventa una con la fecha. Sin esto, lanzarlo desde una etiqueta crearía
+      # una segunda con otro nombre y habría dos apuntando al mismo código.
+      - name: Decidir la etiqueta
         id: etiqueta
-        run: echo "valor=prueba-$(date -u +'%Y%m%d-%H%M')" >> "$GITHUB_OUTPUT"
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "valor=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "valor=prueba-$(date -u +'%Y%m%d-%H%M')" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Publicar
         uses: softprops/action-gh-release@v2
@@ -140,7 +160,7 @@ jobs:
             > ⚠️ **Versión de prueba. No es una entrega y no se instala en el
             > equipo de un cliente.**
 
-            **Para qué es:** ${{ inputs.nota }}
+            **Para qué es:** ${{ inputs.nota || 'Revisión de la checklist visual' }}
 
             ### Tres cosas que le faltan, y ninguna es programar
 

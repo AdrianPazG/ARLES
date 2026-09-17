@@ -85,7 +85,7 @@ python3 herramientas/validar/validar.py     # valida todas las fases cerradas
 **Todavía no hay ninguna versión descargable, y conviene decir por qué en vez de
 dejar el apartado vacío.**
 
-Cuando la haya, estará en **[Releases](../../releases)** — un `.exe` para
+Cuando la haya, estará en **[Releases](https://github.com/AdrianPazG/ARLES/releases)** — un `.exe` para
 Windows y un `.dmg` para macOS. Ése es el sitio, y no un archivo suelto en el
 repositorio: un instalador dentro del árbol de código no se puede firmar, no
 lleva número de versión asociado y nadie sabe cuál es el bueno.
@@ -103,13 +103,41 @@ Para que exista el primero hacen falta tres cosas, y **ninguna es programar**:
 Se puede construir **hoy**, sin firmar y sin Mont, para revisar la aplicación de
 verdad en lugar de con capturas.
 
-**Cómo pedirla, en tres clics:** pestaña **Actions** → *Entrega de prueba (sin
-firmar)* → **Run workflow**. GitHub la compila para Windows y macOS —unos
-minutos— y la publica en [Releases](../../releases) marcada como *prerelease*.
+### Dónde se descarga
 
-> ⚠️ **Se lanza a mano y nunca sola.** No se dispara al hacer push. Una versión
-> sin firmar que se publica sola acaba instalada en algún sitio donde nadie la
-> pidió — y sin firma, quien la instale no puede comprobar de dónde salió.
+En **[Releases](https://github.com/AdrianPazG/ARLES/releases)** — el enlace de
+la derecha de la portada, o el de aquí. **No en la pestaña Actions**: ahí sólo
+se ve cómo se construyó.
+
+Cada versión de prueba trae dos archivos:
+
+| Archivo | Para | Cómo se abre |
+|---|---|---|
+| `ARLES RELAY_1.2.0_x64-setup.exe` | **Windows** | Doble clic → Windows dirá «editor desconocido» → **Más información** → *Ejecutar de todas formas* |
+| `ARLES RELAY_1.2.0_aarch64.dmg` | **macOS** | Doble clic → arrastrar a Aplicaciones → la **primera vez**, clic derecho sobre la app → *Abrir* |
+
+> ⚠️ Esos dos avisos salen **porque la versión no está firmada**, no porque algo
+> vaya mal. Es el punto 2 de la tabla de arriba.
+
+### Cómo se genera una nueva
+
+**Creando una etiqueta que empiece por `prueba-`.** Eso lanza la compilación y
+publica la release al terminar:
+
+```bash
+git tag prueba-2026-09-18
+git push origin prueba-2026-09-18
+```
+
+> 🔵 **Por qué una etiqueta y no el botón de Actions.** GitHub sólo enseña el
+> botón *Run workflow* cuando el archivo del flujo está en la rama **por
+> defecto** (`main`), y el trabajo vive en una rama de desarrollo. El botón
+> aparecerá solo el día que esto llegue a `main`; mientras tanto, la etiqueta
+> hace lo mismo.
+
+> ⚠️ **Nunca se dispara sola.** No hay compilación en cada push: una versión sin
+> firmar que se publica sola acaba instalada donde nadie la pidió, y sin firma
+> quien la instale no puede comprobar de dónde salió.
 
 Lo que se verá distinto en ella: **la tipografía**, porque va sin Mont. Los
 tamaños, los pesos y el ritmo sí son los definitivos — salen de los tokens. Un
