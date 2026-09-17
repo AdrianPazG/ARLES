@@ -11,7 +11,14 @@
  *
  * Altura mínima 32 px. El §22 pide escalado de Windows hasta el 200 % y un
  * objetivo más pequeño se vuelve impreciso mucho antes de llegar ahí.
+ *
+ * **`a` cambia el elemento, no sólo el destino.** Un control que navega tiene
+ * que ser un enlace: un `<button>` con un `router.push` dentro pierde el menú
+ * contextual, el foco anunciado como enlace y la posibilidad de saber a dónde
+ * lleva antes de pulsarlo. El aspecto es el mismo; la semántica, no.
  */
+import { RouterLink } from 'vue-router'
+
 import AIcono, { type NombreDeIcono } from './AIcono.vue'
 
 withDefaults(
@@ -25,6 +32,8 @@ withDefaults(
     ocupado?: boolean
     /** Obligatorio si el botón sólo lleva icono. */
     etiqueta?: string
+    /** Ruta a la que navega. Con esto el botón se dibuja como enlace. */
+    a?: string
   }>(),
   {
     variante: 'secundario',
@@ -37,11 +46,13 @@ withDefaults(
 </script>
 
 <template>
-  <button
+  <component
+    :is="a ? RouterLink : 'button'"
     class="boton"
     :class="[`v-${variante}`, `t-${tamano}`]"
-    :type="tipo"
-    :disabled="deshabilitado || ocupado"
+    :to="a"
+    :type="a ? undefined : tipo"
+    :disabled="a ? undefined : deshabilitado || ocupado"
     :aria-busy="ocupado || undefined"
     :aria-label="etiqueta"
   >
@@ -50,7 +61,7 @@ withDefaults(
       :nombre="icono"
     />
     <span class="texto"><slot /></span>
-  </button>
+  </component>
 </template>
 
 <style scoped>
@@ -69,6 +80,10 @@ withDefaults(
   border-radius: var(--arles-radius-md);
   cursor: pointer;
   white-space: nowrap;
+
+  /* Cuando el botón es un enlace hereda el subrayado y el color de enlace del
+     documento, y dejaría de parecer un botón. */
+  text-decoration: none;
 
   transition:
     background var(--arles-duration-fast) var(--arles-ease),

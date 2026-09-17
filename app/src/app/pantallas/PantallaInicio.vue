@@ -1,38 +1,50 @@
 <script setup lang="ts">
 /**
- * Inicio · la lista de alta (entrega 3.1).
+ * Inicio · panel modular.
  *
- * Qué falta para poder enviar una campaña, y qué de eso **todavía no está
- * construido**.
+ * ──────────────────────────────────────────────────────────────────────────
+ * DOS PANTALLAS DISTINTAS, NO UNA CON VARIANTES
  *
- * Lo segundo es la decisión que sostiene esta pantalla. Lo cómodo sería
- * enseñar sólo los pasos que ya existen y que la lista fuera creciendo entrega
- * a entrega; entonces alguien la vería completa al terminar el primer paso y
- * concluiría que ya puede enviar. La lista enseña los seis desde el principio
- * y dice en qué entrega llega cada uno.
+ * Dirección pidió dos cosas que parecen una: que Inicio fuera modular con
+ * acciones a mano, y que la primera vez guiara a configurar la empresa. Son
+ * necesidades opuestas.
  *
- * El estado de cada paso lo **deriva el núcleo de los datos reales**, no de un
- * registro de lo que el usuario fue marcando: ver `arles_core::onboarding`.
+ * Quien abre ARLES por primera vez no necesita un panel: no tiene nada que
+ * ver en él. Necesita **una sola cosa que hacer**, grande y sin competencia.
+ * Un panel de seis módulos vacíos en el primer arranque es la forma más rápida
+ * de que alguien cierre la aplicación sin configurar nada.
+ *
+ * Quien ya la tiene configurada necesita lo contrario: el estado de un vistazo
+ * y las acciones a un clic.
+ *
+ * Por eso aquí hay dos composiciones, no una con un `v-if` en medio. La
+ * frontera es `empresa.configurada`, que el núcleo **deriva de los datos** y no
+ * de una marca que alguien puso.
+ * ──────────────────────────────────────────────────────────────────────────
+ *
+ * LO QUE NO SE DIBUJA
+ *
+ * El panel de la logística tendrá módulos de campañas en marcha, salud de los
+ * canales y actividad reciente. Hoy nada de eso existe. **No se maquetan
+ * vacíos**: un módulo que no puede decir nada cierto no se monta (ver
+ * `AModulo`). Enseñar cajas en espera haría que la pantalla pareciera rota y,
+ * peor, anunciaría capacidades que no están.
+ *
+ * Lo que sí se conserva del diseño anterior es la honestidad sobre lo que
+ * falta: el avance dice «1 de 6» y los seis pasos siguen siendo consultables.
+ * Lo que cambia es que su detalle se va a Ajustes y aquí queda la cifra y la
+ * acción siguiente, que es lo que Dirección pidió.
  */
 import { computed, onMounted } from 'vue'
-import { RouterLink } from 'vue-router'
 
 import { resolverError } from '@/app/errores'
 import { useAppStore } from '@/app/stores/app'
 import { useEmpresaStore } from '@/app/stores/empresa'
-import { AIcono, EstadoError } from '@/design/componentes'
+import { ABoton, AModulo, EstadoError } from '@/design/componentes'
 
 const empresa = useEmpresaStore()
 const app = useAppStore()
 
-/**
- * Si los datos no se pudieron leer, **no se enseña la lista**.
- *
- * Sin esto, un fallo al leer dejaba la pantalla enseñando la lista de reserva
- * —«0 de 6», todo pendiente— como si fuera el estado real. Una lista de alta
- * que miente sobre lo que falta es peor que una pantalla que dice que no pudo
- * leerlo: la primera hace que alguien vuelva a configurar lo que ya tenía.
- */
 const error = computed(() =>
   empresa.errorGeneral
     ? resolverError({ clave: empresa.errorGeneral, detalle: '' })
@@ -42,22 +54,42 @@ const error = computed(() =>
 onMounted(() => void empresa.cargar())
 
 const lista = computed(() => empresa.onboarding)
-const pendientesDisponibles = computed(() =>
-  lista.value.pasos.filter((p) => !p.completado && p.disponible).length,
+const avance = computed(() => `${lista.value.completados} / ${lista.value.total}`)
+
+/**
+ * El siguiente paso que **se puede hacer hoy**, no el siguiente de la lista.
+ *
+ * La diferencia importa: los pasos 2 a 6 llegan en entregas futuras, así que
+ * apuntar al «siguiente» sin más produciría un botón que lleva a una pantalla
+ * pendiente. Cuando no hay ninguno accionable, el módulo lo dice en vez de
+ * ofrecer un botón que no lleva a nada.
+ */
+const siguienteAccionable = computed(
+  () => lista.value.pasos.find((p) => !p.completado && p.disponible) ?? null,
 )
+
+/** Los pasos que existirán pero todavía no, para poder decir cuántos son. */
+const porConstruir = computed(
+  () => lista.value.pasos.filter((p) => !p.disponible).length,
+)
+
+/**
+ * Accesos rápidos: los «botones ágiles» que pidió Dirección.
+ *
+ * Cada uno declara si **ya lleva a algo**. Los que no, se dibujan deshabilitados
+ * con su motivo en vez de desaparecer: quien busca dónde se cargan los
+ * contactos tiene que encontrar la respuesta «aún no», no el vacío.
+ */
+const accesos = computed(() => [
+  { clave: 'contactos', ruta: '/contactos', listo: false },
+  { clave: 'remitentes', ruta: '/remitentes', listo: false },
+  { clave: 'campana', ruta: '/campanas', listo: false },
+  { clave: 'ajustes', ruta: '/ajustes', listo: true },
+])
 </script>
 
 <template>
   <section class="pantalla">
-    <header>
-      <h1 class="titulo">
-        {{ $t('inicio.titulo', { producto: app.info.nombre }) }}
-      </h1>
-      <p class="entradilla">
-        {{ $t('inicio.entradilla') }}
-      </p>
-    </header>
-
     <EstadoError
       v-if="error"
       :que="error.que"
@@ -65,77 +97,127 @@ const pendientesDisponibles = computed(() =>
       :salvo="error.salvo"
     />
 
-    <section
-      v-else
-      aria-labelledby="titulo-alta"
-    >
-      <div class="cabecera-alta">
-        <h2
-          id="titulo-alta"
-          class="subtitulo"
-        >
-          {{ $t('inicio.alta') }}
-        </h2>
-        <!-- La cifra, no un adjetivo: «2 de 6» es verificable, «casi listo»
-             no (§94). -->
-        <p class="avance">
-          {{ $t('inicio.avance', { hechos: lista.completados, total: lista.total }) }}
+    <!-- ── Primera vez: una sola cosa que hacer ─────────────────────────── -->
+    <template v-else-if="!empresa.configurada">
+      <header class="portada">
+        <p class="marca">
+          {{ app.info.nombreComercial }}
         </p>
+        <h1 class="titulo-grande">
+          {{ $t('inicio.primera.titulo') }}
+        </h1>
+        <p class="entradilla">
+          {{ $t('inicio.primera.entradilla') }}
+        </p>
+      </header>
+
+      <AModulo
+        principal
+        :titulo="$t('inicio.paso.empresa.titulo')"
+        :nota="$t('inicio.avance', { hechos: lista.completados, total: lista.total })"
+      >
+        <p class="detalle">
+          {{ $t('inicio.primera.porQue') }}
+        </p>
+        <template #acciones>
+          <ABoton
+            variante="primario"
+            a="/ajustes"
+          >
+            {{ $t('inicio.primera.accion') }}
+          </ABoton>
+          <span class="detalle">{{ $t('inicio.primera.despues') }}</span>
+        </template>
+      </AModulo>
+    </template>
+
+    <!-- ── Ya configurada: panel modular ────────────────────────────────── -->
+    <template v-else>
+      <header>
+        <h1 class="titulo">
+          {{ $t('inicio.titulo', { producto: app.info.nombre }) }}
+        </h1>
+        <p class="entradilla">
+          {{ $t('inicio.entradilla') }}
+        </p>
+      </header>
+
+      <!-- Rejilla áurea: 1.618 a 1. Partirla por la mitad haría que el módulo
+           principal y el secundario pesaran lo mismo, que es lo contrario de
+           lo que un panel tiene que decir. -->
+      <div class="rejilla">
+        <AModulo
+          principal
+          :titulo="$t('inicio.alta')"
+          :nota="avance"
+        >
+          <p
+            v-if="siguienteAccionable"
+            class="detalle"
+          >
+            {{ $t(`inicio.paso.${siguienteAccionable.clave}.detalle`) }}
+          </p>
+          <p
+            v-else
+            class="detalle"
+          >
+            {{ $t('inicio.sinPasosDisponibles') }}
+          </p>
+
+          <template #acciones>
+            <ABoton
+              v-if="siguienteAccionable?.ruta"
+              variante="primario"
+              :a="siguienteAccionable.ruta"
+            >
+              {{ $t(`inicio.paso.${siguienteAccionable.clave}.titulo`) }}
+            </ABoton>
+            <RouterLink
+              class="enlace"
+              to="/ajustes"
+            >
+              {{ $t('inicio.verPasos', { n: lista.total }) }}
+            </RouterLink>
+          </template>
+        </AModulo>
+
+        <AModulo :titulo="$t('inicio.accesos.titulo')">
+          <ul class="accesos">
+            <li
+              v-for="a in accesos"
+              :key="a.clave"
+            >
+              <RouterLink
+                v-if="a.listo"
+                class="enlace"
+                :to="a.ruta"
+              >
+                {{ $t(`nav.${a.clave === 'campana' ? 'campanas' : a.clave}`) }}
+              </RouterLink>
+              <span
+                v-else
+                class="detalle"
+              >
+                {{ $t(`nav.${a.clave === 'campana' ? 'campanas' : a.clave}`) }}
+                · {{ $t('inicio.accesos.aun') }}
+              </span>
+            </li>
+          </ul>
+        </AModulo>
       </div>
 
-      <ol class="lista">
-        <li
-          v-for="paso in lista.pasos"
-          :key="paso.clave"
-          class="paso"
-          :class="{ hecho: paso.completado }"
-        >
-          <!-- Estado con icono Y texto, nunca sólo con color (regla 7.3):
-               quien no distingue el verde ve exactamente lo mismo. -->
-          <AIcono
-            class="marca"
-            :nombre="paso.completado ? 'exito' : 'cola'"
-            :etiqueta="paso.completado ? $t('inicio.hecho') : $t('inicio.pendiente')"
-          />
-
-          <div class="cuerpo">
-            <p class="nombre">
-              <component
-                :is="paso.disponible && paso.ruta ? RouterLink : 'span'"
-                :to="paso.ruta ?? undefined"
-              >
-                {{ $t(`inicio.paso.${paso.clave}.titulo`) }}
-              </component>
-            </p>
-            <p class="detalle">
-              {{ $t(`inicio.paso.${paso.clave}.detalle`) }}
-            </p>
-          </div>
-
-          <!-- Un paso que todavía no existe lo dice, con su entrega. Es la
-               diferencia entre «no encuentro dónde hacerlo» y «aún no está».
-
-               Texto apagado y no `AInsignia`: con insignia —relleno sólido—
-               los cinco pasos que NO se pueden hacer pesaban más en la pantalla
-               que el único que sí, que es justo al revés de lo que la lista
-               tiene que decir. La insignia está para estados que hay que
-               atender; esto es una nota al margen. -->
-          <p
-            v-if="!paso.disponible"
-            class="cuando"
-          >
-            {{ $t('inicio.llegaEn', { entrega: paso.entrega }) }}
-          </p>
-        </li>
-      </ol>
-
-      <p
-        v-if="pendientesDisponibles === 0 && !empresa.configurada"
-        class="detalle"
+      <!-- Un módulo a todo el ancho, y no una nota al pie, porque es la
+           respuesta a «¿por qué mi panel está tan vacío?». -->
+      <AModulo
+        v-if="porConstruir > 0"
+        :titulo="$t('inicio.enConstruccion.titulo')"
+        :nota="$t('inicio.enConstruccion.nota', { n: porConstruir })"
       >
-        {{ $t('inicio.sinPasosDisponibles') }}
-      </p>
-    </section>
+        <p class="detalle">
+          {{ $t('inicio.enConstruccion.cuerpo') }}
+        </p>
+      </AModulo>
+    </template>
   </section>
 </template>
 
@@ -144,7 +226,28 @@ const pendientesDisponibles = computed(() =>
   display: flex;
   flex-direction: column;
   gap: var(--arles-space-6);
-  max-width: 78ch;
+}
+
+/* La portada de la primera vez no lleva la medida de 78 ch de las pantallas de
+   lectura: es un bloque corto y centrado en su columna, no un texto largo. */
+.portada {
+  max-width: 62ch;
+}
+
+.marca {
+  margin: 0 0 var(--arles-space-2);
+  color: var(--arles-accent-ink);
+  font-size: var(--arles-font-size-small);
+  font-weight: var(--arles-font-weight-semibold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.titulo-grande {
+  margin: 0 0 var(--arles-space-3);
+  font-size: var(--arles-font-size-display);
+  line-height: var(--arles-line-height-display);
+  font-weight: var(--arles-font-weight-bold);
 }
 
 .titulo {
@@ -154,35 +257,33 @@ const pendientesDisponibles = computed(() =>
   font-weight: var(--arles-font-weight-bold);
 }
 
-.subtitulo {
-  margin: 0;
-  font-size: var(--arles-font-size-h3);
-  line-height: var(--arles-line-height-h3);
-  font-weight: var(--arles-font-weight-semibold);
-}
-
 .entradilla,
 .detalle {
   margin: 0;
   color: var(--arles-text-muted);
 }
 
-.cabecera-alta {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--arles-space-4);
-  margin-bottom: var(--arles-space-4);
-}
-
-.avance {
-  margin: 0;
-  color: var(--arles-text-muted);
+.detalle {
   font-size: var(--arles-font-size-small);
-  font-variant-numeric: tabular-nums;
+  line-height: var(--arles-line-height-small);
 }
 
-.lista {
+.rejilla {
+  display: grid;
+  grid-template-columns: var(--arles-aureo-fr) 1fr;
+  gap: var(--arles-space-5);
+  align-items: start;
+}
+
+/* Por debajo del umbral de plegado medido (984 px) la rejilla áurea deja la
+   columna estrecha por debajo de su medida legible, así que se apila. */
+@media (width <= 984px) {
+  .rejilla {
+    grid-template-columns: 1fr;
+  }
+}
+
+.accesos {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -191,51 +292,8 @@ const pendientesDisponibles = computed(() =>
   gap: var(--arles-space-2);
 }
 
-.paso {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--arles-space-3);
-  padding: var(--arles-space-3) var(--arles-space-4);
-  border: var(--arles-border-width) solid var(--arles-border);
-  border-radius: var(--arles-radius-md);
-  background: var(--arles-surface);
-}
-
-.paso .marca {
-  margin-top: var(--arles-space-1);
-  color: var(--arles-text-disabled);
-}
-
-.paso.hecho .marca {
-  color: var(--arles-success);
-}
-
-.cuerpo {
-  flex: 1;
-  min-width: 0;
-}
-
-.nombre {
-  margin: 0 0 var(--arles-space-1);
-  font-weight: var(--arles-font-weight-semibold);
-}
-
-.nombre a {
+.enlace {
   color: var(--arles-text);
-}
-
-.detalle {
   font-size: var(--arles-font-size-small);
-  line-height: var(--arles-line-height-small);
-}
-
-.cuando {
-  margin: 0;
-  flex: none;
-  align-self: center;
-  color: var(--arles-text-muted);
-  font-size: var(--arles-font-size-caption);
-  line-height: var(--arles-line-height-caption);
-  white-space: nowrap;
 }
 </style>

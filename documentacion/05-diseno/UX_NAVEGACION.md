@@ -38,31 +38,95 @@ El §23 propone siete secciones. Dos se solapan:
 
 ## 3. INICIO — la pantalla que más se mira
 
-Debe responder a tres preguntas en dos segundos: **¿está corriendo? ¿va bien? ¿hay algo que atender?**
+> **Rediseñada el 17/09/2026.** Dirección pidió que dejara de ser una lista de
+> configuración y pasara a ser modular, con acciones a mano, y que la primera
+> vez guiara a configurar la empresa. Capturas en `imagenes/tema-inicio-*.png`.
+
+Debe responder a tres preguntas en dos segundos: **¿está corriendo? ¿va bien?
+¿hay algo que atender?**
+
+### 3.1 Son dos pantallas, no una con variantes
+
+Las dos cosas que pidió Dirección parecen una y son opuestas.
+
+Quien abre ARLES **por primera vez** no necesita un panel: no tiene nada que ver
+en él. Necesita **una sola cosa que hacer**, grande y sin competencia. Un panel
+de seis módulos vacíos en el primer arranque es la forma más rápida de que
+alguien cierre la aplicación sin configurar nada.
+
+Quien ya la tiene configurada necesita lo contrario: estado de un vistazo y
+acciones a un clic.
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ ● Campaña «Clientes Q1» · en ejecución              │
-│   12 de 35 enviados hoy · siguiente a las 11:34     │
-│   ████████░░░░░░░░░░░░  faltan 1 240 · ~25 días     │
-├─────────────────────────────────────────────────────┤
-│ ⚠ 2 asuntos requieren tu atención                   │
-│   · La cuenta ventas@… necesita reconectarse        │
-│   · 3 envíos sin confirmar de la campaña «Marzo»    │
-├──────────────────────┬──────────────────────────────┤
-│ Próximos envíos      │ Últimos eventos              │
-└──────────────────────┴──────────────────────────────┘
+PRIMERA VEZ                          YA CONFIGURADA
+┌───────────────────────────┐        ┌──────────────────┬──────────┐
+│ ARLES RELAY I             │        │ Alta      1 / 6  │ Accesos  │
+│ Empieza por aquí          │        │ ...              │ · ...    │
+│                           │        │ [Acción]  Ver 6  │ · ...    │
+│ ┌───────────────────────┐ │        └──────────────────┴──────────┘
+│ │ Configurar tu empresa │ │        ┌─────────────────────────────┐
+│ │ [Configurar] 0 de 6   │ │        │ Lo que falta por construir  │
+│ └───────────────────────┘ │        └─────────────────────────────┘
+└───────────────────────────┘
 ```
 
-**Lo que no va aquí:** gráficas decorativas, contadores totales sin contexto («12 450 contactos»), tarjetas de bienvenida que no se pueden cerrar.
+La frontera es `empresa.configurada`, que el núcleo **deriva de los datos**.
 
-**El dato más valioso es «faltan 1 240 · ~25 días».** Combina estado y consecuencia, y es lo que hace que alguien reconsidere su configuración.
+### 3.2 La regla que impide que un panel modular parezca roto
 
----
+=> **Un módulo sólo se dibuja cuando puede decir algo cierto.**
+
+La tentación del panel modular es maquetar hoy las ocho cajas que habrá algún
+día y dejarlas esperando datos. El resultado es una pantalla que parece
+estropeada y que, peor, **anuncia capacidades que no existen**.
+
+Los módulos de campañas en marcha, salud de los canales y actividad reciente
+—los que pide la logística— **no están maquetados**. Aparecerán cuando haya algo
+que poner dentro. En su lugar hay un módulo que dice exactamente eso, porque es
+la respuesta a «¿por qué mi panel está tan vacío?».
+
+Lo vigila una prueba: con datos ilegibles, Inicio no dibuja ningún módulo.
+
+### 3.3 La configuración se fue a Ajustes
+
+La lista de los seis pasos **vivía en Inicio y se mudó a Ajustes**, que es donde
+se configura. En Inicio queda la cifra —«1 de 6»— y la acción siguiente.
+
+**Lo que no se mudó es la razón por la que la lista enseña los seis desde el
+primer día.** Con sólo los pasos construidos, alguien la vería completa al
+terminar el primero y concluiría que ya puede enviar. Por eso los que aún no
+existen siguen apareciendo, con su entrega, y sin ser enlaces.
+
+La prueba que lo vigilaba **se repartió entre las dos pantallas en vez de
+borrarse**: lo que se comprueba no es dónde está la lista —eso es composición y
+puede volver a cambiar— sino que las dos afirmaciones sigan siendo ciertas.
+
+### 3.4 La rejilla áurea
+
+`--arles-aureo-fr: 1.618fr`. El módulo principal y el secundario reparten el
+ancho en 1.618 : 1; partirlo por la mitad haría que pesaran lo mismo, que es lo
+contrario de lo que un panel tiene que decir.
+
+!x **Cuidado al usarla:** `fr` **no entra en `calc()`**. `calc(var(--arles-aureo)
+* 1fr)` es inválido, CSS descarta la declaración entera sin decir nada y la
+rejilla se cae a una columna — con aspecto de decisión de diseño, no de error.
+Ya pasó una vez. Por eso hay un token con la unidad puesta.
+
+Por debajo de los 984 px medidos (`UMBRAL_DE_PLEGADO.md`) la columna estrecha
+cae por debajo de su medida legible y la rejilla se apila.
+
+### 3.5 Lo que no va aquí
+
+Gráficas decorativas, contadores totales sin contexto («12 450 contactos»),
+tarjetas de bienvenida que no se pueden cerrar, y **módulos vacíos**.
+
+**El dato más valioso del panel futuro es «faltan 1 240 · ~25 días».** Combina
+estado y consecuencia, y es lo que hace que alguien reconsidere su
+configuración.
 
 ## 4. Onboarding
 
-Nada de tours emergentes de veinte pasos (§25). Una **lista de verificación persistente** en INICIO, que se contrae al completarse y se puede volver a abrir desde AJUSTES.
+Nada de tours emergentes de veinte pasos (§25). Una **lista de verificación persistente**, que vive en **AJUSTES** desde el rediseño de §3.3 —antes estaba en INICIO— y de la que INICIO enseña la cifra y la acción siguiente.
 
 ```
 Para poder enviar tu primera campaña                 1 de 6

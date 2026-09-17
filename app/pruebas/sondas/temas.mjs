@@ -51,7 +51,7 @@ function nucleoSimulado() {
     'America/Bahia_Banderas', 'America/Hermosillo', 'America/Tijuana', 'UTC',
   ]
   const estado = {
-    empresa: {
+    empresa: window.__ARLES_SIN_EMPRESA__ ? null : {
       nombreComercial: 'TELEMETRY INSIGHT',
       pais: 'MX',
       zonaHoraria: 'America/Mexico_City',
@@ -150,7 +150,36 @@ try {
     ['ajustes', '/ajustes'],
     ['catalogo', '/catalogo'],
   ]
+
+  /** Inicio tiene dos composiciones y hay que ver las dos: la de primera vez
+   *  —una sola cosa que hacer— y el panel modular. La frontera es si hay
+   *  empresa guardada, así que se simula con y sin. */
+  const PRIMERA_VEZ = ['inicio-primera', '/inicio']
   const TEMAS = ['oscuro', 'claro']
+
+  for (const tema of TEMAS) {
+    const sinEmpresa = await navegador.newPage({
+      viewport: VENTANA,
+      deviceScaleFactor: 2,
+    })
+    // La bandera va PRIMERO: los scripts de inicio corren en el orden en que
+    // se añaden, y el doble del núcleo la lee al construirse.
+    await sinEmpresa.addInitScript(() => {
+      window.__ARLES_SIN_EMPRESA__ = true
+    })
+    await sinEmpresa.addInitScript(nucleoSimulado)
+    await sinEmpresa.goto(`http://localhost:${PUERTO}/#${PRIMERA_VEZ[1]}`, {
+      waitUntil: 'networkidle',
+    })
+    await sinEmpresa.evaluate((t) => {
+      document.documentElement.setAttribute('data-tema', t)
+    }, tema)
+    await sinEmpresa.waitForTimeout(450)
+    const archivo = `tema-${PRIMERA_VEZ[0]}-${tema}.png`
+    await sinEmpresa.screenshot({ path: join(IMAGENES, archivo) })
+    console.log(`  ✓ ${archivo}`)
+    await sinEmpresa.close()
+  }
 
   for (const [nombre, ruta] of PANTALLAS) {
     for (const tema of TEMAS) {

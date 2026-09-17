@@ -40,6 +40,39 @@ export const es = {
       'los límites que definas.',
     alta: 'Para poder enviar tu primera campaña',
     avance: '{hechos} de {total}',
+    verPasos: 'Ver los {n} pasos',
+
+    // Primera vez. Una sola cosa que hacer, sin panel que la rodee: quien abre
+    // ARLES por primera vez no tiene nada que mirar en un panel.
+    primera: {
+      titulo: 'Empieza por aquí',
+      entradilla:
+        'Antes de enviar nada, ARLES necesita saber de qué empresa salen ' +
+        'los correos.',
+      porQue:
+        'El nombre que verán quienes los reciban, y la zona horaria, que es ' +
+        'la que decide a qué hora sale cada uno. Son cinco campos.',
+      accion: 'Configurar mi empresa',
+      // La cifra evita la conclusión de que con esto ya se puede enviar.
+      despues: 'Después vienen cinco pasos más.',
+    },
+
+    accesos: {
+      titulo: 'Accesos rápidos',
+      // Un acceso que aún no lleva a nada lo dice, en vez de desaparecer:
+      // quien busca dónde se cargan los contactos necesita leer «aún no»,
+      // no encontrarse con el vacío.
+      aun: 'aún no',
+    },
+
+    enConstruccion: {
+      titulo: 'Lo que falta por construir',
+      nota: '{n} pasos',
+      cuerpo:
+        'Los módulos de campañas, canales y actividad aparecerán aquí cuando ' +
+        'existan. No se dibujan vacíos a propósito: un panel de cajas en ' +
+        'espera anuncia cosas que ARLES todavía no sabe hacer.',
+    },
     hecho: 'Hecho',
     pendiente: 'Pendiente',
     llegaEn: 'Llega en la entrega {entrega}',

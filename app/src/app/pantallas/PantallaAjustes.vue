@@ -16,10 +16,18 @@
  */
 import { computed, nextTick, onMounted, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { RouterLink } from 'vue-router'
 
 import { resolverError } from '@/app/errores'
 import { useEmpresaStore, type BorradorDeEmpresa } from '@/app/stores/empresa'
-import { AAviso, ABoton, AEntrada, ASelector, EstadoExito } from '@/design/componentes'
+import {
+  AAviso,
+  ABoton,
+  AEntrada,
+  AIcono,
+  ASelector,
+  EstadoExito,
+} from '@/design/componentes'
 
 const empresa = useEmpresaStore()
 const { t, te } = useI18n()
@@ -238,10 +246,157 @@ async function enviar(): Promise<void> {
     >
       {{ $t('empresa.porQueLaZonaDetalle') }}
     </AAviso>
+
+    <!-- ── Los seis pasos del alta ──────────────────────────────────────────
+         Vivían en Inicio. Dirección pidió que Inicio dejara de ser una lista
+         de configuración, así que el detalle se muda aquí, que es donde se
+         configura, y en Inicio queda la cifra y la acción siguiente.
+
+         Lo que NO se muda es la razón por la que la lista enseña los seis
+         desde el primer día: con sólo los pasos construidos, alguien vería la
+         lista completa al terminar el primero y concluiría que ya puede
+         enviar. Por eso los que aún no existen siguen apareciendo, con su
+         entrega, y sin ser enlaces. -->
+    <section
+      class="alta"
+      aria-labelledby="titulo-alta"
+    >
+      <div class="cabecera-alta">
+        <h2
+          id="titulo-alta"
+          class="subtitulo"
+        >
+          {{ $t('inicio.alta') }}
+        </h2>
+        <!-- La cifra, no un adjetivo: «2 de 6» es verificable, «casi listo»
+             no (§94). -->
+        <p class="avance">
+          {{
+            $t('inicio.avance', {
+              hechos: empresa.onboarding.completados,
+              total: empresa.onboarding.total,
+            })
+          }}
+        </p>
+      </div>
+
+      <ol class="lista">
+        <li
+          v-for="paso in empresa.onboarding.pasos"
+          :key="paso.clave"
+          class="paso"
+          :class="{ hecho: paso.completado }"
+        >
+          <!-- Estado con icono Y texto, nunca sólo con color (regla 7.3):
+               quien no distingue el verde ve exactamente lo mismo. -->
+          <AIcono
+            class="marca"
+            :nombre="paso.completado ? 'exito' : 'cola'"
+            :etiqueta="paso.completado ? $t('inicio.hecho') : $t('inicio.pendiente')"
+          />
+
+          <div class="cuerpo-paso">
+            <p class="nombre">
+              <component
+                :is="paso.disponible && paso.ruta ? RouterLink : 'span'"
+                :to="paso.ruta ?? undefined"
+              >
+                {{ $t(`inicio.paso.${paso.clave}.titulo`) }}
+              </component>
+            </p>
+            <p class="detalle">
+              {{ $t(`inicio.paso.${paso.clave}.detalle`) }}
+            </p>
+          </div>
+
+          <!-- Texto apagado y no `AInsignia`: con relleno sólido, los cinco
+               pasos que NO se pueden hacer pesaban más en la pantalla que el
+               único que sí. -->
+          <p
+            v-if="!paso.disponible"
+            class="cuando"
+          >
+            {{ $t('inicio.llegaEn', { entrega: paso.entrega }) }}
+          </p>
+        </li>
+      </ol>
+    </section>
   </section>
 </template>
 
 <style scoped>
+.alta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-4);
+}
+
+.cabecera-alta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--arles-space-4);
+}
+
+.avance {
+  margin: 0;
+  color: var(--arles-text-muted);
+  font-size: var(--arles-font-size-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-2);
+}
+
+.paso {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--arles-space-3);
+  padding: var(--arles-space-3) var(--arles-space-4);
+  border: var(--arles-border-width) solid var(--arles-border);
+  border-radius: var(--arles-radius-md);
+  background: var(--arles-surface);
+}
+
+.paso .marca {
+  margin-top: var(--arles-space-1);
+  color: var(--arles-text-disabled);
+}
+
+.paso.hecho .marca {
+  color: var(--arles-success);
+}
+
+.cuerpo-paso {
+  flex: 1;
+  min-width: 0;
+}
+
+.nombre {
+  margin: 0 0 var(--arles-space-1);
+  font-weight: var(--arles-font-weight-semibold);
+}
+
+.nombre a {
+  color: var(--arles-text);
+}
+
+.cuando {
+  margin: 0;
+  flex: none;
+  align-self: center;
+  color: var(--arles-text-muted);
+  font-size: var(--arles-font-size-caption);
+  line-height: var(--arles-line-height-caption);
+  white-space: nowrap;
+}
+
 .pantalla {
   display: flex;
   flex-direction: column;

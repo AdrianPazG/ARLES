@@ -17,6 +17,16 @@
   --arles-space-7: 48px;
   --arles-space-8: 64px;
 
+  /* Proporción áurea. Dirección la pidió para la composición: la rejilla de
+     módulos reparte el ancho en 1.618 : 1 en vez de partirlo por la mitad.
+     Vive aquí y no en una pantalla para que sea la misma en todas. */
+  --arles-aureo: 1.618;
+  /* La misma proporción como fracción de rejilla. Hace falta aparte porque
+     `fr` no entra en `calc()`: `calc(var(--arles-aureo) * 1fr)` es inválido,
+     y CSS descarta la declaración entera sin decir nada — la rejilla se cae a
+     una columna y parece una decisión de diseño, no un error. */
+  --arles-aureo-fr: 1.618fr;
+
   /* Radios · contenidos: los radios grandes leen como software de consumo */
   --arles-radius-sm: 4px;
   --arles-radius-md: 6px;
@@ -94,6 +104,17 @@
   --arles-nav-width-plegada: 64px;
   --arles-window-min-width: 1120px;
   --arles-window-min-height: 720px;
+}
+
+/* Las sombras son del tema oscuro: un 45 % de negro sobre papel no eleva, ensucia.
+   En claro se aligeran y el fondo del modal deja de ser casi opaco, porque
+   sobre una página clara basta mucho menos para separar el modal de lo de
+   detrás. Son los únicos valores que no salen de tokens.json: no son colores
+   de marca, son profundidad. */
+:root[data-tema='claro'] {
+  --arles-shadow-modal: 0 16px 40px rgb(16 36 46 / 18%);
+  --arles-shadow-menu: 0 8px 20px rgb(16 36 46 / 14%);
+  --arles-backdrop: rgb(16 36 46 / 35%);
 }
 
 *,

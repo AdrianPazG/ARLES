@@ -12,6 +12,42 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Inicio, modular
+
+- **Inicio deja de ser una lista de configuración.** Dirección pidió un panel
+  con acciones a mano, y que la primera vez guiara a configurar la empresa. Son
+  dos necesidades opuestas, así que son **dos composiciones y no una con un
+  `v-if` en medio**: quien abre ARLES por primera vez no tiene nada que mirar en
+  un panel y necesita una sola cosa que hacer, sin competencia.
+- **La regla que impide que un panel modular parezca roto:** un módulo sólo se
+  dibuja cuando puede decir algo cierto. Los módulos de campañas, canales y
+  actividad que pide la logística **no se maquetan vacíos** — enseñar cajas en
+  espera anuncia capacidades que no existen. En su lugar hay un módulo que dice
+  exactamente eso. Lo vigila una prueba.
+- **La lista de los seis pasos se mudó a Ajustes**, que es donde se configura.
+  Lo que no se mudó es su razón de ser: enseña los seis desde el primer día
+  porque, con sólo los construidos, alguien la vería completa al terminar el
+  primero y concluiría que ya puede enviar. La prueba que lo vigilaba **se
+  repartió entre las dos pantallas en vez de borrarse**.
+- **`AModulo`**, primitiva nueva. El módulo principal se distingue por el borde
+  de acento y no por un fondo distinto: cambiar el fondo obligaría a volver a
+  medir el contraste de todo lo que lleve dentro.
+- **`ABoton` acepta una ruta y entonces se dibuja como enlace.** Un `<button>`
+  con un `router.push` dentro pierde el menú contextual, el foco anunciado como
+  enlace y la posibilidad de saber a dónde lleva antes de pulsarlo. El aspecto
+  es el mismo; la semántica, no.
+- **Rejilla áurea** (`--arles-aureo-fr`): el módulo principal y el secundario
+  reparten el ancho en 1.618 : 1.
+
+#### Dos defectos encontrados al mirar el render
+
+- **`calc()` no acepta `fr`.** La rejilla se escribió como
+  `calc(var(--arles-aureo) * 1fr)`, que es inválido: CSS descarta la declaración
+  entera **sin decir nada** y la rejilla se cae a una columna, con aspecto de
+  decisión de diseño. Por eso ahora hay un token con la unidad puesta.
+- **Las sombras eran del tema oscuro.** Un 45 % de negro sobre papel no eleva,
+  ensucia. En claro se aligeran, y el fondo del modal deja de ser casi opaco.
+
 ### Tema claro, medido en los mismos contratos que el oscuro
 
 - **Paleta clara completa.** Cada token lleva ahora sus dos valores en
