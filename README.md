@@ -98,11 +98,22 @@ Para que exista el primero hacen falta tres cosas, y **ninguna es programar**:
 | **2** | **Certificado de firma de Windows** | Operaciones | Windows enseña la advertencia de «editor desconocido» y SmartScreen bloquea la instalación |
 | **3** | **Apple Developer ID** y notarización | Operaciones | macOS se niega a abrir la aplicación |
 
-> 🟡 **Se puede tener una versión de prueba antes de todo eso**, sin firmar y sin
-> Mont —con la tipografía del sistema—, sólo para revisarla internamente en
-> Windows. Hay que pedirla explícitamente: **no se publica sola**, porque una
-> descarga sin firmar en la portada de un repositorio es una descarga que alguien
-> acabará instalando en el equipo de un cliente.
+### Mientras tanto: la versión de prueba
+
+Se puede construir **hoy**, sin firmar y sin Mont, para revisar la aplicación de
+verdad en lugar de con capturas.
+
+**Cómo pedirla, en tres clics:** pestaña **Actions** → *Entrega de prueba (sin
+firmar)* → **Run workflow**. GitHub la compila para Windows y macOS —unos
+minutos— y la publica en [Releases](../../releases) marcada como *prerelease*.
+
+> ⚠️ **Se lanza a mano y nunca sola.** No se dispara al hacer push. Una versión
+> sin firmar que se publica sola acaba instalada en algún sitio donde nadie la
+> pidió — y sin firma, quien la instale no puede comprobar de dónde salió.
+
+Lo que se verá distinto en ella: **la tipografía**, porque va sin Mont. Los
+tamaños, los pesos y el ritmo sí son los definitivos — salen de los tokens. Un
+hallazgo del tipo «la letra no es la de la marca» en esa versión es esperado.
 
 Y aunque el instalador existiera hoy, **no habría mucho que hacer con él**: la
 aplicación todavía no envía correos ni carga contactos. El avance de arriba dice exactamente qué sí.

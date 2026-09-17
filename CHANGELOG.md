@@ -12,6 +12,38 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Entrega 3.2 · arranca por el núcleo, y una versión de prueba descargable
+
+- **`arles_core::contacto`**: valida un contacto con **varios canales** y
+  devuelve **todos** los errores, no el primero — un formulario que corrige de
+  uno en uno se recorre tantas veces como errores tenga. Cada error dice **qué
+  campo** y, si es un canal, **cuál** de ellos.
+- **Un contacto sin ningún canal se rechaza.** No es inofensivo guardarlo:
+  engorda la lista, cuenta en el total de la campaña y desaparece del envío sin
+  explicación. Un contacto **sin nombre**, en cambio, es legítimo: muchas listas
+  traen sólo el correo.
+- **L-14 implementado en el núcleo.** Exactamente un principal por tipo —al
+  importar no viene marcado ninguno, al editar a mano pueden venir dos— y el
+  orden de la ficha: correos primero, móviles después, el principal arriba.
+  **No el orden de importación**, que cambiaría al reimportar el mismo archivo
+  ordenado de otra forma.
+- La misma dirección dos veces dentro de un contacto se rechaza **con el índice
+  del canal que sobra**. La base la rechazaría igual por su índice único, pero
+  ese error no dice cuál de los dos quitar.
+- 15 pruebas nuevas. Probadas rompiendo las dos reglas de L-14: sin agrupar por
+  tipo y sin reducir a un solo principal, caen las dos que las vigilan.
+
+- **Flujo «Entrega de prueba (sin firmar)»** en Actions: construye ARLES para
+  Windows y macOS en los runners de GitHub y publica una **prerelease**. Aquí no
+  se puede compilar —los instaladores son `.msi`, `.nsis` y `.dmg`, y esto es
+  Linux—, así que lo construye quien sí puede.
+- **Se lanza a mano y nunca sola.** Una versión sin firmar que se publica sola
+  acaba instalada donde nadie la pidió, y sin firma quien la instale no puede
+  comprobar de dónde salió.
+- **Va sin Mont**, con `herramientas/marca/sin-mont.py`, que aplica el plan B de
+  P-01 sobre la copia del runner. Lo que cambia es la forma de las letras; los
+  tamaños, los pesos y el ritmo salen de los tokens y son los definitivos.
+
 ### La consulta jurídica, la sección de descargas y tres decisiones de contactos
 
 - **`08-legal/CONSULTA-JURIDICA.md`**: ocho preguntas concretas para mandar tal

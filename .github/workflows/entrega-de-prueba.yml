@@ -1,0 +1,166 @@
+# Construye una versión de prueba de ARLES para revisarla.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# QUÉ ES ESTO Y QUÉ NO ES
+#
+# Dirección pidió un ejecutable descargable para recorrer la checklist con la
+# aplicación de verdad en vez de con capturas. Esto lo produce.
+#
+# **No es la versión del producto.** Le faltan tres cosas, y ninguna es
+# programar:
+#
+#   1. Va SIN MONT. La licencia para incrustar la tipografía en una aplicación
+#      distribuida sigue sin confirmarse (P-01), así que se quita antes de
+#      compilar. La aplicación sale con Figtree o con la letra del sistema.
+#   2. Va SIN FIRMAR. Windows enseñará «editor desconocido» y SmartScreen
+#      pedirá confirmación; macOS exigirá abrirla con clic derecho → Abrir.
+#   3. No está notarizada por Apple.
+#
+# Por eso se publica como **prerelease** y con el nombre bien claro: para que
+# nadie la confunda con una entrega, y sobre todo para que nadie la instale en
+# el equipo de un cliente.
+#
+# ── Se lanza a mano, nunca sola ──
+#
+# `workflow_dispatch`: alguien entra en la pestaña Actions y pulsa. No se
+# dispara al hacer push. Una versión sin firmar que se publica sola es una
+# versión que acaba instalada en algún sitio donde nadie la pidió.
+# ═══════════════════════════════════════════════════════════════════════════
+
+name: Entrega de prueba (sin firmar)
+
+on:
+  workflow_dispatch:
+    inputs:
+      nota:
+        description: 'Para qué es esta versión (sale en las notas del release)'
+        required: true
+        default: 'Revisión de la checklist visual'
+
+# Sólo para crear el release. Nada más.
+permissions:
+  contents: write
+
+jobs:
+  construir:
+    name: ${{ matrix.nombre }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Sin fail-fast: si macOS falla, Windows sigue. Es mejor tener una de las
+      # dos que ninguna, y el motivo del fallo suele ser específico del sistema.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            nombre: Windows
+          - os: macos-latest
+            nombre: macOS (Apple Silicon)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # ── El plan B de P-01 ──
+      #
+      # Se aplica sobre la copia del runner, que se tira al terminar. El
+      # repositorio no se toca.
+      - name: Quitar Mont (licencia sin confirmar, P-01)
+        run: python3 herramientas/marca/sin-mont.py --aplicar
+
+      - name: Instalar dependencias del frontend
+        run: npm ci
+        working-directory: app
+
+      # Se compila el frontend aquí y no se deja a `beforeBuildCommand` para
+      # que, si falla, el error salga en su propio paso y no enterrado dentro
+      # del registro de la compilación de Rust.
+      - name: Compilar el frontend
+        run: npm run build
+        working-directory: app
+
+      - name: Compilar la aplicación
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: crates/arles-app
+          # Sin `tagName` aquí: el release lo crea el trabajo de abajo, una
+          # sola vez, con los binarios de los dos sistemas dentro. Si cada
+          # matriz creara el suyo, saldrían dos releases a medias.
+          includeRelease: false
+          includeDebug: false
+
+      - name: Guardar los instaladores
+        uses: actions/upload-artifact@v4
+        with:
+          name: arles-${{ matrix.nombre }}
+          retention-days: 14
+          # Rutas de los dos sistemas; la que no exista se ignora.
+          path: |
+            target/release/bundle/nsis/*.exe
+            target/release/bundle/msi/*.msi
+            target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
+  publicar:
+    name: Publicar la prerelease
+    needs: construir
+    # `always()` con la comprobación de que algo se construyó: si macOS falló
+    # pero Windows salió, se publica lo que hay en vez de perder las dos.
+    if: ${{ always() && contains(needs.construir.result, 'success') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: instaladores
+          merge-multiple: true
+
+      - name: Etiqueta con la fecha
+        id: etiqueta
+        run: echo "valor=prueba-$(date -u +'%Y%m%d-%H%M')" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.etiqueta.outputs.valor }}
+          name: Versión de prueba · ${{ steps.etiqueta.outputs.valor }}
+          prerelease: true
+          files: instaladores/**/*
+          body: |
+            > ⚠️ **Versión de prueba. No es una entrega y no se instala en el
+            > equipo de un cliente.**
+
+            **Para qué es:** ${{ inputs.nota }}
+
+            ### Tres cosas que le faltan, y ninguna es programar
+
+            | | Qué | Qué vas a ver |
+            |---|---|---|
+            | 1 | **Va sin Mont** — la licencia para incrustarla sigue sin confirmarse (P-01) | Otra tipografía. Los tamaños y pesos sí son los definitivos: salen de los tokens |
+            | 2 | **Va sin firmar** | Windows dirá «editor desconocido» y SmartScreen pedirá confirmar |
+            | 3 | **No está notarizada** | En macOS hay que abrirla con clic derecho → Abrir la primera vez |
+
+            ### Qué se puede revisar con esto
+
+            Los bloques **A a F** de
+            [CHECKLIST-VISUAL.md](documentacion/06-calidad/CHECKLIST-VISUAL.md):
+            el primer arranque, la navegación, el tema claro y oscuro, los
+            textos y el recorrido por teclado.
+
+            El bloque **G** dice lo que todavía **no** se puede revisar:
+            enviar, cargar contactos y conectar cuentas no existen aún.
+
+            ### Cómo devolver los hallazgos
+
+            Con el código del renglón de la checklist. Por ejemplo:
+            *«B-3 — al plegar, el icono de Actividad se mueve»*.
