@@ -104,11 +104,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: crates/arles-app
-          # Sin `tagName` aquí: el release lo crea el trabajo de abajo, una
+          # **Sin `tagName` a propósito.** Sin él, `tauri-action` sólo compila y
+          # no toca ningún release; el release lo crea el trabajo de abajo, una
           # sola vez, con los binarios de los dos sistemas dentro. Si cada
-          # matriz creara el suyo, saldrían dos releases a medias.
-          includeRelease: false
-          includeDebug: false
+          # entrada de la matriz creara el suyo, saldrían dos releases a medias.
+          #
+          # Aquí había `includeRelease: false` y se ha quitado: esa entrada no
+          # significa «no publiques», significa qué binarios se adjuntan, y
+          # ponerla a false se arriesgaba a una compilación que no produce nada.
 
       - name: Guardar los instaladores
         uses: actions/upload-artifact@v4
