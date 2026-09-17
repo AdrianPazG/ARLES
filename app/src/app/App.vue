@@ -168,10 +168,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
            dentro de la ventana: una WebView que navega a internet deja de ser
            una aplicación y pasa a ser un navegador sin barra de direcciones,
            donde el usuario no puede saber dónde está. Ver `abrirSitio`. -->
-      <footer
-        v-if="!interfaz.plegada"
-        class="pie"
-      >
+      <footer class="pie">
         <button
           type="button"
           class="sello"
@@ -179,9 +176,19 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
           :title="$t('producto.irAlSitio')"
           @click="abrirSitio"
         >
-          <span class="logo-telemetry" />
+          <!-- Plegada cabe el símbolo pero no «TELEMETRY INSIGHT»: el pie
+               desaparecía entero y la barra se quedaba sin ninguna marca.
+               Son dos piezas distintas, no una recortada con `overflow`:
+               recortar dejaría la «T» partida asomando por el borde. -->
+          <span
+            class="logo-telemetry"
+            :class="interfaz.plegada ? 'solo-simbolo' : 'horizontal'"
+          />
         </button>
-        <p class="version">
+        <p
+          v-if="!interfaz.plegada"
+          class="version"
+        >
           v{{ app.info.version }}
         </p>
       </footer>
@@ -389,6 +396,11 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
   border-top: var(--arles-border-width) solid var(--arles-border);
 }
 
+.plegado .pie {
+  justify-content: center;
+  padding-inline: 0;
+}
+
 .sello {
   display: block;
   padding: var(--arles-space-1);
@@ -406,8 +418,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
 }
 
 /* La pieza llega a sangre —la tinta toca los cuatro bordes— así que el aire lo
-   pone el botón, no el archivo (MARCA_TELEMETRY.md §4). Proporción 3.108:1: se
-   fija el ancho y el alto sale solo.
+   pone el botón, no el archivo (MARCA_TELEMETRY.md §4).
 
    **Va como máscara, no como imagen.** El logotipo es de un solo color sobre
    transparencia, así que el color puede venir del token y seguir al tema solo.
@@ -417,15 +428,27 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
    descartar: sólo hay una pieza y su color es el del texto. */
 .logo-telemetry {
   display: block;
-  width: 116px;
-  height: 37px;
   background-color: var(--arles-text-muted);
-  mask-image: url('./activos/marca/telemetry-horizontal-mascara.png');
   mask-size: contain;
   mask-repeat: no-repeat;
-  -webkit-mask-image: url('./activos/marca/telemetry-horizontal-mascara.png');
   -webkit-mask-size: contain;
   -webkit-mask-repeat: no-repeat;
+}
+
+/* Proporción 3.108:1: se fija el ancho y el alto sale solo. */
+.horizontal {
+  width: 116px;
+  height: 37px;
+  mask-image: url('./activos/marca/telemetry-horizontal-mascara.png');
+  -webkit-mask-image: url('./activos/marca/telemetry-horizontal-mascara.png');
+}
+
+/* Proporción 149:160, la del símbolo solo. */
+.solo-simbolo {
+  width: 30px;
+  height: 32px;
+  mask-image: url('./activos/marca/telemetry-isotipo-mascara.png');
+  -webkit-mask-image: url('./activos/marca/telemetry-isotipo-mascara.png');
 }
 
 .version {

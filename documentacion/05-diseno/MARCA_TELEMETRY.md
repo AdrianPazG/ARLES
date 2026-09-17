@@ -49,7 +49,8 @@ material de sólo lectura por instrucción de Dirección— y escribe en
 |---|---|---|---|
 | `telemetry-horizontal-tema-oscuro.png` | `#F4ECE4` | `--arles-text` | tema oscuro |
 | `telemetry-horizontal-tema-claro.png` | `#041A25` | `--arles-bg-deep` | tema claro y papel |
-| `telemetry-horizontal-mascara.png` | — | ninguno | **la que usa la interfaz** |
+| `telemetry-horizontal-mascara.png` | — | ninguno | **la que usa la interfaz**, barra desplegada |
+| `telemetry-isotipo-mascara.png` | — | ninguno | **sólo el símbolo**, barra plegada |
 
 ### Dentro de la aplicación va la máscara, no la pieza teñida
 
@@ -64,6 +65,28 @@ que elegir, y el logotipo **no puede quedarse con la tinta del otro tema**.
 
 Las dos piezas teñidas siguen existiendo para el papel y para cualquier sitio
 donde no se pueda enmascarar.
+
+### El símbolo solo, y por qué el corte no está escrito a mano
+
+Con la barra plegada el logotipo horizontal no entra en 64 px y **desaparecía
+entero**: el pie se quedaba sin ninguna marca. Dirección pidió conservar el
+símbolo sin el texto.
+
+Son **dos piezas distintas**, no una recortada con `overflow`. Recortar dejaría
+la «T» de TELEMETRY partida asomando por el borde.
+
+=> Dónde acaba el símbolo lo **encuentra el script**, no una constante: busca el
+hueco vertical más ancho de la pieza. Entre el símbolo y el texto hay **118 px
+sin tinta**; los espacios entre letras rondan los **22**. El corte cae en
+x=834 de 2776.
+
+!i **El hueco se busca sobre el original, antes de reducir.** A 560 px de ancho
+mediría 24 px y quedaría a la altura del espaciado entre letras, que es
+exactamente la confusión que el método evita.
+
+Si algún día la marca reexporta el archivo con otro encuadre, el script vuelve
+a encontrar el corte solo. Y si no encuentra ningún hueco suficientemente
+ancho, **para y lo dice** en vez de entregar medio logotipo.
 
 **Los nombres dicen a qué tema sirven, no de qué color son.** Los originales
 hacen lo contrario —«Blanco» describe la tinta— y es justo lo que lleva a

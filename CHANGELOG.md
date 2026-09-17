@@ -12,6 +12,20 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### El logotipo de TELEMETRY ya no desaparece al plegar
+
+- Con la barra plegada el logotipo horizontal no entra en 64 px y **se quitaba
+  entero**, dejando el pie sin ninguna marca. Ahora queda **el símbolo solo**,
+  sin el texto, como pidió Dirección.
+- Son **dos piezas distintas**, no una recortada con `overflow`: recortar
+  dejaría la «T» partida asomando por el borde.
+- **Dónde acaba el símbolo lo encuentra el script**, no una constante: busca el
+  hueco vertical más ancho de la pieza —118 px entre símbolo y texto, frente a
+  los 22 del espaciado entre letras— y lo busca sobre el original, antes de
+  reducir, porque a 560 px ese hueco mediría 24 y se confundiría con el
+  espaciado. Si un día no encuentra ninguno suficientemente ancho, **para y lo
+  dice** en vez de entregar medio logotipo.
+
 ### Proporciones y espacio muerto
 
 - **El problema no era que sobrara aire, era que estaba todo a un lado.** El

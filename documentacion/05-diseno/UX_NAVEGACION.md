@@ -246,6 +246,12 @@ y la versión **comparten fila y línea de base**; antes iban apilados y la
 versión colgaba sin alinearse con nada, que es lo que Dirección señaló en el
 punto 4.2 de su brief.
 
+**Plegada se conserva el símbolo**, sin el texto «TELEMETRY INSIGHT» que no
+cabe en 64 px. Antes el pie desaparecía entero y la barra se quedaba sin
+ninguna marca. Son dos piezas distintas y no una recortada: recortar dejaría la
+«T» partida asomando por el borde. La versión sí se retira —no cabe junto al
+símbolo sin apretarlo— y vuelve al desplegar.
+
 Abre **telemetrymx.com en el navegador del sistema**, no dentro de la ventana:
 una WebView que navega a internet deja de ser una aplicación y pasa a ser un
 navegador sin barra de direcciones, donde el usuario no puede saber dónde está.

@@ -83,6 +83,22 @@ SALIDAS = {
 #: papel claro, casi invisible. Con máscara no hay regla que descartar.
 MASCARA_SALIDA = "telemetry-horizontal-mascara.png"
 
+#: Sólo el símbolo, sin «TELEMETRY INSIGHT», también como máscara.
+#:
+#: Con la barra lateral plegada el logotipo horizontal no entra en 64 px y
+#: desaparecía entero, dejando el pie sin ninguna marca. Dirección pidió
+#: conservar el símbolo solo.
+#:
+#: **Dónde corta no está escrito a mano.** Se busca el hueco vertical más ancho
+#: de la pieza: entre el símbolo y el texto hay 118 px sin tinta, mientras que
+#: los espacios entre letras rondan los 22. Un número fijo aquí sería un número
+#: que caduca en cuanto la marca reexporte el archivo con otro encuadre.
+ISOTIPO_SALIDA = "telemetry-isotipo-mascara.png"
+
+#: Por debajo de esto, un hueco es espaciado entre letras y no una separación
+#: de bloques. Medido: 118 px el bueno, 26 px el mayor de los otros.
+MIN_HUECO_PX = 60
+
 
 def tintas() -> dict[str, str]:
     datos = json.loads(TOKENS.read_text(encoding="utf-8"))
@@ -100,6 +116,38 @@ def rgb(hexa: str) -> tuple[int, int, int]:
 
 def alfa(ruta: Path) -> Image.Image:
     return Image.open(ruta).convert("RGBA").getchannel("A")
+
+
+def corte_del_isotipo(mascara: Image.Image) -> int:
+    """La columna donde acaba el símbolo y empieza el texto.
+
+    Es el hueco vertical más ancho de la pieza. Devuelve su columna de inicio,
+    que es por donde hay que recortar.
+    """
+    px = mascara.load()
+    ancho, alto = mascara.size
+    con_tinta = []
+    for x in range(ancho):
+        # Muestreo cada 4 filas: basta para saber si la columna tiene tinta, y
+        # recorrerlas todas multiplica por cuatro el tiempo sin cambiar nada.
+        con_tinta.append(any(px[x, y] > 16 for y in range(0, alto, 4)))
+
+    mejor, inicio = None, None
+    for x, hay in enumerate(con_tinta):
+        if not hay and inicio is None:
+            inicio = x
+        elif hay and inicio is not None:
+            if x - inicio >= MIN_HUECO_PX and (mejor is None or x - inicio > mejor[1]):
+                mejor = (inicio, x - inicio)
+            inicio = None
+
+    if mejor is None:
+        raise SystemExit(
+            f"No encuentro ningún hueco de {MIN_HUECO_PX} px o más en el "
+            "logotipo horizontal: no puedo separar el símbolo del texto. "
+            "¿Cambió la pieza?"
+        )
+    return mejor[0]
 
 
 def comprobar_que_son_la_misma_pieza(a: Image.Image, b: Image.Image) -> float:
@@ -127,6 +175,14 @@ def main() -> int:
         )
         return 1
 
+    # El corte se busca sobre el original, antes de reducir: a 560 px de ancho
+    # el hueco mide 24 px y quedaría a la altura del espaciado entre letras.
+    corte = corte_del_isotipo(mascara)
+    isotipo = mascara.crop((0, 0, corte, mascara.height))
+    caja = isotipo.getbbox()
+    if caja:
+        isotipo = isotipo.crop(caja)
+
     alto = round(mascara.height * ANCHO / mascara.width)
     mascara = mascara.resize((ANCHO, alto), Image.LANCZOS)
 
@@ -146,6 +202,18 @@ def main() -> int:
     lienzo.save(DESTINO / MASCARA_SALIDA, optimize=True)
     peso = (DESTINO / MASCARA_SALIDA).stat().st_size
     print(f"  ✓ {MASCARA_SALIDA}  {ANCHO}×{alto}  máscara  {peso / 1024:.1f} kB")
+
+    iso_alto = 160
+    iso_ancho = round(isotipo.width * iso_alto / isotipo.height)
+    isotipo = isotipo.resize((iso_ancho, iso_alto), Image.LANCZOS)
+    lienzo = Image.new("RGBA", isotipo.size, (255, 255, 255, 0))
+    lienzo.putalpha(isotipo)
+    lienzo.save(DESTINO / ISOTIPO_SALIDA, optimize=True)
+    peso = (DESTINO / ISOTIPO_SALIDA).stat().st_size
+    print(
+        f"  ✓ {ISOTIPO_SALIDA}  {iso_ancho}×{iso_alto}  símbolo solo, "
+        f"cortado en x={corte}  {peso / 1024:.1f} kB"
+    )
     return 0
 
 
