@@ -60,10 +60,17 @@ Tres capas, de más fuerte a más débil.
 
 ```sql
 CREATE UNIQUE INDEX idx_attempt_unique
-  ON message_attempt (campaign_id, contact_id);
+  ON message_attempt (campaign_id, channel, contact_address);
 ```
 
-Ningún fallo de lógica, ninguna condición de carrera y ningún doble clic pueden producir dos intentos para el mismo par campaña-contacto: **la base de datos lo rechaza**. Esto convierte el §55 en una propiedad estructural, no en una esperanza.
+Ningún fallo de lógica, ninguna condición de carrera y ningún doble clic pueden producir dos intentos para la misma campaña, la misma dirección y el mismo canal: **la base de datos lo rechaza**. Esto convierte el §55 en una propiedad estructural, no en una esperanza.
+
+!! **Este bloque estuvo desactualizado dos veces.** Decía `contact_id`, que el
+hallazgo F1 corrigió a `contact_email` en la Fase 1 sin actualizar aquí, y las
+migraciones V3 y V4 lo cambiaron otra vez a `(campaign_id, channel,
+contact_address)`. Detectado en la auditoría del 17/09/2026. La clave es la
+**dirección**, no el `contact_id`: un contacto borrado y reimportado tiene id
+nuevo, y con una clave basada en el id se le volvería a enviar.
 
 ### Capa 2 — Compare-and-swap al tomar trabajo
 

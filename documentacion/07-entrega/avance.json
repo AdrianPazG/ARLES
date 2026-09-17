@@ -1,0 +1,143 @@
+{
+  "_lee_esto_primero": [
+    "Fuente ÚNICA del porcentaje de avance de ARLES RELAY I v1.2.0.",
+    "",
+    "El número se escribe AQUÍ y en ningún otro sitio. De aquí salen, generados:",
+    "  · la insignia del README (la portada del repositorio en GitHub)",
+    "  · app/src/app/generado/avance.ts, que es lo que enseña la pantalla Inicio",
+    "El validador recalcula y falla si los tres dejan de coincidir. Sin eso, el",
+    "porcentaje de la pantalla y el del README divergen en la primera prisa.",
+    "",
+    "CÓMO SE CALCULA: suma de peso x hecho, redondeada. Nada más.",
+    "",
+    "QUÉ ES 'peso': el tamaño relativo de la fase dentro de la v1.2.0, no su",
+    "riesgo ni su importancia. Los pesos suman 100 y son una ESTIMACIÓN de",
+    "esfuerzo — se dice porque un porcentaje presentado como medición exacta",
+    "seria mentir (§94). Lo que no es estimación es 'hecho': cada fracción se",
+    "apoya en algo comprobable, y esa comprobación está escrita en 'porque'.",
+    "",
+    "QUÉ NO MIDE: si el producto sirve. Mide cuánto del alcance de la v1.2.0",
+    "está construido y verificado. Una fase al 100 % puede seguir esperando un",
+    "trámite externo; eso va en 'bloqueos', que no resta porcentaje porque no es",
+    "trabajo pendiente nuestro.",
+    "",
+    "OJO CON UNA COSA: cuando Dirección amplía el alcance —WhatsApp dentro de",
+    "la v1.2.0, P-15— el denominador crece y el porcentaje BAJA aunque no se",
+    "haya deshecho nada. Eso es correcto y hay que decirlo en vez de maquillarlo",
+    "repesando hasta que el numero suba: falta mas para terminar porque hay mas",
+    "que terminar. Los pesos de las fases se redujeron para hacer sitio a F3W.",
+    "",
+    "Actualizarlo: editar 'hecho' y 'porque', y correr",
+    "  python3 herramientas/avance/calcular.py --escribir"
+  ],
+
+  "version": "1.2.0",
+  "actualizado": "2026-09-17",
+
+  "fases": [
+    {
+      "id": "F0",
+      "nombre": "Discovery y auditoría",
+      "peso": 5,
+      "hecho": 1.0,
+      "porque": "Cerrada el 11/09/2026. validar.py --fase 0 en 4/4."
+    },
+    {
+      "id": "F1",
+      "nombre": "Cimientos",
+      "peso": 9,
+      "hecho": 1.0,
+      "porque": "Cerrada y revisada. validar.py --fase 1 en 48/48, con las cuatro migraciones aplicadas y probadas sobre base poblada."
+    },
+    {
+      "id": "F2",
+      "nombre": "Design System",
+      "peso": 9,
+      "hecho": 1.0,
+      "porque": "Cerrada y revisada. validar.py --fase 2 en 37/37, 72 contratos de contraste en los dos temas, catálogo visual navegable."
+    },
+    {
+      "id": "F3",
+      "nombre": "Empresa y contactos",
+      "peso": 14,
+      "hecho": 0.2,
+      "porque": "De las cinco entregas sólo está cerrada la 3.1 (empresa, alta y barra lateral), en 27/27. Faltan 3.2 contactos, 3.3 importación, 3.4 supresión y ARCO, y 3.5 cierre."
+    },
+    {
+      "id": "F3W",
+      "nombre": "Canales: esquema de contactos, consentimiento y etapas",
+      "peso": 8,
+      "hecho": 0.55,
+      "porque": "Migraciones V3 y V4 aplicadas y probadas: contact_channel, consent_entry, supresión por canal, campaign_stage, whatsapp_account y su historial de calidad. Falta la pantalla de CANALES, el alta del número y el repositorio en Rust que lea y escriba estas tablas."
+    },
+    {
+      "id": "F4",
+      "nombre": "Motor de ejecución",
+      "peso": 14,
+      "hecho": 0.0,
+      "porque": "Sin empezar. Las tablas contra las que se escribe ya existen; el motor no."
+    },
+    {
+      "id": "F5",
+      "nombre": "Proveedores de envío",
+      "peso": 7,
+      "hecho": 0.0,
+      "porque": "Sin empezar. Incluye el adaptador de WhatsApp Cloud API además del SMTP."
+    },
+    {
+      "id": "F6",
+      "nombre": "Campañas y mensajes",
+      "peso": 13,
+      "hecho": 0.05,
+      "porque": "Sin empezar salvo las reglas de la secuencia de etapas, que ya están en arles-core con 13 pruebas."
+    },
+    {
+      "id": "F7",
+      "nombre": "Actividad y entregabilidad",
+      "peso": 9,
+      "hecho": 0.0,
+      "porque": "Sin empezar. Incluye las dos pestañas de ACTIVIDAD y la línea de tiempo de la calificación de Meta."
+    },
+    {
+      "id": "F8",
+      "nombre": "Respaldos y endurecimiento",
+      "peso": 7,
+      "hecho": 0.0,
+      "porque": "Sin empezar."
+    },
+    {
+      "id": "F9",
+      "nombre": "Release v1.2.0",
+      "peso": 5,
+      "hecho": 0.0,
+      "porque": "Sin empezar."
+    }
+  ],
+
+  "bloqueos": [
+    {
+      "id": "P-01",
+      "que": "Licencia de Mont para incrustarla en la aplicación distribuida",
+      "quien": "Dirección",
+      "bloquea": "F9 · el primer instalador que salga del equipo"
+    },
+    {
+      "id": "P-09",
+      "que": "Revisión jurídica de los textos legales y del correo en frío",
+      "quien": "Abogado",
+      "bloquea": "F3 entrega 3.3 · la importación, donde vive el aviso de privacidad"
+    },
+    {
+      "id": "META",
+      "que": "Cuenta de empresa en Meta, verificada y con Coexistencia activada (L-11)",
+      "quien": "Operaciones",
+      "bloquea": "F3W · el alta del número, y con ella toda campaña de WhatsApp"
+    },
+    {
+      "id": "R-07",
+      "que": "Revisión visual en macOS (WKWebView)",
+      "quien": "Quien tenga un Mac",
+      "bloquea": "Nada todavía; la fecha límite acordada es antes de la F6"
+    }
+  ]
+}

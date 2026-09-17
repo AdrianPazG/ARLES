@@ -36,9 +36,11 @@ export const es = {
 
   inicio: {
     titulo: 'Bienvenido a {producto}',
+    // WhatsApp entró en el alcance el 17/09/2026 (P-15). Esta línea decía
+    // «campañas de correo» y se quedó corta el mismo día.
     entradilla:
-      'ARLES ejecuta campañas de correo con tus propias cuentas, respetando ' +
-      'los límites que definas.',
+      'ARLES ejecuta campañas de correo y de WhatsApp con tus propias ' +
+      'cuentas, respetando los límites que definas.',
     alta: 'Para poder enviar tu primera campaña',
     avance: '{hechos} de {total}',
     verPasos: 'Ver los {n} pasos',
@@ -74,6 +76,12 @@ export const es = {
         'existan. No se dibujan vacíos a propósito: un panel de cajas en ' +
         'espera anuncia cosas que ARLES todavía no sabe hacer.',
     },
+    // El avance de la versión, pedido por Dirección. Con fecha: un porcentaje
+    // sin fecha no dice nada, y éste no se recalcula solo.
+    avanceVersion: 'de la versión 1.2.0 construido y verificado, al {fecha}',
+    avanceVersionLector:
+      'Avance de la versión 1.2.0: {pct} por ciento construido y ' +
+      'verificado, al {fecha}.',
     hecho: 'Hecho',
     pendiente: 'Pendiente',
     llegaEn: 'Llega en la entrega {entrega}',

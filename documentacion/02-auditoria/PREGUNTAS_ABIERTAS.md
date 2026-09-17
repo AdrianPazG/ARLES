@@ -136,9 +136,9 @@ El enforcement está fuera de v1.2.0 (T-6, D-4), pero el **esquema** se define a
 | **P-09** | **¿Cuál es el marco de protección de datos vigente?** | **Antes de congelar cualquier texto legal visible** | **R-19** | 🔴 |
 | **P-10** | ¿Qué cobertura real de correo tiene la lista del DENUE? | Antes de la primera campaña | R-13 | 🟡 |
 | P-12 | ¿Se acepta **L-2** (canales por contacto) y con ello migrar el esquema de la Fase 1 ahora? | — | R-23 | ✅ **cerrada el 16/09/2026: autorizada** |
-| **P-13** | ¿Se acepta **L-5** (séptima sección, CONVERSACIONES, condicional a WhatsApp)? | **El rediseño** | R-22 | 🔴 |
-| **P-14** | ¿Quién contesta a los interesados de WhatsApp, y en qué horario? | La primera campaña de WhatsApp | R-22 | 🔴 |
-| **P-15** | ¿WhatsApp entra en la v1.2.0 o el esquema se prepara y el canal llega en v1.2.x? | El roadmap | R-21 | 🔴 |
+| ~~**P-13**~~ | ¿Se acepta **L-5** (séptima sección, CONVERSACIONES)? | — | R-22 | ✅ **17/09/2026: no.** Dirección quiere las cifras y las gráficas, **no** ver los mensajes. Sin bandeja no hay «Conversaciones»: las estadísticas van a **ACTIVIDAD con dos pestañas**, correo y WhatsApp (L-10). Se queda en seis secciones |
+| ~~**P-14**~~ | ¿Quién contesta a los interesados de WhatsApp? | — | R-22 | ✅ **17/09/2026: el agente de ventas, desde la app de WhatsApp Business.** De ahí nace L-11: sin Coexistencia no puede, porque el número saldría de la app. Horario: **sin definir**, y sigue importando — la ventana de respuesta de Meta es de 24 h |
+| ~~**P-15**~~ | ¿WhatsApp entra en la v1.2.0? | — | R-21 | ✅ **17/09/2026: sí, en la v1.2.0.** Amplía el alcance, así que el porcentaje de avance bajó al crecer el denominador. Esquema construido: V3 y V4 |
 
 Las cuatro nuevas salen de
 [LOGISTICA_DE_CAMPANAS](../01-producto/LOGISTICA_DE_CAMPANAS.md), que es donde

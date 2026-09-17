@@ -10,11 +10,23 @@
 
 ## 1. Nunca — el producto no será esto
 
+> 🔴 **Corrección del 17/09/2026.** Esta lista decía que WhatsApp **nunca**
+> entraría. Dirección decidió lo contrario (P-15): WhatsApp entra en la propia
+> v1.2.0, con las decisiones L-1 a L-11 de
+> [LOGISTICA_DE_CAMPANAS](LOGISTICA_DE_CAMPANAS.md), y el esquema ya está
+> construido (migraciones V3 y V4).
+>
+> Se corrige aquí en vez de borrarse, porque la razón que se dio entonces sigue
+> siendo buena y ahora acota lo que se hizo: **ARLES no se convierte en una
+> plataforma omnicanal**. Sigue habiendo dos canales y sólo dos, cada envío es
+> de un canal, las métricas no se suman entre canales y el permiso se registra
+> por canal. Lo que cambió es el número de canales, no la forma del producto.
+
 Estos elementos no están diferidos: están **rechazados por definición del producto** (§6, §125). Si reaparecen en una conversación de alcance, la respuesta es no, independientemente de la versión.
 
 | Elemento | Motivo |
 |---|---|
-| WhatsApp, SMS, notificaciones push | ARLES es correo. Añadir canales lo convierte en una plataforma omnicanal, que es explícitamente lo que no es |
+| ~~WhatsApp~~ · SMS, notificaciones push | **WhatsApp salió de esta lista el 17/09/2026** — ver el recuadro de abajo. SMS y push siguen rechazados por el mismo motivo de siempre: cada canal nuevo acerca el producto a una plataforma omnicanal, que es lo que no es |
 | CRM (oportunidades, embudos, pipeline) | Otro producto |
 | ERP (inventario, facturación, contabilidad) | Otro producto |
 | Generación de contenido con IA | No aporta al bucle central y añade una dependencia externa, un coste variable y una superficie de privacidad nueva |

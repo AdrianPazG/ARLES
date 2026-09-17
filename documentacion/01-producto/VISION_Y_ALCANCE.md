@@ -61,7 +61,7 @@ No es, y el proyecto rechazará activamente que se convierta en:
 | Mailchimp | No hay constructor de newsletters de arrastrar y soltar. El editor es deliberadamente simple (§41) |
 | Un CRM | No gestiona oportunidades, embudos ni relaciones comerciales |
 | Un ERP | No toca inventario, facturación ni contabilidad |
-| Una plataforma omnicanal | Sólo correo. Sin WhatsApp, sin SMS, sin notificaciones push |
+| Una plataforma omnicanal | **Dos canales y sólo dos**: correo y WhatsApp (P-15, 17/09/2026). Sin SMS y sin notificaciones push. Cada envío es de un canal, las métricas no se suman entre canales y el permiso se registra por canal — ver L-1 en [LOGISTICA_DE_CAMPANAS](LOGISTICA_DE_CAMPANAS.md). Esta fila decía «sólo correo» hasta esa fecha |
 | Software de llamadas en frío | No hay marcador ni telefonía |
 | Una plataforma publicitaria | No compra ni gestiona medios |
 | Una herramienta de scraping | **No recolecta contactos.** Sólo importa los que el cliente ya tiene |

@@ -12,6 +12,38 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Avance de la versión visible, y una auditoría que encontró seis documentos mintiendo
+
+- **El porcentaje de avance se ve en dos sitios**, como pidió Dirección: en la
+  portada del repositorio en GitHub y en la pantalla de Inicio. Hoy, **31 %**.
+- **Un solo origen**, `documentacion/07-entrega/avance.json`; la insignia del
+  README y el archivo que lee la pantalla se **generan**. El validador recalcula
+  y falla si los tres divergen — probado cambiando el número del README a mano.
+  Dos sitios con el mismo número escrito a mano divergen en la primera prisa.
+- Cada fracción lleva **en qué se apoya**; los pesos se declaran como estimación
+  en vez de presentarse como medición. Y el número **baja** cuando Dirección
+  amplía el alcance, que es lo correcto: falta más porque hay más que hacer.
+- **`CHECKLIST-VISUAL.md`**: lo que una persona tiene que mirar, en siete
+  bloques, incluido el de lo que **no** se puede revisar todavía y por qué.
+
+- !! **La auditoría encontró seis documentos que ya no decían la verdad.** No
+  son fallos del código: son afirmaciones que dejaron de ser ciertas y nadie
+  actualizó. Las seis corregidas, y ninguna borrada — se deja dicho qué decían
+  antes y por qué cambió:
+  - `FUERA_DE_ALCANCE.md` y `VISION_Y_ALCANCE.md` decían que WhatsApp **nunca**
+    entraría. Dirección decidió lo contrario y el esquema ya está construido.
+  - `MOTOR_DE_EJECUCION.md` llevaba **dos** versiones de retraso en la clave de
+    idempotencia: decía `contact_id` cuando la Fase 1 ya lo había corregido a
+    `contact_email`, y las V3 y V4 lo cambiaron otra vez.
+  - `ADR-0004` iba una versión por detrás del mismo cambio.
+  - `PREGUNTAS_ABIERTAS.md` seguía marcando P-13, P-14 y P-15 como abiertas
+    cuando Dirección las contestó.
+  - El `ROADMAP` decía «nada de esto está aprobado» sobre WhatsApp.
+  - El `README` anunciaba la Fase 3 como «siguiente» y el producto como sólo de
+    correo.
+- Y un texto **de la propia pantalla**: Inicio decía «campañas de correo». Se
+  quedó corto el mismo día en que WhatsApp entró en el alcance.
+
 ### Una campaña tiene etapas · migración V4 (L-1, L-6, L-11)
 
 - **`campaign_stage`.** Una campaña tiene una o dos etapas, cada una de un solo

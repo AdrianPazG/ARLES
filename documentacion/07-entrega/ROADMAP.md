@@ -6,12 +6,24 @@
 
 ---
 
-> 🔵 **Este roadmap fue escrito para un producto de un solo canal.**
-> [LOGISTICA_DE_CAMPANAS](../01-producto/LOGISTICA_DE_CAMPANAS.md) §10 detalla
-> qué le hace WhatsApp a cada fase. En resumen: la **Fase 1 tiene una migración
-> de esquema pendiente** —el contacto deja de ser un correo— que conviene hacer
-> **antes de la Fase 4**, y la Fase 7 gana la sección CONVERSACIONES. La Fase 2
-> no se toca. Nada de esto está aprobado: depende de P-12 a P-15.
+> 🟢 **Actualizado el 17/09/2026: WhatsApp entra en la v1.2.0** (P-15). Este
+> roadmap se escribió para un producto de un solo canal; esto es lo que cambia,
+> ya decidido y en parte construido:
+>
+> | Fase | Qué le hace WhatsApp | Estado |
+> |---|---|---|
+> | **1** | Migraciones **V3** (el contacto deja de ser un correo; consentimiento y supresión por canal) y **V4** (etapas de campaña, número de WhatsApp, calidad de Meta) | ✅ hechas |
+> | **2** | Nada | — |
+> | **3** | Gana una entrega nueva: la pantalla de **CANALES** y el alta del número con la casilla de Coexistencia (L-11) | ⬜ |
+> | **4** | El motor ejecuta **etapas**, no campañas, y cada etapa tiene su ritmo y su parada | ⬜ |
+> | **5** | Además del SMTP, el adaptador de **WhatsApp Cloud API** | ⬜ |
+> | **6** | El asistente ofrece una o dos etapas; en WhatsApp sólo plantillas aprobadas por Meta | ⬜ |
+> | **7** | **No** gana una séptima sección: P-13 se resolvió en que no hay bandeja. ACTIVIDAD gana **dos pestañas** y la línea de tiempo de la calificación | ⬜ |
+>
+> El detalle está en
+> [LOGISTICA_DE_CAMPANAS](../01-producto/LOGISTICA_DE_CAMPANAS.md), decisiones
+> L-1 a L-11. **El avance de la versión, con este alcance ampliado, se calcula
+> en [`avance.json`](avance.json).**
 
 ## Fases
 

@@ -1370,6 +1370,59 @@ def preferencias_fuera_del_navegador():
           f"archivos: {usos}")
 
 
+def avance_no_diverge():
+    """El porcentaje es el mismo en los tres sitios.
+
+    Dirección lo pidió en GitHub y en la pantalla de Inicio. Son dos sitios, y
+    dos sitios con el mismo número escrito a mano son dos números que divergen
+    en la primera prisa: se actualiza el del README al cerrar una fase y el de
+    la pantalla se queda con el del mes pasado.
+
+    Aquí se recalcula desde `avance.json` y se compara con lo que hay escrito
+    en los dos destinos generados. Si no coinciden, es que alguien editó un
+    destino a mano o se olvidó de correr el generador.
+    """
+    fuente = os.path.join(RAIZ, "documentacion/07-entrega/avance.json")
+    if not os.path.exists(fuente):
+        check(3, "el avance tiene una fuente única", False,
+              "Sin `avance.json` el porcentaje vuelve a ser un número suelto.")
+        return
+
+    with open(fuente, encoding="utf-8") as f:
+        datos = json.load(f)
+
+    pesos = sum(x["peso"] for x in datos["fases"])
+    check(3, "los pesos del avance suman 100", pesos == 100,
+          "Si no suman 100, el porcentaje no es un porcentaje de nada.",
+          f"suman {pesos}")
+
+    sin_porque = [x["id"] for x in datos["fases"] if not x.get("porque", "").strip()]
+    check(3, "cada fracción de avance dice en qué se apoya", not sin_porque,
+          "Una fracción sin nada que la sostenga es una opinión disfrazada de "
+          "medición (§94).",
+          f"sin «porque»: {sin_porque}")
+
+    esperado = round(sum(x["peso"] * x["hecho"] for x in datos["fases"]))
+
+    readme = leer(".", "README.md") or ""
+    m = re.search(r"avance_v1\.2\.0-(\d+)%25", readme)
+    en_readme = int(m.group(1)) if m else None
+    check(3, "el avance del README coincide con la fuente",
+          en_readme == esperado,
+          "La portada de GitHub es donde Dirección lo mira. Un número viejo ahí "
+          "es peor que ninguno.",
+          f"README {en_readme} vs calculado {esperado}")
+
+    generado = leer("app/src/app/generado", "avance.ts") or ""
+    m = re.search(r"AVANCE_PORCENTAJE = (\d+)", generado)
+    en_app = int(m.group(1)) if m else None
+    check(3, "el avance de la pantalla coincide con la fuente",
+          en_app == esperado,
+          "Es el mismo dato que el del README. Dos números distintos para lo "
+          "mismo obligan a preguntar cuál es el bueno.",
+          f"pantalla {en_app} vs calculado {esperado}")
+
+
 def migraciones_no_se_editan():
     """Una migración publicada no cambia.
 
@@ -1408,6 +1461,7 @@ def fase_3(rapido):
 
     print(f"{GRIS}  invariantes{FIN}")
     migraciones_no_se_editan()
+    avance_no_diverge()
     listas_cerradas_del_nucleo()
     claves_de_texto_del_nucleo()
     claves_de_error_sin_texto()

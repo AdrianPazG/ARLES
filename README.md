@@ -7,6 +7,59 @@ Desarrollado por **TELEMETRY INSIGHT**
 
 ---
 
+<!-- AVANCE:INICIO -->
+![Avance de la v1.2.0](https://img.shields.io/badge/avance_v1.2.0-31%25-orange?style=flat-square)
+
+**31 % de la versión 1.2.0 construido y verificado**, a 2026-09-17.
+
+<details>
+<summary>Cómo sale ese número, y qué no mide</summary>
+
+Suma de **peso × hecho** sobre las fases de abajo. Los **pesos** son una
+estimación del tamaño relativo de cada fase y suman 100; se dice que son una
+estimación porque presentarlos como medición exacta sería mentir. Lo que **no**
+es estimación es la fracción hecha: cada una se apoya en algo comprobable, y esa
+comprobación está escrita en
+[`avance.json`](documentacion/07-entrega/avance.json).
+
+**No mide si el producto sirve**, sino cuánto del alcance de la v1.2.0 está
+construido *y verificado*. Los bloqueos externos no restan porcentaje, porque no
+son trabajo pendiente nuestro: van aparte.
+
+| Fase | Peso | Hecho |
+|---|---|---|
+| F0 · Discovery y auditoría | 5 % | ✅ 100 % |
+| F1 · Cimientos | 9 % | ✅ 100 % |
+| F2 · Design System | 9 % | ✅ 100 % |
+| F3 · Empresa y contactos | 14 % | 🟨 20 % |
+| F3W · Canales: esquema de contactos, consentimiento y etapas | 8 % | 🟨 55 % |
+| F4 · Motor de ejecución | 14 % | ⬜ 0 % |
+| F5 · Proveedores de envío | 7 % | ⬜ 0 % |
+| F6 · Campañas y mensajes | 13 % | 🟨 5 % |
+| F7 · Actividad y entregabilidad | 9 % | ⬜ 0 % |
+| F8 · Respaldos y endurecimiento | 7 % | ⬜ 0 % |
+| F9 · Release v1.2.0 | 5 % | ⬜ 0 % |
+
+**Esperando a alguien de fuera:**
+
+| | Qué | Quién | Qué frena |
+|---|---|---|---|
+| **P-01** | Licencia de Mont para incrustarla en la aplicación distribuida | Dirección | F9 · el primer instalador que salga del equipo |
+| **P-09** | Revisión jurídica de los textos legales y del correo en frío | Abogado | F3 entrega 3.3 · la importación, donde vive el aviso de privacidad |
+| **META** | Cuenta de empresa en Meta, verificada y con Coexistencia activada (L-11) | Operaciones | F3W · el alta del número, y con ella toda campaña de WhatsApp |
+| **R-07** | Revisión visual en macOS (WKWebView) | Quien tenga un Mac | Nada todavía; la fecha límite acordada es antes de la F6 |
+
+El número se genera; no se escribe a mano en dos sitios:
+
+```bash
+python3 herramientas/avance/calcular.py --escribir
+```
+
+</details>
+<!-- AVANCE:FIN -->
+
+---
+
 ## Estado
 
 | Fase | | Validación |
@@ -16,7 +69,8 @@ Desarrollado por **TELEMETRY INSIGHT**
 | ↳ [Resumen para Dirección](documentacion/09-fases/FASE-01-PARA-DIRECCION.md) | sin tecnicismos | — |
 | [02 · Design System](documentacion/09-fases/FASE-02-DESIGN-SYSTEM.md) | ✅ cerrada y revisada | 18/18 |
 | ↳ [Resumen para Dirección](documentacion/09-fases/FASE-02-PARA-DIRECCION.md) | sin tecnicismos | — |
-| 03 · Empresa y contactos | ⬜ siguiente | — |
+| 03 · Empresa y contactos | 🟨 entrega 3.1 cerrada | 31/31 |
+| ↳ Canales: esquema de contactos, consentimiento y etapas | 🟨 migraciones V3 y V4 | incluidas arriba |
 
 ```bash
 python3 herramientas/validar/validar.py     # valida todas las fases cerradas
@@ -28,7 +82,9 @@ python3 herramientas/validar/validar.py     # valida todas las fases cerradas
 
 ## Qué es
 
-ARLES permite a una empresa ejecutar campañas de correo usando **sus propias cuentas** y **sus propios límites**.
+ARLES permite a una empresa ejecutar campañas de **correo y de WhatsApp** usando **sus propias cuentas** y **sus propios límites**.
+
+WhatsApp entró en el alcance de la v1.2.0 el 17/09/2026. **Dos canales y sólo dos**: cada envío es de un canal, las métricas no se suman entre canales y el permiso se registra por canal.
 
 Lo que define el producto no es enviar correo —eso lo hace cualquier cosa— sino **el control sobre el envío**:
 

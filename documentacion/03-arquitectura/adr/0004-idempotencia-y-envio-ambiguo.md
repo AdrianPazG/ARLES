@@ -18,9 +18,16 @@ Un duplicado es el peor fallo posible del producto: es irreversible —no se pue
 
 ```sql
 CREATE UNIQUE INDEX idx_attempt_unique
-  ON message_attempt (campaign_id, contact_email);
+  ON message_attempt (campaign_id, channel, contact_address);
 ```
 
+> **Ampliado en la V4 (17/09/2026).** La columna pasó a llamarse
+> `contact_address` —una columna llamada «email» que guarda un teléfono es una
+> trampa— y la clave ganó el canal. Lo que el canal compra es modesto y conviene
+> no inflarlo: hace que la clave diga lo que significa y sostiene la garantía si
+> dos canales llegaran a compartir la misma cadena. **No** es lo que permite
+> escribir por dos canales: eso ya funcionaba, porque la clave es la dirección.
+>
 > **Corregido en la Fase 1 (hallazgo F1).** La clave era `contact_id`, y con
 > ella borrar un contacto y reimportarlo permitía **volver a enviarle**: el id
 > es nuevo, así que la fila única ya no colisionaba. La clave es la
