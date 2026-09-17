@@ -1413,14 +1413,10 @@ def avance_no_diverge():
           "es peor que ninguno.",
           f"README {en_readme} vs calculado {esperado}")
 
-    generado = leer("app/src/app/generado", "avance.ts") or ""
-    m = re.search(r"AVANCE_PORCENTAJE = (\d+)", generado)
-    en_app = int(m.group(1)) if m else None
-    check(3, "el avance de la pantalla coincide con la fuente",
-          en_app == esperado,
-          "Es el mismo dato que el del README. Dos números distintos para lo "
-          "mismo obligan a preguntar cuál es el bueno.",
-          f"pantalla {en_app} vs calculado {esperado}")
+    # Aquí había una tercera comprobación, sobre el porcentaje dentro de la
+    # aplicación. Dirección decidió el 17/09/2026 que el avance va **sólo** en
+    # la portada de GitHub, así que se retiró de la pantalla y con ella su
+    # comprobación: vigilar un destino que ya no existe sería un ✓ sobre nada.
 
 
 def migraciones_no_se_editan():

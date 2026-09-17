@@ -76,12 +76,6 @@ export const es = {
         'existan. No se dibujan vacíos a propósito: un panel de cajas en ' +
         'espera anuncia cosas que ARLES todavía no sabe hacer.',
     },
-    // El avance de la versión, pedido por Dirección. Con fecha: un porcentaje
-    // sin fecha no dice nada, y éste no se recalcula solo.
-    avanceVersion: 'de la versión 1.2.0 construido y verificado, al {fecha}',
-    avanceVersionLector:
-      'Avance de la versión 1.2.0: {pct} por ciento construido y ' +
-      'verificado, al {fecha}.',
     hecho: 'Hecho',
     pendiente: 'Pendiente',
     llegaEn: 'Llega en la entrega {entrega}',

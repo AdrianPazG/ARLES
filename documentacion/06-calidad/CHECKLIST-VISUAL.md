@@ -73,12 +73,17 @@ qué hacer sin preguntar. Si dudas un segundo, es un hallazgo.
 
 ## Bloque D · El avance de la versión · lo que pediste hoy
 
+**Se revisa en GitHub, no en la aplicación.** Dirección decidió que el avance va
+sólo en la portada del repositorio: es un dato **del proyecto**, no del
+producto. A quien use ARLES no le sirve saber que está al 31 %; le sirve saber
+qué puede hacer hoy, que es lo que dice la lista de alta.
+
 | | Qué mirar | Cómo saber si está bien |
 |---|---|---|
-| **D-1** | Inicio → módulo «Lo que falta por construir» | Sale **31 %**, una barra, y **la fecha del dato** |
-| **D-2** | Abre el repositorio en GitHub | La portada enseña la **misma cifra**, en una insignia |
-| **D-3** | Despliega «Cómo sale ese número» en GitHub | Explica el método, enseña las fases con su peso, y **lo que el número no mide** |
-| **D-4** | Compara D-1 y D-2 | **Tienen que ser iguales.** Si no, hay un fallo — y el validador debería haberlo cazado antes |
+| **D-1** | Abre el repositorio en GitHub | Arriba, una insignia con **31 %** y la frase con **la fecha del dato** |
+| **D-2** | Despliega «Cómo sale ese número» | Explica el método, enseña las once fases con su peso y su avance, y **lo que el número no mide** |
+| **D-3** | Mira la tabla de bloqueos, debajo | Están los cuatro trámites que esperan a alguien de fuera, con nombre de responsable |
+| **D-4** | Comprueba que **dentro de ARLES no sale** ningún porcentaje de avance | Inicio habla de «1 de 6» pasos del alta, que es otra cosa |
 
 !i La fecha está al lado del número a propósito: **el porcentaje no se
 recalcula solo**. Sale de un archivo que se actualiza a mano al cerrar trabajo,

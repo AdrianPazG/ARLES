@@ -1,23 +1,29 @@
 #!/usr/bin/env python3
-"""Calcula el avance de ARLES y lo propaga a los dos sitios donde se enseña.
+"""Calcula el avance de ARLES y lo escribe en la portada del repositorio.
 
     python3 herramientas/avance/calcular.py              # sólo lo imprime
-    python3 herramientas/avance/calcular.py --escribir    # actualiza README y app
+    python3 herramientas/avance/calcular.py --escribir    # actualiza el README
 
 ─────────────────────────────────────────────────────────────────────────────
 POR QUÉ ESTO ES UN GENERADOR Y NO DOS NÚMEROS ESCRITOS A MANO
 
-Dirección pidió ver el porcentaje **en GitHub y en la pantalla de Inicio**. Son
-dos sitios, y dos sitios con el mismo número escrito a mano son dos números que
-divergen en la primera prisa: se actualiza el del README al cerrar una fase y el
-de la pantalla se queda con el de hace un mes, sin que nadie se entere.
+Dirección lo quiere **sólo en la portada del repositorio en GitHub**, no dentro
+de la aplicación (decidido el 17/09/2026; la primera versión lo puso en los dos
+sitios y se retiró de la pantalla).
 
-Aquí el número vive en `documentacion/07-entrega/avance.json` y **sólo ahí**. De
-él salen la insignia del README y el archivo que lee la pantalla. El validador
-recalcula y **falla** si los tres dejan de coincidir, así que la divergencia
-deja de ser silenciosa.
+Aun siendo un solo destino, el número vive en
+`documentacion/07-entrega/avance.json` y la insignia se **genera**: escrito a
+mano en el README, se edita ahí y el desglose de fases de debajo se queda con
+los valores del mes pasado, contradiciendo a la propia insignia. El validador
+recalcula y **falla** si el README y la fuente dejan de coincidir.
 
 Es la misma regla del §17 con los colores: una fuente, y lo demás generado.
+
+Y hay un motivo para que el porcentaje NO esté dentro de la aplicación: es un
+dato **del proyecto**, no del producto. A quien use ARLES no le sirve saber que
+está al 31 %; le sirve saber qué puede hacer hoy, que es lo que dice la lista de
+alta. En el repositorio, en cambio, es exactamente la pregunta que se viene a
+responder.
 ─────────────────────────────────────────────────────────────────────────────
 """
 
@@ -32,7 +38,6 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[2]
 FUENTE = RAIZ / "documentacion" / "07-entrega" / "avance.json"
 README = RAIZ / "README.md"
-DESTINO_APP = RAIZ / "app" / "src" / "app" / "generado" / "avance.ts"
 
 #: Marcas dentro del README. Se sustituye lo de en medio y nada más: así el
 #: resto de la portada se edita a mano sin que este script la pise.
@@ -144,52 +149,9 @@ def escribir_readme(datos: dict, pct: int) -> bool:
     return True
 
 
-def escribir_app(datos: dict, pct: int) -> bool:
-    fases = ",\n".join(
-        "  {{ id: {id!r}, nombre: {nombre!r}, hecho: {hecho} }}".format(
-            id=f["id"], nombre=f["nombre"], hecho=round(f["hecho"], 3)
-        ).replace("'", "'")
-        for f in datos["fases"]
-    )
-    # Comillas simples, que es lo que impone el lint del frontend.
-    fases = fases.replace('"', "'")
-    contenido = f"""/**
- * GENERADO. No editar a mano.
- *
- * Sale de `documentacion/07-entrega/avance.json` con
- * `python3 herramientas/avance/calcular.py --escribir`.
- *
- * Dirección pidió ver el avance en GitHub y en la pantalla de Inicio. Son dos
- * sitios; dos números escritos a mano divergen en la primera prisa. El
- * validador recalcula y falla si este archivo, el README y la fuente dejan de
- * coincidir.
- */
-export const AVANCE_PORCENTAJE = {pct}
-
-/** La fecha del dato, no la de hoy: un porcentaje sin fecha no dice nada. */
-export const AVANCE_ACTUALIZADO = '{datos["actualizado"]}'
-
-export interface FaseDeAvance {{
-  id: string
-  nombre: string
-  /** Fracción de 0 a 1. */
-  hecho: number
-}}
-
-export const AVANCE_FASES: readonly FaseDeAvance[] = [
-{fases},
-]
-"""
-    DESTINO_APP.parent.mkdir(parents=True, exist_ok=True)
-    if DESTINO_APP.exists() and DESTINO_APP.read_text(encoding="utf-8") == contenido:
-        return False
-    DESTINO_APP.write_text(contenido, encoding="utf-8")
-    return True
-
-
 def main() -> int:
     p = argparse.ArgumentParser(description="Avance de ARLES RELAY I")
-    p.add_argument("--escribir", action="store_true", help="actualiza README y app")
+    p.add_argument("--escribir", action="store_true", help="actualiza el README")
     args = p.parse_args()
 
     datos = cargar()
@@ -209,8 +171,6 @@ def main() -> int:
         cambios = []
         if escribir_readme(datos, pct):
             cambios.append("README.md")
-        if escribir_app(datos, pct):
-            cambios.append(str(DESTINO_APP.relative_to(RAIZ)))
         print("\n  " + ("actualizado: " + ", ".join(cambios) if cambios
                         else "nada que actualizar: ya coincidían"))
     return 0

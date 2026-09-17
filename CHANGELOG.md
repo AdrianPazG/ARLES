@@ -14,12 +14,18 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ### Avance de la versión visible, y una auditoría que encontró seis documentos mintiendo
 
-- **El porcentaje de avance se ve en dos sitios**, como pidió Dirección: en la
-  portada del repositorio en GitHub y en la pantalla de Inicio. Hoy, **31 %**.
-- **Un solo origen**, `documentacion/07-entrega/avance.json`; la insignia del
-  README y el archivo que lee la pantalla se **generan**. El validador recalcula
-  y falla si los tres divergen — probado cambiando el número del README a mano.
-  Dos sitios con el mismo número escrito a mano divergen en la primera prisa.
+- **El porcentaje de avance se ve en la portada del repositorio en GitHub.**
+  Hoy, **31 %**.
+- **Sólo ahí, no dentro de la aplicación.** La primera versión lo puso también
+  en la pantalla de Inicio y Dirección lo retiró. Coincide con lo razonable: es
+  un dato **del proyecto**, no del producto — a quien use ARLES no le sirve
+  saber que está al 31 %, le sirve saber qué puede hacer hoy, que es lo que dice
+  la lista de alta.
+- **Un solo origen**, `documentacion/07-entrega/avance.json`; la insignia y el
+  desglose de fases del README se **generan**. El validador recalcula y falla si
+  el README y la fuente divergen — probado cambiando el número a mano. Escrito a
+  mano, la insignia se actualiza y el desglose de debajo se queda con los valores
+  del mes pasado, contradiciéndola.
 - Cada fracción lleva **en qué se apoya**; los pesos se declaran como estimación
   en vez de presentarse como medición. Y el número **baja** cuando Dirección
   amplía el alcance, que es lo correcto: falta más porque hay más que hacer.

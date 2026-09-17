@@ -40,7 +40,6 @@ import { computed, onMounted } from 'vue'
 import { resolverError } from '@/app/errores'
 import { useAppStore } from '@/app/stores/app'
 import { useEmpresaStore } from '@/app/stores/empresa'
-import { AVANCE_ACTUALIZADO, AVANCE_PORCENTAJE } from '@/app/generado/avance'
 import { ABoton, AModulo, EstadoError } from '@/design/componentes'
 
 const empresa = useEmpresaStore()
@@ -217,40 +216,6 @@ const accesos = computed(() => [
         <p class="detalle">
           {{ $t('inicio.enConstruccion.cuerpo') }}
         </p>
-
-        <!-- El avance de la versión, pedido por Dirección.
-             La cifra y la fecha salen GENERADAS de avance.json, la misma
-             fuente que la insignia del README: dos números escritos a mano
-             divergen en la primera prisa, y el validador lo vigila.
-             La fecha va al lado a propósito — un porcentaje sin fecha no dice
-             nada, y éste no se recalcula solo. -->
-        <div class="avance">
-          <div class="avance-cifra">
-            <span
-              class="avance-numero"
-              data-numeric
-            >{{ AVANCE_PORCENTAJE }} %</span>
-            <span class="avance-texto">
-              {{ $t('inicio.avanceVersion', { fecha: AVANCE_ACTUALIZADO }) }}
-            </span>
-          </div>
-          <!-- `role="img"` con etiqueta: quien no ve la barra oye la cifra y
-               su significado, no «gráfico». La barra no añade información
-               nueva, así que sus partes quedan ocultas al lector. -->
-          <div
-            class="avance-barra"
-            role="img"
-            :aria-label="$t('inicio.avanceVersionLector', {
-              pct: AVANCE_PORCENTAJE,
-              fecha: AVANCE_ACTUALIZADO,
-            })"
-          >
-            <div
-              class="avance-relleno"
-              :style="{ width: `${AVANCE_PORCENTAJE}%` }"
-            />
-          </div>
-        </div>
       </AModulo>
     </template>
   </section>
@@ -276,51 +241,6 @@ const accesos = computed(() => [
    lectura: es un bloque corto y centrado en su columna, no un texto largo. */
 .portada {
   max-width: 62ch;
-}
-
-.avance {
-  display: flex;
-  flex-direction: column;
-  gap: var(--arles-space-2);
-  margin-top: var(--arles-space-4);
-  padding-top: var(--arles-space-4);
-  border-top: var(--arles-border-width) solid var(--arles-border);
-}
-
-.avance-cifra {
-  display: flex;
-  align-items: baseline;
-  gap: var(--arles-space-3);
-  flex-wrap: wrap;
-}
-
-.avance-numero {
-  font-size: var(--arles-font-size-h1);
-  line-height: var(--arles-line-height-h1);
-  font-weight: var(--arles-font-weight-bold);
-  color: var(--arles-text);
-}
-
-.avance-texto {
-  color: var(--arles-text-muted);
-  font-size: var(--arles-font-size-small);
-  line-height: var(--arles-line-height-small);
-}
-
-/* Altura en un token de espacio, no un número suelto (§17). */
-.avance-barra {
-  height: var(--arles-space-2);
-  border-radius: var(--arles-radius-sm);
-  background: var(--arles-surface-raised);
-  overflow: hidden;
-}
-
-.avance-relleno {
-  height: 100%;
-  background: var(--arles-accent-ink);
-  /* El ancho sale de un dato generado, no de una interacción: animarlo haría
-     que la cifra pareciera estar calculándose en vivo, que es justo lo que no
-     hace. Ver §98: movimiento con propósito. */
 }
 
 .marca {
