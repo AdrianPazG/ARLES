@@ -243,6 +243,22 @@ export const es = {
       como: "Revisa que tenga la forma nombre{'@'}dominio.com.",
       salvo: 'No se guardó ningún cambio.',
     },
+    telefono_invalido: {
+      que: 'El número de teléfono no es válido.',
+      como:
+        'Escríbelo con lada, por ejemplo 81 1234 5678, o con el prefijo del ' +
+        'país si es de fuera de México: +1 415 555 0132.',
+      salvo: 'No se guardó ningún cambio.',
+    },
+    // No lo puede provocar el usuario: el canal lo elige ARLES, no se escribe.
+    // Si aparece, es una fila de la base con un canal que no reconocemos.
+    canal_desconocido: {
+      que: 'Ese contacto tiene un medio de contacto que ARLES no reconoce.',
+      como: 'Vuelve a importarlo, o avísanos con el nombre del contacto.',
+      salvo:
+        'No se le escribió nada. ARLES se detiene antes de enviar cuando no ' +
+        'sabe por qué medio hacerlo.',
+    },
     id_invalido: {
       que: 'El identificador no es válido.',
       como: 'Vuelve a abrir la pantalla desde el menú.',

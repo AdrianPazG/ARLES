@@ -224,7 +224,7 @@ campos propios, tabla a 500 000 filas.
 Hoy el modelo de datos trata el **correo como la identidad del contacto**.
 `message_attempt` supone una dirección de correo. Eso deja de valer.
 
-=> **Decisión L-2 · Un contacto tiene canales, y cada canal tiene su propio estado.** ✅ **Aprobada por Dirección el 16/09/2026.**
+=> **Decisión L-2 · Un contacto tiene canales, y cada canal tiene su propio estado.** ✅ **Aprobada por Dirección el 16/09/2026 · implementada el 17/09/2026 en la migración `V3__canales_de_contacto.sql`.**
 
 ```
 contact           quién es          nombre, empresa, campos propios
@@ -241,14 +241,27 @@ esquema puede decir solo.
 **Y la clave única de los envíos gana el canal:**
 
 ```
-antes   UNIQUE (campaign_id, contact_id)
-ahora   UNIQUE (campaign_id, contact_id, channel)
+antes   UNIQUE (campaign_id, contact_address)
+ahora   UNIQUE (campaign_id, channel, contact_address)
 ```
 
-Sin esa tercera columna, mandarle a la misma persona el correo y el WhatsApp de
-la misma campaña **son dos filas idénticas**, y la base de datos rechaza la
-segunda. La protección contra duplicados no se debilita: se afina. Sigue siendo
-imposible mandarle dos correos, y ahora también dos WhatsApp.
+!! **Corrección, escrita al implementarlo.** Este apartado decía que sin la
+tercera columna el correo y el WhatsApp de la misma campaña **serían dos filas
+idénticas** y la base rechazaría la segunda. **Es falso**, y conviene dejarlo
+dicho en vez de borrarlo: la clave nunca fue `contact_id`, era la **dirección**,
+y un correo y un móvil son direcciones distintas — no habrían chocado nunca.
+
+Se descubrió rompiendo el índice a propósito: la prueba que supuestamente
+vigilaba esto siguió pasando.
+
+Lo que de verdad impedía el doble canal era más simple y más grave: **un
+contacto no tenía dónde guardar un móvil.** La dirección eran dos columnas de
+`contact` y sólo cabía una. Eso es lo que `contact_channel` arregla.
+
+El canal en la clave se mantiene, por una razón más modesta: hace que la clave
+*diga* lo que significa, y sostiene la garantía si dos canales llegaran a
+compartir la misma cadena. La protección contra duplicados no se debilita:
+sigue siendo imposible mandar dos correos, y ahora también dos WhatsApp.
 
 **Coste honesto:** es una migración del esquema de la Fase 1, con todo lo que
 toca detrás. Hacerlo ahora cuesta días **y no hay ninguna campaña guardada que

@@ -258,15 +258,49 @@ def fase_1(rapido):
     # el registro de envío, así que reimportar un contacto abría la puerta a
     # reenviarle. Los tests de `arles-db` lo cubren; esto lo detecta en la
     # migración siguiente, antes de que haya que razonarlo otra vez.
-    esquema = leer("crates/arles-db/migrations", "V1__esquema_inicial.sql") or ""
+    # Se lee la V3 y no la V1: la V1 está congelada y su texto ya no describe el
+    # esquema que corre. Comprobar la migración vieja daría un ✓ sobre algo que
+    # otra migración pudo deshacer después.
+    esquema = leer("crates/arles-db/migrations", "V3__canales_de_contacto.sql") or ""
     check(1, "Borrar un contacto no borra el registro de envío",
-          "contact_email" in esquema
-          and "ON DELETE SET NULL" in esquema
-          and "idx_attempt_unique\n    ON message_attempt(campaign_id, contact_email)"
+          "contact_address" in esquema
+          and "contact_id          TEXT REFERENCES contact(id) ON DELETE SET NULL"
+          in esquema
+          and "idx_attempt_unique\n    ON message_attempt(campaign_id, channel, contact_address)"
           in esquema,
           "Si el intento cascadea con el contacto, se pierden a la vez la "
           "auditoría y la protección contra duplicados: reimportar al contacto "
           "permitiría enviarle otra vez (§55, ADR-0004).")
+
+    # L-2: los dos nombres de canal están escritos en dos sitios —el enum de
+    # Rust y las CHECK del esquema— y no hay forma de importar uno del otro. Si
+    # divergen, la base rechaza las filas que el código cree válidas, y el fallo
+    # aparece lejísimos de la causa.
+    canal_rs = leer("crates/arles-core/src", "canal.rs") or ""
+    en_rust = re.findall(r'Self::\w+ => "(\w+)"', canal_rs)
+    en_sql = "CHECK (channel IN ('email', 'whatsapp'))"
+    check(1, "Los nombres de canal de Rust y del esquema coinciden",
+          sorted(set(en_rust)) == ["email", "whatsapp"] and en_sql in esquema,
+          "`Canal::como_texto` produce las cadenas que las CHECK de la migración "
+          "aceptan. Una divergencia no se ve al compilar: se ve como filas "
+          "rechazadas en tiempo de ejecución.",
+          detalle=f"en Rust: {sorted(set(en_rust))}")
+
+    check(1, "El consentimiento es append-only y no bloquea el borrado",
+          "consent_entry_sin_update" in esquema
+          and "consent_entry_sin_delete" in esquema
+          # Una DECLARACIÓN de columna, no la palabra suelta: dentro de esa
+          # tabla hay un comentario largo que explica por qué la columna no
+          # está, y buscar el texto a secas hacía fallar la comprobación por la
+          # explicación de sí misma.
+          and not re.search(
+              r"^\s+contact_id\s+TEXT",
+              esquema.split("CREATE TABLE consent_entry")[-1].split(") STRICT;")[0],
+              re.MULTILINE),
+          "Si `consent_entry` llevara un contact_id con ON DELETE SET NULL, ese "
+          "UPDATE chocaría con el disparador de append-only y un contacto con "
+          "consentimiento registrado dejaría de poder borrarse: la prueba de "
+          "que se le podía escribir impediría su derecho de cancelación.")
 
     app_dir = os.path.join(RAIZ, "app")
     if not os.path.isdir(os.path.join(app_dir, "node_modules")):
@@ -1121,6 +1155,9 @@ MIGRACIONES_PUBLICADAS = {
         "1a9e4d2bb22e02d89775d3a9543ae4bcb58369632a83a275972e548079b2b1ef",
     "V2__preferencias_de_interfaz.sql":
         "5ba0d6730f9d926d7137886bbbf34e4cc30d8f777c70be3b557ada37364c0b02",
+    # L-2 / D-6, 17/09/2026. A partir de aquí queda congelada como las otras dos.
+    "V3__canales_de_contacto.sql":
+        "bb057af229cf4b47ccb11063c8145631c61526b6fb8d00c3b782bf4a02c4dbdb",
 }
 
 

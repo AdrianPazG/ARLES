@@ -102,7 +102,23 @@ impl std::fmt::Debug for ClaveMaestra {
 ///   sin cifrado.**
 /// - [`DbError::Migracion`] si el esquema no se puede poner al día.
 pub fn abrir(ruta: &Path, clave: &ClaveMaestra) -> Result<Connection, DbError> {
-    let mut conn = Connection::open(ruta)?;
+    let mut conn = abrir_crudo(ruta, clave)?;
+    migraciones::aplicar(&mut conn)?;
+    Ok(conn)
+}
+
+/// Abre y descifra, **sin migrar**.
+///
+/// Sólo la usan las pruebas de migración, que necesitan parar el esquema en una
+/// versión anterior para poblarlo como estaba y comprobar que la migración
+/// siguiente no pierde nada. Sin esto, una migración únicamente se ve correr
+/// sobre una base vacía, que es la única sobre la que no importa.
+///
+/// # Errores
+///
+/// Las mismas que [`abrir`], menos [`DbError::Migracion`].
+pub(crate) fn abrir_crudo(ruta: &Path, clave: &ClaveMaestra) -> Result<Connection, DbError> {
+    let conn = Connection::open(ruta)?;
 
     // `PRAGMA key` va ANTES que cualquier otra sentencia. Si se ejecuta algo
     // previo, SQLCipher falla con un error que no es evidente.
@@ -123,8 +139,6 @@ pub fn abrir(ruta: &Path, clave: &ClaveMaestra) -> Result<Connection, DbError> {
     // más recientes ante un corte de corriente del sistema entero.
     conn.pragma_update(None, "synchronous", "NORMAL")?;
     conn.busy_timeout(std::time::Duration::from_secs(5))?;
-
-    migraciones::aplicar(&mut conn)?;
 
     Ok(conn)
 }

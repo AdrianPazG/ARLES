@@ -12,6 +12,49 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Un contacto tiene canales · migración V3 (L-2, L-3, L-4)
+
+- **`contact_channel`.** La dirección deja de ser dos columnas de `contact` y
+  pasa a ser una fila por canal. Ése era el bloqueo de verdad para WhatsApp: un
+  contacto **no tenía dónde guardar un móvil**.
+- **La deduplicación es por canal**: `UNIQUE(company_id, channel,
+  value_normalized)`. El mismo correo y el mismo teléfono conviven; dos
+  contactos con el mismo móvil, no.
+- **`consent_entry`, append-only** (L-3). El consentimiento deja de ser una
+  casilla y pasa a ser un registro con base jurídica, prueba y fecha. Retirarlo
+  es una entrada nueva: si se pudiera editar la anterior, cualquiera podría
+  reescribir a posteriori con qué base se le escribió a alguien.
+- **La supresión distingue canales** (L-4). «No me escribas por WhatsApp» ya no
+  se guarda igual que «no me escribas nunca». La baja global se guarda como una
+  fila por dirección unidas por `request_id`, porque una fila atada a la persona
+  desaparecería al ejercerse el derecho de cancelación.
+- `message_attempt` y `campaign_audience` llevan canal, y `contact_email` pasa a
+  llamarse `contact_address`: una columna llamada «email» que guarda un teléfono
+  es una trampa para quien lea la consulta dentro de un año.
+- **El «1» mexicano.** `arles_core::PhoneNumber` guarda los móviles en E.164
+  **sin** el `1` que WhatsApp arrastra de antes de 2019. Con las dos formas
+  conviviendo, la misma persona entra dos veces y la deduplicación, la supresión
+  y el «no le escribas dos veces» fallan a la vez.
+- **La V3 se prueba sobre una base poblada de verdad**, parando el runner en la
+  V2 e insertando contactos como los guardaba la V1. Sobre una base nueva el
+  traslado no mueve ni una fila y la migración parece correcta sin haberse
+  ejecutado sobre nada.
+
+- !! **Un test tumbó el primer diseño de `consent_entry`.** Llevaba `contact_id`
+  con `ON DELETE SET NULL`; `SET NULL` es un `UPDATE`, el disparador de
+  append-only lo aborta, y el resultado era que **un contacto con consentimiento
+  registrado ya no se podía borrar**. Registrar la prueba de que se le podía
+  escribir a alguien impedía ejercer su derecho de cancelación. La columna se
+  quitó: la entrada es sobre una dirección, no sobre un registro.
+
+- !! **Corrección de una afirmación mía, no del código.** Escribí —aquí y en
+  `LOGISTICA_DE_CAMPANAS.md`— que sin el canal en la clave única, el correo y el
+  WhatsApp de la misma campaña chocarían entre sí. **Es falso:** la clave es la
+  dirección, y un correo y un móvil son direcciones distintas. Se descubrió
+  rompiendo el índice a propósito y ver que la prueba que lo vigilaba seguía
+  pasando. Hay dos tests ahora, y el contraste entre ellos es el punto. El canal
+  se queda en la clave por una razón más modesta, ya escrita donde toca.
+
 ### El tema ya se puede elegir (C-1, C-2)
 
 - **La paleta clara llevaba dos pasos existiendo sin que hubiera forma de

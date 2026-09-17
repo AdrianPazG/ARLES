@@ -90,6 +90,8 @@ mod tests {
             "company",
             "email_account",
             "contact",
+            "contact_channel",
+            "consent_entry",
             "contact_field",
             "contact_list",
             "contact_list_member",
@@ -136,6 +138,126 @@ mod tests {
             .query_row("SELECT commercial_name FROM company", [], |f| f.get(0))
             .expect("sigue ahí");
         assert_eq!(nombre, "TELEMETRY");
+    }
+
+    /// **La prueba que de verdad ejerce la V3.**
+    ///
+    /// Sobre una base recién creada, el traslado de datos de la V3 no mueve
+    /// nada: `contact` está vacío, así que el `INSERT … SELECT` no copia ni una
+    /// fila y la migración parece correcta sin haberse ejecutado sobre nada.
+    ///
+    /// Aquí se para el runner **en la V2**, se puebla la base como estaba antes
+    /// —con el correo dentro de `contact`— y sólo entonces se aplica la V3. Es
+    /// la única forma de comprobar lo único que le importa a quien ya tiene
+    /// datos: que no los pierde.
+    #[test]
+    fn la_v3_traslada_los_correos_existentes_a_sus_canales() {
+        // `base_de_prueba` migra del todo, así que aquí se abre a mano y se
+        // para el runner en la V2.
+        let dir = tempfile::tempdir().expect("directorio temporal");
+        let clave = ClaveMaestra::generar().expect("genera");
+        let mut conn = crate::conexion::abrir_crudo(&dir.path().join("vieja.db"), &clave)
+            .expect("abre sin migrar");
+
+        embebidas::migrations::runner()
+            .set_target(refinery::Target::Version(2))
+            .run(&mut conn)
+            .expect("migra hasta la V2");
+
+        conn.execute(
+            "INSERT INTO company (id, commercial_name, country, timezone,
+                                  corporate_email, created_at, updated_at)
+             VALUES ('c1', 'TELEMETRY', 'MX', 'America/Mexico_City',
+                     'hola@t.mx', '2026-09-16T00:00:00Z', '2026-09-16T00:00:00Z')",
+            [],
+        )
+        .expect("inserta empresa");
+
+        // Dos contactos como los guardaba la V1: la dirección dentro de la
+        // propia fila del contacto. Uno de ellos, archivado.
+        conn.execute(
+            "INSERT INTO contact (id, company_id, email_raw, email_normalized,
+                                  status, created_at, updated_at)
+             VALUES ('k1', 'c1', 'Ana@Empresa.com', 'ana@empresa.com', 'active',
+                     '2026-09-16T00:00:00Z', '2026-09-16T00:00:00Z'),
+                    ('k2', 'c1', 'beto@empresa.com', 'beto@empresa.com', 'archived',
+                     '2026-09-16T00:00:00Z', '2026-09-16T00:00:00Z')",
+            [],
+        )
+        .expect("inserta contactos");
+
+        conn.execute(
+            "INSERT INTO suppression_entry (id, company_id, email_normalized,
+                                            reason, origin, created_at)
+             VALUES ('s1', 'c1', 'beto@empresa.com', 'unsubscribe', 'user',
+                     '2026-09-16T00:00:00Z')",
+            [],
+        )
+        .expect("inserta supresión");
+
+        aplicar(&mut conn).expect("aplica la V3 sobre datos reales");
+
+        // Los dos contactos siguen ahí, y cada uno tiene su canal de correo.
+        let contactos: i64 = conn
+            .query_row("SELECT count(*) FROM contact", [], |f| f.get(0))
+            .expect("cuenta");
+        assert_eq!(contactos, 2, "se perdieron contactos al migrar");
+
+        let (canales, crudo, normalizado): (i64, String, String) = conn
+            .query_row(
+                "SELECT count(*), max(value_raw), max(value_normalized)
+                 FROM contact_channel WHERE channel = 'email' AND contact_id = 'k1'",
+                [],
+                |f| Ok((f.get(0)?, f.get(1)?, f.get(2)?)),
+            )
+            .expect("consulta");
+        assert_eq!(canales, 1, "el correo de k1 no llegó a contact_channel");
+        assert_eq!(
+            crudo, "Ana@Empresa.com",
+            "se perdió lo que escribió el usuario"
+        );
+        assert_eq!(
+            normalizado, "ana@empresa.com",
+            "se perdió la forma normalizada"
+        );
+
+        // El archivado llega archivado: si llegara activo, una campaña volvería
+        // a escribirle a alguien que se había dado de baja de la lista.
+        let estado: String = conn
+            .query_row(
+                "SELECT status FROM contact_channel WHERE contact_id = 'k2'",
+                [],
+                |f| f.get(0),
+            )
+            .expect("consulta");
+        assert_eq!(estado, "archived");
+
+        // La supresión sobrevive y ahora dice por qué canal era.
+        let (canal, direccion, alcance): (String, String, String) = conn
+            .query_row(
+                "SELECT channel, address_normalized, scope FROM suppression_entry",
+                [],
+                |f| Ok((f.get(0)?, f.get(1)?, f.get(2)?)),
+            )
+            .expect("la supresión sobrevive");
+        assert_eq!(canal, "email");
+        assert_eq!(direccion, "beto@empresa.com");
+        assert_eq!(alcance, "channel");
+
+        // Y el correo ya no vive en `contact`: tenerlo en dos sitios es cómo
+        // acaban diciendo cosas distintas.
+        let mut consulta = conn
+            .prepare("SELECT name FROM pragma_table_info('contact')")
+            .expect("prepara");
+        let columnas: Vec<String> = consulta
+            .query_map([], |f| f.get::<_, String>(0))
+            .expect("consulta")
+            .filter_map(Result::ok)
+            .collect();
+        assert!(
+            !columnas.iter().any(|c| c.starts_with("email")),
+            "`contact` conserva la dirección: {columnas:?}"
+        );
     }
 
     #[test]

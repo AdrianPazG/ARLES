@@ -13,6 +13,8 @@ import { resolverError } from '@/app/errores'
 const CLAVES_DEL_NUCLEO = [
   // arles-core
   'error.email_invalido',
+  'error.telefono_invalido',
+  'error.canal_desconocido',
   'error.id_invalido',
   'error.transicion_invalida',
   // arles-db

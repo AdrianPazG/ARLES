@@ -14,6 +14,11 @@ const CAMPANA: &str = "01900000-0000-7000-8000-0000000000c1";
 const CONTACTO_A: &str = "01900000-0000-7000-8000-00000000000a";
 const CONTACTO_B: &str = "01900000-0000-7000-8000-00000000000b";
 const AHORA: &str = "2026-09-11T00:00:00Z";
+/// Móviles ya en forma canónica E.164, que es como los guarda
+/// `arles_core::PhoneNumber`: +52 y diez dígitos, sin el «1» que WhatsApp
+/// arrastra de antes de 2019.
+const MOVIL_A: &str = "+528112345678";
+const MOVIL_B: &str = "+528198765432";
 
 fn base() -> (tempfile::TempDir, Connection) {
     let dir = tempfile::tempdir().expect("directorio temporal");
@@ -29,17 +34,20 @@ fn base() -> (tempfile::TempDir, Connection) {
     )
     .expect("inserta empresa");
 
-    for (id, correo) in [
-        (CONTACTO_A, "ana@empresa.com"),
-        (CONTACTO_B, "beto@empresa.com"),
+    for (id, correo, movil) in [
+        (CONTACTO_A, "ana@empresa.com", MOVIL_A),
+        (CONTACTO_B, "beto@empresa.com", MOVIL_B),
     ] {
         conn.execute(
-            "INSERT INTO contact (id, company_id, email_raw, email_normalized,
-                                  created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?3, ?4, ?4)",
-            params![id, EMPRESA, correo, AHORA],
+            "INSERT INTO contact (id, company_id, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?3)",
+            params![id, EMPRESA, AHORA],
         )
         .expect("inserta contacto");
+
+        // Desde la V3 la dirección no vive en `contact`: es un canal (L-2).
+        insertar_canal(&conn, &format!("ch-e-{id}"), id, "email", correo);
+        insertar_canal(&conn, &format!("ch-w-{id}"), id, "whatsapp", movil);
     }
 
     conn.execute(
@@ -52,11 +60,24 @@ fn base() -> (tempfile::TempDir, Connection) {
     (dir, conn)
 }
 
-/// El correo del contacto, que es la clave real de idempotencia.
-fn correo_de(contacto: &str) -> &'static str {
-    match contacto {
-        CONTACTO_A => "ana@empresa.com",
-        CONTACTO_B => "beto@empresa.com",
+fn insertar_canal(conn: &Connection, id: &str, contacto: &str, canal: &str, valor: &str) {
+    conn.execute(
+        "INSERT INTO contact_channel (id, company_id, contact_id, channel,
+                                      value_raw, value_normalized,
+                                      created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?6, ?6)",
+        params![id, EMPRESA, contacto, canal, valor, AHORA],
+    )
+    .expect("inserta canal");
+}
+
+/// La dirección del contacto en un canal: la clave real de idempotencia.
+fn direccion_de(contacto: &str, canal: &str) -> &'static str {
+    match (contacto, canal) {
+        (CONTACTO_A, "email") => "ana@empresa.com",
+        (CONTACTO_B, "email") => "beto@empresa.com",
+        (CONTACTO_A, "whatsapp") => MOVIL_A,
+        (CONTACTO_B, "whatsapp") => MOVIL_B,
         _ => "desconocido@empresa.com",
     }
 }
@@ -67,11 +88,30 @@ fn insertar_intento(
     contacto: &str,
     clave: &str,
 ) -> rusqlite::Result<usize> {
+    insertar_intento_por(conn, id, contacto, "email", clave)
+}
+
+fn insertar_intento_por(
+    conn: &Connection,
+    id: &str,
+    contacto: &str,
+    canal: &str,
+    clave: &str,
+) -> rusqlite::Result<usize> {
     conn.execute(
-        "INSERT INTO message_attempt (id, campaign_id, contact_id, contact_email,
-                                      idempotency_key, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
-        params![id, CAMPANA, contacto, correo_de(contacto), clave, AHORA],
+        "INSERT INTO message_attempt (id, campaign_id, channel, contact_id,
+                                      contact_address, idempotency_key,
+                                      created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)",
+        params![
+            id,
+            CAMPANA,
+            canal,
+            contacto,
+            direccion_de(contacto, canal),
+            clave,
+            AHORA
+        ],
     )
 }
 
@@ -147,7 +187,7 @@ fn borrar_el_contacto_no_borra_el_registro_de_envio() {
 
     let (quedan, con_identidad, correo): (i64, i64, String) = conn
         .query_row(
-            "SELECT count(*), count(contact_id), max(contact_email) FROM message_attempt",
+            "SELECT count(*), count(contact_id), max(contact_address) FROM message_attempt",
             [],
             |f| Ok((f.get(0)?, f.get(1)?, f.get(2)?)),
         )
@@ -178,17 +218,18 @@ fn reimportar_un_contacto_no_permite_reenviarle() {
     conn.execute("DELETE FROM contact WHERE id = ?1", params![CONTACTO_A])
         .expect("borra");
     conn.execute(
-        "INSERT INTO contact (id, company_id, email_raw, email_normalized,
-                              created_at, updated_at)
-         VALUES ('c-nuevo', ?1, 'ana@empresa.com', 'ana@empresa.com', ?2, ?2)",
+        "INSERT INTO contact (id, company_id, created_at, updated_at)
+         VALUES ('c-nuevo', ?1, ?2, ?2)",
         params![EMPRESA, AHORA],
     )
     .expect("reimporta con un id nuevo");
+    insertar_canal(&conn, "ch-nuevo", "c-nuevo", "email", "ana@empresa.com");
 
     let segundo = conn.execute(
-        "INSERT INTO message_attempt (id, campaign_id, contact_id, contact_email,
-                                      idempotency_key, created_at, updated_at)
-         VALUES ('i2', ?1, 'c-nuevo', 'ana@empresa.com', 'k2', ?2, ?2)",
+        "INSERT INTO message_attempt (id, campaign_id, channel, contact_id,
+                                      contact_address, idempotency_key,
+                                      created_at, updated_at)
+         VALUES ('i2', ?1, 'email', 'c-nuevo', 'ana@empresa.com', 'k2', ?2, ?2)",
         params![CAMPANA, AHORA],
     );
 
@@ -204,8 +245,9 @@ fn reimportar_un_contacto_no_permite_reenviarle() {
 fn borrar_el_contacto_no_encoge_la_audiencia() {
     let (_d, conn) = base();
     conn.execute(
-        "INSERT INTO campaign_audience (campaign_id, contact_email, contact_id, added_at)
-         VALUES (?1, 'ana@empresa.com', ?2, ?3)",
+        "INSERT INTO campaign_audience (campaign_id, channel, contact_address,
+                                        contact_id, added_at)
+         VALUES (?1, 'email', 'ana@empresa.com', ?2, ?3)",
         params![CAMPANA, CONTACTO_A, AHORA],
     )
     .expect("congela la audiencia");
@@ -234,9 +276,10 @@ fn la_supresion_es_unica_por_direccion() {
 
     let insertar = |id: &str| {
         conn.execute(
-            "INSERT INTO suppression_entry (id, company_id, email_normalized,
+            "INSERT INTO suppression_entry (id, company_id, channel,
+                                            address_normalized,
                                             reason, origin, created_at)
-             VALUES (?1, ?2, 'ana@empresa.com', 'unsubscribe', 'user', ?3)",
+             VALUES (?1, ?2, 'email', 'ana@empresa.com', 'unsubscribe', 'user', ?3)",
             params![id, EMPRESA, AHORA],
         )
     };
@@ -253,9 +296,9 @@ fn borrar_el_contacto_no_borra_su_supresion() {
     let (_d, conn) = base();
 
     conn.execute(
-        "INSERT INTO suppression_entry (id, company_id, email_normalized,
+        "INSERT INTO suppression_entry (id, company_id, channel, address_normalized,
                                         reason, origin, created_at)
-         VALUES ('s1', ?1, 'ana@empresa.com', 'unsubscribe', 'user', ?2)",
+         VALUES ('s1', ?1, 'email', 'ana@empresa.com', 'unsubscribe', 'user', ?2)",
         params![EMPRESA, AHORA],
     )
     .expect("suprime");
@@ -275,36 +318,53 @@ fn borrar_el_contacto_no_borra_su_supresion() {
 
 // ─── Deduplicación de contactos ─────────────────────────────────────────────
 
-/// §36: la deduplicación por correo normalizado es del esquema.
+/// §36: la deduplicación por dirección normalizada es del esquema. Desde la V3
+/// vive en `contact_channel`, y es **por canal**.
 #[test]
-fn no_puede_haber_dos_contactos_con_el_mismo_correo_normalizado() {
+fn no_puede_haber_dos_contactos_con_la_misma_direccion_en_un_canal() {
     let (_d, conn) = base();
 
+    conn.execute(
+        "INSERT INTO contact (id, company_id, created_at, updated_at)
+         VALUES ('c3', ?1, ?2, ?2)",
+        params![EMPRESA, AHORA],
+    )
+    .expect("inserta contacto");
+
     let r = conn.execute(
-        "INSERT INTO contact (id, company_id, email_raw, email_normalized,
-                              created_at, updated_at)
-         VALUES ('c3', ?1, 'ANA@empresa.com', 'ana@empresa.com', ?2, ?2)",
+        "INSERT INTO contact_channel (id, company_id, contact_id, channel,
+                                      value_raw, value_normalized,
+                                      created_at, updated_at)
+         VALUES ('ch-x', ?1, 'c3', 'email', 'ANA@empresa.com', 'ana@empresa.com', ?2, ?2)",
         params![EMPRESA, AHORA],
     );
-    assert!(r.is_err(), "se permitió duplicar un contacto por correo");
+    assert!(r.is_err(), "se permitió duplicar una dirección de correo");
 }
 
 /// El índice único es parcial (`WHERE deleted_at IS NULL`): un contacto
 /// archivado no debe impedir volver a dar de alta la misma dirección.
 #[test]
-fn un_contacto_borrado_libera_su_direccion() {
+fn un_canal_borrado_libera_su_direccion() {
     let (_d, conn) = base();
 
     conn.execute(
-        "UPDATE contact SET deleted_at = ?1 WHERE id = ?2",
+        "UPDATE contact_channel SET deleted_at = ?1 WHERE contact_id = ?2",
         params![AHORA, CONTACTO_A],
     )
-    .expect("marca como borrado");
+    .expect("marca el canal como borrado");
 
     conn.execute(
-        "INSERT INTO contact (id, company_id, email_raw, email_normalized,
-                              created_at, updated_at)
-         VALUES ('c3', ?1, 'ana@empresa.com', 'ana@empresa.com', ?2, ?2)",
+        "INSERT INTO contact (id, company_id, created_at, updated_at)
+         VALUES ('c3', ?1, ?2, ?2)",
+        params![EMPRESA, AHORA],
+    )
+    .expect("inserta contacto");
+
+    conn.execute(
+        "INSERT INTO contact_channel (id, company_id, contact_id, channel,
+                                      value_raw, value_normalized,
+                                      created_at, updated_at)
+         VALUES ('ch-x', ?1, 'c3', 'email', 'ana@empresa.com', 'ana@empresa.com', ?2, ?2)",
         params![EMPRESA, AHORA],
     )
     .expect("debería poder reinsertarse tras el borrado lógico");
@@ -407,4 +467,316 @@ fn la_ventana_de_ejecucion_rechaza_horas_incoherentes() {
         insertar("w3", 9, 30).is_err(),
         "aceptó una hora fuera de rango"
     );
+}
+
+// ─── L-2 · Un contacto tiene canales ────────────────────────────────────────
+
+/// Lo que Dirección pidió, escrito como prueba: primero el correo y después el
+/// WhatsApp, dentro de la misma campaña.
+///
+/// !! **Este test pasaría también con el esquema anterior**, y conviene que
+/// quede dicho en vez de dejarlo aparentando más de lo que comprueba. La
+/// unicidad vieja era (campaña, dirección), y el correo y el móvil son
+/// direcciones distintas, así que no chocaban. Lo que de verdad impedía esto
+/// antes de la V3 era que **un contacto no tenía dónde guardar un móvil**: la
+/// dirección eran dos columnas de `contact` y sólo cabía una.
+///
+/// Se conserva porque documenta el comportamiento del producto. Lo que ejerce
+/// el canal en la clave de unicidad es el test de abajo.
+#[test]
+fn una_campana_puede_escribir_al_mismo_contacto_por_los_dos_canales() {
+    let (_d, conn) = base();
+
+    insertar_intento_por(&conn, "i1", CONTACTO_A, "email", "k1").expect("primero el correo");
+    insertar_intento_por(&conn, "i2", CONTACTO_A, "whatsapp", "k2")
+        .expect("y después el WhatsApp, que es justo lo que L-2 hace posible");
+
+    let cuantos: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM message_attempt WHERE contact_id = ?1",
+            params![CONTACTO_A],
+            |f| f.get(0),
+        )
+        .expect("cuenta");
+    assert_eq!(cuantos, 2);
+}
+
+/// Y lo que NO cambia: dos veces por el mismo canal sigue siendo imposible.
+/// Si esto se relajara, L-2 habría comprado el segundo canal al precio de la
+/// garantía del §55, que es un precio que nadie aceptó pagar.
+#[test]
+fn dos_veces_por_el_mismo_canal_sigue_siendo_imposible() {
+    let (_d, conn) = base();
+
+    insertar_intento_por(&conn, "i1", CONTACTO_A, "whatsapp", "k1").expect("el primero entra");
+    assert!(
+        insertar_intento_por(&conn, "i2", CONTACTO_A, "whatsapp", "k2").is_err(),
+        "se permitió un segundo WhatsApp al mismo contacto en la misma campaña"
+    );
+}
+
+/// **El test que sí ejerce el canal dentro de la clave de unicidad.**
+///
+/// Dos intentos de la misma campaña con **la misma cadena** como dirección, uno
+/// por cada canal. Con la clave vieja —(campaña, dirección)— el segundo se
+/// rechaza; con la nueva entra, porque el canal forma parte de la identidad.
+///
+/// Comprobado quitando el canal del índice: este test falla y el de arriba no.
+/// Ese contraste es exactamente por qué los dos existen.
+#[test]
+fn el_mismo_valor_en_canales_distintos_no_es_un_duplicado() {
+    let (_d, conn) = base();
+
+    let insertar = |id: &str, canal: &str, clave: &str| {
+        conn.execute(
+            "INSERT INTO message_attempt (id, campaign_id, channel, contact_id,
+                                          contact_address, idempotency_key,
+                                          created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, 'mismo-texto', ?5, ?6, ?6)",
+            params![id, CAMPANA, canal, CONTACTO_A, clave, AHORA],
+        )
+    };
+
+    insertar("i1", "email", "k1").expect("el primero entra");
+    insertar("i2", "whatsapp", "k2").expect("la misma cadena por otro canal no es el mismo envío");
+}
+
+/// Y el canal también forma parte de la identidad de un canal de contacto.
+#[test]
+fn el_mismo_valor_en_canales_distintos_no_es_un_contacto_duplicado() {
+    let (_d, conn) = base();
+
+    conn.execute(
+        "INSERT INTO contact (id, company_id, created_at, updated_at)
+         VALUES ('c-raro', ?1, ?2, ?2)",
+        params![EMPRESA, AHORA],
+    )
+    .expect("inserta contacto");
+
+    insertar_canal(&conn, "ch-1", "c-raro", "email", "mismo-texto");
+    insertar_canal(&conn, "ch-2", "c-raro", "whatsapp", "mismo-texto");
+}
+
+/// La deduplicación es por canal, y dentro del canal es estricta.
+#[test]
+fn dos_contactos_no_comparten_el_mismo_movil() {
+    let (_d, conn) = base();
+
+    let r = conn.execute(
+        "INSERT INTO contact_channel (id, company_id, contact_id, channel,
+                                      value_raw, value_normalized,
+                                      created_at, updated_at)
+         VALUES ('ch-choque', ?1, ?2, 'whatsapp', ?3, ?3, ?4, ?4)",
+        params![EMPRESA, CONTACTO_B, MOVIL_A, AHORA],
+    );
+    assert!(
+        r.is_err(),
+        "dos contactos comparten el mismo móvil: la misma persona recibiría dos veces"
+    );
+}
+
+/// Borrar un contacto se lleva sus canales —son suyos— pero **no** los intentos,
+/// que son la prueba de lo que se envió. Si los canales sobrevivieran al
+/// contacto, quedarían direcciones sin dueño que nadie volvería a mirar.
+#[test]
+fn borrar_el_contacto_borra_sus_canales_pero_no_los_intentos() {
+    let (_d, conn) = base();
+    insertar_intento_por(&conn, "i1", CONTACTO_A, "whatsapp", "k1").expect("inserta");
+
+    conn.execute("DELETE FROM contact WHERE id = ?1", params![CONTACTO_A])
+        .expect("borra el contacto");
+
+    let canales: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM contact_channel WHERE contact_id = ?1",
+            params![CONTACTO_A],
+            |f| f.get(0),
+        )
+        .expect("cuenta");
+    assert_eq!(canales, 0, "quedaron canales sin contacto");
+
+    let (intentos, direccion): (i64, String) = conn
+        .query_row(
+            "SELECT count(*), max(contact_address) FROM message_attempt",
+            [],
+            |f| Ok((f.get(0)?, f.get(1)?)),
+        )
+        .expect("consulta");
+    assert_eq!(intentos, 1, "se perdió la prueba del envío");
+    assert_eq!(
+        direccion, MOVIL_A,
+        "la dirección debe conservarse: es la clave de idempotencia"
+    );
+}
+
+// ─── L-4 · La supresión distingue canales ───────────────────────────────────
+
+/// «No me escribas por WhatsApp» **no es** «no me escribas nunca». Antes de la
+/// V3 el esquema no sabía distinguirlos, así que una baja de un canal habría
+/// apagado los dos — o, peor, se habría guardado como si fuera del otro.
+#[test]
+fn suprimir_un_canal_no_suprime_el_otro() {
+    let (_d, conn) = base();
+
+    let suprimir = |id: &str, canal: &str, direccion: &str| {
+        conn.execute(
+            "INSERT INTO suppression_entry (id, company_id, channel, address_normalized,
+                                            reason, origin, created_at)
+             VALUES (?1, ?2, ?3, ?4, 'unsubscribe', 'user', ?5)",
+            params![id, EMPRESA, canal, direccion, AHORA],
+        )
+    };
+
+    suprimir("s1", "whatsapp", MOVIL_A).expect("se da de baja de WhatsApp");
+
+    let mut consulta = conn
+        .prepare("SELECT channel FROM suppression_entry ORDER BY channel")
+        .expect("prepara");
+    let por_canal: Vec<String> = consulta
+        .query_map([], |f| f.get::<_, String>(0))
+        .expect("consulta")
+        .filter_map(Result::ok)
+        .collect();
+    assert_eq!(
+        por_canal,
+        vec!["whatsapp".to_owned()],
+        "la baja de un canal alcanzó a otro"
+    );
+
+    // Y el correo del mismo contacto se puede suprimir aparte, sin chocar.
+    suprimir("s2", "email", "ana@empresa.com").expect("la del correo es otra entrada");
+}
+
+/// El alcance global existe, y se guarda como **una fila por dirección** unidas
+/// por `request_id`. No como una fila atada a la persona: esa desaparecería al
+/// ejercerse el derecho de cancelación, justo cuando más falta hace.
+#[test]
+fn una_baja_global_deja_una_fila_por_canal_unidas_por_su_peticion() {
+    let (_d, conn) = base();
+
+    for (id, canal, direccion) in [
+        ("s1", "email", "ana@empresa.com"),
+        ("s2", "whatsapp", MOVIL_A),
+    ] {
+        conn.execute(
+            "INSERT INTO suppression_entry (id, company_id, channel, address_normalized,
+                                            scope, request_id, reason, origin, created_at)
+             VALUES (?1, ?2, ?3, ?4, 'global', 'pet-1', 'unsubscribe', 'user', ?5)",
+            params![id, EMPRESA, canal, direccion, AHORA],
+        )
+        .expect("inserta");
+    }
+
+    conn.execute("DELETE FROM contact WHERE id = ?1", params![CONTACTO_A])
+        .expect("ejerce la cancelación y borra el contacto");
+
+    let quedan: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM suppression_entry WHERE request_id = 'pet-1'",
+            [],
+            |f| f.get(0),
+        )
+        .expect("cuenta");
+    assert_eq!(
+        quedan, 2,
+        "la baja global se evaporó al borrar el contacto: reimportarlo lo haría \
+         recibir por los dos canales otra vez"
+    );
+}
+
+// ─── L-3 · El consentimiento es un registro, no una casilla ─────────────────
+
+/// Retirar el consentimiento es una entrada NUEVA. Si se pudiera editar la
+/// anterior, el registro dejaría de ser prueba de nada: cualquiera podría
+/// reescribir a posteriori con qué base se le escribió a alguien.
+#[test]
+fn el_consentimiento_no_admite_update_ni_delete() {
+    let (_d, conn) = base();
+
+    conn.execute(
+        "INSERT INTO consent_entry (id, company_id, channel, address_normalized,
+                                    kind, basis, evidence, recorded_at)
+         VALUES ('n1', ?1, 'whatsapp', ?2, 'granted', 'public_source',
+                 'directorio público de la cámara', ?3)",
+        params![EMPRESA, MOVIL_A, AHORA],
+    )
+    .expect("registra el consentimiento");
+
+    assert!(
+        conn.execute(
+            "UPDATE consent_entry SET kind = 'withdrawn' WHERE id = 'n1'",
+            [],
+        )
+        .is_err(),
+        "se pudo editar un consentimiento ya registrado"
+    );
+    assert!(
+        conn.execute("DELETE FROM consent_entry WHERE id = 'n1'", [])
+            .is_err(),
+        "se pudo borrar un consentimiento ya registrado"
+    );
+
+    // La retirada sí entra, como lo que es: otra entrada.
+    conn.execute(
+        "INSERT INTO consent_entry (id, company_id, channel, address_normalized,
+                                    kind, basis, recorded_at)
+         VALUES ('n2', ?1, 'whatsapp', ?2, 'withdrawn', 'verbal', ?3)",
+        params![EMPRESA, MOVIL_A, AHORA],
+    )
+    .expect("la retirada es una entrada nueva");
+}
+
+/// La prueba sobrevive al contacto, igual que la supresión: si se fuera con él,
+/// reimportarlo dejaría el envío sin nada que lo respalde.
+///
+/// **Y el contacto se tiene que poder borrar.** Este test encontró que no se
+/// podía: el primer borrador de `consent_entry` llevaba un `contact_id` con
+/// `ON DELETE SET NULL`, y `SET NULL` es un UPDATE que el disparador de
+/// append-only aborta. Registrar la prueba de que se le podía escribir a
+/// alguien impedía ejercer su derecho de cancelación. La columna se quitó: la
+/// entrada es sobre una dirección, no sobre un registro.
+#[test]
+fn borrar_el_contacto_no_borra_la_prueba_del_consentimiento() {
+    let (_d, conn) = base();
+
+    conn.execute(
+        "INSERT INTO consent_entry (id, company_id, channel, address_normalized,
+                                    kind, basis, recorded_at)
+         VALUES ('n1', ?1, 'email', 'ana@empresa.com', 'granted',
+                 'import_affirmation', ?2)",
+        params![EMPRESA, AHORA],
+    )
+    .expect("registra");
+
+    conn.execute("DELETE FROM contact WHERE id = ?1", params![CONTACTO_A])
+        .expect("el derecho de cancelación no puede quedar bloqueado por la prueba");
+
+    let quedan: i64 = conn
+        .query_row("SELECT count(*) FROM consent_entry", [], |f| f.get(0))
+        .expect("consulta");
+    assert_eq!(quedan, 1, "la prueba desapareció con el contacto");
+}
+
+/// El canal no admite cualquier cosa. Una fila con un canal inventado decidiría
+/// a quién se le escribe y por dónde, y nadie la miraría hasta que fuera tarde.
+#[test]
+fn el_canal_solo_admite_los_dos_que_existen() {
+    let (_d, conn) = base();
+
+    for tabla_y_sql in [
+        "INSERT INTO contact_channel (id, company_id, contact_id, channel, value_raw,
+                                      value_normalized, created_at, updated_at)
+         VALUES ('x', '01900000-0000-7000-8000-000000000001',
+                 '01900000-0000-7000-8000-00000000000a', 'sms', 'a', 'a',
+                 '2026-09-11T00:00:00Z', '2026-09-11T00:00:00Z')",
+        "INSERT INTO suppression_entry (id, company_id, channel, address_normalized,
+                                        reason, origin, created_at)
+         VALUES ('x', '01900000-0000-7000-8000-000000000001', 'sms', 'a',
+                 'manual', 'user', '2026-09-11T00:00:00Z')",
+    ] {
+        assert!(
+            conn.execute(tabla_y_sql, []).is_err(),
+            "se admitió un canal que no existe"
+        );
+    }
 }

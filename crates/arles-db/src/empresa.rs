@@ -379,10 +379,10 @@ mod tests {
         let id = db.guardar_empresa(&datos("TELEMETRY")).expect("guarda");
         db.ejecutar_en_pruebas(|c| {
             c.execute(
-                "INSERT INTO contact (id, company_id, email_raw, email_normalized,
-                                      created_at, updated_at, deleted_at)
-                 VALUES ('x1', ?1, 'a@b.com', 'a@b.com',
-                         '2026-09-15T00:00:00Z', '2026-09-15T00:00:00Z',
+                // Sin dirección: desde la V3 el correo vive en
+                // `contact_channel`, no en `contact` (L-2).
+                "INSERT INTO contact (id, company_id, created_at, updated_at, deleted_at)
+                 VALUES ('x1', ?1, '2026-09-15T00:00:00Z', '2026-09-15T00:00:00Z',
                          '2026-09-15T00:00:00Z')",
                 params![id.to_string()],
             )
