@@ -32,6 +32,10 @@
   --arles-text-on-danger: #041A25;  /* Texto sobre el relleno de peligro. En oscuro el rojo es claro; en claro es oscuro. La tinta se invierte. */
   --arles-text-on-info  : #041A25;  /* Texto sobre relleno de info, si alguna vez lo hubiera. Misma inversion que peligro. */
 
+  /* Marca · no se invierte */
+  --arles-marca-fondo: #045686;  /* Placa del isotipo. Es el color de la placa del icono que genera `herramientas/iconos/generar-iconos.py`, y por eso vale lo mismo en los dos temas: el icono de la barra de tareas no cambia con el tema del sistema, y éste es el mismo icono. */
+  --arles-marca-tinta: #FCCC0C;  /* La «A» del isotipo. No se invierte por la misma razón. */
+
 }
 
 /* Tema claro. Se activa con [data-tema="claro"] en <html>.
@@ -60,4 +64,6 @@
   --arles-text-on-accent: #10242E;
   --arles-text-on-danger: #FFFFFF;
   --arles-text-on-info  : #FFFFFF;
+  --arles-marca-fondo   : #045686;
+  --arles-marca-tinta   : #FCCC0C;
 }

@@ -24,6 +24,7 @@ const CLAVES_DEL_NUCLEO = [
   'error.app.llavero_no_disponible',
   'error.app.clave_maestra_perdida',
   'error.app.directorio_de_datos',
+  'error.app.sitio_no_abre',
   'error.app.empresa_invalida',
   'error.db.dato_invalido',
 ] as const

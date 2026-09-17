@@ -102,6 +102,13 @@
      Es falso por partida doble: el mínimo de AA son 24 px, y los 44 px son de
      2.5.5, que es AAA y no es el objetivo declarado del proyecto.) */
   --arles-nav-width-plegada: 64px;
+  /* El isotipo en la barra plegada. 40 px deja 12 px de aire a cada lado
+     dentro de los 64 de la barra, y es a la vez objetivo cómodo. */
+  --arles-isotipo: 40px;
+  /* Los iconos de navegación. Heredaban el cuerpo del texto —14 px— y en una
+     barra de 240 px se veían de juguete; peor aún plegada, donde son lo único
+     que hay. Se fijan aquí para que los dos estados usen el mismo. */
+  --arles-icono-nav: 20px;
   --arles-window-min-width: 1120px;
   --arles-window-min-height: 720px;
 }

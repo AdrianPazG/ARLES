@@ -48,6 +48,12 @@ const activo = () =>
     return {
       etiqueta: el.tagName,
       texto: (el.textContent ?? '').trim().slice(0, 28),
+      // El nombre accesible, que no siempre es el texto: un botón de sólo
+      // icono lo lleva en `aria-label` y su `textContent` está vacío. Sin
+      // esto, dos botones de icono distintos daban la misma clave y el
+      // recuento de paradas se cortaba en el segundo creyendo que la
+      // tabulación había dado la vuelta.
+      nombre: (el.getAttribute('aria-label') ?? '').trim().slice(0, 40),
       esCuerpo: el === document.body,
       dentroDelModal: !!el.closest('dialog'),
       // `outline-style: none` sin sustituto es lo que rompe la navegación
@@ -119,7 +125,7 @@ for (let i = 0; i < 40; i += 1) {
   // `<body>` aparece como relevo entre vueltas del navegador; no es una
   // parada de tabulación de la aplicación y no tiene que dibujar nada.
   if (a.esCuerpo) { await pagina.keyboard.press('Tab'); continue }
-  const clave = `${a.etiqueta}:${a.texto}`
+  const clave = `${a.etiqueta}:${a.nombre}:${a.texto}`
   if (vistos.has(clave)) break // dio la vuelta entera
   vistos.add(clave)
   if (!a.anillo) sinAnillo.push(clave)

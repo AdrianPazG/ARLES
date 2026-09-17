@@ -44,6 +44,7 @@ pub fn run() {
             comandos::guardar_empresa,
             comandos::preferencias_de_interfaz,
             comandos::guardar_barra_plegada,
+            comandos::abrir_sitio_de_telemetry,
         ])
         .run(tauri::generate_context!());
 

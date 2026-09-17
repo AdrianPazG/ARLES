@@ -398,6 +398,11 @@ async function enviar(): Promise<void> {
 }
 
 .pantalla {
+  /* Un formulario sí es pantalla de lectura: su medida y su tope coinciden.
+     Se declara igual que en el panel para que la sonda del umbral de plegado
+     mida lo mismo en las dos. */
+  --arles-medida: 540px;
+
   display: flex;
   flex-direction: column;
   gap: var(--arles-space-6);

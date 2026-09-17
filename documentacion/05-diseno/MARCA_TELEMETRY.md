@@ -102,14 +102,32 @@ de la «T» por cada lado; en la barra lateral, `--espacio-3`.
 
 ## 5 · Enlace
 
-El logotipo enlaza a **https://telemetrymx.com**, confirmado por Dirección.
+El logotipo enlaza a **https://telemetrymx.com**, confirmado por Dirección, y
+vive en el pie de la barra lateral junto al número de versión.
 
-Al ser una aplicación de escritorio, el enlace **no navega dentro de la
-ventana**: abre el navegador del sistema. En Tauri eso exige el permiso
-`shell:allow-open` con una lista cerrada de destinos —una sola URL—, no el
-permiso abierto. Queda anotado para la entrega que incorpore el logotipo:
-abrir un navegador desde la aplicación es superficie de ataque, y la lista
-cerrada es lo que la cierra.
+Al ser una aplicación de escritorio, **no navega dentro de la ventana**: abre el
+navegador del sistema. Una WebView que navega a internet deja de ser una
+aplicación y pasa a ser un navegador sin barra de direcciones, donde el usuario
+no puede saber dónde está.
+
+### Por qué el comando no recibe la URL
+
+Lo normal sería añadir un plugin de shell con un permiso `allow-open` y un
+ámbito que valide la dirección contra una expresión regular. Eso deja **la
+webview eligiendo el destino**, y la seguridad pasa a depender de que la
+expresión esté bien escrita; una regular mal anclada convierte «abrir el sitio
+de la empresa» en «abrir cualquier cosa», que es una de las rutas clásicas para
+ejecutar algo en la máquina del usuario.
+
+=> `abrir_sitio_de_telemetry` **no tiene parámetros**. El destino es una
+constante compilada en Rust (`comandos::SITIO_DE_TELEMETRY`). El frontend no
+puede pasar otra dirección porque no hay dónde ponerla: no hay ámbito que
+validar, no hay expresión regular que revisar, y no hace falta una dependencia
+más.
+
+Si el navegador no abre, **no se interrumpe nada**: queda constancia en la
+consola. Un logotipo que no abre el sitio es una molestia; un diálogo de error
+por ello, una avería aparente.
 
 ## 6 · Pendientes
 

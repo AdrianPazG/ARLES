@@ -31,6 +31,14 @@ pub enum AppError {
     #[error("no se pudo determinar el directorio de datos de la aplicación")]
     DirectorioDeDatos,
 
+    /// No se pudo lanzar el navegador del sistema.
+    ///
+    /// No es grave —el usuario puede escribir la dirección— pero tiene que
+    /// decirse: un enlace que no hace nada al pulsarlo se lee como una avería
+    /// de la aplicación entera.
+    #[error("no se pudo abrir el navegador del sistema: {0}")]
+    SitioNoAbre(String),
+
     /// El formulario de empresa trae campos que no pasan la validación.
     ///
     /// Lleva **la lista de campos**, no un mensaje: la interfaz tiene que
@@ -53,6 +61,7 @@ impl AppError {
             Self::LlaveroNoDisponible(_) => "error.app.llavero_no_disponible",
             Self::ClaveMaestraPerdida => "error.app.clave_maestra_perdida",
             Self::DirectorioDeDatos => "error.app.directorio_de_datos",
+            Self::SitioNoAbre(_) => "error.app.sitio_no_abre",
             Self::EmpresaInvalida(_) => "error.app.empresa_invalida",
             Self::Db(e) => e.clave_i18n(),
             Self::Core(e) => e.clave_i18n(),

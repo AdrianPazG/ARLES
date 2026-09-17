@@ -10,6 +10,7 @@
  */
 export const es = {
   producto: {
+    irAlSitio: 'Ir a telemetrymx.com · se abre en tu navegador',
     // ADR-0010: «I» y el número de versión nunca en el mismo renglón.
     nombre: 'ARLES RELAY',
     nombreComercial: 'ARLES RELAY I',
@@ -299,6 +300,11 @@ export const es = {
           'Comprueba que tu usuario tiene permiso de escritura en la carpeta ' +
           'de datos de las aplicaciones.',
         salvo: 'No se ha creado ni modificado ningún archivo.',
+      },
+      sitio_no_abre: {
+        que: 'No se pudo abrir tu navegador.',
+        como: 'Escribe telemetrymx.com en la barra de direcciones.',
+        salvo: 'No cambió nada en ARLES: sólo no se abrió la página.',
       },
     },
   },

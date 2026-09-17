@@ -2,7 +2,7 @@
 
 **Entrega 3.1 · 15 de septiembre de 2026**
 **Sonda:** `npm --prefix app run sonda:plegado`
-**Resultado:** **984 px** de ancho de ventana
+**Resultado:** **988 px** de ancho de ventana
 
 ---
 
@@ -65,21 +65,39 @@ Barrido de 1400 px a 600 px, de 4 en 4, con el plegado automático desactivado
 (`VITE_ARLES_UMBRAL_PLEGADO=1`; sin ese interruptor el propio umbral impide
 llegar a los anchos donde se mide).
 
-| Pantalla | Mantiene su medida hasta | Se aprieta a partir de |
+| Pantalla | Medida declarada | Mantiene su medida hasta |
 |---|---|---|
-| `/ajustes` | 844 px | 840 px |
-| **`/inicio`** | **984 px** | 980 px |
+| `/ajustes` | 540 px | 844 px |
+| **`/inicio`** | **684 px** | **988 px** |
 
 Cuadra con la aritmética, que es la forma barata de saber que la sonda mide lo
-que cree medir: 240 px de barra + 32 px de margen a cada lado + 679 px de
-medida = **983**, y el barrido lo encontró en 984.
+que cree medir: 240 px de barra + 32 px de margen a cada lado + 684 px de
+medida = **988**, y el barrido lo encontró ahí.
 
-**El umbral es 984 px**, el de la pantalla más exigente. No se redondea: un
+**El umbral es 988 px**, el de la pantalla más exigente. No se redondea: un
 número redondo invita a preguntar de dónde salió.
+
+### Por qué cambió de 984 a 988
+
+Al rediseñar Inicio como panel modular (17/09/2026), la pantalla **dejó de
+tener un ancho de lectura**. Un panel quiere usar el ancho que haya; lo que
+tiene es un **suelo**: el ancho por debajo del cual la rejilla áurea deja la
+columna estrecha ilegible y se apila.
+
+Eso obligó a cambiar **qué mide la sonda**. Antes leía el `max-width` de la
+pantalla, que sólo describe bien una pantalla de lectura: para un panel, el
+`max-width` es un tope estético y usarlo como medida habría empujado el umbral
+de plegado hasta casi el ancho de la ventana. Ahora cada pantalla **declara**
+su suelo en `--arles-medida`, y la sonda lee eso.
+
+!i Conviene decirlo sin rodeos: **se cambió el criterio de medición porque
+cambió lo medido, no para que la sonda pasara.** La prueba de que sigue
+sirviendo es que, con el criterio nuevo, la sonda **falló** —el umbral de 984
+quedó 4 px por debajo del suelo— y el número se subió al medido, no al revés.
 
 ### Una consecuencia que conviene tener presente
 
-El mínimo de la ventana son **1120 px lógicos**, y el umbral son 984. Así que
+El mínimo de la ventana son **1120 px lógicos**, y el umbral son 988. Así que
 **al 100 % de escala la barra no se pliega sola nunca**: la ventana no puede
 llegar a ser tan estrecha. Según la tabla de abajo, el plegado automático
 **empieza a actuar al 200 %** de escala de Windows en una pantalla de 1920 —a
@@ -116,7 +134,7 @@ corte.**
 
 | Si el umbral… | La sonda dice |
 |---|---|
-| se queda **corto** (800 px) | «está por debajo del suelo medido (984 px): entre los dos la barra sigue desplegada y la pantalla no alcanza su medida» |
+| se queda **corto** (800 px) | «está por debajo del suelo medido (988 px): entre los dos la barra sigue desplegada y la pantalla no alcanza su medida» |
 | se **infla** (1200 px) | «excede el suelo medido en más de 40 px: la barra se plegaría sola en anchos donde la pantalla cabe holgada» |
 
 Sin la segunda mitad, el umbral se podría subir a 4000 px: la barra quedaría

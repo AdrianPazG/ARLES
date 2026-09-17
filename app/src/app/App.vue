@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, RouterView } from 'vue-router'
 
+import { invocar } from '@/app/nucleo'
 import { CATALOGO_VISIBLE, ICONO_DE_SECCION, SECCIONES } from '@/app/router'
 import { useAppStore } from '@/app/stores/app'
 import { useInterfazStore } from '@/app/stores/interfaz'
@@ -21,6 +22,25 @@ const etiquetaDelBoton = computed(() =>
 const explicacionDelBoton = computed(() =>
   interfaz.alternableAhora ? etiquetaDelBoton.value : t('nav.plegadaPorAncho'),
 )
+
+/**
+ * Abre telemetrymx.com en el navegador del sistema.
+ *
+ * El comando **no recibe la URL**: el destino es una constante compilada en
+ * Rust (`comandos::SITIO_DE_TELEMETRY`). Un comando que aceptara una dirección
+ * dejaría a la webview eligiendo a dónde se navega, y la seguridad dependería
+ * de una expresión regular bien escrita.
+ *
+ * Si falla, no se interrumpe nada: se deja constancia. Un logotipo que no abre
+ * el sitio es una molestia; un diálogo de error por ello, una avería aparente.
+ */
+async function abrirSitio(): Promise<void> {
+  try {
+    await invocar('abrir_sitio_de_telemetry')
+  } catch (e) {
+    console.error('No se pudo abrir el sitio de TELEMETRY', e)
+  }
+}
 
 function medir(): void {
   interfaz.anotarAncho(window.innerWidth)
@@ -46,34 +66,46 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
       class="nav"
       :aria-label="$t('nav.principal')"
     >
-      <!-- El logotipo vive en un componente: el §21 prohíbe estilizarlo, y
+      <!-- ── Cabecera ──────────────────────────────────────────────────────
+           Dos filas de altura fija, iguales en los dos estados. Antes la marca
+           desaparecía al plegar y **todo lo de abajo subía**: los iconos de
+           sección saltaban de y=131 a y=80 al pulsar el botón. Reservando la
+           altura, plegar sólo cambia lo que hay dentro de la cabecera, nunca
+           dónde empieza la navegación.
+
+           El logotipo vive en un componente: el §21 prohíbe estilizarlo, y
            repetir su marcado en cada sitio es justo como se acaba estilizando
-           en uno de ellos.
+           en uno de ellos. Plegada, «ARLES RELAY» en Mont Black no entra en
+           64 px, así que en su lugar va el **isotipo** —la misma «A» que el
+           sistema operativo enseña en la barra de tareas—, no el logotipo
+           recortado: el §21 prohíbe condensarlo. -->
+      <div class="cabecera">
+        <div class="marca">
+          <ALogotipo
+            v-if="!interfaz.plegada"
+            numeral
+          />
+          <ALogotipo
+            v-else
+            tamano="icono"
+          />
+        </div>
 
-           Plegada, el logotipo no cabe —«ARLES RELAY» en Mont Black no entra
-           en 64 px— y se oculta entero en vez de recortarse. El §21 prohíbe
-           condensarlo, y un logotipo cortado por la mitad es peor que ninguno.
-           La ventana sigue diciendo el nombre en su barra de título. -->
-      <div
-        v-if="!interfaz.plegada"
-        class="marca"
-      >
-        <ALogotipo />
+        <div class="fila-plegador">
+          <button
+            type="button"
+            class="plegador"
+            :disabled="!interfaz.alternableAhora"
+            :aria-expanded="!interfaz.plegada"
+            aria-controls="navegacion-principal"
+            :aria-label="etiquetaDelBoton"
+            :title="explicacionDelBoton"
+            @click="interfaz.alternar()"
+          >
+            <AIcono :nombre="interfaz.plegada ? 'expandir' : 'plegar'" />
+          </button>
+        </div>
       </div>
-
-      <button
-        type="button"
-        class="plegador"
-        :class="{ 'plegador-solo-icono': interfaz.plegada }"
-        :disabled="!interfaz.alternableAhora"
-        :aria-expanded="!interfaz.plegada"
-        aria-controls="navegacion-principal"
-        :aria-label="etiquetaDelBoton"
-        :title="explicacionDelBoton"
-        @click="interfaz.alternar()"
-      >
-        <AIcono :nombre="interfaz.plegada ? 'expandir' : 'plegar'" />
-      </button>
 
       <ul class="nav-lista">
         <li
@@ -85,7 +117,10 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
             :to="`/${seccion}`"
             :title="interfaz.plegada ? $t(`nav.${seccion}`) : undefined"
           >
-            <AIcono :nombre="ICONO_DE_SECCION[seccion]" />
+            <AIcono
+              :nombre="ICONO_DE_SECCION[seccion]"
+              :tamano="20"
+            />
             <!-- Plegada se quita el TEXTO, no el nombre accesible: el enlace
                  sigue anunciándose «Campañas» porque el texto sigue en el
                  árbol, sólo que oculto a la vista. Con `display: none` el
@@ -113,7 +148,10 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
         to="/catalogo"
         :title="interfaz.plegada ? 'Catálogo del sistema' : undefined"
       >
-        <AIcono nombre="catalogo" />
+        <AIcono
+          nombre="catalogo"
+          :tamano="20"
+        />
         <!-- Plegado sigue estando, con su icono. La primera versión lo
              escondía, y eso lo hacía desaparecer justo a partir del 200 % de
              escala —donde la barra se pliega sola—, que es exactamente la
@@ -124,14 +162,25 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
       </RouterLink>
 
       <!-- §121: la atribución vive aquí, discreta. NUNCA en los correos
-           que el cliente envía. -->
+           que el cliente envía.
+
+           El logotipo abre telemetrymx.com **en el navegador del sistema**, no
+           dentro de la ventana: una WebView que navega a internet deja de ser
+           una aplicación y pasa a ser un navegador sin barra de direcciones,
+           donde el usuario no puede saber dónde está. Ver `abrirSitio`. -->
       <footer
         v-if="!interfaz.plegada"
         class="pie"
       >
-        <p class="atribucion">
-          {{ $t('producto.atribucion') }}
-        </p>
+        <button
+          type="button"
+          class="sello"
+          :aria-label="$t('producto.irAlSitio')"
+          :title="$t('producto.irAlSitio')"
+          @click="abrirSitio"
+        >
+          <span class="logo-telemetry" />
+        </button>
         <p class="version">
           v{{ app.info.version }}
         </p>
@@ -190,19 +239,47 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
   align-items: center;
 }
 
+/* ── Cabecera de altura constante ───────────────────────────────────────────
+   La marca y el botón ocupan lo mismo plegada que desplegada. Es lo que impide
+   que los iconos de sección salten al plegar: medido, saltaban de y=131 a
+   y=80 porque la marca desaparecía y arrastraba todo hacia arriba. */
+.cabecera {
+  width: 100%;
+  flex: none;
+}
+
 .marca {
-  margin-bottom: var(--arles-space-5);
+  display: flex;
+  align-items: center;
+  height: var(--arles-isotipo);
   padding-inline: var(--arles-space-2);
 }
 
+.plegado .marca {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+/* El botón vive en su propia fila y **siempre en el mismo sitio**: pegado al
+   borde donde está la barra. Antes cambiaba de alineación al plegar —de
+   `flex-end` a `center`— y el usuario tenía que buscarlo dos veces. */
+.fila-plegador {
+  display: flex;
+  justify-content: flex-end;
+  height: var(--arles-control-height-compact);
+  margin: var(--arles-space-3) 0 var(--arles-space-4);
+}
+
+.plegado .fila-plegador {
+  justify-content: center;
+}
+
 .plegador {
-  align-self: flex-end;
   display: flex;
   align-items: center;
   justify-content: center;
   width: var(--arles-control-height-compact);
   height: var(--arles-control-height-compact);
-  margin-bottom: var(--arles-space-4);
   padding: 0;
   border: var(--arles-border-width) solid transparent;
   border-radius: var(--arles-radius-md);
@@ -224,10 +301,6 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
   cursor: not-allowed;
 }
 
-.plegador-solo-icono {
-  align-self: center;
-}
-
 .nav-lista {
   list-style: none;
   margin: 0;
@@ -243,7 +316,10 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
   display: flex;
   align-items: center;
   gap: var(--arles-space-3);
-  padding: var(--arles-space-2) var(--arles-space-3);
+  /* Alto explícito: con `padding` y un icono de 20 px, la fila medía 36 px
+     desplegada y 34 plegada, y la lista entera se descuadraba al plegar. */
+  min-height: var(--arles-control-height);
+  padding: 0 var(--arles-space-3);
   border-radius: var(--arles-radius-md);
   color: var(--arles-text-muted);
   text-decoration: none;
@@ -300,22 +376,59 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
   border: var(--arles-border-width) dashed var(--arles-border-strong);
 }
 
+/* ── Pie ────────────────────────────────────────────────────────────────────
+   El logotipo de TELEMETRY y la versión comparten fila y **línea de base**.
+   Antes iban en dos párrafos apilados a la izquierda, y la versión colgaba
+   debajo de la atribución sin alinearse con nada. */
 .pie {
-  padding: var(--arles-space-3) var(--arles-space-2) 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--arles-space-3);
+  padding: var(--arles-space-4) var(--arles-space-2) 0;
   border-top: var(--arles-border-width) solid var(--arles-border);
 }
 
-.atribucion,
+.sello {
+  display: block;
+  padding: var(--arles-space-1);
+  margin: calc(-1 * var(--arles-space-1));
+  border: 0;
+  background: transparent;
+  border-radius: var(--arles-radius-sm);
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity var(--arles-duration-fast) var(--arles-ease);
+}
+
+.sello:hover {
+  opacity: 1;
+}
+
+/* La pieza llega a sangre —la tinta toca los cuatro bordes— así que el aire lo
+   pone el botón, no el archivo (MARCA_TELEMETRY.md §4). Proporción 3.108:1: se
+   fija el ancho y el alto sale solo. */
+.logo-telemetry {
+  display: block;
+  width: 116px;
+  height: 37px;
+  background-image: url('./activos/marca/telemetry-horizontal-tema-oscuro.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+/* En tema claro la tinta crema desaparecería sobre el papel: se cambia la
+   pieza entera, no se filtra. */
+:global(:root[data-tema='claro']) .logo-telemetry {
+  background-image: url('./activos/marca/telemetry-horizontal-tema-claro.png');
+}
+
 .version {
   margin: 0;
   color: var(--arles-text-muted);
   font-size: var(--arles-font-size-caption);
   line-height: var(--arles-line-height-caption);
   opacity: 0.75;
-}
-
-.version {
-  margin-top: var(--arles-space-1);
 }
 
 .contenido {

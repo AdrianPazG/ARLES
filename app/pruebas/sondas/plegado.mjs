@@ -16,8 +16,8 @@
  * el umbral sin nada que lo respaldara**, y así se dijo en vez de inventar un
  * número.
  *
- * Lo que sí se rompe antes es la **medida de diseño**: cada pantalla declara un
- * ancho máximo de lectura —62 ch el formulario, 78 ch la lista de alta— y por
+ * Lo que sí se rompe antes es la **medida de diseño**: cada pantalla declara en
+ * `--arles-medida` el ancho por debajo del cual deja de funcionar, y por
  * debajo de cierto viewport deja de alcanzarlo. Plegar devuelve 176 px (240 →
  * 64), que es justo lo que hace falta para recuperarla.
  *
@@ -132,8 +132,22 @@ async function medir(pagina, ancho, ruta) {
       pedido: raiz.scrollWidth,
       disponible: raiz.clientWidth,
       plegada: !!document.querySelector('.marco.plegado'),
-      // La medida de diseño: cuánto pide la pantalla frente a cuánto obtiene.
-      medidaDeDiseno: estilo ? parseFloat(estilo.maxWidth) : null,
+      // La medida de diseño: el ancho POR DEBAJO DEL CUAL la pantalla deja
+      // de funcionar, declarado por ella misma en `--arles-medida`.
+      //
+      // Antes se leía `max-width`, y eso sólo vale para una pantalla de
+      // lectura: un formulario que se capa a 540 px pide exactamente 540. Un
+      // panel modular no: su `max-width` es un tope estético —para que las
+      // líneas no crucen la pantalla— y su necesidad real es el ancho por
+      // debajo del cual la rejilla se apila. Con `max-width` como medida, un
+      // panel generoso habría empujado el umbral de plegado hasta casi el
+      // ancho de la ventana.
+      //
+      // Se cambió el criterio porque cambió lo medido, no para que pasara:
+      // la sonda sigue fallando por los dos lados y se probó rompiéndola.
+      medidaDeDiseno: estilo
+        ? parseFloat(estilo.getPropertyValue('--arles-medida'))
+        : null,
       anchoReal: pantalla ? pantalla.getBoundingClientRect().width : null,
       // Nombre accesible de cada enlace de navegación. Plegada se les quita el
       // texto a la vista, y aquí se comprueba que no se les quita el nombre.
@@ -193,8 +207,9 @@ try {
     }
     if (holgada.medidaDeDiseno === null || Number.isNaN(holgada.medidaDeDiseno)) {
       anotar(
-        `${pantalla} no declara un ancho máximo de lectura: sin medida de ` +
-        'diseño no hay nada que medir, y el umbral se quedaría sin respaldo',
+        `${pantalla} no declara \`--arles-medida\`: sin el ancho por debajo ` +
+        'del cual deja de funcionar no hay nada que medir, y el umbral de ' +
+        'plegado se quedaría sin respaldo',
       )
       await pagina.close()
       continue

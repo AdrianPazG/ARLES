@@ -1378,6 +1378,20 @@ def fase_3(rapido):
         check_cmd(3, nombre, ["npm", "run", "sonda:plegado", "--silent"],
                   porque, cwd=app, timeout=900)
 
+    nombre = "sonda: la navegación no salta al plegar la barra"
+    porque = (
+        "Dirección vio los iconos saltar, y medido saltaban 40 px: la marca "
+        "desaparecía al plegar y arrastraba hacia arriba todo lo de abajo. Es "
+        "una afirmación geométrica, así que se mide en vez de mirarse."
+    )
+    if motivo:
+        omitir(3, nombre, motivo)
+    elif rapido:
+        omitir(3, nombre, "--rapido")
+    else:
+        check_cmd(3, nombre, ["npm", "run", "sonda:cabecera", "--silent"],
+                  porque, cwd=app, timeout=900)
+
 
 FASES = {0: fase_0, 1: fase_1, 2: fase_2, 3: fase_3}
 

@@ -10,7 +10,12 @@ import { hayNucleo, invocar } from '@/app/nucleo'
  * ancho por debajo del cual la pantalla más exigente —la lista de alta, 78 ch—
  * deja de caber a su medida de diseño con la barra desplegada: 240 px de barra
  * + 64 px de márgenes + 679 px de medida = 983, y el barrido lo confirmó en
- * 984. Plegar devuelve 176 px (240 → 64), justo lo que hace falta.
+ * 988. Plegar devuelve 176 px (240 → 64), justo lo que hace falta.
+ *
+ * El número se remidió al rediseñar Inicio como panel: la pantalla dejó de
+ * declarar un ancho de lectura y pasó a declarar el ancho por debajo del cual
+ * la rejilla áurea se apila —684 px—, cuatro más de lo que pedía la lista de
+ * alta anterior. Sigue saliendo de `sonda:plegado`, no de una estimación.
  *
  * **No es un umbral de desbordamiento**, y conviene saberlo: la sonda buscó
  * primero dónde desborda y no encontró nada hasta 600 px, porque estas
@@ -21,7 +26,7 @@ import { hayNucleo, invocar } from '@/app/nucleo'
  * tabla de contactos. La sonda lo detectará: falla igual si el umbral se queda
  * corto que si se infla.
  */
-export const UMBRAL_MEDIDO_PX = 984
+export const UMBRAL_MEDIDO_PX = 988
 
 /**
  * El umbral en uso.

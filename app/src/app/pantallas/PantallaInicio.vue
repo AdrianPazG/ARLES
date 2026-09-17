@@ -223,6 +223,15 @@ const accesos = computed(() => [
 
 <style scoped>
 .pantalla {
+  /* El ancho por debajo del cual el panel deja de funcionar: la rejilla áurea
+     con la columna principal todavía legible (420 px) y la secundaria capaz de
+     poner «Remitentes · aún no» en una línea (240 px), más el hueco.
+
+     No es un `max-width`. Un panel modular quiere usar el ancho que haya —de
+     eso va el espacio muerto lateral—, y lo que hay que proteger es el suelo,
+     no el techo. Es lo que respalda el umbral de plegado automático. */
+  --arles-medida: 684px;
+
   display: flex;
   flex-direction: column;
   gap: var(--arles-space-6);
@@ -275,9 +284,11 @@ const accesos = computed(() => [
   align-items: start;
 }
 
-/* Por debajo del umbral de plegado medido (984 px) la rejilla áurea deja la
-   columna estrecha por debajo de su medida legible, así que se apila. */
-@media (width <= 984px) {
+/* Por debajo del umbral de plegado medido (988 px) la rejilla áurea deja la
+   columna estrecha por debajo de su medida legible, así que se apila. Es el
+   mismo número que `--arles-medida` produce al medirlo con la barra abierta:
+   684 + 240 de barra + 64 de márgenes. */
+@media (width <= 988px) {
   .rejilla {
     grid-template-columns: 1fr;
   }

@@ -12,6 +12,47 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### La barra lateral
+
+- **Los iconos ya no saltan al plegar, y está medido.** Dirección lo señaló y
+  era cierto: **40 px**. El logotipo desaparecía al plegar y arrastraba hacia
+  arriba todo lo de abajo. La cabecera pasa a reservar su altura en los dos
+  estados, y `sonda:cabecera` falla si la navegación se mueve más de un píxel.
+  Probada rompiéndola: devuelve los 40 px originales.
+- **Plegada va el isotipo**, la misma «A» con placa que el sistema operativo
+  enseña en la barra de tareas. Sus dos colores **no se invierten con el tema**,
+  y son los únicos del sistema que no lo hacen: el icono de la barra de tareas
+  tampoco cambia cuando cambias el tema de Windows.
+- **El botón de plegar vive siempre en el mismo sitio.** Antes cambiaba de
+  alineación al plegar y había que buscarlo dos veces.
+- **Los iconos de navegación heredaban el cuerpo del texto**, 14 px, que en una
+  barra de 240 px se ve de juguete y plegada es lo único que hay. Pasan a 20.
+- **«ARLES RELAY I» arriba a la izquierda.** El numeral no es parte del
+  logotipo —§21— sino del nombre comercial, así que va en una propiedad aparte
+  del componente. Sigue sin aparecer junto al número de versión (ADR-0010).
+- **El pie lleva el logotipo de TELEMETRY**, enlazado a telemetrymx.com, con la
+  versión en su misma línea de base. Antes la atribución y la versión iban
+  apiladas y la versión colgaba sin alinearse con nada.
+- **El comando que abre el sitio no recibe la URL.** Un plugin de shell con
+  ámbito dejaría a la webview eligiendo el destino y la seguridad dependiendo de
+  una expresión regular bien escrita. Aquí el destino es una constante compilada
+  y el comando no tiene parámetros: no hay ámbito que validar ni dependencia
+  nueva que auditar.
+
+#### Lo que este cambio rompió, y por qué es bueno que lo rompiera
+
+- **La sonda del teclado contaba 8 paradas en vez de 18.** Identificaba cada
+  parada por su texto, y dos botones de sólo icono —el de plegar y el nuevo del
+  logotipo— tienen el texto vacío: la segunda colisionaba con la primera y el
+  recorrido se cortaba creyendo que había dado la vuelta. Ahora la identidad
+  incluye el nombre accesible.
+- **El umbral de plegado se quedó sin respaldo.** Al volverse panel, Inicio dejó
+  de tener ancho de lectura, y la sonda leía precisamente el `max-width`. Cada
+  pantalla declara ahora su suelo en `--arles-medida` —el ancho por debajo del
+  cual deja de funcionar— y la sonda lee eso. **Se cambió el criterio porque
+  cambió lo medido, no para que pasara:** con el criterio nuevo la sonda falló,
+  el suelo resultó ser 988 px y el umbral se subió al medido.
+
 ### Inicio, modular
 
 - **Inicio deja de ser una lista de configuración.** Dirección pidió un panel

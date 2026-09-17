@@ -13,6 +13,74 @@ use serde::Serialize;
 use crate::error::ErrorIpc;
 use crate::estado::EstadoApp;
 
+/// El único sitio externo que ARLES sabe abrir.
+///
+/// Confirmado por Dirección para el logotipo de TELEMETRY del pie.
+pub const SITIO_DE_TELEMETRY: &str = "https://telemetrymx.com";
+
+/// Abre el sitio de TELEMETRY en el navegador del sistema.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTE COMANDO NO RECIBE UNA URL
+///
+/// Lo normal sería un plugin de shell con un permiso `allow-open` y un ámbito
+/// que valide la URL contra una expresión regular. Eso deja **la webview
+/// eligiendo el destino** y la seguridad dependiendo de que la expresión esté
+/// bien escrita; una regular mal anclada convierte «abrir el sitio de la
+/// empresa» en «abrir cualquier cosa», que es una de las rutas clásicas para
+/// ejecutar algo en la máquina del usuario.
+///
+/// Aquí el destino es una **constante compilada**. El frontend no puede pasar
+/// otra URL porque el comando no tiene parámetros. No hay ámbito que validar,
+/// no hay expresión regular que revisar, y no hace falta un plugin más.
+///
+/// Tampoco se navega dentro de la ventana: una WebView que navega a internet
+/// deja de ser una aplicación y pasa a ser un navegador sin barra de
+/// direcciones, donde el usuario no puede saber dónde está.
+/// ─────────────────────────────────────────────────────────────────────────
+#[tauri::command]
+pub fn abrir_sitio_de_telemetry() -> Result<(), ErrorIpc> {
+    abrir_en_el_navegador(SITIO_DE_TELEMETRY)
+}
+
+/// Lanza el navegador predeterminado del sistema.
+///
+/// No interpola nada: `destino` es siempre [`SITIO_DE_TELEMETRY`], una
+/// constante. Si algún día alguien le pasara algo dinámico, este comentario es
+/// el sitio donde se dará cuenta de que hay que sanear antes.
+fn abrir_en_el_navegador(destino: &str) -> Result<(), ErrorIpc> {
+    use std::process::Command;
+
+    #[cfg(target_os = "windows")]
+    let mut orden = {
+        let mut c = Command::new("cmd");
+        // El «» vacío es el TÍTULO de la ventana que espera `start`. Sin él,
+        // `start` toma el primer argumento entrecomillado como título y no
+        // abre nada — un fallo silencioso y difícil de ver.
+        c.args(["/C", "start", "", destino]);
+        c
+    };
+
+    #[cfg(target_os = "macos")]
+    let mut orden = {
+        let mut c = Command::new("open");
+        c.arg(destino);
+        c
+    };
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let mut orden = {
+        let mut c = Command::new("xdg-open");
+        c.arg(destino);
+        c
+    };
+
+    orden
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| crate::error::AppError::SitioNoAbre(e.to_string()).into())
+}
+
 /// Información de la aplicación para el pie y el diálogo «Acerca de».
 ///
 /// ADR-0010: el numeral «I» y el número de versión nunca van en el mismo

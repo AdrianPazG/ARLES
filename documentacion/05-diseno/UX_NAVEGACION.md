@@ -112,8 +112,17 @@ contrario de lo que un panel tiene que decir.
 rejilla se cae a una columna — con aspecto de decisión de diseño, no de error.
 Ya pasó una vez. Por eso hay un token con la unidad puesta.
 
-Por debajo de los 984 px medidos (`UMBRAL_DE_PLEGADO.md`) la columna estrecha
-cae por debajo de su medida legible y la rejilla se apila.
+Por debajo de los **988 px** medidos (`UMBRAL_DE_PLEGADO.md`) la columna
+estrecha cae por debajo de su medida legible y la rejilla se apila. Inicio
+declara ese suelo en `--arles-medida: 684px` —el ancho por debajo del cual el
+panel deja de funcionar—, y de ahí sale el umbral de plegado: 684 + 240 de
+barra + 64 de márgenes.
+
+!i **Ese cambio movió el umbral de 984 a 988 px.** Un panel no tiene ancho de
+lectura, así que la sonda dejó de medir el `max-width` y pasó a medir el suelo
+declarado. Se cambió el criterio porque cambió lo medido: la prueba es que con
+el criterio nuevo la sonda **falló** y el número se subió al medido, no al
+revés.
 
 ### 3.5 Lo que no va aquí
 
@@ -162,43 +171,86 @@ una promesa implícita de que no hace falta.
 
 ## 4.2 La barra lateral · fija y plegable (P-11)
 
-Dirección lo pidió en la revisión del 14 de septiembre de 2026, con estas
-palabras: *«necesito que el menú ubicado en la lateral permanezca fijo y que lo
-demás que está en pantalla sea posible desplazarse. También necesito que ese
-menú fijo pueda comprimirse.»*
+> **Rediseñada el 17/09/2026** con los puntos 1, 2, 3 y 7 del brief de
+> Dirección. Capturas: `imagenes/tema-plegada-*.png`.
 
-Son dos peticiones, y las dos se construyeron en la entrega 3.1:
+### 4.2.1 La cabecera tiene altura fija, y por eso los iconos ya no saltan
 
-| | Qué hace | Cómo |
-|---|---|---|
-| **Fija** | Al desplazar una pantalla larga, la navegación no se va hacia arriba | El armazón tiene `height: 100vh`; lo único que se desplaza es el contenido. Con `min-height` la página entera crecía y se llevaba la navegación |
-| **Plegable** | Se reduce a sólo iconos | 240 px → 64 px |
+Dirección señaló que «los iconos saltan» al pulsar el botón de plegar. **Era
+cierto y estaba medido: 40 px.** El logotipo desaparecía al plegar y arrastraba
+hacia arriba todo lo que venía debajo.
 
-Las tres decisiones que Dirección tomó el 15 de septiembre:
+```
+DESPLEGADA                     PLEGADA
+┌────────────────────────┐     ┌──────┐
+│ ARLES RELAY I          │     │  A   │  ← misma altura reservada
+│                    [«] │     │ [»]  │  ← misma fila, mismo alto
+├────────────────────────┤     ├──────┤
+│ ⌂  Inicio              │     │  ⌂   │  ← y = 124 px en los dos
+```
 
-| Pregunta | Decisión | Consecuencia |
-|---|---|---|
-| ¿Cómo se pliega? | **A mano y sola** | Hay un botón, y además un umbral por debajo del cual se pliega sin que nadie lo pida |
-| ¿Qué queda plegada? | **Iconos sin texto** | Hicieron falta **seis iconos nuevos**: `AIcono` tenía trece y ninguno era de sección |
-| ¿Se recuerda al reabrir? | **Sí** | La preferencia vive en la base cifrada, no en `localStorage`: ver la migración `V2` |
+La corrección es reservar la altura en los dos estados. Es una afirmación
+geométrica, así que **se mide**: `sonda:cabecera` falla si la navegación se
+desplaza más de un píxel. Probada rompiéndola —devolviendo el `v-if` de la
+marca— y devuelve los 40 px originales.
 
-Tres detalles que no son obvios:
+### 4.2.2 Plegada va el isotipo, no el logotipo recortado
 
-1. **Plegada se quita el texto, no el nombre accesible.** El texto sigue en el
-   árbol de accesibilidad, oculto sólo a la vista. Con `display: none` un lector
-   de pantalla anunciaría seis enlaces sin nombre, que es justo lo que
-   `sonda:lector` prohíbe.
-2. **El plegado automático no pisa la preferencia del usuario.** Lo que eligió
-   se conserva; al ensanchar la ventana vuelve a aplicarse. Si el automático
-   sobrescribiera la preferencia, agrandar la ventana habría borrado una
-   elección que nadie tocó.
-3. **Mientras se pliega sola, el botón queda deshabilitado y dice por qué.**
-   Un control que se puede pulsar y no hace nada se lee como una avería.
+«ARLES RELAY» en Mont Black no entra en 64 px, y el §21 prohíbe condensarlo. En
+su lugar va **la misma «A» que el sistema operativo enseña en la barra de
+tareas**, con su placa y sus colores.
 
-**El umbral está medido, no elegido.** Cómo, con qué resultado y qué queda
-pendiente: `documentacion/06-calidad/UMBRAL_DE_PLEGADO.md`.
+=> Esos dos colores —`--arles-marca-fondo` y `--arles-marca-tinta`— **no se
+invierten con el tema**, y son los únicos del sistema que no lo hacen. El icono
+de la barra de tareas no cambia cuando cambias el tema de Windows; éste es ese
+icono.
 
----
+!i Primero se probó con la placa en `--arles-surface`, que en tema oscuro **es
+el mismo color que la barra lateral**: la placa desaparecía y quedaba una «A»
+flotando. Ahora usa el color real de la placa del icono (`#045686`), que
+contrasta con la barra en los dos temas.
+
+El nombre accesible no cambia: quien usa lector de pantalla oye «ARLES RELAY»,
+no la letra «A» suelta.
+
+### 4.2.3 El botón de plegar vive siempre en el mismo sitio
+
+Antes cambiaba de alineación al plegar —de la derecha al centro— y había que
+buscarlo dos veces. Ahora tiene **su propia fila**, pegado al borde donde está
+la barra.
+
+### 4.2.4 Los iconos ya no heredan el cuerpo del texto
+
+Estaban a `1em`, es decir **14 px**, que en una barra de 240 px se ve de
+juguete y plegada es lo único que hay. Pasan a `--arles-icono-nav: 20px`, igual
+en los dos estados.
+
+Las filas llevan además alto explícito: con `padding` y un icono de 20 px medían
+36 px desplegadas y 34 plegadas, y la lista se descuadraba al plegar.
+
+### 4.2.5 El numeral «ARLES RELAY I»
+
+Arriba a la izquierda, como pidió Dirección. **El numeral no es parte del
+logotipo**: el logotipo dice ARLES RELAY (§21) y el «I» pertenece al nombre
+comercial, así que va en una propiedad aparte del componente y con tinta
+apagada.
+
+La regla de ADR-0010 que sigue en pie: **nunca adyacente al número de versión.**
+«ARLES RELAY I v1.2.0» hace pensar que el «I» es la versión 1. Aquí el numeral
+está arriba y la versión en el pie, con toda la navegación en medio.
+
+### 4.2.6 El pie: el logotipo de TELEMETRY, enlazado
+
+Sustituye a «Software desarrollado por TELEMETRY INSIGHT» en texto. El logotipo
+y la versión **comparten fila y línea de base**; antes iban apilados y la
+versión colgaba sin alinearse con nada, que es lo que Dirección señaló en el
+punto 4.2 de su brief.
+
+Abre **telemetrymx.com en el navegador del sistema**, no dentro de la ventana:
+una WebView que navega a internet deja de ser una aplicación y pasa a ser un
+navegador sin barra de direcciones, donde el usuario no puede saber dónde está.
+
+=> **El comando de Rust no recibe la URL.** Ver `MARCA_TELEMETRY.md` §5.
 
 ## 5. Flujo de campaña (§40)
 

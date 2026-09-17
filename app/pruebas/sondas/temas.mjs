@@ -196,6 +196,22 @@ try {
       console.log(`  ✓ ${archivo}`)
     }
   }
+
+  // La barra plegada: el isotipo en el sitio de la marca y el botón en el
+  // suyo. Es el estado que Dirección señaló, así que tiene que verse.
+  for (const tema of TEMAS) {
+    await pagina.goto(`http://localhost:${PUERTO}/#/inicio`, { waitUntil: 'networkidle' })
+    await pagina.evaluate((t) => {
+      document.documentElement.setAttribute('data-tema', t)
+    }, tema)
+    await pagina.click('.plegador')
+    await pagina.waitForTimeout(600)
+    const archivo = `tema-plegada-${tema}.png`
+    await pagina.screenshot({ path: join(IMAGENES, archivo) })
+    console.log(`  ✓ ${archivo}`)
+    await pagina.click('.plegador')
+    await pagina.waitForTimeout(400)
+  }
 } finally {
   await navegador?.close()
   servidor?.close()
