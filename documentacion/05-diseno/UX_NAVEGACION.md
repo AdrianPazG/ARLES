@@ -252,6 +252,56 @@ navegador sin barra de direcciones, donde el usuario no puede saber dónde está
 
 => **El comando de Rust no recibe la URL.** Ver `MARCA_TELEMETRY.md` §5.
 
+## 4.3 Proporciones y espacio muerto
+
+> Punto 5 del brief de Dirección, cerrado el 17/09/2026. Capturas a 1600 px:
+> `imagenes/tema-ancha-*.png`.
+
+### 4.3.1 El problema no era que sobrara aire, era que estaba a un lado
+
+El contenido se pegaba al borde izquierdo y dejaba el resto de la ventana
+vacío: en un monitor de 1920 px, la mitad derecha era hueco. **Aire simétrico
+es respiración; aire todo a un lado se lee como una pantalla sin terminar.**
+
+Dos correcciones distintas, porque son dos problemas distintos:
+
+| | |
+|---|---|
+| **Toda pantalla** | se limita a `--arles-ancho-pagina` (1160 px) y **se centra**. La regla vive en el armazón, no en cada pantalla: una que se olvidara volvería a pegarse al borde |
+| **Ajustes** | a partir de 1240 px reparte el ancho entre el formulario y **su contexto** |
+
+### 4.3.2 El aire no se quita estirando: se llena con lo que ya había
+
+Lo fácil habría sido dejar que el formulario creciera hasta llenar la ventana.
+Un campo de texto de 1200 px de ancho **es peor de rellenar, no mejor**: el ojo
+pierde la relación entre la etiqueta y el campo.
+
+Así que el formulario conserva su medida de 62 ch y lo que sobra pasa a llevar
+lo que antes estaba debajo: el aviso de la zona horaria y los seis pasos del
+alta. Mismo contenido, dos columnas, cero hueco.
+
+=> La segunda columna aparece **a partir de 1240 px, no en cuanto cabe**. A 988
+cabría a duras penas y empujaría el umbral de plegado automático hasta casi el
+ancho mínimo de la ventana.
+
+### 4.3.3 Una pantalla puede pedir todo el ancho
+
+`--arles-ancho-pagina: none` sobre la pantalla. Está pensado para lo que
+todavía no existe: una tabla de 500 000 filas quiere cada píxel, y limitarla a
+1160 sería el error contrario.
+
+### 4.3.4 Lo que sigue vacío, y por qué no se rellena
+
+En Inicio queda espacio **vertical** libre. Es consecuencia directa de la regla
+de §3.2: los módulos de campañas, canales y actividad no se maquetan hasta que
+tengan algo que decir.
+
+!i Se podría rellenar con una gráfica decorativa o con contadores sin contexto.
+Sería mentir sobre lo que la aplicación sabe hacer hoy, y el módulo «Lo que
+falta por construir» dice la verdad en el mismo sitio.
+
+---
+
 ## 5. Flujo de campaña (§40)
 
 Nueve pasos, en un asistente con pasos visitables hacia atrás y borrador guardado automáticamente.

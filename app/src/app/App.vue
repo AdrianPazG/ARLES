@@ -407,20 +407,25 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
 
 /* La pieza llega a sangre —la tinta toca los cuatro bordes— así que el aire lo
    pone el botón, no el archivo (MARCA_TELEMETRY.md §4). Proporción 3.108:1: se
-   fija el ancho y el alto sale solo. */
+   fija el ancho y el alto sale solo.
+
+   **Va como máscara, no como imagen.** El logotipo es de un solo color sobre
+   transparencia, así que el color puede venir del token y seguir al tema solo.
+   La primera versión traía las dos piezas teñidas y elegía con una regla de
+   CSS; esa regla **se descartó al compilar** y el pie se quedó con la tinta
+   crema sobre papel claro, casi invisible. Con máscara no hay regla que
+   descartar: sólo hay una pieza y su color es el del texto. */
 .logo-telemetry {
   display: block;
   width: 116px;
   height: 37px;
-  background-image: url('./activos/marca/telemetry-horizontal-tema-oscuro.png');
-  background-size: contain;
-  background-repeat: no-repeat;
-}
-
-/* En tema claro la tinta crema desaparecería sobre el papel: se cambia la
-   pieza entera, no se filtra. */
-:global(:root[data-tema='claro']) .logo-telemetry {
-  background-image: url('./activos/marca/telemetry-horizontal-tema-claro.png');
+  background-color: var(--arles-text-muted);
+  mask-image: url('./activos/marca/telemetry-horizontal-mascara.png');
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-image: url('./activos/marca/telemetry-horizontal-mascara.png');
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
 }
 
 .version {

@@ -140,114 +140,125 @@ async function enviar(): Promise<void> {
       </p>
     </header>
 
-    <!-- `@input` en el formulario y no un `watch` sobre el objeto: «Configuración
+    <!-- ── Dos columnas cuando hay ancho ─────────────────────────────────
+         El formulario conserva su medida de 62 ch —un campo de 1200 px de
+         ancho es peor de rellenar, no mejor— y lo que sobraba a la derecha
+         pasa a llevar el contexto: por qué importa la zona horaria y en qué
+         punto del alta va el usuario.
+
+         Antes ese espacio estaba **vacío**, con el formulario pegado al borde
+         izquierdo y la mitad derecha de la ventana en blanco. El aire no se
+         quita estirando el formulario: se llena con lo que ya existía debajo. -->
+    <div class="dos-columnas">
+      <!-- `@input` en el formulario y no un `watch` sobre el objeto: «Configuración
          guardada» junto a un formulario que ya se está editando afirma algo que
          ha dejado de ser cierto, pero vigilar el objeto descartaba el aviso en
          el mismo instante en que aparecía —al guardar, la respuesta del núcleo
          rellena el formulario con los valores normalizados, y eso es una
          escritura—. El evento nativo sólo lo dispara una persona escribiendo. -->
-    <form
-      class="formulario"
-      novalidate
-      @input="empresa.descartarAviso()"
-      @submit.prevent="enviar"
-    >
-      <h2 class="subtitulo">
-        {{ $t('empresa.titulo') }}
-      </h2>
+      <form
+        class="formulario"
+        novalidate
+        @input="empresa.descartarAviso()"
+        @submit.prevent="enviar"
+      >
+        <h2 class="subtitulo">
+          {{ $t('empresa.titulo') }}
+        </h2>
 
-      <AEntrada
-        v-model="formulario.nombreComercial"
-        :etiqueta="$t('empresa.campo.nombreComercial')"
-        :ayuda="$t('empresa.ayuda.nombreComercial')"
-        :error="errorDe('nombreComercial')"
-        requerido
-        autocompletado="organization"
-      />
+        <AEntrada
+          v-model="formulario.nombreComercial"
+          :etiqueta="$t('empresa.campo.nombreComercial')"
+          :ayuda="$t('empresa.ayuda.nombreComercial')"
+          :error="errorDe('nombreComercial')"
+          requerido
+          autocompletado="organization"
+        />
 
-      <ASelector
-        v-model="formulario.pais"
-        :etiqueta="$t('empresa.campo.pais')"
-        :ayuda="$t('empresa.ayuda.pais')"
-        :error="errorDe('pais')"
-        :opciones="opcionesDePais"
-      />
+        <ASelector
+          v-model="formulario.pais"
+          :etiqueta="$t('empresa.campo.pais')"
+          :ayuda="$t('empresa.ayuda.pais')"
+          :error="errorDe('pais')"
+          :opciones="opcionesDePais"
+        />
 
-      <ASelector
-        v-model="formulario.zonaHoraria"
-        :etiqueta="$t('empresa.campo.zonaHoraria')"
-        :ayuda="$t('empresa.ayuda.zonaHoraria')"
-        :error="errorDe('zonaHoraria')"
-        :opciones="opcionesDeZona"
-      />
+        <ASelector
+          v-model="formulario.zonaHoraria"
+          :etiqueta="$t('empresa.campo.zonaHoraria')"
+          :ayuda="$t('empresa.ayuda.zonaHoraria')"
+          :error="errorDe('zonaHoraria')"
+          :opciones="opcionesDeZona"
+        />
 
-      <AEntrada
-        v-model="formulario.correoCorporativo"
-        tipo="email"
-        :etiqueta="$t('empresa.campo.correoCorporativo')"
-        :ayuda="$t('empresa.ayuda.correoCorporativo')"
-        :error="errorDe('correoCorporativo')"
-        requerido
-      />
+        <AEntrada
+          v-model="formulario.correoCorporativo"
+          tipo="email"
+          :etiqueta="$t('empresa.campo.correoCorporativo')"
+          :ayuda="$t('empresa.ayuda.correoCorporativo')"
+          :error="errorDe('correoCorporativo')"
+          requerido
+        />
 
-      <AEntrada
-        v-model="formulario.sitioWeb"
-        :etiqueta="$t('empresa.campo.sitioWeb')"
-        :ayuda="$t('empresa.ayuda.sitioWeb')"
-        :error="errorDe('sitioWeb')"
-        marcador="https://"
-      />
+        <AEntrada
+          v-model="formulario.sitioWeb"
+          :etiqueta="$t('empresa.campo.sitioWeb')"
+          :ayuda="$t('empresa.ayuda.sitioWeb')"
+          :error="errorDe('sitioWeb')"
+          marcador="https://"
+        />
 
-      <!-- Dos avisos distintos a propósito: uno dice que el formulario tiene
+        <!-- Dos avisos distintos a propósito: uno dice que el formulario tiene
            campos malos —y los campos están marcados—, y el otro que el fallo
            no es del formulario. Mezclarlos haría buscar un campo rojo que no
            existe. -->
-      <AAviso
-        v-if="hayErroresDeCampo"
-        tono="peligro"
-        urgente
-        :titulo="resumenDeCampos.que"
-      >
-        {{ resumenDeCampos.como }} {{ resumenDeCampos.salvo }}
-      </AAviso>
-
-      <AAviso
-        v-if="errorGeneral"
-        tono="peligro"
-        urgente
-        :titulo="errorGeneral.que"
-      >
-        {{ errorGeneral.como }} {{ errorGeneral.salvo }}
-      </AAviso>
-
-      <EstadoExito
-        v-if="empresa.guardadoConExito"
-        :titulo="$t('empresa.guardada')"
-        :detalle="$t('empresa.guardadaDetalle')"
-      />
-
-      <div class="acciones">
-        <ABoton
-          variante="primario"
-          tipo="submit"
-          :ocupado="empresa.guardando"
+        <AAviso
+          v-if="hayErroresDeCampo"
+          tono="peligro"
+          urgente
+          :titulo="resumenDeCampos.que"
         >
-          {{ $t('empresa.guardar') }}
-        </ABoton>
-      </div>
-    </form>
+          {{ resumenDeCampos.como }} {{ resumenDeCampos.salvo }}
+        </AAviso>
 
-    <!-- §67: la zona horaria no es un dato decorativo. Decide a qué hora sale
+        <AAviso
+          v-if="errorGeneral"
+          tono="peligro"
+          urgente
+          :titulo="errorGeneral.que"
+        >
+          {{ errorGeneral.como }} {{ errorGeneral.salvo }}
+        </AAviso>
+
+        <EstadoExito
+          v-if="empresa.guardadoConExito"
+          :titulo="$t('empresa.guardada')"
+          :detalle="$t('empresa.guardadaDetalle')"
+        />
+
+        <div class="acciones">
+          <ABoton
+            variante="primario"
+            tipo="submit"
+            :ocupado="empresa.guardando"
+          >
+            {{ $t('empresa.guardar') }}
+          </ABoton>
+        </div>
+      </form>
+
+      <aside class="contexto">
+        <!-- §67: la zona horaria no es un dato decorativo. Decide a qué hora sale
          cada correo, y decirlo aquí evita la conversación de por qué una
          campaña salió a las tres de la mañana. -->
-    <AAviso
-      tono="info"
-      :titulo="$t('empresa.porQueLaZona')"
-    >
-      {{ $t('empresa.porQueLaZonaDetalle') }}
-    </AAviso>
+        <AAviso
+          tono="info"
+          :titulo="$t('empresa.porQueLaZona')"
+        >
+          {{ $t('empresa.porQueLaZonaDetalle') }}
+        </AAviso>
 
-    <!-- ── Los seis pasos del alta ──────────────────────────────────────────
+        <!-- ── Los seis pasos del alta ──────────────────────────────────────────
          Vivían en Inicio. Dirección pidió que Inicio dejara de ser una lista
          de configuración, así que el detalle se muda aquí, que es donde se
          configura, y en Inicio queda la cifra y la acción siguiente.
@@ -257,70 +268,72 @@ async function enviar(): Promise<void> {
          lista completa al terminar el primero y concluiría que ya puede
          enviar. Por eso los que aún no existen siguen apareciendo, con su
          entrega, y sin ser enlaces. -->
-    <section
-      class="alta"
-      aria-labelledby="titulo-alta"
-    >
-      <div class="cabecera-alta">
-        <h2
-          id="titulo-alta"
-          class="subtitulo"
+        <section
+          class="alta"
+          aria-labelledby="titulo-alta"
         >
-          {{ $t('inicio.alta') }}
-        </h2>
-        <!-- La cifra, no un adjetivo: «2 de 6» es verificable, «casi listo»
+          <div class="cabecera-alta">
+            <h2
+              id="titulo-alta"
+              class="subtitulo"
+            >
+              {{ $t('inicio.alta') }}
+            </h2>
+            <!-- La cifra, no un adjetivo: «2 de 6» es verificable, «casi listo»
              no (§94). -->
-        <p class="avance">
-          {{
-            $t('inicio.avance', {
-              hechos: empresa.onboarding.completados,
-              total: empresa.onboarding.total,
-            })
-          }}
-        </p>
-      </div>
-
-      <ol class="lista">
-        <li
-          v-for="paso in empresa.onboarding.pasos"
-          :key="paso.clave"
-          class="paso"
-          :class="{ hecho: paso.completado }"
-        >
-          <!-- Estado con icono Y texto, nunca sólo con color (regla 7.3):
-               quien no distingue el verde ve exactamente lo mismo. -->
-          <AIcono
-            class="marca"
-            :nombre="paso.completado ? 'exito' : 'cola'"
-            :etiqueta="paso.completado ? $t('inicio.hecho') : $t('inicio.pendiente')"
-          />
-
-          <div class="cuerpo-paso">
-            <p class="nombre">
-              <component
-                :is="paso.disponible && paso.ruta ? RouterLink : 'span'"
-                :to="paso.ruta ?? undefined"
-              >
-                {{ $t(`inicio.paso.${paso.clave}.titulo`) }}
-              </component>
-            </p>
-            <p class="detalle">
-              {{ $t(`inicio.paso.${paso.clave}.detalle`) }}
+            <p class="avance">
+              {{
+                $t('inicio.avance', {
+                  hechos: empresa.onboarding.completados,
+                  total: empresa.onboarding.total,
+                })
+              }}
             </p>
           </div>
 
-          <!-- Texto apagado y no `AInsignia`: con relleno sólido, los cinco
+          <ol class="lista">
+            <li
+              v-for="paso in empresa.onboarding.pasos"
+              :key="paso.clave"
+              class="paso"
+              :class="{ hecho: paso.completado }"
+            >
+              <!-- Estado con icono Y texto, nunca sólo con color (regla 7.3):
+               quien no distingue el verde ve exactamente lo mismo. -->
+              <AIcono
+                class="marca"
+                :nombre="paso.completado ? 'exito' : 'cola'"
+                :etiqueta="paso.completado ? $t('inicio.hecho') : $t('inicio.pendiente')"
+              />
+
+              <div class="cuerpo-paso">
+                <p class="nombre">
+                  <component
+                    :is="paso.disponible && paso.ruta ? RouterLink : 'span'"
+                    :to="paso.ruta ?? undefined"
+                  >
+                    {{ $t(`inicio.paso.${paso.clave}.titulo`) }}
+                  </component>
+                </p>
+                <p class="detalle">
+                  {{ $t(`inicio.paso.${paso.clave}.detalle`) }}
+                </p>
+              </div>
+
+              <!-- Texto apagado y no `AInsignia`: con relleno sólido, los cinco
                pasos que NO se pueden hacer pesaban más en la pantalla que el
                único que sí. -->
-          <p
-            v-if="!paso.disponible"
-            class="cuando"
-          >
-            {{ $t('inicio.llegaEn', { entrega: paso.entrega }) }}
-          </p>
-        </li>
-      </ol>
-    </section>
+              <p
+                v-if="!paso.disponible"
+                class="cuando"
+              >
+                {{ $t('inicio.llegaEn', { entrega: paso.entrega }) }}
+              </p>
+            </li>
+          </ol>
+        </section>
+      </aside>
+    </div>
   </section>
 </template>
 
@@ -398,15 +411,38 @@ async function enviar(): Promise<void> {
 }
 
 .pantalla {
-  /* Un formulario sí es pantalla de lectura: su medida y su tope coinciden.
-     Se declara igual que en el panel para que la sonda del umbral de plegado
-     mida lo mismo en las dos. */
+  /* El suelo: el ancho por debajo del cual la pantalla deja de funcionar, que
+     aquí es la medida del formulario. **No es el tope**: el tope lo pone
+     `--arles-ancho-pagina` en el armazón, y entre los dos cabe la columna de
+     contexto. Confundirlos fue lo que dejó media ventana en blanco. */
   --arles-medida: 540px;
 
   display: flex;
   flex-direction: column;
   gap: var(--arles-space-6);
-  max-width: 62ch;
+}
+
+/* La segunda columna aparece **sólo cuando sobra ancho de verdad**, no en
+   cuanto cabe: a 988 px cabría a duras penas y empujaría el umbral de plegado
+   automático hasta casi el ancho mínimo de la ventana. 1240 deja el formulario
+   a su medida y la columna de contexto legible. */
+.dos-columnas {
+  display: grid;
+  gap: var(--arles-space-6);
+}
+
+@media (width >= 1240px) {
+  .dos-columnas {
+    grid-template-columns: 62ch 1fr;
+    align-items: start;
+  }
+}
+
+.contexto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-6);
+  min-width: 0;
 }
 
 .titulo {

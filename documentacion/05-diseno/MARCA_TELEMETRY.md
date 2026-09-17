@@ -49,6 +49,21 @@ material de sólo lectura por instrucción de Dirección— y escribe en
 |---|---|---|---|
 | `telemetry-horizontal-tema-oscuro.png` | `#F4ECE4` | `--arles-text` | tema oscuro |
 | `telemetry-horizontal-tema-claro.png` | `#041A25` | `--arles-bg-deep` | tema claro y papel |
+| `telemetry-horizontal-mascara.png` | — | ninguno | **la que usa la interfaz** |
+
+### Dentro de la aplicación va la máscara, no la pieza teñida
+
+La primera versión llevaba las dos piezas teñidas y elegía con una regla de
+CSS. **Esa regla se descartó al compilar** —un `:global()` dentro de estilos
+con ámbito— y el pie se quedó con la tinta crema sobre papel claro, casi
+invisible. No falló nada: simplemente la regla no existía en el CSS final.
+
+=> Ahora la interfaz usa **una sola pieza como máscara** y el color lo pone
+`--arles-text-muted`. No hay regla que descartar, no hay dos archivos entre los
+que elegir, y el logotipo **no puede quedarse con la tinta del otro tema**.
+
+Las dos piezas teñidas siguen existiendo para el papel y para cualquier sitio
+donde no se pueda enmascarar.
 
 **Los nombres dicen a qué tema sirven, no de qué color son.** Los originales
 hacen lo contrario —«Blanco» describe la tinta— y es justo lo que lleva a

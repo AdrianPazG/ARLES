@@ -40,10 +40,17 @@
   --arles-font-family: 'Mont', 'Figtree', system-ui, -apple-system, 'Segoe UI',
     sans-serif;
 
-  --arles-font-size-display: 32px;
-  --arles-line-height-display: 40px;
-  --arles-font-size-h1: 24px;
-  --arles-line-height-h1: 32px;
+  /* La escala tiene DOS tramos a propósito.
+     De `h2` para abajo es densa —base 14, razón ~1.2—, que es lo que quiere
+     una aplicación llena de tablas y formularios. Los dos títulos de arriba
+     van por libre: Dirección señaló que los títulos se veían pequeños, y con
+     una sola razón la única forma de agrandarlos era engordar también el
+     cuerpo y las tablas. Un `h1` de 24 px sobre cuerpo de 14 apenas se
+     distingue de un `h2`; a 28 manda sin empujar nada. */
+  --arles-font-size-display: 36px;
+  --arles-line-height-display: 44px;
+  --arles-font-size-h1: 28px;
+  --arles-line-height-h1: 36px;
   --arles-font-size-h2: 20px;
   --arles-line-height-h2: 28px;
   --arles-font-size-h3: 16px;
@@ -90,6 +97,16 @@
   --arles-menu-min-width: 200px;
 
   /* Layout */
+
+  /* Ancho útil de una pantalla. Sin esto, el contenido se pegaba al borde
+     izquierdo y dejaba el resto de la ventana vacío: en un monitor de 1920 la
+     mitad derecha era hueco. Ahora la columna se limita y se centra, que es
+     la diferencia entre «hay aire» y «está sin terminar».
+
+     Una pantalla que de verdad quiera todo el ancho —una tabla de 500 000
+     filas— lo pide poniéndose `--arles-ancho-pagina: none`. */
+  --arles-ancho-pagina: 1160px;
+
   --arles-nav-width: 240px;
   /* Barra lateral plegada (P-11): 24 px de icono más 20 px de holgura a cada
      lado.
@@ -128,6 +145,15 @@
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* Toda pantalla se limita y se centra dentro del área de contenido. Vive aquí
+   y no en cada pantalla porque es una regla del armazón: una pantalla que se
+   olvidara de ponerla volvería a pegarse al borde, y eso es justo lo que
+   Dirección señaló. */
+.pantalla {
+  max-width: var(--arles-ancho-pagina);
+  margin-inline: auto;
 }
 
 html,

@@ -71,6 +71,18 @@ SALIDAS = {
     "telemetry-horizontal-tema-claro.png": "--arles-bg-deep",
 }
 
+#: La misma pieza como **máscara**: blanca sobre transparencia.
+#:
+#: Es la que usa la interfaz. Las dos teñidas de arriba siguen existiendo para
+#: el papel y para cualquier sitio donde no se pueda enmascarar, pero dentro de
+#: la aplicación una máscara es estrictamente mejor: el color lo pone el token
+#: y el logotipo **no puede quedarse con la tinta del otro tema**.
+#:
+#: Ya pasó: con dos archivos y una regla de CSS para elegir, la regla del tema
+#: claro se descartó al compilar y el pie se quedó con la tinta crema sobre
+#: papel claro, casi invisible. Con máscara no hay regla que descartar.
+MASCARA_SALIDA = "telemetry-horizontal-mascara.png"
+
 
 def tintas() -> dict[str, str]:
     datos = json.loads(TOKENS.read_text(encoding="utf-8"))
@@ -128,6 +140,12 @@ def main() -> int:
         lienzo.save(DESTINO / nombre, optimize=True)
         peso = (DESTINO / nombre).stat().st_size
         print(f"  ✓ {nombre}  {ANCHO}×{alto}  {token} {hexa}  {peso / 1024:.1f} kB")
+
+    lienzo = Image.new("RGBA", mascara.size, (255, 255, 255, 0))
+    lienzo.putalpha(mascara)
+    lienzo.save(DESTINO / MASCARA_SALIDA, optimize=True)
+    peso = (DESTINO / MASCARA_SALIDA).stat().st_size
+    print(f"  ✓ {MASCARA_SALIDA}  {ANCHO}×{alto}  máscara  {peso / 1024:.1f} kB")
     return 0
 
 

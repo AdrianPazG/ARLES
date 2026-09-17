@@ -40,6 +40,11 @@ const IMAGENES = join(APP, '../documentacion/05-diseno/imagenes')
 const PUERTO = 4177
 
 const VENTANA = { width: 1120, height: 760 }
+
+/** La ventana donde Dirección vio el espacio muerto. A 1120 px no hay hueco
+ *  que enseñar —el contenido llena—, así que capturar sólo ahí escondería
+ *  justo lo que hay que revisar. */
+const VENTANA_ANCHA = { width: 1600, height: 900 }
 const EJECUTABLE = exigirChromium()
 
 /** El mismo doble del núcleo que usa la sonda de referencias de la 3.1: lo
@@ -195,6 +200,29 @@ try {
       })
       console.log(`  ✓ ${archivo}`)
     }
+  }
+
+  // En pantalla ancha: la columna se limita y se centra, y Ajustes reparte el
+  // ancho entre el formulario y su contexto en vez de dejarlo en blanco.
+  {
+    const ancha = await navegador.newPage({
+      viewport: VENTANA_ANCHA,
+      deviceScaleFactor: 1,
+    })
+    await ancha.addInitScript(nucleoSimulado)
+    for (const [nombre, ruta] of [['inicio', '/inicio'], ['ajustes', '/ajustes']]) {
+      for (const tema of TEMAS) {
+        await ancha.goto(`http://localhost:${PUERTO}/#${ruta}`, { waitUntil: 'networkidle' })
+        await ancha.evaluate((t) => {
+          document.documentElement.setAttribute('data-tema', t)
+        }, tema)
+        await ancha.waitForTimeout(450)
+        const archivo = `tema-ancha-${nombre}-${tema}.png`
+        await ancha.screenshot({ path: join(IMAGENES, archivo) })
+        console.log(`  ✓ ${archivo}`)
+      }
+    }
+    await ancha.close()
   }
 
   // La barra plegada: el isotipo en el sitio de la marca y el botón en el

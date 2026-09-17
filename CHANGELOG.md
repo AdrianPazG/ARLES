@@ -12,6 +12,45 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Proporciones y espacio muerto
+
+- **El problema no era que sobrara aire, era que estaba todo a un lado.** El
+  contenido se pegaba al borde izquierdo y en un monitor de 1920 px la mitad
+  derecha quedaba vacía. Toda pantalla se limita ahora a
+  `--arles-ancho-pagina` y **se centra**; la regla vive en el armazón, porque
+  una pantalla que se olvidara de ponerla volvería a pegarse al borde.
+- **Ajustes reparte el ancho en vez de estirarse.** Lo fácil habría sido dejar
+  crecer el formulario hasta llenar la ventana, pero un campo de 1200 px es
+  peor de rellenar, no mejor. El formulario conserva su medida de 62 ch y lo
+  que sobra pasa a llevar lo que antes estaba debajo: el aviso de la zona
+  horaria y los seis pasos del alta. La segunda columna aparece **a partir de
+  1240 px, no en cuanto cabe** — a 988 empujaría el umbral de plegado hasta
+  casi el ancho mínimo de la ventana.
+- **Los títulos eran pequeños y ahora no.** `h1` sube de 24 a **28** y
+  `display` de 32 a **36**. La escala pasa a tener dos tramos a propósito: de
+  `h2` para abajo sigue densa —base 14, razón 1.2, que es lo que quiere una
+  aplicación llena de tablas— y los dos títulos de arriba van por libre. Con
+  una sola razón, agrandar los títulos obligaba a engordar también el cuerpo.
+- Una pantalla puede pedir todo el ancho con `--arles-ancho-pagina: none`.
+  Está para lo que aún no existe: una tabla de 500 000 filas quiere cada píxel.
+
+#### El logotipo del pie salía con la tinta del tema contrario
+
+- Llevaba las dos piezas teñidas y elegía con una regla de CSS. **La regla se
+  descartó al compilar** —un `:global()` dentro de estilos con ámbito— y el pie
+  se quedaba con la tinta crema sobre papel claro, casi invisible. No falló
+  nada: la regla simplemente no existía en el CSS final, y sólo se vio mirando
+  el render en ancho.
+- Ahora la interfaz usa **una sola pieza como máscara** y el color lo pone el
+  token. No hay regla que descartar ni dos archivos entre los que elegir.
+
+#### Lo que sigue vacío, y no se rellena
+
+- En Inicio queda espacio **vertical** libre, consecuencia directa de no
+  maquetar módulos que no pueden decir nada cierto. Rellenarlo con una gráfica
+  decorativa o contadores sin contexto sería mentir sobre lo que la aplicación
+  sabe hacer hoy.
+
 ### La barra lateral
 
 - **Los iconos ya no saltan al plegar, y está medido.** Dirección lo señaló y

@@ -39,7 +39,18 @@ El §21 del propio brief ordena detenerse ante esto — y nos detuvimos en el pu
 
 ### Escala
 
-Base **14 px**, escala ~1.2. Densidad de aplicación de escritorio, no de página web.
+Base **14 px**, escala ~1.2 **de `h2` para abajo**. Densidad de aplicación de
+escritorio, no de página web.
+
+**Los dos títulos de arriba van por libre** (17/09/2026). Dirección señaló que
+los títulos se veían pequeños, y con una sola razón la única forma de
+agrandarlos era engordar también el cuerpo y las tablas —justo lo que una
+aplicación con tablas de 500 000 filas no quiere—. Un `h1` de 24 px sobre
+cuerpo de 14 apenas se distingue de un `h2`; a **28** manda sin empujar nada.
+`display` sube de 32 a **36** por la misma razón.
+
+Comprobado después del cambio: la sonda de escalado de Windows sigue en verde
+al 100, 125, 150, 175, 200 y 250 %.
 
 | Rol | Tamaño / Interlínea | Peso | Uso |
 |---|---|---|---|
@@ -163,8 +174,8 @@ Bajo. La escala, la jerarquía y los tokens **no cambian** — sólo la familia.
   --arles-font-family: 'Mont', 'Figtree', system-ui, -apple-system,
                        'Segoe UI', sans-serif;
 
-  --arles-font-size-display: 32px;  --arles-line-height-display: 40px;
-  --arles-font-size-h1:      24px;  --arles-line-height-h1:      32px;
+  --arles-font-size-display: 36px;  --arles-line-height-display: 44px;
+  --arles-font-size-h1:      28px;  --arles-line-height-h1:      36px;
   --arles-font-size-h2:      20px;  --arles-line-height-h2:      28px;
   --arles-font-size-h3:      16px;  --arles-line-height-h3:      24px;
   --arles-font-size-body:    14px;  --arles-line-height-body:    20px;
