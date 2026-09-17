@@ -11,6 +11,7 @@
   --arles-surface-raised: #045686;  /* Tarjetas, modales */
   --arles-surface-hover : #0C6F9D;  /* Estado transitorio */
   --arles-border-strong : #93D4EE;  /* Borde de énfasis y límite de control. Sube hasta aquí porque tiene que verse también dentro de una tarjeta (1.4.11). */
+  --arles-nav-activo    : #045686;  /* Fondo de la sección activa en la navegación. Token propio y no `--arles-surface-raised`: en tema claro esa superficie es blanco puro sobre una barra casi blanca —1.06:1— y el relleno no marcaba nada. */
 
   /* Contenido y acento */
   --arles-text         : #F4ECE4;  /* Texto primario */
@@ -50,6 +51,7 @@
   --arles-surface-raised: #FFFFFF;
   --arles-surface-hover : #E7DFD4;
   --arles-border-strong : #8A7A64;
+  --arles-nav-activo    : #A1C0D6;
   --arles-text          : #10242E;
   --arles-text-muted    : #46585F;
   --arles-accent        : #FCCC0C;

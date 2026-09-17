@@ -21,6 +21,12 @@
  * frente a 130.5 sin que nadie perciba nada.
  * ─────────────────────────────────────────────────────────────────────────
  *
+ * Comprueba además que **la barra de la sección activa se anima**, y que deja
+ * de animarse con `prefers-reduced-motion`. Una animación se escribe en una
+ * línea de CSS y se rompe con la misma facilidad —basta una regla que gane en
+ * especificidad— sin que nada falle: simplemente el estado salta. Por eso se
+ * mide el recorrido y no sólo el estado final.
+ *
  * Lo que NO prueba: que en macOS sea igual. Ahí el motor es WKWebView (R-07).
  */
 import { spawnSync } from 'node:child_process'
@@ -152,6 +158,67 @@ try {
   // El isotipo es lo que ocupa el sitio de la marca al plegar. Si dejara de
   // pintarse, el salto volvería — pero con la altura reservada el salto no lo
   // detectaría, así que se comprueba aparte.
+  // ── La barra de la sección activa se anima ──
+  //
+  // Se navega a otra sección y se mide la altura de la barra a mitad de
+  // camino: si el valor intermedio es el final, no hay animación, sólo un
+  // salto. `::before` no se puede seleccionar, así que se lee su estilo
+  // calculado.
+  const altoDeLaBarra = () =>
+    pagina.evaluate(() => {
+      const activo = document.querySelector('.nav-enlace.router-link-active')
+      if (!activo) return null
+      return parseFloat(getComputedStyle(activo, '::before').height)
+    })
+
+  const medirRecorrido = async () => {
+    // Se parte de OTRA sección. La primera versión iba a Inicio y después
+    // pulsaba Inicio: sin cambio de sección no hay nada que animar, y la
+    // sonda acusaba al producto de un fallo suyo.
+    await pagina.goto(`http://localhost:${PUERTO}/#/ajustes`, { waitUntil: 'networkidle' })
+    await pagina.waitForTimeout(500)
+    await pagina.click('.nav-lista li:first-child .nav-enlace')
+    // Un cuarto de la duración declarada (200 ms): lo bastante pronto para
+    // pillarla a medias y lo bastante tarde para que haya empezado.
+    await pagina.waitForTimeout(50)
+    const aMedias = await altoDeLaBarra()
+    await pagina.waitForTimeout(500)
+    return { aMedias, alFinal: await altoDeLaBarra() }
+  }
+
+  const { aMedias, alFinal } = await medirRecorrido()
+  console.log(`\n  barra activa: a los 50 ms = ${aMedias?.toFixed(1)} px,` +
+              ` al final = ${alFinal?.toFixed(1)} px`)
+
+  if (!alFinal || alFinal <= 0) {
+    console.error('\n✗ La sección activa no dibuja su barra de acento.')
+    codigo = 1
+  } else if (aMedias === null || aMedias >= alFinal - 0.5) {
+    console.error(
+      '\n✗ La barra de la sección activa NO se anima: a mitad de camino ya\n' +
+        '  está en su altura final. El movimiento dice a dónde se fue el estado;\n' +
+        '  sin él, la barra aparece de golpe en otro sitio.',
+    )
+    codigo = 1
+  } else {
+    console.log('✓ La barra de la sección activa se anima al cambiar de sección.')
+  }
+
+  // ── Y deja de animarse si el sistema lo pide ──
+  await pagina.emulateMedia({ reducedMotion: 'reduce' })
+  const reducido = await medirRecorrido()
+  console.log(`  con movimiento reducido: a los 50 ms = ${reducido.aMedias?.toFixed(1)} px`)
+  if (reducido.aMedias === null || reducido.aMedias < reducido.alFinal - 0.5) {
+    console.error(
+      '\n✗ Con `prefers-reduced-motion: reduce` la barra sigue animándose.\n' +
+        '  El §98 lo hace obligatorio, no opcional.',
+    )
+    codigo = 1
+  } else {
+    console.log('✓ Con movimiento reducido, la barra llega directa a su sitio.')
+  }
+  await pagina.emulateMedia({ reducedMotion: 'no-preference' })
+
   const isotipo = await pagina.locator('.marca .t-icono').count()
   if (isotipo !== 1) {
     console.error(

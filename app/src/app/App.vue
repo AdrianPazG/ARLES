@@ -320,6 +320,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
 }
 
 .nav-enlace {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--arles-space-3);
@@ -331,7 +332,39 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
   color: var(--arles-text-muted);
   text-decoration: none;
   font-weight: var(--arles-font-weight-semibold);
-  transition: background var(--arles-duration-fast) var(--arles-ease);
+  transition:
+    background var(--arles-duration-normal) var(--arles-ease),
+    color var(--arles-duration-normal) var(--arles-ease);
+}
+
+/* ── La barra de acento de la sección activa ────────────────────────────────
+   Es un pseudoelemento y no una sombra interior porque una sombra no se puede
+   animar por altura. Aquí crece desde el centro al entrar en la sección y se
+   recoge al salir — los dos a la vez, porque la clase se quita de un enlace y
+   se pone en otro en el mismo instante.
+
+   El movimiento tiene función (§98): dice **a dónde se fue** el estado. Una
+   animación decorativa en una barra de navegación se vuelve ruido a la tercera
+   vez que navegas; ésta dura 200 ms y sólo ocurre al cambiar de sección.
+
+   `prefers-reduced-motion` la anula, como todo lo demás: la regla global de
+   `base.css` reduce la transición a 0.01 ms, así que el estado final es el
+   mismo y sólo desaparece el recorrido. */
+.nav-enlace::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: var(--arles-space-1);
+  height: 0;
+  transform: translateY(-50%);
+  border-radius: 0 var(--arles-radius-sm) var(--arles-radius-sm) 0;
+  background: var(--arles-accent-ink);
+  transition: height var(--arles-duration-normal) var(--arles-ease);
+}
+
+.nav-enlace.router-link-active::before {
+  height: 60%;
 }
 
 .plegado .nav-enlace {
@@ -366,12 +399,17 @@ onBeforeUnmount(() => window.removeEventListener('resize', medir))
   color: var(--arles-text);
 }
 
-/* La sección activa se marca con color Y con una barra: el color solo no basta
-   (§19, COLOR_SYSTEM.md §7.3). */
+/* La sección activa se marca con relleno Y con barra: el color solo no basta
+   (§19, COLOR_SYSTEM.md §7.3).
+
+   El relleno es `--arles-nav-activo` y no `--arles-surface-raised`. Con la
+   superficie elevada, en tema claro el activo quedaba en blanco puro sobre una
+   barra casi blanca —**1.06:1**— y el relleno no aportaba nada: el estado se
+   sostenía sólo en la barra de acento. Ahora da 1.80, prácticamente lo mismo
+   que el 1.76 del tema oscuro. */
 .nav-enlace.router-link-active {
-  background: var(--arles-surface-raised);
+  background: var(--arles-nav-activo);
   color: var(--arles-text);
-  box-shadow: inset 3px 0 0 var(--arles-accent-ink);
 }
 
 /* Se distingue de la navegación real: no es una sección del producto, es una

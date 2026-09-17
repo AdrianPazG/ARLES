@@ -239,7 +239,45 @@ La regla de ADR-0010 que sigue en pie: **nunca adyacente al número de versión.
 «ARLES RELAY I v1.2.0» hace pensar que el «I» es la versión 1. Aquí el numeral
 está arriba y la versión en el pie, con toda la navegación en medio.
 
-### 4.2.6 El pie: el logotipo de TELEMETRY, enlazado
+### 4.2.6 La sección activa: relleno propio y barra que crece
+
+El activo se marcaba con **relleno y barra de acento**, y en tema oscuro las dos
+señales funcionaban. En claro no: el relleno reutilizaba
+`--arles-surface-raised`, que allí es **blanco puro sobre una barra casi
+blanca** —1.06:1—. El estado se sostenía sólo en la barra de acento.
+
+=> Token propio, `--arles-nav-activo`: `#045686` en oscuro y `#A1C0D6` en claro.
+Da **1.80:1** contra la barra, prácticamente lo mismo que el 1.76 del oscuro, y
+está en la misma familia de matiz —205° frente a 202°—, así que el claro es la
+traducción del oscuro y no otro color.
+
+| | Oscuro | Claro |
+|---|---|---|
+| Relleno contra la barra | 1.76:1 | **1.80:1** |
+| La etiqueta encima | 11.80:1 | **8.39:1** |
+| La barra de acento encima | 5.14:1 | **3.32:1** |
+
+!i El contrato que lo vigila **no es un mínimo de WCAG**: la barra de acento es
+la que cumple el 1.4.11. Es el suelo por debajo del cual el relleno deja de
+aportar nada, fijado en 1.5. Sin él, nada habría fallado el día que el relleno
+se volvió invisible.
+
+#### La barra crece, no aparece
+
+Al cambiar de sección la barra de acento **crece desde el centro** en 200 ms, y
+la del enlace anterior se recoge a la vez. El movimiento tiene función (§98):
+dice **a dónde se fue** el estado. Sin él la barra aparece de golpe en otro
+sitio y el ojo tiene que buscarla.
+
+Es un pseudoelemento y no una sombra interior, porque una sombra no se puede
+animar por altura.
+
+=> `prefers-reduced-motion` la anula, como todo lo demás. **Y se comprueba:**
+la sonda mide la altura a los 50 ms y falla si ya está en su valor final —con
+movimiento normal porque entonces no anima, y con movimiento reducido al revés,
+si sigue animando—. Probada quitando la transición: la detecta.
+
+### 4.2.7 El pie: el logotipo de TELEMETRY, enlazado
 
 Sustituye a «Software desarrollado por TELEMETRY INSIGHT» en texto. El logotipo
 y la versión **comparten fila y línea de base**; antes iban apilados y la

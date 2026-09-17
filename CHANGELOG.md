@@ -12,6 +12,29 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### La sección activa se ve en los dos temas, y su barra crece
+
+- **El relleno del activo era invisible en tema claro.** Reutilizaba
+  `--arles-surface-raised`, que allí es blanco puro sobre una barra casi blanca:
+  **1.06:1**. Las dos señales que marcan el estado se quedaban en una.
+- Token propio `--arles-nav-activo`: `#045686` en oscuro, `#A1C0D6` en claro.
+  Da **1.80:1** contra la barra —el oscuro da 1.76— y está en la misma familia
+  de matiz, 205° frente a 202°: es la traducción del oscuro, no otro color.
+- **El contrato que lo vigila no es un mínimo de WCAG.** La barra de acento es
+  la que cumple el 1.4.11; éste es el suelo por debajo del cual el relleno deja
+  de aportar nada, fijado en 1.5. Sin él, nada habría fallado el día que el
+  relleno se volvió invisible.
+- **La barra de acento crece desde el centro** al cambiar de sección, en 200 ms,
+  mientras la anterior se recoge. El movimiento dice a dónde se fue el estado;
+  sin él la barra aparece de golpe en otro sitio. Es un pseudoelemento y no una
+  sombra interior porque una sombra no se puede animar por altura.
+- **Y se comprueba que anima.** La sonda mide la altura a los 50 ms y falla si
+  ya está en su valor final. Con `prefers-reduced-motion` exige lo contrario.
+  Probada quitando la transición: la detecta.
+- De paso, la propia sonda tenía un fallo: navegaba a Inicio y después pulsaba
+  Inicio, así que no había cambio de sección que animar y acusaba al producto de
+  un defecto suyo.
+
 ### El logotipo de TELEMETRY ya no desaparece al plegar
 
 - Con la barra plegada el logotipo horizontal no entra en 64 px y **se quitaba
