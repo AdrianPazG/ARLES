@@ -179,6 +179,52 @@ se mide cuál rinde; no se genera ni muta texto para esquivar filtros), **L-9**
 (dos modos: «Seguimiento» y «Prospección Directa») y **L-10** (CONVERSACIONES es
 para trabajar; las estadísticas de los dos canales van en ACTIVIDAD).
 
+### D-7 · La revisión jurídica se aparta del camino crítico, con dos condiciones
+
+**Fecha:** 17 de septiembre de 2026 · **Pedida por:** Dirección · **Cierra:** el
+bloqueo de P-09 sobre la entrega 3.3
+
+Dirección preguntó si se puede mover la revisión jurídica sin que dañe lo que
+viene después. **Se puede, y conviene**, porque llevaba abierta desde el
+principio y está frenando trabajo que no depende de ella.
+
+**Lo que se separa:**
+
+| | Se construye ya | Espera al abogado |
+|---|---|---|
+| Leer XLSX y CSV, con todas las defensas | ✅ | |
+| Reconocer las columnas solo | ✅ | |
+| Informe de filas rechazadas | ✅ | |
+| Guardar el permiso con su fecha y su prueba | ✅ | |
+| **El texto del aviso de privacidad** | | ⏳ |
+| **El texto de la afirmación de origen lícito** | | ⏳ |
+| **Los plazos de los derechos ARCO** | | ⏳ |
+| **Si el correo en frío a fuentes públicas es lícito** | | ⏳ **P-3 de la consulta** |
+
+**Las dos condiciones que lo hacen seguro:**
+
+1. **Los textos legales viven como datos, no dentro de los componentes.** Están
+   en el catálogo de textos, con una marca que dice que son borradores. Cambiar
+   la redacción cuando llegue la respuesta es editar una cadena, no rehacer una
+   pantalla.
+2. **La única pieza de esquema que puede moverse queda identificada por
+   adelantado:** la lista cerrada de `consent_entry.basis` —las cinco bases
+   jurídicas del permiso—. Si el abogado dice que alguna no vale, o que falta
+   una, es **una migración de una columna**, no de un modelo. Queda anotado en
+   `MODELO_DE_DATOS.md` para que nadie tenga que volver a razonarlo.
+
+**Lo que NO se puede hacer sin la respuesta,** y conviene decirlo sin adornos:
+
+!x **No se envía ni un solo correo en frío a nadie de fuera de TELEMETRY hasta
+que P-3 esté contestada.** La v1.2.0 es despliegue interno (D-4), así que esto
+no frena la versión. Pero si la respuesta llega tarde y alguien quiere enseñar
+el producto enviando de verdad, la respuesta es no.
+
+**Coste honesto del aplazamiento:** si P-3 resulta ser «no», hay que añadir una
+puerta que exija prueba de consentimiento antes de activar una campaña. Es
+trabajo de la Fase 6, no de la 3, así que aplazar **no aumenta** ese coste — lo
+deja donde ya estaba.
+
 ---
 
 ## Decisiones pendientes
@@ -189,6 +235,7 @@ Ver **`02-auditoria/PREGUNTAS_ABIERTAS.md`** para el registro completo.
 |---|---|---|
 | P-01 | ¿Qué licencia de Mont posee exactamente TELEMETRY? | **La demo** (antes: Fase 2) |
 | P-03 | Origen y consentimiento de los contactos | Fase 3 |
+| P-09 | Marco de protección de datos vigente | ~~Entrega 3.3~~ → **apartado del camino crítico por D-7.** Frena los textos legales visibles y el primer envío real a terceros, no la construcción |
 | P-05 | Dominio y aviso de privacidad para Google | Fase 5 |
 
 **Ya no hay bloqueantes de la Fase 2.**

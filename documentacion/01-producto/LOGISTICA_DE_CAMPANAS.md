@@ -263,6 +263,65 @@ demanda.
 Importación XLSX/CSV con todas las defensas ya documentadas, listas, etiquetas,
 campos propios, tabla a 500 000 filas.
 
+### Lo que Dirección pidió el 17/09/2026
+
+=> **Decisión L-12 · ARLES reconoce solo las columnas del archivo, y siempre
+enseña lo que entendió antes de importar.**
+
+Se sube el XLSX o el CSV tal cual está, sin plantilla que rellenar. ARLES mira
+las cabeceras y el contenido de las primeras filas y **propone** qué es cada
+columna: correo, móvil, nombre, empresa, o un campo propio.
+
+!! **Propone, no decide.** La pantalla siguiente es siempre la misma: *«esto es
+lo que entendí»*, con cada columna, lo que ARLES cree que es, y **tres ejemplos
+reales del archivo** al lado. Se puede cambiar cualquiera antes de importar.
+
+Sin ese paso, un archivo donde la columna «Teléfono» trae el fijo de la oficina
+y la de «Celular» el móvil se importaría al revés, y el error aparecería
+**semanas después**, cuando un WhatsApp no llegue a nadie. Reconocer solo es una
+comodidad; enseñar lo que se entendió es lo que la hace segura.
+
+| Se reconoce por | Ejemplo |
+|---|---|
+| El nombre de la cabecera | «Correo», «E-mail», «Mail», «Celular», «WhatsApp», «Tel» |
+| **La forma del contenido** | una columna con arrobas es correo aunque se llame «Columna 3» |
+
+=> La forma del contenido pesa más que el nombre: las cabeceras están en inglés,
+en español, abreviadas o directamente ausentes, y el contenido no miente.
+
+=> **Decisión L-13 · Los contactos se pueden crear y editar a mano, uno a uno,
+sin pasar por un archivo.**
+
+- **Añadir contacto** desde CONTACTOS, con sus canales: un correo, un móvil, o
+  los dos. También varios correos.
+- **Editar** un contacto ya existente, incluido **cambiar su correo o su
+  móvil** — que es el caso que Dirección señaló.
+
+⚠ **Cambiar una dirección tiene una consecuencia que hay que enseñar.** La
+dirección vieja puede estar en la lista de supresión o tener un permiso
+registrado, y **esos registros son de la dirección, no de la persona** (§39). Al
+cambiarla, ARLES avisa: *«la dirección anterior estaba suprimida; la nueva no
+hereda esa baja»*. Callarlo convertiría una corrección de dato en una forma
+silenciosa de saltarse una baja.
+
+=> **Decisión L-14 · La ficha del contacto enseña TODOS sus canales; la tabla
+enseña el principal.**
+
+Confirmado por Dirección. Y con una exigencia suya: *«hay que validar que todo
+esté totalmente ordenado y bien estructurado»*. Eso se traduce en cuatro reglas,
+para que sea comprobable y no una intención:
+
+| | Regla |
+|---|---|
+| **1** | Los canales se agrupan **por tipo**: primero los correos, después los móviles. Nunca mezclados en el orden en que se importaron |
+| **2** | Dentro de cada tipo, **el principal va primero** y está marcado como tal |
+| **3** | Cada canal enseña **su propio estado**: activo, archivado, suprimido, con permiso registrado o sin él. Un contacto puede tener el correo utilizable y el WhatsApp prohibido |
+| **4** | La tabla enseña **el principal de cada tipo** y, si hay más, un indicador de cuántos. Nunca una celda con tres correos apiñados |
+
+!i **«Principal» es una elección del usuario, no el primero que entró.** Si lo
+decidiera el orden de importación, cambiaría solo al reimportar el mismo archivo
+en otro orden, y con él cambiaría a qué dirección se escribe.
+
 ### Lo que cambia por WhatsApp — y es un cambio de fondo
 
 Hoy el modelo de datos trata el **correo como la identidad del contacto**.

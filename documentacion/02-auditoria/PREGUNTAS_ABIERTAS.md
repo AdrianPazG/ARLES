@@ -157,15 +157,29 @@ no en el texto primario— de que esa ley fue **abrogada en marzo de 2025** por
 una nueva LFPDPPP, y de que el **INAI fue extinguido**, pasando sus facultades a
 la **Secretaría Anticorrupción y Buen Gobierno**.
 
-**Lo que necesitamos:** confirmación de un abogado mexicano sobre (a) qué ley
-rige hoy, (b) si el Reglamento de 2011 sigue aplicando, (c) qué obliga el marco
-vigente cuando los datos se obtienen **indirectamente de una fuente de acceso
-público**, y (d) qué exige para **mercadotecnia directa**.
+**Actualizado el 17/09/2026.** Lo que eran indicios está ahora confirmado en
+varias fuentes secundarias fiables, y eso **reduce** lo que hay que preguntar:
 
-**Por qué bloquea:** un aviso de privacidad o una afirmación de consentimiento
-que cita una ley abrogada no protege a nadie — y es peor que no citar ninguna,
-porque aparenta rigor. Las decisiones de ingeniería no dependen de esto; los
-textos visibles, sí.
+- La LFPDPPP nueva se publicó en el DOF el **20 de marzo de 2025** y entró en
+  vigor el **21 de marzo de 2025**.
+- El **INAI se extinguió**; la autoridad es la **Secretaría Anticorrupción y
+  Buen Gobierno**.
+- **El reglamento de la ley nueva sigue sin publicarse.**
+- El medio de defensa pasa a ser el **juicio de amparo**.
+
+=> Las ocho preguntas concretas que quedan, escritas para mandarse tal cual a un
+despacho, están en
+[**08-legal/CONSULTA-JURIDICA.md**](../08-legal/CONSULTA-JURIDICA.md). La que
+más pesa es **P-3 de esa consulta**: si el correo en frío a datos de una fuente
+de acceso público sigue siendo lícito. De ella depende el producto, no un texto.
+
+**Por qué bloqueaba:** un aviso de privacidad que cita una ley abrogada no
+protege a nadie — y es peor que no citar ninguna, porque aparenta rigor.
+
+**Ya no bloquea la construcción.** Por decisión **D-7** del 17/09/2026, la
+entrega 3.3 se construye entera salvo los textos, que viven como datos
+marcados como borrador. Lo que sigue bloqueado es **enviar de verdad a alguien
+de fuera de TELEMETRY**.
 
 Detalle en [PRIVACIDAD_LFPDPPP.md](../04-seguridad/PRIVACIDAD_LFPDPPP.md).
 

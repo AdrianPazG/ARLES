@@ -12,6 +12,30 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### La consulta jurídica, la sección de descargas y tres decisiones de contactos
+
+- **`08-legal/CONSULTA-JURIDICA.md`**: ocho preguntas concretas para mandar tal
+  cual a un despacho, cada una con por qué se pregunta y qué haremos con la
+  respuesta. Lo que eran indicios está confirmado en fuentes secundarias —la
+  LFPDPPP nueva es del **20/03/2025**, el INAI se extinguió, el **reglamento
+  sigue pendiente**— y eso reduce la consulta a lo que de verdad hace falta.
+- **Decisión D-7 · la revisión jurídica sale del camino crítico.** La entrega
+  3.3 se construye entera salvo los textos, que viven como datos marcados como
+  borrador. Con dos condiciones escritas, y con lo que **sigue** bloqueado dicho
+  sin adornos: **no se envía a nadie de fuera de TELEMETRY** hasta que esté
+  contestado si el correo en frío a fuentes públicas es lícito.
+- **Sección «Descargar ARLES» en la portada.** No hay versión todavía y se dice
+  por qué, con los tres trámites que faltan y quién los tiene. Cuando la haya irá
+  a Releases, no a un archivo suelto en el repositorio.
+- **L-12 · reconocimiento automático de columnas** al importar: se sube el
+  archivo tal cual y ARLES propone qué es cada columna, **por la forma del
+  contenido antes que por el nombre**. Siempre enseña lo que entendió, con
+  ejemplos reales, antes de importar nada.
+- **L-13 · alta y edición manual de contactos**, incluido cambiar el correo o el
+  móvil — avisando de que la dirección nueva **no hereda** la baja de la vieja.
+- **L-14 · la ficha enseña todos los canales, la tabla el principal**, con cuatro
+  reglas de orden comprobables en vez de la intención de que esté ordenado.
+
 ### Avance de la versión visible, y una auditoría que encontró seis documentos mintiendo
 
 - **El porcentaje de avance se ve en la portada del repositorio en GitHub.**

@@ -123,13 +123,13 @@
       "id": "P-01",
       "que": "Licencia de Mont para incrustarla en la aplicación distribuida",
       "quien": "Dirección",
-      "bloquea": "F9 · el primer instalador que salga del equipo"
+      "bloquea": "El primer instalador descargable. Hay plan B: tipografía del sistema, una línea de CSS"
     },
     {
       "id": "P-09",
-      "que": "Revisión jurídica de los textos legales y del correo en frío",
+      "que": "Revisión jurídica: ocho preguntas en 08-legal/CONSULTA-JURIDICA.md",
       "quien": "Abogado",
-      "bloquea": "F3 entrega 3.3 · la importación, donde vive el aviso de privacidad"
+      "bloquea": "Ya NO bloquea la construcción (decisión D-7). Frena los textos legales visibles y el primer envío real a alguien de fuera de TELEMETRY"
     },
     {
       "id": "META",

@@ -44,8 +44,8 @@ son trabajo pendiente nuestro: van aparte.
 
 | | Qué | Quién | Qué frena |
 |---|---|---|---|
-| **P-01** | Licencia de Mont para incrustarla en la aplicación distribuida | Dirección | F9 · el primer instalador que salga del equipo |
-| **P-09** | Revisión jurídica de los textos legales y del correo en frío | Abogado | F3 entrega 3.3 · la importación, donde vive el aviso de privacidad |
+| **P-01** | Licencia de Mont para incrustarla en la aplicación distribuida | Dirección | El primer instalador descargable. Hay plan B: tipografía del sistema, una línea de CSS |
+| **P-09** | Revisión jurídica: ocho preguntas en 08-legal/CONSULTA-JURIDICA.md | Abogado | Ya NO bloquea la construcción (decisión D-7). Frena los textos legales visibles y el primer envío real a alguien de fuera de TELEMETRY |
 | **META** | Cuenta de empresa en Meta, verificada y con Coexistencia activada (L-11) | Operaciones | F3W · el alta del número, y con ella toda campaña de WhatsApp |
 | **R-07** | Revisión visual en macOS (WKWebView) | Quien tenga un Mac | Nada todavía; la fecha límite acordada es antes de la F6 |
 
@@ -77,6 +77,35 @@ python3 herramientas/validar/validar.py     # valida todas las fases cerradas
 ```
 
 👉 **[Empieza por la documentación](documentacion/00-INDICE.md)**
+
+---
+
+## Descargar ARLES
+
+**Todavía no hay ninguna versión descargable, y conviene decir por qué en vez de
+dejar el apartado vacío.**
+
+Cuando la haya, estará en **[Releases](../../releases)** — un `.exe` para
+Windows y un `.dmg` para macOS. Ése es el sitio, y no un archivo suelto en el
+repositorio: un instalador dentro del árbol de código no se puede firmar, no
+lleva número de versión asociado y nadie sabe cuál es el bueno.
+
+Para que exista el primero hacen falta tres cosas, y **ninguna es programar**:
+
+| | Qué | Quién | Sin esto pasa que… |
+|---|---|---|---|
+| **1** | **Licencia de Mont** para incrustarla en una aplicación distribuida (P-01) | Dirección | Repartir el instalador con la tipografía dentro infringe la licencia. Hay un plan B: una línea de CSS y ARLES usa la tipografía del sistema |
+| **2** | **Certificado de firma de Windows** | Operaciones | Windows enseña la advertencia de «editor desconocido» y SmartScreen bloquea la instalación |
+| **3** | **Apple Developer ID** y notarización | Operaciones | macOS se niega a abrir la aplicación |
+
+> 🟡 **Se puede tener una versión de prueba antes de todo eso**, sin firmar y sin
+> Mont —con la tipografía del sistema—, sólo para revisarla internamente en
+> Windows. Hay que pedirla explícitamente: **no se publica sola**, porque una
+> descarga sin firmar en la portada de un repositorio es una descarga que alguien
+> acabará instalando en el equipo de un cliente.
+
+Y aunque el instalador existiera hoy, **no habría mucho que hacer con él**: la
+aplicación todavía no envía correos ni carga contactos. El avance de arriba dice exactamente qué sí.
 
 ---
 
