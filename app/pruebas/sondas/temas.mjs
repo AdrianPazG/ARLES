@@ -109,6 +109,12 @@ function nucleoSimulado() {
   }
 }
 
+/** La barra de navegación sola, a resolución nativa. */
+async function recortarBarra(pagina, archivo) {
+  await pagina.locator('.nav').screenshot({ path: join(IMAGENES, archivo) })
+  console.log(`  ✓ ${archivo}`)
+}
+
 let servidor
 let navegador
 
@@ -237,8 +243,15 @@ try {
     const archivo = `tema-plegada-${tema}.png`
     await pagina.screenshot({ path: join(IMAGENES, archivo) })
     console.log(`  ✓ ${archivo}`)
+
+    // La barra sola, para revisarla sin el ruido del contenido. Se captura el
+    // elemento, no un recorte por coordenadas: si la barra cambia de ancho, la
+    // captura sigue siendo la barra y no media barra más un trozo de página.
+    await recortarBarra(pagina, `menu-plegado-${tema}.png`)
+
     await pagina.click('.plegador')
     await pagina.waitForTimeout(400)
+    await recortarBarra(pagina, `menu-desplegado-${tema}.png`)
   }
 } finally {
   await navegador?.close()
