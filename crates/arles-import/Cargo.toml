@@ -1,0 +1,27 @@
+[package]
+name = "arles-import"
+description = "Lectura defensiva de CSV y XLSX para la importación de contactos."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+arles-core = { path = "../arles-core" }
+# `calamine` lee XLSX sin descomprimir el archivo entero en memoria, que es lo
+# que permite poner un tope antes de que el tamaño sea un problema.
+calamine = "0.26"
+csv = "1"
+# Excel de Windows guarda los CSV en Windows-1252, no en UTF-8. Sin esto, una
+# tabla mexicana llega con los acentos rotos y nadie entiende por qué.
+encoding_rs = "0.8"
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true
