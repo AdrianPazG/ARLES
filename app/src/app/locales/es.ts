@@ -337,7 +337,10 @@ export const es = {
         salvo: 'Las operaciones incompletas se revirtieron por completo.',
       },
       direccion_en_uso: {
-        que: 'Esa dirección ya está registrada en otro contacto.',
+        // `{detalle}` es la dirección en conflicto, que llega desde el núcleo.
+        // Sin ella, con hasta diez formas de contacto en el formulario, el
+        // mensaje obliga a repasarlas todas para dar con la repetida.
+        que: '{detalle} ya está registrada en otro contacto.',
         como:
           'Búscala en la lista de contactos para ver de quién es. Si de verdad ' +
           'son la misma persona, edita el contacto que ya existe en vez de ' +
@@ -442,8 +445,116 @@ export const es = {
     },
   },
 
+  contactos: {
+    titulo: 'Contactos',
+    // La cifra es una cifra, no un adjetivo (§94): dice cuántos se ven de
+    // cuántos hay, en vez de «muchos» o «casi todos».
+    recuento: 'Viendo {viendo} de {total}',
+    agregar: 'Agregar contacto',
+    editar: 'Editar',
+    baja: 'Dar de baja',
+    sinNombre: 'Sin nombre',
+    tablaEtiqueta: 'Lista de contactos',
+
+    columna: {
+      nombre: 'Nombre',
+      empresa: 'Empresa',
+      email: 'Correo principal',
+      whatsapp: 'WhatsApp principal',
+    },
+
+    canal: {
+      email: 'Correo',
+      whatsapp: 'WhatsApp',
+    },
+
+    campo: {
+      nombre: 'Nombre',
+      apellido: 'Apellido',
+      empresa: 'Empresa',
+      tipo: 'Tipo',
+      valor: 'Dirección o número',
+    },
+
+    ayuda: {
+      empresa: 'La empresa del contacto, no la tuya.',
+      email: "Por ejemplo: ana{'@'}empresa.mx",
+      // El «1» del móvil mexicano se explica AQUÍ y no en un error: es la
+      // trampa que más veces se escribe mal, y decirlo después de rechazar el
+      // dato llega tarde.
+      whatsapp:
+        'Con lada, por ejemplo 81 1234 5678. Si lo escribes con +52 1, ' +
+        'ARLES guarda la forma internacional sin ese 1 — es la que reconoce ' +
+        'WhatsApp.',
+    },
+
+    canales: {
+      titulo: 'Formas de contacto',
+      ayuda:
+        'Un contacto puede tener varios correos y varios WhatsApp. El marcado ' +
+        'como principal es al que se escribe por defecto.',
+      anadir: 'Añadir otra',
+      principal: 'Principal',
+      tope: '{hay} de {max}',
+      quitarDe: 'Quitar {valor}',
+      // Sólo aparece cuando lo guardado no es lo escrito. Es el caso del móvil
+      // mexicano con el «1»: se dice en vez de cambiarlo por detrás.
+      seUsara: 'Se usará {valor}',
+      sinValor: 'esta forma de contacto',
+    },
+
+    formulario: {
+      introAlta:
+        'Con una sola forma de contacto basta para empezar. Puedes añadir más ' +
+        'ahora o más adelante.',
+      introEdicion:
+        'Los cambios sustituyen las formas de contacto anteriores. Las que ' +
+        'quites dejan de usarse, pero se conserva a qué dirección se escribió ' +
+        'en cada envío.',
+      darDeAlta: 'Dar de alta',
+    },
+
+    supresion: {
+      titulo: '{n} de estos contactos están en la lista de no escribir',
+      // La frase «no impide guardarlo» es obligatoria: un aviso sin ella se
+      // lee como «esto no se puede usar» (L-13).
+      explicacion:
+        'Estar en esa lista no impide guardarlos ni editarlos. Lo que hace es ' +
+        'que las campañas los salten al enviar. Se entra en ella al darse de ' +
+        'baja, al rebotar un correo de forma permanente, o a mano.',
+      insignia: 'No escribir',
+    },
+
+    vacio: {
+      titulo: 'Todavía no hay contactos.',
+      cuerpo:
+        'Un contacto es una persona con sus formas de contacto: uno o varios ' +
+        'correos, uno o varios WhatsApp. Puedes darlo de alta a mano ahora; ' +
+        'cargar una tabla de CSV o Excel llega en la entrega 3.3.',
+    },
+
+    bajaDialogo: {
+      titulo: 'Dar de baja el contacto',
+      pregunta: '¿Dar de baja a {nombre}?',
+      // La tercera parte del §95: qué está a salvo. Es lo que distingue esta
+      // baja del borrado definitivo de la entrega 3.4.
+      queSeConserva:
+        'Deja de aparecer en la lista y las campañas dejan de escribirle. Se ' +
+        'conserva el registro de a qué dirección se le escribió y cuándo, que ' +
+        'es lo que permite responder a una reclamación. El borrado definitivo ' +
+        'es otra cosa y llega en la entrega 3.4.',
+      confirmar: 'Dar de baja',
+    },
+
+    error: {
+      canalGenerico: 'Esta forma de contacto no es válida.',
+      campoGenerico: 'Revisa este campo.',
+    },
+  },
+
   comun: {
     cancelar: 'Cancelar',
     cargando: 'Cargando…',
+    guardar: 'Guardar',
   },
 } as const

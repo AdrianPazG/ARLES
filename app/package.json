@@ -21,7 +21,8 @@
     "sonda:lector": "node pruebas/sondas/lector.mjs",
     "sonda:cabecera": "node pruebas/sondas/cabecera.mjs",
     "sonda:tema": "node pruebas/sondas/tema.mjs",
-    "sonda:vista-previa": "node pruebas/sondas/vista-previa.mjs"
+    "sonda:vista-previa": "node pruebas/sondas/vista-previa.mjs",
+    "sonda:contactos": "node pruebas/sondas/contactos.mjs"
   },
   "dependencies": {
     "@tanstack/vue-virtual": "^3.13.38",

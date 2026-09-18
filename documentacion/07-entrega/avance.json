@@ -36,7 +36,7 @@
   ],
 
   "version": "1.2.0",
-  "actualizado": "2026-09-17",
+  "actualizado": "2026-09-18",
 
   "fases": [
     {
@@ -64,8 +64,8 @@
       "id": "F3",
       "nombre": "Empresa y contactos",
       "peso": 14,
-      "hecho": 0.3,
-      "porque": "Cerrada la 3.1 (empresa, alta y barra lateral) en 27/27, y de la 3.2 están los dos tramos de dentro: el repositorio de contactos y canales (49 pruebas) y los cinco comandos de la frontera. Falta la PANTALLA, que es la mitad que se ve, así que la 3.2 cuenta media. Faltan enteras la 3.3 importación, la 3.4 supresión y ARCO, y la 3.5 cierre."
+      "hecho": 0.4,
+      "porque": "Cerradas la 3.1 (empresa, alta y barra lateral) en 27/27 y la 3.2 (contactos): repositorio, cinco comandos, tabla, ficha y alta/edición a mano, con su sonda de navegador. Faltan enteras la 3.3 importación de CSV y XLSX, la 3.4 supresión y derechos ARCO, y la 3.5 cierre."
     },
     {
       "id": "F3W",

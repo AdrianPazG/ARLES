@@ -46,6 +46,12 @@ const rutas: RouteRecordRaw[] = [
     meta: { seccion: 'inicio' },
   },
   {
+    path: '/contactos',
+    name: 'contactos',
+    component: () => import('@/app/pantallas/PantallaContactos.vue'),
+    meta: { seccion: 'contactos' },
+  },
+  {
     path: '/ajustes',
     name: 'ajustes',
     component: () => import('@/app/pantallas/PantallaAjustes.vue'),
@@ -54,7 +60,9 @@ const rutas: RouteRecordRaw[] = [
   // Las demás siguen siendo andamio hasta su entrega del roadmap. La lista de
   // alta de Inicio dice en cuál llega cada una, así que la pantalla vacía no
   // es una sorpresa.
-  ...SECCIONES.filter((s) => s !== 'inicio' && s !== 'ajustes').map((s) => ({
+  ...SECCIONES.filter(
+    (s) => s !== 'inicio' && s !== 'ajustes' && s !== 'contactos',
+  ).map((s) => ({
     path: `/${s}`,
     name: s,
     component: () => import('@/app/PantallaPendiente.vue'),

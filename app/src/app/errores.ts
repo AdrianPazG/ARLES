@@ -64,10 +64,16 @@ export function resolverError(e: ErrorIpc): ErrorMostrable {
     // Compilar por partes —`clave.que`— y no la clave entera es lo que evita
     // el fallo original: `t('error.db.sqlite')` apunta a un objeto y devolvía
     // «[object Object]».
+    // `detalle` se pasa como parámetro para que un texto pueda nombrar el
+    // dato concreto: «la dirección ana{'@'}empresa.mx ya está registrada».
+    // Sin esto, el error de dirección repetida obliga a adivinar cuál de los
+    // hasta diez canales del formulario se repitió — que es justo lo que ese
+    // error existe para evitar (§95).
+    const con = { detalle: e.detalle }
     return {
-      que: i18n.global.t(`${e.clave}.que`),
-      como: i18n.global.t(`${e.clave}.como`),
-      salvo: i18n.global.t(`${e.clave}.salvo`),
+      que: i18n.global.t(`${e.clave}.que`, con),
+      como: i18n.global.t(`${e.clave}.como`, con),
+      salvo: i18n.global.t(`${e.clave}.salvo`, con),
     }
   }
 

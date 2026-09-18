@@ -12,6 +12,61 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### La pantalla de contactos (entrega 3.2, completa)
+
+Ya se ven. Se dan de alta a mano, se editan, se dan de baja, y la ficha enseña
+todas sus formas de contacto.
+
+- **La tabla** enseña el canal principal de cada tipo, con «+2» si hay más. Con
+  diez canales por contacto, una tabla que los enseñara todos dejaría de serlo.
+- **La ficha** sí los enseña todos, agrupados y con el principal arriba (L-14).
+  Ese orden **lo decide la base**; la pantalla no reordena, y el validador lo
+  comprueba.
+- **El mismo formulario** para alta y edición. Separarlos daría dos sitios donde
+  mantener las mismas reglas de canales.
+- **La forma normalizada se enseña cuando no coincide con lo escrito.** Quien
+  escribe «+52 1 81 1234 5678» ve debajo «Se usará +528112345678». Es el único
+  sitio donde esa normalización es visible, y callarla sería cambiar el dato por
+  detrás (§65).
+- **El aviso de supresión dice explícitamente que no bloquea** (L-13). Sin esa
+  frase, un aviso ámbar se lee como «esto no se puede usar».
+- **La baja dice qué se conserva**: el contacto desaparece de la lista, y se
+  conserva a qué dirección se le escribió y cuándo. El borrado definitivo es
+  otra cosa y llega en la 3.4.
+
+**`sonda:contactos`**, nueva: recorre la pantalla en un navegador de verdad,
+desde `file://`. Encontró dos cosas que ningún test de unidad podía ver.
+
+**Fallo real, y de los que no se ven mirando.** `AModal` no desmonta lo que
+lleva dentro al cerrarse, y el `watch` sobre el contacto inicial no se dispara
+cuando pasa de `null` a `null` —dos altas seguidas—. **El segundo formulario
+abría con las formas de contacto del primero**, y al guardar chocaba con una
+dirección que el usuario nunca había escrito. Lo delató la sonda: el error
+nombraba un móvil que en ese formulario no existía. Arreglado forzando el
+remontaje en cada apertura.
+
+**Y un fallo en la propia sonda**, del mismo tipo que los del tramo anterior: la
+comprobación del «1» del móvil leía el texto de la ficha buscando «+521», pero
+ahí se enseña lo escrito —«+52 1 81…», con espacios—, así que el patrón no podía
+coincidir **nunca**. Pasaba siempre. Ahora mide la forma normalizada, que es la
+que existe precisamente porque se añadió a la ficha.
+
+**Dos cosas más que cazaron las comprobaciones que ya había:**
+
+- El texto `ana@empresa.mx` **no compilaba**: en vue-i18n la arroba abre un
+  mensaje enlazado, y la pantalla que lo usara habría reventado. Lo cazó
+  `es.spec.ts`, que existe justo para eso.
+- El error de dirección repetida **no nombraba la dirección**, aunque el núcleo
+  la mandaba. `resolverError` no interpolaba el detalle. Con diez canales en el
+  formulario, eso obliga a repasarlos todos — que es lo que ese error existe
+  para evitar.
+
+Cinco cebos deliberados sobre la sonda y el validador, los cinco mortales.
+
+**222 pruebas en Rust, 63 en la interfaz, fases 0–3 en verde (4 + 48 + 37 + 44),
+cinco sondas de navegador.** Avance de la v1.2.0: **32 % → 34 %**.
+
+
 ### Contactos: la capa de datos y la frontera (entrega 3.2, tramos A y B)
 
 ARLES ya sabe **meter contactos en su base y sacarlos**, y la pantalla ya tiene

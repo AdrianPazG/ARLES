@@ -1523,6 +1523,46 @@ def los_comandos_de_contactos_no_reciben_la_empresa():
     )
 
 
+def la_pantalla_de_contactos_no_reordena():
+    """La ficha no reordena los canales: los pinta como llegan.
+
+    El orden —correos primero, móviles después, el principal arriba— lo decide
+    la consulta de `arles-db`. Si la pantalla volviera a ordenarlos, habría dos
+    criterios, y el día que divergieran la lista y la ficha enseñarían los
+    mismos canales en distinto orden sin que nada fallara.
+    """
+    txt = leer("app", "src", "app", "pantallas", "PantallaContactos.vue")
+    sospechosos = [t for t in (".sort(", ".reverse(") if t in txt]
+    check(
+        3,
+        "la pantalla de contactos no reordena los canales",
+        not sospechosos,
+        la_pantalla_de_contactos_no_reordena.__doc__,
+        detalle=", ".join(sospechosos),
+    )
+
+
+def el_tope_de_canales_no_se_duplica():
+    """`MAX_CANALES` sale del núcleo, no de un número escrito en el formulario.
+
+    El formulario necesita el tope para deshabilitar «Añadir otra». Si lo
+    llevara suelto, el día que el núcleo suba a quince el formulario seguiría
+    cortando en diez — y nadie vería un error, sólo un botón apagado.
+    """
+    rust = leer("crates", "arles-core", "src", "contacto.rs")
+    ts = leer("app", "src", "app", "stores", "contactos.ts")
+    import re as _re
+    m = _re.search(r"MAX_CANALES: usize = (\d+)", rust)
+    m2 = _re.search(r"MAX_CANALES = (\d+)", ts)
+    check(
+        3,
+        "el tope de canales coincide con el del núcleo",
+        bool(m) and bool(m2) and m.group(1) == m2.group(1),
+        el_tope_de_canales_no_se_duplica.__doc__,
+        detalle=f"núcleo: {m.group(1) if m else '?'} · interfaz: {m2.group(1) if m2 else '?'}",
+    )
+
+
 def fase_3(rapido):
     titulo("FASE 3 · Empresa y contactos · entrega 3.1")
 
@@ -1534,6 +1574,9 @@ def fase_3(rapido):
         ("crates/arles-db/src/empresa.rs", "Sin repositorio, el SQL se derramaría al shell."),
         ("crates/arles-core/src/contacto.rs", "Un contacto es una persona con canales, y quien decide si es válido es el dominio (L-13)."),
         ("crates/arles-db/src/contactos.rs", "Alta, edición, ficha y baja de contactos con sus canales."),
+        ("app/src/app/stores/contactos.ts", "El estado de la lista y el reparto de errores por canal."),
+        ("app/src/app/pantallas/PantallaContactos.vue", "La tabla, la ficha y las acciones (L-13, L-14)."),
+        ("app/src/app/pantallas/FormularioDeContacto.vue", "Alta y edición a mano, con sus canales (L-13)."),
         ("app/src/app/pantallas/PantallaAjustes.vue", "Es el primer paso del alta (§25)."),
         ("app/src/app/pantallas/PantallaInicio.vue", "La lista de alta vive en Inicio."),
         ("app/src/app/stores/interfaz.ts", "El estado de la barra lateral (P-11)."),
@@ -1553,6 +1596,8 @@ def fase_3(rapido):
     contactos_no_entran_sin_validar()
     la_capa_de_datos_no_conoce_la_ipc()
     los_comandos_de_contactos_no_reciben_la_empresa()
+    la_pantalla_de_contactos_no_reordena()
+    el_tope_de_canales_no_se_duplica()
 
     print(f"{GRIS}  sondas{FIN}")
     app = os.path.join(RAIZ, "app")
@@ -1600,6 +1645,24 @@ def fase_3(rapido):
         omitir(3, nombre, "--rapido")
     else:
         check_cmd(3, nombre, ["npm", "run", "sonda:tema", "--silent"],
+                  porque, cwd=app, timeout=900)
+
+    nombre = "sonda: la pantalla de contactos hace lo que dice"
+    porque = (
+        "Cuatro afirmaciones de la 3.2 que ningún test de unidad alcanza: que "
+        "el alta aparece en la tabla, que la ficha enseña TODOS los canales "
+        "agrupados (L-14), que una dirección repetida se nombra sin cerrar el "
+        "diálogo, y que el móvil mexicano se guarda sin el «1». Esta sonda ya "
+        "encontró un fallo real: el diálogo conservaba el contacto anterior, "
+        "así que el segundo alta chocaba con una dirección que el usuario no "
+        "había escrito."
+    )
+    if motivo:
+        omitir(3, nombre, motivo)
+    elif rapido:
+        omitir(3, nombre, "--rapido")
+    else:
+        check_cmd(3, nombre, ["npm", "run", "sonda:contactos", "--silent"],
                   porque, cwd=app, timeout=900)
 
     nombre = "sonda: la vista previa de un archivo se abre desde el disco"
