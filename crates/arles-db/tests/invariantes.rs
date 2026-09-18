@@ -1154,3 +1154,168 @@ fn la_calificacion_de_meta_guarda_su_historial() {
         "se admitió una calificación que Meta no da"
     );
 }
+
+// ─── V5 · el origen declarado de una importación ────────────────────────────
+
+/// Inserta un lote de importación con el origen que se le diga.
+fn insertar_lote(conn: &Connection, id: &str, origen: &str) -> rusqlite::Result<usize> {
+    conn.execute(
+        "INSERT INTO import_batch
+             (id, company_id, original_filename, stored_filename, file_hash,
+              column_mapping, consent_affirmation, origin, created_at)
+         VALUES (?1, ?2, 'contactos.xlsx', ?1, 'sha256:x', '[]',
+                 'Declaro que esta lista tiene origen lícito.', ?3, ?4)",
+        params![id, EMPRESA, origen, AHORA],
+    )
+}
+
+/// **La lista de orígenes es cerrada, y el esquema lo impone.**
+///
+/// Si no lo hiciera, un origen escrito a mano —«varios», «de siempre», una
+/// cadena vacía— entraría sin más, y entonces el campo deja de servir para lo
+/// único que existe: poder analizar de dónde salen las listas cuando llegue una
+/// reclamación.
+#[test]
+fn el_origen_de_una_importacion_sale_de_la_lista_cerrada() {
+    let (_d, conn) = base();
+
+    for (i, bueno) in [
+        "formulario_propio",
+        "clientes_existentes",
+        "evento_o_feria",
+        "directorio_publico",
+        "otro",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let id = format!("01900000-0000-7000-8000-00000000b{i:03}");
+        insertar_lote(&conn, &id, bueno)
+            .unwrap_or_else(|e| panic!("«{bueno}» debería admitirse: {e}"));
+    }
+
+    for malo in ["comprada", "", "FORMULARIO_PROPIO", "varios"] {
+        let id = "01900000-0000-7000-8000-00000000bfff";
+        assert!(
+            insertar_lote(&conn, id, malo).is_err(),
+            "«{malo}» entró como origen: la lista no es cerrada de verdad"
+        );
+    }
+}
+
+/// **El rastro de una importación no se borra porque estorbe.**
+///
+/// Sin esta restricción —con CASCADE— borrar el registro de una importación se
+/// llevaría por delante los contactos que trajo, que son justo la prueba de lo
+/// que se afirmó al importarlos. Con SET NULL sobrevivirían huérfanos, sin poder
+/// responder a «¿de dónde salió esta persona?».
+#[test]
+fn no_se_puede_borrar_un_lote_que_todavia_tiene_contactos() {
+    let (_d, conn) = base();
+    let lote = "01900000-0000-7000-8000-00000000c001";
+    insertar_lote(&conn, lote, "formulario_propio").expect("inserta el lote");
+
+    conn.execute(
+        "UPDATE contact SET import_batch_id = ?1 WHERE id = ?2",
+        params![lote, CONTACTO_A],
+    )
+    .expect("enlaza el contacto con su importación");
+
+    assert!(
+        conn.execute("DELETE FROM import_batch WHERE id = ?1", params![lote])
+            .is_err(),
+        "se borró un lote que todavía tenía contactos: el rastro de la \
+         importación se puede perder"
+    );
+
+    // Y el contacto sigue ahí, con su origen.
+    let sigue: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM contact WHERE id = ?1 AND import_batch_id = ?2",
+            params![CONTACTO_A, lote],
+            |f| f.get(0),
+        )
+        .expect("cuenta");
+    assert_eq!(sigue, 1);
+}
+
+/// Un contacto dado de alta a mano **no** tiene lote, y eso es correcto: no
+/// vino de ninguna importación. Si la columna fuera obligatoria, el alta a mano
+/// tendría que inventarse un lote falso.
+#[test]
+fn un_contacto_dado_de_alta_a_mano_no_tiene_lote() {
+    let (_d, conn) = base();
+    let sin_lote: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM contact WHERE import_batch_id IS NULL",
+            [],
+            |f| f.get(0),
+        )
+        .expect("cuenta");
+    assert!(
+        sin_lote >= 2,
+        "los contactos de prueba deberían no tener lote"
+    );
+}
+
+/// El hash admite NULL para las filas anteriores a la columna. Poner uno
+/// calculado ahora afirmaría que ese texto es el que se aceptó entonces, y no
+/// se sabe. Un NULL honesto dice «no se sabe», que es la verdad.
+#[test]
+fn el_hash_del_consentimiento_admite_no_saberse() {
+    let (_d, conn) = base();
+    let lote = "01900000-0000-7000-8000-00000000c002";
+    insertar_lote(&conn, lote, "otro").expect("inserta");
+
+    let hash: Option<String> = conn
+        .query_row(
+            "SELECT consent_hash FROM import_batch WHERE id = ?1",
+            params![lote],
+            |f| f.get(0),
+        )
+        .expect("lee");
+    assert_eq!(hash, None);
+}
+
+/// **El enum del núcleo y el CHECK de la migración son la misma lista.**
+///
+/// Si divergieran, el fallo sería silencioso de la peor manera: el desplegable
+/// ofrecería un origen que la base rechaza —y la importación entera se caería
+/// al guardar, después de que el usuario haya revisado los choques—, o la base
+/// admitiría uno que el núcleo no sabe leer de vuelta.
+///
+/// Se comprueba **insertando cada valor del enum**, no comparando dos listas de
+/// texto: comparar listas prueba que dos constantes coinciden; insertar prueba
+/// que la base los acepta.
+#[test]
+fn los_origenes_del_nucleo_son_los_que_la_base_admite() {
+    let (_d, conn) = base();
+
+    for (i, origen) in arles_core::OrigenDeLaLista::TODOS.iter().enumerate() {
+        let id = format!("01900000-0000-7000-8000-00000000d{i:03}");
+        insertar_lote(&conn, &id, origen.como_texto()).unwrap_or_else(|e| {
+            panic!(
+                "el núcleo ofrece «{}» pero la base lo rechaza: {e}",
+                origen.como_texto()
+            )
+        });
+    }
+
+    // Y al revés: todo lo que la base guarda, el núcleo lo sabe leer.
+    let mut consulta = conn
+        .prepare("SELECT origin FROM import_batch")
+        .expect("prepara");
+    let guardados: Vec<String> = consulta
+        .query_map([], |f| f.get::<_, String>(0))
+        .expect("consulta")
+        .collect::<Result<_, _>>()
+        .expect("filas");
+
+    for g in &guardados {
+        assert!(
+            arles_core::OrigenDeLaLista::desde_texto(g).is_ok(),
+            "la base guardó «{g}» y el núcleo no sabe leerlo"
+        );
+    }
+    assert_eq!(guardados.len(), arles_core::OrigenDeLaLista::TODOS.len());
+}

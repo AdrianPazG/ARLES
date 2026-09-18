@@ -15,6 +15,15 @@ use thiserror::Error;
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 #[non_exhaustive]
 pub enum CoreError {
+    /// Una fila guardada trae un origen de importación que no reconocemos.
+    ///
+    /// Sólo puede pasar si alguien editó la base por fuera o si una migración
+    /// dejó datos a medias. **No se repara cayendo en «otro»**: eso cambiaría
+    /// lo que el usuario declaró, que es justo el dato que se guarda para poder
+    /// responder a una reclamación.
+    #[error("el origen declarado de esa importación no es uno de los admitidos")]
+    OrigenDesconocido,
+
     #[error("dirección de correo inválida: {motivo}")]
     EmailInvalido { motivo: &'static str },
 
@@ -46,6 +55,7 @@ impl CoreError {
             Self::TelefonoInvalido { .. } => "error.telefono_invalido",
             Self::CanalDesconocido => "error.canal_desconocido",
             Self::IdInvalido { .. } => "error.id_invalido",
+            Self::OrigenDesconocido => "error.origen_desconocido",
             Self::Transicion(_) => "error.transicion_invalida",
         }
     }

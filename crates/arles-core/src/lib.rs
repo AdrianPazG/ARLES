@@ -44,8 +44,8 @@ pub use etapa::{
     validar_secuencia,
 };
 pub use importacion::{
-    CampoImportable, MAX_COLUMNAS, MAX_FILAS, MotivoDeRechazo, adivinar_campo, fila_a_borrador,
-    proponer_mapeo,
+    CampoImportable, MAX_COLUMNAS, MAX_FILAS, MotivoDeRechazo, OrigenDeLaLista, adivinar_campo,
+    fila_a_borrador, proponer_mapeo,
 };
 pub use onboarding::{ListaDeOnboarding, PasoDeOnboarding, RecuentoDeAlta};
 pub use secret::Secret;

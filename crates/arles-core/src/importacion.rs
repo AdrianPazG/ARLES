@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::canal::Canal;
 use crate::contacto::{BorradorDeCanal, BorradorDeContacto};
+use crate::error::CoreError;
 
 /// Cuántas filas se admiten en un archivo.
 ///
@@ -86,6 +87,89 @@ impl CampoImportable {
         Self::WhatsApp,
         Self::Ignorar,
     ];
+}
+
+/// De dónde salió una lista importada (ADR-0013 §1).
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LISTA CERRADA, Y CON «OTRO» DENTRO
+///
+/// Dirección confirmó estas cinco el 18/09/2026. Es cerrada y no texto libre
+/// porque un campo libre acaba lleno de «varios», «de siempre» y cadenas
+/// vacías, y entonces no hay nada que analizar el día que llegue una
+/// reclamación.
+///
+/// Y `Otro` existe **a propósito**: sin él, quien no encuentre su caso elegiría
+/// el que más se le parezca, y un «clientes existentes» falso es peor prueba
+/// que un «otro» honesto.
+/// ─────────────────────────────────────────────────────────────────────────
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OrigenDeLaLista {
+    /// Se dieron de alta ellos mismos en un formulario de la empresa.
+    FormularioPropio,
+    /// Ya son clientes: hay relación comercial previa.
+    ClientesExistentes,
+    /// Dejaron sus datos en un evento, una feria o un stand.
+    EventoOFeria,
+    /// Salieron de un directorio público. **El más delicado**: que un dato sea
+    /// público no lo hace libre de usar para publicidad.
+    DirectorioPublico,
+    Otro,
+}
+
+impl OrigenDeLaLista {
+    /// Los cinco, en el orden en que se ofrecen.
+    ///
+    /// `Otro` va el último a propósito: es la salida, no la primera opción.
+    pub const TODOS: &'static [Self] = &[
+        Self::FormularioPropio,
+        Self::ClientesExistentes,
+        Self::EventoOFeria,
+        Self::DirectorioPublico,
+        Self::Otro,
+    ];
+
+    /// Cómo se guarda en la base. **Tiene que coincidir con el CHECK de la
+    /// migración V5**, y hay una prueba que lo comprueba.
+    #[must_use]
+    pub fn como_texto(&self) -> &'static str {
+        match self {
+            Self::FormularioPropio => "formulario_propio",
+            Self::ClientesExistentes => "clientes_existentes",
+            Self::EventoOFeria => "evento_o_feria",
+            Self::DirectorioPublico => "directorio_publico",
+            Self::Otro => "otro",
+        }
+    }
+
+    /// Clave de i18n de su nombre visible.
+    #[must_use]
+    pub fn clave_i18n(&self) -> &'static str {
+        match self {
+            Self::FormularioPropio => "importacion.origen.formularioPropio",
+            Self::ClientesExistentes => "importacion.origen.clientesExistentes",
+            Self::EventoOFeria => "importacion.origen.eventoOFeria",
+            Self::DirectorioPublico => "importacion.origen.directorioPublico",
+            Self::Otro => "importacion.origen.otro",
+        }
+    }
+
+    /// Lo lee de vuelta desde la base.
+    ///
+    /// # Errores
+    ///
+    /// [`CoreError::OrigenDesconocido`] si la fila guardada trae un origen que
+    /// no reconocemos. **No se repara en silencio**: caer en `Otro` cambiaría
+    /// lo que el usuario declaró, que es justo el dato que esto existe para
+    /// conservar.
+    pub fn desde_texto(texto: &str) -> Result<Self, CoreError> {
+        Self::TODOS
+            .iter()
+            .copied()
+            .find(|o| o.como_texto() == texto)
+            .ok_or(CoreError::OrigenDesconocido)
+    }
 }
 
 /// Encabezados que se reconocen, por campo.
@@ -383,6 +467,48 @@ mod tests {
     /// El lint del workspace prohíbe indexar, también en tests.
     fn en(v: &[CampoImportable], i: usize) -> CampoImportable {
         *v.get(i).expect("la columna existe")
+    }
+
+    /// Los cinco orígenes que Dirección confirmó el 18/09/2026.
+    #[test]
+    fn hay_cinco_origenes_y_otro_va_el_ultimo() {
+        assert_eq!(OrigenDeLaLista::TODOS.len(), 5);
+        assert_eq!(
+            OrigenDeLaLista::TODOS.last(),
+            Some(&OrigenDeLaLista::Otro),
+            "«Otro» es la salida, no la primera opción"
+        );
+    }
+
+    /// Ida y vuelta por texto. Es lo que se guarda en la base.
+    #[test]
+    fn el_origen_va_y_vuelve_por_texto() {
+        for o in OrigenDeLaLista::TODOS {
+            assert_eq!(
+                OrigenDeLaLista::desde_texto(o.como_texto()),
+                Ok(*o),
+                "{o:?} no vuelve"
+            );
+        }
+    }
+
+    /// Un origen que no reconocemos **no cae en «Otro»**: eso cambiaría lo que
+    /// el usuario declaró, que es el dato que esto existe para conservar.
+    #[test]
+    fn un_origen_desconocido_no_se_repara_en_silencio() {
+        for malo in ["comprada", "", "FORMULARIO_PROPIO", "varios"] {
+            assert!(
+                OrigenDeLaLista::desde_texto(malo).is_err(),
+                "«{malo}» se aceptó"
+            );
+        }
+    }
+
+    #[test]
+    fn todos_los_origenes_tienen_clave_de_texto() {
+        for o in OrigenDeLaLista::TODOS {
+            assert!(o.clave_i18n().starts_with("importacion.origen."), "{o:?}");
+        }
     }
 
     #[test]
