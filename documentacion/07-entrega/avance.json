@@ -64,8 +64,8 @@
       "id": "F3",
       "nombre": "Empresa y contactos",
       "peso": 14,
-      "hecho": 0.4,
-      "porque": "Cerradas la 3.1 (empresa, alta y barra lateral) en 27/27 y la 3.2 (contactos): repositorio, cinco comandos, tabla, ficha y alta/edición a mano, con su sonda de navegador. Faltan enteras la 3.3 importación de CSV y XLSX, la 3.4 supresión y derechos ARCO, y la 3.5 cierre."
+      "hecho": 0.55,
+      "porque": "Cerradas la 3.1 (empresa y alta) y la 3.2 (contactos), y la 3.3 (importar CSV y Excel) con su lectura defensiva, el análisis de choques, la escritura en lote, el origen declarado y el asistente de cuatro pasos; falta atacarla con archivos maliciosos. Faltan enteras la 3.4 supresión y derechos ARCO, y la 3.5 cierre."
     },
     {
       "id": "F3W",

@@ -8,9 +8,9 @@ Desarrollado por **TELEMETRY INSIGHT**
 ---
 
 <!-- AVANCE:INICIO -->
-![Avance de la v1.2.0](https://img.shields.io/badge/avance_v1.2.0-34%25-orange?style=flat-square)
+![Avance de la v1.2.0](https://img.shields.io/badge/avance_v1.2.0-36%25-orange?style=flat-square)
 
-**34 % de la versión 1.2.0 construido y verificado**, a 2026-09-18.
+**36 % de la versión 1.2.0 construido y verificado**, a 2026-09-18.
 
 <details>
 <summary>Cómo sale ese número, y qué no mide</summary>
@@ -31,7 +31,7 @@ son trabajo pendiente nuestro: van aparte.
 | F0 · Discovery y auditoría | 5 % | ✅ 100 % |
 | F1 · Cimientos | 9 % | ✅ 100 % |
 | F2 · Design System | 9 % | ✅ 100 % |
-| F3 · Empresa y contactos | 14 % | 🟨 40 % |
+| F3 · Empresa y contactos | 14 % | 🟨 55 % |
 | F3W · Canales: esquema de contactos, consentimiento y etapas | 8 % | 🟨 55 % |
 | F4 · Motor de ejecución | 14 % | ⬜ 0 % |
 | F5 · Proveedores de envío | 7 % | ⬜ 0 % |

@@ -515,6 +515,7 @@ export const es = {
     // cuántos hay, en vez de «muchos» o «casi todos».
     recuento: 'Viendo {viendo} de {total}',
     agregar: 'Agregar contacto',
+    importar: 'Cargar una tabla',
     editar: 'Editar',
     baja: 'Dar de baja',
     sinNombre: 'Sin nombre',
@@ -593,8 +594,8 @@ export const es = {
       titulo: 'Todavía no hay contactos.',
       cuerpo:
         'Un contacto es una persona con sus formas de contacto: uno o varios ' +
-        'correos, uno o varios WhatsApp. Puedes darlo de alta a mano ahora; ' +
-        'cargar una tabla de CSV o Excel llega en la entrega 3.3.',
+        'correos, uno o varios WhatsApp. Puedes cargar una tabla de Excel o ' +
+        'CSV, o darlos de alta a mano de uno en uno.',
     },
 
     bajaDialogo: {
@@ -617,7 +618,79 @@ export const es = {
   },
 
   importacion: {
+    titulo: 'Cargar una tabla de contactos',
+    // El número de fila es el de EXCEL: vas a abrir tu archivo para corregirlo,
+    // y un número que no coincide con tu pantalla te hace contar a mano.
+    fila: 'Fila {n}',
+
+    paso: {
+      elegir: 'Paso 1 de 4 · Elige el archivo',
+      mapear: 'Paso 2 de 4 · Revisa qué es cada columna',
+      revisar: 'Paso 3 de 4 · Mira qué va a pasar',
+      hecho: 'Listo',
+    },
+
+    elegir: {
+      titulo: 'Elige tu archivo de contactos.',
+      cuerpo:
+        'Un archivo de Excel (.xlsx) o un CSV. La primera fila tiene que ' +
+        'decir qué es cada columna: «Nombre», «Correo», «Teléfono». ' +
+        'Nada se guarda hasta que lo confirmes al final.',
+      accion: 'Elegir archivo',
+    },
+
+    mapear: {
+      recuento: '{filas} filas · {columnas} columnas',
+      ayuda:
+        'ARLES ya adivinó qué es cada columna. Revísalo y corrige lo que haga ' +
+        'falta: debajo de cada una están sus primeros valores.',
+      grupo: 'Qué es cada columna del archivo',
+      sinEncabezado: 'Columna sin nombre',
+      // Se dice ANTES de analizar. Dejarle ver un informe de cero filas sin
+      // explicación es peor que avisarle aquí.
+      sinCanales: 'Ninguna columna es un correo ni un WhatsApp.',
+      sinCanalesDetalle:
+        'Sin al menos una de las dos no hay a quién escribir, y no entraría ' +
+        'ningún contacto. Marca la columna que tenga los correos o los móviles.',
+      accion: 'Ver qué va a pasar',
+    },
+
+    revisar: {
+      titulo: 'Esto es lo que va a pasar',
+      // Cifras, no adjetivos (§94).
+      cifras: 'Entran {entran} · se quedan fuera {fuera} · de {total} filas',
+      choques: '{n} ya están en tus contactos',
+      choquesDetalle:
+        'No se van a duplicar. Si de verdad son personas distintas, corrige ' +
+        'el archivo y vuelve a cargarlo.',
+      yaEsDe: 'ya la tiene {quien}',
+      repetidaEnElArchivo: 'repetida: ya estaba en la fila {fila}',
+      fuera: '{n} no se pueden importar',
+      volver: 'Volver a las columnas',
+      accion: 'Importar {n} contactos',
+    },
+
+    hecho: {
+      titulo: 'Importación terminada',
+      importados: 'Se importaron {n} contactos.',
+      cifras: 'Se importaron {importados} contactos de {total} filas.',
+      choques: '{n} ya estaban en tus contactos y no se duplicaron.',
+      fuera: '{n} no se pudieron importar.',
+      accion: 'Ver mis contactos',
+    },
+
     origen: {
+      titulo: 'De dónde salió esta lista',
+      campo: 'Origen de los contactos',
+      porQue:
+        'Queda registrado junto con la importación. Si algún día alguien ' +
+        'reclama, poder decir de dónde salieron sus datos vale mucho más que ' +
+        'una casilla marcada.',
+      provisional: 'Este texto todavía no lo ha revisado un abogado.',
+      provisionalDetalle:
+        'Está pendiente la revisión jurídica (P-09). Se guarda íntegro y con ' +
+        'su huella, así que cuando llegue el texto definitivo se puede ' +
+        'sustituir sin perder nada de lo ya aceptado.',
       formularioPropio: 'Se dieron de alta en un formulario nuestro',
       clientesExistentes: 'Ya son clientes nuestros',
       eventoOFeria: 'Dejaron sus datos en un evento o feria',
@@ -640,6 +713,9 @@ export const es = {
     rechazo: {
       sinCanales: 'No trae ni correo ni WhatsApp',
       demasiadosCanales: 'Trae más formas de contacto de las que caben',
+      // Respaldo para un motivo que el núcleo emita y aquí no esté todavía.
+      // Sin él, la pantalla pintaría la clave cruda en la lista de rechazos.
+      otro: 'No se pudo leer esta fila.',
     },
   },
 

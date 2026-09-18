@@ -53,6 +53,18 @@ pub enum CampoImportable {
     NombreCompleto,
     Empresa,
     Correo,
+    /// `whatsapp` en minúscula al cruzar la frontera, y **no `whatsApp`**.
+    ///
+    /// Sin el `rename`, serde produce `whatsApp` —trata `WhatsApp` como dos
+    /// palabras— y la interfaz manda `whatsapp`, que es como se escribe el
+    /// canal en el resto del sistema (`Canal::como_texto`). Dos grafías para lo
+    /// mismo, y la importación falla al cruzar: **después** de que el usuario
+    /// haya revisado los choques y aceptado la declaración.
+    ///
+    /// Lo cazó el validador comparando las dos listas. Nada más lo habría
+    /// visto: el núcleo simulado de la vista previa es JavaScript y no
+    /// comprueba tipos, y las pruebas de Rust usan el enum, no su JSON.
+    #[serde(rename = "whatsapp")]
     WhatsApp,
     /// No se importa. Es el destino de todo lo que no se reconoce.
     ///
@@ -862,5 +874,69 @@ mod tests {
             );
         }
         assert_eq!(CampoImportable::TODOS.len(), 7);
+    }
+}
+
+#[cfg(test)]
+mod prueba_de_serializacion {
+    use super::*;
+
+    /// **Cómo viaja cada campo por la IPC, fijado uno a uno.**
+    ///
+    /// No es decorativo: la interfaz manda estas cadenas exactas y Rust las
+    /// lee. Si no coinciden, la importación falla al cruzar la frontera —
+    /// **después** de que el usuario haya revisado los choques y aceptado la
+    /// declaración de origen.
+    ///
+    /// Se escriben a mano, no se derivan: derivarlas de la misma regla que
+    /// produce el JSON haría que la prueba se moviera con el fallo. El caso que
+    /// lo justifica ya ocurrió — `WhatsApp` salía como `whatsApp`.
+    #[test]
+    fn cada_campo_viaja_con_su_nombre_exacto() {
+        for (campo, esperado) in [
+            (CampoImportable::Nombre, "\"nombre\""),
+            (CampoImportable::Apellido, "\"apellido\""),
+            (CampoImportable::NombreCompleto, "\"nombreCompleto\""),
+            (CampoImportable::Empresa, "\"empresa\""),
+            (CampoImportable::Correo, "\"correo\""),
+            (CampoImportable::WhatsApp, "\"whatsapp\""),
+            (CampoImportable::Ignorar, "\"ignorar\""),
+        ] {
+            assert_eq!(
+                serde_json::to_string(&campo).expect("serializa"),
+                esperado,
+                "{campo:?} viaja con otro nombre del que espera la interfaz"
+            );
+        }
+    }
+
+    /// Y vuelve: lo que la interfaz manda, Rust lo entiende.
+    #[test]
+    fn lo_que_manda_la_interfaz_se_entiende() {
+        for texto in [
+            "nombre",
+            "apellido",
+            "nombreCompleto",
+            "empresa",
+            "correo",
+            "whatsapp",
+            "ignorar",
+        ] {
+            let json = format!("\"{texto}\"");
+            assert!(
+                serde_json::from_str::<CampoImportable>(&json).is_ok(),
+                "la interfaz manda «{texto}» y el núcleo no sabe leerlo"
+            );
+        }
+    }
+
+    /// El canal de la importación y el del resto del sistema se escriben
+    /// **igual**. Dos grafías para lo mismo es el fallo que esto evita.
+    #[test]
+    fn el_canal_se_escribe_igual_en_todo_el_sistema() {
+        assert_eq!(
+            serde_json::to_string(&CampoImportable::WhatsApp).expect("serializa"),
+            format!("\"{}\"", crate::Canal::WhatsApp.como_texto())
+        );
     }
 }

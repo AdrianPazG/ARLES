@@ -1566,6 +1566,95 @@ def el_tope_de_canales_no_se_duplica():
     )
 
 
+def _bloque_de_lista(texto, nombre):
+    """El contenido entre `= [` y su `]` de cierre, para una constante de TS.
+
+    Se busca el `= [` y **no el primer corchete**: la declaración lleva el tipo
+    delante —`readonly CampoImportable[]`— y el primer `]` está ahí. La primera
+    versión de esto cortaba en ese corchete y devolvía una lista vacía, con lo
+    que la comprobación pasaba sin mirar nada.
+    """
+    import re as _re
+    m = _re.search(nombre + r"[^=]*=\s*\[(.*?)\]", texto, _re.S)
+    return set(_re.findall(r"'([\w]+)'", m.group(1))) if m else set()
+
+
+def las_listas_de_la_importacion_no_divergen():
+    """Los campos y los orígenes de la pantalla son los del núcleo.
+
+    Están escritos en los dos sitios: el núcleo decide qué acepta, y la interfaz
+    tiene que ofrecer eso y nada más. Si divergieran, el desplegable ofrecería
+    algo que el núcleo rechaza — y la importación se caería DESPUÉS de que el
+    usuario haya revisado todos los choques y aceptado la declaración.
+    """
+    import re as _re
+    rust = leer("crates", "arles-core", "src", "importacion.rs")
+    ts = leer("app", "src", "app", "stores", "importacion.ts")
+
+    # Los orígenes, por su texto guardado: es lo que viaja por la IPC.
+    en_rust = set(_re.findall(r'Self::\w+ => "([a-z]+(?:_[a-z]+)*)",', rust))
+    en_rust = {o for o in en_rust if "_" in o or o == "otro"}
+    en_ts = _bloque_de_lista(ts, "export const ORIGENES")
+    check(
+        3,
+        "los orígenes de la importación coinciden con los del núcleo",
+        bool(en_rust) and en_rust == en_ts,
+        las_listas_de_la_importacion_no_divergen.__doc__,
+        detalle=f"núcleo: {sorted(en_rust)}\ninterfaz: {sorted(en_ts)}",
+    )
+
+    # Y los campos importables.
+    #
+    # Se leen de la prueba `cada_campo_viaja_con_su_nombre_exacto`, que fija el
+    # JSON de cada uno y lo comprueba contra serde de verdad. NO se derivan del
+    # nombre del enum: la primera versión de esto lo hacía —pasar `WhatsApp` a
+    # camelCase— y daba `whatsApp`, que es lo que serde produce **sin** el
+    # `rename`. Es decir, la comprobación reproducía el fallo en vez de cazarlo.
+    #
+    # Así hay una sola cadena de custodia: la prueba de Rust ata el enum al
+    # JSON, y esto ata el JSON a la interfaz.
+    bloque = _re.search(
+        r"fn cada_campo_viaja_con_su_nombre_exacto.*?\n    \}", rust, _re.S
+    )
+    del_nucleo = (
+        set(_re.findall(r'\\"(\w+)\\"', bloque.group(0))) if bloque else set()
+    )
+    en_pantalla = _bloque_de_lista(ts, "export const CAMPOS")
+    check(
+        3,
+        "los campos importables coinciden con los del núcleo",
+        bool(del_nucleo) and del_nucleo == en_pantalla,
+        las_listas_de_la_importacion_no_divergen.__doc__,
+        detalle=f"núcleo: {sorted(del_nucleo)}\ninterfaz: {sorted(en_pantalla)}",
+    )
+
+
+def el_texto_legal_se_ve_provisional():
+    """Mientras P-09 siga abierta, el texto de la declaración lo dice.
+
+    ADR-0013 §1 permite construir el mecanismo con texto provisional, con una
+    condición: que **se vea como tal**. Un aviso que cita una ley abrogada es
+    peor que no citar ninguna, porque aparenta rigor.
+
+    Cuando llegue la respuesta del abogado, esta comprobación hay que quitarla
+    a mano — y que haya que quitarla es justo lo que impide olvidarse.
+    """
+    import re as _re
+    ts = leer("app", "src", "app", "stores", "importacion.ts")
+    # Hasta la línea en blanco: este proyecto no usa punto y coma, así que
+    # cortar en `;` no encontraba nada y la comprobación pasaba con el texto
+    # vacío. Se vio al escribirla.
+    m = _re.search(r"export const TEXTO_PROVISIONAL =(.*?)\n\n", ts, _re.S)
+    texto = m.group(1) if m else ""
+    check(
+        3,
+        "el texto de la declaración se ve marcado como provisional",
+        "P-09" in texto and "PENDIENTE" in texto.upper(),
+        el_texto_legal_se_ve_provisional.__doc__,
+        detalle=texto.strip()[:160] or "(no se encontró la constante)",
+    )
+
+
 def fase_3(rapido):
     titulo("FASE 3 · Empresa y contactos · entrega 3.1")
 
@@ -1580,6 +1669,9 @@ def fase_3(rapido):
         ("app/src/app/stores/contactos.ts", "El estado de la lista y el reparto de errores por canal."),
         ("app/src/app/pantallas/PantallaContactos.vue", "La tabla, la ficha y las acciones (L-13, L-14)."),
         ("app/src/app/pantallas/FormularioDeContacto.vue", "Alta y edición a mano, con sus canales (L-13)."),
+        ("crates/arles-import/src/lib.rs", "Lectura defensiva de CSV y XLSX: el archivo que llega no es de fiar."),
+        ("crates/arles-core/src/analisis.rs", "Qué pasaría al importar, sin escribir nada."),
+        ("app/src/app/pantallas/PantallaImportar.vue", "El asistente de importación de cuatro pasos (3.3)."),
         ("app/src/app/pantallas/PantallaAjustes.vue", "Es el primer paso del alta (§25)."),
         ("app/src/app/pantallas/PantallaInicio.vue", "La lista de alta vive en Inicio."),
         ("app/src/app/stores/interfaz.ts", "El estado de la barra lateral (P-11)."),
@@ -1601,6 +1693,8 @@ def fase_3(rapido):
     los_comandos_de_contactos_no_reciben_la_empresa()
     la_pantalla_de_contactos_no_reordena()
     el_tope_de_canales_no_se_duplica()
+    las_listas_de_la_importacion_no_divergen()
+    el_texto_legal_se_ve_provisional()
 
     print(f"{GRIS}  sondas{FIN}")
     app = os.path.join(RAIZ, "app")
@@ -1648,6 +1742,23 @@ def fase_3(rapido):
         omitir(3, nombre, "--rapido")
     else:
         check_cmd(3, nombre, ["npm", "run", "sonda:tema", "--silent"],
+                  porque, cwd=app, timeout=900)
+
+    nombre = "sonda: el asistente de importación hace lo que dice"
+    porque = (
+        "Cinco afirmaciones de la 3.3 que ningún test de unidad alcanza: que el "
+        "mapeo se propone solo y se corrige, que analizar no escribe nada, que "
+        "el informe da cifras, que NO se puede importar sin aceptar la "
+        "declaración de origen, y que el móvil con el «1» mexicano llega sin "
+        "él. Esta sonda ya encontró un fallo real: los botones dentro de "
+        "EstadoVacio no se pintaban, porque la ranura tiene nombre."
+    )
+    if motivo:
+        omitir(3, nombre, motivo)
+    elif rapido:
+        omitir(3, nombre, "--rapido")
+    else:
+        check_cmd(3, nombre, ["npm", "run", "sonda:importar", "--silent"],
                   porque, cwd=app, timeout=900)
 
     nombre = "sonda: la pantalla de contactos hace lo que dice"

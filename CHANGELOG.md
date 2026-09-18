@@ -12,6 +12,58 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Ya se puede cargar una tabla de Excel o CSV (entrega 3.3, completa)
+
+Cuatro pasos: elegir el archivo, revisar qué es cada columna, **ver qué va a
+pasar**, y confirmar. Hasta el último, la base no se toca.
+
+El tercero existe porque Dirección decidió que ARLES **enseñe los choques antes
+de importar**. Sale con cifras —«Entran 2 · se quedan fuera 3 · de 5 filas»— y
+cada fila que no entra lleva **su número de fila de Excel**, porque quien lea
+eso va a abrir su archivo para corregirlo.
+
+- **El mapeo se propone solo** y se corrige. Una columna que se pone en «No
+  importar» se atenúa pero no desaparece: tiene que poder recuperarse.
+- **Sin correo ni WhatsApp se avisa antes de analizar.** Dejar ver un informe de
+  cero filas sin explicación es peor.
+- **No se puede importar sin aceptar la declaración de origen**, y el texto
+  dice que está pendiente de revisión jurídica. Es verdad, y callarlo aparentaría
+  un rigor que no tiene (ADR-0013).
+- Volver atrás no pierde el archivo.
+
+**Dos fallos reales, y uno llevaba días dentro:**
+
+**Los botones dentro de `EstadoVacio` no se pintaban.** El componente usa una
+ranura **con nombre** (`accion`) y todo lo demás se descarta sin error ni aviso.
+El botón «Agregar contacto» del estado vacío de CONTACTOS llevaba así desde la
+entrega 3.2. `sonda:contactos` no lo vio porque buscaba el botón con `.first()`
+y encontraba el del encabezado, que sí existe.
+
+**`WhatsApp` viajaba por la IPC como `whatsApp`, y la interfaz mandaba
+`whatsapp`.** En la aplicación de verdad la importación habría fallado al cruzar
+la frontera — después de revisar los choques y aceptar la declaración. No lo vio
+nadie más: el núcleo simulado de la vista previa es JavaScript y no comprueba
+tipos, y las pruebas de Rust usaban el enum, no su JSON. Lo cazó **el validador**
+al comparar las dos listas.
+
+Arreglado con un `rename` para que haya **una sola grafía** en todo el sistema, y
+fijado con tres pruebas que escriben el JSON esperado **a mano**: derivarlo de la
+misma regla que lo produce habría hecho que la prueba se moviera con el fallo.
+
+**La cadena de custodia queda en dos tramos:** las pruebas de Rust atan el enum
+al JSON, y el validador ata el JSON a la interfaz. El cebo de quitar el `rename`
+mata las tres pruebas de Rust y deja el validador en verde — que es correcto, y
+por eso se comprobaron los dos lados por separado.
+
+**Y dos comprobaciones del validador que no medían nada**, vistas al escribirlas:
+una cortaba la lista de TypeScript en el `[]` del tipo y devolvía una lista
+vacía; la otra buscaba el texto legal hasta un punto y coma que este proyecto no
+usa. Las dos pasaban sin mirar nada.
+
+**308 pruebas en Rust, 63 en la interfaz, fase 3 en 52/52**, seis sondas de
+navegador. Avance de la v1.2.0: **34 % → 36 %**.
+
+
 ### La pantalla de contactos (entrega 3.2, completa)
 
 Ya se ven. Se dan de alta a mano, se editan, se dan de baja, y la ficha enseña

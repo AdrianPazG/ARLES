@@ -121,7 +121,7 @@ try {
     console.log('✓ A-3 y A-4 · se configura la empresa y se confirma.')
   }
 
-  // D-1 · el tema cambia el píxel, no sólo el atributo.
+  // E-1 · el tema cambia el píxel, no sólo el atributo.
   const fondoAntes = await pagina.evaluate(() => getComputedStyle(document.body).backgroundColor)
   await pagina.selectOption('.apariencia select', 'claro')
   await pagina.waitForTimeout(300)
@@ -129,21 +129,21 @@ try {
   if (fondoAntes === fondoDespues) {
     mal(`El tema claro no cambia el color: sigue en ${fondoDespues}.`)
   } else {
-    console.log(`✓ D-1 · el tema claro cambia el fondo (${fondoAntes} → ${fondoDespues}).`)
+    console.log(`✓ E-1 · el tema claro cambia el fondo (${fondoAntes} → ${fondoDespues}).`)
   }
 
-  // D-3 y A-5 · recargar es el «cerrar y volver a abrir» de la checklist.
+  // E-3 y A-5 · recargar es el «cerrar y volver a abrir» de la checklist.
   await pagina.reload({ waitUntil: 'load' })
   await pagina.waitForTimeout(1000)
   const tema = await pagina.evaluate(() =>
     document.documentElement.getAttribute('data-tema'),
   )
   if (tema !== 'claro') {
-    mal(`Tras recargar, el tema volvió a «${tema}». D-3 no se puede recorrer.`)
+    mal(`Tras recargar, el tema volvió a «${tema}». E-3 no se puede recorrer.`)
   } else if ((await pagina.locator('.portada').count()) !== 0) {
     mal('Tras recargar vuelve a salir la portada de primera vez: la empresa no se recuerda.')
   } else {
-    console.log('✓ D-3 y A-5 · el tema y la empresa sobreviven a recargar.')
+    console.log('✓ E-3 y A-5 · el tema y la empresa sobreviven a recargar.')
   }
 
   // La tipografía de la marca, que es lo que distingue esta copia del

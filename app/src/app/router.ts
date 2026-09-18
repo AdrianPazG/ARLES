@@ -52,6 +52,14 @@ const rutas: RouteRecordRaw[] = [
     meta: { seccion: 'contactos' },
   },
   {
+    // Cuelga de contactos porque es lo que hace: mete contactos. Una sección
+    // propia en la barra sugeriría que importar es un destino, y es un camino.
+    path: '/contactos/importar',
+    name: 'importar',
+    component: () => import('@/app/pantallas/PantallaImportar.vue'),
+    meta: { seccion: 'contactos' },
+  },
+  {
     path: '/ajustes',
     name: 'ajustes',
     component: () => import('@/app/pantallas/PantallaAjustes.vue'),

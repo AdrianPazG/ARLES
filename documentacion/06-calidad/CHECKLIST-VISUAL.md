@@ -1,7 +1,7 @@
 # Checklist para revisar ARLES con tus propios ojos
 
 > **Para:** Dirección · **Fecha:** 18 de septiembre de 2026
-> **Sobre:** ARLES RELAY I v1.2.0 · **34 % construido y verificado**
+> **Sobre:** ARLES RELAY I v1.2.0 · **36 % construido y verificado**
 
 Esto **no** es la lista de comprobaciones automáticas —ésas corren solas con
 `validar.py`—. Esto es lo que **una persona tiene que mirar**, porque una
@@ -39,7 +39,7 @@ Conviene saberlo para no buscar lo que todavía no existe.
 | **Inicio** | ✅ construida, en sus dos versiones (primera vez y panel) |
 | **Ajustes** | ✅ construida: empresa, apariencia y la lista de alta |
 | **Catálogo del sistema** | ✅ construido — es la muestra de todas las piezas de diseño |
-| **Contactos** | ✅ construida: tabla, ficha, agregar, editar y dar de baja |
+| **Contactos** | ✅ construida: tabla, ficha, agregar, editar, dar de baja **y cargar una tabla de CSV o Excel** |
 | Campañas · Remitentes · Actividad | ⬜ **son marcadores de sitio**: entras y dicen que aún no están |
 
 => Que esas cuatro digan «aún no» **es lo correcto**, no un fallo. Lo que se
@@ -49,9 +49,9 @@ revisa de ellas es que lo digan con claridad, no que funcionen.
 existen y están probadas; la pantalla de CANALES es el paso siguiente. No hay
 nada que mirar todavía de ese lado.
 
-**Los contactos ya se ven y se pueden tocar.** Se dan de alta a mano, se
-editan y se dan de baja. Lo que **no** hay todavía es cargar una tabla de CSV o
-Excel: eso es la entrega 3.3.
+**Los contactos ya se ven y se pueden tocar**, y ya se puede **cargar una tabla
+de CSV o Excel**. Lo que falta de esa parte es atacarla con archivos maliciosos
+de verdad, que es trabajo de laboratorio y no algo que se revise a ojo.
 
 ---
 
@@ -111,31 +111,61 @@ exacta — de eso responden las 49 pruebas de la capa de datos.
 
 ---
 
-## Bloque D · Apariencia · el tema
+## Bloque D · Cargar una tabla · lo nuevo de esta entrega
+
+Desde Contactos, pulsa **Cargar una tabla**. Son cuatro pasos, y hasta el
+último **no se guarda nada**.
+
+!! **En la vista previa no hay diálogo de archivos** —un navegador no lo
+tiene—, así que «Elegir archivo» carga una tabla de muestra con las trampas que
+importan: encabezados en español, un móvil con el «1», una fila sin contacto,
+un correo mal escrito y una dirección repetida.
 
 | | Qué mirar | Cómo saber si está bien |
 |---|---|---|
-| **D-1** | Ajustes → Apariencia → elige **Claro** | La pantalla cambia **al momento**, sin pulsar Guardar |
-| **D-2** | Revisa todo en tema claro: Inicio, Ajustes, la barra | Todo se lee. Ningún texto gris sobre gris, ningún borde invisible |
-| **D-3** | Recarga la página (**F5**) | Sigue en **Claro** |
-| **D-4** | Vuelve a **Automático** y cambia el tema de tu Windows o Mac | ARLES lo sigue **sin cerrarlo** |
-| **D-5** | Elige **Oscuro** a mano y vuelve a cambiar el del sistema | ARLES **no** le hace caso: tu elección manda |
+| **D-1** | Pulsa **Elegir archivo** | Salen las cinco columnas, **cada una con lo que ARLES cree que es** y sus primeros valores debajo |
+| **D-2** | Mira los desplegables | Acertó: Nombre, Apellidos, Razón social → Empresa, Correo electrónico → Correo, Teléfono móvil → WhatsApp |
+| **D-3** | Cambia uno a **No importar** | La columna se atenúa pero **no desaparece**: tienes que poder recuperarla |
+| **D-4** | Pon todas en «No importar» menos las de nombre | Avisa de que **sin correo ni WhatsApp no entraría nadie**, y el botón se apaga |
+| **D-5** | Pulsa **Ver qué va a pasar** | Cifras: «Entran 2 · se quedan fuera 3 · de 5 filas». Ningún adjetivo |
+| **D-6** | Mira la lista de las que no entran | Cada una con **su número de fila de Excel** y el motivo. La repetida dice **en qué fila estaba** |
+| **D-7** | Intenta pulsar **Importar** sin marcar la casilla | **No se puede.** La declaración de origen no es opcional |
+| **D-8** | Lee el texto de la declaración | Dice que está **pendiente de revisión jurídica**. Es verdad: P-09 sigue abierta |
+| **D-9** | Despliega el origen de la lista | Cinco opciones, y «Otro origen» **la última** |
+| **D-10** | Pulsa **Volver a las columnas** | El archivo **sigue cargado**: no hay que empezar de cero |
+| **D-11** | Marca la casilla e importa | Dice cuántos entraron de cuántas filas |
+| **D-12** | Pulsa **Ver mis contactos** | Los dos están ahí. Abre la ficha del que tiene móvil: debe decir **«Se usará +528112345678»**, sin el 1 |
+
+=> **Hasta D-11 la base no se toca.** Puedes ir y venir entre los pasos, cambiar
+el mapeo y volver a analizar las veces que quieras.
 
 ---
 
-## Bloque E · El avance de la versión
+## Bloque E · Apariencia · el tema
+
+| | Qué mirar | Cómo saber si está bien |
+|---|---|---|
+| **E-1** | Ajustes → Apariencia → elige **Claro** | La pantalla cambia **al momento**, sin pulsar Guardar |
+| **E-2** | Revisa todo en tema claro: Inicio, Ajustes, la barra | Todo se lee. Ningún texto gris sobre gris, ningún borde invisible |
+| **E-3** | Recarga la página (**F5**) | Sigue en **Claro** |
+| **E-4** | Vuelve a **Automático** y cambia el tema de tu Windows o Mac | ARLES lo sigue **sin cerrarlo** |
+| **E-5** | Elige **Oscuro** a mano y vuelve a cambiar el del sistema | ARLES **no** le hace caso: tu elección manda |
+
+---
+
+## Bloque F · El avance de la versión
 
 **Se revisa en GitHub, no en la aplicación.** Dirección decidió que el avance va
 sólo en la portada del repositorio: es un dato **del proyecto**, no del
-producto. A quien use ARLES no le sirve saber que está al 34 %; le sirve saber
+producto. A quien use ARLES no le sirve saber que está al 36 %; le sirve saber
 qué puede hacer hoy, que es lo que dice la lista de alta.
 
 | | Qué mirar | Cómo saber si está bien |
 |---|---|---|
-| **E-1** | Abre el repositorio en GitHub | Arriba, una insignia con **34 %** y la frase con **la fecha del dato** |
-| **E-2** | Despliega «Cómo sale ese número» | Explica el método, enseña las once fases con su peso y su avance, y **lo que el número no mide** |
-| **E-3** | Mira la tabla de bloqueos, debajo | Están los cuatro trámites que esperan a alguien de fuera, con nombre de responsable |
-| **E-4** | Comprueba que **dentro de ARLES no sale** ningún porcentaje de avance | Inicio habla de «1 de 6» pasos del alta, que es otra cosa |
+| **F-1** | Abre el repositorio en GitHub | Arriba, una insignia con **36 %** y la frase con **la fecha del dato** |
+| **F-2** | Despliega «Cómo sale ese número» | Explica el método, enseña las once fases con su peso y su avance, y **lo que el número no mide** |
+| **F-3** | Mira la tabla de bloqueos, debajo | Están los cuatro trámites que esperan a alguien de fuera, con nombre de responsable |
+| **F-4** | Comprueba que **dentro de ARLES no sale** ningún porcentaje de avance | Inicio habla de «1 de 6» pasos del alta, que es otra cosa |
 
 !i La fecha está al lado del número a propósito: **el porcentaje no se
 recalcula solo**. Sale de un archivo que se actualiza a mano al cerrar trabajo,
@@ -143,39 +173,39 @@ y un porcentaje sin fecha no dice nada.
 
 ---
 
-## Bloque F · Los textos
+## Bloque G · Los textos
 
 Esto es lo que más rinde revisar, porque es donde una máquina no llega.
 
 | | Qué mirar | Cómo saber si está bien |
 |---|---|---|
-| **F-1** | Cualquier mensaje de error que consigas provocar | Dice **tres cosas**: qué pasó, cómo arreglarlo y **qué está a salvo** |
-| **F-2** | Guarda la empresa con el correo mal escrito | Marca **ese campo**, no un aviso general que obligue a revisarlo todo |
-| **F-3** | Busca en toda la interfaz la palabra «entregado» | **No debería existir todavía.** ARLES no puede saber si un correo llegó |
-| **F-4** | Busca adjetivos tipo «casi listo» o «excelente» | No debería haber ninguno. Sólo cifras: «2 de 6», «34 %» |
-| **F-5** | Lee los seis pasos del alta en Ajustes | Cada uno dice **qué es** y **en qué entrega llega** |
+| **G-1** | Cualquier mensaje de error que consigas provocar | Dice **tres cosas**: qué pasó, cómo arreglarlo y **qué está a salvo** |
+| **G-2** | Guarda la empresa con el correo mal escrito | Marca **ese campo**, no un aviso general que obligue a revisarlo todo |
+| **G-3** | Busca en toda la interfaz la palabra «entregado» | **No debería existir todavía.** ARLES no puede saber si un correo llegó |
+| **G-4** | Busca adjetivos tipo «casi listo» o «excelente» | No debería haber ninguno. Sólo cifras: «2 de 6», «36 %» |
+| **G-5** | Lee los seis pasos del alta en Ajustes | Cada uno dice **qué es** y **en qué entrega llega** |
 
 ---
 
-## Bloque G · Accesibilidad, en dos minutos
+## Bloque H · Accesibilidad, en dos minutos
 
 | | Qué mirar | Cómo saber si está bien |
 |---|---|---|
-| **G-1** | Recorre toda la pantalla con **Tab**, sin ratón | Siempre se ve **dónde está el foco**, con un recuadro amarillo |
-| **G-2** | Llega al botón de plegar con Tab y pulsa **Espacio** | Funciona igual que con el ratón |
-| **G-3** | Amplía el navegador al **200 %** (**Ctrl** y **+**) | Nada se corta ni se solapa |
-| **G-4** | Activa «reducir movimiento» en el sistema | La barra de la sección activa deja de animarse: **llega directa** |
+| **H-1** | Recorre toda la pantalla con **Tab**, sin ratón | Siempre se ve **dónde está el foco**, con un recuadro amarillo |
+| **H-2** | Llega al botón de plegar con Tab y pulsa **Espacio** | Funciona igual que con el ratón |
+| **H-3** | Amplía el navegador al **200 %** (**Ctrl** y **+**) | Nada se corta ni se solapa |
+| **H-4** | Activa «reducir movimiento» en el sistema | La barra de la sección activa deja de animarse: **llega directa** |
 
 ---
 
-## Bloque H · Lo que NO se puede revisar todavía, y por qué
+## Bloque I · Lo que NO se puede revisar todavía, y por qué
 
 Para que no se busque:
 
 | | Por qué no |
 |---|---|
 | Enviar un correo de prueba | El motor de envío es la Fase 4. No existe |
-| Cargar contactos desde un CSV o un Excel | Entrega 3.3. Dar de alta a mano sí se puede |
+
 | Conectar una cuenta de correo | Fase 5 |
 | Conectar el número de WhatsApp | Pantalla de CANALES, siguiente paso — y además hace falta la cuenta de Meta |
 | Ver estadísticas | Fase 7 |
@@ -203,8 +233,8 @@ Esto ya corre solo y está en verde. No hay que revisarlo a mano.
 |---|---|---|
 | `validar.py --fase 1` | Cimientos, esquema, fronteras de seguridad | **48/48** |
 | `validar.py --fase 2` | Design System y contrastes en los dos temas | **37/37** |
-| `validar.py --fase 3` | Empresa, navegación, tema, avance y contactos de punta a punta | **44/44** |
-| `cargo test` | Núcleo, base de datos, frontera IPC e invariantes del esquema | **222 pruebas** |
+| `validar.py --fase 3` | Empresa, navegación, tema, avance, contactos e importación | **52/52** |
+| `cargo test` | Núcleo, base de datos, frontera IPC e invariantes del esquema | **308 pruebas** |
 | `npm test` | Componentes, pantallas y textos | **63 pruebas** |
 
 Y seis sondas que abren un navegador de verdad y **miden**: el umbral de

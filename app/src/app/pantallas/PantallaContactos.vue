@@ -241,13 +241,22 @@ const errorDelDialogo = computed(() =>
           }}
         </p>
       </div>
-      <ABoton
-        variante="primario"
-        icono="mas"
-        @click="abrirAlta"
-      >
-        {{ t('contactos.agregar') }}
-      </ABoton>
+      <div class="contactos__acciones">
+        <ABoton
+          variante="secundario"
+          icono="remitentes"
+          a="/contactos/importar"
+        >
+          {{ t('contactos.importar') }}
+        </ABoton>
+        <ABoton
+          variante="primario"
+          icono="mas"
+          @click="abrirAlta"
+        >
+          {{ t('contactos.agregar') }}
+        </ABoton>
+      </div>
     </header>
 
     <AAviso
@@ -289,13 +298,29 @@ const errorDelDialogo = computed(() =>
       :titulo="t('contactos.vacio.titulo')"
       :cuerpo="t('contactos.vacio.cuerpo')"
     >
-      <ABoton
-        variante="primario"
-        icono="mas"
-        @click="abrirAlta"
-      >
-        {{ t('contactos.agregar') }}
-      </ABoton>
+      <!--
+        `#accion` y no la ranura por defecto. Estos botones llevaban desde la
+        entrega 3.2 **sin pintarse**: `EstadoVacio` sólo pinta la ranura con ese
+        nombre, y todo lo demás se descarta sin error ni aviso. `sonda:contactos`
+        no lo vio porque buscaba el botón con `.first()`, y encontraba el del
+        encabezado — que sí existe.
+      -->
+      <template #accion>
+        <ABoton
+          variante="primario"
+          icono="remitentes"
+          a="/contactos/importar"
+        >
+          {{ t('contactos.importar') }}
+        </ABoton>
+        <ABoton
+          variante="secundario"
+          icono="mas"
+          @click="abrirAlta"
+        >
+          {{ t('contactos.agregar') }}
+        </ABoton>
+      </template>
     </EstadoVacio>
 
     <div
@@ -484,6 +509,11 @@ const errorDelDialogo = computed(() =>
   margin: 0;
   font-size: var(--arles-font-size-h1);
   line-height: var(--arles-line-height-h1);
+}
+
+.contactos__acciones {
+  display: flex;
+  gap: var(--arles-space-3);
 }
 
 .contactos__recuento,
