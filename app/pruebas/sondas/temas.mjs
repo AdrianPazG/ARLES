@@ -24,7 +24,6 @@
  * que hará la aplicación cuando el usuario lo elija en Ajustes. Si esta sonda
  * dejara de pintar el claro, sería porque el mecanismo real está roto.
  */
-import { spawnSync } from 'node:child_process'
 import { mkdir, readFile, rm } from 'node:fs/promises'
 import http from 'node:http'
 import { extname, join } from 'node:path'
@@ -33,6 +32,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
 
 import { exigirChromium } from './navegador.mjs'
+import { vite } from './ordenes.mjs'
 
 const APP = fileURLToPath(new URL('../..', import.meta.url))
 const SALIDA = join(APP, 'dist-temas')
@@ -121,9 +121,7 @@ let navegador
 try {
   await mkdir(IMAGENES, { recursive: true })
 
-  const build = spawnSync(
-    'npx',
-    ['vite', 'build', '--outDir', 'dist-temas', '--emptyOutDir'],
+  const build = vite(['build', '--outDir', 'dist-temas', '--emptyOutDir'],
     { cwd: APP, encoding: 'utf8' },
   )
   if (build.status !== 0) {

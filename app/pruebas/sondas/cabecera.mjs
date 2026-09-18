@@ -29,7 +29,6 @@
  *
  * Lo que NO prueba: que en macOS sea igual. Ahí el motor es WKWebView (R-07).
  */
-import { spawnSync } from 'node:child_process'
 import { readFile, rm } from 'node:fs/promises'
 import http from 'node:http'
 import { extname, join } from 'node:path'
@@ -38,6 +37,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
 
 import { exigirChromium } from './navegador.mjs'
+import { vite } from './ordenes.mjs'
 
 const APP = fileURLToPath(new URL('../..', import.meta.url))
 const SALIDA = join(APP, 'dist-cabecera')
@@ -85,9 +85,7 @@ let navegador
 let codigo = 0
 
 try {
-  const build = spawnSync(
-    'npx',
-    ['vite', 'build', '--outDir', 'dist-cabecera', '--emptyOutDir'],
+  const build = vite(['build', '--outDir', 'dist-cabecera', '--emptyOutDir'],
     { cwd: APP, encoding: 'utf8' },
   )
   if (build.status !== 0) {

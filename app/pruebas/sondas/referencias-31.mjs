@@ -27,7 +27,6 @@
  * error que aquí se usan son las que devuelve `arles_core::empresa`.
  * ─────────────────────────────────────────────────────────────────────────
  */
-import { spawnSync } from 'node:child_process'
 import { mkdir, readFile, rm } from 'node:fs/promises'
 import http from 'node:http'
 import { extname, join } from 'node:path'
@@ -36,6 +35,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
 
 import { exigirChromium } from './navegador.mjs'
+import { vite } from './ordenes.mjs'
 
 const APP = fileURLToPath(new URL('../..', import.meta.url))
 const SALIDA = join(APP, 'dist-referencias-31')
@@ -153,9 +153,7 @@ let navegador
 try {
   await mkdir(IMAGENES, { recursive: true })
 
-  const build = spawnSync(
-    'npx',
-    ['vite', 'build', '--outDir', 'dist-referencias-31', '--emptyOutDir'],
+  const build = vite(['build', '--outDir', 'dist-referencias-31', '--emptyOutDir'],
     { cwd: APP, encoding: 'utf8' },
   )
   if (build.status !== 0) {

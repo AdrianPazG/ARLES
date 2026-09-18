@@ -40,5 +40,7 @@ __pycache__/
 # La vista previa es un artefacto de construcción: se genera con
 # herramientas/vista-previa/generar.py y se manda a Dirección. Medio megabyte
 # de HTML generado en cada commit no aporta nada que el generador no dé.
-vista-previa/
+# Con «/» delante: sin ella la regla atrapaba también herramientas/vista-previa/,
+# y el generador nunca llegó a subirse.
+/vista-previa/
 app/dist-vista-previa/

@@ -26,7 +26,6 @@
  * El árbol de macOS lo construye WKWebView y no es idéntico al de Chromium.
  * Esta sonda cubre Windows con precisión y macOS por aproximación.
  */
-import { spawnSync } from 'node:child_process'
 import { readFile, rm } from 'node:fs/promises'
 import http from 'node:http'
 import { extname, join } from 'node:path'
@@ -35,6 +34,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
 
 import { exigirChromium } from './navegador.mjs'
+import { vite } from './ordenes.mjs'
 
 const APP = fileURLToPath(new URL('../..', import.meta.url))
 const SALIDA = join(APP, 'dist-lector')
@@ -49,9 +49,7 @@ let servidor
 let navegador
 
 try {
-  const build = spawnSync(
-    'npx',
-    ['vite', 'build', '--outDir', 'dist-lector', '--emptyOutDir'],
+  const build = vite(['build', '--outDir', 'dist-lector', '--emptyOutDir'],
     { cwd: APP, encoding: 'utf8', env: { ...process.env, VITE_ARLES_CATALOGO: '1' } },
   )
   if (build.status !== 0) {

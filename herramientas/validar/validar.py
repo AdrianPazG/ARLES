@@ -74,11 +74,23 @@ class Resultado:
 R = Resultado()
 
 
+def resuelve(cmd):
+    """Pone la ruta completa del programa en una orden dada como lista.
+
+    En Windows `npm` es `npm.cmd`, y `subprocess` sin `shell` no aplica
+    PATHEXT: pedir «npm» daba WinError 2 y las seis sondas fallaban en 0 s sin
+    llegar a abrir el navegador. En Linux, donde corre CI, no pasaba.
+    """
+    if isinstance(cmd, str):
+        return cmd
+    return [shutil.which(cmd[0]) or cmd[0], *cmd[1:]]
+
+
 def corre(cmd, cwd=RAIZ, timeout=1800):
     t0 = time.time()
     try:
         p = subprocess.run(
-            cmd, cwd=cwd, shell=isinstance(cmd, str), capture_output=True,
+            resuelve(cmd), cwd=cwd, shell=isinstance(cmd, str), capture_output=True,
             text=True, timeout=timeout,
         )
         return p.returncode, (p.stdout + p.stderr), time.time() - t0
@@ -820,7 +832,7 @@ def sondas(rapido, app):
                 continue
             if necesita_servidor and servidor is None:
                 servidor = subprocess.Popen(
-                    ["npm", "run", "dev", "--silent"],
+                    resuelve(["npm", "run", "dev", "--silent"]),
                     cwd=app, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 )
                 time.sleep(8)

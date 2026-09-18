@@ -23,7 +23,6 @@
  * usa todas las primitivas— y el artefacto es temporal: se construye en
  * `dist-csp/` y se borra al terminar.
  */
-import { spawnSync } from 'node:child_process'
 import { readFile, rm } from 'node:fs/promises'
 import http from 'node:http'
 import { extname, join } from 'node:path'
@@ -32,6 +31,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
 
 import { exigirChromium } from './navegador.mjs'
+import { vite } from './ordenes.mjs'
 
 const APP = fileURLToPath(new URL('../..', import.meta.url))
 const SALIDA = join(APP, 'dist-csp')
@@ -68,9 +68,7 @@ try {
   // lo parcheaba y lo restauraba en el `finally`: si algo la interrumpía entre
   // medias, dejaba el interruptor abierto en el árbol de trabajo. Una variable
   // de entorno no deja residuo.
-  const build = spawnSync(
-    'npx',
-    ['vite', 'build', '--outDir', 'dist-csp', '--emptyOutDir'],
+  const build = vite(['build', '--outDir', 'dist-csp', '--emptyOutDir'],
     { cwd: APP, encoding: 'utf8', env: { ...process.env, VITE_ARLES_CATALOGO: '1' } },
   )
   if (build.status !== 0) {

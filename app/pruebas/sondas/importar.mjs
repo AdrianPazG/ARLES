@@ -22,13 +22,13 @@
  * pide lo que debe, en el orden que debe, y pinta lo que recibe.
  * ─────────────────────────────────────────────────────────────────────────
  */
-import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import { chromium } from 'playwright-core'
 
 import { exigirChromium } from './navegador.mjs'
+import { python } from './ordenes.mjs'
 
 const RAIZ = fileURLToPath(new URL('../../..', import.meta.url))
 const ARCHIVO = `${RAIZ}vista-previa/ARLES-vista-previa.html`
@@ -43,7 +43,7 @@ function mal(texto) {
 
 try {
   console.log('Generando la vista previa…')
-  const gen = spawnSync('python3', ['herramientas/vista-previa/generar.py'], {
+  const gen = python(['herramientas/vista-previa/generar.py'], {
     cwd: RAIZ,
     encoding: 'utf8',
   })

@@ -17,7 +17,6 @@
  * divergencia es justo lo que buscamos (R-07). La referencia es el punto de
  * partida de la comparación, no el resultado esperado.
  */
-import { spawnSync } from 'node:child_process'
 import { mkdir, readFile, rm } from 'node:fs/promises'
 import http from 'node:http'
 import { extname, join } from 'node:path'
@@ -26,6 +25,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
 
 import { exigirChromium } from './navegador.mjs'
+import { vite } from './ordenes.mjs'
 
 const APP = fileURLToPath(new URL('../..', import.meta.url))
 const SALIDA = join(APP, 'dist-referencias')
@@ -44,9 +44,7 @@ let navegador
 try {
   await mkdir(IMAGENES, { recursive: true })
 
-  const build = spawnSync(
-    'npx',
-    ['vite', 'build', '--outDir', 'dist-referencias', '--emptyOutDir'],
+  const build = vite(['build', '--outDir', 'dist-referencias', '--emptyOutDir'],
     { cwd: APP, encoding: 'utf8', env: { ...process.env, VITE_ARLES_CATALOGO: '1' } },
   )
   if (build.status !== 0) {

@@ -37,7 +37,6 @@
  *       200 %, 768 px al 250 %— y que ahí los enlaces **siguen teniendo nombre
  *       accesible**, que es lo que se pierde al quitarles el texto.
  */
-import { spawnSync } from 'node:child_process'
 import { readFile, rm } from 'node:fs/promises'
 import http from 'node:http'
 import { extname, join } from 'node:path'
@@ -46,6 +45,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
 
 import { exigirChromium } from './navegador.mjs'
+import { vite } from './ordenes.mjs'
 
 const APP = fileURLToPath(new URL('../..', import.meta.url))
 const PUERTO = 4179
@@ -83,7 +83,7 @@ async function umbralDeclarado() {
 }
 
 function compilar(salida, entorno) {
-  const r = spawnSync('npx', ['vite', 'build', '--outDir', salida, '--emptyOutDir'], {
+  const r = vite(['build', '--outDir', salida, '--emptyOutDir'], {
     cwd: APP,
     encoding: 'utf8',
     env: { ...process.env, ...entorno },
