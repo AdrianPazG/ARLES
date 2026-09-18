@@ -45,7 +45,7 @@ pub use etapa::{
 };
 pub use importacion::{
     CampoImportable, MAX_COLUMNAS, MAX_FILAS, MotivoDeRechazo, OrigenDeLaLista, adivinar_campo,
-    fila_a_borrador, proponer_mapeo,
+    fila_a_borrador, huella, huella_de_bytes, proponer_mapeo,
 };
 pub use onboarding::{ListaDeOnboarding, PasoDeOnboarding, RecuentoDeAlta};
 pub use secret::Secret;

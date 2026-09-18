@@ -20,7 +20,9 @@ pub mod migraciones;
 pub mod preferencias;
 
 pub use conexion::{ClaveMaestra, abrir};
-pub use contactos::{ContactoGuardado, MAX_POR_PAGINA, PaginaDeContactos};
+pub use contactos::{
+    ContactoGuardado, DatosDelLote, MAX_POR_PAGINA, PaginaDeContactos, ResumenDeImportacion,
+};
 pub use db::{Db, ResumenArranque};
 pub use empresa::EmpresaGuardada;
 pub use error::DbError;

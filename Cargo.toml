@@ -26,6 +26,7 @@ serde = { version = "1", features = ["derive"] }
 uuid = { version = "1", features = ["v7", "serde"] }
 zeroize = { version = "1", features = ["zeroize_derive"] }
 time = { version = "0.3", features = ["serde", "macros", "formatting", "parsing"] }
+sha2 = "0.10"
 
 [workspace.lints.rust]
 # `deny`, no `forbid`, y la diferencia importa: `forbid` no se puede levantar

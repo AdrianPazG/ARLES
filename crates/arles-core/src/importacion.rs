@@ -172,6 +172,46 @@ impl OrigenDeLaLista {
     }
 }
 
+/// Huella criptográfica de un texto, en hexadecimal y con su algoritmo delante.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// PARA QUÉ SIRVE, Y PARA QUÉ NO
+///
+/// Sirve para **demostrar que un texto no ha cambiado**. Al importar se guarda
+/// el texto de la afirmación de origen íntegro *y* su huella. Si la redacción
+/// cambia en 2027, el texto viejo sigue ahí, pero sin huella nadie puede
+/// distinguir «así estaba» de «así lo dejamos después» (ADR-0013 §1).
+///
+/// **No sirve para guardar secretos.** SHA-256 no es una función de derivación
+/// de contraseñas: es rápida a propósito, que es justo lo que no se quiere ahí.
+/// Ninguna credencial pasa por aquí — van al llavero del sistema (ADR-0011).
+///
+/// Lleva el prefijo `sha256:` porque un hexadecimal suelto no dice con qué se
+/// calculó. El día que haya que cambiar de algoritmo, las huellas viejas siguen
+/// siendo legibles y se sabe cuáles son cuáles.
+/// ─────────────────────────────────────────────────────────────────────────
+#[must_use]
+pub fn huella(texto: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(texto.as_bytes());
+    format!("sha256:{:x}", h.finalize())
+}
+
+/// Huella de un archivo entero, por sus bytes.
+///
+/// Es lo que permite decir «este archivo exacto ya se importó el 3 de marzo».
+/// Se calcula sobre los bytes y no sobre el texto: un CSV en Windows-1252 y el
+/// mismo en UTF-8 dicen lo mismo pero **no son el mismo archivo**, y para
+/// responder a «¿qué se importó?» importa el archivo, no su lectura.
+#[must_use]
+pub fn huella_de_bytes(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(bytes);
+    format!("sha256:{:x}", h.finalize())
+}
+
 /// Encabezados que se reconocen, por campo.
 ///
 /// Es una **lista cerrada y escrita a mano**, no una heurística de parecido.
@@ -509,6 +549,46 @@ mod tests {
         for o in OrigenDeLaLista::TODOS {
             assert!(o.clave_i18n().starts_with("importacion.origen."), "{o:?}");
         }
+    }
+
+    /// La huella lleva su algoritmo delante: un hexadecimal suelto no dice con
+    /// qué se calculó, y el día que haya que cambiarlo no se sabría cuál es cuál.
+    #[test]
+    fn la_huella_dice_con_que_se_calculo() {
+        let h = huella("Declaro que esta lista tiene origen lícito.");
+        assert!(h.starts_with("sha256:"), "{h}");
+        // 7 del prefijo + 64 del hexadecimal.
+        assert_eq!(h.len(), 71, "{h}");
+    }
+
+    /// El mismo texto da la misma huella; uno distinto, otra. Es lo único que
+    /// se le pide, y es lo que permite demostrar que no se tocó.
+    #[test]
+    fn la_huella_cambia_si_el_texto_cambia() {
+        let a = huella("Declaro que esta lista tiene origen lícito.");
+        assert_eq!(a, huella("Declaro que esta lista tiene origen lícito."));
+
+        // Un punto de diferencia basta.
+        assert_ne!(a, huella("Declaro que esta lista tiene origen lícito"));
+        // Y un espacio invisible al final también, que es el caso que se cuela.
+        assert_ne!(a, huella("Declaro que esta lista tiene origen lícito. "));
+    }
+
+    /// La huella del archivo va por **bytes**, no por texto. Un CSV en
+    /// Windows-1252 y el mismo en UTF-8 dicen lo mismo pero no son el mismo
+    /// archivo, y para responder a «¿qué se importó?» importa el archivo.
+    #[test]
+    fn la_huella_del_archivo_distingue_la_codificacion() {
+        let utf8 = "Nombre,Compañía\n".as_bytes().to_vec();
+        let mut latino = b"Nombre,Compa".to_vec();
+        latino.push(0xF1); // ñ en Windows-1252
+        latino.extend_from_slice(b"\xEDa\n");
+
+        assert_ne!(
+            huella_de_bytes(&utf8),
+            huella_de_bytes(&latino),
+            "dos archivos distintos dieron la misma huella"
+        );
     }
 
     #[test]

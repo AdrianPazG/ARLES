@@ -26,7 +26,7 @@
 
 use arles_core::canal::Canal;
 use arles_core::contacto::{CanalValidado, DatosDeContacto};
-use arles_core::ids::{CompanyId, ContactId};
+use arles_core::ids::{CompanyId, ContactId, ImportBatchId};
 use rusqlite::{OptionalExtension, Transaction, params};
 
 use crate::db::Db;
@@ -62,6 +62,48 @@ pub struct PaginaDeContactos {
     /// la vez —«mostrando 50 de 12 400»— y pedirlas por separado deja un
     /// instante en que el total y la página no corresponden.
     pub total: u32,
+}
+
+/// Todo lo que hay que declarar para dejar constancia de una importación.
+///
+/// Va junto y no como ocho parámetros sueltos porque **ninguno es opcional**:
+/// una importación sin origen declarado, o sin la huella del archivo, no deja
+/// la prueba que la ley pide (ADR-0013 §1). Con una estructura, olvidarse de
+/// uno no compila.
+#[derive(Debug, Clone)]
+pub struct DatosDelLote {
+    /// Tal y como llegó. **Sólo metadato**: nunca se usa para escribir en disco.
+    pub nombre_del_archivo: String,
+    /// Huella de los bytes del archivo, para reconocerlo si vuelve.
+    pub huella_del_archivo: String,
+    /// El mapeo de columnas que se usó, en JSON. Sin él no se puede explicar
+    /// por qué un contacto quedó con el nombre en el campo de la empresa.
+    pub mapeo_en_json: String,
+    /// El texto íntegro que el usuario aceptó. Su huella se calcula al guardar.
+    pub texto_del_consentimiento: String,
+    pub origen: arles_core::OrigenDeLaLista,
+    /// Cifras del análisis, para que el registro cuadre con lo que se enseñó.
+    pub total_de_filas: usize,
+    pub choques: usize,
+    pub invalidas: usize,
+}
+
+/// Lo que pasó al importar. Cifras, no adjetivos (§94).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResumenDeImportacion {
+    pub lote: ImportBatchId,
+    pub importados: usize,
+    pub choques: usize,
+    pub invalidas: usize,
+    pub total_de_filas: usize,
+}
+
+/// Recorta un nombre de archivo para guardarlo.
+///
+/// Un nombre de 4 000 caracteres no aporta nada y sí puede reventar la
+/// maquetación de cualquier pantalla que lo enseñe.
+fn recortar(nombre: &str) -> String {
+    nombre.chars().take(255).collect()
 }
 
 impl Db {
@@ -326,6 +368,111 @@ impl Db {
     /// # Errores
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
+    /// Importa una tanda de contactos con su registro de origen.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// O ENTRA TODO, O NO ENTRA NADA
+    ///
+    /// Una transacción para el lote entero. No es la opción cómoda —confirmar
+    /// cada mil sería más rápido en un archivo grande— y se elige igual:
+    ///
+    /// Una importación a medias deja una lista de la que **nadie sabe dónde se
+    /// quedó**. Reintentarla duplica lo que ya entró; no reintentarla deja
+    /// fuera a gente que el usuario cree tener. Y como los choques ya se
+    /// descartaron en el análisis, que esto falle a mitad sólo puede ser por
+    /// algo raro —disco lleno, base corrupta—. Ante algo raro, prefiero no
+    /// dejar nada a dejar la mitad.
+    ///
+    /// El precio está medido y aceptado: con 500 000 contactos la transacción
+    /// es larga y ARLES no responde mientras dura. Es una operación que el
+    /// usuario lanza a propósito y espera a que termine, no algo que ocurra de
+    /// fondo.
+    /// ─────────────────────────────────────────────────────────────────────
+    ///
+    /// `contactos` son los que el análisis marcó como **listos**. Aquí no se
+    /// vuelve a analizar: si llega uno que choca, la restricción de la base lo
+    /// rechaza y **se cae el lote entero**, que es lo correcto —significa que
+    /// la base cambió entre el análisis y esto, y entonces el informe que el
+    /// usuario aprobó ya no describe la realidad—.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::DireccionEnUso`] si alguna dirección se ocupó entre el
+    /// análisis y ahora; [`DbError::Sqlite`] si la escritura falla. En los dos
+    /// casos **no se escribe nada**: ni los contactos ni el registro del lote.
+    pub fn importar_contactos(
+        &self,
+        empresa: CompanyId,
+        lote: &DatosDelLote,
+        contactos: &[DatosDeContacto],
+    ) -> Result<ResumenDeImportacion, DbError> {
+        let id_lote = ImportBatchId::nuevo();
+
+        self.con_dominio(|conn| {
+            let tx = conn.unchecked_transaction()?;
+            let cuando = ahora();
+
+            tx.execute(
+                "INSERT INTO import_batch
+                     (id, company_id, original_filename, stored_filename, file_hash,
+                      column_mapping, total_rows, imported, duplicates, invalid,
+                      suppressed, consent_affirmation, consent_hash, origin,
+                      status, created_at, completed_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 0, ?11, ?12, ?13,
+                         'completed', ?14, ?14)",
+                params![
+                    id_lote.to_string(),
+                    empresa.to_string(),
+                    recortar(&lote.nombre_del_archivo),
+                    // El nombre con el que se guarda es NUESTRO, no el
+                    // suministrado. El de fuera nunca toca el disco
+                    // (THREAT_MODEL.md §4.1).
+                    id_lote.to_string(),
+                    lote.huella_del_archivo,
+                    lote.mapeo_en_json,
+                    lote.total_de_filas,
+                    contactos.len(),
+                    lote.choques,
+                    lote.invalidas,
+                    lote.texto_del_consentimiento,
+                    arles_core::huella(&lote.texto_del_consentimiento),
+                    lote.origen.como_texto(),
+                    cuando,
+                ],
+            )?;
+
+            for datos in contactos {
+                let id = ContactId::nuevo();
+                tx.execute(
+                    "INSERT INTO contact (id, company_id, first_name, last_name,
+                                          source, import_batch_id, created_at, updated_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)",
+                    params![
+                        id.to_string(),
+                        empresa.to_string(),
+                        vacio_a_nulo(&datos.nombre),
+                        vacio_a_nulo(&datos.apellido),
+                        vacio_a_nulo(&datos.empresa),
+                        id_lote.to_string(),
+                        cuando,
+                    ],
+                )?;
+                escribir_canales(&tx, empresa, id, &datos.canales, &cuando)?;
+            }
+
+            tx.commit()?;
+            Ok(())
+        })?;
+
+        Ok(ResumenDeImportacion {
+            lote: id_lote,
+            importados: contactos.len(),
+            choques: lote.choques,
+            invalidas: lote.invalidas,
+            total_de_filas: lote.total_de_filas,
+        })
+    }
+
     /// Quién es el dueño de cada dirección que ya está registrada.
     ///
     /// Es lo que alimenta la detección de choques de una importación: el
@@ -948,6 +1095,217 @@ mod tests {
         // Sin solaparse: la primera y la última no comparten ningún contacto.
         let ids_primera: Vec<_> = primera.contactos.iter().map(|c| c.id).collect();
         assert!(!ultima.contactos.iter().any(|c| ids_primera.contains(&c.id)));
+    }
+
+    fn lote_de_prueba() -> DatosDelLote {
+        DatosDelLote {
+            nombre_del_archivo: "contactos-marzo.xlsx".into(),
+            huella_del_archivo: "sha256:abc".into(),
+            mapeo_en_json: r#"["nombre","correo"]"#.into(),
+            texto_del_consentimiento:
+                "Declaro que esta lista tiene origen lícito. [TEXTO PROVISIONAL]".into(),
+            origen: arles_core::OrigenDeLaLista::FormularioPropio,
+            total_de_filas: 3,
+            choques: 0,
+            invalidas: 0,
+        }
+    }
+
+    #[test]
+    fn una_importacion_deja_los_contactos_y_su_registro() {
+        let (_d, db, empresa) = base();
+        let gente = [
+            contacto(&[(Canal::Correo, "uno@empresa.mx")]),
+            contacto(&[(Canal::Correo, "dos@empresa.mx")]),
+        ];
+
+        let resumen = db
+            .importar_contactos(empresa, &lote_de_prueba(), &gente)
+            .expect("importa");
+
+        assert_eq!(resumen.importados, 2);
+        assert_eq!(
+            db.listar_contactos(empresa, 0, 100).expect("lista").total,
+            2
+        );
+
+        // Y cada contacto sabe de qué importación viene.
+        let con_lote: i64 = db
+            .ejecutar_en_pruebas(|conn| {
+                conn.query_row(
+                    "SELECT count(*) FROM contact WHERE import_batch_id = ?1",
+                    params![resumen.lote.to_string()],
+                    |f| f.get(0),
+                )
+            })
+            .expect("cuenta");
+        assert_eq!(con_lote, 2);
+    }
+
+    /// **La garantía de esta entrega: o entra todo, o no entra nada.**
+    ///
+    /// Una importación a medias deja una lista de la que nadie sabe dónde se
+    /// quedó: reintentarla duplica lo ya entrado, y no reintentarla deja fuera a
+    /// gente que el usuario cree tener.
+    ///
+    /// Se provoca con una dirección que se ocupó **entre el análisis y la
+    /// escritura**, que es el caso real: el análisis dijo que estaba libre y
+    /// alguien la dio de alta mientras el usuario revisaba el informe.
+    #[test]
+    fn si_una_fila_falla_no_entra_ninguna() {
+        let (_d, db, empresa) = base();
+        // Alguien dio de alta esta dirección después del análisis.
+        db.crear_contacto(empresa, &contacto(&[(Canal::Correo, "ocupada@empresa.mx")]))
+            .expect("alta previa");
+
+        let gente = [
+            contacto(&[(Canal::Correo, "primera@empresa.mx")]),
+            contacto(&[(Canal::Correo, "ocupada@empresa.mx")]), // choca
+            contacto(&[(Canal::Correo, "tercera@empresa.mx")]),
+        ];
+
+        let fallo = db.importar_contactos(empresa, &lote_de_prueba(), &gente);
+        assert!(matches!(fallo, Err(DbError::DireccionEnUso { .. })));
+
+        // Sólo queda el contacto previo: ni la primera fila, que iba bien y se
+        // escribió antes del choque, ni la tercera.
+        let pagina = db.listar_contactos(empresa, 0, 100).expect("lista");
+        assert_eq!(
+            pagina.total, 1,
+            "quedaron {} contactos: la importación entró a medias",
+            pagina.total
+        );
+
+        // Y tampoco queda el registro del lote: un lote «completado» sin sus
+        // contactos sería una prueba falsa de una importación que no ocurrió.
+        let lotes: i64 = db
+            .ejecutar_en_pruebas(|conn| {
+                conn.query_row("SELECT count(*) FROM import_batch", [], |f| f.get(0))
+            })
+            .expect("cuenta");
+        assert_eq!(lotes, 0, "quedó el registro de un lote que no se escribió");
+    }
+
+    /// El registro guarda **qué** se declaró, no sólo que se declaró algo: el
+    /// origen concreto, el texto íntegro y su huella (ADR-0013 §1).
+    #[test]
+    fn el_registro_guarda_el_origen_el_texto_y_su_huella() {
+        let (_d, db, empresa) = base();
+        let lote = lote_de_prueba();
+        let resumen = db
+            .importar_contactos(
+                empresa,
+                &lote,
+                &[contacto(&[(Canal::Correo, "uno@empresa.mx")])],
+            )
+            .expect("importa");
+
+        let (origen, texto, hash): (String, String, String) = db
+            .ejecutar_en_pruebas(|conn| {
+                conn.query_row(
+                    "SELECT origin, consent_affirmation, consent_hash
+                       FROM import_batch WHERE id = ?1",
+                    params![resumen.lote.to_string()],
+                    |f| Ok((f.get(0)?, f.get(1)?, f.get(2)?)),
+                )
+            })
+            .expect("lee el lote");
+
+        assert_eq!(origen, "formulario_propio");
+        assert_eq!(texto, lote.texto_del_consentimiento);
+        assert_eq!(
+            hash,
+            arles_core::huella(&lote.texto_del_consentimiento),
+            "la huella no corresponde al texto guardado"
+        );
+    }
+
+    /// El nombre del archivo se guarda **recortado y como metadato**. Nunca
+    /// toca el disco: el archivo se guarda con un identificador nuestro
+    /// (THREAT_MODEL.md §4.1).
+    #[test]
+    fn el_nombre_del_archivo_no_se_usa_para_escribir() {
+        let (_d, db, empresa) = base();
+        let mut lote = lote_de_prueba();
+        lote.nombre_del_archivo = format!("../../{}.xlsx", "a".repeat(400));
+
+        let resumen = db
+            .importar_contactos(
+                empresa,
+                &lote,
+                &[contacto(&[(Canal::Correo, "uno@empresa.mx")])],
+            )
+            .expect("importa");
+
+        let (original, guardado): (String, String) = db
+            .ejecutar_en_pruebas(|conn| {
+                conn.query_row(
+                    "SELECT original_filename, stored_filename
+                       FROM import_batch WHERE id = ?1",
+                    params![resumen.lote.to_string()],
+                    |f| Ok((f.get(0)?, f.get(1)?)),
+                )
+            })
+            .expect("lee");
+
+        assert!(original.chars().count() <= 255, "no se recortó");
+        assert_eq!(
+            guardado,
+            resumen.lote.to_string(),
+            "el nombre con el que se guarda tiene que ser nuestro, no el de fuera"
+        );
+        assert!(
+            !guardado.contains(".."),
+            "el nombre de fuera llegó al disco"
+        );
+    }
+
+    /// Las cifras del resumen son las del análisis: si no cuadraran, el
+    /// registro contaría una historia distinta de la que el usuario aprobó.
+    #[test]
+    fn las_cifras_del_resumen_cuadran_con_las_del_analisis() {
+        let (_d, db, empresa) = base();
+        let mut lote = lote_de_prueba();
+        lote.total_de_filas = 10;
+        lote.choques = 3;
+        lote.invalidas = 2;
+
+        let gente: Vec<_> = (0..5)
+            .map(|i| contacto(&[(Canal::Correo, &format!("c{i}@empresa.mx"))]))
+            .collect();
+        let resumen = db
+            .importar_contactos(empresa, &lote, &gente)
+            .expect("importa");
+
+        assert_eq!(resumen.importados, 5);
+        assert_eq!(resumen.choques, 3);
+        assert_eq!(resumen.invalidas, 2);
+        assert_eq!(resumen.total_de_filas, 10);
+        assert_eq!(
+            resumen.importados + resumen.choques + resumen.invalidas,
+            resumen.total_de_filas,
+            "las cifras no suman: el informe y el registro dirían cosas distintas"
+        );
+    }
+
+    /// Importar cero contactos deja el registro igual: es una importación que
+    /// ocurrió y en la que no entró nadie, y eso también hay que poder contarlo.
+    #[test]
+    fn una_importacion_sin_nada_que_importar_deja_su_registro() {
+        let (_d, db, empresa) = base();
+        let mut lote = lote_de_prueba();
+        lote.total_de_filas = 2;
+        lote.invalidas = 2;
+
+        let resumen = db.importar_contactos(empresa, &lote, &[]).expect("importa");
+        assert_eq!(resumen.importados, 0);
+
+        let lotes: i64 = db
+            .ejecutar_en_pruebas(|conn| {
+                conn.query_row("SELECT count(*) FROM import_batch", [], |f| f.get(0))
+            })
+            .expect("cuenta");
+        assert_eq!(lotes, 1);
     }
 
     /// La consulta de dueños dice **con quién** choca cada dirección, no sólo
