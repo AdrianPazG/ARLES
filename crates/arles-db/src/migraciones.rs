@@ -82,6 +82,31 @@ mod tests {
         );
     }
 
+    /// `refinery` guarda en cada base una huella del texto SQL de cada
+    /// migración y, al abrirla, **se niega a arrancar** si no coincide con la
+    /// del binario (`abort_divergent`). Un retorno de carro cambia la huella.
+    ///
+    /// Git para Windows convierte a CRLF al sacar los archivos, y así lo hace
+    /// también `windows-latest` en CI: los instaladores de Windows llevaban
+    /// una huella y los de macOS otra, para el mismo SQL. El validador no lo
+    /// veía porque corre en Ubuntu. Lo fija `.gitattributes` (`eol=lf`).
+    ///
+    /// Vista fallar: en Windows, con los archivos sacados antes de añadir la
+    /// regla a `.gitattributes`, falla nombrando las cinco migraciones.
+    #[test]
+    fn las_migraciones_embebidas_no_llevan_retornos_de_carro() {
+        let con_cr: Vec<String> = embebidas::migrations::runner()
+            .get_migrations()
+            .iter()
+            .filter(|m| m.sql().is_some_and(|s| s.contains('\r')))
+            .map(ToString::to_string)
+            .collect();
+        assert!(
+            con_cr.is_empty(),
+            "migraciones con CRLF (su huella cambia según dónde se compile): {con_cr:?}"
+        );
+    }
+
     #[test]
     fn crea_las_tablas_del_modelo_de_datos() {
         let (_d, conn) = base_de_prueba();
