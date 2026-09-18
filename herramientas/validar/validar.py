@@ -1176,6 +1176,9 @@ MIGRACIONES_PUBLICADAS = {
     # L-2 / D-6, 17/09/2026. A partir de aquí queda congelada como las otras dos.
     "V3__canales_de_contacto.sql":
         "bb057af229cf4b47ccb11063c8145631c61526b6fb8d00c3b782bf4a02c4dbdb",
+    # ADR-0013 §1, origen declarado de la importación. 18/09/2026.
+    "V5__origen_de_la_importacion.sql":
+        "d3a7533331ec838fa2df6799cc2b65ee1691dc12d9fc52f21541a9945f25720f",
 }
 
 

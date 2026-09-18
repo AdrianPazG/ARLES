@@ -298,6 +298,18 @@ export const es = {
     },
     // No lo puede provocar el usuario: el canal lo elige ARLES, no se escribe.
     // Si aparece, es una fila de la base con un canal que no reconocemos.
+    origen_desconocido: {
+      que: 'El origen declarado de esa importación no es uno de los que ARLES reconoce.',
+      como:
+        'No se puede corregir desde aquí. Si necesitas ese registro para ' +
+        'responder a una reclamación, restaura el respaldo anterior a la ' +
+        'importación.',
+      // No se repara cayendo en «Otro»: eso cambiaría lo que el usuario
+      // declaró, que es justo el dato que se guarda para poder probarlo.
+      salvo:
+        'Los contactos de esa importación siguen ahí, y el texto que se ' +
+        'aceptó también.',
+    },
     canal_desconocido: {
       que: 'Ese contacto tiene un medio de contacto que ARLES no reconoce.',
       como: 'Vuelve a importarlo, o avísanos con el nombre del contacto.',
@@ -314,6 +326,44 @@ export const es = {
       que: 'Esa acción no es posible en el estado actual del envío.',
       como: 'Actualiza la vista para ver el estado más reciente.',
       salvo: 'No se modificó ningún envío.',
+    },
+    import: {
+      formato_desconocido: {
+        que: 'Ese archivo no es una tabla que ARLES sepa leer.',
+        como: 'Usa un archivo .csv o .xlsx. Desde Excel: Archivo → Guardar como.',
+        salvo: 'No se importó nada.',
+      },
+      demasiado_grande: {
+        que: 'El archivo pesa más de lo que ARLES admite.',
+        como: 'Pártelo en varios archivos más pequeños e impórtalos por turnos.',
+        salvo: 'No se importó nada.',
+      },
+      demasiados_datos: {
+        que: 'El archivo trae más datos de los que ARLES puede leer de una vez.',
+        como:
+          'Pártelo en varios archivos. Si crees que es pequeño, ábrelo en ' +
+          'Excel y borra las filas y columnas vacías del final: a veces ' +
+          'ocupan miles de celdas sin que se vean.',
+        salvo: 'No se importó nada.',
+      },
+      sin_encabezados: {
+        que: 'El archivo no tiene una fila de encabezados.',
+        como:
+          'La primera fila con datos tiene que decir qué es cada columna: ' +
+          '«Nombre», «Correo», «Teléfono».',
+        salvo: 'No se importó nada.',
+      },
+      sin_hojas: {
+        que: 'El archivo de Excel no tiene ninguna hoja con datos.',
+        como: 'Ábrelo y comprueba que la primera hoja tiene la tabla.',
+        salvo: 'No se importó nada.',
+      },
+      no_se_pudo_leer: {
+        que: 'No se pudo leer el archivo.',
+        como:
+          'Comprueba que no lo tienes abierto en Excel y que no está dañado.',
+        salvo: 'No se importó nada.',
+      },
     },
     db: {
       clave_incorrecta: {
@@ -394,6 +444,20 @@ export const es = {
           'Los campos con problema están marcados abajo, cada uno con lo que ' +
           'le falta. Corrígelos y vuelve a guardar.',
         salvo: 'No se guardó nada todavía. Lo que escribiste sigue en pantalla.',
+      },
+      sin_importacion_en_curso: {
+        que: 'Se perdió el archivo que estabas importando.',
+        como: 'Vuelve a elegirlo y a revisar el resumen antes de confirmar.',
+        salvo:
+          'No se importó nada. Tus contactos están exactamente como estaban.',
+      },
+      archivo_no_se_pudo_leer: {
+        que: 'No se pudo abrir el archivo que elegiste.',
+        como:
+          'Comprueba que sigue donde estaba y que no lo tienes abierto en ' +
+          'Excel. Si está en una carpeta compartida, cópialo a tu equipo ' +
+          'primero.',
+        salvo: 'No se importó nada.',
       },
       empresa_no_configurada: {
         que: 'Todavía no has configurado los datos de tu empresa.',
@@ -549,6 +613,33 @@ export const es = {
     error: {
       canalGenerico: 'Esta forma de contacto no es válida.',
       campoGenerico: 'Revisa este campo.',
+    },
+  },
+
+  importacion: {
+    origen: {
+      formularioPropio: 'Se dieron de alta en un formulario nuestro',
+      clientesExistentes: 'Ya son clientes nuestros',
+      eventoOFeria: 'Dejaron sus datos en un evento o feria',
+      directorioPublico: 'Salieron de un directorio público',
+      otro: 'Otro origen',
+    },
+
+    campo: {
+      nombre: 'Nombre',
+      apellido: 'Apellido',
+      nombreCompleto: 'Nombre completo',
+      empresa: 'Empresa',
+      correo: 'Correo',
+      whatsapp: 'WhatsApp',
+      // «No importar» y no «ignorar»: describe lo que va a pasar con esa
+      // columna, no un juicio sobre ella.
+      ignorar: 'No importar',
+    },
+
+    rechazo: {
+      sinCanales: 'No trae ni correo ni WhatsApp',
+      demasiadosCanales: 'Trae más formas de contacto de las que caben',
     },
   },
 

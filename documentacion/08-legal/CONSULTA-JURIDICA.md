@@ -166,3 +166,31 @@ funciona como está planteado. Las demás cambian textos y plazos.
 | **2** | P-4, P-8 | Son los textos y la lista de supresión: se construyen ya |
 | **3** | P-1, P-7 | Plazos y citas normativas |
 | **4** | P-2, P-5, P-6 | Trámites y posibles funcionalidades nuevas |
+
+---
+
+## 7 · Decisión de Dirección del 18/09/2026 · se aplaza, con una excepción
+
+Dirección preguntó si esta consulta se puede aplazar. **Sí, salvo P-3.**
+
+Siete de las ocho preguntas cambian **textos**: qué dice el aviso de privacidad,
+en cuántos días hay que responder a un derecho ARCO, qué norma se cita. Todo eso
+se construye ya con texto marcado como provisional y visible como tal, según
+ADR-0013 §1, y se sustituye cuando llegue la respuesta.
+
+**P-3 es distinta, y tiene fecha límite.** No cambia un texto: si la respuesta es
+«no» o «sí, pero», habría que exigir prueba de consentimiento antes de permitir
+una campaña — una compuerta nueva en el flujo. Construir la **Fase 6** asumiendo
+que se puede, y descubrir después que no, obliga a rehacerla.
+
+| | |
+|---|---|
+| **Qué se aplaza** | P-1, P-2, P-4, P-5, P-6, P-7, P-8 |
+| **Qué no** | **P-3**, y conviene mandarla **suelta**: es una pregunta concreta sobre un artículo concreto, mucho más barata y rápida que la consulta entera |
+| **Fecha límite de P-3** | **Antes de empezar la Fase 6.** No es «antes de publicar»: para entonces ya sería tarde |
+| **Segunda con cola larga** | **P-6** (REPEP). Si resulta exigible es una funcionalidad nueva, no un texto, y hay que planearla antes de cerrar el alcance de la v1.2.0 |
+
+**Lo que esto significa mientras tanto:** la declaración de origen que ARLES pide
+al importar es un mecanismo terminado con un hueco dentro — el texto. El esquema
+guarda el texto que sea, con su huella, así que sustituirlo después no pierde
+nada de lo ya firmado.

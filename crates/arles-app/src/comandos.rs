@@ -527,6 +527,256 @@ fn validar(
         .map_err(|errores| ErrorIpc::from(crate::AppError::ContactoInvalido(errores)))
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// IMPORTAR UNA TABLA (entrega 3.3)
+//
+// Tres comandos y tres pasos, en este orden: leer, analizar, confirmar. Se
+// parten así porque entre el segundo y el tercero hay **una persona
+// decidiendo**: mira los choques y elige si sigue. Un solo comando que
+// importara de golpe no podría enseñarle nada antes de escribir.
+//
+// ── POR QUÉ LA RUTA DEL ARCHIVO NO LLEGA DESDE LA PANTALLA ──
+//
+// La regla 4 de la frontera dice que **ninguna ruta del sistema de archivos la
+// cruza**. Lo normal en Tauri sería que la webview abriera el diálogo con el
+// plugin y le pasara la ruta al comando; eso deja a la webview eligiendo qué
+// archivo se lee, y convierte «importar contactos» en «leer cualquier cosa del
+// disco» si alguien consigue ejecutar algo ahí.
+//
+// Aquí el diálogo lo abre **Rust**, dentro del comando. La ruta nace y muere en
+// esta capa. La webview no recibe el permiso `dialog:allow-open` —míralo en
+// `capabilities/principal.json`: no está—, así que no puede pedir un archivo
+// por su cuenta aunque quiera.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Lo que la pantalla necesita para enseñar la vista previa del archivo.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchivoLeido {
+    /// Nombre del archivo, **sólo para enseñarlo**. No es una ruta.
+    pub nombre: String,
+    pub encabezados: Vec<String>,
+    /// Las primeras filas, para reconocer si el mapeo es el correcto.
+    pub muestra: Vec<Vec<String>>,
+    /// Qué campo parece ser cada columna. Es una **propuesta**: la pantalla la
+    /// enseña y el usuario la puede cambiar.
+    pub mapeo: Vec<arles_core::CampoImportable>,
+    pub total_de_filas: usize,
+}
+
+/// Abre el diálogo del sistema, lee la tabla y la deja lista para analizar.
+///
+/// Devuelve `None` si el usuario cerró el diálogo sin elegir nada. No es un
+/// error: cancelar es una decisión, y un error ahí pintaría un aviso rojo por
+/// haber cambiado de opinión.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si el archivo no se puede leer, no es una tabla que ARLES
+/// entienda, o pasa de los topes de `arles-import`.
+#[tauri::command]
+pub fn elegir_archivo_para_importar(
+    estado: tauri::State<'_, EstadoApp>,
+    app: tauri::AppHandle,
+) -> Result<Option<ArchivoLeido>, ErrorIpc> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let ruta = app
+        .dialog()
+        .file()
+        // Los formatos que ARLES sabe leer, y sólo ésos. No es seguridad —el
+        // usuario puede renombrar cualquier cosa—, es no ofrecerle elegir algo
+        // que después se le va a rechazar.
+        .add_filter(
+            "Tablas de contactos",
+            &["csv", "xlsx", "xls", "xlsm", "tsv"],
+        )
+        .blocking_pick_file();
+
+    let Some(ruta) = ruta else {
+        return Ok(None);
+    };
+    let ruta = ruta
+        .into_path()
+        .map_err(|_| ErrorIpc::from(crate::AppError::ArchivoNoSePudoLeer))?;
+
+    let tabla =
+        arles_import::leer(&ruta).map_err(|e| ErrorIpc::from(crate::AppError::Lectura(e)))?;
+
+    let mapeo = arles_core::proponer_mapeo(&tabla.encabezados);
+    let leido = ArchivoLeido {
+        // Sólo el nombre, nunca la ruta: la carpeta de la que salió el archivo
+        // dice dónde vive el usuario y no le aporta nada a la pantalla
+        // (THREAT_MODEL.md §4.1).
+        nombre: ruta
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_owned(),
+        encabezados: tabla.encabezados.clone(),
+        muestra: tabla.muestra.clone(),
+        mapeo,
+        total_de_filas: tabla.total_de_filas,
+    };
+
+    estado.guardar_importacion(tabla);
+    Ok(Some(leido))
+}
+
+/// Qué pasaría al importar, **sin escribir nada**.
+///
+/// Se puede llamar las veces que haga falta: el usuario corrige el mapeo, vuelve
+/// a analizar, y mira otra vez. Mientras no confirme, la base no se toca.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] con `error.app.sin_importacion_en_curso` si nadie ha elegido
+/// archivo; con `error.app.empresa_no_configurada` si falta el alta.
+#[tauri::command]
+pub fn analizar_importacion(
+    estado: tauri::State<'_, EstadoApp>,
+    mapeo: Vec<arles_core::CampoImportable>,
+) -> Result<arles_core::Analisis, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let pais = pais_de_la_empresa(&estado)?;
+
+    // Las direcciones que trae el archivo, para preguntar de una vez de quién
+    // son. Una consulta por fila serían medio millón de viajes a la base.
+    let direcciones = estado
+        .con_importacion(|t| direcciones_del_archivo(&mapeo, &t.filas, &pais))
+        .ok_or_else(|| ErrorIpc::from(crate::AppError::SinImportacionEnCurso))?;
+
+    let duenos = estado
+        .db()
+        .duenos_de_direcciones(empresa, &direcciones)
+        .map_err(crate::AppError::Db)?;
+
+    estado
+        .con_importacion(|t| arles_core::analizar(&mapeo, &t.filas, &pais, &duenos))
+        .ok_or_else(|| ErrorIpc::from(crate::AppError::SinImportacionEnCurso))
+}
+
+/// Escribe lo que el análisis marcó como listo, con su declaración de origen.
+///
+/// **Vuelve a analizar antes de escribir**, con el mismo mapeo. No es trabajo
+/// repetido: entre que el usuario miró el informe y pulsó confirmar pueden
+/// haber pasado minutos, y en ese rato alguien pudo dar de alta a mano una de
+/// las direcciones. Importar lo que decía el informe viejo escribiría algo que
+/// ya no es cierto.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si no hay importación en curso, si la empresa no está
+/// configurada, o si la escritura falla. **Si falla, no se escribe nada**.
+#[tauri::command]
+pub fn confirmar_importacion(
+    estado: tauri::State<'_, EstadoApp>,
+    mapeo: Vec<arles_core::CampoImportable>,
+    origen: arles_core::OrigenDeLaLista,
+    texto_del_consentimiento: String,
+) -> Result<ResumenParaLaPantalla, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let pais = pais_de_la_empresa(&estado)?;
+
+    let direcciones = estado
+        .con_importacion(|t| direcciones_del_archivo(&mapeo, &t.filas, &pais))
+        .ok_or_else(|| ErrorIpc::from(crate::AppError::SinImportacionEnCurso))?;
+    let duenos = estado
+        .db()
+        .duenos_de_direcciones(empresa, &direcciones)
+        .map_err(crate::AppError::Db)?;
+
+    let datos = estado
+        .con_importacion(|t| {
+            let informe = arles_core::analizar(&mapeo, &t.filas, &pais, &duenos);
+            let lote = arles_db::DatosDelLote {
+                nombre_del_archivo: t.nombre.clone(),
+                huella_del_archivo: t.huella.clone(),
+                // El mapeo se guarda para poder explicar, dentro de un año, por
+                // qué un contacto quedó con el nombre en el campo de la empresa.
+                mapeo_en_json: serde_json::to_string(&mapeo).unwrap_or_default(),
+                texto_del_consentimiento: texto_del_consentimiento.clone(),
+                origen,
+                total_de_filas: t.total_de_filas,
+                choques: informe.choques.len(),
+                invalidas: informe.invalidas.len() + informe.rechazadas.len(),
+            };
+            (lote, informe)
+        })
+        .ok_or_else(|| ErrorIpc::from(crate::AppError::SinImportacionEnCurso))?;
+
+    let (lote, informe) = datos;
+    let resumen = estado
+        .db()
+        .importar_contactos(empresa, &lote, &informe.listas)
+        .map_err(crate::AppError::Db)?;
+
+    // Se suelta el archivo: medio millón de filas no se quedan en memoria
+    // hasta que alguien cierre ARLES.
+    estado.soltar_importacion();
+
+    Ok(ResumenParaLaPantalla {
+        importados: resumen.importados,
+        choques: resumen.choques,
+        invalidas: resumen.invalidas,
+        total_de_filas: resumen.total_de_filas,
+    })
+}
+
+/// Descarta la importación en curso.
+///
+/// La llama la pantalla al cerrar el asistente. Sin esto, el archivo se queda
+/// en memoria hasta que alguien cierre la aplicación.
+#[tauri::command]
+pub fn cancelar_importacion(estado: tauri::State<'_, EstadoApp>) {
+    estado.soltar_importacion();
+}
+
+/// Lo que pasó al importar, para la pantalla.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResumenParaLaPantalla {
+    pub importados: usize,
+    pub choques: usize,
+    pub invalidas: usize,
+    pub total_de_filas: usize,
+}
+
+/// Todas las direcciones normalizadas que trae el archivo, sin repetir.
+///
+/// Se normalizan aquí con la misma función del núcleo que usa el análisis: si
+/// se consultaran sin normalizar, «Ana@Empresa.MX» no encontraría a su dueño y
+/// el choque se detectaría tarde — al escribir, con el lote ya empezado.
+fn direcciones_del_archivo(
+    mapeo: &[arles_core::CampoImportable],
+    filas: &[Vec<String>],
+    pais: &str,
+) -> Vec<String> {
+    let mut vistas = std::collections::HashSet::new();
+    for fila in filas {
+        let Ok(borrador) = arles_core::fila_a_borrador(mapeo, fila) else {
+            continue;
+        };
+        let Ok(datos) = arles_core::contacto::DatosDeContacto::validar(&borrador, pais) else {
+            continue;
+        };
+        for canal in datos.canales {
+            vistas.insert(canal.valor_normalizado);
+        }
+    }
+    vistas.into_iter().collect()
+}
+
+/// El país de la empresa configurada, que completa los móviles sin prefijo.
+fn pais_de_la_empresa(estado: &EstadoApp) -> Result<String, ErrorIpc> {
+    estado
+        .db()
+        .empresa()
+        .map_err(crate::AppError::Db)?
+        .map(|e| e.datos.pais().to_owned())
+        .ok_or_else(|| ErrorIpc::from(crate::AppError::EmpresaNoConfigurada))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

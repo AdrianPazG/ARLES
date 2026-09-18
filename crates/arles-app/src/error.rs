@@ -72,6 +72,22 @@ pub enum AppError {
     #[error("todavía no se ha configurado la empresa")]
     EmpresaNoConfigurada,
 
+    /// Se pidió analizar o confirmar sin haber elegido archivo.
+    ///
+    /// No lo puede provocar el usuario: el asistente no deja llegar ahí. Si
+    /// llega, es que alguien habla con la IPC por su cuenta — o que ARLES se
+    /// reinició a medias de una importación, y entonces hay que volver a
+    /// empezar en vez de escribir a ciegas.
+    #[error("no hay ninguna importación en curso")]
+    SinImportacionEnCurso,
+
+    /// El archivo se eligió pero no se pudo abrir.
+    #[error("no se pudo abrir el archivo elegido")]
+    ArchivoNoSePudoLeer,
+
+    #[error(transparent)]
+    Lectura(#[from] arles_import::ErrorDeLectura),
+
     #[error(transparent)]
     Db(#[from] arles_db::DbError),
 
@@ -91,6 +107,9 @@ impl AppError {
             Self::EmpresaInvalida(_) => "error.app.empresa_invalida",
             Self::ContactoInvalido(_) => "error.app.contacto_invalido",
             Self::EmpresaNoConfigurada => "error.app.empresa_no_configurada",
+            Self::SinImportacionEnCurso => "error.app.sin_importacion_en_curso",
+            Self::ArchivoNoSePudoLeer => "error.app.archivo_no_se_pudo_leer",
+            Self::Lectura(e) => e.clave_i18n(),
             Self::Db(e) => e.clave_i18n(),
             Self::Core(e) => e.clave_i18n(),
         }

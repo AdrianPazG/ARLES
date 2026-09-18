@@ -20,7 +20,11 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 arles-core = { path = "../arles-core" }
 arles-db = { path = "../arles-db" }
+arles-import = { path = "../arles-import" }
 tauri = { version = "2", features = [] }
+# Sólo se usa desde Rust, NUNCA se le da el permiso a la webview. Ver la nota
+# en comandos.rs sobre por qué la ruta del archivo no cruza la frontera.
+tauri-plugin-dialog = "2"
 serde.workspace = true
 serde_json = "1"
 thiserror.workspace = true

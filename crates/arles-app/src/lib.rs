@@ -36,6 +36,11 @@ pub fn run() {
     };
 
     let resultado = tauri::Builder::default()
+        // El diálogo de archivos. **La webview no recibe su permiso** —míralo
+        // en `capabilities/principal.json`—: sólo `elegir_archivo_para_importar`
+        // lo usa, desde Rust, y así la ruta del archivo no cruza la frontera
+        // (regla 4).
+        .plugin(tauri_plugin_dialog::init())
         .manage(estado)
         .invoke_handler(tauri::generate_handler![
             comandos::info_app,
@@ -51,6 +56,10 @@ pub fn run() {
             comandos::crear_contacto,
             comandos::editar_contacto,
             comandos::borrar_contacto,
+            comandos::elegir_archivo_para_importar,
+            comandos::analizar_importacion,
+            comandos::confirmar_importacion,
+            comandos::cancelar_importacion,
         ])
         .run(tauri::generate_context!());
 

@@ -112,6 +112,17 @@ impl ErrorDeLectura {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TablaLeida {
+    /// Nombre del archivo, **sin la carpeta**. Sólo para enseñarlo.
+    ///
+    /// La ruta no se guarda: dice dónde vive el usuario y no le aporta nada a
+    /// ninguna pantalla (THREAT_MODEL.md §4.1).
+    pub nombre: String,
+    /// Huella de los bytes del archivo.
+    ///
+    /// Va por bytes y no por su lectura: un CSV en Windows-1252 y el mismo en
+    /// UTF-8 dicen lo mismo pero **no son el mismo archivo**, y para responder
+    /// a «¿qué se importó?» importa el archivo.
+    pub huella: String,
     /// Los encabezados, tal y como venían.
     pub encabezados: Vec<String>,
     /// Las primeras [`FILAS_DE_MUESTRA`] filas, para la vista previa.
@@ -154,11 +165,45 @@ pub fn leer(ruta: &Path) -> Result<TablaLeida, ErrorDeLectura> {
         _ => return Err(ErrorDeLectura::FormatoDesconocido),
     };
 
-    armar(filas)
+    let nombre = ruta
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_owned();
+    let huella = huella_del_archivo(ruta)?;
+
+    armar(nombre, huella, filas)
+}
+
+/// Huella de los bytes del archivo, leídos otra vez y en trozos.
+///
+/// En trozos y no de golpe: el tope son 200 MB, y meterlos enteros en memoria
+/// sólo para calcular una huella sería pagar dos veces por el archivo.
+fn huella_del_archivo(ruta: &Path) -> Result<String, ErrorDeLectura> {
+    let mut f = std::fs::File::open(ruta).map_err(|_| ErrorDeLectura::NoSePudoLeer)?;
+    let mut trozo = vec![0_u8; 64 * 1024];
+    let mut acumulado: Vec<u8> = Vec::new();
+    loop {
+        let leidos = f
+            .read(&mut trozo)
+            .map_err(|_| ErrorDeLectura::NoSePudoLeer)?;
+        if leidos == 0 {
+            break;
+        }
+        acumulado.extend_from_slice(trozo.get(..leidos).unwrap_or(&[]));
+        if acumulado.len() as u64 > MAX_BYTES {
+            return Err(ErrorDeLectura::DemasiadoGrande);
+        }
+    }
+    Ok(arles_core::huella_de_bytes(&acumulado))
 }
 
 /// Separa encabezados de datos y recorta la muestra.
-fn armar(mut filas: Vec<Vec<String>>) -> Result<TablaLeida, ErrorDeLectura> {
+fn armar(
+    nombre: String,
+    huella: String,
+    mut filas: Vec<Vec<String>>,
+) -> Result<TablaLeida, ErrorDeLectura> {
     // Las filas del principio completamente vacías se saltan: es lo que deja un
     // Excel con un título arriba y la tabla dos filas más abajo.
     while filas
@@ -184,6 +229,8 @@ fn armar(mut filas: Vec<Vec<String>>) -> Result<TablaLeida, ErrorDeLectura> {
     let total_de_filas = filas.len();
 
     Ok(TablaLeida {
+        nombre,
+        huella,
         encabezados,
         muestra,
         filas,
@@ -385,6 +432,47 @@ mod tests {
         assert_eq!(t.encabezados, vec!["Nombre", "Correo"]);
         assert_eq!(t.total_de_filas, 2);
         assert_eq!(celda(&t, 0, 0), "Ana");
+    }
+
+    /// El nombre se guarda **sin la carpeta**: la ruta dice dónde vive el
+    /// usuario y no le aporta nada a ninguna pantalla.
+    #[test]
+    fn se_guarda_el_nombre_pero_nunca_la_carpeta() {
+        let (dir, ruta) = archivo("contactos-marzo.csv", b"Nombre,Correo\nAna,a@b.mx\n");
+        let t = leer(&ruta).expect("lee");
+
+        assert_eq!(t.nombre, "contactos-marzo.csv");
+        let carpeta = dir.path().to_string_lossy().to_string();
+        assert!(
+            !t.nombre.contains(&carpeta) && !t.nombre.contains('/') && !t.nombre.contains('\\'),
+            "la carpeta se coló en el nombre: {}",
+            t.nombre
+        );
+    }
+
+    /// La huella cambia con el contenido. Es lo que permite decir «este archivo
+    /// exacto ya se importó».
+    #[test]
+    fn la_huella_distingue_dos_archivos() {
+        let (_d1, a) = archivo("a.csv", b"Nombre,Correo\nAna,a@b.mx\n");
+        let (_d2, b) = archivo("b.csv", b"Nombre,Correo\nAna,otro@b.mx\n");
+
+        let ta = leer(&a).expect("lee a");
+        let tb = leer(&b).expect("lee b");
+
+        assert!(ta.huella.starts_with("sha256:"), "{}", ta.huella);
+        assert_ne!(ta.huella, tb.huella, "dos archivos distintos, misma huella");
+    }
+
+    /// El mismo contenido con otro nombre da la **misma** huella: la huella es
+    /// del contenido, no del nombre. Si dependiera del nombre, renombrar un
+    /// archivo lo convertiría en «otro» y la deduplicación de importaciones no
+    /// serviría de nada.
+    #[test]
+    fn la_huella_no_depende_del_nombre() {
+        let (_d1, a) = archivo("marzo.csv", b"Nombre,Correo\nAna,a@b.mx\n");
+        let (_d2, b) = archivo("abril.csv", b"Nombre,Correo\nAna,a@b.mx\n");
+        assert_eq!(leer(&a).expect("a").huella, leer(&b).expect("b").huella);
     }
 
     /// El Excel en español escribe CSV con punto y coma, porque la coma es su
