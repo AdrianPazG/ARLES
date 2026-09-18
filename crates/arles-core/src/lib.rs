@@ -21,6 +21,7 @@ pub mod empresa;
 pub mod error;
 pub mod etapa;
 pub mod ids;
+pub mod importacion;
 pub mod onboarding;
 pub mod secret;
 
@@ -39,6 +40,10 @@ pub use error::CoreError;
 pub use etapa::{
     CondicionDeEtapa, ErrorDeSecuencia, EtapaPlanificada, MAX_ESPERA_HORAS, MAX_ETAPAS,
     validar_secuencia,
+};
+pub use importacion::{
+    CampoImportable, MAX_COLUMNAS, MAX_FILAS, MotivoDeRechazo, adivinar_campo, fila_a_borrador,
+    proponer_mapeo,
 };
 pub use onboarding::{ListaDeOnboarding, PasoDeOnboarding, RecuentoDeAlta};
 pub use secret::Secret;
