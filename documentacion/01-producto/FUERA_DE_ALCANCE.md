@@ -140,7 +140,7 @@ Cosas que **sí** están en alcance pero deliberadamente acotadas.
 | **Filtros de contactos** (§38) | Etiquetas, listas, origen, campos personalizados, combinación con Y/O | Constructor de consultas anidado arbitrariamente |
 | **Entregabilidad** (§64) | SPF, DKIM, DMARC | Tasas de rebote y queja (dependen de v1.3) |
 | **Programación** | Días y horas operativas, zona horaria de la empresa | Reglas de recurrencia complejas, secuencias de goteo, automatizaciones condicionales |
-| **Importación** | XLSX, CSV | Conexión directa a Google Sheets, APIs de terceros, sincronización bidireccional |
+| **Importación** | XLSX, CSV | Conexión directa a Google Sheets —**diferida a la v1.3 por D-8**, con el camino ya elegido: `drive.file` y Picker—, otras APIs de terceros, sincronización bidireccional |
 
 ---
 

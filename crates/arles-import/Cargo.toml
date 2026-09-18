@@ -10,8 +10,10 @@ publish.workspace = true
 
 [dependencies]
 arles-core = { path = "../arles-core" }
-# `calamine` lee XLSX sin descomprimir el archivo entero en memoria, que es lo
-# que permite poner un tope antes de que el tamaño sea un problema.
+# `calamine` lee XLSX. Ojo con lo que NO hace: construye la hoja **entera** en
+# memoria antes de devolver la primera fila, así que cualquier tope que se
+# cuente recorriendo filas llega tarde. Medido: 47 MB en disco → 1 586 MB de
+# memoria. Por eso la descompresión se mide aparte, con `zip`, antes de abrirlo.
 calamine = "0.26"
 csv = "1"
 # Excel de Windows guarda los CSV en Windows-1252, no en UTF-8. Sin esto, una
@@ -19,6 +21,10 @@ csv = "1"
 encoding_rs = "0.8"
 serde.workspace = true
 thiserror.workspace = true
+# Sólo para **medir** la descompresión de un XLSX antes de abrirlo, contando y
+# tirando los bytes. No se usa para leer el contenido: de eso se encarga
+# `calamine`. Ver `MAX_BYTES_DESCOMPRIMIDOS`.
+zip = { version = "2", default-features = false, features = ["deflate", "deflate-miniz"] }
 
 [dev-dependencies]
 tempfile = "3"

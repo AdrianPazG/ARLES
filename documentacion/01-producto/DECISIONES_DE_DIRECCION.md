@@ -227,6 +227,49 @@ deja donde ya estaba.
 
 ---
 
+### D-8 · Google Drive y Sheets se difieren a la v1.3, con el camino ya elegido
+
+**Fecha:** 18 de septiembre de 2026 · **Pedida por:** Dirección · **Abre:** P-16
+
+Dirección preguntó si ARLES puede leer una hoja de Google directamente de Drive,
+en vez de obligar a bajarla como CSV o XLSX. **Sí se puede**, y se hará — pero
+no en la v1.2.0.
+
+**Por qué no ahora.** Es funcionalidad que no está en el ROADMAP de esta
+versión, y cae justo sobre la dependencia que **D-1 decidió evitar a propósito**
+para poder entregar sin esperar a Google. Entrarla hoy la pagaría la entrega
+3.3, que aún tiene abierta su puerta de salida, y la 3.4, que es obligación
+legal y no comodidad.
+
+**Por qué sí después, y cómo.** Dirección confirmó que **TELEMETRY tiene correo
+de dominio propio**. Eso cambia la cuenta entera: con Google Workspace, la
+pantalla de consentimiento de OAuth se marca como **«Interna»**, y entonces
+**la verificación de Google no aplica**. Lo que era el camino crítico más largo
+del proyecto se convierte en trabajo puramente técnico, sin terceros y sin
+calendario ajeno.
+
+**Las tres condiciones que se fijan ahora,** para que quien lo construya en la
+v1.3 no tenga que volver a razonarlas:
+
+| | Decidido | Por qué |
+|---|---|---|
+| **Alcance de OAuth** | **`drive.file`**, nunca Drive completo | `drive.file` sólo ve los archivos que el usuario elige uno a uno en el selector de Google. Es alcance **no sensible**. Drive completo es alcance **restringido**: exige verificación **y** una evaluación de seguridad por un auditor autorizado por Google. Dos clics menos no valen una auditoría externa |
+| **Cómo se elige el archivo** | **Google Picker**, y la CSP se abre **sólo** a los dominios del Picker | El Picker es JavaScript servido por Google, y `tauri.conf.json` declara `default-src 'self'` a propósito: es lo que impide que un XLSX o una plantilla hostil llame a ningún servidor. La excepción va acotada por dominio y documentada, no abierta en general |
+| **Dónde vive la credencial** | **El llavero del sistema**, como todo lo demás | El `refresh_token` de OAuth es una credencial de largo plazo. ADR-0011 no admite excepciones: ni JSON, ni SQLite en claro, ni bitácora |
+
+**Lo que se hace mientras tanto:** nada. Google Sheets ya exporta con *Archivo →
+Descargar → CSV*, y ARLES importa ese archivo hoy, con todas sus defensas. Son
+dos clics más para el usuario, cero credenciales nuevas y cero dependencia de
+Google.
+
+**Coste honesto del aplazamiento:** ninguno técnico. La maquinaria de
+importación —mapeo de columnas, análisis de choques, escritura en lote, registro
+de origen— es la misma venga el archivo del disco o de Drive. Lo que se añade en
+la v1.3 es **cómo llega el archivo**, no qué se hace con él. Aplazar no encarece
+nada; adelantarlo sí hubiera encarecido la 3.3 y la 3.4.
+
+---
+
 ## Decisiones pendientes
 
 Ver **`02-auditoria/PREGUNTAS_ABIERTAS.md`** para el registro completo.

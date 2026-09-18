@@ -12,6 +12,73 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### La importación se atacó con archivos hostiles, y tres la rompieron
+
+La entrega 3.3 tenía una puerta de salida escrita desde la Fase 0: *«los
+archivos maliciosos con los que se atacó, y su resultado»*. Se construyeron
+**trece**, y encontraron tres fallos que ninguna prueba anterior veía. Informe
+completo para Dirección en
+[`documentacion/06-calidad/ATAQUES-A-LA-IMPORTACION.md`](documentacion/06-calidad/ATAQUES-A-LA-IMPORTACION.md).
+
+**1 · La defensa contra la bomba de descompresión no defendía.** El modelo de
+amenazas decía «lectura en streaming con `calamine`» desde la Fase 0. Era falso:
+`calamine` construye la hoja entera en memoria antes de devolver la primera
+fila, así que el tope de celdas —que se contaba recorriendo filas— se comprobaba
+cuando la memoria ya estaba gastada.
+
+| | Antes | Después |
+|---|---|---|
+| Archivo en disco | 47 MB | 47 MB |
+| **Pico de memoria al leerlo** | **+1 586 MB** | **+0 MB** |
+| Error devuelto | `DemasiadosDatos` | `DemasiadosDatos` |
+
+Las dos columnas devuelven **el mismo error**. Por eso llevaba ahí sin verse:
+cualquier prueba que sólo mirara el error habría pasado en las dos. Ahora el
+archivo se descomprime primero contando y tirando los bytes, con un tope de
+300 MB, y sólo entonces se abre.
+
+**2 · Doscientas mil filas vacías por delante colgaban la lectura.** Las filas
+vacías de cabecera se quitaban de una en una desde el principio de un vector, lo
+que cuesta el cuadrado de su número. Es un archivo plausible —un Excel al que
+alguien borró el contenido de arriba— y no daba error: se quedaba pensando.
+
+**3 · Un nombre de archivo podía dibujarse al revés.** `U+202E` invierte el
+texto que viene detrás y es legal en un nombre de archivo:
+`factura⁦U+202E⁩gnp.exe` se lee en pantalla como `facturaexe.png`. El nombre se
+enseña en el asistente y se guarda como prueba de qué se importó, así que ahora
+se le quitan los caracteres de control y de formato, y se recorta a 120.
+
+**Lo que no se arregló, a propósito:** una celda de 50 MB entra. Pasa por debajo
+del tope de celdas —es una— y del de bytes. Queda anotado en el modelo de
+amenazas para que sea una decisión y no un olvido.
+
+**Y una comprobación nueva en el validador de fase:** que la medición de la
+descompresión vaya **antes** de abrir la hoja. Invertir esas dos líneas no rompe
+ningún test que mire el error; sólo el que mide la memoria, y sólo si alguien se
+acuerda de correrlo. Se verificó invirtiéndolas: el validador las caza.
+
+Además, el cálculo de la huella del archivo decía en su comentario que iba en
+trozos y acumulaba los 200 MB enteros en memoria. Ahora va de verdad en trozos
+(`arles_core::HuellaEnCurso`), con la misma huella de salida.
+
+### Google Drive y Sheets: decidido, y diferido a la v1.3 (D-8 · P-16)
+
+Dirección preguntó si ARLES puede leer una hoja directamente de Drive. Sí se
+puede, y se hará **en la v1.3**: entrarlo ahora lo pagaría la entrega 3.4, y cae
+sobre la dependencia de Google que D-1 decidió evitar para esta versión.
+
+Queda decidido por adelantado, para no volver a razonarlo: alcance
+**`drive.file`** y **Google Picker** —nunca Drive completo, que es alcance
+restringido y exige auditoría de seguridad externa—, la excepción a la CSP
+acotada a los dominios del Picker, y el `refresh_token` al llavero (ADR-0011).
+
+TELEMETRY tiene correo de dominio propio, así que la pantalla de consentimiento
+va **«Interna»** y Google no tiene que verificar nada. Eso saca el riesgo de
+calendario de la ecuación.
+
+Mientras tanto, Sheets ya exporta con *Archivo → Descargar → CSV*, y ARLES
+importa ese archivo hoy con todas sus defensas.
+
 ### Ya se puede cargar una tabla de Excel o CSV (entrega 3.3, completa)
 
 Cuatro pasos: elegir el archivo, revisar qué es cada columna, **ver qué va a

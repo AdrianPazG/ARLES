@@ -1629,6 +1629,34 @@ def las_listas_de_la_importacion_no_divergen():
     )
 
 
+def la_bomba_se_mide_antes_de_abrir_la_hoja():
+    """El tope de descompresión va ANTES de abrir el XLSX, o no sirve de nada.
+
+    Este es el orden que arregló el fallo del 18/09/2026. `calamine` construye
+    la hoja entera en memoria al abrirla, así que medir después es medir cuando
+    la memoria ya se gastó: un archivo de 47 MB hacía subir el proceso 1 586 MB
+    y **devolvía el error correcto igualmente**.
+
+    Ésa es la razón de que esto se compruebe aquí y no sólo con una prueba de
+    unidad: invertir las dos líneas no rompe ningún test que mire el error.
+    Sólo `tests/bomba.rs`, que mide la memoria, lo caza — y sólo si alguien se
+    acuerda de correrlo. Esto no se olvida.
+    """
+    fuente = leer("crates", "arles-import", "src", "lib.rs")
+    medir = fuente.find("medir_la_descompresion(ruta)?")
+    abrir = fuente.find("calamine::open_workbook_auto")
+    check(
+        3,
+        "la descompresión se mide antes de abrir la hoja",
+        medir != -1 and abrir != -1 and medir < abrir,
+        la_bomba_se_mide_antes_de_abrir_la_hoja.__doc__,
+        detalle=(
+            f"llamada a medir_la_descompresion: {medir}\n"
+            f"llamada a open_workbook_auto:    {abrir}"
+        ),
+    )
+
+
 def el_texto_legal_se_ve_provisional():
     """Mientras P-09 siga abierta, el texto de la declaración lo dice.
 
@@ -1694,6 +1722,7 @@ def fase_3(rapido):
     la_pantalla_de_contactos_no_reordena()
     el_tope_de_canales_no_se_duplica()
     las_listas_de_la_importacion_no_divergen()
+    la_bomba_se_mide_antes_de_abrir_la_hoja()
     el_texto_legal_se_ve_provisional()
 
     print(f"{GRIS}  sondas{FIN}")

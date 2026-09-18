@@ -121,6 +121,29 @@ El enforcement está fuera de v1.2.0 (T-6, D-4), pero el **esquema** se define a
 
 ---
 
+### P-16 · ¿Cuándo se conecta Google Drive / Sheets? · ✅ **cerrada el 18/09/2026: en la v1.3**
+**Afecta a:** cómo llega el archivo a importar · **Decisión:** D-8
+
+Dirección preguntó si ARLES puede leer una hoja de Google directamente de Drive.
+Sí se puede, y se hará — **en la v1.3**, no en esta versión: cae sobre la
+dependencia de Google que D-1 decidió evitar para poder entregar la v1.2.0 sin
+esperar a nadie de fuera.
+
+**Lo que ya quedó decidido** (argumentado en D-8), para no volver a razonarlo:
+alcance **`drive.file`** y **Google Picker** —nunca Drive completo, que es
+alcance restringido y exige auditoría de seguridad externa—, la excepción a la
+CSP acotada a los dominios del Picker, y el `refresh_token` al llavero del
+sistema como manda ADR-0011.
+
+**El dato que lo abarata:** TELEMETRY tiene correo de dominio propio. Con Google
+Workspace, la pantalla de consentimiento se marca **«Interna»** y la
+verificación de Google **no aplica**. Deja de ser un riesgo de calendario.
+
+**Mientras tanto:** Google Sheets exporta con *Archivo → Descargar → CSV*, y
+ARLES importa ese archivo hoy con todas sus defensas.
+
+---
+
 ## Tabla de seguimiento
 
 | # | Pregunta | Bloquea | Riesgo | Estado |
@@ -139,6 +162,7 @@ El enforcement está fuera de v1.2.0 (T-6, D-4), pero el **esquema** se define a
 | ~~**P-13**~~ | ¿Se acepta **L-5** (séptima sección, CONVERSACIONES)? | — | R-22 | ✅ **17/09/2026: no.** Dirección quiere las cifras y las gráficas, **no** ver los mensajes. Sin bandeja no hay «Conversaciones»: las estadísticas van a **ACTIVIDAD con dos pestañas**, correo y WhatsApp (L-10). Se queda en seis secciones |
 | ~~**P-14**~~ | ¿Quién contesta a los interesados de WhatsApp? | — | R-22 | ✅ **17/09/2026: el agente de ventas, desde la app de WhatsApp Business.** De ahí nace L-11: sin Coexistencia no puede, porque el número saldría de la app. Horario: **sin definir**, y sigue importando — la ventana de respuesta de Meta es de 24 h |
 | ~~**P-15**~~ | ¿WhatsApp entra en la v1.2.0? | — | R-21 | ✅ **17/09/2026: sí, en la v1.2.0.** Amplía el alcance, así que el porcentaje de avance bajó al crecer el denominador. Esquema construido: V3 y V4 |
+| ~~**P-16**~~ | ¿Cuándo se conecta Google Drive / Sheets? | — | — | ✅ **18/09/2026: en la v1.3.** Con `drive.file` y el Picker, nunca Drive completo. TELEMETRY tiene dominio propio, así que la pantalla de consentimiento va «Interna» y Google no tiene que verificar nada (D-8) |
 
 Las cuatro nuevas salen de
 [LOGISTICA_DE_CAMPANAS](../01-producto/LOGISTICA_DE_CAMPANAS.md), que es donde

@@ -78,7 +78,7 @@ Configuración de empresa · lista de verificación de onboarding · contactos c
 |---|---|---|
 | **3.1** ✅ | Configuración de empresa · lista de onboarding · barra lateral fija y plegable (P-11) | **Cerrada el 15/09/2026**, 19/19. De los cuatro pendientes visuales de la Fase 2 se cerraron tres —ventana nativa, escalado de Windows y lector de pantalla—; **WKWebView sigue abierto** (R-07) y se declaró riesgo aceptado con fecha límite antes de la Fase 6 |
 | **3.2** | Contactos, listas, etiquetas, campos propios · filtros · la tabla medida con 500 k | Sonda de navegador con volumen real |
-| **3.3** | Importación XLSX/CSV con todas las defensas · purificación · informe de rechazados | Los archivos maliciosos con los que se atacó, y su resultado |
+| **3.3** ✅ | Importación XLSX/CSV con todas las defensas · purificación · informe de rechazados | **Cerrada el 18/09/2026.** 13 ataques con archivos construidos a propósito (`crates/arles-import/tests/ataques.rs` y `bomba.rs`). Encontraron **tres fallos reales**: la bomba de descompresión se comía 1 586 MB antes de que el tope reaccionara, 200 000 filas vacías colgaban la lectura, y un nombre de archivo con `U+202E` se dibujaba al revés en pantalla. Los tres arreglados y con su prueba |
 | **3.4** | Lista de supresión · derechos ARCO | Borrar un contacto, reimportarlo, y comprobar que **sigue sin escribírsele** |
 | **3.5** | Cierre: documento de fase, informe para Dirección y PDF | `validar.py --fase 3` en verde, 0 omitidas |
 
@@ -88,9 +88,12 @@ origen de contactos, purificación corregida y envío canario.
 [ADR-0014](../03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md) — sólo
 su parte de esquema; el resto llega en las Fases 5 y 7.
 
-> 🔴 **La 3.3 está bloqueada por P-09** hasta que haya revisión jurídica: es
-> donde viven los textos legales que el usuario lee. La 3.1 y la 3.2 no dependen
-> de ninguna pregunta abierta.
+> ~~🔴 **La 3.3 está bloqueada por P-09**~~ → **desbloqueada por D-7 el
+> 17/09/2026.** La construcción no espera al abogado: el mecanismo se hace igual
+> y el texto legal se enseña **marcado como provisional y visible como tal**
+> (ADR-0013 §1). Lo que sigue esperando a P-09 es la **redacción definitiva** y
+> el primer envío real a terceros, no el código. La 3.1 y la 3.2 nunca
+> dependieron de ninguna pregunta abierta.
 
 ---
 

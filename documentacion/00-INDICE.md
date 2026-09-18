@@ -92,6 +92,7 @@
 | [REVISION_VISUAL](06-calidad/REVISION_VISUAL.md) | Cómo revisar la aplicación en Windows y macOS, paso a paso |
 | [PRESUPUESTO_RENDIMIENTO](06-calidad/PRESUPUESTO_RENDIMIENTO.md) | Objetivos a 500 k, medidos en CI |
 | [UMBRAL_DE_PLEGADO](06-calidad/UMBRAL_DE_PLEGADO.md) | Dónde se pliega sola la barra lateral, y por qué ese número |
+| [ATAQUES-A-LA-IMPORTACION](06-calidad/ATAQUES-A-LA-IMPORTACION.md) | Los trece archivos hostiles con los que se atacó la importación, y los tres fallos que encontraron. Puerta de salida de la entrega 3.3 |
 
 ### 07 · Entrega
 | Documento | Contenido |

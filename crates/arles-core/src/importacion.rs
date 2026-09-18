@@ -218,10 +218,58 @@ pub fn huella(texto: &str) -> String {
 /// responder a «¿qué se importó?» importa el archivo, no su lectura.
 #[must_use]
 pub fn huella_de_bytes(bytes: &[u8]) -> String {
-    use sha2::{Digest, Sha256};
-    let mut h = Sha256::new();
-    h.update(bytes);
-    format!("sha256:{:x}", h.finalize())
+    let mut h = HuellaEnCurso::nueva();
+    h.añadir(bytes);
+    h.cerrar()
+}
+
+/// La misma huella, calculada a trozos.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ HACE FALTA
+///
+/// [`huella_de_bytes`] necesita el archivo entero en memoria. Para un archivo
+/// de importación —hasta 200 MB— eso significa reservar 200 MB **sólo para
+/// calcular una huella**, encima de lo que ya cuesta leer la tabla.
+///
+/// Con esto, quien lee el archivo en trozos de 64 KB le va dando cada trozo y
+/// nunca tiene más de un trozo en memoria. El resultado es idéntico —hay una
+/// prueba que lo comprueba contra [`huella_de_bytes`]—, así que las huellas ya
+/// guardadas siguen valiendo.
+/// ─────────────────────────────────────────────────────────────────────────
+pub struct HuellaEnCurso(sha2::Sha256);
+
+impl core::fmt::Debug for HuellaEnCurso {
+    /// No enseña el estado interno: no dice nada útil y sólo sirve para que
+    /// medio archivo acabe en una bitácora si alguien depura con `{:?}`.
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("HuellaEnCurso(..)")
+    }
+}
+
+impl HuellaEnCurso {
+    #[must_use]
+    pub fn nueva() -> Self {
+        use sha2::Digest;
+        Self(sha2::Sha256::new())
+    }
+
+    pub fn añadir(&mut self, bytes: &[u8]) {
+        use sha2::Digest;
+        self.0.update(bytes);
+    }
+
+    #[must_use]
+    pub fn cerrar(self) -> String {
+        use sha2::Digest;
+        format!("sha256:{:x}", self.0.finalize())
+    }
+}
+
+impl Default for HuellaEnCurso {
+    fn default() -> Self {
+        Self::nueva()
+    }
 }
 
 /// Encabezados que se reconocen, por campo.
@@ -938,5 +986,40 @@ mod prueba_de_serializacion {
             serde_json::to_string(&CampoImportable::WhatsApp).expect("serializa"),
             format!("\"{}\"", crate::Canal::WhatsApp.como_texto())
         );
+    }
+
+    /// La huella a trozos tiene que dar **exactamente** la misma que la de
+    /// golpe, o las huellas ya guardadas dejan de valer y «este archivo ya se
+    /// importó» empieza a mentir.
+    ///
+    /// Se prueba con trozos de tamaños que no dividen el total y que caen justo
+    /// en los bordes: un trozo vacío, uno de un byte, y uno más grande que todo
+    /// lo que queda. Un troceado que sólo se pruebe con trozos que encajan
+    /// redondos no prueba el troceado, prueba el caso fácil.
+    #[test]
+    fn la_huella_a_trozos_es_la_misma_que_la_de_golpe() {
+        let datos: Vec<u8> = (0..=255_u8).cycle().take(5_000).collect();
+        let de_golpe = huella_de_bytes(&datos);
+
+        for corte in [1_usize, 7, 64, 999, 5_000, 9_999] {
+            let mut h = HuellaEnCurso::nueva();
+            h.añadir(&[]); // un trozo vacío no puede cambiar nada
+            for pedazo in datos.chunks(corte) {
+                h.añadir(pedazo);
+            }
+            assert_eq!(
+                h.cerrar(),
+                de_golpe,
+                "con trozos de {corte} bytes sale otra huella"
+            );
+        }
+    }
+
+    /// Y una huella vacía sigue siendo una huella: no es cadena vacía ni panica.
+    #[test]
+    fn una_huella_sin_datos_tiene_forma_de_huella() {
+        let vacia = HuellaEnCurso::nueva().cerrar();
+        assert_eq!(vacia, huella_de_bytes(&[]));
+        assert!(vacia.starts_with("sha256:"), "{vacia}");
     }
 }

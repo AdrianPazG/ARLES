@@ -8,24 +8,35 @@
 //! eso está separado del resto: las defensas se prueban aisladas, y `calamine`
 //! con su cadena de descompresión no entra en el shell de la aplicación.
 //!
-//! Cuatro cosas de las que defiende, todas del THREAT_MODEL.md §4.3:
+//! Cinco cosas de las que defiende, todas del THREAT_MODEL.md §4.1:
 //!
-//!   1. **Bomba de descompresión.** Un XLSX es un ZIP. Cincuenta kilobytes
-//!      pueden descomprimirse en cincuenta gigabytes. Se corta al pasar de
-//!      [`MAX_CELDAS`] celdas leídas, que es un tope sobre lo que se lee y no
-//!      sobre lo que el archivo dice medir —un archivo puede mentir sobre su
-//!      tamaño, pero no sobre cuántas celdas ha entregado ya—.
+//!   1. **Bomba de descompresión.** Un XLSX es un ZIP: cincuenta kilobytes
+//!      pueden descomprimirse en cincuenta gigabytes. Se descomprime primero
+//!      **contando y tirando los bytes**, y si pasan de
+//!      [`MAX_BYTES_DESCOMPRIMIDOS`] no se abre la hoja. El tope de
+//!      [`MAX_CELDAS`] sigue existiendo, pero **no basta por sí solo**: se
+//!      cuenta recorriendo filas, y para entonces la hoja ya está en memoria.
+//!      Eso costó 1 586 MB de pico antes de que nadie lo mirara.
 //!   2. **Archivo enorme y legítimo.** No es un ataque, pero agota la memoria
-//!      igual. Mismo tope, mismo corte.
+//!      igual. Mismos topes, mismo corte.
 //!   3. **Inyección de fórmulas.** Una celda que empieza por `=`, `+`, `-` o
 //!      `@` es una fórmula en Excel y en Sheets. Aquí **nunca se evalúa** —sólo
 //!      se lee texto—, y al exportar se neutraliza. Ver [`neutralizar_formula`].
-//!   4. **Nombre de archivo hostil.** No se usa para nada: ni para escribir, ni
-//!      para construir rutas. Sólo se guarda para enseñarlo, ya recortado.
+//!   4. **Nombre de archivo hostil.** No se usa para nada que toque el disco.
+//!      Se guarda sólo para enseñarlo, y **desarmado**: ver
+//!      [`nombre_para_ensenar`], porque un nombre que se dibuja al revés engaña
+//!      sin necesidad de ejecutar nada.
+//!   5. **Archivo que tarda en leerse sin dar error.** Doscientas mil filas
+//!      vacías por delante colgaban la lectura. Lo que cuelga sin dar error es
+//!      peor que lo que falla: nadie sabe si hay que esperar.
 //!
 //! Y una cosa que no es un ataque pero rompe igual: **Excel de Windows guarda
 //! los CSV en Windows-1252**, no en UTF-8. Sin detectarlo, una tabla mexicana
 //! llega con los acentos rotos y nadie entiende por qué.
+//!
+//! Los cinco se atacan con archivos construidos a propósito en
+//! `tests/ataques.rs` y `tests/bomba.rs`. **Tres de ellos se escribieron aquí
+//! sólo después de que el ataque los encontrara**, no antes.
 //! ─────────────────────────────────────────────────────────────────────────
 
 #![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
@@ -50,9 +61,35 @@ pub const MAX_CELDAS: usize = 8_000_000;
 
 /// Tamaño máximo del archivo **en disco**.
 ///
-/// Es una primera barrera barata, no la de verdad: la que cuenta es
-/// [`MAX_CELDAS`], porque un ZIP de 20 MB puede descomprimirse en mucho más.
+/// Es una primera barrera barata, no la de verdad: un ZIP de 20 MB puede
+/// descomprimirse en mucho más. Lo que cierra esa puerta es
+/// [`MAX_BYTES_DESCOMPRIMIDOS`].
 pub const MAX_BYTES: u64 = 200 * 1024 * 1024;
+
+/// Cuánto puede pesar un XLSX **una vez descomprimido**.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTE TOPE EXISTE, Y POR QUÉ [`MAX_CELDAS`] NO BASTABA
+///
+/// El tope de celdas se cuenta **mientras se recorren las filas**, y para
+/// entonces la biblioteca que lee el XLSX ya ha construido la hoja entera en
+/// memoria. Es decir: el error llegaba, pero llegaba tarde.
+///
+/// Medido, no supuesto: una bomba de **47 MB en disco** que declara dieciséis
+/// millones de celdas hacía subir la memoria del proceso **1 586 MB** antes de
+/// que el tope de celdas dijera nada. En un equipo de 4 GB eso no es un error,
+/// es la aplicación cerrándose. Está en `tests/bomba.rs`.
+///
+/// Así que ahora se descomprime primero **contando y tirando los bytes**, sin
+/// guardarlos: si pasan de este tope, no se abre la hoja. El pico de memoria
+/// durante esa cuenta es un búfer de 64 KB.
+///
+/// El número sale de lo que necesita un archivo legítimo grande: una tabla de
+/// 500 000 contactos con ocho columnas —lo que pide T-7— ronda los 150 MB de
+/// XML. 300 MB deja holgura del doble y sigue siendo cinco veces menos que lo
+/// que la bomba conseguía.
+/// ─────────────────────────────────────────────────────────────────────────
+pub const MAX_BYTES_DESCOMPRIMIDOS: u64 = 300 * 1024 * 1024;
 
 /// Cuántas filas se enseñan en la vista previa antes de importar.
 ///
@@ -165,14 +202,69 @@ pub fn leer(ruta: &Path) -> Result<TablaLeida, ErrorDeLectura> {
         _ => return Err(ErrorDeLectura::FormatoDesconocido),
     };
 
-    let nombre = ruta
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("")
-        .to_owned();
+    let nombre = nombre_para_ensenar(ruta);
     let huella = huella_del_archivo(ruta)?;
 
     armar(nombre, huella, filas)
+}
+
+/// Cuántos caracteres del nombre se guardan para enseñar.
+///
+/// Un nombre de archivo puede tener cientos de caracteres, y el sistema admite
+/// bastantes más de los que cabe leer en una pantalla. Se recorta aquí y no en
+/// la interfaz: lo que se guarda en el registro de importación debería poder
+/// leerse entero, y un nombre que hay que recortar para enseñarlo no se lee
+/// entero en ningún sitio.
+const MAX_LARGO_DEL_NOMBRE: usize = 120;
+
+/// El nombre del archivo, listo para enseñarse sin mentir.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// EL NOMBRE SE ENSEÑA, Y POR ESO PUEDE ENGAÑAR
+///
+/// La ruta no se guarda nunca: dice dónde vive el usuario y no le aporta nada a
+/// ninguna pantalla. Sólo se queda el nombre, y **sólo para enseñarlo** — nada
+/// lo usa para escribir en disco; `arles-db` nombra el archivo guardado con el
+/// identificador del lote.
+///
+/// Pero enseñarlo ya es suficiente para hacer daño. Unicode tiene caracteres
+/// que **le dan la vuelta al texto que viene detrás**, y son legales en un
+/// nombre de archivo: `factura\u{202e}gnp.exe` se dibuja en pantalla como
+/// `facturaexe.png`. Quien mira el asistente de importación lee una cosa y
+/// tiene otra. Es el mismo truco con el que se distribuye software disfrazado
+/// de imagen.
+///
+/// Así que se quitan los caracteres de control y de formato —que no se dibujan,
+/// sólo cambian cómo se dibuja el resto—, se quitan los separadores de ruta por
+/// si el sistema operativo dejara pasar alguno, y se recorta el largo.
+/// ─────────────────────────────────────────────────────────────────────────
+fn nombre_para_ensenar(ruta: &Path) -> String {
+    let crudo = ruta.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    let limpio: String = crudo
+        .chars()
+        // `is_control` caza los C0 y C1; el resto de la condición caza los de
+        // formato —anulaciones bidireccionales, ancho cero, marcas de
+        // dirección—, que son los que disfrazan sin verse.
+        .filter(|c| !c.is_control() && !es_de_formato(*c))
+        .map(|c| if c == '/' || c == '\\' { '_' } else { c })
+        .collect();
+    limpio.chars().take(MAX_LARGO_DEL_NOMBRE).collect()
+}
+
+/// Caracteres que no se dibujan pero cambian cómo se dibuja lo demás.
+///
+/// Se enumeran a mano en vez de tirar de una tabla de categorías de Unicode:
+/// son pocos, no cambian, y una lista escrita se puede leer y discutir. Los
+/// dos primeros bloques son las marcas y anulaciones bidireccionales; el resto,
+/// los de ancho cero y el espacio que no se ve.
+fn es_de_formato(c: char) -> bool {
+    matches!(c,
+        '\u{200B}'..='\u{200F}'   // ancho cero, marcas de dirección
+        | '\u{202A}'..='\u{202E}' // incrustaciones y anulaciones bidireccionales
+        | '\u{2066}'..='\u{2069}' // aislamientos bidireccionales
+        | '\u{00A0}'              // espacio que no se parte ni se ve distinto
+        | '\u{FEFF}'              // marca de orden de bytes suelta
+    )
 }
 
 /// Huella de los bytes del archivo, leídos otra vez y en trozos.
@@ -182,7 +274,8 @@ pub fn leer(ruta: &Path) -> Result<TablaLeida, ErrorDeLectura> {
 fn huella_del_archivo(ruta: &Path) -> Result<String, ErrorDeLectura> {
     let mut f = std::fs::File::open(ruta).map_err(|_| ErrorDeLectura::NoSePudoLeer)?;
     let mut trozo = vec![0_u8; 64 * 1024];
-    let mut acumulado: Vec<u8> = Vec::new();
+    let mut huella = arles_core::HuellaEnCurso::nueva();
+    let mut vistos: u64 = 0;
     loop {
         let leidos = f
             .read(&mut trozo)
@@ -190,12 +283,16 @@ fn huella_del_archivo(ruta: &Path) -> Result<String, ErrorDeLectura> {
         if leidos == 0 {
             break;
         }
-        acumulado.extend_from_slice(trozo.get(..leidos).unwrap_or(&[]));
-        if acumulado.len() as u64 > MAX_BYTES {
+        vistos = vistos.saturating_add(leidos as u64);
+        // El tope se vuelve a comprobar aquí, y no sólo con el `metadata` de
+        // `leer`: entre mirar el tamaño y llegar hasta aquí el archivo puede
+        // haber crecido, y este bucle es el que lo recorre de verdad.
+        if vistos > MAX_BYTES {
             return Err(ErrorDeLectura::DemasiadoGrande);
         }
+        huella.añadir(trozo.get(..leidos).unwrap_or(&[]));
     }
-    Ok(arles_core::huella_de_bytes(&acumulado))
+    Ok(huella.cerrar())
 }
 
 /// Separa encabezados de datos y recorta la muestra.
@@ -206,12 +303,18 @@ fn armar(
 ) -> Result<TablaLeida, ErrorDeLectura> {
     // Las filas del principio completamente vacías se saltan: es lo que deja un
     // Excel con un título arriba y la tabla dos filas más abajo.
-    while filas
-        .first()
-        .is_some_and(|f| f.iter().all(|c| c.trim().is_empty()))
-    {
-        filas.remove(0);
-    }
+    //
+    // Se cuentan primero y se quitan de una vez. Quitarlas de una en una desde
+    // el principio de un vector cuesta el **cuadrado** del número de filas
+    // vacías, porque cada borrado desplaza todo lo que queda detrás: un archivo
+    // con doscientas mil filas vacías por delante —un Excel al que alguien
+    // borró el contenido de arriba sin borrar las filas— colgaba la importación
+    // sin dar error. Está en `tests/ataques.rs`.
+    let vacias_de_cabeza = filas
+        .iter()
+        .take_while(|f| f.iter().all(|c| c.trim().is_empty()))
+        .count();
+    filas.drain(..vacias_de_cabeza);
 
     if filas.is_empty() {
         return Err(ErrorDeLectura::SinEncabezados);
@@ -325,6 +428,10 @@ fn adivinar_separador(texto: &str) -> u8 {
 fn leer_hoja_de_calculo(ruta: &Path) -> Result<Vec<Vec<String>>, ErrorDeLectura> {
     use calamine::{Data, Reader};
 
+    // **Antes de abrir nada**: ver cuánto ocupa esto descomprimido. Si se deja
+    // para después, la hoja ya está en memoria y el tope llega tarde.
+    medir_la_descompresion(ruta)?;
+
     let mut libro = calamine::open_workbook_auto(ruta).map_err(|_| ErrorDeLectura::NoSePudoLeer)?;
     let hojas = libro.sheet_names().to_vec();
     let nombre = hojas.first().ok_or(ErrorDeLectura::SinHojas)?;
@@ -361,6 +468,55 @@ fn leer_hoja_de_calculo(ruta: &Path) -> Result<Vec<Vec<String>>, ErrorDeLectura>
         );
     }
     Ok(filas)
+}
+
+/// Descomprime el archivo **sin quedarse con nada**, sólo para medirlo.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LA DEFENSA CONTRA LA BOMBA, Y POR QUÉ TIENE QUE IR ANTES
+///
+/// Un XLSX es un ZIP. Las cabeceras del ZIP dicen cuánto mide cada pieza sin
+/// comprimir, pero **esas cabeceras las escribe quien hace el archivo** y
+/// pueden mentir. Así que no se leen: se descomprime de verdad, en trozos de
+/// 64 KB que se cuentan y se tiran, y lo que se mira es cuánto salió.
+///
+/// Se tira a propósito. Guardarlo para reutilizarlo sería volver a tener los
+/// 300 MB en memoria, que es justo lo que este tope evita. El coste es leer el
+/// archivo una vez más; a cambio, el pico durante la cuenta es un búfer.
+///
+/// Un archivo que no sea un ZIP —un `.xls` de los antiguos, que es un formato
+/// binario propio— pasa sin más: no hay descompresión que explotar, y su
+/// tamaño ya lo limita [`MAX_BYTES`].
+/// ─────────────────────────────────────────────────────────────────────────
+fn medir_la_descompresion(ruta: &Path) -> Result<(), ErrorDeLectura> {
+    let archivo = std::fs::File::open(ruta).map_err(|_| ErrorDeLectura::NoSePudoLeer)?;
+    let Ok(mut zip) = zip::ZipArchive::new(archivo) else {
+        return Ok(());
+    };
+
+    let mut basura = vec![0_u8; 64 * 1024];
+    let mut total: u64 = 0;
+    for i in 0..zip.len() {
+        let Ok(mut entrada) = zip.by_index(i) else {
+            // Una entrada que no se puede abrir —cifrada, con un método de
+            // compresión que no conocemos— no se puede medir. No se adivina:
+            // si no se puede medir, no se lee.
+            return Err(ErrorDeLectura::NoSePudoLeer);
+        };
+        loop {
+            let leidos = entrada
+                .read(&mut basura)
+                .map_err(|_| ErrorDeLectura::NoSePudoLeer)?;
+            if leidos == 0 {
+                break;
+            }
+            total = total.saturating_add(leidos as u64);
+            if total > MAX_BYTES_DESCOMPRIMIDOS {
+                return Err(ErrorDeLectura::DemasiadosDatos);
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Pasa un número de hoja de cálculo a texto sin notación científica.

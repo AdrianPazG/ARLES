@@ -31,7 +31,7 @@ son trabajo pendiente nuestro: van aparte.
 | F0 · Discovery y auditoría | 5 % | ✅ 100 % |
 | F1 · Cimientos | 9 % | ✅ 100 % |
 | F2 · Design System | 9 % | ✅ 100 % |
-| F3 · Empresa y contactos | 14 % | 🟨 55 % |
+| F3 · Empresa y contactos | 14 % | 🟨 60 % |
 | F3W · Canales: esquema de contactos, consentimiento y etapas | 8 % | 🟨 55 % |
 | F4 · Motor de ejecución | 14 % | ⬜ 0 % |
 | F5 · Proveedores de envío | 7 % | ⬜ 0 % |

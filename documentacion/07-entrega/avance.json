@@ -34,10 +34,8 @@
     "Actualizarlo: editar 'hecho' y 'porque', y correr",
     "  python3 herramientas/avance/calcular.py --escribir"
   ],
-
   "version": "1.2.0",
   "actualizado": "2026-09-18",
-
   "fases": [
     {
       "id": "F0",
@@ -64,8 +62,8 @@
       "id": "F3",
       "nombre": "Empresa y contactos",
       "peso": 14,
-      "hecho": 0.55,
-      "porque": "Cerradas la 3.1 (empresa y alta) y la 3.2 (contactos), y la 3.3 (importar CSV y Excel) con su lectura defensiva, el análisis de choques, la escritura en lote, el origen declarado y el asistente de cuatro pasos; falta atacarla con archivos maliciosos. Faltan enteras la 3.4 supresión y derechos ARCO, y la 3.5 cierre."
+      "hecho": 0.6,
+      "porque": "Cerradas la 3.1 (empresa y alta), la 3.2 (contactos) y la 3.3 (importar CSV y Excel), ésta última con su puerta de salida: 13 ataques con archivos hostiles construidos a propósito, que encontraron y cerraron tres fallos reales — la bomba de descompresión se comía 1 586 MB antes de que el tope reaccionara, 200 000 filas vacías colgaban la lectura, y un nombre con U+202E se dibujaba al revés. Faltan enteras la 3.4 supresión y derechos ARCO, y la 3.5 cierre."
     },
     {
       "id": "F3W",
@@ -117,7 +115,6 @@
       "porque": "Sin empezar."
     }
   ],
-
   "bloqueos": [
     {
       "id": "P-01",
