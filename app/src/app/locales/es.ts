@@ -385,6 +385,18 @@ export const es = {
         como: 'Abre ARLES desde su acceso directo, no desde el navegador.',
         salvo: 'No se guardó ningún cambio.',
       },
+      contacto_invalido: {
+        que: 'Hay algo que revisar en los datos del contacto.',
+        como:
+          'Los campos con problema están marcados abajo, cada uno con lo que ' +
+          'le falta. Corrígelos y vuelve a guardar.',
+        salvo: 'No se guardó nada todavía. Lo que escribiste sigue en pantalla.',
+      },
+      empresa_no_configurada: {
+        que: 'Todavía no has configurado los datos de tu empresa.',
+        como: 'Ve a Ajustes, completa los datos de la empresa y vuelve aquí.',
+        salvo: 'No se modificó nada.',
+      },
       empresa_invalida: {
         que: 'Algunos datos de la empresa no son válidos.',
         como: 'Revisa los campos marcados y vuelve a guardar.',

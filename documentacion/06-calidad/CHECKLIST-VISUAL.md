@@ -1,7 +1,7 @@
 # Checklist para revisar ARLES con tus propios ojos
 
-> **Para:** Dirección · **Fecha:** 17 de septiembre de 2026
-> **Sobre:** ARLES RELAY I v1.2.0 · **31 % construido y verificado**
+> **Para:** Dirección · **Fecha:** 18 de septiembre de 2026
+> **Sobre:** ARLES RELAY I v1.2.0 · **32 % construido y verificado**
 
 Esto **no** es la lista de comprobaciones automáticas —ésas corren solas con
 `validar.py`—. Esto es lo que **una persona tiene que mirar**, porque una
@@ -47,6 +47,14 @@ revisa de ellas es que lo digan con claridad, no que funcionen.
 **Y todo lo de WhatsApp está en la base de datos, no en pantalla.** Las tablas
 existen y están probadas; la pantalla de CANALES es el paso siguiente. No hay
 nada que mirar todavía de ese lado.
+
+**Lo mismo con los contactos, y conviene decirlo claro.** ARLES ya sabe
+guardarlos, editarlos, listarlos por páginas y darlos de baja, y ya existen los
+cinco comandos que la pantalla usará para pedírselo. Pero **la pantalla todavía
+no está**: al entrar en CONTACTOS sigue diciendo que aún no llega. Es lo que se
+avisó antes de empezar este tramo — se construyó por dentro, y por dentro no se
+ve. Lo que hay hecho se comprueba con las 49 pruebas de la capa de datos, no con
+los ojos.
 
 ---
 
@@ -96,12 +104,12 @@ qué hacer sin preguntar. Si dudas un segundo, es un hallazgo.
 
 **Se revisa en GitHub, no en la aplicación.** Dirección decidió que el avance va
 sólo en la portada del repositorio: es un dato **del proyecto**, no del
-producto. A quien use ARLES no le sirve saber que está al 31 %; le sirve saber
+producto. A quien use ARLES no le sirve saber que está al 32 %; le sirve saber
 qué puede hacer hoy, que es lo que dice la lista de alta.
 
 | | Qué mirar | Cómo saber si está bien |
 |---|---|---|
-| **D-1** | Abre el repositorio en GitHub | Arriba, una insignia con **31 %** y la frase con **la fecha del dato** |
+| **D-1** | Abre el repositorio en GitHub | Arriba, una insignia con **32 %** y la frase con **la fecha del dato** |
 | **D-2** | Despliega «Cómo sale ese número» | Explica el método, enseña las once fases con su peso y su avance, y **lo que el número no mide** |
 | **D-3** | Mira la tabla de bloqueos, debajo | Están los cuatro trámites que esperan a alguien de fuera, con nombre de responsable |
 | **D-4** | Comprueba que **dentro de ARLES no sale** ningún porcentaje de avance | Inicio habla de «1 de 6» pasos del alta, que es otra cosa |
@@ -121,7 +129,7 @@ Esto es lo que más rinde revisar, porque es donde una máquina no llega.
 | **E-1** | Cualquier mensaje de error que consigas provocar | Dice **tres cosas**: qué pasó, cómo arreglarlo y **qué está a salvo** |
 | **E-2** | Guarda la empresa con el correo mal escrito | Marca **ese campo**, no un aviso general que obligue a revisarlo todo |
 | **E-3** | Busca en toda la interfaz la palabra «entregado» | **No debería existir todavía.** ARLES no puede saber si un correo llegó |
-| **E-4** | Busca adjetivos tipo «casi listo» o «excelente» | No debería haber ninguno. Sólo cifras: «2 de 6», «31 %» |
+| **E-4** | Busca adjetivos tipo «casi listo» o «excelente» | No debería haber ninguno. Sólo cifras: «2 de 6», «32 %» |
 | **E-5** | Lee los seis pasos del alta en Ajustes | Cada uno dice **qué es** y **en qué entrega llega** |
 
 ---
@@ -144,7 +152,7 @@ Para que no se busque:
 | | Por qué no |
 |---|---|
 | Enviar un correo de prueba | El motor de envío es la Fase 4. No existe |
-| Cargar contactos | Entrega 3.2. No existe |
+| Cargar contactos a mano | La pantalla es la segunda mitad de la 3.2. Por dentro ya funciona; por fuera todavía no hay dónde escribirlos |
 | Conectar una cuenta de correo | Fase 5 |
 | Conectar el número de WhatsApp | Pantalla de CANALES, siguiente paso — y además hace falta la cuenta de Meta |
 | Ver estadísticas | Fase 7 |
@@ -172,8 +180,8 @@ Esto ya corre solo y está en verde. No hay que revisarlo a mano.
 |---|---|---|
 | `validar.py --fase 1` | Cimientos, esquema, fronteras de seguridad | **48/48** |
 | `validar.py --fase 2` | Design System y contrastes en los dos temas | **37/37** |
-| `validar.py --fase 3` | Empresa, navegación, tema y avance | **31/31** |
-| `cargo test` | Núcleo, base de datos e invariantes del esquema | **178 pruebas** |
+| `validar.py --fase 3` | Empresa, navegación, tema, avance y las fronteras de contactos | **38/38** |
+| `cargo test` | Núcleo, base de datos, frontera IPC e invariantes del esquema | **222 pruebas** |
 | `npm test` | Componentes, pantallas y textos | **63 pruebas** |
 
 Y cinco sondas que abren un navegador de verdad y **miden**: el umbral de

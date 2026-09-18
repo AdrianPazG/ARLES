@@ -38,6 +38,12 @@ use crate::error::DbError;
 pub const MAX_POR_PAGINA: u32 = 1_000;
 
 /// Un contacto tal y como está guardado.
+///
+/// **No lleva `serde`.** Este crate no conoce el formato en que viajan las
+/// cosas por la IPC, y no debe: quien decide cómo se ve un contacto al otro
+/// lado es `arles-app`, que lo convierte en su propio tipo. Si esta estructura
+/// se serializara directamente, cambiar un nombre de columna aquí cambiaría el
+/// JSON que recibe la pantalla.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContactoGuardado {
     pub id: ContactId,

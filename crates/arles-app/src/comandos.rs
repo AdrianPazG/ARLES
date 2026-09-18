@@ -304,6 +304,229 @@ pub fn guardar_tema(estado: tauri::State<'_, EstadoApp>, tema: String) -> Result
         .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// CONTACTOS (entrega 3.2)
+//
+// Los cuatro comandos que la pantalla de CONTACTOS necesita. Todos exigen que
+// la empresa esté configurada: en v1.2.0 hay una sola (D-4), y el
+// identificador **no** viaja desde la webview. Si lo hiciera, el frontend
+// podría pedir los contactos de cualquier empresa pasando otro UUID; que hoy
+// sólo haya una no es una defensa, es una coincidencia que dejará de serlo en
+// v1.3.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Cuántos contactos pide la tabla por pantallazo.
+///
+/// La tabla es virtualizada: trae de más para que al desplazar no se vea el
+/// hueco, y muy por debajo del tope de `arles_db::MAX_POR_PAGINA`.
+pub const POR_PAGINA: u32 = 100;
+
+/// La página que pide la tabla tiene que caber en el tope de la capa de datos.
+///
+/// Si alguien subiera `POR_PAGINA` por encima, `listar_contactos` lo recortaría
+/// **en silencio** y la tabla creería que ha llegado al final de la lista.
+///
+/// Va como comprobación de compilación y no como prueba: los dos valores son
+/// constantes, así que esto no puede depender de que alguien ejecute los tests.
+/// Clippy lo señaló al escribirlo como `assert!` dentro de un `#[test]`, y
+/// tenía razón.
+const _: () = assert!(POR_PAGINA <= arles_db::MAX_POR_PAGINA);
+
+/// Identificador de la empresa configurada.
+///
+/// # Errores
+///
+/// [`AppError::Db`] si la base no responde; [`AppError::EmpresaNoConfigurada`]
+/// si todavía no se ha dado de alta.
+fn empresa_actual(estado: &EstadoApp) -> Result<arles_core::ids::CompanyId, crate::AppError> {
+    estado
+        .db()
+        .empresa()?
+        .map(|e| e.id)
+        .ok_or(crate::AppError::EmpresaNoConfigurada)
+}
+
+/// Un contacto tal y como lo ve la pantalla.
+///
+/// Es un tipo de esta capa y no el de `arles-db` a propósito: el crate de datos
+/// no conoce el formato de la IPC, así que la conversión vive aquí. Es el punto
+/// donde se decide qué sale hacia la webview —y, sobre todo, qué no.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContactoParaLaPantalla {
+    pub id: arles_core::ids::ContactId,
+    pub nombre: String,
+    pub apellido: String,
+    pub empresa: String,
+    pub canales: Vec<arles_core::contacto::CanalValidado>,
+    pub creado_en: String,
+    pub actualizado_en: String,
+}
+
+impl From<arles_db::ContactoGuardado> for ContactoParaLaPantalla {
+    fn from(c: arles_db::ContactoGuardado) -> Self {
+        Self {
+            id: c.id,
+            nombre: c.datos.nombre,
+            apellido: c.datos.apellido,
+            empresa: c.datos.empresa,
+            canales: c.datos.canales,
+            creado_en: c.creado_en,
+            actualizado_en: c.actualizado_en,
+        }
+    }
+}
+
+/// Una página de contactos, con lo que la tabla necesita para paginar.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaginaDeContactos {
+    pub contactos: Vec<ContactoParaLaPantalla>,
+    /// Cuántos hay en total, no cuántos vienen. La tabla necesita los dos para
+    /// decir «100 de 12 480» sin inventarse nada (§65).
+    pub total: u32,
+    /// Direcciones de esta página que están en la lista de supresión.
+    ///
+    /// **Es un aviso, no un bloqueo** (L-13): el contacto se guarda igual. Quien
+    /// decide si se le escribe es la campaña, en su comprobación previa, y
+    /// duplicar aquí esa decisión sería tener dos reglas que mantener iguales.
+    pub suprimidas: Vec<String>,
+}
+
+/// Una página de la lista de contactos.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si la empresa no está configurada o si la base no responde.
+#[tauri::command]
+pub fn listar_contactos(
+    estado: tauri::State<'_, EstadoApp>,
+    desde: u32,
+) -> Result<PaginaDeContactos, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let pagina = estado
+        .db()
+        .listar_contactos(empresa, desde, POR_PAGINA)
+        .map_err(crate::AppError::Db)?;
+
+    // Los canales de toda la página en una consulta, no uno por contacto.
+    let canales: Vec<_> = pagina
+        .contactos
+        .iter()
+        .flat_map(|c| c.datos.canales.iter().cloned())
+        .collect();
+    let suprimidas = estado
+        .db()
+        .direcciones_suprimidas(empresa, &canales)
+        .map_err(crate::AppError::Db)?;
+
+    Ok(PaginaDeContactos {
+        contactos: pagina.contactos.into_iter().map(Into::into).collect(),
+        total: pagina.total,
+        suprimidas,
+    })
+}
+
+/// La ficha completa de un contacto, con **todos** sus canales (L-14).
+///
+/// Devuelve `None` si no existe, en vez de un error: pedir la ficha de algo que
+/// alguien acaba de dar de baja no es una avería, y la pantalla tiene que poder
+/// decir «ya no está» sin enseñar un mensaje de error.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si la empresa no está configurada o si la base no responde.
+#[tauri::command]
+pub fn contacto(
+    estado: tauri::State<'_, EstadoApp>,
+    id: arles_core::ids::ContactId,
+) -> Result<Option<ContactoParaLaPantalla>, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    estado
+        .db()
+        .contacto(empresa, id)
+        .map(|c| c.map(Into::into))
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))
+}
+
+/// Da de alta un contacto escrito a mano (L-13).
+///
+/// # Errores
+///
+/// [`ErrorIpc`] con `canales` relleno si el formulario no es válido; con la
+/// clave `error.db.direccion_en_uso` si alguna dirección ya es de otro
+/// contacto.
+#[tauri::command]
+pub fn crear_contacto(
+    estado: tauri::State<'_, EstadoApp>,
+    borrador: arles_core::contacto::BorradorDeContacto,
+) -> Result<arles_core::ids::ContactId, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let datos = validar(&estado, &borrador)?;
+    estado
+        .db()
+        .crear_contacto(empresa, &datos)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))
+}
+
+/// Cambia los datos o los canales de un contacto que ya existe (L-13).
+///
+/// # Errores
+///
+/// Las mismas que [`crear_contacto`], más `error.db.contacto_no_existe` si
+/// alguien lo dio de baja mientras el formulario estaba abierto.
+#[tauri::command]
+pub fn editar_contacto(
+    estado: tauri::State<'_, EstadoApp>,
+    id: arles_core::ids::ContactId,
+    borrador: arles_core::contacto::BorradorDeContacto,
+) -> Result<(), ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let datos = validar(&estado, &borrador)?;
+    estado
+        .db()
+        .editar_contacto(empresa, id, &datos)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))
+}
+
+/// Da de baja un contacto.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] con `error.db.contacto_no_existe` si ya no estaba.
+#[tauri::command]
+pub fn borrar_contacto(
+    estado: tauri::State<'_, EstadoApp>,
+    id: arles_core::ids::ContactId,
+) -> Result<(), ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    estado
+        .db()
+        .borrar_contacto(empresa, id)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))
+}
+
+/// Valida el borrador con el país de la empresa.
+///
+/// El país **sale de la empresa configurada**, no del formulario. Es lo que
+/// completa un móvil escrito sin prefijo: «81 1234 5678» es mexicano porque la
+/// empresa lo es. Si lo eligiera la pantalla, el mismo número escrito igual
+/// acabaría en dos países según qué pantalla lo mandara.
+fn validar(
+    estado: &EstadoApp,
+    borrador: &arles_core::contacto::BorradorDeContacto,
+) -> Result<arles_core::contacto::DatosDeContacto, ErrorIpc> {
+    let pais = estado
+        .db()
+        .empresa()
+        .map_err(crate::AppError::Db)?
+        .map(|e| e.datos.pais().to_owned())
+        .ok_or(crate::AppError::EmpresaNoConfigurada)?;
+
+    arles_core::contacto::DatosDeContacto::validar(borrador, &pais)
+        .map_err(|errores| ErrorIpc::from(crate::AppError::ContactoInvalido(errores)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -379,6 +602,87 @@ mod tests {
             arles_core::empresa::ZONAS_SOPORTADAS
         ));
         assert!(arles_core::ZONAS_SOPORTADAS.contains(&"America/Mexico_City"));
+    }
+
+    /// El error del formulario de contacto llega con **el índice** del canal.
+    ///
+    /// Sin él, la pantalla sabe que «un canal es inválido» pero no cuál, y con
+    /// diez canales eso obliga a repasarlos todos (§95).
+    #[test]
+    fn el_error_de_contacto_dice_que_canal_fallo() {
+        use arles_core::contacto::{CampoDeContacto, ErrorDeContacto};
+
+        let ipc: ErrorIpc = crate::AppError::ContactoInvalido(vec![ErrorDeContacto {
+            campo: CampoDeContacto::Canal,
+            indice: Some(3),
+            clave: "error.telefono_invalido",
+        }])
+        .into();
+
+        assert_eq!(ipc.clave, "error.app.contacto_invalido");
+        assert_eq!(ipc.canales.first().and_then(|c| c.indice), Some(3));
+        // Y no se cuela en la lista del otro formulario.
+        assert!(ipc.campos.is_empty());
+
+        let json = serde_json::to_string(&ipc).expect("serializa");
+        assert!(json.contains("\"indice\":3"), "{json}");
+    }
+
+    /// Un contacto guardado sale hacia la pantalla; **no entra**.
+    ///
+    /// Lo que entra es un borrador, que se valida. Si `ContactoParaLaPantalla`
+    /// se pudiera deserializar, la webview podría mandar canales ya
+    /// «normalizados» a su gusto, y la deduplicación y la supresión —que
+    /// comparan esa forma— dejarían de funcionar sin que nada fallara.
+    #[test]
+    /// Se comprobó descomentando la línea: no compila. Y añadiendo
+    /// `Deserialize` a la estructura tampoco, porque `CanalValidado` tampoco lo
+    /// tiene — la barrera está puesta dos veces, en el núcleo y aquí.
+    fn el_contacto_que_sale_no_puede_volver_a_entrar() {
+        fn solo_si_deserializa<T: serde::de::DeserializeOwned>() {}
+        // Esta línea no compila:
+        //     solo_si_deserializa::<ContactoParaLaPantalla>();
+        //
+        // Y ésta sí, que es la puerta de entrada buena: un borrador, que hay
+        // que validar antes de que sea un contacto.
+        solo_si_deserializa::<arles_core::contacto::BorradorDeContacto>();
+    }
+
+    /// Los canales del contacto salen en el JSON con su forma normalizada
+    /// **y** con lo que el usuario escribió. La tabla enseña lo segundo; la
+    /// supresión compara lo primero.
+    #[test]
+    fn el_contacto_lleva_las_dos_formas_de_cada_canal() {
+        let datos = arles_core::contacto::DatosDeContacto::validar(
+            &arles_core::contacto::BorradorDeContacto {
+                nombre: "Ana".into(),
+                apellido: String::new(),
+                empresa: String::new(),
+                canales: vec![arles_core::contacto::BorradorDeCanal {
+                    canal: arles_core::Canal::Correo,
+                    valor: "Ana@Empresa.MX".into(),
+                    principal: true,
+                }],
+            },
+            "MX",
+        )
+        .expect("válido");
+
+        let para_pantalla = ContactoParaLaPantalla::from(arles_db::ContactoGuardado {
+            id: arles_core::ids::ContactId::nuevo(),
+            datos,
+            creado_en: "2026-09-17T10:00:00Z".into(),
+            actualizado_en: "2026-09-17T10:00:00Z".into(),
+        });
+
+        let json = serde_json::to_string(&para_pantalla).expect("serializa");
+        assert!(json.contains("Ana@Empresa.MX"), "falta lo que se escribió");
+        assert!(
+            json.contains("ana@empresa.mx"),
+            "falta la forma normalizada"
+        );
+        // camelCase en la frontera, como el resto de comandos.
+        assert!(json.contains("valorNormalizado"), "{json}");
     }
 
     /// Regla de frontera 3.4: si algún día alguien añade un campo con una

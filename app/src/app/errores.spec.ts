@@ -36,6 +36,8 @@ const CLAVES_DEL_NUCLEO = [
   'error.app.sitio_no_abre',
   'error.app.tema_desconocido',
   'error.app.empresa_invalida',
+  'error.app.contacto_invalido',
+  'error.app.empresa_no_configurada',
   'error.db.dato_invalido',
   'error.db.direccion_en_uso',
   'error.db.contacto_no_existe',

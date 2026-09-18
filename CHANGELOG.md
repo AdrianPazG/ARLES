@@ -12,6 +12,63 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Contactos: la capa de datos y la frontera (entrega 3.2, tramos A y B)
+
+ARLES ya sabe **meter contactos en su base y sacarlos**, y la pantalla ya tiene
+a quién llamar. Lo que todavía no hay es la pantalla: al abrir la aplicación,
+CONTACTOS sigue diciendo que aún no está. Se dice aquí porque se prometió antes
+de empezar.
+
+- **Repositorio `arles-db/src/contactos.rs`**: alta, edición, ficha, lista
+  paginada, baja lógica y el aviso de supresión (L-13).
+- El **orden de los canales** —correos primero, móviles después, el principal
+  arriba— sale de la consulta y no de reordenar en Rust. La lista y la ficha no
+  pueden ordenar distinto porque ordenan en el mismo sitio.
+- Los canales retirados **se marcan, no se borran**. El índice único es parcial
+  (`WHERE deleted_at IS NULL`), así que la dirección vuelve a estar libre y a la
+  vez se conserva la respuesta a «¿a qué dirección se le escribió en marzo?».
+- **Cinco comandos** en la frontera: listar, ficha, crear, editar y borrar.
+  Ninguno recibe el identificador de la empresa desde la webview — se lee de la
+  base. Que hoy sólo haya una empresa (D-4) no es una defensa, es una
+  coincidencia que dejará de serlo en la v1.3. El validador lo comprueba.
+- El **país con el que se completa un móvil sin prefijo** sale de la empresa
+  configurada, no del formulario. Si lo eligiera la pantalla, «81 1234 5678»
+  acabaría en dos países según quién lo mandara.
+
+**Dos errores nuevos, porque «UNIQUE constraint failed» no le sirve a nadie:**
+`DireccionEnUso` lleva dentro **la dirección en conflicto** —con hasta diez
+canales en el formulario, sin ella habría que adivinar cuál se repitió—, y
+`ContactoNoExiste` no distingue «nunca existió» de «era de otra empresa»,
+porque decirlo filtraría la existencia de datos ajenos.
+
+**Nueve cebos deliberados. Cuatro pruebas no medían nada** y sólo se supo al
+intentar romperlas:
+
+- Quitar el `CASE` que agrupa por tipo del `ORDER BY` **seguía en verde**: el
+  núcleo ya ordena antes de insertar, así que `created_at` sola reproducía el
+  resultado. Prueba nueva que escribe los canales intercalados a mano.
+- Quitar el recorte de página **seguía en verde**: la prueba tenía un solo
+  contacto, y pedir diez mil también devuelve uno. Ahora siembra más filas que
+  el tope y exige que vuelvan exactamente mil, con el total real.
+- El tope de página pasó de ser un `assert!` en un test a una **comprobación de
+  compilación**: los dos valores son constantes, así que no puede depender de
+  que alguien ejecute los tests. Lo señaló Clippy y tenía razón.
+- Y una comprobación **del propio validador** que no se podía romper: miraba una
+  sola línea encima de la estructura, y ahí está `#[serde(rename_all …)]`, no el
+  `#[derive(…)]`. Pasaba siempre, dijera lo que dijera el derive.
+
+**La capa de datos sigue sin conocer la IPC.** `arles-db` no depende de `serde`;
+la conversión a lo que ve la pantalla vive en `arles-app`. Si `ContactoGuardado`
+se serializara directo, renombrar una columna cambiaría el JSON del frontend.
+Y un contacto validado **no puede volver a entrar**: ni él ni `CanalValidado`
+deserializan, así que la webview no puede mandar canales «normalizados» a su
+gusto y saltarse la deduplicación y la supresión, que comparan esa forma. Las
+tres cosas las vigila ahora el validador, y las tres se probaron rompiéndolas.
+
+**222 pruebas en Rust, 63 en la interfaz, fases 0–3 en verde (4 + 48 + 37 + 38).**
+Avance de la v1.2.0: **31 % → 32 %**.
+
+
 ### Una vista previa en un solo archivo, que se abre con doble clic
 
 - Dirección pidió «sólo preocuparme de descargar y probar». El instalador no

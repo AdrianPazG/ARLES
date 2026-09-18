@@ -46,6 +46,11 @@ pub fn run() {
             comandos::guardar_barra_plegada,
             comandos::guardar_tema,
             comandos::abrir_sitio_de_telemetry,
+            comandos::listar_contactos,
+            comandos::contacto,
+            comandos::crear_contacto,
+            comandos::editar_contacto,
+            comandos::borrar_contacto,
         ])
         .run(tauri::generate_context!());
 

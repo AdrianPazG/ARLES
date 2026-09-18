@@ -1439,6 +1439,90 @@ def migraciones_no_se_editan():
               f"esperado {esperado}\nreal     {real}")
 
 
+def contactos_no_entran_sin_validar():
+    """Un contacto validado no puede construirse deserializando.
+
+    `DatosDeContacto` y `CanalValidado` sólo salen del validador del núcleo. Si
+    alguno ganara `Deserialize`, la webview podría mandar un contacto con los
+    canales ya «normalizados» a su gusto, y la deduplicación y la supresión
+    —que comparan exactamente esa forma— dejarían de funcionar sin que nada
+    fallara ni en los tests ni en pantalla.
+
+    La puerta de entrada buena es `BorradorDeContacto`, que sí deserializa
+    porque es lo que hay que validar.
+    """
+    txt = leer("crates", "arles-core", "src", "contacto.rs")
+    for tipo in ("DatosDeContacto", "CanalValidado"):
+        # TODOS los atributos de encima, no sólo el último renglón. La primera
+        # versión miraba una sola línea y ahí está `#[serde(rename_all …)]`, no
+        # el `#[derive(…)]`: la comprobación pasaba siempre, dijera lo que
+        # dijera el derive. Se vio al intentar romperla y no conseguirlo.
+        i = txt.find(f"pub struct {tipo} {{")
+        atributos = []
+        if i > 0:
+            for linea in reversed(txt[:i].rstrip().split("\n")):
+                if not linea.lstrip().startswith("#["):
+                    break
+                atributos.append(linea)
+        cabecera = "\n".join(atributos)
+        check(
+            3,
+            f"{tipo} no se puede deserializar",
+            i > 0 and bool(atributos) and "Deserialize" not in cabecera,
+            contactos_no_entran_sin_validar.__doc__,
+            detalle=cabecera.strip(),
+        )
+
+    check(
+        3,
+        "BorradorDeContacto sí se deserializa",
+        "pub struct BorradorDeContacto" in txt,
+        "Es lo que entra por la IPC; sin él no habría nada que validar.",
+    )
+
+
+def la_capa_de_datos_no_conoce_la_ipc():
+    """`arles-db` no depende de `serde`.
+
+    El crate de datos no sabe en qué formato viajan las cosas por la IPC, y no
+    debe: si `ContactoGuardado` se serializara directamente, renombrar una
+    columna aquí cambiaría el JSON que recibe la pantalla. La conversión vive
+    en `arles-app`, que es la frontera.
+    """
+    cargo = leer("crates", "arles-db", "Cargo.toml")
+    deps = cargo.split("[dependencies]", 1)[-1].split("[features]", 1)[0]
+    check(
+        3,
+        "arles-db no depende de serde",
+        "serde" not in deps,
+        la_capa_de_datos_no_conoce_la_ipc.__doc__,
+    )
+
+
+def los_comandos_de_contactos_no_reciben_la_empresa():
+    """Ningún comando de contactos acepta un `CompanyId` de la webview.
+
+    En v1.2.0 hay una sola empresa (D-4), así que el identificador se lee de la
+    base. Si viajara como parámetro, el frontend podría pedir los contactos de
+    cualquier empresa pasando otro UUID — y que hoy sólo haya una no es una
+    defensa, es una coincidencia que dejará de serlo en v1.3.
+    """
+    txt = leer("crates", "arles-app", "src", "comandos.rs")
+    malas = []
+    for bloque in txt.split("#[tauri::command]")[1:]:
+        firma = bloque.split("{", 1)[0]
+        nombre = firma.split("pub fn ", 1)[-1].split("(", 1)[0].strip()
+        if "contacto" in nombre and "CompanyId" in firma:
+            malas.append(nombre)
+    check(
+        3,
+        "ningún comando de contactos recibe la empresa desde la webview",
+        not malas,
+        los_comandos_de_contactos_no_reciben_la_empresa.__doc__,
+        detalle=", ".join(malas),
+    )
+
+
 def fase_3(rapido):
     titulo("FASE 3 · Empresa y contactos · entrega 3.1")
 
@@ -1448,6 +1532,8 @@ def fase_3(rapido):
         ("crates/arles-core/src/onboarding.rs", "La lista de alta se deriva de los datos; sin este módulo volvería a ser un booleano por paso."),
         ("crates/arles-db/migrations/V2__preferencias_de_interfaz.sql", "P-11 dice «se recuerda», y eso necesita una tabla."),
         ("crates/arles-db/src/empresa.rs", "Sin repositorio, el SQL se derramaría al shell."),
+        ("crates/arles-core/src/contacto.rs", "Un contacto es una persona con canales, y quien decide si es válido es el dominio (L-13)."),
+        ("crates/arles-db/src/contactos.rs", "Alta, edición, ficha y baja de contactos con sus canales."),
         ("app/src/app/pantallas/PantallaAjustes.vue", "Es el primer paso del alta (§25)."),
         ("app/src/app/pantallas/PantallaInicio.vue", "La lista de alta vive en Inicio."),
         ("app/src/app/stores/interfaz.ts", "El estado de la barra lateral (P-11)."),
@@ -1464,6 +1550,9 @@ def fase_3(rapido):
     nombres_de_las_opciones()
     iconos_de_seccion()
     preferencias_fuera_del_navegador()
+    contactos_no_entran_sin_validar()
+    la_capa_de_datos_no_conoce_la_ipc()
+    los_comandos_de_contactos_no_reciben_la_empresa()
 
     print(f"{GRIS}  sondas{FIN}")
     app = os.path.join(RAIZ, "app")

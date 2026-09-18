@@ -55,6 +55,23 @@ pub enum AppError {
     #[error("los datos de la empresa no son válidos")]
     EmpresaInvalida(Vec<arles_core::ErrorDeCampo>),
 
+    /// El formulario de contacto trae campos que no pasan la validación.
+    ///
+    /// Va aparte de [`Self::EmpresaInvalida`] porque sus errores llevan
+    /// **índice**: un contacto admite hasta diez canales, y decir «un canal es
+    /// inválido» sin decir cuál obliga a repasar los diez.
+    #[error("los datos del contacto no son válidos")]
+    ContactoInvalido(Vec<arles_core::contacto::ErrorDeContacto>),
+
+    /// Se pidió algo de contactos sin haber configurado la empresa.
+    ///
+    /// No lo puede provocar el usuario: la pantalla de CONTACTOS no es
+    /// alcanzable antes del alta. Si llega, alguien está hablando con la IPC por
+    /// su cuenta — y el comando necesita la empresa para saber de quién son los
+    /// contactos y con qué país completar los móviles.
+    #[error("todavía no se ha configurado la empresa")]
+    EmpresaNoConfigurada,
+
     #[error(transparent)]
     Db(#[from] arles_db::DbError),
 
@@ -72,6 +89,8 @@ impl AppError {
             Self::SitioNoAbre(_) => "error.app.sitio_no_abre",
             Self::TemaDesconocido => "error.app.tema_desconocido",
             Self::EmpresaInvalida(_) => "error.app.empresa_invalida",
+            Self::ContactoInvalido(_) => "error.app.contacto_invalido",
+            Self::EmpresaNoConfigurada => "error.app.empresa_no_configurada",
             Self::Db(e) => e.clave_i18n(),
             Self::Core(e) => e.clave_i18n(),
         }
@@ -99,6 +118,14 @@ pub struct ErrorIpc {
     /// en vez de mostrar un aviso general que obliga a revisarlo todo.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub campos: Vec<arles_core::ErrorDeCampo>,
+    /// Lo mismo para el formulario de contacto, que necesita además el índice
+    /// del canal que falló.
+    ///
+    /// Es una lista aparte y no se mezcla con `campos`: son tipos distintos, y
+    /// fundirlos obligaría a que uno de los dos formularios cargara con un
+    /// índice que no significa nada para él.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub canales: Vec<arles_core::contacto::ErrorDeContacto>,
 }
 
 impl From<AppError> for ErrorIpc {
@@ -107,10 +134,15 @@ impl From<AppError> for ErrorIpc {
             AppError::EmpresaInvalida(c) => c.clone(),
             _ => Vec::new(),
         };
+        let canales = match &e {
+            AppError::ContactoInvalido(c) => c.clone(),
+            _ => Vec::new(),
+        };
         Self {
             clave: e.clave_i18n().to_owned(),
             detalle: redactar_rutas(&e.to_string()),
             campos,
+            canales,
         }
     }
 }
