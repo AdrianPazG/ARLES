@@ -326,6 +326,82 @@ impl Db {
     /// # Errores
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
+    /// Quién es el dueño de cada dirección que ya está registrada.
+    ///
+    /// Es lo que alimenta la detección de choques de una importación: el
+    /// análisis necesita saber **con quién** choca cada dirección, no sólo que
+    /// choca. Decir «esta dirección ya existe» sin decir de quién obliga a
+    /// buscarla a mano entre miles de contactos.
+    ///
+    /// Sólo mira las direcciones que se le pasan, en lotes: traerse las 500 000
+    /// de la base para comparar contra un archivo de cien filas sería gastar
+    /// memoria por nada, y con un archivo de 500 000 sería gastarla dos veces.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla.
+    pub fn duenos_de_direcciones(
+        &self,
+        empresa: CompanyId,
+        direcciones: &[String],
+    ) -> Result<std::collections::HashMap<String, String>, DbError> {
+        let mut duenos = std::collections::HashMap::new();
+        if direcciones.is_empty() {
+            return Ok(duenos);
+        }
+
+        self.con_dominio(|conn| {
+            // En lotes, con tantos interrogantes como direcciones lleve el
+            // lote.
+            //
+            // SQLite tiene un tope de variables por sentencia. **Medido en este
+            // build: 32 766** —ver `el_tope_de_variables_esta_por_encima_del_lote`—,
+            // no las 999 que dice la documentación vieja y que este comentario
+            // repetía antes de comprobarlo. Con 500 000 contactos (T-7) se pasa
+            // igual, y no «a veces»: siempre, y justo en el archivo grande.
+            //
+            // 400 es holgado por debajo del tope de cualquier build razonable,
+            // incluido uno compilado con el límite antiguo.
+            const POR_LOTE: usize = 400;
+
+            for lote in direcciones.chunks(POR_LOTE) {
+                let huecos = std::iter::repeat_n("?", lote.len())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let sql = format!(
+                    "SELECT ch.value_normalized,
+                            COALESCE(
+                                TRIM(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '')),
+                                ''
+                            )
+                       FROM contact_channel ch
+                       JOIN contact c ON c.id = ch.contact_id
+                      WHERE ch.company_id = ?1
+                        AND ch.deleted_at IS NULL
+                        AND c.deleted_at IS NULL
+                        AND ch.value_normalized IN ({huecos})"
+                );
+
+                let mut consulta = conn.prepare(&sql)?;
+                let mut parametros: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(lote.len() + 1);
+                let empresa_txt = empresa.to_string();
+                parametros.push(&empresa_txt);
+                for d in lote {
+                    parametros.push(d);
+                }
+
+                let filas = consulta.query_map(parametros.as_slice(), |f| {
+                    Ok((f.get::<_, String>(0)?, f.get::<_, String>(1)?))
+                })?;
+                for fila in filas {
+                    let (direccion, nombre) = fila?;
+                    duenos.insert(direccion, nombre);
+                }
+            }
+            Ok(duenos)
+        })
+    }
+
     pub fn direcciones_suprimidas(
         &self,
         empresa: CompanyId,
@@ -872,6 +948,244 @@ mod tests {
         // Sin solaparse: la primera y la última no comparten ningún contacto.
         let ids_primera: Vec<_> = primera.contactos.iter().map(|c| c.id).collect();
         assert!(!ultima.contactos.iter().any(|c| ids_primera.contains(&c.id)));
+    }
+
+    /// La consulta de dueños dice **con quién** choca cada dirección, no sólo
+    /// que choca. Es lo que permite al informe de una importación decir «ya la
+    /// tiene Ana Ruiz» en vez de «ya existe».
+    #[test]
+    fn los_duenos_dicen_de_quien_es_cada_direccion() {
+        let (_d, db, empresa) = base();
+        db.crear_contacto(empresa, &contacto(&[(Canal::Correo, "ana@empresa.mx")]))
+            .expect("crea");
+
+        let duenos = db
+            .duenos_de_direcciones(empresa, &["ana@empresa.mx".to_owned()])
+            .expect("consulta");
+
+        assert_eq!(duenos.len(), 1);
+        assert_eq!(
+            duenos.get("ana@empresa.mx").map(String::as_str),
+            Some("Ana Ruiz")
+        );
+    }
+
+    /// Una dirección que no está no aparece en el mapa. Si apareciera con el
+    /// nombre vacío, el análisis la contaría como choque y la importación
+    /// dejaría fuera filas perfectamente buenas.
+    #[test]
+    fn una_direccion_que_no_existe_no_sale_en_el_mapa() {
+        let (_d, db, empresa) = base();
+        db.crear_contacto(empresa, &contacto(&[(Canal::Correo, "ana@empresa.mx")]))
+            .expect("crea");
+
+        let duenos = db
+            .duenos_de_direcciones(
+                empresa,
+                &["ana@empresa.mx".to_owned(), "nadie@empresa.mx".to_owned()],
+            )
+            .expect("consulta");
+
+        assert_eq!(duenos.len(), 1);
+        assert!(!duenos.contains_key("nadie@empresa.mx"));
+    }
+
+    /// Un contacto dado de baja **libera** su dirección, así que no puede salir
+    /// como dueño: si saliera, reimportar a alguien que se dio de baja sería
+    /// imposible y el informe culparía a un contacto que ya no está.
+    #[test]
+    fn un_contacto_dado_de_baja_no_es_dueno_de_nada() {
+        let (_d, db, empresa) = base();
+        let id = db
+            .crear_contacto(empresa, &contacto(&[(Canal::Correo, "ana@empresa.mx")]))
+            .expect("crea");
+        db.borrar_contacto(empresa, id).expect("baja");
+
+        let duenos = db
+            .duenos_de_direcciones(empresa, &["ana@empresa.mx".to_owned()])
+            .expect("consulta");
+        assert!(
+            duenos.is_empty(),
+            "una dirección liberada salió como ocupada"
+        );
+    }
+
+    /// El filtro por `contact.deleted_at` es **cinturón y tirantes**, y aquí se
+    /// prueba contra el caso para el que existe.
+    ///
+    /// Hoy `borrar_contacto` marca el contacto **y** sus canales, así que
+    /// filtrar por el canal ya bastaría — el cebo que quitaba este filtro no
+    /// rompía nada—. Pero una base editada por fuera, o una migración a medias,
+    /// puede dejar un contacto de baja con sus canales vivos. Sin el filtro, ese
+    /// contacto fantasma saldría como dueño y bloquearía una importación
+    /// perfectamente legítima.
+    ///
+    /// Se construye ese estado a mano, que es la única forma de llegar a él.
+    #[test]
+    fn un_contacto_de_baja_con_canales_vivos_tampoco_es_dueno() {
+        let (_d, db, empresa) = base();
+        let id = db
+            .crear_contacto(
+                empresa,
+                &contacto(&[(Canal::Correo, "fantasma@empresa.mx")]),
+            )
+            .expect("crea");
+
+        db.ejecutar_en_pruebas(|conn| {
+            // Sólo el contacto, dejando sus canales vivos: el estado
+            // inconsistente que el filtro existe para tolerar.
+            conn.execute(
+                "UPDATE contact SET deleted_at = ?2 WHERE id = ?1",
+                params![id.to_string(), ahora()],
+            )?;
+            Ok(())
+        })
+        .expect("deja el contacto a medio borrar");
+
+        let duenos = db
+            .duenos_de_direcciones(empresa, &["fantasma@empresa.mx".to_owned()])
+            .expect("consulta");
+
+        assert!(
+            duenos.is_empty(),
+            "un contacto de baja con canales vivos salió como dueño y bloquearía la importación"
+        );
+    }
+
+    /// Las direcciones de otra empresa no cuentan. Sin esto, una importación
+    /// rechazaría filas por chocar con datos que no son suyos — y de paso
+    /// filtraría que existen.
+    #[test]
+    fn los_duenos_no_cruzan_empresas() {
+        let (_d, db, empresa) = base();
+        db.crear_contacto(empresa, &contacto(&[(Canal::Correo, "ana@empresa.mx")]))
+            .expect("crea");
+
+        let otra = db
+            .ejecutar_en_pruebas(|conn| {
+                let id = CompanyId::nuevo();
+                conn.execute(
+                    "INSERT INTO company (id, commercial_name, country, timezone,
+                                          corporate_email, created_at, updated_at)
+                     VALUES (?1, 'Otra', 'MX', 'UTC', 'otra@otra.mx', ?2, ?2)",
+                    params![id.to_string(), ahora()],
+                )?;
+                Ok(id)
+            })
+            .expect("otra empresa");
+
+        let duenos = db
+            .duenos_de_direcciones(otra, &["ana@empresa.mx".to_owned()])
+            .expect("consulta");
+        assert!(duenos.is_empty());
+    }
+
+    /// **El lote.** SQLite tiene un tope de variables por sentencia —999 por
+    /// defecto—, así que una consulta con una dirección por interrogante falla
+    /// en cuanto el archivo pasa de ahí. Y falla en el archivo grande, que es
+    /// justo donde importa.
+    ///
+    /// Se piden más del doble del tamaño de lote para que se recorra más de una
+    /// vez, y una de ellas es real: si el troceado perdiera lotes, no saldría.
+    #[test]
+    fn se_consultan_en_lotes_para_no_pasar_del_tope_de_sqlite() {
+        let (_d, db, empresa) = base();
+        db.crear_contacto(empresa, &contacto(&[(Canal::Correo, "aguja@empresa.mx")]))
+            .expect("crea");
+
+        // Por encima del tope medido (32 766). Con 1 500 —lo que pedía la
+        // primera versión de esta prueba— el cebo que quitaba el troceado NO
+        // rompía nada, porque 1 500 variables caben de sobra. No medía nada.
+        let mut direcciones: Vec<String> = (0..40_000)
+            .map(|i| format!("pajar{i}@empresa.mx"))
+            .collect();
+        // La real, al final del todo: si sólo se consultara el primer lote,
+        // esto no la encontraría.
+        direcciones.push("aguja@empresa.mx".to_owned());
+
+        let duenos = db
+            .duenos_de_direcciones(empresa, &direcciones)
+            .expect("la consulta no debería pasarse del tope de variables");
+
+        assert_eq!(duenos.len(), 1);
+        assert!(duenos.contains_key("aguja@empresa.mx"));
+    }
+
+    /// Un contacto sin nombre sale con cadena vacía, no con un espacio suelto
+    /// del `nombre || ' ' || apellido`. La pantalla decide qué poner en su
+    /// lugar; lo que no puede es recibir « » y creer que hay nombre.
+    #[test]
+    fn un_contacto_sin_nombre_sale_con_cadena_vacia() {
+        let (_d, db, empresa) = base();
+        let datos = DatosDeContacto::validar(
+            &BorradorDeContacto {
+                nombre: String::new(),
+                apellido: String::new(),
+                empresa: String::new(),
+                canales: vec![BorradorDeCanal {
+                    canal: Canal::Correo,
+                    valor: "anonimo@empresa.mx".into(),
+                    principal: true,
+                }],
+            },
+            "MX",
+        )
+        .expect("válido");
+        db.crear_contacto(empresa, &datos).expect("crea");
+
+        let duenos = db
+            .duenos_de_direcciones(empresa, &["anonimo@empresa.mx".to_owned()])
+            .expect("consulta");
+        assert_eq!(
+            duenos.get("anonimo@empresa.mx").map(String::as_str),
+            Some("")
+        );
+    }
+
+    /// Dónde está de verdad el tope de variables de este SQLite.
+    ///
+    /// Se mide preparando sentencias cada vez más anchas hasta que una falla.
+    /// No es ceremonia: el comentario del troceado afirmaba «999 por defecto»,
+    /// y el cebo que quitaba el troceado **no rompió nada**, así que o la
+    /// afirmación era vieja o la prueba no llegaba al tope. Había que medirlo
+    /// en vez de repetirlo.
+    #[test]
+    fn el_tope_de_variables_esta_por_encima_del_lote() {
+        let (_d, db, _e) = base();
+        let mut tope = 0;
+        for n in [
+            900_usize, 999, 1_000, 2_000, 10_000, 32_766, 32_767, 100_000,
+        ] {
+            let sql = format!(
+                "SELECT 1 WHERE 1 IN ({})",
+                std::iter::repeat_n("?", n).collect::<Vec<_>>().join(",")
+            );
+            let cabe = db
+                .ejecutar_en_pruebas(|conn| Ok(conn.prepare(&sql).is_ok()))
+                .unwrap_or(false);
+            if cabe {
+                tope = n;
+            } else {
+                break;
+            }
+        }
+        println!("el tope real de variables está entre {tope} y el siguiente escalón");
+
+        assert!(
+            tope >= 999,
+            "este SQLite no admite ni 999 variables: el troceado tendría que ser más pequeño"
+        );
+    }
+
+    /// Pedir nada no consulta nada.
+    #[test]
+    fn pedir_cero_direcciones_no_consulta() {
+        let (_d, db, empresa) = base();
+        assert!(
+            db.duenos_de_direcciones(empresa, &[])
+                .expect("consulta")
+                .is_empty()
+        );
     }
 
     /// Pedir de más no es un error del usuario: se recorta. Devolver un fallo

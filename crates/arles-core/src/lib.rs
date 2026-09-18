@@ -13,6 +13,7 @@
 // necesidad. El workspace deniega; estas dos raíces prohíben.
 #![forbid(unsafe_code)]
 
+pub mod analisis;
 pub mod attempt;
 pub mod canal;
 pub mod contacto;
@@ -25,6 +26,7 @@ pub mod importacion;
 pub mod onboarding;
 pub mod secret;
 
+pub use analisis::{Analisis, Choque, FilaRechazada, analizar};
 pub use attempt::{AttemptState, TransitionError};
 pub use canal::{Canal, PhoneNumber, ValorDeCanal};
 pub use contacto::{
