@@ -18,6 +18,7 @@ pub mod empresa;
 pub mod error;
 pub mod migraciones;
 pub mod preferencias;
+pub mod supresion;
 
 pub use conexion::{ClaveMaestra, abrir};
 pub use contactos::{

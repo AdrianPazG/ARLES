@@ -40,6 +40,36 @@ pub enum CoreError {
     #[error("identificador de {tipo} inválido")]
     IdInvalido { tipo: &'static str },
 
+    /// Una fila de supresión trae un motivo que no reconocemos.
+    ///
+    /// **No se repara cayendo en «manual»**: el motivo decide si esa supresión
+    /// se puede levantar con un botón. Adivinarlo mal convertiría una baja que
+    /// pidió una persona en algo que cualquiera puede deshacer.
+    #[error("el motivo de esa supresión no es uno de los admitidos")]
+    MotivoDeSupresionDesconocido,
+
+    /// Una fila de supresión trae un origen que no reconocemos.
+    #[error("el origen de esa supresión no es uno de los admitidos")]
+    OrigenDeSupresionDesconocido,
+
+    /// Una fila de supresión trae un alcance que no reconocemos.
+    #[error("el alcance de esa supresión no es uno de los admitidos")]
+    AlcanceDeSupresionDesconocido,
+
+    /// Se pidió suprimir sin decir qué dirección.
+    ///
+    /// Una supresión sin dirección no bloquea a nadie: dejaría una fila en la
+    /// pantalla y la sensación de que algo se hizo.
+    #[error("no se puede suprimir sin al menos una dirección")]
+    SupresionSinCanales,
+
+    /// Se pidió suprimir «este canal» pero vinieron varios.
+    ///
+    /// No se amplía a global en silencio: quien pidió una cosa no pidió la
+    /// otra, y ampliar una supresión sin decirlo cambia lo que alguien decidió.
+    #[error("el alcance de la supresión no coincide con las direcciones dadas")]
+    AlcanceNoCoincideConLosCanales,
+
     #[error(transparent)]
     Transicion(#[from] crate::attempt::TransitionError),
 }
@@ -56,6 +86,11 @@ impl CoreError {
             Self::CanalDesconocido => "error.canal_desconocido",
             Self::IdInvalido { .. } => "error.id_invalido",
             Self::OrigenDesconocido => "error.origen_desconocido",
+            Self::MotivoDeSupresionDesconocido => "error.motivo_de_supresion_desconocido",
+            Self::OrigenDeSupresionDesconocido => "error.origen_de_supresion_desconocido",
+            Self::AlcanceDeSupresionDesconocido => "error.alcance_de_supresion_desconocido",
+            Self::SupresionSinCanales => "error.supresion_sin_canales",
+            Self::AlcanceNoCoincideConLosCanales => "error.alcance_no_coincide",
             Self::Transicion(_) => "error.transicion_invalida",
         }
     }

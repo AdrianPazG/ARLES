@@ -587,7 +587,7 @@ impl Db {
 ///
 /// Son dos valores distintos para la base y significan lo mismo para el
 /// usuario; dejar que convivan obliga a que cada consulta contemple los dos.
-fn vacio_a_nulo(texto: &str) -> Option<&str> {
+pub(crate) fn vacio_a_nulo(texto: &str) -> Option<&str> {
     let t = texto.trim();
     if t.is_empty() { None } else { Some(t) }
 }

@@ -53,6 +53,18 @@ pub enum DbError {
     #[error("el contacto no existe o ya fue borrado")]
     ContactoNoExiste,
 
+    /// No hay tal fila de supresión en esta empresa.
+    #[error("esa supresión no existe")]
+    SupresionNoExiste,
+
+    /// La persona pidió la baja: no se levanta con un botón.
+    ///
+    /// **Lleva la clave i18n del motivo dentro** para que la pantalla pueda
+    /// decir cuál fue —«pidió la baja» o «marcó el correo como no deseado»— en
+    /// vez de un «no se puede» a secas. §95: el error dice qué pasó.
+    #[error("esa supresión la pidió la persona y no se levanta desde aquí")]
+    SupresionNoSeLevanta { motivo: &'static str },
+
     #[error("error de SQLite: {0}")]
     Sqlite(#[from] rusqlite::Error),
 }
@@ -67,6 +79,8 @@ impl DbError {
             Self::DatoInvalido { .. } => "error.db.dato_invalido",
             Self::DireccionEnUso { .. } => "error.db.direccion_en_uso",
             Self::ContactoNoExiste => "error.db.contacto_no_existe",
+            Self::SupresionNoExiste => "error.db.supresion_no_existe",
+            Self::SupresionNoSeLevanta { .. } => "error.db.supresion_no_se_levanta",
             Self::Sqlite(_) => "error.db.sqlite",
         }
     }

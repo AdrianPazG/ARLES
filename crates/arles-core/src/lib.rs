@@ -25,6 +25,7 @@ pub mod ids;
 pub mod importacion;
 pub mod onboarding;
 pub mod secret;
+pub mod supresion;
 
 pub use analisis::{Analisis, Choque, FilaRechazada, analizar};
 pub use attempt::{AttemptState, TransitionError};
@@ -49,3 +50,6 @@ pub use importacion::{
 };
 pub use onboarding::{ListaDeOnboarding, PasoDeOnboarding, RecuentoDeAlta};
 pub use secret::Secret;
+pub use supresion::{
+    AlcanceDeSupresion, MotivoDeSupresion, OrigenDeSupresion, PeticionDeSupresion,
+};

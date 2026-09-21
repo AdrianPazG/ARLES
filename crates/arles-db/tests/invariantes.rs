@@ -1319,3 +1319,125 @@ fn los_origenes_del_nucleo_son_los_que_la_base_admite() {
     }
     assert_eq!(guardados.len(), arles_core::OrigenDeLaLista::TODOS.len());
 }
+
+// ─── Entrega 3.4 · la lista de supresión ────────────────────────────────────
+
+fn insertar_supresion(
+    conn: &Connection,
+    id: &str,
+    canal: &str,
+    direccion: &str,
+    alcance: &str,
+    motivo: &str,
+    origen: &str,
+) -> rusqlite::Result<usize> {
+    conn.execute(
+        "INSERT INTO suppression_entry
+             (id, company_id, channel, address_normalized, scope, request_id,
+              reason, origin, notes, created_at, created_by)
+         VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6, ?7, NULL, ?8, NULL)",
+        params![
+            id, EMPRESA, canal, direccion, alcance, motivo, origen, AHORA
+        ],
+    )
+}
+
+/// Las tres listas cerradas del núcleo tienen que caber en la base, **y nada
+/// más que ellas**.
+///
+/// `supresion.rs` afirma que sus cadenas están escritas literalmente dentro de
+/// las `CHECK` de la V3. Esto lo comprueba contra una base de verdad en vez de
+/// contra el texto del archivo: la migración se puede cambiar sin tocar el
+/// comentario, y el comentario no rechaza filas.
+///
+/// El día que alguien añada una variante al núcleo y no toque el esquema, el
+/// fallo aparecería **al pulsar «no escribirle más»** — el peor momento
+/// posible. Aquí aparece al compilar.
+#[test]
+fn las_listas_de_la_supresion_caben_en_la_base() {
+    let (_d, conn) = base();
+
+    let mut n = 0;
+    for motivo in arles_core::MotivoDeSupresion::TODOS {
+        for origen in arles_core::OrigenDeSupresion::TODOS {
+            for alcance in arles_core::AlcanceDeSupresion::TODOS {
+                n += 1;
+                let id = format!("01900000-0000-7000-8000-0000000{n:05}");
+                // Cada fila con su propia dirección: la unicidad es por
+                // (empresa, canal, dirección) y aquí se prueban las CHECK, no
+                // el índice.
+                let direccion = format!("s{n}@empresa.mx");
+                insertar_supresion(
+                    &conn,
+                    &id,
+                    "email",
+                    &direccion,
+                    alcance.como_texto(),
+                    motivo.como_texto(),
+                    origen.como_texto(),
+                )
+                .unwrap_or_else(|e| {
+                    panic!(
+                        "el núcleo ofrece motivo «{}» / origen «{}» / alcance «{}» \
+                         y la base lo rechaza: {e}",
+                        motivo.como_texto(),
+                        origen.como_texto(),
+                        alcance.como_texto()
+                    )
+                });
+            }
+        }
+    }
+
+    // Y al revés: todo lo que la base admite, el núcleo lo sabe leer.
+    let mut consulta = conn
+        .prepare("SELECT reason, origin, scope FROM suppression_entry")
+        .expect("prepara");
+    let filas: Vec<(String, String, String)> = consulta
+        .query_map([], |f| Ok((f.get(0)?, f.get(1)?, f.get(2)?)))
+        .expect("consulta")
+        .collect::<Result<_, _>>()
+        .expect("filas");
+
+    assert_eq!(filas.len(), n, "no entraron todas las combinaciones");
+    for (motivo, origen, alcance) in &filas {
+        assert!(
+            arles_core::MotivoDeSupresion::desde_texto(motivo).is_ok(),
+            "la base guardó el motivo «{motivo}» y el núcleo no sabe leerlo"
+        );
+        assert!(
+            arles_core::OrigenDeSupresion::desde_texto(origen).is_ok(),
+            "la base guardó el origen «{origen}» y el núcleo no sabe leerlo"
+        );
+        assert!(
+            arles_core::AlcanceDeSupresion::desde_texto(alcance).is_ok(),
+            "la base guardó el alcance «{alcance}» y el núcleo no sabe leerlo"
+        );
+    }
+}
+
+/// Y la puerta se cierra por el otro lado: la base **rechaza** lo que el núcleo
+/// no ofrece.
+///
+/// Sin esto, la prueba de arriba pasaría aunque la `CHECK` no existiera — y una
+/// columna sin `CHECK` acepta cualquier cadena, incluida una que decida mal si
+/// una supresión se puede levantar.
+#[test]
+fn la_base_rechaza_un_motivo_que_el_nucleo_no_ofrece() {
+    let (_d, conn) = base();
+
+    for (canal, direccion, alcance, motivo, origen) in [
+        ("email", "x1@empresa.mx", "channel", "porque_si", "user"),
+        ("email", "x2@empresa.mx", "channel", "manual", "porque_si"),
+        ("email", "x3@empresa.mx", "todos", "manual", "user"),
+        ("sms", "x4@empresa.mx", "channel", "manual", "user"),
+    ] {
+        let id = format!("01900000-0000-7000-8000-00000000f{}", &direccion[1..2]);
+        let r = insertar_supresion(&conn, &id, canal, direccion, alcance, motivo, origen);
+        assert!(
+            r.is_err(),
+            "la base aceptó canal «{canal}», alcance «{alcance}», motivo «{motivo}», \
+             origen «{origen}»: falta una CHECK"
+        );
+    }
+}
