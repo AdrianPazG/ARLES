@@ -122,7 +122,7 @@ const accesos = computed(() => [
         <template #acciones>
           <ABoton
             variante="primario"
-            a="/ajustes"
+            a="/inicio/configuracion"
           >
             {{ $t('inicio.primera.accion') }}
           </ABoton>
@@ -174,7 +174,7 @@ const accesos = computed(() => [
             </ABoton>
             <RouterLink
               class="enlace"
-              to="/ajustes"
+              to="/inicio/configuracion"
             >
               {{ $t('inicio.verPasos', { n: lista.total }) }}
             </RouterLink>

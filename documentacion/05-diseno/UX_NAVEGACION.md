@@ -20,7 +20,7 @@ El §23 propone siete secciones. Dos se solapan:
 | **CONTACTOS** | Todos · Listas · Etiquetas · Importaciones · **Supresiones** |
 | **REMITENTES** | Cuentas conectadas · Salud de envío · Límites |
 | **ACTIVIDAD** | Ejecución en vivo · Eventos · Errores |
-| **AJUSTES** | Empresa · Preferencias · Respaldos · Actualizaciones · Licencia |
+| **AJUSTES** | Apariencia · Preferencias · Respaldos · Actualizaciones · Licencia. **Los datos de la empresa NO**: ver §3.3 |
 
 > 🔵 **Pendiente de revisión por la logística de los dos canales.**
 > [LOGISTICA_DE_CAMPANAS](../01-producto/LOGISTICA_DE_CAMPANAS.md) propone dos
@@ -87,10 +87,41 @@ la respuesta a «¿por qué mi panel está tan vacío?».
 
 Lo vigila una prueba: con datos ilegibles, Inicio no dibuja ningún módulo.
 
-### 3.3 La configuración se fue a Ajustes
+### 3.3 La configuración NO está en Ajustes · corregido el 21/09/2026
 
-La lista de los seis pasos **vivía en Inicio y se mudó a Ajustes**, que es donde
-se configura. En Inicio queda la cifra —«1 de 6»— y la acción siguiente.
+> ⚠️ **Esta sección decía lo contrario hasta el 21/09/2026.** Decía que la
+> lista se había mudado a Ajustes «que es donde se configura». Dirección lo
+> señaló mirando la pantalla, y tenía razón. Se deja escrito el error porque
+> el razonamiento que lo produjo sigue siendo tentador.
+
+**El error:** «Ajustes es donde se configura» junta dos cosas que no son la
+misma.
+
+| | Qué es | Dónde va |
+|---|---|---|
+| **Configurar la aplicación** | Tema, densidad, versión, respaldos, actualizaciones | **AJUSTES** |
+| **Configurar el negocio** | Nombre comercial, país, zona horaria | **`/inicio/configuracion`** — decide a qué hora sale cada correo y qué marco legal aplica. No es una preferencia |
+| **Preparar ARLES** | Los seis pasos | **`/inicio/configuracion`** — es una guía **con final**, que desaparece al completarse. Un ajuste no desaparece nunca |
+
+**Dónde está ahora:** los datos de la empresa y los seis pasos viven juntos en
+`/inicio/configuracion`, que **cuelga de INICIO**. En Inicio queda la cifra
+—«1 de 6»— y la acción siguiente. En Ajustes queda un **enlace**, no una copia
+del formulario: un enlace no diverge, dos formularios sobre la misma tabla sí.
+
+**Por qué no es una séptima sección.** Dirección cerró esa puerta el 17/09 al
+rechazar CONVERSACIONES: el producto son seis. Y una sección de «configuración
+inicial» es una entrada en la barra que, pasada la primera semana, no se vuelve
+a usar y sigue ocupando sitio para siempre.
+
+**El punto flojo, dicho:** el formulario de la empresa no es sólo inicial —la
+zona horaria cambia si la empresa se muda—. Colgado de Inicio, dentro de seis
+meses hay que acordarse de dónde está. Por eso Ajustes lo enlaza y **explica
+por qué no está ahí**, en vez de dejar un enlace mudo.
+
+**Lo que no se vio, y por qué.** El botón llevaba a Ajustes desde la 3.1 y
+ninguna prueba lo detectó: el stub de `RouterLink` era `<a><slot /></a>`, sin
+`href`, así que **ninguna prueba podía comprobar a dónde lleva un enlace**.
+Corregido el 21/09; ahora hay una que falla si el botón vuelve a Ajustes.
 
 **Lo que no se mudó es la razón por la que la lista enseña los seis desde el
 primer día.** Con sólo los pasos construidos, alguien la vería completa al
@@ -135,7 +166,7 @@ configuración.
 
 ## 4. Onboarding
 
-Nada de tours emergentes de veinte pasos (§25). Una **lista de verificación persistente**, que vive en **AJUSTES** desde el rediseño de §3.3 —antes estaba en INICIO— y de la que INICIO enseña la cifra y la acción siguiente.
+Nada de tours emergentes de veinte pasos (§25). Una **lista de verificación persistente**, que vive en **`/inicio/configuracion`** desde la corrección de §3.3 —pasó por INICIO y por AJUSTES— y de la que INICIO enseña la cifra y la acción siguiente.
 
 ```
 Para poder enviar tu primera campaña                 1 de 6

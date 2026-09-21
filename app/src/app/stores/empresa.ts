@@ -74,7 +74,7 @@ const RESERVA_SIN_NUCLEO: ConfiguracionDeEmpresa = {
   paises: ['MX'],
   onboarding: {
     pasos: [
-      { paso: 'empresa', clave: 'empresa', completado: false, disponible: true, ruta: '/ajustes', entrega: '3.1' },
+      { paso: 'empresa', clave: 'empresa', completado: false, disponible: true, ruta: '/inicio/configuracion', entrega: '3.1' },
       { paso: 'remitente', clave: 'remitente', completado: false, disponible: false, ruta: null, entrega: '5' },
       { paso: 'contactos', clave: 'contactos', completado: false, disponible: false, ruta: null, entrega: '3.2' },
       { paso: 'plantilla', clave: 'plantilla', completado: false, disponible: false, ruta: null, entrega: '6' },

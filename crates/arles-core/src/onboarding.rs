@@ -67,7 +67,7 @@ impl PasoDeOnboarding {
     #[must_use]
     pub fn ruta(self) -> Option<&'static str> {
         match self {
-            Self::Empresa => Some("/ajustes"),
+            Self::Empresa => Some("/inicio/configuracion"),
             // Las demás pantallas llegan en sus entregas. Ver `entrega`.
             _ => None,
         }
@@ -262,7 +262,12 @@ mod tests {
     #[test]
     fn el_primer_paso_es_la_empresa() {
         assert_eq!(PASOS.first(), Some(&PasoDeOnboarding::Empresa));
-        assert_eq!(PasoDeOnboarding::Empresa.ruta(), Some("/ajustes"));
+        assert_eq!(
+            PasoDeOnboarding::Empresa.ruta(),
+            Some("/inicio/configuracion"),
+            "el primer paso tiene que llevar a la configuración, no a Ajustes: \
+             Ajustes es de la aplicación, no del negocio (Dirección, 21/09/2026)"
+        );
     }
 
     /// La forma que ve el frontend. Si alguien renombra un campo, el

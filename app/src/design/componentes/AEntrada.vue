@@ -48,6 +48,26 @@ const props = withDefaults(
     error?: string
     marcador?: string
     deshabilitado?: boolean
+    /**
+     * El valor se enseña pero no se puede cambiar.
+     *
+     * ─────────────────────────────────────────────────────────────────────
+     * NO ES LO MISMO QUE `deshabilitado`, Y LA DIFERENCIA IMPORTA
+     *
+     * `deshabilitado` dice «esto no aplica ahora»: se atenúa el texto, el
+     * campo sale del orden de tabulación y no se puede seleccionar.
+     *
+     * `soloLectura` dice «esto ya está decidido»: **contraste normal**,
+     * enfocable, y el valor se puede seleccionar y copiar. Es lo que hace
+     * falta en una pantalla de configuración guardada, donde el dato es
+     * justo lo que se viene a leer — y donde alguien puede querer copiarse
+     * su correo corporativo.
+     *
+     * Decisión de Dirección del 21/09/2026: los datos guardados no se tocan
+     * hasta pulsar «Editar», para que no se cambien por accidente.
+     * ─────────────────────────────────────────────────────────────────────
+     */
+    soloLectura?: boolean
     requerido?: boolean
     /** Cifras: activa figuras tabulares para que las columnas alineen. */
     numerico?: boolean
@@ -62,6 +82,7 @@ const props = withDefaults(
   {
     tipo: 'text',
     deshabilitado: false,
+    soloLectura: false,
     requerido: false,
     numerico: false,
     autocompletado: 'off',
@@ -102,10 +123,11 @@ const descrito = computed(() => {
       :id="id"
       v-model="valor"
       class="entrada"
-      :class="{ 'con-error': !!error }"
+      :class="{ 'con-error': !!error, 'solo-lectura': soloLectura }"
       :type="tipo"
       :placeholder="marcador"
       :disabled="deshabilitado"
+      :readonly="soloLectura"
       :required="requerido"
       :data-numeric="numerico || undefined"
       :autocomplete="autocompletado"
@@ -186,6 +208,20 @@ const descrito = computed(() => {
   color: var(--arles-text-disabled);
   border-color: var(--arles-border);
   cursor: not-allowed;
+}
+
+/* Se lee igual que un campo normal —el dato es lo que se viene a ver— y se
+   distingue por el fondo y por no tener borde de foco de edición. El
+   contraste NO se baja: atenuarlo dejaría el valor guardado por debajo de AA
+   justo en la pantalla que existe para leerlo. */
+.entrada.solo-lectura {
+  background: var(--arles-surface-raised);
+  border-color: var(--arles-border);
+  cursor: default;
+}
+
+.entrada.solo-lectura:hover {
+  border-color: var(--arles-border);
 }
 
 /* El borde rojo ACOMPAÑA al mensaje de abajo; no lo sustituye. */

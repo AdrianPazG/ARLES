@@ -46,6 +46,18 @@ const rutas: RouteRecordRaw[] = [
     meta: { seccion: 'inicio' },
   },
   {
+    // Cuelga de Inicio y no es una séptima sección: el producto son seis
+    // (P-13, 17/09/2026), y una sección de «configuración inicial» es una
+    // entrada en la barra que pasada la primera semana no se vuelve a usar.
+    //
+    // Y NO cuelga de Ajustes, que es lo que hacía antes: Ajustes es de la
+    // aplicación —tema, densidad, versión—, no del negocio.
+    path: '/inicio/configuracion',
+    name: 'configuracion',
+    component: () => import('@/app/pantallas/PantallaConfiguracion.vue'),
+    meta: { seccion: 'inicio' },
+  },
+  {
     path: '/contactos',
     name: 'contactos',
     component: () => import('@/app/pantallas/PantallaContactos.vue'),

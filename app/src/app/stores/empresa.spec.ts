@@ -53,11 +53,11 @@ describe('configuración de empresa sin núcleo', () => {
     }
   })
 
-  it('el primer paso es la empresa y lleva a Ajustes', async () => {
+  it('el primer paso es la empresa y lleva a la configuración', async () => {
     const e = useEmpresaStore()
     await e.cargar()
     const primero = e.onboarding.pasos[0]
     expect(primero?.clave).toBe('empresa')
-    expect(primero?.ruta).toBe('/ajustes')
+    expect(primero?.ruta).toBe('/inicio/configuracion')
   })
 })

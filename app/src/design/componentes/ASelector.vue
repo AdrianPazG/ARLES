@@ -31,8 +31,27 @@ const props = withDefaults(
     ayuda?: string
     error?: string
     deshabilitado?: boolean
+    /**
+     * El valor elegido se enseña pero no se puede cambiar.
+     *
+     * ─────────────────────────────────────────────────────────────────────
+     * UN `<select>` NO ADMITE `readonly`, Y `disabled` NO SIRVE AQUÍ
+     *
+     * El HTML no tiene un «sólo lectura» para los desplegables: `readonly`
+     * simplemente no aplica. La salida fácil es `disabled`, y está mal para
+     * esto — atenúa el texto, saca el campo del orden de tabulación y hace
+     * que el valor no se pueda seleccionar ni copiar, justo en la pantalla
+     * que existe para leerlo.
+     *
+     * Así que en sólo lectura **no se dibuja un desplegable**: se dibuja el
+     * texto de la opción elegida, con la misma etiqueta y la misma ayuda.
+     * Un desplegable que no despliega es un control que miente sobre lo que
+     * hace; un valor escrito no miente.
+     * ─────────────────────────────────────────────────────────────────────
+     */
+    soloLectura?: boolean
   }>(),
-  { deshabilitado: false },
+  { deshabilitado: false, soloLectura: false },
 )
 
 const valor = defineModel<string>({ default: '' })
@@ -45,6 +64,17 @@ const descrito = computed(() => {
   if (props.ayuda) return idAyuda.value
   return undefined
 })
+
+/**
+ * El texto de la opción elegida.
+ *
+ * Si el valor guardado no está entre las opciones se enseña el valor crudo en
+ * vez de una cadena vacía: un hueco en blanco haría pensar que no hay nada
+ * configurado, cuando lo que hay es algo que esta lista no reconoce.
+ */
+const textoElegido = computed(
+  () => props.opciones.find((o) => o.valor === valor.value)?.texto ?? valor.value,
+)
 </script>
 
 <template>
@@ -54,7 +84,20 @@ const descrito = computed(() => {
       :for="id"
     >{{ etiqueta }}</label>
 
-    <div class="envoltorio">
+    <p
+      v-if="soloLectura"
+      :id="id"
+      class="valor-fijo"
+      :aria-describedby="descrito"
+      tabindex="0"
+    >
+      {{ textoElegido }}
+    </p>
+
+    <div
+      v-else
+      class="envoltorio"
+    >
       <select
         :id="id"
         v-model="valor"
@@ -101,6 +144,21 @@ const descrito = computed(() => {
 </template>
 
 <style scoped>
+/* Se lee con el mismo peso que un campo editable y se distingue por el fondo:
+   el contraste NO se baja. Enfocable con `tabindex` para que el valor se pueda
+   seleccionar y copiar, que es media razón de que esta pantalla exista. */
+.valor-fijo {
+  margin: 0;
+  padding: var(--arles-space-2) var(--arles-space-3);
+  min-height: var(--arles-control-height);
+  display: flex;
+  align-items: center;
+  border: var(--arles-border-width) solid var(--arles-border);
+  border-radius: var(--arles-radius-sm);
+  background: var(--arles-surface-raised);
+  color: var(--arles-text);
+}
+
 .campo {
   display: flex;
   flex-direction: column;

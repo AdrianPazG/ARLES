@@ -12,6 +12,59 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Configurar la empresa ya no manda a Ajustes, y lo guardado no se toca sin querer
+
+Dirección lo vio mirando la pantalla: pulsar «Configurar mi empresa» en INICIO
+seleccionaba la pestaña **Ajustes**. Su corrección, textual: «Ajustes es sólo
+para los ajustes del sistema o de la aplicación —modo de visualización, tamaño
+de fuente, información de la aplicación, servidores—».
+
+Tenía razón, y **el error era mío**: el 17/09 moví la lista de los seis pasos a
+Ajustes razonando que «Ajustes es donde se configura». Esa frase junta dos
+cosas distintas: configurar *la herramienta* —tema, densidad— es una
+preferencia; configurar *el negocio* —nombre, país, zona horaria— decide a qué
+hora sale cada correo y bajo qué marco legal. No es una preferencia. Y los seis
+pasos no son ninguna de las dos: son una guía **con final**, que desaparece al
+completarse. Un ajuste no desaparece nunca.
+
+**Qué cambia para quien usa ARLES:**
+
+- Hay una pantalla nueva, **INICIO → Configuración**, con el formulario de la
+  empresa y los seis pasos. El botón de la portada lleva ahí, y la sección que
+  queda marcada en la barra sigue siendo INICIO.
+- **Ajustes** se queda con la apariencia y un enlace a la configuración. Un
+  enlace, no una copia del formulario: dos formularios sobre la misma tabla
+  divergen en cuanto alguien toca uno.
+- Al configurar por primera vez todos los campos están abiertos. **Al guardar
+  se cierran**, y para cambiarlos hay que pulsar «Editar» a propósito —lo pidió
+  Dirección para que no se modifiquen por accidente—. «Cancelar» devuelve lo
+  que había guardado, no lo que se estaba escribiendo.
+
+**Por qué el fallo sobrevivió tres entregas, que es lo que de verdad importa
+aquí.** El doble de `RouterLink` que usan las pruebas de pantalla era
+`<a><slot /></a>`: sin `href`. Es decir, **ninguna prueba de este proyecto
+podía comprobar a dónde lleva un enlace**, y por eso ninguna vio que el botón
+llevaba a Ajustes. El doble ahora pinta `:href="to"`, y hay dos pruebas nuevas
+que afirman el destino. Se comprobó rompiéndolas: con el doble viejo fallan las
+dos con el mensaje correcto.
+
+Se añaden además dos comprobaciones al validador —Ajustes no lleva los datos
+del negocio, y el primer paso del alta no manda a Ajustes— y la sonda de
+navegación pasa a exigir que pulsar ese botón **no cambie de sección**.
+
+**Sólo lectura no es «deshabilitado», y la diferencia se cuidó.** Un campo
+deshabilitado se atenúa, sale del orden de tabulación y no se puede copiar —
+justo en la pantalla que existe para leer el dato, y donde alguien puede querer
+copiarse su correo corporativo. Los campos guardados conservan el **contraste
+normal**, se pueden enfocar y seleccionar. Y como el HTML no tiene «sólo
+lectura» para un desplegable, en ese estado no se dibuja un desplegable: se
+escribe el valor elegido. Un desplegable que no despliega miente sobre lo que
+hace.
+
+El error de navegación queda **escrito** en `UX_NAVEGACION.md` §3.3 junto a la
+decisión vieja, en vez de sobrescribirla en silencio: la decisión equivocada
+explica por qué existía la pantalla que Dirección vio.
+
 ### Ya se puede ver quién pidió no recibir (entrega 3.4, en curso)
 
 Dirección la pidió con estas palabras: «tenemos que tener una lista de los

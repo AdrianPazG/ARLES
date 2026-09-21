@@ -1788,6 +1788,48 @@ def el_informe_de_acceso_no_deja_cruzar_una_ruta():
     )
 
 
+def ajustes_es_de_la_aplicacion_y_no_del_negocio():
+    """Ajustes no lleva el formulario de la empresa ni la lista de pasos.
+
+    Observación de Dirección del 21/09/2026. Ajustes es para la aplicación
+    —tema, densidad, versión, respaldos—; el nombre comercial, el país y la
+    zona horaria son datos del negocio que deciden a qué hora sale cada correo.
+
+    Se vigila aquí porque el fallo no rompe nada visible: duplicar el
+    formulario en Ajustes «funcionaría», y dos formularios sobre la misma
+    tabla divergen en cuanto alguien toca uno.
+
+    Y porque el botón llevaba a Ajustes **desde la 3.1** sin que nada lo
+    detectara: el stub de RouterLink de las pruebas no pintaba `href`, así que
+    ninguna podía comprobar a dónde lleva un enlace.
+    """
+    ajustes = leer("app", "src", "app", "pantallas", "PantallaAjustes.vue")
+    sobrantes = [
+        c for c in ("nombreComercial", "correoCorporativo", "zonaHoraria", "onboarding")
+        if c in ajustes
+    ]
+    check(
+        3,
+        "Ajustes no lleva los datos del negocio",
+        not sobrantes,
+        ajustes_es_de_la_aplicacion_y_no_del_negocio.__doc__,
+        detalle=f"lo que se coló en Ajustes: {sobrantes}",
+    )
+
+    # Y el primer paso del alta lleva a la configuración, no a Ajustes. La
+    # ruta la decide el NÚCLEO, así que se comprueba ahí: la pantalla sólo la
+    # pinta, y cambiarla en la pantalla sin tocar el núcleo dejaría las dos
+    # diciendo cosas distintas.
+    nucleo = leer("crates", "arles-core", "src", "onboarding.rs")
+    check(
+        3,
+        "el primer paso del alta no manda a Ajustes",
+        'Self::Empresa => Some("/inicio/configuracion")' in nucleo,
+        ajustes_es_de_la_aplicacion_y_no_del_negocio.__doc__,
+        detalle="se esperaba que PasoDeOnboarding::Empresa apunte a /inicio/configuracion",
+    )
+
+
 def el_texto_legal_se_ve_provisional():
     """Mientras P-09 siga abierta, el texto de la declaración lo dice.
 
@@ -1857,6 +1899,7 @@ def fase_3(rapido):
     una_supresion_pedida_no_se_levanta_con_un_boton()
     el_informe_de_importacion_consulta_las_supresiones()
     el_informe_de_acceso_no_deja_cruzar_una_ruta()
+    ajustes_es_de_la_aplicacion_y_no_del_negocio()
     el_texto_legal_se_ve_provisional()
 
     print(f"{GRIS}  sondas{FIN}")

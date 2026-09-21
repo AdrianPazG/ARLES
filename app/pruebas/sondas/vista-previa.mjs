@@ -106,10 +106,20 @@ try {
   }
 
   // A-3 y A-4 · configurar la empresa.
+  //
+  // **Esta comprobación cambió el 21/09/2026.** Antes exigía que el botón
+  // llevara a `ajustes`, y eso era el fallo que Dirección señaló mirando la
+  // pantalla: Ajustes es de la aplicación —tema, versión, respaldos—, no del
+  // negocio. Ahora se exige lo contrario, y además que **no se salga de
+  // INICIO**: saltar de sección al pulsar la única acción de la portada
+  // desorienta justo en el primer minuto de uso.
   await pagina.click('text=Configurar mi empresa')
   await pagina.waitForTimeout(500)
-  if (!pagina.url().includes('ajustes')) {
-    mal('El botón de la portada no lleva a Ajustes.')
+  if (!pagina.url().includes('/inicio/configuracion')) {
+    mal(`El botón de la portada no lleva a la configuración: ${pagina.url()}`)
+  }
+  if (/#\/ajustes/.test(pagina.url())) {
+    mal('El botón de la portada volvió a mandar a Ajustes.')
   }
   await pagina.fill('input[autocomplete="organization"]', 'TELEMETRY INSIGHT')
   await pagina.fill('input[type="email"]', 'hola@telemetrymx.com')
@@ -122,6 +132,15 @@ try {
   }
 
   // E-1 · el tema cambia el píxel, no sólo el atributo.
+  //
+  // Hay que ir a Ajustes: la apariencia vive ahí y los datos del negocio no
+  // (21/09/2026). Antes las dos cosas estaban en la misma pantalla, y por eso
+  // esta sonda no navegaba.
+  await pagina.click('nav a[href*="ajustes"], a[href$="#/ajustes"]')
+  await pagina.waitForTimeout(500)
+  if (!/#\/ajustes/.test(pagina.url())) {
+    mal(`No se llega a Ajustes desde la barra: ${pagina.url()}`)
+  }
   const fondoAntes = await pagina.evaluate(() => getComputedStyle(document.body).backgroundColor)
   await pagina.selectOption('.apariencia select', 'claro')
   await pagina.waitForTimeout(300)

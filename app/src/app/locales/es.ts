@@ -137,6 +137,32 @@ export const es = {
       'y cambia con él mientras ARLES está abierto.',
   },
 
+  // ── Configurar ARLES ────────────────────────────────────────────────
+  //
+  // Vivía en Ajustes hasta el 21/09/2026. Dirección lo señaló: Ajustes es de
+  // la aplicación, no del negocio. Ver PantallaConfiguracion.vue.
+  configuracion: {
+    titulo: 'Configurar ARLES',
+    entradilla:
+      'Los datos de tu empresa y lo que falta para poder enviar tu primera campaña.',
+    // «Editar» y no «Modificar»: es la palabra que la gente busca, y el botón
+    // tiene que encontrarse sin leerlo dos veces.
+    editar: 'Editar',
+    cancelar: 'Cancelar',
+  },
+
+  ajustes: {
+    entradilla: 'Cómo se ve y cómo se comporta la aplicación.',
+    datosDelNegocio: 'Los datos de tu empresa',
+    // Se dice POR QUÉ no están aquí, en vez de dejar un enlace mudo. Quien
+    // llega buscándolos merece entender el criterio, no sólo obedecerlo.
+    datosDelNegocioDetalle:
+      'El nombre, el país y la zona horaria no son ajustes de la aplicación: ' +
+      'deciden a qué hora sale cada correo y qué reglas aplican. Viven en la ' +
+      'configuración de ARLES, junto a los pasos que faltan para enviar.',
+    irAConfiguracion: 'Ir a la configuración',
+  },
+
   empresa: {
     entradilla: 'Los datos de tu empresa y cómo afectan a los envíos.',
     titulo: 'Configuración de empresa',

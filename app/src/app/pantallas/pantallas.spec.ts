@@ -6,6 +6,7 @@ import { i18n } from '@/app/i18n'
 import { useEmpresaStore } from '@/app/stores/empresa'
 
 import PantallaAjustes from './PantallaAjustes.vue'
+import PantallaConfiguracion from './PantallaConfiguracion.vue'
 import PantallaInicio from './PantallaInicio.vue'
 
 /**
@@ -14,21 +15,45 @@ import PantallaInicio from './PantallaInicio.vue'
  * Salió de la auditoría de la 3.1: las aserciones de las capas decían que todo
  * estaba bien, y lo que fallaba era lo que la pantalla comunicaba.
  *
- * Al rediseñar Inicio como panel modular, la lista de los seis pasos se mudó a
- * Ajustes. Lo que se comprueba aquí **no es dónde está la lista**, que es una
- * decisión de composición y puede volver a cambiar: es que las dos afirmaciones
+ * La lista de los seis pasos **se ha mudado dos veces**: Inicio → Ajustes
+ * (17/09) → Configuración (21/09). Lo que se comprueba aquí **no es dónde
+ * está**, que es composición y puede volver a cambiar: es que las afirmaciones
  * que sostienen la honestidad de la pantalla sigan siendo ciertas, esté donde
- * esté. Por eso los casos se reparten entre las dos pantallas en vez de
- * borrarse.
+ * esté. Por eso los casos se reparten entre pantallas en vez de borrarse.
  */
 const entorno = {
   global: {
     plugins: [i18n],
     stubs: {
-      RouterLink: { template: '<a><slot /></a>' },
+      // Con `href`: el stub de antes era `<a><slot /></a>` y **ninguna prueba
+      // podía comprobar a dónde lleva un enlace**. Es justo lo que falló el
+      // 21/09/2026 — el botón de configurar llevaba a Ajustes y nada lo vio.
+      RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' },
       Teleport: true,
     },
   },
+}
+
+
+/**
+ * Deja una empresa guardada en el almacén.
+ *
+ * Se escribe en `configuracion`, que es el `ref`: `empresa` es un `computed`
+ * derivado de él, y asignarle no hace nada —la primera versión de esto lo
+ * intentaba y las pruebas pasaban por el camino equivocado—.
+ */
+function sembrarEmpresa(): void {
+  const almacen = useEmpresaStore()
+  almacen.configuracion = {
+    ...almacen.configuracion,
+    empresa: {
+      nombreComercial: 'TELEMETRY INSIGHT',
+      pais: 'MX',
+      zonaHoraria: 'America/Mexico_City',
+      correoCorporativo: 'hola@telemetrymx.com',
+      sitioWeb: null,
+    },
+  }
 }
 
 describe('Inicio no afirma lo que no sabe', () => {
@@ -87,15 +112,19 @@ describe('Inicio no afirma lo que no sabe', () => {
   })
 })
 
-describe('Ajustes sigue enseñando los seis pasos', () => {
+describe('La configuración sigue enseñando los seis pasos', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
-  const montar = () => mount(PantallaAjustes, entorno)
+  const montar = () => mount(PantallaConfiguracion, entorno)
 
   /**
    * La lista enseña los seis desde el primer día. Con sólo los construidos,
    * alguien la vería completa al terminar el primero y concluiría que ya puede
-   * enviar. Se mudó de pantalla; la razón no se mudó.
+   * enviar.
+   *
+   * **Se ha mudado dos veces** —Inicio → Ajustes → Configuración— y esta
+   * prueba ha sobrevivido a las dos, porque lo que comprueba no es dónde está
+   * la lista, que es composición, sino que la afirmación siga siendo cierta.
    */
   it('enseña los seis, no sólo los construidos', () => {
     const w = montar()
@@ -112,5 +141,128 @@ describe('Ajustes sigue enseñando los seis pasos', () => {
       expect(paso.find('a').exists(), 'no debe ser un enlace').toBe(false)
       expect(paso.text()).toContain('Llega en la entrega')
     }
+  })
+})
+
+describe('Ajustes es de la aplicación, no del negocio', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  /**
+   * Observación de Dirección del 21/09/2026. Ajustes llevaba el formulario de
+   * la empresa, la apariencia y los seis pasos; se quedó sólo con lo de la
+   * aplicación.
+   *
+   * Lo que se vigila es que **no vuelva a colarse el formulario**: duplicarlo
+   * aquí no rompería nada visible, y dos formularios sobre la misma tabla
+   * divergen en cuanto alguien toca uno.
+   */
+  it('no lleva el formulario de la empresa ni la lista de pasos', () => {
+    const w = mount(PantallaAjustes, entorno)
+
+    expect(w.findAll('.paso'), 'la lista de pasos volvió a Ajustes').toHaveLength(0)
+    expect(w.find('form').exists(), 'el formulario volvió a Ajustes').toBe(false)
+    expect(w.text()).not.toContain('Nombre comercial')
+    expect(w.text()).not.toContain('Correo corporativo')
+  })
+
+  /** Y sí lleva lo que le toca: la apariencia, y el puente a donde están. */
+  it('lleva la apariencia y un enlace a la configuración', () => {
+    const w = mount(PantallaAjustes, entorno)
+
+    expect(w.text()).toContain('Tema de la interfaz')
+    const enlace = w
+      .findAll('a')
+      .find((a) => a.attributes('href')?.includes('/inicio/configuracion'))
+    expect(enlace, 'sin puente, los datos de la empresa no se encuentran').toBeTruthy()
+  })
+})
+
+describe('Lo guardado no se toca hasta pulsar «Editar»', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  /**
+   * Decisión de Dirección del 21/09/2026: al guardar, los campos quedan en
+   * sólo lectura para que no se cambien por accidente.
+   *
+   * La zona horaria decide a qué hora sale cada campaña. Cambiarla con un roce
+   * del ratón es la clase de accidente que se descubre tres semanas después
+   * mirando por qué un envío salió de madrugada.
+   */
+  it('con algo guardado, los campos nacen bloqueados y hay botón de editar', async () => {
+    sembrarEmpresa()
+
+    const w = mount(PantallaConfiguracion, entorno)
+    await w.vm.$nextTick()
+
+    const editables = w
+      .findAll('input')
+      .filter((i) => i.attributes('readonly') === undefined)
+    expect(editables, 'hay campos que se pueden escribir sin haber pulsado «Editar»')
+      .toHaveLength(0)
+
+    // Y no hay desplegables abiertos: el país y la zona salen como texto.
+    expect(w.findAll('select'), 'un desplegable sigue pudiendo cambiarse').toHaveLength(0)
+
+    expect(w.text()).toContain('Editar')
+    expect(w.find('button[type="submit"]').exists(), 'un «Guardar» sin nada que guardar')
+      .toBe(false)
+  })
+
+  /** Y al pulsar «Editar», se abren. Sin esto el bloqueo sería una jaula. */
+  it('al pulsar «Editar» los campos se abren', async () => {
+    sembrarEmpresa()
+
+    const w = mount(PantallaConfiguracion, entorno)
+    await w.vm.$nextTick()
+
+    const boton = w.findAll('button').find((b) => b.text().includes('Editar'))
+    expect(boton, 'no hay forma de editar lo guardado').toBeTruthy()
+    await boton?.trigger('click')
+
+    const bloqueados = w
+      .findAll('input')
+      .filter((i) => i.attributes('readonly') !== undefined)
+    expect(bloqueados, 'siguen bloqueados después de pulsar «Editar»').toHaveLength(0)
+    expect(w.findAll('select').length, 'los desplegables no volvieron').toBeGreaterThan(0)
+  })
+
+  /**
+   * **La primera vez todo está abierto.** Sin esto, alguien que abre ARLES por
+   * primera vez se encuentra un formulario vacío y bloqueado, y tiene que
+   * adivinar que hay que pulsar «Editar» para empezar.
+   */
+  it('sin nada guardado, los campos nacen abiertos', () => {
+    const w = mount(PantallaConfiguracion, entorno)
+
+    const bloqueados = w
+      .findAll('input')
+      .filter((i) => i.attributes('readonly') !== undefined)
+    expect(bloqueados, 'la primera vez el formulario salió bloqueado').toHaveLength(0)
+    expect(w.find('button[type="submit"]').exists()).toBe(true)
+  })
+})
+
+describe('Configurar la empresa no saca de INICIO', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  /**
+   * Observación de Dirección del 21/09/2026: pulsar «Configurar mi empresa»
+   * saltaba a **Ajustes**, que es de la aplicación y no del negocio.
+   *
+   * Esto no se veía porque el stub de `RouterLink` no pintaba `href`: ninguna
+   * prueba podía comprobar a dónde llevaba un enlace. Ahora sí.
+   */
+  it('la acción de Inicio lleva a la configuración, no a Ajustes', () => {
+    const w = mount(PantallaInicio, entorno)
+    const destinos = w.findAll('a').map((a) => a.attributes('href') ?? '')
+
+    expect(
+      destinos.some((d) => d.startsWith('/inicio/')),
+      `ninguna acción lleva a la configuración: ${destinos.join(' · ')}`,
+    ).toBe(true)
+    expect(
+      destinos.some((d) => d === '/ajustes'),
+      'configurar la empresa vuelve a mandar a Ajustes',
+    ).toBe(false)
   })
 })
