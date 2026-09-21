@@ -1744,6 +1744,50 @@ def el_informe_de_importacion_consulta_las_supresiones():
     )
 
 
+def el_informe_de_acceso_no_deja_cruzar_una_ruta():
+    """Ninguna ruta del sistema de archivos cruza hacia la webview.
+
+    Cuarta regla de frontera (ARQUITECTURA.md §5). El informe de acceso se
+    guarda con el diálogo del sistema, que se abre DESDE RUST: la webview manda
+    una dirección y recibe el nombre del archivo, nunca la carpeta.
+
+    Se comprueba sobre el tipo que cruza y no sólo con un test porque el error
+    es de una palabra: cambiar `file_name()` por `to_string_lossy()` al armar
+    la respuesta manda la ruta entera, y nada falla — la pantalla enseña un
+    nombre más largo y ya. La carpeta donde alguien guarda sus cosas dice dónde
+    vive (THREAT_MODEL.md §4.1).
+    """
+    import re as _re
+    fuente = leer("crates", "arles-app", "src", "comandos.rs")
+
+    m = _re.search(r"pub struct InformeEntregado \{(.*?)\n\}", fuente, _re.S)
+    campos = m.group(1) if m else ""
+    sospechosos = [
+        c for c in ("ruta", "path", "carpeta", "directorio")
+        if _re.search(rf"\n\s+pub \w*{c}\w*:", campos)
+    ]
+    check(
+        3,
+        "el informe de acceso no devuelve ninguna ruta",
+        bool(campos) and not sospechosos,
+        el_informe_de_acceso_no_deja_cruzar_una_ruta.__doc__,
+        detalle=f"campos sospechosos: {sospechosos}",
+    )
+
+    # Y que el nombre se saque con `file_name`, que es lo que lo garantiza.
+    m = _re.search(
+        r"pub fn entregar_informe_de_acceso\(.*?\n\}", fuente, _re.S
+    )
+    cuerpo = m.group(0) if m else ""
+    check(
+        3,
+        "el nombre del archivo entregado se saca sin la carpeta",
+        "file_name()" in cuerpo and "to_string_lossy" not in cuerpo,
+        el_informe_de_acceso_no_deja_cruzar_una_ruta.__doc__,
+        detalle="se esperaba `file_name()` y ningún `to_string_lossy`",
+    )
+
+
 def el_texto_legal_se_ve_provisional():
     """Mientras P-09 siga abierta, el texto de la declaración lo dice.
 
@@ -1812,6 +1856,7 @@ def fase_3(rapido):
     la_bomba_se_mide_antes_de_abrir_la_hoja()
     una_supresion_pedida_no_se_levanta_con_un_boton()
     el_informe_de_importacion_consulta_las_supresiones()
+    el_informe_de_acceso_no_deja_cruzar_una_ruta()
     el_texto_legal_se_ve_provisional()
 
     print(f"{GRIS}  sondas{FIN}")

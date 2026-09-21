@@ -14,6 +14,7 @@
 #![forbid(unsafe_code)]
 
 pub mod analisis;
+pub mod arco;
 pub mod attempt;
 pub mod canal;
 pub mod contacto;
@@ -27,7 +28,8 @@ pub mod onboarding;
 pub mod secret;
 pub mod supresion;
 
-pub use analisis::{Analisis, Choque, FilaRechazada, analizar};
+pub use analisis::{Analisis, Choque, FilaRechazada, FilaSuprimida, analizar};
+pub use arco::{Expediente, redactar};
 pub use attempt::{AttemptState, TransitionError};
 pub use canal::{Canal, PhoneNumber, ValorDeCanal};
 pub use contacto::{

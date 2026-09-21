@@ -11,6 +11,7 @@
 // que la audita y la envuelve. Aquí no entra ninguna.
 #![forbid(unsafe_code)]
 
+pub mod arco;
 pub mod conexion;
 pub mod contactos;
 pub mod db;

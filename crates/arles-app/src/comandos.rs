@@ -976,6 +976,171 @@ pub fn levantar_supresion(
         .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))
 }
 
+// ─── Entrega 3.4 · el derecho de Acceso ─────────────────────────────────────
+
+/// Qué pasó al entregar el informe. La pantalla lo necesita para decirlo.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InformeEntregado {
+    /// **Sólo el nombre del archivo, nunca la carpeta.** Regla de frontera 4:
+    /// ninguna ruta del sistema cruza hacia la webview. La carpeta donde el
+    /// usuario guarda sus cosas dice dónde vive, y no le aporta nada a la
+    /// pantalla (THREAT_MODEL.md §4.1).
+    pub nombre_del_archivo: String,
+    /// `false` si no consta ningún dato de esa dirección.
+    ///
+    /// **No es un error.** «No tenemos nada sobre usted» es exactamente lo que
+    /// alguien puede estar preguntando, y el informe se entrega igual.
+    pub habia_datos: bool,
+    /// Si sigue dada de alta como contacto, o sólo queda su rastro.
+    pub sigue_siendo_contacto: bool,
+}
+
+/// Entrega el informe de **Acceso**: todo lo que ARLES tiene sobre alguien.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// EL DIÁLOGO DE GUARDADO SE ABRE DESDE RUST
+///
+/// La webview manda una dirección y recibe el nombre del archivo que se
+/// escribió. **Nunca ve una ruta**, ni la elige, ni la construye: es la cuarta
+/// regla de frontera de `ARQUITECTURA.md §5`.
+///
+/// Además, así la webview no necesita el permiso `dialog:allow-save` ni
+/// `fs:allow-write`. Un permiso que no se concede no se puede abusar, y esta
+/// aplicación deniega por defecto.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LA DIRECCIÓN SE NORMALIZA CON EL VALIDADOR DEL NÚCLEO
+///
+/// Quien atiende la solicitud escribe lo que le llegó por correo:
+/// `Ana@Empresa.MX`. Las tablas guardan `ana@empresa.mx`. Buscar por lo
+/// escrito no encontraría nada, y el informe diría «no hay datos» sobre
+/// alguien de quien sí los hay — que es la peor respuesta posible a un
+/// derecho de acceso.
+/// ─────────────────────────────────────────────────────────────────────────
+///
+/// # Errores
+///
+/// - [`ErrorIpc`] con `error.email_invalido` o `error.telefono_invalido` si lo
+///   escrito no es una dirección.
+/// - Con `error.app.archivo_no_se_pudo_leer` si no se pudo escribir el archivo.
+///
+/// Devuelve `None` si quien atiende cerró el diálogo sin guardar. Cancelar es
+/// una decisión, no un fallo.
+#[tauri::command]
+pub fn entregar_informe_de_acceso(
+    estado: tauri::State<'_, EstadoApp>,
+    app: tauri::AppHandle,
+    canal: arles_core::Canal,
+    direccion: String,
+) -> Result<Option<InformeEntregado>, ErrorIpc> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let empresa = empresa_actual(&estado)?;
+    let pais = pais_de_la_empresa(&estado)?;
+
+    // Se valida y se normaliza con el mismo validador que usa el alta. Dos
+    // normalizaciones serían dos reglas que mantener iguales.
+    let valor =
+        arles_core::ValorDeCanal::parse(canal, &direccion, &pais).map_err(crate::AppError::Core)?;
+    let normalizada = valor.normalized().to_owned();
+
+    let db = estado.db();
+    let nombre_de_la_empresa = db
+        .empresa()
+        .map_err(crate::AppError::Db)?
+        .map(|e| e.datos.nombre_comercial().to_owned())
+        .unwrap_or_default();
+
+    let expediente = db
+        .expediente_de(empresa, &normalizada, &nombre_de_la_empresa, &hoy_legible())
+        .map_err(crate::AppError::Db)?;
+
+    let texto = arles_core::arco::redactar(&expediente);
+
+    // El nombre propuesto lleva la dirección para que quien atienda varias
+    // solicitudes no acabe con cinco «informe.txt» en la misma carpeta.
+    let sugerido = format!("datos-de-{}.txt", nombre_seguro(&normalizada));
+
+    let Some(destino) = app
+        .dialog()
+        .file()
+        .set_file_name(&sugerido)
+        .add_filter("Texto", &["txt"])
+        .blocking_save_file()
+    else {
+        return Ok(None);
+    };
+    let destino = destino
+        .into_path()
+        .map_err(|_| ErrorIpc::from(crate::AppError::ArchivoNoSePudoLeer))?;
+
+    std::fs::write(&destino, texto.as_bytes())
+        .map_err(|_| ErrorIpc::from(crate::AppError::ArchivoNoSePudoLeer))?;
+
+    // Se registra **después** de escribir, no antes: anotar una entrega que no
+    // llegó a ocurrir convertiría la bitácora en una lista de intenciones.
+    db.registrar_acceso(empresa, &normalizada)
+        .map_err(crate::AppError::Db)?;
+
+    Ok(Some(InformeEntregado {
+        nombre_del_archivo: destino
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_owned(),
+        habia_datos: expediente.hay_algo(),
+        sigue_siendo_contacto: expediente.sigue_siendo_contacto(),
+    }))
+}
+
+/// Una dirección convertida en algo que se puede poner en un nombre de archivo.
+///
+/// Se quedan letras, números, punto, guion y guion bajo; **todo lo demás pasa a
+/// guion**. Una arroba o un `+` en un nombre de archivo son legales en Linux y
+/// problemáticos en otros sitios, y una barra convertiría el nombre en una
+/// ruta.
+fn nombre_seguro(direccion: &str) -> String {
+    let limpio: String = direccion
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    limpio.chars().take(60).collect()
+}
+
+/// La fecha de hoy, escrita como la lee una persona.
+///
+/// Sin dependencias de formato: el informe lo lee alguien que preguntó por sus
+/// datos, y `2026-09-21T14:03:22Z` no es una fecha para esa persona.
+fn hoy_legible() -> String {
+    const MESES: [&str; 12] = [
+        "enero",
+        "febrero",
+        "marzo",
+        "abril",
+        "mayo",
+        "junio",
+        "julio",
+        "agosto",
+        "septiembre",
+        "octubre",
+        "noviembre",
+        "diciembre",
+    ];
+    let ahora = time::OffsetDateTime::now_utc();
+    let mes = MESES
+        .get(usize::from(u8::from(ahora.month())).saturating_sub(1))
+        .copied()
+        .unwrap_or("");
+    format!("{} de {} de {}", ahora.day(), mes, ahora.year())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1224,5 +1389,76 @@ mod tests {
             "la pantalla pediría más filas de las que el repositorio devuelve, \
              y la paginación saltaría filas sin decirlo"
         );
+    }
+    // ── Entrega 3.4 · el derecho de Acceso ─────────────────────────────────
+
+    /// El nombre propuesto **no puede ser una ruta**.
+    ///
+    /// Una barra en un nombre de archivo lo convierte en una ruta, y una
+    /// arroba o un `+` son legales en Linux y problemáticos en otros sitios.
+    /// La dirección viene de fuera: puede ser cualquier cosa que pase el
+    /// validador.
+    #[test]
+    fn el_nombre_propuesto_nunca_es_una_ruta() {
+        for direccion in [
+            "ana@empresa.mx",
+            "+528112345678",
+            "a.b-c_d@sub.dominio.mx",
+            "raro+etiqueta@empresa.mx",
+        ] {
+            let n = nombre_seguro(direccion);
+            assert!(!n.contains('/'), "«{direccion}» salió con barra: {n}");
+            assert!(!n.contains('\\'), "«{direccion}» salió con barra: {n}");
+            assert!(!n.contains(".."), "«{direccion}» salió con ascenso: {n}");
+            assert!(!n.contains('@'), "«{direccion}» salió con arroba: {n}");
+            assert!(!n.is_empty(), "«{direccion}» se quedó sin nombre");
+        }
+        // Y lo que sí vale se conserva, o el nombre no diría de quién es.
+        assert_eq!(nombre_seguro("ana.ruiz@empresa.mx"), "ana.ruiz-empresa.mx");
+    }
+
+    /// Un nombre interminable se recorta: los sistemas de archivos tienen un
+    /// tope, y pasarse deja el informe sin escribir justo cuando hace falta.
+    #[test]
+    fn el_nombre_propuesto_se_recorta() {
+        let largo = format!("{}@empresa.mx", "a".repeat(500));
+        assert!(nombre_seguro(&largo).chars().count() <= 60);
+    }
+
+    /// La fecha del informe se escribe **para una persona**.
+    ///
+    /// `2026-09-21T14:03:22Z` es correcto para una base de datos y no es una
+    /// fecha para quien preguntó por sus datos.
+    #[test]
+    fn la_fecha_del_informe_se_lee_como_una_fecha() {
+        let f = hoy_legible();
+        assert!(f.contains(" de "), "no parece una fecha en palabras: {f}");
+        assert!(!f.contains('T'), "salió en formato de máquina: {f}");
+        assert!(!f.contains('Z'), "salió en formato de máquina: {f}");
+        assert!(f.split(" de ").count() == 3, "faltan día, mes o año: {f}");
+        // El mes es una palabra, no un número.
+        let mes = f.split(" de ").nth(1).unwrap_or("");
+        assert!(
+            mes.chars().all(|c| c.is_alphabetic()),
+            "el mes salió como número: {f}"
+        );
+    }
+
+    /// Lo que cruza la frontera al entregar el informe **no lleva ninguna
+    /// ruta**: sólo el nombre del archivo.
+    #[test]
+    fn el_informe_entregado_no_cruza_ninguna_ruta() {
+        let json = serde_json::to_string(&InformeEntregado {
+            nombre_del_archivo: "datos-de-ana-empresa.mx.txt".to_owned(),
+            habia_datos: true,
+            sigue_siendo_contacto: false,
+        })
+        .expect("serializa");
+
+        assert!(!json.contains('/'), "cruzó una ruta: {json}");
+        assert!(!json.contains("\\"), "cruzó una ruta: {json}");
+        assert!(!json.contains("home"), "{json}");
+        assert!(!json.contains("Users"), "{json}");
+        assert!(json.contains("nombreDelArchivo"), "{json}");
     }
 }
