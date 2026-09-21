@@ -651,8 +651,18 @@ pub fn analizar_importacion(
         .duenos_de_direcciones(empresa, &direcciones)
         .map_err(crate::AppError::Db)?;
 
+    // Quién de este archivo ya había pedido no recibir. Dos consultas por lotes
+    // en vez de una sola porque responden cosas distintas: una dice de quién es
+    // la dirección, y la otra si esa dirección dijo que no. Juntarlas en un
+    // `LEFT JOIN` ataría el informe de choques a la lista de supresión, y el
+    // día que una cambie se llevaría la otra por delante.
+    let suprimidas = estado
+        .db()
+        .motivos_de_supresion(empresa, &direcciones)
+        .map_err(crate::AppError::Db)?;
+
     estado
-        .con_importacion(|t| arles_core::analizar(&mapeo, &t.filas, &pais, &duenos))
+        .con_importacion(|t| arles_core::analizar(&mapeo, &t.filas, &pais, &duenos, &suprimidas))
         .ok_or_else(|| ErrorIpc::from(crate::AppError::SinImportacionEnCurso))
 }
 
@@ -685,10 +695,17 @@ pub fn confirmar_importacion(
         .db()
         .duenos_de_direcciones(empresa, &direcciones)
         .map_err(crate::AppError::Db)?;
+    // También al confirmar, y no sólo al analizar: entre que el usuario miró el
+    // informe y pulsó el botón alguien pudo dar de baja a una de esas
+    // direcciones. Importar con el informe viejo la contaría como alcanzable.
+    let suprimidas = estado
+        .db()
+        .motivos_de_supresion(empresa, &direcciones)
+        .map_err(crate::AppError::Db)?;
 
     let datos = estado
         .con_importacion(|t| {
-            let informe = arles_core::analizar(&mapeo, &t.filas, &pais, &duenos);
+            let informe = arles_core::analizar(&mapeo, &t.filas, &pais, &duenos, &suprimidas);
             let lote = arles_db::DatosDelLote {
                 nombre_del_archivo: t.nombre.clone(),
                 huella_del_archivo: t.huella.clone(),

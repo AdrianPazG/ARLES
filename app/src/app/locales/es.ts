@@ -298,6 +298,31 @@ export const es = {
     },
     // No lo puede provocar el usuario: el canal lo elige ARLES, no se escribe.
     // Si aparece, es una fila de la base con un canal que no reconocemos.
+    motivo_de_supresion_desconocido: {
+      que: 'Una baja guardada tiene un motivo que ARLES no reconoce.',
+      como: 'Avisa a soporte: la base pudo editarse desde fuera de ARLES.',
+      salvo: 'Esa persona sigue sin recibir nada. No se modificó nada.',
+    },
+    origen_de_supresion_desconocido: {
+      que: 'Una baja guardada no dice bien quién la registró.',
+      como: 'Avisa a soporte: la base pudo editarse desde fuera de ARLES.',
+      salvo: 'Esa persona sigue sin recibir nada. No se modificó nada.',
+    },
+    alcance_de_supresion_desconocido: {
+      que: 'Una baja guardada no dice bien a qué canales afecta.',
+      como: 'Avisa a soporte: la base pudo editarse desde fuera de ARLES.',
+      salvo: 'Esa persona sigue sin recibir nada. No se modificó nada.',
+    },
+    supresion_sin_canales: {
+      que: 'No se dijo qué correo o qué número hay que dar de baja.',
+      como: 'Elige al menos una dirección antes de continuar.',
+      salvo: 'No se dio de baja a nadie.',
+    },
+    alcance_no_coincide: {
+      que: 'Se pidió dar de baja un solo canal, pero llegaron varios.',
+      como: 'Vuelve a intentarlo eligiendo «todos los canales» o uno solo.',
+      salvo: 'No se dio de baja a nadie. ARLES no amplía una baja por su cuenta.',
+    },
     origen_desconocido: {
       que: 'El origen declarado de esa importación no es uno de los que ARLES reconoce.',
       como:
@@ -398,6 +423,16 @@ export const es = {
         salvo:
           'No se guardó nada: ni el contacto ni las direcciones que sí eran ' +
           'nuevas. El contacto que ya existía no se tocó.',
+      },
+      supresion_no_existe: {
+        que: 'Esa baja ya no está en la lista.',
+        como: 'Actualiza la lista para ver cómo está ahora.',
+        salvo: 'No se modificó nada.',
+      },
+      supresion_no_se_levanta: {
+        que: 'Esa persona pidió ella misma no recibir más, así que ARLES no la saca de la lista.',
+        como: 'Si volvió a dar su permiso, dala de alta otra vez como contacto nuevo.',
+        salvo: 'Sigue sin recibir nada. No se modificó nada.',
       },
       contacto_no_existe: {
         que: 'Ese contacto ya no está: alguien lo dio de baja.',

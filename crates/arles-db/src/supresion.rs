@@ -329,6 +329,83 @@ impl Db {
         })
     }
 
+    /// Cuáles de esas direcciones pidieron no recibir, y por qué.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// ES LO QUE HACE HONESTO AL INFORME DE IMPORTACIÓN
+    ///
+    /// Dirección decidió el 21/09/2026 que un archivo con gente que ya pidió la
+    /// baja **se enseñe antes de importar**. Esto es la consulta que lo
+    /// alimenta: se pregunta de una vez por todas las direcciones del archivo,
+    /// y el núcleo las clasifica sin tocar la base.
+    ///
+    /// Devuelve la **clave de i18n** del motivo, no el motivo: lo que cruza
+    /// hacia la pantalla es texto traducible (§139), y así esta consulta sirve
+    /// igual para el informe que para cualquier otra cosa que lo enseñe.
+    /// ─────────────────────────────────────────────────────────────────────
+    ///
+    /// Se consulta **en lotes** por la misma razón que `duenos_de_direcciones`:
+    /// SQLite tiene un tope de variables por sentencia —medido en este build:
+    /// 32 766— y un archivo de 500 000 filas lo pasa siempre.
+    ///
+    /// # Errores
+    ///
+    /// - [`DbError::DatoInvalido`] si una fila guardada trae un motivo que el
+    ///   núcleo no reconoce. **No se salta**: una supresión que no se puede
+    ///   leer es una persona de la que no sabemos si puede recibir, y omitirla
+    ///   del informe la dejaría entrar como si nada.
+    /// - [`DbError::Sqlite`] si la consulta falla.
+    pub fn motivos_de_supresion(
+        &self,
+        empresa: CompanyId,
+        direcciones: &[String],
+    ) -> Result<std::collections::HashMap<String, String>, DbError> {
+        let mut encontradas = std::collections::HashMap::new();
+        if direcciones.is_empty() {
+            return Ok(encontradas);
+        }
+
+        self.con_dominio(|conn| {
+            // Holgado por debajo del tope de variables de cualquier build
+            // razonable, incluido uno compilado con el límite antiguo de 999.
+            const POR_LOTE: usize = 400;
+
+            for lote in direcciones.chunks(POR_LOTE) {
+                let huecos = std::iter::repeat_n("?", lote.len())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let sql = format!(
+                    "SELECT address_normalized, reason
+                       FROM suppression_entry
+                      WHERE company_id = ?1
+                        AND address_normalized IN ({huecos})"
+                );
+
+                let mut consulta = conn.prepare(&sql)?;
+                let mut parametros: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(lote.len() + 1);
+                let empresa_txt = empresa.to_string();
+                parametros.push(&empresa_txt);
+                for d in lote {
+                    parametros.push(d);
+                }
+
+                let filas = consulta.query_map(parametros.as_slice(), |f| {
+                    Ok((f.get::<_, String>(0)?, f.get::<_, String>(1)?))
+                })?;
+                for fila in filas {
+                    let (direccion, motivo) = fila?;
+                    let motivo = MotivoDeSupresion::desde_texto(&motivo).map_err(|_| {
+                        DbError::DatoInvalido {
+                            motivo: "una fila de supresión tiene un motivo desconocido",
+                        }
+                    })?;
+                    encontradas.insert(direccion, motivo.clave_i18n().to_owned());
+                }
+            }
+            Ok(encontradas)
+        })
+    }
+
     /// Todas las direcciones de un contacto vivo, para suprimirlo entero.
     ///
     /// Se leen **de la base y no de la pantalla**: la pantalla enseña lo que
@@ -767,9 +844,19 @@ mod tests {
     /// contacto, la baja se habría respetado durante seis meses y se habría
     /// deshecho sola, sin que nada fallara ni nadie se enterara.
     ///
-    /// Se verificó rompiendo la garantía: haciendo que `borrar_contacto` borre
-    /// también las supresiones de sus direcciones, esta prueba falla en el
-    /// paso 4 y dice exactamente qué dirección quedó desprotegida.
+    /// **Se verificó con dos cebos distintos**, porque esta prueba hace dos
+    /// afirmaciones y una sola rotura sólo habría probado una:
+    ///
+    ///   1. Haciendo que `borrar_contacto` borre también las supresiones de sus
+    ///      direcciones → falla en el **paso 2**, diciendo que la baja se perdió
+    ///      al borrar.
+    ///   2. Haciendo que `importar_contactos` «limpie» las supresiones de lo
+    ///      que acaba de importar → sobrevive al paso 2 y falla en el **paso 4**:
+    ///      «Ana se reimportó y su baja ya no la protege».
+    ///
+    /// El segundo es el que importa: es un fallo que **no se ve al borrar**.
+    /// Todo parecería correcto hasta la siguiente importación, seis meses
+    /// después, cuando la baja ya se deshizo sola.
     /// ─────────────────────────────────────────────────────────────────────
     #[test]
     fn una_baja_sobrevive_a_borrar_el_contacto_y_a_reimportarlo() {
@@ -827,6 +914,98 @@ mod tests {
             suprimidas,
             vec!["ana@empresa.mx".to_owned()],
             "Ana se reimportó y su baja ya no la protege: volvería a recibir correos"
+        );
+    }
+    // ── La consulta que alimenta el informe de importación ─────────────────
+
+    /// Devuelve la **clave de i18n** del motivo, no el texto guardado. Lo que
+    /// cruza hacia la pantalla es traducible (§139).
+    #[test]
+    fn los_motivos_salen_como_clave_de_i18n_y_solo_de_lo_suprimido() {
+        let (_d, db, empresa) = base();
+        db.suprimir(
+            empresa,
+            &peticion(
+                vec![cv(Canal::Correo, "baja@empresa.mx")],
+                AlcanceDeSupresion::Canal,
+                MotivoDeSupresion::Baja,
+            ),
+        )
+        .expect("suprime");
+
+        let motivos = db
+            .motivos_de_supresion(
+                empresa,
+                &["baja@empresa.mx".to_owned(), "libre@empresa.mx".to_owned()],
+            )
+            .expect("consulta");
+
+        assert_eq!(
+            motivos.len(),
+            1,
+            "se coló una dirección que no está suprimida"
+        );
+        assert_eq!(
+            motivos.get("baja@empresa.mx").map(String::as_str),
+            Some(MotivoDeSupresion::Baja.clave_i18n())
+        );
+    }
+
+    /// La consulta va **en lotes**: SQLite tiene un tope de variables por
+    /// sentencia, y un archivo de 500 000 filas lo pasa siempre.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// EL NÚMERO NO ES DECORATIVO, Y LA PRIMERA VERSIÓN LO ERA
+    ///
+    /// Esta prueba pedía **3 000** direcciones, «muy por encima del tope de
+    /// 999». Al romper la guarda —subiendo `POR_LOTE` a 100 000, es decir
+    /// quitando el troceado— **seguía pasando**: el tope real de variables de
+    /// SQLite en este build es **32 766**, así que 3 000 caben de sobra en una
+    /// sola sentencia y el troceado nunca se ejercitaba.
+    ///
+    /// Es exactamente el mismo engaño que ya se coló una vez en este proyecto,
+    /// con la misma cifra de por medio. Ahora se piden 40 000: por encima del
+    /// tope medido, de forma que sin troceo la consulta **no puede** funcionar.
+    ///
+    /// Verificado: con `POR_LOTE` a 100 000 esta prueba falla con «too many SQL
+    /// variables».
+    /// ─────────────────────────────────────────────────────────────────────
+    #[test]
+    fn la_consulta_de_motivos_trocea_en_lotes() {
+        let (_d, db, empresa) = base();
+        // Por encima del tope de variables medido en este build (32 766).
+        const CUANTAS: usize = 40_000;
+
+        let direcciones: Vec<String> = (0..CUANTAS).map(|i| format!("s{i}@empresa.mx")).collect();
+        db.suprimir(
+            empresa,
+            &peticion(
+                vec![cv(Canal::Correo, "s7@empresa.mx")],
+                AlcanceDeSupresion::Canal,
+                MotivoDeSupresion::Queja,
+            ),
+        )
+        .expect("suprime");
+
+        let motivos = db
+            .motivos_de_supresion(empresa, &direcciones)
+            .expect("la consulta se troceó");
+        assert_eq!(motivos.len(), 1);
+        assert_eq!(
+            motivos.get("s7@empresa.mx").map(String::as_str),
+            Some(MotivoDeSupresion::Queja.clave_i18n())
+        );
+    }
+
+    /// Una lista vacía no da un viaje a la base ni un SQL con `IN ()`, que es
+    /// sintaxis inválida.
+    #[test]
+    fn sin_direcciones_no_se_consulta_nada() {
+        let (_d, db, empresa) = base();
+        assert!(
+            db.motivos_de_supresion(empresa, &[])
+                .expect("no falla")
+                .is_empty()
         );
     }
 }

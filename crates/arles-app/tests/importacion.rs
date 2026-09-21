@@ -112,8 +112,11 @@ fn importar_un_archivo_de_verdad_de_punta_a_punta() {
     let duenos = db
         .duenos_de_direcciones(empresa, &direcciones)
         .expect("consulta");
+    let suprimidas = db
+        .motivos_de_supresion(empresa, &direcciones)
+        .expect("consulta las supresiones");
 
-    let informe = arles_core::analizar(&mapeo, &tabla.filas, "MX", &duenos);
+    let informe = arles_core::analizar(&mapeo, &tabla.filas, "MX", &duenos, &suprimidas);
 
     assert_eq!(informe.cuantas_listas(), 2, "deberían entrar Ana y Luis");
     assert_eq!(informe.rechazadas.len(), 1, "la fila sin contacto");
@@ -221,7 +224,13 @@ fn reimportar_el_mismo_archivo_no_duplica_a_nadie() {
     };
 
     // Primera vez: entran los dos.
-    let primero = arles_core::analizar(&mapeo, &tabla.filas, "MX", &Default::default());
+    let primero = arles_core::analizar(
+        &mapeo,
+        &tabla.filas,
+        "MX",
+        &Default::default(),
+        &Default::default(),
+    );
     assert_eq!(primero.cuantas_listas(), 2);
     db.importar_contactos(empresa, &lote(&primero), &primero.listas)
         .expect("primera importación");
@@ -231,7 +240,10 @@ fn reimportar_el_mismo_archivo_no_duplica_a_nadie() {
     let duenos = db
         .duenos_de_direcciones(empresa, &direcciones)
         .expect("consulta");
-    let segundo = arles_core::analizar(&mapeo, &tabla.filas, "MX", &duenos);
+    let suprimidas = db
+        .motivos_de_supresion(empresa, &direcciones)
+        .expect("consulta las supresiones");
+    let segundo = arles_core::analizar(&mapeo, &tabla.filas, "MX", &duenos, &suprimidas);
 
     assert_eq!(
         segundo.cuantas_listas(),
@@ -256,5 +268,133 @@ fn reimportar_el_mismo_archivo_no_duplica_a_nadie() {
     assert_eq!(
         db.listar_contactos(empresa, 0, 100).expect("lista").total,
         2
+    );
+}
+
+/// **El caso que Dirección pidió ver el 21/09/2026.**
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LA CIFRA NO PUEDE MENTIR
+///
+/// Un archivo de la feria donde dos de las cuatro personas ya habían pedido no
+/// recibir. Lo que se exige es que el informe **lo diga antes de importar**, y
+/// que distinga las dos situaciones que parecen la misma y no lo son:
+///
+///   - Ana cerró su correo **pero tiene WhatsApp**: sigue siendo alcanzable.
+///   - Luis cerró lo único que tenía: no lo es.
+///
+/// Contar las dos igual daría una cifra tan falsa como callarlas. Y la lista
+/// que Dirección quiere —quién canceló, por qué canal— sale de la misma tabla.
+/// ─────────────────────────────────────────────────────────────────────────
+#[test]
+fn el_informe_avisa_de_quien_ya_habia_pedido_no_recibir() {
+    use arles_core::supresion::{
+        AlcanceDeSupresion, MotivoDeSupresion, OrigenDeSupresion, PeticionDeSupresion,
+    };
+
+    let (dir, db) = entorno("supresion");
+    let empresa = db.empresa().expect("lee empresa").expect("hay empresa").id;
+
+    // Dos personas que en su día dijeron que no.
+    for (correo, motivo) in [
+        ("ana@empresa.mx", MotivoDeSupresion::Baja),
+        ("luis@empresa.mx", MotivoDeSupresion::Queja),
+    ] {
+        let valor = arles_core::canal::ValorDeCanal::parse(arles_core::Canal::Correo, correo, "MX")
+            .expect("correo válido");
+        let canal = arles_core::contacto::CanalValidado {
+            canal: valor.canal(),
+            valor_raw: valor.raw().to_owned(),
+            valor_normalizado: valor.normalized().to_owned(),
+            principal: true,
+        };
+        db.suprimir(
+            empresa,
+            &PeticionDeSupresion::nueva(
+                vec![canal],
+                AlcanceDeSupresion::Canal,
+                motivo,
+                OrigenDeSupresion::Usuario,
+                "",
+            )
+            .expect("petición válida"),
+        )
+        .expect("suprime");
+    }
+
+    // Y meses después llega el archivo de la feria, con las dos dentro.
+    let ruta = csv(
+        &dir,
+        "feria-septiembre.csv",
+        "Nombre;Correo electrónico;Teléfono móvil\n\
+         Ana;ana@empresa.mx;81 1234 5678\n\
+         Luis;luis@empresa.mx;\n\
+         Sofía;sofia@empresa.mx;\n\
+         Mario;mario@empresa.mx;81 9876 5432\n",
+    );
+
+    let tabla = arles_import::leer(&ruta).expect("lee");
+    let mapeo = arles_core::proponer_mapeo(&tabla.encabezados);
+
+    let direcciones: Vec<String> = tabla
+        .filas
+        .iter()
+        .filter_map(|f| arles_core::fila_a_borrador(&mapeo, f).ok())
+        .filter_map(|b| arles_core::contacto::DatosDeContacto::validar(&b, "MX").ok())
+        .flat_map(|d| {
+            d.canales
+                .into_iter()
+                .map(|c| c.valor_normalizado)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+
+    let duenos = db
+        .duenos_de_direcciones(empresa, &direcciones)
+        .expect("consulta");
+    let suprimidas = db
+        .motivos_de_supresion(empresa, &direcciones)
+        .expect("consulta las supresiones");
+
+    let informe = arles_core::analizar(&mapeo, &tabla.filas, "MX", &duenos, &suprimidas);
+
+    // Las cuatro entran: el nombre y la empresa valen igual.
+    assert_eq!(informe.cuantas_listas(), 4, "las cuatro tenían que entrar");
+
+    // Pero el informe dice quiénes son, y por qué.
+    assert_eq!(
+        informe.suprimidas.len(),
+        2,
+        "el informe no avisó de las dos que pidieron no recibir"
+    );
+    let ana = informe
+        .suprimidas
+        .iter()
+        .find(|s| s.direccion == "ana@empresa.mx")
+        .expect("Ana tenía que estar avisada");
+    let luis = informe
+        .suprimidas
+        .iter()
+        .find(|s| s.direccion == "luis@empresa.mx")
+        .expect("Luis tenía que estar avisado");
+
+    assert_eq!(ana.motivo, MotivoDeSupresion::Baja.clave_i18n());
+    assert_eq!(luis.motivo, MotivoDeSupresion::Queja.clave_i18n());
+
+    // Y la distinción: a Ana se le puede escribir por WhatsApp; a Luis, no.
+    assert!(
+        !ana.sin_ningun_canal_libre,
+        "a Ana le queda el WhatsApp y se la dio por incomunicada"
+    );
+    assert!(
+        luis.sin_ningun_canal_libre,
+        "Luis no tiene ningún canal libre y se contó como alcanzable"
+    );
+
+    assert_eq!(
+        informe.cuantas_se_pueden_alcanzar(),
+        3,
+        "la cifra de a cuántos se les puede escribir no cuadra: entran 4, \
+         uno se quedó sin ningún canal"
     );
 }

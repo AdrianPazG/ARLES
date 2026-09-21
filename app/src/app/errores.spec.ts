@@ -16,6 +16,11 @@ const CLAVES_DEL_NUCLEO = [
   'error.telefono_invalido',
   'error.canal_desconocido',
   'error.origen_desconocido',
+  'error.motivo_de_supresion_desconocido',
+  'error.origen_de_supresion_desconocido',
+  'error.alcance_de_supresion_desconocido',
+  'error.supresion_sin_canales',
+  'error.alcance_no_coincide',
   'error.etapa.sin_etapas',
   'error.etapa.demasiadas',
   'error.etapa.posiciones',
@@ -51,6 +56,8 @@ const CLAVES_DEL_NUCLEO = [
   'error.db.dato_invalido',
   'error.db.direccion_en_uso',
   'error.db.contacto_no_existe',
+  'error.db.supresion_no_existe',
+  'error.db.supresion_no_se_levanta',
 ] as const
 
 describe('resolución de errores del núcleo', () => {

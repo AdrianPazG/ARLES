@@ -270,6 +270,40 @@ nada; adelantarlo sí hubiera encarecido la 3.3 y la 3.4.
 
 ---
 
+### D-9 · Un archivo con gente que ya pidió la baja se enseña antes de importar
+
+**Fecha:** 21 de septiembre de 2026 · **Pedida por:** Dirección · **Gobierna:**
+la entrega 3.4 y el informe de importación de la 3.3
+
+Es la hermana de la decisión del 18/09 sobre los choques, y se resolvió igual:
+**enseñar antes de importar**.
+
+**El problema.** Un archivo de diez mil filas donde trescientas personas ya
+habían pedido la baja produce una lista que dice diez mil y a la que sólo se
+puede escribir a nueve mil setecientas. ARLES no les escribiría —la lista de
+supresión las bloquea— pero nadie se entera de que están ahí. La diferencia
+aparece meses después, cuando una campaña «llega» a menos gente de la esperada
+y no hay forma de saber por qué.
+
+**Lo decidido:**
+
+| | Qué pasa |
+|---|---|
+| **Entran igual** | El nombre, la empresa y el resto valen, y esa persona puede volver a darse de alta algún día. Tirar sus datos sería perder información por una razón que no lo pide |
+| **El informe las nombra** | Con su fila de Excel, su dirección y el motivo por el que dejó de recibir |
+| **Y la cifra distingue** | «Entran 4 · se les puede escribir a 3». No es lo mismo cuántos contactos se crean que a cuántos se les puede escribir |
+
+**La distinción fina, que parece un detalle y no lo es:** alguien que dijo «no
+me escribas por correo» **pero tiene WhatsApp sigue siendo alcanzable**. Sólo se
+descuenta a quien se queda sin ningún canal libre. Contar las dos cosas igual
+daría una cifra tan falsa como no decir nada.
+
+**Y lo que Dirección pidió además:** una lista de quién canceló, por correo y
+por WhatsApp, con su motivo y su fecha. Es la pantalla de supresión de la
+entrega 3.4, y sale de la misma tabla que alimenta este aviso.
+
+---
+
 ## Decisiones pendientes
 
 Ver **`02-auditoria/PREGUNTAS_ABIERTAS.md`** para el registro completo.

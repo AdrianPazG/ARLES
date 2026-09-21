@@ -61,6 +61,43 @@ pub struct Choque {
     pub dentro_del_archivo: bool,
 }
 
+/// Una fila del archivo cuya dirección **ya pidió no recibir**.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ SE ENSEÑA Y NO SE SALTA · Dirección, 21/09/2026
+///
+/// Estas filas **sí se importan**. El nombre, la empresa y el resto de los
+/// datos valen igual, y esa persona puede volver a darse de alta algún día;
+/// tirarlos sería perder información por una razón que no lo pide.
+///
+/// Lo que no se puede hacer es **callarlo**. Un archivo de diez mil filas
+/// donde trescientas personas pidieron la baja produce una lista que dice diez
+/// mil y de la que sólo nueve mil setecientas van a recibir algo. Esa
+/// diferencia aparece después, cuando una campaña «llega» a menos gente de la
+/// esperada y nadie sabe por qué.
+///
+/// Es la misma decisión que Dirección tomó con los choques el 18/09/2026:
+/// enseñar antes de importar. Una cifra incómoda es mejor que una cifra que
+/// miente (§94).
+/// ─────────────────────────────────────────────────────────────────────────
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FilaSuprimida {
+    pub fila: usize,
+    /// La dirección suprimida, ya normalizada.
+    pub direccion: String,
+    /// Clave de i18n del motivo por el que dejó de recibir.
+    pub motivo: String,
+    /// Lo que se pueda enseñar de la fila para reconocerla.
+    pub referencia: String,
+    /// `true` si **todas** las direcciones de esa fila están suprimidas.
+    ///
+    /// Es la distinción que importa: alguien que pidió no recibir correos pero
+    /// sí WhatsApp **sigue siendo alcanzable**. Contar las dos cosas igual
+    /// daría una cifra tan falsa como la de callarlo.
+    pub sin_ningun_canal_libre: bool,
+}
+
 /// El informe completo de lo que pasaría al importar.
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -77,6 +114,12 @@ pub struct Analisis {
     pub rechazadas: Vec<FilaRechazada>,
     /// Filas cuyas direcciones no pasan la validación del núcleo.
     pub invalidas: Vec<FilaRechazada>,
+    /// Filas que **sí entran** pero cuya dirección pidió no recibir.
+    ///
+    /// Una fila puede aparecer aquí más de una vez si tiene dos direcciones
+    /// suprimidas: cada dirección es una negativa distinta y la pantalla las
+    /// enseña por separado.
+    pub suprimidas: Vec<FilaSuprimida>,
 }
 
 impl Analisis {
@@ -86,10 +129,40 @@ impl Analisis {
         self.listas.len()
     }
 
+    /// A cuántas de las que entran **se les puede escribir de verdad**.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// LA CIFRA QUE DIRECCIÓN PIDIÓ VER
+    ///
+    /// [`Self::cuantas_listas`] dice cuántos contactos se crean.
+    /// Esto dice a cuántos se les puede escribir. La diferencia son las
+    /// personas que pidieron la baja y siguen en el archivo.
+    ///
+    /// Se descuentan **sólo** las filas que se quedan sin ningún canal libre.
+    /// Alguien que dijo «no me escribas por correo» pero tiene WhatsApp sigue
+    /// contando: descontarlo daría una cifra tan falsa como no decir nada.
+    /// ─────────────────────────────────────────────────────────────────────
+    #[must_use]
+    pub fn cuantas_se_pueden_alcanzar(&self) -> usize {
+        let sin_salida: std::collections::HashSet<usize> = self
+            .suprimidas
+            .iter()
+            .filter(|s| s.sin_ningun_canal_libre)
+            .map(|s| s.fila)
+            .collect();
+        self.filas_de_las_listas
+            .iter()
+            .filter(|f| !sin_salida.contains(f))
+            .count()
+    }
+
     /// ¿Hay algo que mirar antes de importar?
     #[must_use]
     pub fn hay_que_revisar(&self) -> bool {
-        !self.choques.is_empty() || !self.rechazadas.is_empty() || !self.invalidas.is_empty()
+        !self.choques.is_empty()
+            || !self.rechazadas.is_empty()
+            || !self.invalidas.is_empty()
+            || !self.suprimidas.is_empty()
     }
 }
 
@@ -119,6 +192,10 @@ fn referencia_de(fila: &[String]) -> String {
 /// nombre de quien la tiene. Se pasa como mapa y no se consulta aquí: este
 /// crate no hace I/O, y así la clasificación entera se prueba sin base de datos.
 ///
+/// `suprimidas` mapea cada dirección normalizada que **pidió no recibir** a la
+/// clave de i18n de su motivo. Va como mapa por lo mismo que `ya_existen`: este
+/// crate no hace I/O.
+///
 /// `pais_por_defecto` es el de la empresa, y sólo completa móviles escritos sin
 /// prefijo internacional.
 #[must_use]
@@ -127,6 +204,7 @@ pub fn analizar(
     filas: &[Vec<String>],
     pais_por_defecto: &str,
     ya_existen: &HashMap<String, String>,
+    suprimidas: &HashMap<String, String>,
 ) -> Analisis {
     let mut informe = Analisis::default();
 
@@ -202,6 +280,36 @@ pub fn analizar(
             vistas.insert(canal.valor_normalizado.clone(), numero);
         }
 
+        // Quién de esta fila ya había pedido no recibir.
+        //
+        // Va **después** del choque y antes de apuntar la fila como lista, y
+        // ese orden importa: una fila que choca no entra, así que anunciar
+        // además que está suprimida sería contarle al usuario dos problemas de
+        // una fila que sólo tiene uno —y el que resuelve es el otro—.
+        //
+        // No se descarta la fila: entra igual (decisión de Dirección del
+        // 21/09/2026, ver `FilaSuprimida`). Lo que cambia es que se dice.
+        let cuantos_canales = datos.canales.len();
+        let cuantos_suprimidos = datos
+            .canales
+            .iter()
+            .filter(|c| suprimidas.contains_key(&c.valor_normalizado))
+            .count();
+        for canal in &datos.canales {
+            if let Some(motivo) = suprimidas.get(&canal.valor_normalizado) {
+                informe.suprimidas.push(FilaSuprimida {
+                    fila: numero,
+                    direccion: canal.valor_normalizado.clone(),
+                    motivo: motivo.clone(),
+                    referencia: referencia_de(fila),
+                    // Sin canales libres sólo si **todos** están suprimidos.
+                    // `cuantos_canales` nunca es cero: una fila sin ningún
+                    // canal la rechaza el validador antes de llegar aquí.
+                    sin_ningun_canal_libre: cuantos_suprimidos == cuantos_canales,
+                });
+            }
+        }
+
         informe.filas_de_las_listas.push(numero);
         informe.listas.push(datos);
     }
@@ -253,7 +361,13 @@ mod tests {
             f("Ana", "ana@empresa.mx", ""),
             f("Luis", "luis@empresa.mx", "8110000001"),
         ];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &HashMap::new());
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &HashMap::new(),
+        );
         assert_eq!(a.cuantas_listas(), 2);
         assert!(!a.hay_que_revisar());
     }
@@ -263,7 +377,13 @@ mod tests {
     #[test]
     fn las_filas_se_numeran_como_en_excel() {
         let filas = vec![f("Ana", "no-es-un-correo", "")];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &HashMap::new());
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &HashMap::new(),
+        );
         assert_eq!(
             a.invalidas.first().map(|r| r.fila),
             Some(2),
@@ -278,7 +398,7 @@ mod tests {
         ya.insert("ana@empresa.mx".to_owned(), "Ana Ruiz".to_owned());
 
         let filas = vec![f("Ana", "ana@empresa.mx", "")];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &ya);
+        let a = analizar(&mapeo_normal(), &filas, "MX", &ya, &HashMap::new());
 
         assert_eq!(a.cuantas_listas(), 0);
         assert_eq!(a.choques.len(), 1);
@@ -296,7 +416,13 @@ mod tests {
             f("Ana", "ana@empresa.mx", ""),
             f("Ana de nuevo", "ana@empresa.mx", ""),
         ];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &HashMap::new());
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &HashMap::new(),
+        );
 
         assert_eq!(a.cuantas_listas(), 1, "la primera sí entra");
         assert_eq!(a.choques.len(), 1);
@@ -314,7 +440,7 @@ mod tests {
         ya.insert("ana@empresa.mx".to_owned(), "Ana Ruiz".to_owned());
 
         let filas = vec![f("Ana", "  Ana@Empresa.MX  ", "")];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &ya);
+        let a = analizar(&mapeo_normal(), &filas, "MX", &ya, &HashMap::new());
 
         assert_eq!(a.choques.len(), 1, "no se detectó: se comparó lo escrito");
         assert_eq!(a.cuantas_listas(), 0);
@@ -328,7 +454,7 @@ mod tests {
         ya.insert("+528112345678".to_owned(), "Luis".to_owned());
 
         let filas = vec![f("Luis", "", "+52 1 81 1234 5678")];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &ya);
+        let a = analizar(&mapeo_normal(), &filas, "MX", &ya, &HashMap::new());
 
         assert_eq!(
             a.choques.len(),
@@ -346,7 +472,7 @@ mod tests {
 
         // El correo es nuevo; el móvil no.
         let filas = vec![f("Ana", "nueva@empresa.mx", "8112345678")];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &ya);
+        let a = analizar(&mapeo_normal(), &filas, "MX", &ya, &HashMap::new());
 
         assert_eq!(a.choques.len(), 1);
         assert_eq!(a.cuantas_listas(), 0, "la fila entera se queda fuera");
@@ -364,7 +490,7 @@ mod tests {
             f("Ana", "ana@empresa.mx", "8110000001"),
             f("Otra", "otra@empresa.mx", "8110000001"),
         ];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &ya);
+        let a = analizar(&mapeo_normal(), &filas, "MX", &ya, &HashMap::new());
 
         // La fila 3 choca por el móvil, pero contra la BASE no —el móvil no
         // está— sino contra la fila 2, que tampoco entra. Eso sería culpar a la
@@ -380,7 +506,13 @@ mod tests {
     #[test]
     fn una_fila_sin_canales_se_rechaza_con_su_motivo() {
         let filas = vec![f("Ana", "", "")];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &HashMap::new());
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &HashMap::new(),
+        );
 
         assert_eq!(a.rechazadas.len(), 1);
         assert_eq!(
@@ -397,7 +529,13 @@ mod tests {
     #[test]
     fn una_direccion_mal_escrita_es_invalida_no_rechazada() {
         let filas = vec![f("Ana", "esto-no-es-un-correo", "")];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &HashMap::new());
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &HashMap::new(),
+        );
 
         assert_eq!(a.invalidas.len(), 1);
         assert!(a.rechazadas.is_empty());
@@ -427,7 +565,7 @@ mod tests {
             f("Mal", "no-es-correo", ""),        // 4 · inválida
             f("Vacía", "", ""),                  // 5 · rechazada
         ];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &ya);
+        let a = analizar(&mapeo_normal(), &filas, "MX", &ya, &HashMap::new());
 
         assert_eq!(a.cuantas_listas(), 1);
         assert_eq!(a.choques.len(), 1);
@@ -442,7 +580,13 @@ mod tests {
     #[test]
     fn lo_que_sale_listo_ya_esta_validado_y_normalizado() {
         let filas = vec![f("Ana", "  Ana@Empresa.MX  ", "+52 1 81 1234 5678")];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &HashMap::new());
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &HashMap::new(),
+        );
 
         let c = a.listas.first().expect("una lista");
         let correo = c
@@ -471,7 +615,13 @@ mod tests {
     fn la_referencia_se_recorta() {
         let largo = "x".repeat(200);
         let filas = vec![vec![largo, String::new(), String::new()]];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &HashMap::new());
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &HashMap::new(),
+        );
         let r = &rechazada(&a, 0).referencia;
         assert!(
             r.chars().count() <= 41,
@@ -483,8 +633,140 @@ mod tests {
 
     #[test]
     fn un_archivo_vacio_no_produce_nada() {
-        let a = analizar(&mapeo_normal(), &[], "MX", &HashMap::new());
+        let a = analizar(&mapeo_normal(), &[], "MX", &HashMap::new(), &HashMap::new());
         assert_eq!(a.cuantas_listas(), 0);
         assert!(!a.hay_que_revisar());
+    }
+    // ── Entrega 3.4 · quién ya había pedido no recibir ──────────────────
+
+    /// Ayudante: el mapa de supresiones, por dirección normalizada.
+    fn suprimida(direccion: &str) -> HashMap<String, String> {
+        HashMap::from([(direccion.to_owned(), "supresion.motivo.baja".to_owned())])
+    }
+
+    /// **La decisión de Dirección del 21/09/2026.** La fila entra igual —el
+    /// nombre y la empresa valen— pero el informe lo dice.
+    #[test]
+    fn una_direccion_suprimida_entra_pero_se_anuncia() {
+        let filas = vec![f("Ana", "ana@empresa.mx", "")];
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &suprimida("ana@empresa.mx"),
+        );
+
+        assert_eq!(a.cuantas_listas(), 1, "la fila tenía que entrar igual");
+        assert_eq!(a.suprimidas.len(), 1, "y tenía que anunciarse");
+        let s = a.suprimidas.first().expect("hay una");
+        assert_eq!(s.direccion, "ana@empresa.mx");
+        assert_eq!(s.motivo, "supresion.motivo.baja");
+        assert_eq!(s.fila, 2, "los números de fila son los de Excel");
+        assert!(s.sin_ningun_canal_libre, "no le queda ningún canal abierto");
+    }
+
+    /// **La distinción que hace honesta a la cifra.** Quien dijo «no me
+    /// escribas por correo» pero tiene WhatsApp **sigue siendo alcanzable**.
+    ///
+    /// Se verificó rompiendo la guarda: contando como sin salida a cualquiera
+    /// con una dirección suprimida, esta prueba falla y dice que Ana se
+    /// descontó teniendo WhatsApp libre.
+    #[test]
+    fn cerrar_un_canal_no_deja_a_nadie_incomunicado_si_le_queda_otro() {
+        let filas = vec![f("Ana", "ana@empresa.mx", "8112345678")];
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &suprimida("ana@empresa.mx"),
+        );
+
+        assert_eq!(a.suprimidas.len(), 1);
+        let s = a.suprimidas.first().expect("hay una");
+        assert!(
+            !s.sin_ningun_canal_libre,
+            "le queda el WhatsApp y se la dio por incomunicada"
+        );
+        assert_eq!(
+            a.cuantas_se_pueden_alcanzar(),
+            1,
+            "Ana se descontó del alcance teniendo un canal libre"
+        );
+    }
+
+    /// Y si están cerrados los dos, sí se descuenta.
+    #[test]
+    fn quien_cerro_todos_sus_canales_no_cuenta_como_alcanzable() {
+        let filas = vec![
+            f("Ana", "ana@empresa.mx", "8112345678"),
+            f("Beto", "beto@empresa.mx", ""),
+        ];
+        let mut sup = HashMap::new();
+        sup.insert(
+            "ana@empresa.mx".to_owned(),
+            "supresion.motivo.baja".to_owned(),
+        );
+        sup.insert(
+            "+528112345678".to_owned(),
+            "supresion.motivo.queja".to_owned(),
+        );
+
+        let a = analizar(&mapeo_normal(), &filas, "MX", &HashMap::new(), &sup);
+
+        assert_eq!(a.cuantas_listas(), 2, "las dos entran");
+        assert_eq!(
+            a.cuantas_se_pueden_alcanzar(),
+            1,
+            "sólo Beto puede recibir, y la cifra tiene que decirlo"
+        );
+        assert_eq!(
+            a.suprimidas.len(),
+            2,
+            "las dos direcciones de Ana son dos negativas distintas"
+        );
+        assert!(a.suprimidas.iter().all(|s| s.sin_ningun_canal_libre));
+    }
+
+    /// **Una fila que choca no se anuncia además como suprimida.**
+    ///
+    /// No entra, así que contarle dos problemas al usuario cuando sólo tiene
+    /// uno —y el que resuelve es el otro— alarga el informe sin ayudar.
+    #[test]
+    fn una_fila_que_choca_no_se_cuenta_tambien_como_suprimida() {
+        let filas = vec![f("Ana", "ana@empresa.mx", "")];
+        let ya = HashMap::from([("ana@empresa.mx".to_owned(), "Ana Ruiz".to_owned())]);
+
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &ya,
+            &suprimida("ana@empresa.mx"),
+        );
+
+        assert_eq!(a.choques.len(), 1);
+        assert_eq!(a.cuantas_listas(), 0, "una fila con choque no entra");
+        assert!(
+            a.suprimidas.is_empty(),
+            "se le anunciaron dos problemas a una fila que sólo tiene uno"
+        );
+    }
+
+    /// Sin supresiones, nada cambia: el informe de la 3.3 sigue igual.
+    #[test]
+    fn sin_supresiones_el_informe_no_menciona_ninguna() {
+        let filas = vec![f("Ana", "ana@empresa.mx", "")];
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &HashMap::new(),
+        );
+
+        assert!(a.suprimidas.is_empty());
+        assert_eq!(a.cuantas_se_pueden_alcanzar(), a.cuantas_listas());
     }
 }

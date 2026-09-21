@@ -1669,6 +1669,81 @@ def la_bomba_se_mide_antes_de_abrir_la_hoja():
     )
 
 
+def una_supresion_pedida_no_se_levanta_con_un_boton():
+    """Quien pidió la baja no sale de la lista desde la aplicación.
+
+    Es la regla de la entrega 3.4. Si `se_puede_levantar` dejara de depender de
+    `lo_pidio_la_persona`, una baja que alguien pidió pasaría a poder deshacerse
+    con un clic — y nada fallaría: la pantalla enseñaría el botón, el botón
+    funcionaría, y esa persona volvería a recibir correos.
+
+    Se comprueba sobre la fuente y no sólo con los tests porque el día que
+    alguien «simplifique» esa función, los tests de ese módulo se tocan en el
+    mismo commit.
+    """
+    import re as _re
+    fuente = leer("crates", "arles-core", "src", "supresion.rs")
+    m = _re.search(
+        r"pub const fn se_puede_levantar\(self\) -> bool \{(.*?)\n    \}",
+        fuente,
+        _re.S,
+    )
+    cuerpo = m.group(1).strip() if m else ""
+    check(
+        3,
+        "una supresión que pidió la persona no se levanta con un botón",
+        cuerpo == "!self.lo_pidio_la_persona()",
+        una_supresion_pedida_no_se_levanta_con_un_boton.__doc__,
+        detalle=f"cuerpo de se_puede_levantar: {cuerpo!r}",
+    )
+
+    # Y que las dos que la persona pide sigan siendo las dos que son.
+    m = _re.search(
+        r"pub const fn lo_pidio_la_persona\(self\) -> bool \{(.*?)\n    \}",
+        fuente,
+        _re.S,
+    )
+    cuerpo = m.group(1).strip() if m else ""
+    check(
+        3,
+        "la baja y la queja son lo que la persona pide",
+        "Self::Baja" in cuerpo and "Self::Queja" in cuerpo,
+        una_supresion_pedida_no_se_levanta_con_un_boton.__doc__,
+        detalle=f"cuerpo de lo_pidio_la_persona: {cuerpo!r}",
+    )
+
+
+def el_informe_de_importacion_consulta_las_supresiones():
+    """Analizar y confirmar preguntan los dos por la lista de supresión.
+
+    Dirección decidió el 21/09/2026 que un archivo con gente que ya pidió la
+    baja se enseñe antes de importar. Esa consulta tiene que estar en los DOS
+    comandos, y el de confirmar es el que se olvida: analizar enseña el informe
+    y confirmar escribe, así que quitarla de `confirmar_importacion` no rompe
+    ninguna pantalla — sólo hace que la cifra guardada sea la de antes de la
+    última baja.
+    """
+    fuente = leer("crates", "arles-app", "src", "comandos.rs")
+    import re as _re
+    faltan = []
+    for comando in ("analizar_importacion", "confirmar_importacion"):
+        m = _re.search(
+            rf"pub fn {comando}\(.*?\n\}}",
+            fuente,
+            _re.S,
+        )
+        cuerpo = m.group(0) if m else ""
+        if "motivos_de_supresion" not in cuerpo:
+            faltan.append(comando)
+    check(
+        3,
+        "el informe de importación consulta la lista de supresión",
+        not faltan,
+        el_informe_de_importacion_consulta_las_supresiones.__doc__,
+        detalle=f"sin consultar las supresiones: {faltan}",
+    )
+
+
 def el_texto_legal_se_ve_provisional():
     """Mientras P-09 siga abierta, el texto de la declaración lo dice.
 
@@ -1735,6 +1810,8 @@ def fase_3(rapido):
     el_tope_de_canales_no_se_duplica()
     las_listas_de_la_importacion_no_divergen()
     la_bomba_se_mide_antes_de_abrir_la_hoja()
+    una_supresion_pedida_no_se_levanta_con_un_boton()
+    el_informe_de_importacion_consulta_las_supresiones()
     el_texto_legal_se_ve_provisional()
 
     print(f"{GRIS}  sondas{FIN}")
