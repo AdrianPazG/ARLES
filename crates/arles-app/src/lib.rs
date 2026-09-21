@@ -60,6 +60,9 @@ pub fn run() {
             comandos::analizar_importacion,
             comandos::confirmar_importacion,
             comandos::cancelar_importacion,
+            comandos::listar_supresiones,
+            comandos::suprimir_contacto,
+            comandos::levantar_supresion,
         ])
         .run(tauri::generate_context!());
 

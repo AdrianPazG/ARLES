@@ -416,6 +416,85 @@ NUCLEO_SIMULADO = """
         case 'cancelar_importacion':
           delete e.importacion; escribir(e); return Promise.resolve();
 
+        // ── Supresión (entrega 3.4) ──────────────────────────────────
+        //
+        // La semilla trae las cuatro situaciones que la pantalla tiene que
+        // saber pintar distinto, porque si todas las filas se parecen no se
+        // puede juzgar si la pantalla las distingue:
+        //
+        //   - una baja que pidió la persona (NO se puede deshacer)
+        //   - una queja               (tampoco)
+        //   - un rebote               (sí se puede)
+        //   - un número inválido de WhatsApp, y una baja global
+        //
+        // `sePuedeLevantar` viene RESUELTO, igual que en Rust: si el simulador
+        // lo calculara a su manera, la sonda mediría una regla que no es la
+        // del producto.
+        case 'listar_supresiones': {
+          if (!e.supresiones) {
+            e.supresiones = [
+              {
+                id: 's1', canal: 'email', direccion: 'ana@empresa.mx',
+                motivo: 'supresion.motivo.baja', sePuedeLevantar: false,
+                deQuien: 'Ana Ruiz', notas: 'Lo pidió por correo',
+                creada: '2026-08-14T10:00:00Z', global: false,
+              },
+              {
+                id: 's2', canal: 'email', direccion: 'beto@otra.mx',
+                motivo: 'supresion.motivo.queja', sePuedeLevantar: false,
+                deQuien: '', notas: '',
+                creada: '2026-08-02T09:30:00Z', global: false,
+              },
+              {
+                id: 's3', canal: 'email', direccion: 'rebote@empresa.mx',
+                motivo: 'supresion.motivo.rebotePermanente', sePuedeLevantar: true,
+                deQuien: 'Carla Méndez', notas: '',
+                creada: '2026-07-21T16:05:00Z', global: false,
+              },
+              {
+                id: 's4', canal: 'whatsapp', direccion: '+528112345678',
+                motivo: 'supresion.motivo.numeroInvalido', sePuedeLevantar: true,
+                deQuien: '', notas: 'No tiene WhatsApp',
+                creada: '2026-07-10T12:00:00Z', global: false,
+              },
+              {
+                id: 's5', canal: 'whatsapp', direccion: '+528198765432',
+                motivo: 'supresion.motivo.baja', sePuedeLevantar: false,
+                deQuien: 'Diego Salas', notas: '',
+                creada: '2026-06-30T08:15:00Z', global: true,
+              },
+            ];
+            escribir(e);
+          }
+          return Promise.resolve({
+            supresiones: e.supresiones,
+            total: e.supresiones.length,
+          });
+        }
+
+        case 'levantar_supresion': {
+          var fila = (e.supresiones || []).filter(function (s) {
+            return s.id === args.id;
+          })[0];
+          if (!fila) {
+            return Promise.reject({ clave: 'error.db.supresion_no_existe', detalle: '' });
+          }
+          // La regla también aquí: pedirlo sobre una baja que pidió la persona
+          // tiene que fallar, aunque la pantalla esconda el botón. Es lo que
+          // permite a la sonda comprobar que la defensa no es sólo visual.
+          if (!fila.sePuedeLevantar) {
+            return Promise.reject({
+              clave: 'error.db.supresion_no_se_levanta', detalle: '',
+            });
+          }
+          e.supresiones = e.supresiones.filter(function (s) { return s.id !== args.id; });
+          escribir(e);
+          return Promise.resolve();
+        }
+
+        case 'suprimir_contacto':
+          return Promise.resolve({ nuevas: 1, yaEstaban: 0 });
+
         case 'abrir_sitio_de_telemetry':
           window.open('https://telemetrymx.com', '_blank', 'noopener');
           return Promise.resolve();

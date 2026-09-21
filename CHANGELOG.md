@@ -12,6 +12,49 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Ya se puede ver quién pidió no recibir (entrega 3.4, en curso)
+
+Dirección la pidió con estas palabras: «tenemos que tener una lista de los
+prospectos que seleccionaron la cancelación de correos o WhatsApp». Está en
+**CONTACTOS → Quién pidió no recibir**.
+
+Cada fila dice la dirección, de quién es, **por qué** dejó de recibir y desde
+cuándo. Arriba, dos cifras: cuántas por correo y cuántas por WhatsApp.
+
+**La regla que gobierna la pantalla:** lo que dedujo una máquina se puede
+deshacer; lo que pidió una persona, no.
+
+Un rebote o un número inválido salen de la lista con un botón — el servidor
+pudo equivocarse, el buzón pudo volver. Una baja que alguien pidió, o un correo
+que marcó como no deseado, **no tiene ese botón**, y la fila dice por qué en vez
+de dejar un hueco: *«Lo pidió ella misma, así que ARLES no lo deshace»*.
+
+No es sólo que el botón no se pinte: **si alguien llamara al comando de todas
+formas, el núcleo diría que no**. La regla vive en Rust, no en la pantalla. Si
+viviera en la pantalla habría dos copias, y el día que divergieran ésta
+enseñaría un botón que el núcleo rechaza.
+
+Se puede sortear editando la base a mano, y no se pretende otra cosa: el
+objetivo no es impedirlo, es que no pase sin querer.
+
+**Detalles que parecen menores y no lo son:**
+
+- El desplegable de motivos **no ofrece los seis**. `rebote permanente`,
+  `número inválido` y `fallo del canal` los deduce el sistema al enviar;
+  ofrecerlos a mano dejaría marcar «rebote» sin que hubiera habido ninguno, y
+  el registro dejaría de explicar nada.
+- Buscar dice **sobre cuántas filas** está buscando: «1 de las 4 que se están
+  viendo. La búsqueda mira esta página, no la lista completa». Quien busque en
+  una lista de mil creería, si no, que buscó en las mil.
+- Dar de baja a un contacto entero manda **sólo su identificador**. Las
+  direcciones las lee Rust de la base: entre que la pantalla cargó la ficha y
+  alguien pulsó el botón pudo añadirse un canal, y darlo de baja «todo» con una
+  lista vieja dejaría ese canal abierto.
+
+**La sonda `sonda:supresion`** abre un navegador de verdad y mide las seis
+afirmaciones. Se verificó poniendo el botón de deshacer en todas las filas: la
+sonda falla y **nombra las tres** que no deberían tenerlo.
+
 ### La importación se atacó con archivos hostiles, y tres la rompieron
 
 La entrega 3.3 tenía una puerta de salida escrita desde la Fase 0: *«los

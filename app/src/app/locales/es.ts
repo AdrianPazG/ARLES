@@ -550,6 +550,7 @@ export const es = {
     // cuántos hay, en vez de «muchos» o «casi todos».
     recuento: 'Viendo {viendo} de {total}',
     agregar: 'Agregar contacto',
+    verSupresion: 'Quién pidió no recibir',
     importar: 'Cargar una tabla',
     editar: 'Editar',
     baja: 'Dar de baja',
@@ -650,6 +651,65 @@ export const es = {
       canalGenerico: 'Esta forma de contacto no es válida.',
       campoGenerico: 'Revisa este campo.',
     },
+  },
+
+  supresion: {
+    titulo: 'Quién pidió no recibir',
+    // Se explica de dónde sale la lista y para qué sirve. Una tabla de
+    // direcciones sin contexto se lee como un error, no como un registro.
+    explicacion:
+      'Estas personas pidieron no recibir más, o su dirección dejó de funcionar. ARLES no les escribe, y se queda con el registro aunque borres su contacto: es lo que hace que la baja dure.',
+    nota: '{cuantas} de {total}',
+    cargando: 'Buscando las bajas…',
+    vacioTitulo: 'Nadie ha pedido darse de baja',
+    vacioCuerpo:
+      'Aquí aparecerán quienes pidan no recibir más y las direcciones que dejen de funcionar. Por ahora no hay ninguna.',
+
+    porCorreo: '{n} por correo',
+    porWhatsApp: '{n} por WhatsApp',
+
+    buscar: 'Buscar una dirección o un nombre',
+    buscarMarcador: 'ana{\'@\'}empresa.mx',
+    // §94: se dice sobre cuántas filas se está buscando de verdad, para que
+    // nadie crea que ha buscado en la lista entera.
+    filtroParcial: '{encontradas} de las {de} que se están viendo. La búsqueda mira esta página, no la lista completa.',
+
+    canal: {
+      correo: 'Correo',
+      whatsapp: 'WhatsApp',
+    },
+    global: 'Todos sus canales',
+    sinContacto: 'Sin contacto en ARLES',
+
+    columna: {
+      direccion: 'Dirección',
+      deQuien: 'De quién',
+      motivo: 'Por qué',
+      fecha: 'Desde',
+      acciones: 'Acciones',
+    },
+
+    motivo: {
+      rebotePermanente: 'El correo rebotó de forma definitiva',
+      baja: 'Pidió la baja',
+      manual: 'Se añadió a mano',
+      queja: 'Marcó el correo como no deseado',
+      numeroInvalido: 'El número no existe o no tiene WhatsApp',
+      falloDelCanal: 'El canal falló y no se va a arreglar reintentando',
+      // Sólo aparece si una fila trae un motivo que ARLES no reconoce. Se dice
+      // en vez de inventarse uno: esa persona sigue sin recibir igual.
+      desconocido: 'Motivo no reconocido',
+    },
+
+    // Por qué esa fila no tiene botón. Un hueco sin explicación se lee como un
+    // fallo de la aplicación, no como una decisión.
+    loPidioLaPersona: 'Lo pidió ella misma, así que ARLES no lo deshace',
+    volverAPermitir: 'Volver a permitir',
+    confirmarLevantar:
+      '¿Volver a permitir envíos a {direccion}?\n\nSi esa dirección vuelve a fallar, entrará otra vez en esta lista.',
+
+    anteriores: 'Anteriores',
+    siguientes: 'Siguientes',
   },
 
   importacion: {

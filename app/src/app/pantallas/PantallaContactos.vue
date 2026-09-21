@@ -243,6 +243,12 @@ const errorDelDialogo = computed(() =>
       </div>
       <div class="contactos__acciones">
         <ABoton
+          variante="sutil"
+          a="/contactos/supresion"
+        >
+          {{ t('contactos.verSupresion') }}
+        </ABoton>
+        <ABoton
           variante="secundario"
           icono="remitentes"
           a="/contactos/importar"

@@ -60,6 +60,15 @@ const rutas: RouteRecordRaw[] = [
     meta: { seccion: 'contactos' },
   },
   {
+    // Cuelga de contactos por lo mismo que importar: es una vista de los
+    // contactos, no un destino propio. Una séptima entrada en la barra diría
+    // que las bajas son un área del producto, y son una propiedad de la gente.
+    path: '/contactos/supresion',
+    name: 'supresion',
+    component: () => import('@/app/pantallas/PantallaSupresion.vue'),
+    meta: { seccion: 'contactos' },
+  },
+  {
     path: '/ajustes',
     name: 'ajustes',
     component: () => import('@/app/pantallas/PantallaAjustes.vue'),

@@ -1879,6 +1879,24 @@ def fase_3(rapido):
         check_cmd(3, nombre, ["npm", "run", "sonda:importar", "--silent"],
                   porque, cwd=app, timeout=900)
 
+    nombre = "sonda: la lista de bajas hace lo que dice"
+    porque = (
+        "Seis afirmaciones de la 3.4 sobre lo que una persona ve y puede "
+        "pulsar. La que importa: una baja que pidió la propia persona NO "
+        "tiene botón de deshacer, y la pantalla dice por qué en vez de dejar "
+        "un hueco. Es la clase de regla que se rompe sin que nada falle — el "
+        "botón aparecería, funcionaría, y una baja que alguien pidió se "
+        "habría deshecho con un clic. Verificada poniendo el botón en todas "
+        "las filas: la sonda nombra las tres que no deberían tenerlo."
+    )
+    if motivo:
+        omitir(3, nombre, motivo)
+    elif rapido:
+        omitir(3, nombre, "--rapido")
+    else:
+        check_cmd(3, nombre, ["npm", "run", "sonda:supresion", "--silent"],
+                  porque, cwd=app, timeout=900)
+
     nombre = "sonda: la pantalla de contactos hace lo que dice"
     porque = (
         "Cuatro afirmaciones de la 3.2 que ningún test de unidad alcanza: que "

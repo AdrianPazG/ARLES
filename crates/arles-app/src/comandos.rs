@@ -794,6 +794,188 @@ fn pais_de_la_empresa(estado: &EstadoApp) -> Result<String, ErrorIpc> {
         .ok_or_else(|| ErrorIpc::from(crate::AppError::EmpresaNoConfigurada))
 }
 
+// ─── Entrega 3.4 · la lista de supresión ────────────────────────────────────
+
+/// Cuántas filas de la lista de supresión trae una página.
+///
+/// Más pequeña que la de contactos a propósito: esta lista se lee para
+/// **revisarla**, no para recorrerla. Quien la abre busca una dirección
+/// concreta o quiere ver las bajas recientes.
+pub const SUPRESIONES_POR_PAGINA: u32 = 50;
+
+const _: () = assert!(SUPRESIONES_POR_PAGINA as usize <= arles_db::MAX_SUPRESIONES_POR_PAGINA);
+
+/// Una fila de la lista, ya lista para pintarse.
+///
+/// Todo lo que la pantalla necesita decidir **viene resuelto desde Rust**:
+/// si se puede levantar, qué motivo enseñar, de quién es la dirección. La
+/// webview no vuelve a razonar ninguna de esas reglas — es la razón de que los
+/// comandos sean gruesos (regla de frontera 1).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SupresionParaLaPantalla {
+    pub id: arles_core::ids::SuppressionEntryId,
+    pub canal: arles_core::Canal,
+    pub direccion: String,
+    /// Clave de i18n del motivo (§139).
+    pub motivo: String,
+    /// **Resuelto aquí, no en la pantalla.** Si la interfaz decidiera esto por
+    /// su cuenta, el botón de «volver a permitir» aparecería o no según su
+    /// propia copia de la regla — y el día que divergieran, enseñaría un botón
+    /// que el núcleo rechaza, o escondería uno que sí valía.
+    pub se_puede_levantar: bool,
+    /// Si hay un contacto vivo con esa dirección, su nombre.
+    pub de_quien: String,
+    pub notas: String,
+    pub creada: String,
+    /// `true` si la baja fue para todos los canales de esa persona.
+    pub global: bool,
+}
+
+impl From<arles_db::SupresionGuardada> for SupresionParaLaPantalla {
+    fn from(s: arles_db::SupresionGuardada) -> Self {
+        Self {
+            id: s.id,
+            canal: s.canal,
+            direccion: s.direccion,
+            motivo: s.motivo.clave_i18n().to_owned(),
+            se_puede_levantar: s.motivo.se_puede_levantar(),
+            // Cadena vacía y no `null`: el frontend tiene
+            // `exactOptionalPropertyTypes`, y un `undefined` que cruza la
+            // frontera obliga a cada componente a contemplar tres casos donde
+            // hay dos.
+            de_quien: s.de_quien.unwrap_or_default(),
+            notas: s.notas,
+            creada: s.creada,
+            global: s.alcance == arles_core::AlcanceDeSupresion::Global,
+        }
+    }
+}
+
+/// Una página de la lista de supresión.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaginaDeSupresiones {
+    pub supresiones: Vec<SupresionParaLaPantalla>,
+    /// Cuántas hay en total, no cuántas vienen. Es lo que permite decir
+    /// «50 de 1 284» sin inventarse nada (§94).
+    pub total: usize,
+}
+
+/// La lista de quién pidió no recibir, de lo más reciente a lo más viejo.
+///
+/// Es lo que Dirección pidió el 21/09/2026: poder ver quién canceló, por qué
+/// canal y por qué motivo.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si la empresa no está configurada o si la base no responde.
+#[tauri::command]
+pub fn listar_supresiones(
+    estado: tauri::State<'_, EstadoApp>,
+    desde: u32,
+) -> Result<PaginaDeSupresiones, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let db = estado.db();
+
+    let filas = db
+        .listar_supresiones(empresa, desde as usize, SUPRESIONES_POR_PAGINA as usize)
+        .map_err(crate::AppError::Db)?;
+    let total = db
+        .contar_supresiones(empresa)
+        .map_err(crate::AppError::Db)?;
+
+    Ok(PaginaDeSupresiones {
+        supresiones: filas.into_iter().map(Into::into).collect(),
+        total,
+    })
+}
+
+/// Da de baja a un contacto entero: todos sus canales de una vez.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LA WEBVIEW NO DICE QUÉ DIRECCIONES SON
+///
+/// Sólo manda el identificador del contacto. Las direcciones **se leen de la
+/// base aquí**, por dos razones:
+///
+///   1. La pantalla enseña lo que cargó al abrir la ficha, y entre ese momento
+///      y el clic puede haberse añadido un canal. Dar de baja «todo» con una
+///      lista vieja dejaría ese canal abierto — justo el que la persona pidió
+///      cerrar.
+///   2. Es la quinta regla de frontera: un tipo validado no entra por JSON. Si
+///      la webview mandara las direcciones, mandaría su propia normalización, y
+///      la supresión compara justo esa forma.
+/// ─────────────────────────────────────────────────────────────────────────
+///
+/// # Errores
+///
+/// [`ErrorIpc`] con `error.db.contacto_no_existe` si ya no está; con
+/// `error.supresion_sin_canales` si el contacto no tiene ninguna dirección.
+#[tauri::command]
+pub fn suprimir_contacto(
+    estado: tauri::State<'_, EstadoApp>,
+    id: arles_core::ids::ContactId,
+    motivo: arles_core::MotivoDeSupresion,
+    notas: String,
+) -> Result<ResumenDeSupresionParaLaPantalla, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let db = estado.db();
+
+    let canales = db
+        .canales_para_suprimir(empresa, id)
+        .map_err(crate::AppError::Db)?;
+
+    let peticion = arles_core::PeticionDeSupresion::nueva(
+        canales,
+        arles_core::AlcanceDeSupresion::Global,
+        motivo,
+        // Lo hizo una persona desde ARLES. El origen no llega de la webview:
+        // sería la webview afirmando quién tomó la decisión.
+        arles_core::OrigenDeSupresion::Usuario,
+        &notas,
+    )
+    .map_err(crate::AppError::Core)?;
+
+    let resumen = db
+        .suprimir(empresa, &peticion)
+        .map_err(crate::AppError::Db)?;
+    Ok(ResumenDeSupresionParaLaPantalla {
+        nuevas: resumen.nuevas,
+        ya_estaban: resumen.ya_estaban,
+    })
+}
+
+/// Qué pasó al dar de baja. Cifras, no adjetivos (§94).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResumenDeSupresionParaLaPantalla {
+    pub nuevas: usize,
+    pub ya_estaban: usize,
+}
+
+/// Saca una dirección de la lista, si su motivo lo permite.
+///
+/// **No se comprueba aquí si se puede.** Se pide, y el repositorio lee el
+/// motivo guardado y decide. Comprobarlo también en este lado sería una segunda
+/// copia de la regla, y dos copias divergen.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] con `error.db.supresion_no_existe` si no está; con
+/// `error.db.supresion_no_se_levanta` si la persona la pidió ella misma.
+#[tauri::command]
+pub fn levantar_supresion(
+    estado: tauri::State<'_, EstadoApp>,
+    id: arles_core::ids::SuppressionEntryId,
+) -> Result<(), ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    estado
+        .db()
+        .levantar_supresion(empresa, id)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -963,5 +1145,84 @@ mod tests {
                 "el comando expone «{prohibido}» al frontend"
             );
         }
+    }
+    // ── Entrega 3.4 · la frontera de la supresión ──────────────────────────
+
+    /// **La regla viaja resuelta, no como dato en bruto.**
+    ///
+    /// La pantalla recibe `sePuedeLevantar` ya decidido por el núcleo. Si en
+    /// vez de eso recibiera el motivo y decidiera ella, tendría una segunda
+    /// copia de la regla — y el día que divergieran enseñaría un botón que el
+    /// núcleo rechaza, o escondería uno que sí valía.
+    #[test]
+    fn la_fila_de_supresion_viaja_con_la_regla_ya_resuelta() {
+        use arles_core::supresion::{AlcanceDeSupresion, MotivoDeSupresion, OrigenDeSupresion};
+
+        for (motivo, esperado) in [
+            (MotivoDeSupresion::Baja, false),
+            (MotivoDeSupresion::Queja, false),
+            (MotivoDeSupresion::RebotePermanente, true),
+            (MotivoDeSupresion::Manual, true),
+        ] {
+            let fila = SupresionParaLaPantalla::from(arles_db::SupresionGuardada {
+                id: arles_core::ids::SuppressionEntryId::nuevo(),
+                canal: arles_core::Canal::Correo,
+                direccion: "ana@empresa.mx".into(),
+                alcance: AlcanceDeSupresion::Canal,
+                motivo,
+                origen: OrigenDeSupresion::Usuario,
+                notas: String::new(),
+                creada: "2026-09-21T00:00:00Z".into(),
+                peticion: None,
+                de_quien: None,
+            });
+            assert_eq!(
+                fila.se_puede_levantar,
+                esperado,
+                "«{}» cruzó la frontera con la regla equivocada",
+                motivo.como_texto()
+            );
+            assert_eq!(fila.motivo, motivo.clave_i18n());
+        }
+    }
+
+    /// `de_quien` cruza como cadena vacía, nunca como `null`.
+    ///
+    /// El frontend tiene `exactOptionalPropertyTypes`: un `undefined` que cruza
+    /// obliga a cada componente a contemplar tres casos donde hay dos.
+    #[test]
+    fn una_direccion_sin_dueno_cruza_como_cadena_vacia() {
+        use arles_core::supresion::{AlcanceDeSupresion, MotivoDeSupresion, OrigenDeSupresion};
+
+        let fila = SupresionParaLaPantalla::from(arles_db::SupresionGuardada {
+            id: arles_core::ids::SuppressionEntryId::nuevo(),
+            canal: arles_core::Canal::WhatsApp,
+            direccion: "+528112345678".into(),
+            alcance: AlcanceDeSupresion::Global,
+            motivo: MotivoDeSupresion::Manual,
+            origen: OrigenDeSupresion::Usuario,
+            notas: String::new(),
+            creada: "2026-09-21T00:00:00Z".into(),
+            peticion: Some("p1".into()),
+            de_quien: None,
+        });
+
+        let json = serde_json::to_string(&fila).expect("serializa");
+        assert!(!json.contains("null"), "cruzó un null: {json}");
+        assert!(json.contains("\"deQuien\":\"\""), "{json}");
+        assert!(json.contains("\"global\":true"), "{json}");
+    }
+
+    /// La página de la frontera no puede pedir más de lo que el repositorio da.
+    ///
+    /// Es una comprobación **en tiempo de compilación** junto a la constante;
+    /// esto sólo deja constancia de por qué existe.
+    #[test]
+    fn la_pagina_de_supresiones_cabe_en_la_del_repositorio() {
+        assert!(
+            SUPRESIONES_POR_PAGINA as usize <= arles_db::MAX_SUPRESIONES_POR_PAGINA,
+            "la pantalla pediría más filas de las que el repositorio devuelve, \
+             y la paginación saltaría filas sin decirlo"
+        );
     }
 }
