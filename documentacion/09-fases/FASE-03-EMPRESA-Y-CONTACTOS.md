@@ -103,7 +103,7 @@ dos mitades se probaron rompiéndolas.
 
 | | Qué cubre |
 |---|---|
-| **133 pruebas de Rust** | Validación campo a campo, lista de alta derivada, guardado idempotente, bitácora en la misma transacción, preferencias con clave cerrada, migración sobre base poblada |
+| **133 pruebas de Rust al cerrar la 3.1** | Validación campo a campo, lista de alta derivada, guardado idempotente, bitácora en la misma transacción, preferencias con clave cerrada, migración sobre base poblada |
 | **55 pruebas de frontend** | P-11 escrito como pruebas: las dos formas de plegar, que el automático no pisa la preferencia, que sin núcleo no se finge un guardado |
 | **`sonda:plegado`** | El umbral, por los dos lados, más los seis enlaces con nombre accesible estando plegados |
 | **`sonda:ancho`** | Sigue vigilando lo de R-01: que a ninguna escala de Windows se corte nada |

@@ -6,7 +6,7 @@
 @@ DE | El equipo de ARLES RELAY I
 @@ DE QUÉ VA | Enviar correo y WhatsApp comercial en México, dentro de la ley
 @@ VERSIÓN | 2 · 22 de septiembre de 2026
-@@ QUÉ CAMBIÓ | Nueve preguntas nuevas · sección 12
+@@ QUÉ CAMBIÓ | Diez preguntas nuevas · sección 12
 @@ LA MÁS URGENTE | C-3 · sección 11
 
 === 1 · Léase esto primero
@@ -521,7 +521,7 @@ hemos contado?»*.
 
 **Qué añade la versión 2:**
 
-- **Nueve preguntas nuevas:** C-9 a C-18, todas marcadas dentro del documento.
+- **Diez preguntas nuevas:** C-9 a C-18, todas marcadas dentro del documento.
 - **Se renumeran** de «P-x» a «C-x» para no confundirlas con la numeración
   interna de nuestro registro de decisiones. **El orden y el contenido de las
   ocho primeras no cambia:** la antigua P-3 es la actual C-3.

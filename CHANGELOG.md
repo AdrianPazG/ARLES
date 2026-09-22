@@ -12,6 +12,43 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### La documentación se comprueba sola
+
+Dirección pidió revisar toda la documentación de GitHub. Son **66 documentos**.
+Leerlos de uno en uno no escala: para cuando terminas el último, el primero ya
+cambió. Así que en vez de leerlos, ahora se miden.
+
+`herramientas/validar/documentos.py` corre en cada validación y comprueba que
+ningún enlace lleve a un archivo o a una sección que ya no existe, que ninguna
+cifra afirmada haya caducado, que ningún documento prometa un anexo que nunca se
+escribió, que el índice nombre todo, y que **ningún identificador de modelo**
+acabe en el repositorio — una regla dura del proyecto que hasta hoy no vigilaba
+nadie.
+
+**Encontró cuatro cosas que ya no eran ciertas.** Tres documentos decían «las
+ocho preguntas» para el abogado, cuando son dieciocho. Y la consulta jurídica
+anunciaba «nueve preguntas nuevas: C-9 a C-18»: de C-9 a C-18 hay **diez**. Las
+dos mitades de esa frase eran creíbles por separado, y contarlas a mano es
+exactamente lo que nadie hace.
+
+**Y diez documentos que el índice no nombraba**, entre ellos la propia consulta
+jurídica y el informe de fase para Dirección. Un mapa que no nombra media
+biblioteca es peor que no tener mapa: parece completo.
+
+**Dos distinciones que la herramienta tuvo que aprender.** Una cifra **anclada a
+un momento** —«133 pruebas al cerrar la entrega 3.1»— es un registro, no una
+afirmación sobre hoy; reescribirla destruiría lo que un documento de fase sirve
+para guardar. Y **citar un error no es cometerlo**: el informe que cuenta estos
+hallazgos tiene que poder escribir la frase equivocada sin que salte la alarma,
+o el remedio sería callarla.
+
+**Y una de las comprobaciones nuevas no valía.** La que vigila que un rango de
+preguntas cuadre con su recuento decía «todos correctos» sin haber mirado
+ninguno: su expresión no sabía de negritas, así que contra la frase real no
+casaba nunca. Se descubrió porque el error ya se conocía de antemano. Si no,
+habría pasado por buena.
+
+
 ### Fase 3 cerrada · las cinco entregas
 
 `validar.py --fase 3` da **77 de 77, con 0 omitidas**. «Omitida» no es «pasa»:

@@ -205,7 +205,7 @@ Ninguno impide construir. **Los cuatro impiden entregar la v1.2.0.**
 | Qué | Quién | Qué bloquea exactamente |
 |---|---|---|
 | **P-01 · Licencia de Mont** | Dirección | **No se puede distribuir un instalador** con la tipografía dentro. Es lo que impide entregar el `.exe` |
-| **P-09 · Revisión jurídica** | Abogado | Los textos legales que el usuario lee. Las ocho preguntas están en `08-legal/CONSULTA-JURIDICA.md`. La construcción **no** se detiene (ADR-0013: se construye con texto marcado como provisional) |
+| **P-09 · Revisión jurídica** | Abogado | Los textos legales que el usuario lee. Las dieciocho preguntas están en `08-legal/CONSULTA-JURIDICA.md`. La construcción **no** se detiene (ADR-0013: se construye con texto marcado como provisional) |
 | **META · Cuenta con Coexistencia** | Operaciones | P-14 no se puede probar contra nada real |
 | **R-07 · Revisión en macOS** | Quien tenga un Mac | Nadie ha abierto ARLES en WKWebView. La vista previa **no cuenta**: ahí el motor es el del navegador |
 

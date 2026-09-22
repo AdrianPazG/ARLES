@@ -162,7 +162,7 @@ distintas para el mismo problema es como se acaba aplicando la equivocada.
 
 **Por qué no se decide ahora:** toca el marco legal y la respuesta correcta
 depende de si el consentimiento es prueba del cliente o dato del titular.
-Eso lo contesta un abogado, no ingeniería. Va con las ocho preguntas de
+Eso lo contesta un abogado, no ingeniería. Va con las dieciocho preguntas de
 `08-legal/CONSULTA-JURIDICA.md`.
 
 ---
@@ -237,7 +237,7 @@ varias fuentes secundarias fiables, y eso **reduce** lo que hay que preguntar:
 - **El reglamento de la ley nueva sigue sin publicarse.**
 - El medio de defensa pasa a ser el **juicio de amparo**.
 
-=> Las ocho preguntas concretas que quedan, escritas para mandarse tal cual a un
+=> Las dieciocho preguntas concretas que quedan, escritas para mandarse tal cual a un
 despacho, están en
 [**08-legal/CONSULTA-JURIDICA.md**](../08-legal/CONSULTA-JURIDICA.md). La que
 más pesa es **C-3 de esa consulta**: si el correo en frío a datos de una fuente

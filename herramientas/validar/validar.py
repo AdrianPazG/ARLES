@@ -197,6 +197,28 @@ def fase_0(rapido):
           "§37" in indice and "§69" in indice and "T-4" in indice,
           "El brief se contradecía en tres puntos; si no consta la resolución, alguien los reabrirá.")
 
+    # ── La documentación dice la verdad ──────────────────────────────────
+    #
+    # Se añade el 22/09/2026 después de que Dirección pidiera revisar la
+    # documentación entera. Son 66 archivos: releerlos no escala, y la
+    # documentación no falla ruidosamente sino quedándose atrás.
+    #
+    # En su primer recorrido encontró cuatro cosas que ya no eran ciertas —tres
+    # documentos diciendo «ocho preguntas» cuando son dieciocho, y un rango
+    # «C-9 a C-18» etiquetado como nueve cuando son diez— y diez documentos que
+    # el índice no nombraba, entre ellos la consulta jurídica y el informe de
+    # fase para Dirección.
+    #
+    # Va en la Fase 0 porque la documentación no es de ninguna fase: es de
+    # todas, y se queda atrás justamente cuando avanzan las otras.
+    check_cmd(0, "la documentación dice la verdad",
+              [sys.executable, os.path.join(RAIZ, "herramientas/validar/documentos.py")]
+              + (["--rapido"] if rapido else []),
+              "Un enlace que se rompió, una cifra que caducó o un anexo prometido y "
+              "nunca escrito no rompen nada: hacen que Dirección lea algo que no es "
+              "cierto. Es el mismo daño que hizo la vista previa desfasada — el "
+              "problema no fue el defecto, fue revisar sobre una copia que mentía.")
+
 
 # ─── Fase 1 · Cimientos ──────────────────────────────────────────────────────
 

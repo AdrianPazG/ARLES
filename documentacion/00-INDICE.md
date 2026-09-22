@@ -93,6 +93,12 @@
 | [PRESUPUESTO_RENDIMIENTO](06-calidad/PRESUPUESTO_RENDIMIENTO.md) | Objetivos a 500 k, medidos en CI |
 | [UMBRAL_DE_PLEGADO](06-calidad/UMBRAL_DE_PLEGADO.md) | Dónde se pliega sola la barra lateral, y por qué ese número |
 | [ATAQUES-A-LA-IMPORTACION](06-calidad/ATAQUES-A-LA-IMPORTACION.md) | Los trece archivos hostiles con los que se atacó la importación, y los tres fallos que encontraron. Puerta de salida de la entrega 3.3 |
+| [CHECKLIST-VISUAL](06-calidad/CHECKLIST-VISUAL.md) | Lo que Dirección revisa a ojo, pantalla por pantalla |
+| [CHECKLIST-3.1](06-calidad/CHECKLIST-3.1.md) | El repaso concreto de la entrega 3.1 |
+| [MANUAL_DE_ENTREGA](06-calidad/MANUAL_DE_ENTREGA.md) | Qué se entrega y en qué orden al cerrar una fase |
+| [MANUAL_WINDOWS](06-calidad/MANUAL_WINDOWS.md) · [PLANTILLA-WINDOWS](06-calidad/PLANTILLA-WINDOWS.md) | Cómo revisar en Windows, y dónde anotar lo que se ve |
+| [MANUAL_MAC](06-calidad/MANUAL_MAC.md) · [PLANTILLA-MAC](06-calidad/PLANTILLA-MAC.md) | Lo mismo para macOS. Sigue sin usarse: R-07 |
+| [Hallazgos · Windows 14/09/2026](06-calidad/revision-visual/2026-09-14-windows/HALLAZGOS.md) | La primera revisión en una ventana nativa, con sus capturas |
 
 ### 07 · Entrega
 | Documento | Contenido |
@@ -104,6 +110,7 @@
 | Documento | Contenido |
 |---|---|
 | [LICENCIAS_DE_TERCEROS](08-legal/LICENCIAS_DE_TERCEROS.md) | Mont, assets stock/IA, dependencias |
+| [CONSULTA-JURIDICA](08-legal/CONSULTA-JURIDICA.md) | Las dieciocho preguntas para el abogado, escritas para mandarse tal cual. Tiene PDF al lado |
 
 ### 09 · Fases
 Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verificar.
@@ -116,13 +123,14 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Fase 01 · resumen para Dirección](09-fases/FASE-01-PARA-DIRECCION.md) | Sin tecnicismos |
 | [Fase 02 · Design System](09-fases/FASE-02-DESIGN-SYSTEM.md) | ✅ 18/18 |
 | [Fase 02 · resumen para Dirección](09-fases/FASE-02-PARA-DIRECCION.md) | Sin tecnicismos |
-| [Fase 03 · Empresa y contactos](09-fases/FASE-03-EMPRESA-Y-CONTACTOS.md) | 🟡 en curso · entrega 3.1 ✅ 19/19 |
+| [Fase 03 · Empresa y contactos](09-fases/FASE-03-EMPRESA-Y-CONTACTOS.md) | ✅ cerrada · 77/77, 0 omitidas |
+| [Fase 03 · resumen para Dirección](09-fases/FASE-03-PARA-DIRECCION.md) | Sin tecnicismos |
 
 ---
 
 ## Estado del proyecto
 
-### Fases 0, 1 y 2 ✅ cerradas · Fase 3 es la siguiente
+### Fases 0, 1, 2 y 3 ✅ cerradas · Fase 4 es la siguiente
 
 La puerta de salida se cruzó el **2026-09-11**: Dirección aprobó la auditoría, **D-5** autorizó desarrollar con Mont, y **P-02** quedó cerrada porque el logotipo es tipográfico por diseño (§21).
 

@@ -89,7 +89,23 @@ Un botón deshabilitado conservaba su marco dorado: texto apagado dentro de un m
 
 Lo interesante es **por qué no se había visto**: los colores del sistema estaban verificados desde la Fase 2. Lo que no estaba verificado era **cómo se combinan las reglas** cuando dos de ellas se pisan.
 
-### 5.3 Dos comprobaciones que no servían para nada
+### 5.3 La documentación decía cuatro cosas que ya no eran ciertas
+
+Usted pidió revisar toda la documentación de GitHub. Son **66 documentos**. Leerlos de uno en uno no sirve: para cuando termina de leer el último, el primero ya cambió.
+
+Así que en vez de leerlos, escribí algo que los **mide**. Encontró esto:
+
+- **Tres documentos decían «las ocho preguntas»** para el abogado. Son dieciocho desde hace días.
+- **La consulta jurídica decía «nueve preguntas nuevas: C-9 a C-18»**. De C-9 a C-18 hay **diez**, no nueve. Las dos mitades de la frase eran creíbles por separado, y contarlas a mano es justo lo que nadie hace.
+- **El índice no nombraba diez documentos**, entre ellos dos importantes: la propia consulta jurídica y el informe de la fase anterior. Un mapa que no nombra media biblioteca es peor que no tener mapa, porque parece completo.
+
+Los cuatro están corregidos. Y ahora hay una comprobación que se ejecuta sola y revisa, cada vez: que ningún enlace lleve a un archivo que ya no existe, que ninguna cifra afirmada haya caducado, que ningún documento prometa un anexo que nunca se escribió, y que el índice nombre todo.
+
+**Una cosa que decidí a propósito:** las cifras con fecha **no se tocan**. Cuando un documento dice «133 pruebas al cerrar la entrega 3.1», eso era cierto entonces y lo seguirá siendo siempre. Reescribirlo para que cuadre con hoy destruiría exactamente lo que un documento de fase sirve para guardar: cómo estaban las cosas ese día.
+
+---
+
+### 5.4 Dos comprobaciones que no servían para nada
 
 Esta es la que quiero que se lleve.
 
@@ -97,7 +113,15 @@ Una de las comprobaciones nuevas preguntaba si algo se salía de la pantalla. De
 
 Su segunda versión hacía lo contrario: señalaba un problema en las diez pantallas, cada vez, sin que hubiera nada que arreglar. Un aviso que siempre está es un aviso que se deja de leer.
 
-Las dos se arreglaron **porque se les rompió algo a propósito**, no porque alguien las leyera y le pareciera que estaban bien. Eso es la regla de trabajo del proyecto: *una comprobación que nunca se ha visto fallar no está verificada*. En esta fase ha encontrado cuatro cosas así.
+Las dos se arreglaron **porque se les rompió algo a propósito**, no porque alguien las leyera y le pareciera que estaban bien.
+
+Ésta es la regla de trabajo del proyecto, y quiero explicarla bien porque es la que más valor da:
+
+> **Una comprobación que nunca se ha visto fallar no está verificada.**
+
+Dicho en simple: si usted pone una alarma en su casa y nunca la ha oído sonar, no sabe si funciona. Sabe que no ha sonado, que es distinto. La única forma de saberlo es abrir una puerta a propósito y comprobar que suena.
+
+Eso es lo que hacemos con cada comprobación antes de confiar en ella: rompemos la cosa que vigila, miramos que salte, y lo dejamos anotado. **En esta fase eso ha descubierto cinco comprobaciones que no servían para nada** — incluida una de las que escribí esta misma semana para vigilar la documentación, que decía «todo correcto» sin haber mirado ni un solo caso.
 
 ---
 
@@ -154,7 +178,7 @@ Una sola orden lo corre todo:
 python3 herramientas/validar/validar.py --fase 3
 ```
 
-Hoy da **75 de 75, con 0 omitidas**. «Omitida» es importante: significa que una comprobación no se pudo correr. Una omitida **no es una que pasa**, y el validador las cuenta aparte para que nadie las confunda.
+Hoy da **77 de 77, con 0 omitidas**, más las comprobaciones de la documentación. «Omitida» es importante: significa que una comprobación no se pudo correr. Una omitida **no es una que pasa**, y el validador las cuenta aparte para que nadie las confunda.
 
 Por debajo: **386 pruebas** del motor en Rust, **102** de las pantallas, y **9 sondas** que abren un navegador de verdad, pulsan y miden. Las sondas existen porque hay cosas que sólo se ven así: que una pantalla **se encuentre desde la barra**, que un botón no se arme solo, que el contraste real sea el que decimos.
 
