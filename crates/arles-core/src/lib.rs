@@ -17,6 +17,7 @@ pub mod analisis;
 pub mod arco;
 pub mod attempt;
 pub mod canal;
+pub mod cancelacion;
 pub mod contacto;
 pub mod email;
 pub mod empresa;

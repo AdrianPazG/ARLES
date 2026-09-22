@@ -121,6 +121,52 @@ El enforcement está fuera de v1.2.0 (T-6, D-4), pero el **esquema** se define a
 
 ---
 
+### P-17 · ¿El consentimiento registrado sobrevive a una cancelación? · 🔴 **abierta**
+**Afecta a:** el derecho de Cancelación · **Encontrada el:** 22/09/2026, construyendo la 3.4 · **Dueño:** Abogado (con Dirección)
+
+**El problema.** `consent_entry` es la tabla donde se anotará que alguien dio
+permiso para recibir correos: qué dijo, cuándo y en qué se apoya. Guarda la
+dirección **en claro**, y es **append-only por disparador** — no admite
+`UPDATE` ni `DELETE`.
+
+Cuando esa persona ejerza el derecho de cancelación, todo lo demás se borra o
+se anonimiza. Esa fila **no se puede tocar**. Así que su dirección seguiría ahí,
+en una tabla que nadie puede modificar, después de habérsele dicho que sus
+datos se borraron.
+
+**El riesgo.** Decirle a alguien «sus datos fueron eliminados» cuando su correo
+sigue en una tabla del sistema. No es un fallo técnico: es una afirmación falsa
+en respuesta a un derecho, que es la clase de cosa por la que se sanciona.
+
+**El impacto hoy: ninguno.** Nadie escribe todavía en esa tabla — el
+consentimiento se registrará cuando existan las campañas, en la entrega 6. Hay
+tiempo de decidirlo bien, y hay un guardián: la prueba
+`no_queda_la_direccion_en_ninguna_tabla` de `arles-db` recorre el esquema
+entero y **fallará el día que alguien escriba ahí**. El problema no se puede
+colar en silencio.
+
+**Las alternativas, con su coste:**
+
+| | Qué se hace | A favor | En contra |
+|---|---|---|---|
+| **A** | Permitir borrar `consent_entry` en una cancelación | El borrado es completo y honesto | Se pierde la prueba de que ese envío era legítimo, justo de la persona que podría reclamar |
+| **B** | Guardar la dirección **en huella** desde el principio | La tabla nunca tiene un dato personal legible | La huella de un correo se revierte con un diccionario: es pseudonimizar, no anonimizar |
+| **C** | Conservarla, como la baja, con el mismo argumento | Coherente con lo ya decidido | La baja protege a la persona; el consentimiento protege al cliente. **No es el mismo argumento** |
+| **D** | Anonimizar la dirección y conservar el resto | Se conserva «el 3 de marzo alguien dio permiso por formulario» sin quién | Hay que levantar el disparador de append-only, que es un invariante del §91 |
+
+**Recomendación: D**, con el disparador reescrito para permitir exactamente esa
+sustitución y nada más. Conserva lo que la auditoría necesita —que hubo
+consentimiento y de qué tipo— y suelta lo único que identifica. Es la misma
+resolución que ya se aplicó a los intentos de envío, y tener dos reglas
+distintas para el mismo problema es como se acaba aplicando la equivocada.
+
+**Por qué no se decide ahora:** toca el marco legal y la respuesta correcta
+depende de si el consentimiento es prueba del cliente o dato del titular.
+Eso lo contesta un abogado, no ingeniería. Va con las ocho preguntas de
+`08-legal/CONSULTA-JURIDICA.md`.
+
+---
+
 ### P-16 · ¿Cuándo se conecta Google Drive / Sheets? · ✅ **cerrada el 18/09/2026: en la v1.3**
 **Afecta a:** cómo llega el archivo a importar · **Decisión:** D-8
 

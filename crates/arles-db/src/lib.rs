@@ -12,6 +12,7 @@
 #![forbid(unsafe_code)]
 
 pub mod arco;
+pub mod cancelacion;
 pub mod conexion;
 pub mod contactos;
 pub mod db;

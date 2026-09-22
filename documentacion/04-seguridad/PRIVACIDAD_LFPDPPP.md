@@ -116,6 +116,55 @@ Así la auditoría conserva el hecho —«el 12 de marzo se canceló un titular�
 
 Conviene que TELEMETRY valide esta interpretación jurídicamente.
 
+#### Lo que se decidió al construirlo · 22/09/2026
+
+Esta sección se escribió antes del código. Construirlo obligó a resolver tres
+cosas que aquí no estaban, y quedan asentadas.
+
+**1 · La supresión no sólo permanece: se CREA.**
+
+El argumento de arriba dice que borrarla dejaría a esa persona expuesta a la
+siguiente importación. El mismo argumento obliga a crearla cuando no la había.
+Cancelación y oposición son derechos distintos: alguien puede pedir el borrado
+sin haber pedido nunca la baja. Borrarlo sin dejar la baja abre exactamente el
+agujero que este documento describe — su dirección en un CSV la semana que
+viene, y ARLES escribiéndole a quien pidió desaparecer. Y no lo detectaría
+nada: el envío «funcionaría».
+
+La baja se crea con motivo `unsubscribe`, que es el que **no se puede levantar
+con un botón**. Levantarla dejaría volver a escribir a esa persona.
+
+**2 · La marca que sustituye a la dirección es aleatoria, no una huella.**
+
+Hay que poner algo donde estaba la dirección: `message_attempt` y
+`campaign_audience` la tienen `NOT NULL` y dentro de un índice único. La salida
+cómoda es `sha256(direccion)` — y está **mal**. Una dirección de correo vive en
+un espacio pequeño y adivinable: con una lista de correos y un rato de cómputo,
+esa huella se revierte. Sería conservar a la persona con otro nombre y llamarlo
+borrado.
+
+La marca es aleatoria y **distinta en cada fila**. Ni siquiera ARLES puede
+saber después si dos intentos fueron de la misma persona — que es justo lo que
+se ha pedido destruir. Una marca compartida entre las filas de esa persona las
+dejaría reagrupables.
+
+Detalle que casi se cuela: los identificadores de ARLES son UUID v7, que llevan
+la hora dentro. Con v7, todas las marcas de una misma cancelación quedarían
+consecutivas al ordenarlas, y el vínculo seguiría ahí a la vista. La marca usa
+**v4**.
+
+La bitácora sí lleva huella, y ahí es correcto: es una sola anotación, con una
+finalidad concreta —poder demostrar que la cancelación se atendió— y es lo que
+esta misma sección decide arriba.
+
+**3 · `consent_entry` es un hueco conocido, y está abierto como P-17.**
+
+Esa tabla es append-only por disparador y guarda la dirección en claro. Al
+cancelar no se puede tocar. Hoy no la escribe nadie —el consentimiento se
+registra cuando existan las campañas, entrega 6—, así que no hay nada que
+borrar todavía, y la prueba `no_queda_la_direccion_en_ninguna_tabla` fallará el
+día que alguien escriba ahí. La decisión es jurídica y va con la consulta.
+
 ### Oposición
 Equivale a una entrada en la lista de supresión con `reason = unsubscribe`. Bloquea todo envío futuro.
 

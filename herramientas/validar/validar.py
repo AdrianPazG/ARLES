@@ -2025,6 +2025,69 @@ def la_pantalla_de_acceso_no_pide_rutas_ni_dialogos():
     )
 
 
+def la_cancelacion_borra_de_verdad():
+    """Cancelar es un `DELETE`, no un `deleted_at`, y deja siempre la baja.
+
+    La LFPDPPP da derecho a un borrado **físico**. El atajo evidente es
+    reutilizar el borrado lógico que ya existe para la papelera de contactos:
+    la interfaz quedaría idéntica, nadie lo notaría, y los datos seguirían
+    íntegros en el disco de quien pidió que los borraran.
+
+    Y la segunda mitad, que importa igual: cancelar **deja siempre una baja**.
+    Sin ella, esa dirección en un CSV la semana que viene volvería a recibir
+    correos — de alguien que pidió desaparecer. Sería el peor fallo posible del
+    producto, y no lo detectaría nada: el envío «funcionaría».
+
+    Las pruebas de `arles-db` lo comprueban sobre una base real. Esto vigila el
+    código, que es donde se introduciría el atajo.
+    """
+    nucleo = leer("crates", "arles-core", "src", "cancelacion.rs")
+    datos = leer("crates", "arles-db", "src", "cancelacion.rs")
+
+    check(
+        3,
+        "la cancelación borra la ficha de verdad",
+        "DELETE FROM contact" in datos,
+        la_cancelacion_borra_de_verdad.__doc__,
+        detalle="no aparece un DELETE sobre `contact`: ¿se volvió a un borrado lógico?",
+    )
+    # AQUÍ NO VA «cancelar deja siempre la baja», Y ES A PROPÓSITO.
+    #
+    # Se escribió, y el cebo la dejó en evidencia: buscaba el texto
+    # `INSERT INTO suppression_entry`, así que comentar esa sentencia —o
+    # dejarla dentro de un `if false`— la habría dejado pasando en verde. Una
+    # comprobación de texto no distingue «está» de «se ejecuta».
+    #
+    # Lo comprueba de verdad `cancelar_crea_la_baja_si_no_la_habia` en
+    # `arles-db`, sobre una base real, y se verificó rompiéndola: sin el
+    # INSERT falla diciendo «cancelar no dejó baja: se le puede volver a
+    # escribir». Duplicarla aquí en una versión que no puede fallar sólo
+    # añadiría una luz verde que no significa nada.
+
+    # La marca que sustituye a la dirección NO puede derivarse de ella. Una
+    # huella de un correo se revierte con un diccionario, y entonces se habría
+    # conservado a la persona con otro nombre llamándolo borrado.
+    check(
+        3,
+        "la marca de borrado no se deriva de la dirección",
+        "Uuid::new_v4()" in nucleo and "huella(" not in sin_comentarios(nucleo),
+        la_cancelacion_borra_de_verdad.__doc__,
+        detalle="la marca parece derivarse de la dirección: sería reversible",
+    )
+
+    # Y `Cancelacion` no se deserializa: un tipo que afirma que un borrado
+    # ocurrió sólo puede salir de quien lo hizo (quinta regla de frontera).
+    derives = re.search(r"#\[derive\(([^)]*)\)\]\s*(?:#\[serde[^\]]*\]\s*)*pub struct Cancelacion",
+                        nucleo)
+    check(
+        3,
+        "Cancelacion no se puede deserializar",
+        bool(derives) and "Deserialize" not in derives.group(1),
+        la_cancelacion_borra_de_verdad.__doc__,
+        detalle="la webview podría fabricar un resumen de borrado que no ocurrió",
+    )
+
+
 def el_texto_legal_se_ve_provisional():
     """Mientras P-09 siga abierta, el texto de la declaración lo dice.
 
@@ -2097,6 +2160,7 @@ def fase_3(rapido):
     ajustes_es_de_la_aplicacion_y_no_del_negocio()
     la_barra_dice_en_que_seccion_estas()
     la_pantalla_de_acceso_no_pide_rutas_ni_dialogos()
+    la_cancelacion_borra_de_verdad()
     el_texto_legal_se_ve_provisional()
 
     print(f"{GRIS}  sondas{FIN}")

@@ -12,6 +12,55 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### El borrado de verdad, por dentro (entrega 3.4, sin pantalla todavía)
+
+Es la parte con más tensión del producto: la ley da derecho a un **borrado
+físico real** —no a marcar una ficha como borrada— y a la vez exige una
+bitácora de auditoría, que por definición no se borra.
+
+La resolución separa **el hecho** de **la identidad**:
+
+| Qué | Qué pasa |
+|---|---|
+| Su ficha, sus campos, sus correos y móviles, sus listas y etiquetas | **Se borran de verdad.** Desaparecen de la base |
+| Los envíos que se le hicieron y la audiencia congelada de cada campaña | **El hecho se conserva, el nombre se corta.** Queda «se envió un correo el 3 de febrero y rebotó», sin a quién |
+| La bitácora | Anota que hubo una cancelación, con la dirección **en huella** |
+| Su baja | **Permanece. Y si no la había, se crea** |
+
+**Por qué la baja se crea y no sólo se conserva.** Cancelación y oposición son
+derechos distintos: alguien puede pedir que borres sus datos sin haber pedido
+antes la baja. Borrarlo sin dejar la baja abre el agujero peor del producto —
+su dirección en un CSV la semana que viene, y ARLES escribiéndole a alguien que
+pidió desaparecer. Y no lo detectaría nada: el envío «funcionaría».
+
+**Por qué la marca que sustituye a la dirección es aleatoria y no una huella.**
+Hay que poner *algo* donde estaba el correo. Lo cómodo es guardar su huella, y
+está mal: una dirección de correo vive en un espacio adivinable, y esa huella
+se revierte con una lista de correos y un rato de cómputo. Sería conservar a la
+persona con otro nombre y llamarlo borrado. La marca es aleatoria y **distinta
+en cada fila**: ni siquiera ARLES puede saber después si dos envíos fueron de
+la misma persona — que es justo lo que se ha pedido destruir.
+
+Casi se cuela un fallo ahí: los identificadores de ARLES llevan la hora dentro,
+y si la marca la hubiera usado, todas las de una misma cancelación quedarían
+consecutivas al ordenarlas. El vínculo habría seguido a la vista.
+
+**La puerta de salida.** Hay una prueba que, después de cancelar, **recorre el
+esquema entero de la base** —tabla por tabla, columna por columna,
+preguntándoselo a SQLite— y exige que la dirección no aparezca en claro en
+ninguna parte salvo en la lista de bajas. Se comprobó rompiéndola: quitando la
+anonimización de los envíos falla nombrando exactamente dónde se quedó.
+
+Esa misma prueba es el guardián de un hueco que encontramos construyendo y que
+**no es nuestro de decidir**: la tabla donde se registrará el consentimiento no
+admite borrado por diseño, y guarda la dirección en claro. Hoy no la escribe
+nadie, así que no hay nada que borrar; el día que se escriba, esa prueba
+fallará. Queda abierto como **P-17**, para el abogado.
+
+**Todavía no hay botón.** Esto es el motor: el núcleo, la capa de datos y sus
+garantías. La pantalla desde la que se dispara va aparte, porque un borrado
+irreversible necesita que la interfaz avise antes y no después.
+
 ### Ya se puede atender a quien pregunta qué datos tienes de él
 
 La ley mexicana obliga a responder cuando alguien lo pide. La máquina que
