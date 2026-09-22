@@ -194,31 +194,42 @@ function pagina(delta: number): void {
               :key="fila.id"
               class="fila"
             >
-              <td class="fila__direccion">
-                <span class="fila__canal">
-                  {{
-                    fila.canal === 'email'
-                      ? t('supresion.canal.correo')
-                      : t('supresion.canal.whatsapp')
-                  }}
-                </span>
-                <span class="fila__valor">{{ fila.direccion }}</span>
-                <AInsignia
-                  v-if="fila.global"
-                  tono="neutro"
-                >
-                  {{ t('supresion.global') }}
-                </AInsignia>
+              <!-- La caja interior existe por una razón concreta: `display:
+                   flex` puesto sobre el `<td>` saca la celda del algoritmo de
+                   tabla, y entonces su línea inferior deja de alinear con la
+                   del resto de la fila. Se veía en la vista previa: los
+                   separadores de la primera columna caían a una altura
+                   distinta de los de «De quién». La celda se queda celda; lo
+                   que se coloca es su contenido. -->
+              <td>
+                <div class="fila__direccion">
+                  <span class="fila__canal">
+                    {{
+                      fila.canal === 'email'
+                        ? t('supresion.canal.correo')
+                        : t('supresion.canal.whatsapp')
+                    }}
+                  </span>
+                  <span class="fila__valor">{{ fila.direccion }}</span>
+                  <AInsignia
+                    v-if="fila.global"
+                    tono="neutro"
+                  >
+                    {{ t('supresion.global') }}
+                  </AInsignia>
+                </div>
               </td>
               <td>{{ fila.deQuien || t('supresion.sinContacto') }}</td>
-              <td class="fila__motivo">
-                {{ motivo(fila.motivo) }}
-                <span
-                  v-if="!fila.sePuedeLevantar"
-                  class="fila__candado"
-                >
-                  {{ t('supresion.loPidioLaPersona') }}
-                </span>
+              <td>
+                <div class="fila__motivo">
+                  <span>{{ motivo(fila.motivo) }}</span>
+                  <span
+                    v-if="!fila.sePuedeLevantar"
+                    class="fila__candado"
+                  >
+                    {{ t('supresion.loPidioLaPersona') }}
+                  </span>
+                </div>
               </td>
               <td class="fila__fecha">
                 {{ fecha(fila.creada) }}
@@ -262,53 +273,82 @@ function pagina(delta: number): void {
 </template>
 
 <style scoped>
-/* §17: ni un hex, ni un píxel suelto. Todo sale de los tokens. */
+/* §17: ni un hex, ni un píxel suelto. Todo sale de los tokens.
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * ESTA HOJA ENTERA ESTUVO MUERTA · encontrado el 22/09/2026
+ *
+ * Se escribió con catorce nombres de token **inventados** —`--espacio-3`,
+ * `--color-texto-suave`, `--texto-sm`…— cuando los del proyecto son
+ * `--arles-space-3`, `--arles-text-muted`, `--arles-font-size-small`.
+ * Ninguno de los catorce existía. Ni uno.
+ *
+ * Consecuencia: la tabla salía **sin relleno, sin separadores y sin
+ * jerarquía**; la etiqueta del canal se pegaba a la dirección
+ * —«CORREOana@empresa.mx»—, la columna «Por qué» se desbordaba sobre la fila
+ * siguiente, y el texto reservado a los lectores de pantalla se veía.
+ *
+ * POR QUÉ NO LO CAZÓ NADA, que es lo que importa:
+ *
+ *   - CSS con una variable inexistente **no es un error**. No avisa el
+ *     compilador, ni el linter, ni el navegador: la declaración se descarta en
+ *     silencio y la propiedad se queda en su valor inicial.
+ *   - La comprobación de §17 busca literales —hex, píxeles sueltos—. Estos
+ *     eran `var(…)` perfectamente formados, así que pasaba.
+ *   - `sonda:supresion` mide **comportamiento**: que la lista cargue, que
+ *     busque, que el botón de levantar aparezca sólo donde toca. Todo eso
+ *     funcionaba. Una pantalla puede hacer lo correcto y ser ilegible.
+ *
+ * Desde hoy lo vigila el validador: «ningún estilo usa un token que no
+ * existe». Se comprobó rompiéndolo.
+ * ───────────────────────────────────────────────────────────────────────────
+ */
 .supresion {
   display: flex;
   flex-direction: column;
-  gap: var(--espacio-6);
+  gap: var(--arles-space-6);
 }
 
 .supresion__explicacion {
-  margin: 0 0 var(--espacio-4);
-  max-width: var(--medida-texto);
-  color: var(--color-texto-suave);
+  margin: 0 0 var(--arles-space-4);
+  max-width: 62ch;
+  color: var(--arles-text-muted);
 }
 
 .supresion__cifras {
   display: flex;
-  gap: var(--espacio-3);
-  margin-bottom: var(--espacio-4);
+  gap: var(--arles-space-3);
+  margin-bottom: var(--arles-space-4);
 }
 
 .supresion__buscar {
-  margin-bottom: var(--espacio-4);
-  max-width: var(--medida-texto);
+  margin-bottom: var(--arles-space-4);
+  max-width: 62ch;
 }
 
 .supresion__filtro-parcial {
-  margin: var(--espacio-2) 0 0;
-  font-size: var(--texto-xs);
-  color: var(--color-texto-suave);
+  margin: var(--arles-space-2) 0 0;
+  font-size: var(--arles-font-size-caption);
+  color: var(--arles-text-muted);
 }
 
 .tabla {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--texto-sm);
+  font-size: var(--arles-font-size-small);
 }
 
 .tabla th {
   text-align: start;
-  padding: var(--espacio-2) var(--espacio-3);
-  border-bottom: var(--borde-1) solid var(--color-borde);
-  color: var(--color-texto-suave);
-  font-weight: var(--peso-medio);
+  padding: var(--arles-space-2) var(--arles-space-3);
+  border-bottom: var(--arles-border-width) solid var(--arles-border-strong);
+  color: var(--arles-text-muted);
+  font-weight: var(--arles-font-weight-semibold);
 }
 
 .fila td {
-  padding: var(--espacio-3);
-  border-bottom: var(--borde-1) solid var(--color-borde-sutil);
+  padding: var(--arles-space-3);
+  border-bottom: var(--arles-border-width) solid var(--arles-border);
   vertical-align: top;
 }
 
@@ -316,14 +356,14 @@ function pagina(delta: number): void {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--espacio-2);
+  gap: var(--arles-space-2);
 }
 
 .fila__canal {
-  color: var(--color-texto-suave);
-  font-size: var(--texto-xs);
+  color: var(--arles-text-muted);
+  font-size: var(--arles-font-size-caption);
   text-transform: uppercase;
-  letter-spacing: var(--espaciado-ancho);
+  letter-spacing: 0.08em;
 }
 
 .fila__valor {
@@ -333,14 +373,14 @@ function pagina(delta: number): void {
 .fila__motivo {
   display: flex;
   flex-direction: column;
-  gap: var(--espacio-1);
+  gap: var(--arles-space-1);
 }
 
 /* Por qué no hay botón en esa fila. Un hueco sin explicación se lee como un
    fallo de la aplicación, no como una decisión. */
 .fila__candado {
-  font-size: var(--texto-xs);
-  color: var(--color-texto-suave);
+  font-size: var(--arles-font-size-caption);
+  color: var(--arles-text-muted);
 }
 
 .fila__fecha {
@@ -355,15 +395,21 @@ function pagina(delta: number): void {
 .supresion__paginas {
   display: flex;
   justify-content: space-between;
-  margin-top: var(--espacio-4);
+  margin-top: var(--arles-space-4);
 }
 
+/* Visible para el lector de pantalla, invisible para la vista. Igual que
+   `.solo-lectores` de App.vue, y con el mismo `1px` literal: no es una medida
+   de diseño que deba salir de un token, es el mínimo que mantiene el nodo en
+   el árbol de accesibilidad. Antes decía `var(--borde-1)`, un token que **no
+   existe**, así que la declaración era inválida, el ancho caía en `auto` y el
+   texto para lectores de pantalla **se veía**. */
 .sr-only {
   position: absolute;
-  width: var(--borde-1);
-  height: var(--borde-1);
+  width: 1px;
+  height: 1px;
   padding: 0;
-  margin: calc(var(--borde-1) * -1);
+  margin: -1px;
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;

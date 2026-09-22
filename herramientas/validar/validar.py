@@ -685,8 +685,24 @@ RE_MS = re.compile(r"\b\d+ms\b")
 # Píxeles sueltos de 4 en adelante. Los de 1 a 3 son filetes y desplazamientos
 # de borde, no decisiones de diseño: ver §2.1 del DESIGN_SYSTEM.
 RE_PX = re.compile(r"[^-0-9a-z(]([4-9]|[1-9][0-9]+)px")
-RE_USO_DE_TOKEN = re.compile(r"var\(\s*(--arles-[a-z0-9-]+)")
-RE_DEF_DE_TOKEN = re.compile(r"^\s*(--arles-[a-z0-9-]+)\s*:", re.M)
+# ── Tokens ─────────────────────────────────────────────────────────────────
+#
+# CUIDADO CON ESTAS DOS EXPRESIONES · corregidas el 22/09/2026
+#
+# Decían `--arles-[a-z0-9-]+`, las dos. Es decir: la comprobación de «todo
+# token que se usa está definido» **sólo miraba los que ya empiezan por
+# `--arles-`**. Cazaba una errata dentro de la familia —`--arles-spacee-3`— y
+# era ciega a un nombre de otra familia entera.
+#
+# Que es exactamente lo que pasó: `PantallaSupresion.vue` se escribió con
+# catorce tokens inventados —`--espacio-3`, `--color-texto-suave`,
+# `--texto-sm`…— y la hoja de estilos entera quedó muerta sin que nada lo
+# dijera. La comprobación pasaba en verde porque **no podía fallar**.
+#
+# Es el caso de manual de la regla de trabajo: una comprobación que nunca se
+# ha visto fallar no está verificada. Ésta llevaba desde la Fase 2 sin poder.
+RE_USO_DE_TOKEN = re.compile(r"var\(\s*(--[a-zA-Z0-9_-]+)")
+RE_DEF_DE_TOKEN = re.compile(r"(--[a-zA-Z0-9_-]+)\s*:")
 
 
 def sin_comentarios(texto):
@@ -947,15 +963,27 @@ def fase_2(rapido):
     for ruta in ("app/src/design/base.css", "herramientas/design-tokens/dist/arles-tokens.css"):
         definidos |= set(RE_DEF_DE_TOKEN.findall(leer(ruta) or ""))
 
+    # Un archivo puede declarar variables **suyas** —`--arles-medida: 540px` en
+    # PantallaInicio.vue— y usarlas. Eso es legítimo y no es un huérfano, así
+    # que lo que cada archivo define localmente se suma a lo global sólo para
+    # ese archivo. Sin esta parte, ampliar la expresión de arriba habría
+    # producido una lluvia de falsos positivos y la comprobación se habría
+    # acabado relajando otra vez.
     huerfanos = set()
     for base, _, archivos in os.walk(os.path.join(RAIZ, "app/src")):
         for n in archivos:
             if not n.endswith((".vue", ".css", ".ts")):
                 continue
             with open(os.path.join(base, n), encoding="utf-8") as f:
-                for token in RE_USO_DE_TOKEN.findall(f.read()):
-                    if token not in definidos:
-                        huerfanos.add(f"{n}: {token}")
+                # Sin comentarios, por lo mismo de siempre: `PantallaSupresion`
+                # EXPLICA en su cabecera que decía `var(--borde-1)` y por qué
+                # eso la dejó muerta. Leer el comentario haría que la
+                # comprobación se disparara contra su propia documentación.
+                cuerpo = sin_comentarios_ni_html(f.read())
+            locales = set(RE_DEF_DE_TOKEN.findall(cuerpo))
+            for token in RE_USO_DE_TOKEN.findall(cuerpo):
+                if token not in definidos and token not in locales:
+                    huerfanos.add(f"{n}: {token}")
 
     # ── El catálogo no puede llegar a la máquina del cliente ──
     #

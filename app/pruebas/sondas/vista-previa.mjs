@@ -168,6 +168,34 @@ try {
     console.log('✓ O-3 · la subsección Configuración se enseña marcada, y sólo la suya.')
   }
 
+  // §19 · EL ESTADO NO PUEDE VIVIR SÓLO EN EL COLOR · 22/09/2026
+  //
+  // Medido auditando: el relleno de la subsección activa da 1.76:1 en oscuro y
+  // 1.80:1 en claro sobre la barra — por debajo del 3:1 mínimo de un elemento
+  // no textual. La sección madre aguanta ese relleno flojo porque ADEMÁS lleva
+  // su barra de acento; la subsección no llevaba nada.
+  //
+  // Se mide AQUÍ y no en una prueba de componente porque la barra es un
+  // pseudoelemento, y jsdom no los calcula: allí sólo se podría volver a
+  // afirmar que la clase está puesta, cosa que pasaría igual con el CSS
+  // borrado.
+  const acento = await pagina.evaluate(() => {
+    const activa = document.querySelector('a.sub-enlace.activo')
+    const dormida = document.querySelector('nav a.sub-enlace:not(.activo)')
+    const alto = (n) => (n ? parseFloat(getComputedStyle(n, '::before').height) || 0 : null)
+    return { activa: alto(activa), dormida: alto(dormida) }
+  })
+  if (!(acento.activa > 0)) {
+    mal(
+      `La subsección activa no dibuja barra de acento (alto ${acento.activa}px). ` +
+        `Su estado quedaría sólo en un relleno de 1.76:1, que el §19 prohíbe.`,
+    )
+  } else if (acento.dormida !== null && acento.dormida > 0) {
+    mal(`Una subsección que no está abierta también dibuja barra (${acento.dormida}px).`)
+  } else {
+    console.log(`✓ §19 · la subsección activa lleva barra de acento (${acento.activa}px), no sólo relleno.`)
+  }
+
   // Las migas, que son el indicativo que sobrevive a plegar la barra.
   const migas = await pagina.evaluate(() => {
     const n = document.querySelector('.migas')

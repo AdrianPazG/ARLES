@@ -573,8 +573,10 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: var(--arles-space-1);
-  /* La línea vertical ata las hijas a la madre sin depender del color: quien
-     no distinga el relleno del activo sigue viendo la estructura. */
+  /* La línea vertical dibuja la JERARQUÍA —estas cuelgan de aquélla—, no el
+     estado. Al escribirla creí que servía para las dos cosas; medirla lo
+     deshizo: es un filete sobre `--arles-border` y no distingue cuál de las
+     hijas está abierta. El estado lo lleva la barra de acento de abajo. */
   position: relative;
 }
 
@@ -589,6 +591,7 @@ onBeforeUnmount(() => {
 }
 
 .sub-enlace {
+  position: relative;
   display: flex;
   align-items: center;
   min-height: var(--arles-control-height-compact);
@@ -609,7 +612,40 @@ onBeforeUnmount(() => {
   color: var(--arles-text);
 }
 
-/* Igual que arriba: relleno Y peso, nunca sólo color (§19). */
+/* ── El estado activo de una subsección NO puede vivir sólo en el color ─────
+   Medido el 22/09/2026, auditando: el relleno `--arles-nav-activo` sobre la
+   barra da **1.76:1** en oscuro y **1.80:1** en claro. Por debajo de 3:1, que
+   es el mínimo de un elemento no textual.
+
+   La sección madre aguanta ese relleno flojo porque **además** lleva la barra
+   de acento: el relleno acompaña, no sostiene. La subsección no llevaba nada,
+   así que su estado era color y nada más — justo lo que el §19 prohíbe.
+
+   Y la línea vertical que las ata a la madre no lo resolvía: es de un filete
+   sobre `--arles-border`, sirve para dibujar la jerarquía y es invisible como
+   indicador de estado. Escribirla como «ancla sin color» en el comentario fue
+   optimismo mío; medirla lo deshizo.
+
+   Ahora lleva su propia barra, más corta que la de la madre para que se lea
+   como lo que es: una hija dentro de la sección abierta, no otra sección. */
+.sub-enlace::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: var(--arles-space-1);
+  height: 0;
+  transform: translateY(-50%);
+  border-radius: 0 var(--arles-radius-sm) var(--arles-radius-sm) 0;
+  background: var(--arles-accent-ink);
+  transition: height var(--arles-duration-normal) var(--arles-ease);
+}
+
+.sub-enlace.activo::before {
+  height: 45%;
+}
+
+/* Relleno Y barra, nunca sólo color (§19). */
 .sub-enlace.activo {
   background: var(--arles-nav-activo);
   color: var(--arles-text);

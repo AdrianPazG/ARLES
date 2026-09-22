@@ -12,6 +12,61 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Auditoría del 22/09: la pantalla de bajas estaba sin estilos, y nadie podía verlo
+
+Dirección pidió revisar y auditar. Lo más grave no estaba en la navegación.
+
+**La hoja de estilos de «Quién pidió no recibir» estaba muerta entera.** Se
+escribió con catorce nombres de token **inventados** —`--espacio-3`,
+`--color-texto-suave`, `--texto-sm`— cuando los del proyecto son
+`--arles-space-3`, `--arles-text-muted`, `--arles-font-size-small`. Ninguno de
+los catorce existía. Ni uno.
+
+Lo que Dirección habría visto al abrir esa pantalla: una tabla **sin relleno,
+sin separadores y sin jerarquía**; la etiqueta del canal pegada a la dirección
+—«CORREOana@empresa.mx»—; la columna «Por qué» desbordándose sobre la fila de
+abajo, de forma que no se podía saber a quién pertenecía cada motivo; y el
+texto reservado a los lectores de pantalla **a la vista**.
+
+**Por qué no lo cazó nada, que es lo que importa:**
+
+- Un CSS que usa una variable inexistente **no es un error**. No avisa el
+  compilador, ni el linter, ni el navegador: la declaración se descarta en
+  silencio y la propiedad se queda como estaba.
+- La comprobación de «sin literales» busca colores y medidas sueltas. Éstos
+  eran `var(…)` perfectamente formados.
+- La sonda de esa pantalla mide **comportamiento**: que la lista cargue, que
+  busque, que el botón de reactivar salga sólo donde toca. Todo eso
+  funcionaba. Una pantalla puede hacer lo correcto y ser ilegible.
+
+**Y había una comprobación que debía cazarlo y no podía.** Existe desde la
+Fase 2 una que dice «todo token que se usa está definido». Miraba **sólo los
+nombres que ya empiezan por `--arles-`**. Cazaba una errata dentro de la
+familia y era ciega a una familia entera equivocada — es decir, a este fallo.
+Llevaba meses en verde porque no tenía forma de fallar. Es el caso de manual de
+la regla de la casa: *una comprobación que nunca se ha visto fallar no está
+verificada*. Corregida y comprobada rompiéndola por los dos lados.
+
+**Otro defecto de la misma pantalla, encontrado mirándola:** dos celdas de la
+tabla tenían `display: flex` puesto sobre el `<td>`. Eso saca la celda del
+algoritmo de tabla y sus líneas dejan de alinear con las de la fila — medido:
+la primera columna cerraba a una altura y las otras a otra. Ahora las cinco
+cierran en el mismo píxel.
+
+**Y un hallazgo en lo que acababa de entregar.** El relleno que marca la
+subsección activa da **1.76:1** en tema oscuro y **1.80:1** en claro sobre la
+barra, por debajo del 3:1 mínimo. La sección madre aguanta ese relleno flojo
+porque **además** lleva su barra de acento amarilla; la subsección no llevaba
+nada, así que su estado vivía sólo en el color — justo lo que la regla §19
+prohíbe. Ahora lleva su propia barra, más corta que la de la madre. Lo mide la
+sonda leyendo la altura real en el navegador.
+
+Escribí en el código que la línea vertical que une las subsecciones con su
+sección servía de ancla sin color. **Medirla lo deshizo**: es un filete de un
+píxel y no distingue cuál de las hijas está abierta. Dibuja la jerarquía, no el
+estado. El comentario está corregido para decir lo que hace y no lo que yo
+esperaba que hiciera.
+
 ### La barra lateral ya dice en qué sección y en qué subsección estás
 
 Dirección entró en la configuración recién mudada y señaló lo siguiente: **la

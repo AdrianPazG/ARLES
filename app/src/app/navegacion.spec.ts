@@ -114,6 +114,19 @@ describe('la barra marca también la subsección', () => {
     expect(sub?.attributes('aria-current')).toBe('page')
   })
 
+  /*
+   * AQUÍ NO VA LA BARRA DE ACENTO DE LA SUBSECCIÓN, Y ES A PROPÓSITO
+   *
+   * Se dibuja con `.sub-enlace::before`, y jsdom no calcula pseudoelementos:
+   * cualquier prueba que escribiera aquí acabaría afirmando otra vez que la
+   * clase `activo` está puesta —cosa que ya comprueba la prueba de arriba— y
+   * pasaría igual con la regla de CSS borrada. Una prueba decorativa es peor
+   * que ninguna: ocupa el sitio de la que sí mide.
+   *
+   * La mide `sonda:vista-previa` en Chromium, leyendo la altura real del
+   * pseudoelemento. Ver la nota de §19 en la hoja de estilos de App.vue.
+   */
+
   /**
    * Las subsecciones de las OTRAS secciones no se despliegan. Sin esto, la
    * barra pasa de seis entradas a nueve permanentes y deja de ser una brújula.
