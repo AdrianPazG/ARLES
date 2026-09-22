@@ -29,6 +29,7 @@ pub mod onboarding;
 pub mod ritmo;
 pub mod secret;
 pub mod supresion;
+pub mod ventana;
 
 pub use analisis::{Analisis, Choque, FilaRechazada, FilaSuprimida, analizar};
 pub use arco::{Expediente, redactar};

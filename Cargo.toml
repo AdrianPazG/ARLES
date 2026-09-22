@@ -26,6 +26,42 @@ serde = { version = "1", features = ["derive"] }
 uuid = { version = "1", features = ["v4", "v7", "serde"] }
 zeroize = { version = "1", features = ["zeroize_derive"] }
 time = { version = "0.3", features = ["serde", "macros", "formatting", "parsing"] }
+# La base de datos de zonas horarias IANA (D-10, 22/09/2026).
+#
+# Hace falta para saber qué INSTANTE es «las 9:00 en America/Mexico_City», que
+# es lo que declara la ventana de ejecución de cada campaña. Sin esto, el
+# horario de envío dependería del equipo y no de la campaña.
+#
+# POR QUÉ `jiff` Y NO `time-tz`, QUE ERA LA ELECCIÓN OBVIA
+#
+# `time-tz` extiende la biblioteca `time` que el proyecto ya usa, así que era
+# la opción natural: una sola biblioteca de tiempo. Se añadió, y la primera
+# prueba que se le puso la tumbó.
+#
+# La base de zonas que `time-tz` 2.0.0 incrusta SIGUE APLICANDO horario de
+# verano a México: da UTC-5 en junio y septiembre de 2026. México abolió el
+# horario de verano en octubre de 2022, así que Ciudad de México es UTC-6 todo
+# el año desde entonces.
+#
+# El impacto no es teórico: el mercado principal de ARLES es México (D-4). Con
+# esa base, TODAS las campañas mexicanas habrían enviado una hora fuera de su
+# ventana durante medio año, en silencio y sin que nada fallara. Medido:
+#
+#     time-tz  2026-06-15 18:00 UTC -> 13:00 -05:00   incorrecto
+#     jiff     2026-06-15 18:00 UTC -> 12:00 -06:00   correcto
+#
+# El coste de `jiff` es real y se acepta: trae sus propios tipos de fecha, así
+# que conviven dos bibliotecas de tiempo. Se contiene en un solo módulo
+# —`arles_core::ventana`—, que recibe y devuelve tipos de `time`; `jiff` no
+# aparece en ninguna firma pública. Una hora mal en el mercado principal pesa
+# más que una conversión encapsulada.
+#
+# `tzdb-bundle-always` incrusta la base en el binario en las tres plataformas.
+# No es sólo porque Windows no tenga base IANA: es para que la misma campaña
+# calcule IGUAL en Windows, macOS y Linux. Leyendo la del sistema, un equipo
+# con la base desactualizada reproduciría el mismo fallo que acabamos de
+# descartar.
+jiff = { version = "0.2", default-features = false, features = ["std", "tzdb-bundle-always"] }
 sha2 = "0.10"
 
 [workspace.lints.rust]

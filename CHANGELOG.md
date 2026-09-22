@@ -12,6 +12,61 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### El horario de envío es de la campaña · y una dependencia que mentía sobre México
+
+**La decisión (D-10).** Dirección lo planteó con una frase que reordena el
+problema: *no importa a qué hora lo envíe el remitente, sino a qué hora lo
+recibe el destinatario*. Una ventana de envío existe para que el correo caiga en
+la bandeja de alguien a una hora en que esa persona lo lea.
+
+Así que la ventana **pertenece a la campaña**, no a la empresa. Una campaña
+«Clientes México · L-V 9-17 · hora de México» y otra «Clientes España · L-V 9-17
+· hora de España» corren a la vez desde el mismo equipo, esté donde esté. Si el
+portátil viaja, no cambia nada: es justo lo que la regla impide.
+
+**Lo que la pregunta destapó.** La documentación del motor decía «la zona
+horaria de la empresa», en singular. La base de datos soportaba una por ventana
+desde el primer día. Lo equivocado era el texto, no el diseño.
+
+**Y ahora lo importante: la dependencia que mentía.**
+
+Para saber qué instante son «las 9:00 en Ciudad de México» hace falta una base
+de datos de zonas horarias. Se eligió la opción obvia — la que extiende la
+biblioteca de tiempo que el proyecto ya usaba. **La primera prueba que se le
+puso la tumbó.**
+
+Esa base **sigue aplicando horario de verano a México**. Daba UTC−5 en junio y
+en septiembre de 2026. México abolió el horario de verano en **octubre de 2022**:
+Ciudad de México es UTC−6 los doce meses del año desde entonces.
+
+Con esa base, **todas las campañas mexicanas habrían enviado una hora fuera de
+su horario durante medio año**. En silencio. Sin que fallara nada. Y México es
+el mercado principal de ARLES, así que nadie lo habría notado hasta que un
+cliente preguntara por qué sus correos llegan a las siete de la tarde.
+
+Medido, y por eso se cambió de biblioteca:
+
+| | enero | junio | septiembre |
+|---|---|---|---|
+| La que se descartó | UTC−6 | **UTC−5** | **UTC−5** |
+| La que se usa | UTC−6 | UTC−6 | UTC−6 |
+
+**Hay una prueba que fija esto para siempre**, mes a mes, los doce. No comprueba
+nuestro código: comprueba **la dependencia**. El día que alguien suba su
+versión, esa prueba falla si la nueva trae las reglas viejas.
+
+La base va **incrustada en el programa**, no leída del sistema operativo. No es
+sólo porque Windows no la tenga: es para que la misma campaña calcule igual en
+Windows, macOS y Linux. Leyéndola del sistema, un equipo con la base vieja
+reproduciría exactamente el fallo que acabamos de descartar.
+
+**Y el cambio de horario de verano, probado.** España pasa a horario de invierno
+el 25 de octubre de 2026. Una ventana de 9 a 18 sigue significando de 9 a 18
+antes y después, sin hueco ni doble envío. Eso funciona porque se guarda el
+**nombre** de la zona y no su desfase: un desfase cambia dos veces al año y un
+nombre no.
+
+
 ### Fase 4 · arranca el motor, por el reloj
 
 La Fase 4 es la que de verdad envía, y el roadmap la marca como la que
