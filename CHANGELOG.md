@@ -12,6 +12,55 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Ya se puede atender a quien pregunta qué datos tienes de él
+
+La ley mexicana obliga a responder cuando alguien lo pide. La máquina que
+arma esa respuesta estaba construida y probada desde hace días; **lo que no
+existía era la pantalla desde la que se pide**. Ahora está, en
+**CONTACTOS → Derechos**.
+
+Se escribe una dirección —de correo o de WhatsApp—, se pulsa un botón, y
+ARLES deja un archivo de texto con todo lo que consta de esa persona: su
+ficha, de dónde salió, y los envíos que se le hicieron. Ese archivo se le
+envía y asunto resuelto.
+
+**Lo que más cuidado llevó no es el caso bueno, son los otros dos.**
+
+- **Cuando no consta nada**, el informe se entrega igual y la pantalla
+  **avisa de que va vacío**. Si se callara, quien atiende la solicitud
+  mandaría un archivo en blanco creyendo que va lleno — y nada habría
+  fallado por el camino. Pero tampoco se pinta en rojo: «no tenemos nada
+  suyo» es una respuesta legítima, y muchas veces la que la persona quería
+  oír.
+- **Cuando ya no es un contacto pero queda rastro** —su baja, sus envíos
+  viejos—, se dice así. Alguien que pidió que lo borraran sigue teniendo
+  huella, y el informe la incluye porque también es información sobre él.
+  Decir «no hay nada» sería mentir en la peor respuesta posible.
+
+Y cerrar la ventana de guardado sin guardar **no es un error**: es una
+decisión, y se cuenta como tal. Tratarla como fallo mandaría a revisar una
+base de datos que está intacta.
+
+**La palabra «ARCO» no aparece en ninguna parte.** Es la sigla legal de
+Acceso, Rectificación, Cancelación y Oposición, y no se la sabe nadie que no
+trabaje en protección de datos. Quien atiende una solicitud necesita entender
+qué hace el botón, no aprobar un examen. Hay una comprobación que falla si
+alguien la escribe.
+
+**Se dice quién responde**, y no es ARLES: es el cliente. ARLES no habla con
+esas personas ni guarda nada en ningún servidor — sólo reúne lo que hay en
+esa computadora. Quien manda el archivo lo firma en nombre de su empresa, y
+conviene que lo sepa antes de mandarlo.
+
+**Y se dice lo que todavía no se puede hacer.** El borrado de datos aún no
+está construido, y la pantalla lo dice ahí mismo, junto a los otros derechos,
+en vez de enterrarlo en la documentación. Quien reciba esa petición se entera
+antes de prometérsela a nadie.
+
+**Ninguna ruta de tu disco llega a la pantalla.** La ventana de guardar la
+abre la parte de Rust, y lo único que vuelve es el nombre del archivo. La
+carpeta donde guardas tus cosas dice dónde vives, y no le hace falta a nadie.
+
 ### Una puerta por cuarto, y un candado en vez de la misma frase tres veces
 
 Tres decisiones de Dirección del 22/09/2026, tomadas sobre la vista previa.

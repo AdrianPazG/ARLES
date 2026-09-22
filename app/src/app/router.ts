@@ -146,6 +146,20 @@ const rutas: RouteRecordRaw[] = [
     meta: { seccion: 'contactos', subseccion: 'supresion', orden: 2 },
   },
   {
+    // Los derechos ARCO cuelgan de CONTACTOS por el mismo criterio que la
+    // lista de bajas (UX_NAVEGACION.md §2): **son decisiones sobre personas**,
+    // y quien las atiende las busca donde están las personas, no en un
+    // apartado legal aparte.
+    //
+    // Tampoco es una sección propia: atender una solicitud de acceso es algo
+    // que pasa de vez en cuando, y una séptima entrada permanente en la barra
+    // para algo esporádico desplaza a las seis que se usan a diario.
+    path: '/contactos/derechos',
+    name: 'derechos',
+    component: () => import('@/app/pantallas/PantallaDerechos.vue'),
+    meta: { seccion: 'contactos', subseccion: 'derechos', orden: 3 },
+  },
+  {
     path: '/ajustes',
     name: 'ajustes',
     component: () => import('@/app/pantallas/PantallaAjustes.vue'),

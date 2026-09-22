@@ -492,6 +492,43 @@ NUCLEO_SIMULADO = """
           return Promise.resolve();
         }
 
+        // El informe de Acceso. Simula los TRES desenlaces distintos, porque
+        // la pantalla enseña un texto distinto en cada uno y la sonda tiene
+        // que poder llegar a los tres:
+        //
+        //   - una dirección de la semilla de bajas → hay rastro, pero ya no
+        //     es contacto;
+        //   - `nadie@…`                            → no consta nada;
+        //   - `cancela@…`                          → quien atiende cerró el
+        //     diálogo sin guardar (el comando real devuelve `null`).
+        //
+        // NO se abre ningún diálogo aquí: en la aplicación real lo abre Rust,
+        // y la webview nunca ve una ruta. Devolver sólo el NOMBRE del archivo
+        // es parte de lo que se está simulando.
+        case 'entregar_informe_de_acceso': {
+          var d = String(args.direccion || '').trim().toLowerCase();
+          if (d.indexOf('cancela') === 0) return Promise.resolve(null);
+          var limpio = d.replace(/[^a-zA-Z0-9._-]/g, '-');
+          // La lista va ESCRITA AQUÍ y no se lee de `e.supresiones`.
+          //
+          // La primera versión miraba las bajas guardadas, y eso hacía que el
+          // caso «ya no es contacto pero queda rastro» dependiera de haber
+          // visitado antes la pantalla de Bajas —que es quien las siembra—.
+          // La sonda entra directa a Derechos, así que medía el caso
+          // equivocado y fallaba por una razón que no era del producto.
+          //
+          // Un simulador cuyo resultado depende de por dónde hayas pasado no
+          // simula nada: hace que las sondas se contagien entre sí.
+          var soloRastro = ['beto@otra.mx', 'rebote@empresa.mx'];
+          var enBajas = soloRastro.indexOf(d) >= 0;
+          var vacio = d.indexOf('nadie') === 0;
+          return Promise.resolve({
+            nombreDelArchivo: 'datos-de-' + limpio + '.txt',
+            habiaDatos: !vacio,
+            sigueSiendoContacto: !vacio && !enBajas,
+          });
+        }
+
         case 'suprimir_contacto':
           return Promise.resolve({ nuevas: 1, yaEstaban: 0 });
 

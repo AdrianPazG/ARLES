@@ -54,6 +54,7 @@ export const es = {
       configuracion: 'Configuración',
       importar: 'Importar',
       supresion: 'Bajas',
+      derechos: 'Derechos',
     },
   },
 
@@ -699,6 +700,111 @@ export const es = {
       canalGenerico: 'Esta forma de contacto no es válida.',
       campoGenerico: 'Revisa este campo.',
     },
+  },
+
+  // ── Derechos de las personas · LFPDPPP ──────────────────────────────────
+  //
+  // Se escribe SIN la palabra «ARCO» en pantalla. Es la sigla de Acceso,
+  // Rectificación, Cancelación y Oposición, y no se la sabe nadie que no
+  // trabaje en protección de datos. Quien atiende la solicitud necesita
+  // entender qué hace el botón, no aprobar un examen.
+  derechos: {
+    titulo: 'Derechos de las personas',
+    explicacion:
+      'Cuando alguien te escribe preguntando qué datos tienes de él, la ley ' +
+      'te obliga a responder con todo lo que consta. Aquí se prepara esa ' +
+      'respuesta en un archivo que puedes enviarle.',
+
+    deQuienEsTitulo: '¿Quién responde, tú o ARLES?',
+    // El responsable legal es el cliente (PRIVACIDAD_LFPDPPP.md §2). Se dice
+    // sin rodeos: quien manda el archivo lo firma en nombre de su empresa.
+    deQuienEs:
+      'Respondes tú. ARLES no habla con esas personas ni guarda sus datos en ' +
+      'ningún servidor: sólo reúne lo que hay en esta computadora para que ' +
+      'puedas contestar sin pedirle ayuda a nadie.',
+
+    canalEtiqueta: '¿Te escribió por correo o por WhatsApp?',
+    canalAyuda: 'Se busca por la dirección exacta que te dio.',
+    canal: {
+      correo: 'Correo',
+      whatsapp: 'WhatsApp',
+    },
+    direccionEtiqueta: 'Su dirección',
+    // Se explica que mayúsculas y espacios dan igual, porque es la duda real
+    // de quien copia y pega una dirección de un correo recibido.
+    direccionAyuda:
+      'Cópiala tal como te llegó. Las mayúsculas y los espacios de sobra no ' +
+      'importan: ARLES la normaliza antes de buscar.',
+    // `{'@'}` y no una arroba suelta: en la gramática de vue-i18n `@` abre un
+    // enlace a otra clave, y el catálogo entero deja de compilar. Ya estaba
+    // resuelto en `supresion.buscarMarcador`; aquí se repitió el error.
+    marcadorCorreo: "ana{'@'}empresa.mx",
+    marcadorWhatsApp: '+52 811 234 5678',
+    entregar: 'Preparar el informe',
+
+    // ── Los tres desenlaces buenos ──
+    //
+    // Los tres son un éxito. Lo que cambia es qué se encontró, y se dice:
+    // entregar un informe vacío sin avisar dejaría a quien atiende creyendo
+    // que la búsqueda falló.
+    listo: 'Listo. Se guardó «{archivo}».',
+    listoDetalle:
+      'El archivo lleva todo lo que ARLES tiene de esa dirección: su ficha, ' +
+      'de dónde salió, y los envíos que se le hicieron. Ya puedes enviárselo.',
+
+    listoSoloRastro: 'Listo. Se guardó «{archivo}».',
+    // §65 y honestidad: esa persona ya no es un contacto, pero queda rastro.
+    // Decir «no hay nada» sería falso, y callarlo dejaría a quien atiende sin
+    // entender por qué el informe no está vacío.
+    listoSoloRastroDetalle:
+      'Esa dirección ya no está dada de alta como contacto, pero sí queda ' +
+      'rastro suyo: su baja, o los envíos que se le hicieron antes. El ' +
+      'informe lo incluye, porque también es información sobre ella.',
+
+    listoSinDatos: 'Listo. Se guardó «{archivo}», y va vacío.',
+    // No es un error, y por eso NO se pinta en rojo. Puede ser exactamente la
+    // respuesta que la persona quería.
+    listoSinDatosDetalle:
+      'No consta absolutamente nada de esa dirección, y el informe lo dice ' +
+      'así. Envíaselo igual: «no tenemos nada suyo» es una respuesta válida, ' +
+      'y muchas veces es la que quería oír.',
+
+    cancelado: 'Cerraste la ventana sin guardar. No se preparó ningún archivo.',
+
+    // ── Lo que puede salir mal (§95: qué pasó · cómo · qué está a salvo) ──
+    sinNucleoQue: 'Esto es la vista previa, no ARLES.',
+    sinNucleoComo:
+      'Aquí no hay base de datos, así que no se puede preparar un informe ' +
+      'de verdad. Ábrelo en la aplicación instalada.',
+    sinNucleoSalvo: 'No se ha tocado ningún dato.',
+
+    falloQue: 'No se pudo preparar el informe.',
+    falloComo:
+      'Vuelve a intentarlo. Si se repite, comprueba que tienes permiso para ' +
+      'escribir en la carpeta que elegiste.',
+    falloSalvo: 'No se cambió nada en tus contactos.',
+
+    // ── Los otros tres derechos ──
+    //
+    // Se enseñan aunque dos ya estén hechos y uno no: quien atiende una
+    // solicitud llega aquí sin saber cuál de los cuatro le pidieron, y
+    // necesita que la pantalla le diga a dónde ir. Y el que falta se dice que
+    // falta, en vez de callarlo.
+    otrosTitulo: 'Si te pidieron otra cosa',
+    rectificacion: 'Que corrijas un dato suyo',
+    rectificacionDetalle:
+      'Búscalo en Contactos y edítalo. No hace falta nada especial.',
+    oposicion: 'Que dejes de escribirle',
+    oposicionDetalle:
+      'Dale de baja desde su ficha, o desde Bajas. Queda registrado y ARLES ' +
+      'no vuelve a escribirle, ni aunque su dirección reaparezca en una ' +
+      'importación futura.',
+    cancelacion: 'Que borres sus datos',
+    // §94 y honestidad: se dice qué falta, no «pronto».
+    cancelacionDetalle:
+      'Todavía no está construido. Llega en esta misma entrega, junto con el ' +
+      'borrado de verdad. Su baja se conserva siempre, aunque se borre todo ' +
+      'lo demás: es lo que impide volver a escribirle por error.',
   },
 
   supresion: {

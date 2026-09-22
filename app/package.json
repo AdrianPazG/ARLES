@@ -22,6 +22,7 @@
     "sonda:cabecera": "node pruebas/sondas/cabecera.mjs",
     "sonda:tema": "node pruebas/sondas/tema.mjs",
     "sonda:supresion": "node pruebas/sondas/supresion.mjs",
+    "sonda:derechos": "node pruebas/sondas/derechos.mjs",
     "sonda:vista-previa": "node pruebas/sondas/vista-previa.mjs",
     "sonda:contactos": "node pruebas/sondas/contactos.mjs",
     "sonda:importar": "node pruebas/sondas/importar.mjs"

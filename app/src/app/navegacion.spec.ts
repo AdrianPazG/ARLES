@@ -197,9 +197,13 @@ describe('las subsecciones salen de las rutas, no de una lista aparte', () => {
     expect(subseccionesDe('inicio').map((s) => s.ruta)).toEqual([
       '/inicio/configuracion',
     ])
+    // El orden es el DECLARADO en cada ruta (`meta.orden`), no el alfabético:
+    // alfabéticamente «derechos» iría primero, y lo que se usa a diario son
+    // las dos de arriba. Atender una solicitud de acceso es esporádico.
     expect(subseccionesDe('contactos').map((s) => s.ruta)).toEqual([
       '/contactos/importar',
       '/contactos/supresion',
+      '/contactos/derechos',
     ])
   })
 

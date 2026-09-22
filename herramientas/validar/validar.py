@@ -1963,6 +1963,68 @@ def la_barra_dice_en_que_seccion_estas():
     )
 
 
+def la_pantalla_de_acceso_no_pide_rutas_ni_dialogos():
+    """La pantalla de Derechos no toca el disco ni ve una ruta.
+
+    El informe de Acceso se escribe en un archivo, y la tentación evidente al
+    construir la pantalla es abrir el diálogo de guardado desde la webview con
+    el plugin de Tauri. Sería más corto y estaría mal por dos motivos:
+
+      - **Regla de frontera 4** (ARQUITECTURA.md §5): ninguna ruta del sistema
+        de archivos cruza hacia la webview. La carpeta donde alguien guarda
+        sus cosas dice dónde vive (THREAT_MODEL.md §4.1).
+      - Obligaría a conceder `dialog:allow-save` y `fs:allow-write` a la
+        webview. Un permiso que no se concede no se puede abusar, y esta
+        aplicación deniega por defecto.
+
+    El diálogo lo abre **Rust**, y la pantalla recibe sólo el NOMBRE del
+    archivo. Esta comprobación existe porque el atajo no rompe nada visible:
+    funcionaría, y la fuga sería silenciosa.
+
+    La sonda mide lo mismo por el otro lado —que en pantalla no aparezca una
+    ruta—, pero sólo puede ver lo que se pinta. Ésta mira el código.
+    """
+    pantalla = os.path.join(
+        RAIZ, "app/src/app/pantallas/PantallaDerechos.vue"
+    )
+    check(
+        3,
+        "existe la pantalla del derecho de Acceso",
+        os.path.isfile(pantalla),
+        la_pantalla_de_acceso_no_pide_rutas_ni_dialogos.__doc__,
+        detalle="falta app/src/app/pantallas/PantallaDerechos.vue",
+    )
+    if not os.path.isfile(pantalla):
+        return
+
+    cuerpo = sin_comentarios_ni_html(leer("app", "src", "app", "pantallas", "PantallaDerechos.vue"))
+    prohibidos = [
+        p
+        for p in ("plugin-dialog", "plugin-fs", "save(", "writeTextFile", "@tauri-apps/api/path")
+        if p in cuerpo
+    ]
+    check(
+        3,
+        "la pantalla de Acceso no abre diálogos ni escribe archivos",
+        not prohibidos,
+        la_pantalla_de_acceso_no_pide_rutas_ni_dialogos.__doc__,
+        detalle=f"lo que se coló en la webview: {prohibidos}",
+    )
+
+    # Y la ruta cuelga de CONTACTOS, no es una séptima sección. Las decisiones
+    # sobre personas viven donde están las personas (UX_NAVEGACION.md §2), y
+    # atender una solicitud es algo esporádico: una entrada permanente en la
+    # barra desplazaría a las seis que se usan a diario.
+    router = sin_comentarios_ni_html(leer("app", "src", "app", "router.ts"))
+    check(
+        3,
+        "los derechos cuelgan de CONTACTOS",
+        "'/contactos/derechos'" in router and "subseccion: 'derechos'" in router,
+        la_pantalla_de_acceso_no_pide_rutas_ni_dialogos.__doc__,
+        detalle="se esperaba la ruta /contactos/derechos declarada como subsección",
+    )
+
+
 def el_texto_legal_se_ve_provisional():
     """Mientras P-09 siga abierta, el texto de la declaración lo dice.
 
@@ -2034,6 +2096,7 @@ def fase_3(rapido):
     el_informe_de_acceso_no_deja_cruzar_una_ruta()
     ajustes_es_de_la_aplicacion_y_no_del_negocio()
     la_barra_dice_en_que_seccion_estas()
+    la_pantalla_de_acceso_no_pide_rutas_ni_dialogos()
     el_texto_legal_se_ve_provisional()
 
     print(f"{GRIS}  sondas{FIN}")
@@ -2117,6 +2180,27 @@ def fase_3(rapido):
         omitir(3, nombre, "--rapido")
     else:
         check_cmd(3, nombre, ["npm", "run", "sonda:supresion", "--silent"],
+                  porque, cwd=app, timeout=900)
+
+    nombre = "sonda: el informe de Acceso hace lo que dice"
+    porque = (
+        "Diez afirmaciones de la 3.4 sobre el derecho de Acceso, recorriendo "
+        "la pantalla en un navegador de verdad. La que más importa: cuando no "
+        "consta NADA de una dirección, el informe se entrega igual y la "
+        "pantalla **avisa de que va vacío**. Si se callara, quien atiende una "
+        "solicitud mandaría un archivo en blanco creyendo que va lleno, y "
+        "nada habría fallado por el camino. Se vigilan además dos cosas que "
+        "sólo se ven aquí: que ninguna ruta del sistema llegue a la webview "
+        "(regla de frontera 4), y que la pantalla SE ENCUENTRE desde la barra "
+        "— una pantalla que existe y no se alcanza no está entregada, que es "
+        "la lección de las dos observaciones de Dirección del 21 y 22/09."
+    )
+    if motivo:
+        omitir(3, nombre, motivo)
+    elif rapido:
+        omitir(3, nombre, "--rapido")
+    else:
+        check_cmd(3, nombre, ["npm", "run", "sonda:derechos", "--silent"],
                   porque, cwd=app, timeout=900)
 
     nombre = "sonda: la pantalla de contactos hace lo que dice"
