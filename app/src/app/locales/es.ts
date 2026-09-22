@@ -40,14 +40,20 @@ export const es = {
      * Las subsecciones. Cada una es una pantalla que cuelga de una sección y
      * se enseña indentada bajo ella cuando estás dentro.
      *
-     * El nombre es el CORTO, no el título de la pantalla: en la barra compite
-     * con cinco palabras más, y «Quién pidió no recibir» ahí dentro se parte
-     * en tres líneas. El título largo sigue estando arriba, en la pantalla.
+     * El nombre es el CORTO, no el título de la pantalla.
+     *
+     * «Bajas» lo decidió Dirección el 22/09/2026, viéndolo: el nombre largo
+     * —«Quién pidió no recibir»— se parte en dos líneas dentro de la barra y
+     * engorda esa entrada frente a las otras ocho. Una palabra no se parte.
+     *
+     * El título largo NO se toca: sigue encabezando la pantalla. La barra es
+     * una brújula y necesita nombres cortos; el encabezado es una explicación
+     * y puede permitirse una frase. No es la misma necesidad ni el mismo sitio.
      */
     sub: {
       configuracion: 'Configuración',
       importar: 'Importar',
-      supresion: 'Quién pidió no recibir',
+      supresion: 'Bajas',
     },
   },
 
