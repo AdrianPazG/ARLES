@@ -32,6 +32,23 @@ const TRAZOS = {
   // se sabe.
   incierto: 'M12 17h.01M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z',
 
+  // Candado · «esto no se puede deshacer» (22/09/2026).
+  //
+  // Nace en la lista de bajas, donde marca las que pidió la persona: ésas no
+  // se levantan, y antes cada una repetía la frase entera —«Lo pidió ella
+  // misma, así que ARLES no lo deshace»— en dos renglones. Con doscientas
+  // bajas eso es una tabla tres veces más larga para decir lo mismo.
+  //
+  // Candado y no `suprimido`: aquél es una prohibición —un círculo tachado— y
+  // aquí no se prohíbe nada, se dice que la decisión ya está tomada y es de
+  // otra persona. Un candado se entiende sin leyenda en cualquier idioma.
+  //
+  // El icono NUNCA va solo: lleva su texto para lectores de pantalla y la
+  // frase completa aparece una vez encima de la tabla. Un icono sin texto es
+  // información codificada sólo en forma, que es el mismo error que
+  // codificarla sólo en color (§19).
+  candado: 'M7 11V7a5 5 0 0 1 10 0v4M5 11h14v10H5V11Z',
+
   // Secciones de la navegación (UX_NAVEGACION.md §2).
   //
   // Existen porque P-11 decidió que la barra lateral plegada se queda en

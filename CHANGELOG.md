@@ -12,6 +12,45 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Una puerta por cuarto, y un candado en vez de la misma frase tres veces
+
+Tres decisiones de Dirección del 22/09/2026, tomadas sobre la vista previa.
+
+**La subpestaña se llama «Bajas».** El nombre largo —«Quién pidió no
+recibir»— se partía en dos líneas dentro de la barra. El **título de la
+pantalla no se toca**: la barra es una brújula y necesita nombres cortos; el
+encabezado es una explicación y puede permitirse una frase.
+
+**Contactos pierde su enlace a las bajas.** Había dos puertas al mismo cuarto:
+la de la barra y un enlace arriba a la derecha. Ese enlace lo escribí cuando la
+barra no enseñaba ese destino — igual que el puente de Ajustes que Dirección
+mandó quitar el día antes, por el mismo motivo y con el mismo desenlace.
+
+El criterio queda escrito para lo que venga: **la barra lateral lleva a los
+sitios, los botones hacen cosas.** Por eso «Cargar una tabla» y «Agregar
+contacto» sí se quedan: importar y dar de alta son cosas que se hacen, no
+sitios a los que se va. Que importar tenga pantalla propia no lo convierte en
+destino; el asistente es el camino de la acción.
+
+Y la lección, que ya es la segunda vez: **la respuesta a «no se encuentra» es
+arreglar la navegación, no añadir un atajo.**
+
+**El candado.** La frase «Lo pidió ella misma, así que ARLES no lo deshace» se
+repetía, en dos renglones, en cada fila bloqueada — tres de cinco. Con
+doscientas bajas es una tabla tres veces más larga para decir lo mismo tres
+veces. Ahora la fila lleva un candado pegado al motivo —«Pidió la baja 🔒»— y
+la frase entera aparece **una sola vez encima de la tabla**, explicando el
+símbolo antes de que aparezca.
+
+Medido: la primera fila pasa de **63 px a 45**.
+
+**El candado nunca va solo**, y eso importa más que el ahorro: lleva su texto
+para lectores de pantalla, la frase completa al pasar el ratón, y la leyenda
+de arriba. Un icono suelto es información codificada sólo en la forma, que es
+el mismo error que codificarla sólo en el color. La leyenda además **sólo
+aparece si hay alguna fila con candado**: explicar un símbolo que no está en
+pantalla es ruido, y haría dudar de si falta algo.
+
 ### Auditoría del 22/09: la pantalla de bajas estaba sin estilos, y nadie podía verlo
 
 Dirección pidió revisar y auditar. Lo más grave no estaba en la navegación.

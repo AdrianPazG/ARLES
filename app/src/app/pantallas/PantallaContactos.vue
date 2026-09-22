@@ -241,13 +241,30 @@ const errorDelDialogo = computed(() =>
           }}
         </p>
       </div>
+      <!-- ── Acciones, no destinos ──────────────────────────────────────────
+           AQUÍ HABÍA UN ENLACE A LAS BAJAS. Se quitó el 22/09/2026 por
+           decisión de Dirección, y el criterio que deja vale para lo que
+           venga después:
+
+             **La barra lateral lleva a los SITIOS. Los botones hacen COSAS.**
+
+           «Quién pidió no recibir» era un sitio, y desde O-3 la barra ya lo
+           enseña como «Bajas» colgando de Contactos. Tener las dos puertas no
+           era comodidad: era el mismo cuarto con dos nombres, que es como
+           acaban divergiendo el día que alguien renombra uno.
+
+           Es la segunda vez que Dirección corrige lo mismo —la primera fue el
+           puente de Ajustes— y las dos veces el atajo existía por el mismo
+           motivo: lo escribí cuando la barra no enseñaba el destino. La
+           respuesta a «no se encuentra» es arreglar la navegación, no añadir
+           un atajo.
+
+           «Cargar una tabla» y «Agregar contacto» SÍ se quedan, y no es
+           incoherencia: importar y dar de alta son cosas que se hacen, no
+           sitios a los que se va. Que importar además tenga pantalla propia no
+           lo convierte en un destino; el asistente es el camino de la acción.
+           Por eso son botones con icono y no enlaces discretos. -->
       <div class="contactos__acciones">
-        <ABoton
-          variante="sutil"
-          a="/contactos/supresion"
-        >
-          {{ t('contactos.verSupresion') }}
-        </ABoton>
         <ABoton
           variante="secundario"
           icono="remitentes"

@@ -596,7 +596,9 @@ export const es = {
     // cuántos hay, en vez de «muchos» o «casi todos».
     recuento: 'Viendo {viendo} de {total}',
     agregar: 'Agregar contacto',
-    verSupresion: 'Quién pidió no recibir',
+    // Aquí vivía `verSupresion`. Lo quitó Dirección el 22/09/2026: la barra
+    // lateral ya lleva a las bajas y dos puertas al mismo cuarto acaban
+    // divergiendo. Ver la nota de PantallaContactos.vue.
     importar: 'Cargar una tabla',
     editar: 'Editar',
     baja: 'Dar de baja',
@@ -749,7 +751,18 @@ export const es = {
 
     // Por qué esa fila no tiene botón. Un hueco sin explicación se lee como un
     // fallo de la aplicación, no como una decisión.
+    //
+    // Desde el 22/09/2026 este texto NO se pinta en cada fila: va en el
+    // `title` del candado y en su texto para lectores de pantalla. Lo que se
+    // lee a simple vista es `leyendaCandado`, una sola vez encima de la tabla.
     loPidioLaPersona: 'Lo pidió ella misma, así que ARLES no lo deshace',
+
+    // La leyenda. Dice lo mismo en tercera persona y nombrando el símbolo,
+    // porque se lee ANTES de encontrarse el primer candado y tiene que
+    // enseñar a interpretarlo, no sólo repetir la regla.
+    leyendaCandado:
+      'El candado marca las bajas que pidió la persona. Ésas ARLES no las ' +
+      'deshace: sólo se quitan si ella vuelve a dar su permiso.',
     volverAPermitir: 'Volver a permitir',
     confirmarLevantar:
       '¿Volver a permitir envíos a {direccion}?\n\nSi esa dirección vuelve a fallar, entrará otra vez en esta lista.',

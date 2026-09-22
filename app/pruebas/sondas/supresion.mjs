@@ -77,13 +77,26 @@ try {
   await pagina.goto(`file://${ARCHIVO}#/contactos`, { waitUntil: 'load' })
   await pagina.waitForTimeout(1200)
 
-  const enlace = pagina.getByRole('link', { name: 'Quién pidió no recibir' })
+  // SE LLEGA POR LA BARRA LATERAL, no por un enlace dentro de la pantalla.
+  //
+  // Hasta el 22/09/2026 esta sonda pulsaba un enlace «Quién pidió no recibir»
+  // que vivía arriba a la derecha de CONTACTOS. Dirección lo mandó quitar:
+  // desde O-3 la barra ya enseña «Bajas» colgando de Contactos, y dos puertas
+  // al mismo cuarto acaban divergiendo el día que alguien renombra una.
+  //
+  // Lo que se comprueba sigue siendo lo mismo —que la lista SE ENCUENTRA— y
+  // ahora se comprueba por el único camino que queda. Si ese camino se
+  // rompiera, la pantalla sería inalcanzable y esta sonda lo diría.
+  const enlace = pagina.locator('nav a.sub-enlace[href$="#/contactos/supresion"]')
   if ((await enlace.count()) === 0) {
-    mal('Desde CONTACTOS no se puede llegar a la lista de bajas.')
+    mal('La barra no enseña «Bajas» bajo CONTACTOS: la lista es inalcanzable.')
     await pagina.goto(`file://${ARCHIVO}#/contactos/supresion`, { waitUntil: 'load' })
   } else {
+    if ((await enlace.first().innerText()).trim() !== 'Bajas') {
+      mal(`La entrada de la barra no se llama «Bajas»: ${await enlace.first().innerText()}`)
+    }
     await enlace.first().click()
-    console.log('✓ 1 · se llega desde CONTACTOS.')
+    console.log('✓ 1 · se llega desde CONTACTOS, por la barra lateral.')
   }
   await pagina.waitForTimeout(900)
 
@@ -132,9 +145,36 @@ try {
       conBoton.push(texto.slice(0, 80))
     }
     if (loPidio && !tieneBoton) {
-      if (texto.includes('Lo pidió ella misma')) candadosBien += 1
-      else mal(`Una fila sin botón no explica por qué: ${texto.slice(0, 80)}`)
+      // DESDE EL 22/09/2026 LA EXPLICACIÓN ES UN CANDADO, no la frase entera.
+      //
+      // Dirección la vio repetida en tres de cinco filas, en dos renglones
+      // cada vez. Ahora la fila lleva el icono, su texto para lectores de
+      // pantalla y el `title`; la frase completa va una sola vez encima.
+      //
+      // Se exige el icono Y su texto accesible. Sólo el icono sería
+      // información codificada en la forma, que es el mismo error que
+      // codificarla en el color (§19) — y esta sonda tiene que poder
+      // distinguir «hay candado» de «hay candado y se entiende».
+      const candado = fila.locator('.fila__candado')
+      const tieneIcono = (await candado.locator('svg').count()) > 0
+      const tieneTexto = texto.includes('Lo pidió ella misma')
+      if (tieneIcono && tieneTexto) candadosBien += 1
+      else if (!tieneIcono) mal(`Una fila sin botón no lleva candado: ${texto.slice(0, 80)}`)
+      else mal(`El candado no dice nada a un lector de pantalla: ${texto.slice(0, 80)}`)
     }
+  }
+
+  // Y la frase completa aparece UNA VEZ, arriba, explicando el símbolo.
+  const leyenda = pagina.locator('.supresion__leyenda')
+  if ((await leyenda.count()) !== 1) {
+    mal(
+      `La leyenda del candado aparece ${await leyenda.count()} veces. ` +
+        'Sin ella, el icono es un símbolo que nadie ha presentado.',
+    )
+  } else if (!(await leyenda.innerText()).includes('candado')) {
+    mal(`La leyenda no nombra el símbolo: ${await leyenda.innerText()}`)
+  } else {
+    console.log('✓ 4b · el candado se explica una vez, encima de la tabla.')
   }
 
   if (conBoton.length > 0) {

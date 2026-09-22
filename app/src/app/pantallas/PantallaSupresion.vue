@@ -37,6 +37,7 @@ import {
   AAviso,
   ABoton,
   AEntrada,
+  AIcono,
   AInsignia,
   AModulo,
   EstadoCargando,
@@ -99,6 +100,18 @@ const avisoDelFiltro = computed(() => {
     de: supresion.supresiones.length,
   })
 })
+
+/**
+ * ¿Hay alguna fila que no se pueda levantar?
+ *
+ * Decide si se enseña la leyenda del candado. Mira **las filas que se están
+ * viendo**, no la lista entera: la leyenda explica un símbolo, y un símbolo
+ * que no está en pantalla no necesita explicación — aunque exista en la
+ * página siguiente.
+ */
+const hayBloqueadas = computed(() =>
+  supresion.visibles.some((f) => !f.sePuedeLevantar),
+)
 
 async function levantar(id: string, direccion: string): Promise<void> {
   const seguro = window.confirm(t('supresion.confirmarLevantar', { direccion }))
@@ -168,6 +181,26 @@ function pagina(delta: number): void {
           </p>
         </div>
 
+        <!-- ── La leyenda del candado ─────────────────────────────────────
+             Dice UNA VEZ lo que antes se repetía en cada fila bloqueada.
+
+             `v-if` y no siempre: sin ninguna fila bloqueada, explicar un
+             símbolo que no aparece es ruido, y además haría dudar de si falta
+             algo. La leyenda existe cuando existe lo que explica.
+
+             Va ENCIMA de la tabla y no debajo: se lee antes de encontrarse el
+             primer candado, no después de haber dudado qué era. -->
+        <p
+          v-if="hayBloqueadas"
+          class="supresion__leyenda"
+        >
+          <AIcono
+            nombre="candado"
+            :tamano="14"
+          />
+          <span>{{ t('supresion.leyendaCandado') }}</span>
+        </p>
+
         <table class="tabla">
           <thead>
             <tr>
@@ -223,11 +256,33 @@ function pagina(delta: number): void {
               <td>
                 <div class="fila__motivo">
                   <span>{{ motivo(fila.motivo) }}</span>
+                  <!-- ── El candado, y por qué no es la frase entera ────────
+                       Hasta el 22/09/2026 aquí se repetía «Lo pidió ella
+                       misma, así que ARLES no lo deshace», en dos renglones y
+                       en cada fila bloqueada. Dirección lo vio en la vista
+                       previa: con doscientas bajas es una tabla tres veces más
+                       larga para decir lo mismo tres veces.
+
+                       El candado NO se queda solo. Lleva tres cosas:
+                         - `title`, para quien pase el ratón;
+                         - texto en `.sr-only`, para el lector de pantalla,
+                           que lee la frase completa y no «imagen»;
+                         - la frase entera una vez encima de la tabla.
+
+                       Un icono suelto es información codificada sólo en la
+                       forma, que es el mismo error que codificarla sólo en el
+                       color (§19). Y §95 sigue exigiendo que se diga qué pasó
+                       y qué está a salvo: eso lo dice la leyenda de arriba. -->
                   <span
                     v-if="!fila.sePuedeLevantar"
                     class="fila__candado"
+                    :title="t('supresion.loPidioLaPersona')"
                   >
-                    {{ t('supresion.loPidioLaPersona') }}
+                    <AIcono
+                      nombre="candado"
+                      :tamano="14"
+                    />
+                    <span class="sr-only">{{ t('supresion.loPidioLaPersona') }}</span>
                   </span>
                 </div>
               </td>
@@ -370,15 +425,41 @@ function pagina(delta: number): void {
   font-variant-numeric: tabular-nums;
 }
 
+/* NO es una columna flex.
+ *
+ * Lo era mientras el motivo y su explicación eran dos bloques apilados. Ahora
+ * la explicación es un candado que tiene que ir **en la misma línea** que el
+ * motivo —«Pidió la baja 🔒»—, y una columna flex lo tiraba al renglón de
+ * abajo, que es justo el renglón de más que Dirección mandó quitar.
+ *
+ * Como bloque normal, el candado fluye detrás del texto y se lleva su salto
+ * de línea sólo si no cabe. */
 .fila__motivo {
-  display: flex;
-  flex-direction: column;
-  gap: var(--arles-space-1);
+  display: block;
 }
 
-/* Por qué no hay botón en esa fila. Un hueco sin explicación se lee como un
-   fallo de la aplicación, no como una decisión. */
+/* El candado de la fila. Por qué no hay botón ahí.
+
+   `inline-flex` y no `block`: va pegado al motivo, en su misma línea, para
+   que se lea «Pidió la baja 🔒» como una sola cosa. Antes era un párrafo
+   debajo con la frase entera, y cada fila medía dos renglones de más. */
 .fila__candado {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-start: var(--arles-space-2);
+  color: var(--arles-text-muted);
+  /* La línea base del icono se alinea con la del texto que acompaña. */
+  vertical-align: middle;
+}
+
+/* La leyenda que explica el candado, una sola vez. Se lee como una nota, no
+   como un aviso: no ha pasado nada malo, sólo se está nombrando un símbolo. */
+.supresion__leyenda {
+  display: flex;
+  align-items: center;
+  gap: var(--arles-space-2);
+  margin: 0 0 var(--arles-space-3);
+  max-width: 62ch;
   font-size: var(--arles-font-size-caption);
   color: var(--arles-text-muted);
 }
