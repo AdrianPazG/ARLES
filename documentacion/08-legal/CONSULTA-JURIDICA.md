@@ -1,196 +1,299 @@
-# Consulta jurídica · lo que necesitamos de un abogado
+# Consulta jurídica
 
-> **Para:** el despacho o abogado que contrate TELEMETRY INSIGHT
-> **De:** el equipo de ARLES RELAY I
-> **Fecha:** 17 de septiembre de 2026 · **Resuelve:** la pregunta abierta P-09
+> Nueve preguntas concretas sobre protección de datos en México
 
-Este documento está escrito para **mandarse tal cual**. No pide una opinión
-general sobre protección de datos: pide **ocho respuestas concretas**, y en cada
-una dice qué vamos a hacer con ella. Si alguna pregunta no se puede contestar
-sin más contexto, lo que falta está en la sección 5.
+@@ PARA | El despacho o abogado que contrate TELEMETRY INSIGHT
+@@ DE | El equipo de ARLES RELAY I
+@@ DE QUÉ VA | Enviar correo y WhatsApp comercial en México, dentro de la ley
+@@ FECHA | 22 de septiembre de 2026
+@@ QUÉ PEDIMOS | Nueve respuestas · no una opinión general
+@@ LA MÁS URGENTE | La número 3 · sección 8
 
----
+=== 1 · Léase esto primero
 
-## 1 · Qué es ARLES, en un párrafo
+Este documento está escrito **para mandarse tal cual**.
 
-Una aplicación **de escritorio** (Windows y macOS) que ejecuta campañas de
-correo electrónico y de WhatsApp. **Todo corre en el equipo del cliente**: la
-base de datos está cifrada en su disco, y ARLES no tiene servidores ni recibe
-copia de los contactos. Los correos salen de **la propia cuenta del cliente**
-(su SMTP o su Gmail), no de una infraestructura nuestra.
+No le pedimos un dictamen sobre protección de datos. Le pedimos **nueve
+respuestas concretas**, y en cada una le decimos exactamente qué vamos a hacer
+con lo que nos conteste. Algunas cambian un texto; una de ellas cambia el
+producto entero.
 
-Quien usa ARLES —el cliente— importa una lista de contactos que ya tiene, o que
-obtiene de un directorio público, y les escribe. **Muchos de esos contactos no
-han dado consentimiento previo**: es correo comercial en frío dirigido a
-empresas.
+Está escrito en lenguaje llano a propósito. Quien lo lee del lado de TELEMETRY
+no es abogado, y quien lo lee del lado de usted no es programador. Hemos
+intentado que las dos personas entiendan lo mismo.
 
-**El primer usuario es TELEMETRY INSIGHT**, internamente. La comercialización a
-terceros llega en una versión posterior.
+!i **Si alguna pregunta no se puede contestar sin más contexto**, la sección 7
+dice todo lo que le podemos entregar. Pídalo y se lo mandamos el mismo día.
 
----
+=== 2 · Qué es ARLES, sin tecnicismos
 
-## 2 · Lo que ya averiguamos, para no hacerle perder tiempo
+ARLES es **un programa que se instala en una computadora**. No es una página
+web ni un servicio en la nube.
 
-Esto lo dimos por bueno a partir de fuentes secundarias fiables. **Le pedimos que
-lo confirme o lo corrija**, no que lo investigue de cero:
+Sirve para una cosa: **mandar correos —y mensajes de WhatsApp— a una lista de
+contactos**, de forma ordenada y con límites de velocidad, para ofrecer un
+producto o un servicio.
 
-| | Lo que entendemos | Fuente |
+Tres cosas que importan para sus respuestas:
+
+- **Nosotros no vemos ningún dato.** Todo vive en el disco de quien usa el
+  programa, cifrado. ARLES no tiene servidores. Si un cliente carga diez mil
+  contactos, esos diez mil contactos jamás salen de su computadora.
+- **Los correos salen de la cuenta del propio cliente**, no de una nuestra.
+  ARLES usa su correo corporativo, igual que lo haría Outlook.
+- **Muchos de esos contactos nunca dieron permiso.** Es correo comercial en
+  frío, dirigido a empresas. Ése es el punto que más nos preocupa, y es la
+  pregunta 3.
+
+**Quién lo usa hoy:** sólo TELEMETRY INSIGHT, internamente. Venderlo a otras
+empresas llega en una versión posterior.
+
+=> EN UNA FRASE :: Somos el fabricante de la herramienta. **Quien responde ante la ley por los datos es el cliente que la usa** — hoy, nosotros mismos. Queremos que la herramienta le ponga fácil cumplir, y no al revés.
+
+=== 3 · Lo que ya averiguamos
+
+Esto lo dimos por bueno leyendo el Diario Oficial y análisis de despachos.
+**No le pedimos que lo investigue de cero: le pedimos que nos lo confirme o
+nos corrija.**
+
+| | Lo que entendemos | De dónde lo sacamos |
 |---|---|---|
-| **a** | La **LFPDPPP de 2010 fue abrogada**. Rige una **LFPDPPP nueva**, publicada en el DOF el **20 de marzo de 2025**, en vigor desde el **21 de marzo de 2025** | DOF, y análisis de Garrigues, EY e IDC |
-| **b** | El **INAI se extinguió**. La autoridad en materia de datos en posesión de particulares es ahora la **Secretaría Anticorrupción y Buen Gobierno** | Decreto constitucional del 20/12/2024 |
-| **c** | El **reglamento de la ley nueva sigue sin publicarse** | Análisis de firmas, a la fecha de este documento |
-| **d** | El medio de defensa pasa a ser el **juicio de amparo** ante tribunales especializados, en lugar del juicio de nulidad | Análisis de firmas |
+| **a** | La ley de protección de datos de 2010 **ya no existe**. Rige una **ley nueva**, publicada el 20 de marzo de 2025 y en vigor desde el día siguiente | Diario Oficial, y análisis de Garrigues, EY e IDC |
+| **b** | El **INAI se extinguió**. Ahora la autoridad es la **Secretaría Anticorrupción y Buen Gobierno** | Decreto constitucional del 20 de diciembre de 2024 |
+| **c** | El **reglamento de la ley nueva todavía no se publica** | Análisis de despachos, a la fecha de este documento |
+| **d** | Para defenderse ya no hay juicio de nulidad, sino **juicio de amparo** ante tribunales especializados | Análisis de despachos |
 
-=> Si alguno de estos cuatro puntos es incorrecto, **eso ya es una respuesta
-valiosa** y cambia lo que escribimos.
+=> SI ALGO DE ESTO ESTÁ MAL :: Decírnoslo **ya es una respuesta valiosa**, y cambia lo que escribimos dentro del programa.
 
----
+=== 4 · Bloque A · Qué ley aplicamos
 
-## 3 · Las ocho preguntas
+### P-1 · ¿Sigue sirviendo el reglamento viejo mientras no salga el nuevo?
 
-### Bloque A · Qué norma aplicamos
+**La pregunta, en una frase.** La ley nueva es de 2025 y su reglamento aún no
+se publica. ¿Nos seguimos guiando por el reglamento de 2011, o ya no vale?
 
-**P-1 · ¿Sigue vigente el Reglamento de 2011 mientras no se publique el nuevo?**
+**Por qué la hacemos.** El reglamento de 2011 es el que dice, con detalle, **qué
+tiene que decir un aviso de privacidad** y **en cuántos días hay que responder**
+cuando alguien pide sus datos. Si sigue valiendo, tenemos una guía clara. Si no,
+sólo tenemos el texto de la ley, que es mucho más escueto y deja más al criterio.
 
-- *Por qué preguntamos:* el Reglamento de 2011 es el que detalla el contenido
-  mínimo del aviso de privacidad y los plazos de respuesta a los derechos ARCO.
-  Si sigue aplicando, tenemos una guía concreta; si no, hay que cumplir sólo con
-  el texto de la ley, que es más escueto.
-- *Qué haremos con la respuesta:* decide **qué citamos** en el aviso de
-  privacidad y **qué plazos** programamos en la aplicación.
+**Qué haremos con su respuesta.** Decide qué norma citamos en el aviso de
+privacidad que sale en cada correo, y **qué plazos programamos** para que el
+programa avise: «llevas 12 días sin responder a esta solicitud».
 
-**P-2 · ¿Hay que registrar algo, notificar algo o inscribirse ante la Secretaría
-Anticorrupción y Buen Gobierno antes de operar?**
+### P-2 · ¿Hay que darse de alta en algún registro antes de operar?
 
-- *Por qué preguntamos:* con el INAI no había registro previo para particulares.
-  Queremos confirmar que sigue sin haberlo.
-- *Qué haremos:* si lo hay, es un trámite que hay que iniciar **antes** de la
-  primera campaña, no después.
+**La pregunta, en una frase.** ¿Tenemos que inscribirnos, notificar o pedir
+permiso a la Secretaría Anticorrupción y Buen Gobierno antes de mandar el primer
+correo?
 
-### Bloque B · El correo y el WhatsApp en frío
+**Por qué la hacemos.** Con el INAI no existía ningún registro previo para
+empresas privadas. Queremos confirmar que con la autoridad nueva sigue sin
+haberlo — y si lo hay, enterarnos ahora.
 
-**P-3 · Datos obtenidos de una fuente de acceso público** —por ejemplo, el
-**DENUE del INEGI**, que publica el correo y el teléfono de establecimientos—:
-**¿se pueden usar para enviar publicidad comercial sin consentimiento previo?**
+**Qué haremos con su respuesta.** Si hay trámite, **es lo primero que hay que
+hacer**, antes de la primera campaña. Si nos enteramos después, llevaríamos
+meses operando sin cumplir.
 
-- *Por qué preguntamos:* es **el supuesto central del producto**. La ley
-  anterior lo permitía en su artículo 10, fracción II. Necesitamos saber si la
-  ley nueva mantiene esa excepción, con qué límites, y si cambia algo cuando el
-  destinatario es una persona física con actividad empresarial en vez de una
-  persona moral.
-- *Qué haremos:* si la respuesta es no, o es «sí pero», **cambia el producto**,
-  no sólo un texto: habría que exigir prueba de consentimiento antes de permitir
-  una campaña.
+=== 5 · Bloque B · El correo y el WhatsApp en frío
 
-**P-4 · ¿Qué tiene que decir, palabra por palabra, el aviso de privacidad que
-el destinatario recibe cuando sus datos se obtuvieron indirectamente?**
+!! **Este bloque es el corazón del asunto.** Si las respuestas aquí son
+negativas, no cambia un texto del programa: **cambia el producto**.
 
-- *Por qué preguntamos:* nosotros no tratamos los datos — los trata el cliente.
-  Pero ARLES es quien **redacta el texto que sale en el correo**, y queremos que
-  sea correcto por defecto.
-- *Qué haremos:* será el texto de plantilla que ARLES propone, editable por el
-  cliente. Idealmente nos entrega **el texto redactado**.
+### P-3 · ¿Se puede escribir a alguien cuyo correo salió de un directorio público?
 
-**P-5 · ¿El WhatsApp comercial no solicitado tiene requisitos distintos a los
-del correo?**
+**La pregunta, en una frase.** El INEGI publica gratis un directorio de
+empresas —el DENUE— con el correo y el teléfono de cada establecimiento.
+**¿Podemos usar esos datos para mandar publicidad, sin haber pedido permiso
+antes?**
 
-- *Por qué preguntamos:* WhatsApp es un canal más intrusivo y está asociado a
-  un número personal. Queremos saber si existe alguna obligación adicional en
-  México —de la ley de datos, de PROFECO o de cualquier otra— más allá de las
-  reglas contractuales de Meta, que ya conocemos y cumplimos.
-- *Qué haremos:* decide si el modo «Prospección Directa» necesita una
-  advertencia distinta, o si hay que restringirlo.
+**Por qué la hacemos.** Porque **es el supuesto central del producto**. La ley
+anterior lo permitía expresamente cuando los datos venían de una fuente de
+acceso público. Necesitamos saber tres cosas de la ley nueva:
 
-**P-6 · ¿Existe obligación de consultar el REPEP** (Registro Público para Evitar
-Publicidad) **o algún registro equivalente antes de enviar?**
+1. ¿Mantiene esa excepción?
+2. Si la mantiene, ¿con qué límites?
+3. ¿Cambia algo cuando el destinatario es una **persona física con actividad
+   empresarial** —un taller, un consultorio— en vez de una sociedad?
 
-- *Por qué preguntamos:* el REPEP cubre telefonía. No sabemos si alcanza al
-  correo o al WhatsApp, ni si es exigible cuando el destinatario es una empresa.
-- *Qué haremos:* si es exigible, **es una funcionalidad nueva**: habría que
-  cruzar la lista antes de cada campaña. Eso no está construido y hay que
-  planearlo.
+**Qué haremos con su respuesta.**
 
-### Bloque C · Los derechos del destinatario
+- Si es **sí**: seguimos como estamos.
+- Si es **no**, o es **«sí, pero…»**: hay que construir una compuerta nueva en
+  el programa que **impida lanzar una campaña sin prueba de consentimiento**.
+  Eso es trabajo de semanas, no un texto.
 
-**P-7 · Plazos y forma de atender los derechos ARCO** (acceso, rectificación,
-cancelación y oposición) **con la ley nueva.**
+=> POR ESO ÉSTA NO SE PUEDE APLAZAR :: Construir la parte de campañas asumiendo que se puede, y descubrir después que no, obliga a rehacerla entera. Ver la sección 8.
 
-- *Por qué preguntamos:* los tenemos programados contra los plazos de la ley
-  anterior. Si cambiaron, cambia el código.
-- *Qué haremos:* ajustar los plazos que la aplicación vigila y avisa.
+### P-4 · ¿Qué tiene que decir, palabra por palabra, el aviso de privacidad?
 
-**P-8 · Cuando alguien pide que borren sus datos, ¿podemos conservar su
-dirección en una lista de supresión para no volver a escribirle?**
+**La pregunta, en una frase.** Cuando le escribimos a alguien cuyos datos NO nos
+dio él directamente, ¿qué texto exacto tiene que leer en ese correo?
 
-- *Por qué preguntamos:* hay una tensión real. Para **cumplir** con «no me
-  vuelvas a escribir» hay que **conservar** la dirección; si la borramos del
-  todo, la siguiente importación la vuelve a meter y se le escribe otra vez.
-- *Qué haremos:* está construido así —se conserva la dirección y nada más, sin
-  nombre ni empresa—. Necesitamos confirmación de que es la lectura correcta, y
-  si hay que documentarlo de alguna forma concreta.
+**Por qué la hacemos.** Nosotros no tratamos los datos — los trata el cliente.
+Pero **ARLES es quien redacta el texto que sale en el correo**, y queremos que
+salga correcto por defecto, sin que cada cliente tenga que pagarse un abogado.
 
----
+**Qué haremos con su respuesta.** Será el texto que el programa propone por
+defecto, editable por quien lo use. **Lo ideal sería que nos entregue el texto
+ya redactado**, listo para pegar.
 
-## 4 · Qué NO le estamos preguntando
+### P-5 · ¿El WhatsApp comercial tiene reglas distintas a las del correo?
 
-Para acotar el encargo:
+**La pregunta, en una frase.** Mandar un WhatsApp a alguien que no lo pidió,
+¿exige algo más en México que mandarle un correo?
 
-- **No** pedimos revisar el contrato de licencia de ARLES con sus clientes. Eso
-  es otra consulta y llega con la versión comercial.
-- **No** pedimos revisar los términos de Meta ni de Google. Los conocemos y los
-  cumplimos; son contractuales, no legales.
-- **No** pedimos auditoría de seguridad. La aplicación cifra en reposo y guarda
-  las credenciales en el llavero del sistema operativo.
+**Por qué la hacemos.** WhatsApp es más invasivo: va a un número que suele ser
+personal y suena en el bolsillo. Queremos saber si hay alguna obligación
+adicional —de la ley de datos, de PROFECO o de donde sea— **más allá de las
+reglas de Meta**, que ya conocemos y cumplimos.
 
----
+**Qué haremos con su respuesta.** Decide si el modo de prospección por WhatsApp
+necesita una advertencia distinta dentro del programa, o si hay que restringirlo.
 
-## 5 · Lo que le podemos entregar si hace falta
+!i **Contexto que quizá le sirva:** Meta prohíbe contractualmente el mensaje
+comercial en frío. No es una cuestión legal sino de contrato, y ya lo tenemos
+resuelto por nuestro lado. Le preguntamos sólo por la parte legal mexicana.
 
-- El **aviso de privacidad actual** en borrador.
-- El **texto de la afirmación de origen lícito** que el usuario acepta al
-  importar una lista.
-- La **estructura de datos** que guardamos de cada contacto y de cada permiso,
-  con sus fechas y pruebas.
-- Una **demostración** de la aplicación.
+### P-6 · ¿Hay que consultar el REPEP antes de enviar?
 
----
+**La pregunta, en una frase.** El REPEP es el registro donde la gente se apunta
+para que no le llamen a vender. **¿Estamos obligados a consultarlo antes de cada
+campaña?** ¿Y alcanza al correo y al WhatsApp, o sólo al teléfono?
 
-## 6 · Qué necesitamos de vuelta, y en qué orden
+**Por qué la hacemos.** Sabemos que cubre llamadas telefónicas. No sabemos si
+llega al correo, ni si es exigible cuando el destinatario es una empresa y no
+un particular.
 
-Si hay que priorizar, **P-3 es la que más pesa**: de ella depende si el producto
-funciona como está planteado. Las demás cambian textos y plazos.
+**Qué haremos con su respuesta.** Si es exigible, **es una función nueva que no
+existe**: habría que cruzar cada lista contra ese registro antes de enviar. Hay
+que planearlo antes de cerrar el alcance de esta versión.
+
+=== 6 · Bloque C · Los derechos de quien recibe el correo
+
+!i **Nota de vocabulario.** A los cuatro derechos de una persona sobre sus datos
+se les llama **derechos ARCO**: **A**cceso —saber qué tienes de mí—,
+**R**ectificación —corrígelo—, **C**ancelación —bórralo— y **O**posición —deja
+de usarlo—. Los mencionamos así en las tres preguntas que siguen.
+
+### P-7 · ¿Cuántos días tenemos para responder, y en qué forma?
+
+**La pregunta, en una frase.** Con la ley nueva, ¿en cuánto tiempo hay que
+contestar a cada uno de los cuatro derechos, y hay una forma obligatoria de
+hacerlo?
+
+**Por qué la hacemos.** El programa ya lleva esos plazos programados, pero
+contra los de la ley anterior. Si cambiaron, **cambia el código**, no sólo un
+documento.
+
+**Qué haremos con su respuesta.** Ajustar los avisos automáticos que el programa
+enseña: «esta solicitud lleva 12 días abierta, te quedan 8».
+
+### P-8 · Al borrar a alguien, ¿podemos guardar su correo para no volver a escribirle?
+
+**La pregunta, en una frase.** Alguien nos pide que borremos sus datos. Si
+borramos su correo **del todo**, la próxima vez que importemos una lista
+volverá a entrar y le volveremos a escribir. **¿Podemos guardar su dirección —y
+nada más— en una lista de bloqueo, precisamente para respetar su voluntad?**
+
+**Por qué la hacemos.** Es una contradicción real, y no la inventamos nosotros:
+para **cumplir** con «no me vuelvas a escribir» hay que **conservar** el dato que
+permite reconocerlo.
+
+**Qué haremos con su respuesta.** Ya está construido así: se guarda **sólo la
+dirección**, sin nombre, sin empresa, sin nada más, y marcada como «esto lo
+pidió la persona». Necesitamos que nos confirme que es la lectura correcta, y si
+hay que dejarlo documentado de alguna forma concreta.
+
+### P-9 · Cuando alguien se va, ¿su consentimiento es dato suyo o prueba nuestra?
+
+!! **Esta pregunta es nueva** — apareció el 22 de septiembre de 2026 mientras
+construíamos el borrado. No estaba en la versión anterior de este documento.
+
+**La situación, con un ejemplo.**
+
+Ana se apunta en un formulario de la web y da permiso para recibir correos. El
+programa anota una línea:
+
+> *«ana@empresa.mx — dio su permiso el 3 de marzo de 2026 — en un formulario»*
+
+Esa línea **está sellada a propósito**: nadie puede borrarla ni modificarla,
+nunca. Si se pudiera editar, no probaría nada — cualquiera podría escribirla
+después de recibir una queja. Una prueba que se puede fabricar no es una prueba.
+
+Meses después, **Ana pide que borremos todos sus datos**. Y lo hacemos: su
+ficha, su nombre, sus etiquetas, su rastro en los envíos. Todo.
+
+Todo menos esa línea. Porque está sellada.
+
+**La pregunta, en una frase.**
+
+> Cuando Ana se va, ¿esa línea es **un dato de Ana** —y se va con ella— o es
+> **la prueba del cliente** de que ese envío era legítimo —y se queda—?
+
+**Las consecuencias de cada respuesta:**
+
+| Si es… | Entonces… | Y el problema es… |
+|---|---|---|
+| **Dato de Ana** | Se borra con todo lo demás | El cliente **pierde la prueba** de que ese envío era legítimo, justo de la persona con más motivos para quejarse |
+| **Prueba del cliente** | Se queda | Le dijimos a Ana «borramos todo» **y no era cierto**: su correo sigue en una tabla que nadie puede tocar |
+
+**Lo que proponemos, si le parece defendible.** Una salida intermedia: **borrar
+el nombre y conservar el hecho.** Que la línea quede así:
+
+> *«—borrado— dio su permiso el 3 de marzo de 2026 — en un formulario»*
+
+El cliente conserva lo que un auditor querría ver —que hubo consentimiento, de
+qué tipo y cuándo— y Ana deja de estar ahí. Es exactamente lo mismo que ya
+hacemos con el registro de envíos.
+
+**Qué haremos con su respuesta.** Decide si esa línea se borra, se anonimiza o
+se conserva. **Las tres son construibles**; lo que no podemos es elegir por
+usted, porque la respuesta depende de a quién pertenece esa anotación.
+
+=> URGENCIA :: **Baja, pero con fecha.** Hoy esa tabla está vacía: el consentimiento se empieza a registrar cuando construyamos las campañas. Necesitamos la respuesta **antes** de ese momento, no después.
+
+=== 7 · Qué le podemos entregar, y qué no le preguntamos
+
+**Si necesita más contexto, tenemos esto listo para mandárselo:**
+
+- El **aviso de privacidad** que usa hoy el programa, en borrador.
+- El **texto exacto** que el usuario tiene que aceptar al cargar una lista,
+  declarando que la obtuvo lícitamente.
+- La **lista completa de qué datos guardamos** de cada contacto y de cada
+  permiso, con sus fechas.
+- Una **demostración del programa**, presencial o por videollamada.
+
+**Para acotar el encargo, NO le estamos pidiendo:**
+
+- Revisar el contrato de licencia de ARLES con sus futuros clientes. Eso es otra
+  consulta y llega con la versión comercial.
+- Revisar los términos de Meta ni de Google. Los conocemos y los cumplimos; son
+  contractuales, no legales.
+- Una auditoría de seguridad informática. El programa cifra los datos en el
+  disco y guarda las contraseñas en el llavero del sistema operativo.
+
+=== 8 · En qué orden las necesitamos
+
+Si hay que priorizar, **la 3 es la que más pesa con diferencia**: de ella
+depende si el producto funciona como está planteado. Las demás cambian textos,
+plazos o una función concreta.
 
 | Prioridad | Preguntas | Por qué |
 |---|---|---|
-| **1** | **P-3** | Si la respuesta es no, cambia el producto entero |
-| **2** | P-4, P-8 | Son los textos y la lista de supresión: se construyen ya |
-| **3** | P-1, P-7 | Plazos y citas normativas |
-| **4** | P-2, P-5, P-6 | Trámites y posibles funcionalidades nuevas |
+| **1 · Urgente** | **P-3** | Si la respuesta es «no», cambia el producto entero |
+| **2 · Pronto** | P-6 | Si el REPEP es exigible, es una función nueva que hay que planear |
+| **3 · Antes de campañas** | P-4, P-8, **P-9** | Textos y reglas de borrado que se construyen ahora |
+| **4 · Cuando pueda** | P-1, P-2, P-5, P-7 | Plazos, citas normativas y trámites |
 
----
+**Decisión de Dirección del 18 de septiembre de 2026.** Esta consulta se puede
+aplazar **salvo la pregunta 3**, y conviene mandar esa suelta: es una pregunta
+concreta sobre un artículo concreto, mucho más rápida y barata que la consulta
+entera.
 
-## 7 · Decisión de Dirección del 18/09/2026 · se aplaza, con una excepción
+=> FECHA LÍMITE DE P-3 :: **Antes de empezar a construir las campañas.** No es «antes de publicar»: para entonces ya sería tarde y habría que rehacer trabajo.
 
-Dirección preguntó si esta consulta se puede aplazar. **Sí, salvo P-3.**
-
-Siete de las ocho preguntas cambian **textos**: qué dice el aviso de privacidad,
-en cuántos días hay que responder a un derecho ARCO, qué norma se cita. Todo eso
-se construye ya con texto marcado como provisional y visible como tal, según
-ADR-0013 §1, y se sustituye cuando llegue la respuesta.
-
-**P-3 es distinta, y tiene fecha límite.** No cambia un texto: si la respuesta es
-«no» o «sí, pero», habría que exigir prueba de consentimiento antes de permitir
-una campaña — una compuerta nueva en el flujo. Construir la **Fase 6** asumiendo
-que se puede, y descubrir después que no, obliga a rehacerla.
-
-| | |
-|---|---|
-| **Qué se aplaza** | P-1, P-2, P-4, P-5, P-6, P-7, P-8 |
-| **Qué no** | **P-3**, y conviene mandarla **suelta**: es una pregunta concreta sobre un artículo concreto, mucho más barata y rápida que la consulta entera |
-| **Fecha límite de P-3** | **Antes de empezar la Fase 6.** No es «antes de publicar»: para entonces ya sería tarde |
-| **Segunda con cola larga** | **P-6** (REPEP). Si resulta exigible es una funcionalidad nueva, no un texto, y hay que planearla antes de cerrar el alcance de la v1.2.0 |
-
-**Lo que esto significa mientras tanto:** la declaración de origen que ARLES pide
-al importar es un mecanismo terminado con un hueco dentro — el texto. El esquema
-guarda el texto que sea, con su huella, así que sustituirlo después no pierde
-nada de lo ya firmado.
+!x **Lo que hacemos mientras tanto.** El programa se construye con los textos
+legales marcados **visiblemente como provisionales**, para que nadie los
+confunda con algo revisado. La estructura guarda el texto que sea, así que
+sustituirlo después no pierde nada de lo ya firmado por ningún usuario.
