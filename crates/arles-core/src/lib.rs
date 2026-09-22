@@ -26,6 +26,7 @@ pub mod etapa;
 pub mod ids;
 pub mod importacion;
 pub mod onboarding;
+pub mod ritmo;
 pub mod secret;
 pub mod supresion;
 

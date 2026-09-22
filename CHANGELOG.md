@@ -12,6 +12,40 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Fase 4 · arranca el motor, por el reloj
+
+La Fase 4 es la que de verdad envía, y el roadmap la marca como la que
+concentra el 70 % del riesgo del proyecto. Se empieza por donde no hay ni base
+de datos ni red: el dominio puro.
+
+**El problema que resuelve este primer trozo**, explicado con el caso real:
+
+Usted programa ARLES para mandar 10 correos por hora. Cierra la tapa del
+portátil y se va a dormir. Ocho horas después lo abre.
+
+Un contador normal razonaría así: «han pasado ocho horas, me tocan ochenta
+permisos» — y soltaría ochenta correos en un minuto. Eso es exactamente lo que
+hace que un proveedor marque su cuenta como spam, y es irreversible: la
+reputación de un dominio se pierde en un minuto y se recupera en meses.
+
+**ARLES reinicia el presupuesto en vez de acumularlo.** La consecuencia hay que
+decirla porque es real: **un correo que no salió ayer no se recupera hoy**. La
+campaña dura más. Si el simulador dijo cien días y el equipo estuvo apagado
+tres, dura ciento tres. Eso es lo esperado, no un fallo.
+
+**Cómo se detecta que el equipo durmió.** Se comparan dos relojes: el que sigue
+corriendo mientras el equipo duerme y el que no. La diferencia entre los dos
+**es** lo que duró la suspensión. Hacen falta los dos: uno solo no distingue
+«durmió ocho horas» de «alguien cambió la hora del sistema», y el otro no puede
+ver la suspensión en absoluto, que es su definición.
+
+Once pruebas nuevas, y las cuatro garantías se vieron fallar antes de darlas por
+buenas: el cubo que acumula en vez de reiniciar, la resta que revienta cuando el
+reloj se atrasa, la ventana de horario que deja de comprobarse, y el «mayor o
+igual» cambiado por «mayor» — que dejaría enviar exactamente **uno de más** en
+cada ventana, y ese uno es justo el que cruza el umbral que vigila el proveedor.
+
+
 ### La documentación se comprueba sola
 
 Dirección pidió revisar toda la documentación de GitHub. Son **66 documentos**.

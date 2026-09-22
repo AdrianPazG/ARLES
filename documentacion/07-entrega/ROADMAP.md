@@ -97,9 +97,17 @@ su parte de esquema; el resto llega en las Fases 5 y 7.
 
 ---
 
-### Fase 4 — Motor de ejecución ⭐
+### Fase 4 — Motor de ejecución ⭐ 🟡 en curso
 
 **Adelantada a propósito. Concentra el 70 % del riesgo técnico.**
+
+**Arrancada el 22/09/2026.** Primero el dominio puro, sin base ni red: la
+máquina de estados ya estaba desde la Fase 1, con sus nueve estados y doce
+pruebas. Lo nuevo es `arles_core::ritmo` — el cubo de permisos, la ventana de
+trabajo y **la detección de suspensión**, que es la puerta de salida nombrada
+en esta fase. Once pruebas, y las cuatro garantías se vieron fallar antes de
+darlas por buenas, incluido el cubo ingenuo que suelta ocho horas de permisos
+de golpe al despertar el equipo.
 
 Cola persistente · máquina de estados · idempotencia con restricción única y CAS · política `presumed_sent` · cubo de tokens persistido · ventanas de ejecución en la zona de la empresa · **detección de suspensión sin ráfaga** · reintentos con backoff · disyuntor · pausar/reanudar/detener · parada de emergencia · independencia de la ventana.
 
