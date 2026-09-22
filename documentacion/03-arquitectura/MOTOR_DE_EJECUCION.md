@@ -124,13 +124,34 @@ Ver ADR-0004.
 
 ### Cubo de tokens persistido
 
-Por cuenta remitente, con dos ventanas simultáneas —horaria y diaria— en la **zona horaria de la empresa**, no la del sistema operativo. Un portátil que cruza husos horarios no debe cambiar la política de envío.
+Por cuenta remitente, con dos ventanas simultáneas —horaria y diaria— en la **zona horaria que declara la ventana de ejecución de la campaña**, nunca la del sistema operativo. Un portátil que cruza husos horarios no debe cambiar la política de envío.
+
+!! **Este bloque decía «la zona horaria de la empresa»**, en singular, como si
+sólo pudiera haber una. El esquema soportaba una por ventana desde la V1
+—`execution_window.timezone` existe y `campaign.execution_window_id` la elige—,
+así que lo equivocado era el texto, no el diseño. Corregido el 22/09/2026 al
+contrastar una pregunta de Dirección con la base de datos (D-10).
 
 El estado vive en `rate_budget`, así que sobrevive a cierres y reinicios. Un cubo en memoria se reiniciaría con la aplicación y permitiría enviar el límite diario varias veces al día.
 
 ### Ventana de ejecución
 
-`execution_window` define días y horas operativas. Fuera de ventana, los workers no toman trabajo. No se acumula nada: simplemente se espera.
+`execution_window` define días, horas operativas **y su zona horaria**. Fuera de ventana, los workers no toman trabajo. No se acumula nada: simplemente se espera.
+
+**La ventana pertenece a la campaña, no a la empresa (D-10).** Una empresa puede
+tener varias —«México · L-V 9-17 · `America/Mexico_City`» y «España · L-V 9-17 ·
+`Europe/Madrid`»— y cada campaña elige la suya. Las dos pueden correr a la vez
+desde el mismo equipo, esté donde esté.
+
+La zona se guarda como **nombre IANA**, nunca como desfase. Un desfase cambia con
+el horario de verano y un nombre no: guardar `-06:00` haría que la campaña se
+desplazara una hora dos veces al año sin que nadie tocara nada.
+
+**Lo que esto NO hace: la hora de cada destinatario.** Se difiere a la v1.3
+(D-11). ARLES no sabe dónde vive la gente —una dirección de correo no lleva
+ubicación, y un `+52` da el país, no la hora, porque México tiene cuatro zonas—
+y adivinarlo mal sería peor que no hacerlo: se enviaría de madrugada mientras el
+usuario cree que está resuelto.
 
 ### Aviso de más de 50 diarios (§48)
 

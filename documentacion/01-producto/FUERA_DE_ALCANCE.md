@@ -152,3 +152,25 @@ Cuando alguien proponga añadir algo a v1.2.0:
 2. **¿Está en la lista de «Nunca»?** Entonces no entra en ninguna versión.
 3. **¿Está diferido aquí?** Entonces ya hay una decisión: respetarla o revocarla explícitamente en `DECISIONES_DE_DIRECCION.md`.
 4. **¿Es nuevo?** Se evalúa con el marco del brief: *Problema → Riesgo → Impacto → Alternativa → Trade-off → Recomendación*, y se registra aquí con destino.
+
+---
+
+## Enviar a la hora local de cada destinatario · diferido a la v1.3 (D-11)
+
+Que cada correo salga a las 9 de la mañana **de cada destinatario**, cada uno en
+su huso horario.
+
+No se hace en la v1.2.0 porque **ARLES no sabe dónde vive la gente**: lo que se
+importa es una dirección de correo, y una dirección no lleva ubicación. Un
+teléfono con `+52` da el país, no la hora — México tiene cuatro zonas horarias.
+
+Y adivinar mal sería peor que no adivinar: se enviaría de madrugada mientras el
+usuario cree que ARLES se ocupó de eso.
+
+**Lo que lo desbloquea:** que cada contacto traiga su zona horaria declarada,
+como una columna más del archivo que se importa.
+
+Lo que sí hace la v1.2.0 es **una ventana horaria por campaña**, con su zona
+escrita (D-10): una campaña mexicana corre en horario de México y una europea en
+horario europeo, las dos desde el mismo equipo.
+

@@ -115,6 +115,29 @@ Cola persistente · máquina de estados · idempotencia con restricción única 
 
 **Puerta de salida:** todos los casos frontera de `ESTRATEGIA_QA.md` §3 pasan, en particular el de suspensión sin ráfaga y el de muerte del proceso sin duplicado.
 
+#### Se parte en seis entregas, cada una con su puerta
+
+| Entrega | Qué incluye | Puerta |
+|---|---|---|
+| **4.1** | El reloj y las reglas · máquina de estados, cubo de permisos, suspensión, **ventana con su zona horaria (D-10)** y política de reintentos | Cruzar el cambio de horario de verano sin hueco ni doble envío |
+| **4.2** ⭐ | La cola que no duplica · toma de trabajo con compare-and-swap, recuperación al arrancar, cubo persistido, instancia única | **Matar el proceso a mitad de un envío y que nadie reciba dos veces** |
+| **4.3** | El proveedor simulado y el bucle del worker · un proveedor al que se le puede ordenar que falle de seis formas distintas | Los casos de red y credenciales de `ESTRATEGIA_QA.md` §3 |
+| **4.4** | Pausar, reanudar, detener · y la parada de emergencia comprobada **antes de cada envío**, no entre lotes | Parar con un envío en curso y que no salga ni uno más |
+| **4.5** | El simulador de duración y el preflight · «terminará alrededor del 24 de enero» y las ocho comprobaciones previas | Los ocho puntos del preflight, con errores accionables (§95) |
+| **4.6** | Cierre: documento de fase, informe para Dirección y PDF | `validar.py --fase 4` en verde, 0 omitidas |
+
+**El orden no es negociable:** cada entrega se apoya en la anterior. La 4.2 es
+la que concentra el riesgo y la que lleva el tramo más largo.
+
+**Toda la fase se construye contra un proveedor simulado.** Al terminarla ARLES
+sabrá enviar perfectamente y no habrá mandado ni un correo real. Eso llega en la
+Fase 5.
+
+**Dependencia nueva que hace falta:** una base de datos de zonas horarias IANA.
+Sin ella no se puede cumplir D-10 —saber qué instante es «las 9:00 en
+`America/Mexico_City`»—. Pasa por `cargo deny check licenses` antes de entrar,
+como cualquier dependencia (CLAUDE.md §6).
+
 ---
 
 ### Fase 5 — Proveedores de correo
@@ -202,7 +225,7 @@ Trámites externos (arrancan en Fase 1, terminan cuando terminan):
 | Versión | Contenido |
 |---|---|
 | **v1.2.x** | `GoogleProvider` cuando Google verifique |
-| **v1.3** | `MicrosoftProvider` · detección de rebotes por buzón dedicado + IMAP ([ADR-0014](../03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md)) · cifrado de respaldos · licenciamiento · **lanzamiento comercial** |
+| **v1.3** | `MicrosoftProvider` · detección de rebotes por buzón dedicado + IMAP ([ADR-0014](../03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md)) · cifrado de respaldos · licenciamiento · **envío a la hora local de cada destinatario (D-11)**, cuando el contacto traiga su zona declarada · **lanzamiento comercial** |
 | **v1.4+** | White labeling · tracking opcional si se justifica |
 
 Detalle y motivos en `01-producto/FUERA_DE_ALCANCE.md`.

@@ -304,6 +304,93 @@ entrega 3.4, y sale de la misma tabla que alimenta este aviso.
 
 ---
 
+### D-10 · El horario de envío es de la campaña, no de la empresa
+
+**Fecha:** 22 de septiembre de 2026 · **Pedida por:** Dirección · **Gobierna:**
+la Fase 4 · la ventana de ejecución y el simulador de duración
+
+Dirección lo planteó al revisar la planeación de la Fase 4, con una frase que
+reordena el problema: **«no importa a qué hora lo envíe el remitente, sino a qué
+hora lo recibe el destinatario»**.
+
+Es la forma correcta de plantearlo. Una ventana de envío no existe para la
+comodidad de quien manda: existe para que el correo caiga en la bandeja de
+alguien a una hora en que esa persona lo lea.
+
+**El caso que Dirección describió.** Clientes de negocio en México, campaña de
+9 a 17. Si mañana ARLES se lleva a Madrid, la campaña mexicana **no** debe pasar
+a horario español: sus clientes siguen en México. Y si algún día hay clientes en
+Europa, esa campaña sí debe correr en horario europeo.
+
+**Lo decidido:**
+
+| | Qué pasa |
+|---|---|
+| **La ventana pertenece a la campaña** | No a la empresa. Una empresa puede tener varias y cada campaña elige la suya |
+| **Cada ventana lleva su zona horaria escrita** | `America/Mexico_City`, `Europe/Madrid`. Un nombre, no un desfase: los desfases cambian con el horario de verano y los nombres no |
+| **Nunca se usa la zona del sistema operativo** | Es lo que impide que llevarse el portátil a otro huso mueva los envíos sin que nadie lo haya pedido |
+| **Por defecto, la de la empresa** | Es lo que acierta en el caso normal. Se cambia cuando la campaña apunta a otro sitio |
+
+**Lo que esto NO es.** No es la hora del destinatario, uno a uno. Eso se difiere
+a la v1.3 y está razonado abajo.
+
+**Un dato práctico que salió al discutirlo:** «la zona horaria de la Unión
+Europea» no existe. La UE abarca tres —WET en Portugal e Irlanda, CET en la
+mayor parte, EET en Finlandia, Grecia y los bálticos—, y entre Lisboa y Helsinki
+hay dos horas. Una campaña «para Europa» tendrá que elegir una o partirse en
+varias. No es un obstáculo; es algo que conviene saber al planear, no al
+ejecutar.
+
+**Lo que esta decisión corrigió de paso.** `MOTOR_DE_EJECUCION.md` §4 decía «en
+la zona horaria de la empresa», en singular, como si sólo pudiera haber una. El
+esquema **ya soportaba** una por ventana desde la V1 —`execution_window.timezone`
+existe, y `campaign.execution_window_id` la elige—, así que lo que estaba mal era
+el texto, no el diseño. Encontrado al contrastar la pregunta de Dirección con la
+base de datos.
+
+---
+
+### D-11 · La hora de cada destinatario se difiere a la v1.3
+
+**Fecha:** 22 de septiembre de 2026 · **Pedida por:** Dirección · **Gobierna:**
+lo que la Fase 4 **no** hace
+
+Existe una versión más ambiciosa de D-10: que cada correo salga a las 9 de la
+mañana **de cada destinatario**, cada uno en su huso. Es lo que hacen las
+plataformas grandes, y en abstracto es la respuesta correcta.
+
+Se difiere a la v1.3, y no por falta de tiempo:
+
+**1 · ARLES no sabe dónde vive la gente.** Lo que se importa es una dirección de
+correo, y una dirección no dice nada de ubicación. Un teléfono con `+52` dice el
+país, no la hora: **México tiene cuatro zonas horarias**; Estados Unidos, seis. Y
+un dominio `.mx` no implica que la persona esté en México.
+
+**2 · Adivinar mal es peor que no adivinar.** Si ARLES dedujera «está en México»
+de un `+52` y esa persona viviera en Madrid, enviaría a las 3 de la madrugada
+—y el usuario creería que ARLES se ocupó de eso—. Un error silencioso que el
+usuario cree resuelto es peor que una regla explícita que el usuario controla.
+Es el mismo criterio que gobierna el caso ambiguo del motor (ADR-0004):
+**preferimos fallar del lado visible y recuperable**.
+
+**3 · Enreda el motor donde está el riesgo.** Repartir envíos entre husos
+distintos interactúa con los topes por hora y por día de formas que multiplican
+los casos frontera, justo en la fase que concentra el 70 % del riesgo técnico.
+
+**4 · Al volumen de ARLES aporta poco.** Con 50 correos diarios la campaña dura
+meses de todos modos. Afinar la hora de cada correo es una mejora marginal para
+quien manda cien mil al día, no para quien manda cincuenta.
+
+**Qué lo desbloquea, en concreto:** que cada contacto traiga **su zona horaria
+declarada**, como una columna más del archivo que se importa. Ese día deja de ser
+una adivinanza y pasa a ser un dato, y entonces la decisión se puede reabrir
+sobre otra base.
+
+**Registrado también en** `01-producto/FUERA_DE_ALCANCE.md` y en el apartado
+«Después de v1.2.0» del roadmap.
+
+---
+
 ## Decisiones pendientes
 
 Ver **`02-auditoria/PREGUNTAS_ABIERTAS.md`** para el registro completo.
