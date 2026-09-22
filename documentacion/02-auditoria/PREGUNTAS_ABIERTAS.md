@@ -240,7 +240,7 @@ varias fuentes secundarias fiables, y eso **reduce** lo que hay que preguntar:
 => Las ocho preguntas concretas que quedan, escritas para mandarse tal cual a un
 despacho, están en
 [**08-legal/CONSULTA-JURIDICA.md**](../08-legal/CONSULTA-JURIDICA.md). La que
-más pesa es **P-3 de esa consulta**: si el correo en frío a datos de una fuente
+más pesa es **C-3 de esa consulta**: si el correo en frío a datos de una fuente
 de acceso público sigue siendo lícito. De ella depende el producto, no un texto.
 
 **Por qué bloqueaba:** un aviso de privacidad que cita una ley abrogada no

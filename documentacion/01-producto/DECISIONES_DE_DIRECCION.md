@@ -199,7 +199,7 @@ principio y está frenando trabajo que no depende de ella.
 | **El texto del aviso de privacidad** | | ⏳ |
 | **El texto de la afirmación de origen lícito** | | ⏳ |
 | **Los plazos de los derechos ARCO** | | ⏳ |
-| **Si el correo en frío a fuentes públicas es lícito** | | ⏳ **P-3 de la consulta** |
+| **Si el correo en frío a fuentes públicas es lícito** | | ⏳ **C-3 de la consulta** |
 
 **Las dos condiciones que lo hacen seguro:**
 
@@ -216,11 +216,11 @@ principio y está frenando trabajo que no depende de ella.
 **Lo que NO se puede hacer sin la respuesta,** y conviene decirlo sin adornos:
 
 !x **No se envía ni un solo correo en frío a nadie de fuera de TELEMETRY hasta
-que P-3 esté contestada.** La v1.2.0 es despliegue interno (D-4), así que esto
+que C-3 esté contestada.** La v1.2.0 es despliegue interno (D-4), así que esto
 no frena la versión. Pero si la respuesta llega tarde y alguien quiere enseñar
 el producto enviando de verdad, la respuesta es no.
 
-**Coste honesto del aplazamiento:** si P-3 resulta ser «no», hay que añadir una
+**Coste honesto del aplazamiento:** si C-3 resulta ser «no», hay que añadir una
 puerta que exija prueba de consentimiento antes de activar una campaña. Es
 trabajo de la Fase 6, no de la 3, así que aplazar **no aumenta** ese coste — lo
 deja donde ya estaba.
