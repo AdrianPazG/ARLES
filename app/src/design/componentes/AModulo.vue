@@ -78,7 +78,16 @@ withDefaults(
   padding: var(--arles-space-5);
   border: var(--arles-border-width) solid var(--arles-border);
   border-radius: var(--arles-radius-lg);
-  background: var(--arles-surface);
+  /* Veladura sobre el color sólido: la tarjeta deja de ser un rectángulo
+     plano y pasa a tener un canto de luz arriba y peso abajo. El
+     `background-color` es el que sigue midiendo el contraste de todo lo que
+     lleve dentro — ver la nota de las veladuras en `base.css`.
+
+     Es deliberadamente la más floja de las tres. Una pantalla puede tener seis
+     módulos, y seis degradados marcados convierten una página en un muestrario
+     de tarjetas. Aquí el degradado no se ve: se nota. */
+  background-color: var(--arles-surface);
+  background-image: var(--arles-veladura-tarjeta);
 }
 
 /* El módulo principal se distingue por el borde de acento y no por un fondo

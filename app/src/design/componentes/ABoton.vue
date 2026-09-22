@@ -87,7 +87,8 @@ withDefaults(
 
   transition:
     background var(--arles-duration-fast) var(--arles-ease),
-    border-color var(--arles-duration-fast) var(--arles-ease);
+    border-color var(--arles-duration-fast) var(--arles-ease),
+    transform var(--arles-duration-fast) var(--arles-ease);
 }
 
 .t-normal {
@@ -105,13 +106,21 @@ withDefaults(
   display: none;
 }
 
+/* El oro va con veladura: un relleno plano se lee como una etiqueta de color,
+   y con la veladura se lee como una pieza de metal con luz encima. Es el único
+   sitio del producto donde el acento ocupa una superficie entera, así que es
+   donde ese medio tono se nota.
+
+   `background-color` aparte de `background-image` no es manía: es lo que deja
+   que el contraste se siga midiendo contra un color real (`base.css`). */
 .v-primario {
-  background: var(--arles-accent);
+  background-color: var(--arles-accent);
+  background-image: var(--arles-veladura-acento);
   color: var(--arles-text-on-accent);
 }
 
 .v-primario:hover:not(:disabled) {
-  background: var(--arles-accent-hover);
+  background-color: var(--arles-accent-hover);
 }
 
 /* En el tema claro el oro sobre papel da 1.32:1: el botón se lee, pero como
@@ -129,6 +138,26 @@ withDefaults(
    estado se pinta igual para las cuatro variantes. */
 :root[data-tema='claro'] .v-primario:not(:disabled) {
   border-color: var(--arles-accent-ink);
+}
+
+/* ── La respuesta al pulsar ─────────────────────────────────────────────────
+   El botón cede bajo el dedo: un 2 % de escala durante 120 ms. Es la
+   diferencia entre pulsar una imagen de un botón y pulsar un botón.
+
+   `:active` y no `:focus`: sólo mientras se mantiene apretado. Y no se aplica
+   a un botón deshabilitado ni a uno ocupado — un control que se hunde cuando
+   no va a pasar nada promete algo que no cumple, y con `aria-busy` ya está
+   pasando lo que tenía que pasar.
+
+   `scale` en vez de moverlo: un desplazamiento arrastra el texto y se lee como
+   un salto. Y `transform` no provoca recálculo de maquetación, así que esto no
+   puede costar fluidez por muchos botones que haya en la pantalla — es la
+   restricción que puso Dirección el 22/09/2026 al pedir los efectos.
+
+   `prefers-reduced-motion` lo deja en 0.01 ms por la regla global de
+   `base.css`: el hundido sigue ocurriendo, pero sin recorrido. */
+.boton:active:not(:disabled):not([aria-busy='true']) {
+  transform: scale(var(--arles-pulsado));
 }
 
 .v-secundario {

@@ -224,3 +224,180 @@ describe('las subsecciones salen de las rutas, no de una lista aparte', () => {
     }
   })
 })
+
+/**
+ * El indicador que viaja · dirección visual, 22/09/2026
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * LO QUE SE PRUEBA AQUÍ NO ES QUE SE VEA BONITO
+ *
+ * Es que **no pueda romper la navegación**. El viajero es la única pieza de la
+ * barra que depende de MEDIR el documento, y medir falla de maneras que no dan
+ * ningún error: la fuente aún no cargó, la barra está a mitad de plegarse, la
+ * ruta acaba de cambiar y el enlace activo todavía no existe.
+ *
+ * El contrato es: si la medida falla, la lista lleva `sin-viajero` y vuelve
+ * **exactamente** el dibujo que había antes de que esto existiera — relleno en
+ * el enlace activo y su barrita de acento. El estado nunca depende del adorno.
+ *
+ * jsdom hace de banco de pruebas perfecto sin fingir nada: no maqueta, así que
+ * `getBoundingClientRect` devuelve ceros y la medida falla de verdad. El
+ * primer caso es el modo degradado real, no una simulación de él.
+ * ───────────────────────────────────────────────────────────────────────────
+ */
+describe('el indicador que viaja no puede romper la navegación', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  it('sin medida, la barra vuelve al marcado de siempre', async () => {
+    const w = await en('/contactos')
+
+    // jsdom no maqueta: la medida da cero y el viajero se retira.
+    expect(w.find('.nav-marco').classes()).toContain('sin-viajero')
+
+    // Y lo que importa: la sección sigue marcada. Dos señales, no una (§19).
+    const contactos = enlaceDeBarra(w, '/contactos')
+    expect(contactos?.classes()).toContain('activo')
+    expect(contactos?.attributes('aria-current')).toBe('page')
+  })
+
+  /**
+   * Con medida, el viajero aparece y se coloca sobre la sección activa.
+   *
+   * Se finge `getBoundingClientRect` porque es lo único que jsdom no puede
+   * dar. Todo lo demás —el `nextTick`, el `querySelector`, el cálculo— es el
+   * código de producción corriendo tal cual.
+   */
+  it('con medida, el viajero se coloca sobre la sección activa', async () => {
+    const alto = 40
+    const topeDeLista = 100
+    // La tercera sección de las seis: `contactos`.
+    const topeDelActivo = topeDeLista + 2 * (alto + 4)
+
+    const original = Element.prototype.getBoundingClientRect
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      const esLista = this.classList.contains('nav-marco')
+      const top = esLista ? topeDeLista : topeDelActivo
+      return { top, height: esLista ? 400 : alto } as DOMRect
+    }
+
+    try {
+      const w = await en('/contactos')
+      // Un tick más: el recolocado va detrás de `nextTick` a propósito, para
+      // no medir la maquetación anterior al cambio de ruta.
+      await w.vm.$nextTick()
+      await w.vm.$nextTick()
+
+      const lista = w.find('.nav-marco')
+      expect(lista.classes()).not.toContain('sin-viajero')
+
+      const viajero = w.find('span.nav-indicador')
+      expect(viajero.exists()).toBe(true)
+      expect(viajero.attributes('style')).toContain(
+        `translateY(${topeDelActivo - topeDeLista}px)`,
+      )
+      expect(viajero.attributes('style')).toContain(`height: ${alto}px`)
+
+      // No se anuncia: el relleno y `aria-current` ya lo dicen, y una tercera
+      // voz repitiendo lo mismo estorba a quien usa lector de pantalla.
+      expect(viajero.attributes('aria-hidden')).toBe('true')
+    } finally {
+      Element.prototype.getBoundingClientRect = original
+    }
+  })
+
+  /**
+   * Un enlace de altura cero es maquetación a medio hacer, no una posición.
+   *
+   * Es el instante entre que la fuente de reserva deja paso a Mont y el
+   * navegador vuelve a maquetar. Sin esta guarda el viajero nacía pegado al
+   * borde de arriba y se quedaba descuadrado hasta que navegaras.
+   */
+  it('una caja de altura cero no coloca el viajero en el borde', async () => {
+    const original = Element.prototype.getBoundingClientRect
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      return { top: 0, height: this.classList.contains('nav-marco') ? 400 : 0 } as DOMRect
+    }
+
+    try {
+      const w = await en('/contactos')
+      await w.vm.$nextTick()
+      await w.vm.$nextTick()
+      expect(w.find('.nav-marco').classes()).toContain('sin-viajero')
+      expect(enlaceDeBarra(w, '/contactos')?.classes()).toContain('activo')
+    } finally {
+      Element.prototype.getBoundingClientRect = original
+    }
+  })
+})
+
+/**
+ * El viajero llega a la sección NUEVA, no se queda en la anterior.
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * ESTA PRUEBA EXISTE PORQUE LA ANTERIOR NO BASTABA
+ *
+ * Las tres de arriba se escribieron primero y parecían suficientes. Al ponerles
+ * el cebo del 22/09/2026 —cambiar `nextTick(recolocar)` por `recolocar()` a
+ * secas— **las tres siguieron pasando**. Y ese cambio es exactamente el fallo
+ * clásico de este patrón: medir antes de que Vue haya pintado devuelve la
+ * posición del enlace que estaba activo ANTES, así que el indicador se queda
+ * una sección por detrás en cada navegación.
+ *
+ * No se cazaba porque las tres sólo miran el primer montaje, y en el montaje
+ * el documento ya está puesto: medir pronto o tarde da lo mismo. El defecto
+ * sólo aparece **al navegar**, que es donde vive el 100 % del uso real.
+ *
+ * Así que la medida falsa de aquí devuelve una posición distinta por sección,
+ * derivada del `href` del enlace. Es lo que permite distinguir «se colocó en
+ * Contactos» de «se quedó en Inicio», y lo que hacía falta para que la
+ * garantía se pudiera ver fallar.
+ * ───────────────────────────────────────────────────────────────────────────
+ */
+describe('el viajero se coloca en la sección a la que acabas de ir', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  const ALTO = 40
+  const HUECO = 4
+  const TOPE = 100
+  const ORDEN = ['inicio', 'campanas', 'contactos', 'remitentes', 'actividad', 'ajustes']
+
+  /** Cada sección en su fila; la lista, en `TOPE`. */
+  function medidaPorSeccion() {
+    return function (this: Element) {
+      if (this.classList.contains('nav-marco')) {
+        return { top: TOPE, height: 400 } as DOMRect
+      }
+      const destino = this.getAttribute('href')?.replace(/^#/, '') ?? ''
+      const i = ORDEN.indexOf(destino.replace('/', ''))
+      return { top: TOPE + Math.max(i, 0) * (ALTO + HUECO), height: ALTO } as DOMRect
+    }
+  }
+
+  it('al pasar de Inicio a Contactos, el indicador se mueve con ella', async () => {
+    const original = Element.prototype.getBoundingClientRect
+    Element.prototype.getBoundingClientRect = medidaPorSeccion()
+
+    try {
+      const w = await en('/inicio')
+      await w.vm.$nextTick()
+      await w.vm.$nextTick()
+      expect(w.find('span.nav-indicador').attributes('style')).toContain(
+        'translateY(0px)',
+      )
+
+      await router.push('/contactos')
+      await w.vm.$nextTick()
+      await w.vm.$nextTick()
+      await w.vm.$nextTick()
+
+      // La tercera de las seis: dos filas por debajo de Inicio.
+      const esperado = 2 * (ALTO + HUECO)
+      expect(
+        w.find('span.nav-indicador').attributes('style'),
+        'el indicador se quedó en la sección anterior',
+      ).toContain(`translateY(${esperado}px)`)
+    } finally {
+      Element.prototype.getBoundingClientRect = original
+    }
+  })
+})

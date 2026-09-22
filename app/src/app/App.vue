@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, watchEffect } from 'vue'
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+  watchEffect,
+} from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 
@@ -102,6 +110,73 @@ function medir(): void {
   interfaz.anotarAncho(window.innerWidth)
 }
 
+/* ── El indicador de sección que viaja ──────────────────────────────────────
+ *
+ * Una sola pieza de oro que se DESLIZA de una sección a otra, en vez de seis
+ * barritas que se encienden y se apagan. Es lo que Dirección pidió el
+ * 22/09/2026 con «dinamismo entre pestañas», y es la única pieza de la
+ * interfaz a la que se le permite un movimiento con inercia.
+ *
+ * Por qué una sola pieza y no seis: seis marcas que parpadean dicen «este
+ * estado se apagó y aquel otro se encendió». Una que viaja dice «eres tú quien
+ * se ha movido, y de aquí a allí». En un producto cuyo trabajo es que sepas
+ * exactamente dónde estás antes de mandar correos a gente real, esa diferencia
+ * no es decorativa.
+ *
+ * ────────────────────────────────────────────────────────────────────────
+ * Y AHORA LO IMPORTANTE: ESTO NO PUEDE ROMPER NADA
+ *
+ * Es la única parte de la navegación que depende de MEDIR el documento, y
+ * medir falla de maneras que no avisan: la fuente todavía no cargó, la barra
+ * está a mitad de plegarse, la ventana cambió de tamaño, el enlace activo aún
+ * no existe porque la ruta acaba de cambiar.
+ *
+ * Así que el indicador es **un adorno encima de un estado que ya está dicho de
+ * otras dos formas**: el relleno de la sección activa y `aria-current`. Si la
+ * medida falla, `visible` se queda en `false`, el indicador no se dibuja, y la
+ * barra sigue diciendo exactamente lo mismo que decía antes de que esto
+ * existiera. Nunca al revés.
+ *
+ * Por eso tampoco se quitó la barrita de cada enlace: se le quitó el ORO (pasa
+ * a ser el viajero quien lo lleva) pero sigue ahí como respaldo geométrico.
+ * ──────────────────────────────────────────────────────────────────────── */
+const listaDeNav = ref<HTMLElement | null>(null)
+const indicador = ref({ y: 0, alto: 0, visible: false })
+
+function recolocarIndicador(): void {
+  const lista = listaDeNav.value
+  if (!lista) {
+    indicador.value = { ...indicador.value, visible: false }
+    return
+  }
+  // El enlace de SECCIÓN, no el de subsección: el viajero marca en qué sección
+  // estás. La subsección la marcan la sangría y su propio filete.
+  const activo = lista.querySelector('.nav-enlace.activo')
+  if (!activo) {
+    indicador.value = { ...indicador.value, visible: false }
+    return
+  }
+  const caja = activo.getBoundingClientRect()
+  const marco = lista.getBoundingClientRect()
+  // Una caja de altura cero significa que el navegador todavía no ha maquetado
+  // —pasa entre la carga de la fuente y el primer pintado—. Medir ahí daría un
+  // indicador pegado al borde superior; se prefiere no dibujarlo.
+  if (caja.height === 0) {
+    indicador.value = { ...indicador.value, visible: false }
+    return
+  }
+  indicador.value = {
+    y: caja.top - marco.top,
+    alto: caja.height,
+    visible: true,
+  }
+}
+
+/** Recoloca en cuanto Vue haya pintado el cambio, no antes. */
+function recolocarTrasPintar(): void {
+  void nextTick(recolocarIndicador)
+}
+
 /**
  * El tema del sistema operativo (C-2).
  *
@@ -129,11 +204,37 @@ watchEffect(() => {
   document.documentElement.setAttribute('data-tema', interfaz.temaAplicado)
 })
 
+/* Todo lo que puede mover el enlace activo de sitio, y por qué cada uno:
+ *
+ *  · la ruta            — es el caso normal: cambias de sección.
+ *  · el plegado         — la barra cambia de ancho y los enlaces de alto.
+ *  · las subsecciones   — al abrirse empujan hacia abajo las secciones de
+ *                         debajo, así que el viajero tiene que recolocarse
+ *                         aunque la sección activa no haya cambiado.
+ *  · el ancho de ventana — `medir()` puede plegar la barra sola (P-11).
+ *
+ * Los cuatro pasan por `nextTick`: medir antes de que Vue haya pintado el
+ * cambio devuelve la posición ANTERIOR, y el indicador se queda una sección
+ * por detrás. Es el defecto clásico de este patrón. */
+watch(
+  () => [seccionActual.value, interfaz.plegada, subseccionesVisibles.value.length],
+  recolocarTrasPintar,
+)
+
 onMounted(() => {
   void app.cargar()
   void interfaz.cargar()
   medir()
   window.addEventListener('resize', medir)
+  window.addEventListener('resize', recolocarIndicador)
+  recolocarTrasPintar()
+  /* Mont llega como woff2 incrustado y cambia la altura de los enlaces al
+     sustituir a la fuente de reserva. Sin esto, el indicador nace medido
+     contra la métrica equivocada y se queda descuadrado hasta que navegas.
+     `document.fonts` no existe en jsdom, de ahí la guarda. */
+  if (typeof document !== 'undefined' && document.fonts) {
+    void document.fonts.ready.then(recolocarIndicador)
+  }
   if (consultaDelSistema) {
     anotarTema(consultaDelSistema)
     consultaDelSistema.addEventListener('change', anotarTema)
@@ -142,6 +243,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', medir)
+  window.removeEventListener('resize', recolocarIndicador)
   consultaDelSistema?.removeEventListener('change', anotarTema)
 })
 </script>
@@ -197,60 +299,93 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <ul class="nav-lista">
-        <li
-          v-for="seccion in SECCIONES"
-          :key="seccion"
-        >
-          <RouterLink
-            class="nav-enlace"
-            :class="{ activo: seccion === seccionActual }"
-            :to="`/${seccion}`"
-            :title="interfaz.plegada ? $t(`nav.${seccion}`) : undefined"
-            :aria-current="
-              seccion === seccionActual && !subseccionActual ? 'page' : undefined
-            "
+      <!-- ── El marco del viajero ────────────────────────────────────────────
+           Un `<div>` alrededor de la lista, y el indicador DENTRO del div,
+           nunca dentro del `<ul>`.
+
+           La primera versión lo metía como primer hijo del `<ul>`, y eso hizo
+           dos daños a la vez. Uno: un `<ul>` sólo admite `<li>`; un `<span>`
+           suelto ahí es marcado inválido que los navegadores toleran. Dos, y
+           es el que dolió: `sonda:cabecera` busca
+           `.nav-lista li:first-child .nav-enlace` para medir el recorrido del
+           teclado, y con el span delante **ningún `li` era ya el primer
+           hijo**. La sonda se quedó esperando treinta segundos a un elemento
+           que existía y que ella ya no podía nombrar.
+
+           Nada había fallado en la pantalla. Lo que se rompió fue la capacidad
+           de comprobarla, que es peor, porque no se nota mirando. -->
+      <div
+        ref="listaDeNav"
+        class="nav-marco"
+        :class="{ 'sin-viajero': !indicador.visible }"
+      >
+        <!-- El viajero. `aria-hidden` porque no dice nada que no digan ya el
+             relleno del enlace activo y su `aria-current`: para un lector de
+             pantalla sería una tercera voz repitiendo lo mismo. -->
+        <span
+          v-show="indicador.visible"
+          class="nav-indicador"
+          aria-hidden="true"
+          :style="{
+            transform: `translateY(${indicador.y}px)`,
+            height: `${indicador.alto}px`,
+          }"
+        />
+        <ul class="nav-lista">
+          <li
+            v-for="seccion in SECCIONES"
+            :key="seccion"
           >
-            <AIcono
-              :nombre="ICONO_DE_SECCION[seccion]"
-              :tamano="20"
-            />
-            <!-- Plegada se quita el TEXTO, no el nombre accesible: el enlace
+            <RouterLink
+              class="nav-enlace"
+              :class="{ activo: seccion === seccionActual }"
+              :to="`/${seccion}`"
+              :title="interfaz.plegada ? $t(`nav.${seccion}`) : undefined"
+              :aria-current="
+                seccion === seccionActual && !subseccionActual ? 'page' : undefined
+              "
+            >
+              <AIcono
+                :nombre="ICONO_DE_SECCION[seccion]"
+                :tamano="20"
+              />
+              <!-- Plegada se quita el TEXTO, no el nombre accesible: el enlace
                  sigue anunciándose «Campañas» porque el texto sigue en el
                  árbol, sólo que oculto a la vista. Con `display: none` el
                  lector de pantalla leería seis enlaces sin nombre. -->
-            <span :class="interfaz.plegada ? 'solo-lectores' : 'nav-texto'">
-              {{ $t(`nav.${seccion}`) }}
-            </span>
-          </RouterLink>
+              <span :class="interfaz.plegada ? 'solo-lectores' : 'nav-texto'">
+                {{ $t(`nav.${seccion}`) }}
+              </span>
+            </RouterLink>
 
-          <!-- ── Las subsecciones de la sección abierta ────────────────────
+            <!-- ── Las subsecciones de la sección abierta ────────────────────
                Sólo cuelgan de la sección en la que estamos, y **no se dibujan
                plegada**: ahí la barra es de iconos (P-11), y un texto indentado
                sin icono no tiene dónde ponerse. El indicativo no se pierde,
                se lo quedan las migas de arriba. -->
-          <ul
-            v-if="seccion === seccionActual && !interfaz.plegada && subseccionesVisibles.length"
-            class="sub-lista"
-          >
-            <li
-              v-for="sub in subseccionesVisibles"
-              :key="sub.ruta"
+            <ul
+              v-if="seccion === seccionActual && !interfaz.plegada && subseccionesVisibles.length"
+              class="sub-lista"
             >
-              <RouterLink
-                class="sub-enlace"
-                :class="{ activo: sub.clave === `nav.sub.${subseccionActual}` }"
-                :to="sub.ruta"
-                :aria-current="
-                  sub.clave === `nav.sub.${subseccionActual}` ? 'page' : undefined
-                "
+              <li
+                v-for="sub in subseccionesVisibles"
+                :key="sub.ruta"
               >
-                {{ $t(sub.clave) }}
-              </RouterLink>
-            </li>
-          </ul>
-        </li>
-      </ul>
+                <RouterLink
+                  class="sub-enlace"
+                  :class="{ activo: sub.clave === `nav.sub.${subseccionActual}` }"
+                  :to="sub.ruta"
+                  :aria-current="
+                    sub.clave === `nav.sub.${subseccionActual}` ? 'page' : undefined
+                  "
+                >
+                  {{ $t(sub.clave) }}
+                </RouterLink>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </div>
 
       <!-- En una ventana nativa no hay barra de direcciones: sin este enlace,
            el catálogo existe pero no hay forma de llegar a él. Sólo aparece
@@ -341,7 +476,34 @@ onBeforeUnmount(() => {
         </ol>
       </nav>
 
-      <RouterView />
+      <!-- ── La entrada de pantalla ──────────────────────────────────────────
+           Cada pantalla llega subiendo seis píxeles y apareciendo, en 200 ms.
+           Es lo que convierte «la ventana ha cambiado de contenido» en «he ido
+           a otro sitio»: sin ella, navegar es un parpadeo y el ojo tiene que
+           releer la pantalla entera para saber si pasó algo.
+
+           `mode="out-in"` porque las dos pantallas no pueden cruzarse: si la
+           saliente y la entrante se solapan, durante 200 ms hay dos `h1` y dos
+           formularios en el documento, y un lector de pantalla los anuncia los
+           dos. Con `out-in` sólo hay una cada vez.
+
+           Sólo `opacity` y `transform`: las dos las compone la tarjeta gráfica
+           sin recalcular maquetación, así que esto cuesta lo mismo con una
+           tabla de 500 000 contactos que con una pantalla vacía (T-7). Un
+           `height` o un `margin` animados aquí habrían sido justo lo contrario.
+
+           El recorrido es de 6 px, no de 20. Una pantalla que llega desde lejos
+           se lee como una aplicación que quiere que la miren; ésta es una mesa
+           de trabajo, y lo que tiene que transmitir el movimiento es que el
+           cambio fue intencionado, no que el cambio es un espectáculo. -->
+      <RouterView v-slot="{ Component }">
+        <Transition
+          name="pantalla"
+          mode="out-in"
+        >
+          <component :is="Component" />
+        </Transition>
+      </RouterView>
     </main>
   </div>
 </template>
@@ -375,10 +537,15 @@ onBeforeUnmount(() => {
   grid-template-columns: var(--arles-nav-width-plegada) 1fr;
 }
 
+/* La barra es la pieza que está en las diez pantallas, así que es la que
+   decide si el producto se siente hecho a mano o montado con piezas sueltas.
+   Lleva veladura: aclara arriba, donde está la marca, y ahonda hacia el pie.
+   El color sólido no se toca — ver la nota de las veladuras en `base.css`. */
 .nav {
   display: flex;
   flex-direction: column;
-  background: var(--arles-surface);
+  background-color: var(--arles-surface);
+  background-image: var(--arles-veladura-superficie);
   border-right: var(--arles-border-width) solid var(--arles-border);
   padding: var(--arles-space-5) var(--arles-space-4);
   /* Una navegación con más secciones de las que caben tiene que poder
@@ -461,12 +628,58 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: var(--arles-space-1);
+  width: 100%;
+}
+
+/* El marco contra el que se mide el viajero, y el que ocupa el alto sobrante
+   de la barra. La lista vuelve a ser una lista y nada más. */
+.nav-marco {
+  position: relative;
   flex: 1;
   width: 100%;
 }
 
+/* ── El viajero ─────────────────────────────────────────────────────────────
+   Una sola pieza de oro que se desliza entre secciones. Ver la nota larga del
+   bloque `<script>`; aquí sólo lo que es propio del dibujo.
+
+   Va DEBAJO de los enlaces (`z-index: 0` contra el `1` de `.nav-enlace`), no
+   encima: tiene que quedar detrás del texto y del icono, como el papel de una
+   pestaña física queda detrás de lo que hay impreso en ella.
+
+   Se anima `transform` y `height`, y nada más. `transform` no toca la
+   maquetación ni provoca repintado del resto de la barra, así que el
+   deslizamiento no puede tirar del rendimiento por muchas veces que se
+   navegue. `height` sí la toca, pero sólo dentro de este elemento absoluto,
+   que no tiene hermanos en flujo.
+
+   No lleva `transition` de opacidad a propósito: aparece y desaparece de
+   golpe con `v-show`. Un desvanecido lo dejaría medio dibujado en el instante
+   en que la medida falla, que es justo cuando no queremos verlo. */
+.nav-indicador {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  width: 100%;
+  border-radius: var(--arles-radius-md);
+  background-color: var(--arles-nav-activo);
+  background-image: var(--arles-veladura-tarjeta);
+  /* El filete de oro del borde izquierdo, que es lo que de verdad se sigue con
+     la vista mientras viaja. Va como sombra interior y no como pseudoelemento
+     porque un pseudoelemento con su propia transición llegaría tarde: éste se
+     mueve pegado a la pieza, con ella, sin un segundo cronómetro. */
+  box-shadow: inset var(--arles-space-1) 0 0 0 var(--arles-accent-ink);
+  transition:
+    transform var(--arles-duration-normal) var(--arles-ease-resorte),
+    height var(--arles-duration-normal) var(--arles-ease-resorte);
+}
+
 .nav-enlace {
   position: relative;
+  /* Por encima del viajero, que va en `z-index: 0`. El texto y el icono tienen
+     que quedar sobre el oro, no debajo. */
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: var(--arles-space-3);
@@ -556,6 +769,25 @@ onBeforeUnmount(() => {
 .nav-enlace.activo {
   background: var(--arles-nav-activo);
   color: var(--arles-text);
+}
+
+/* ── El reparto entre el viajero y el respaldo ──────────────────────────────
+   Cuando el viajero está dibujado, ÉL es el relleno y él lleva el filete de
+   oro: el enlace se aparta para no taparlo. Cuando no —porque la medida falló
+   o porque todavía no se ha hecho—, la lista lleva `sin-viajero` y vuelve
+   exactamente el dibujo anterior: relleno plano en el enlace y su barrita de
+   acento.
+
+   Escrito así, y no al revés, por un motivo concreto: el estado por defecto
+   del CSS es el que funciona sin JavaScript. Lo que puede fallar es lo que
+   tiene que pedir permiso para dibujarse, no lo que tiene que pedir permiso
+   para desaparecer. */
+.nav-marco:not(.sin-viajero) .nav-enlace.activo {
+  background: transparent;
+}
+
+.nav-marco:not(.sin-viajero) .nav-enlace.activo::before {
+  height: 0;
 }
 
 /* ── Subsecciones ───────────────────────────────────────────────────────────
@@ -788,5 +1020,38 @@ onBeforeUnmount(() => {
 .contenido {
   padding: var(--arles-space-6);
   overflow: auto;
+}
+
+/* ── La entrada de pantalla ─────────────────────────────────────────────────
+   Ver la nota del `<Transition>` en la plantilla. Las dos mitades no duran lo
+   mismo a propósito: la saliente se va en `fast` y la entrante llega en
+   `normal`, con la curva de entrada, que frena mucho al final.
+
+   Si las dos duraran igual, el cambio se sentiría como una sustitución. Así se
+   siente como que una pantalla deja sitio y la otra se acomoda — que es lo que
+   de verdad está pasando. */
+.pantalla-enter-active {
+  transition:
+    opacity var(--arles-duration-normal) var(--arles-ease-entrada),
+    transform var(--arles-duration-normal) var(--arles-ease-entrada);
+}
+
+.pantalla-leave-active {
+  transition:
+    opacity var(--arles-duration-fast) var(--arles-ease),
+    transform var(--arles-duration-fast) var(--arles-ease);
+}
+
+.pantalla-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+/* La saliente NO se va hacia abajo: se queda donde está y sólo se apaga. Un
+   movimiento de salida hacia el mismo lado del que llega la entrante haría que
+   las dos parecieran ir en fila, y no van en fila: la una sustituye a la otra.
+   Se probó con `translateY(-6px)` y lo que se lee es un carrusel. */
+.pantalla-leave-to {
+  opacity: 0;
 }
 </style>

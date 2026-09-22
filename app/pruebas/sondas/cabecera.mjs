@@ -156,17 +156,40 @@ try {
   // El isotipo es lo que ocupa el sitio de la marca al plegar. Si dejara de
   // pintarse, el salto volvería — pero con la altura reservada el salto no lo
   // detectaría, así que se comprueba aparte.
-  // ── La barra de la sección activa se anima ──
+  // ── El acento de la sección activa se MUEVE, no salta ──
   //
-  // Se navega a otra sección y se mide la altura de la barra a mitad de
-  // camino: si el valor intermedio es el final, no hay animación, sólo un
-  // salto. `::before` no se puede seleccionar, así que se lee su estilo
-  // calculado.
-  const altoDeLaBarra = () =>
+  // La garantía no ha cambiado desde que se escribió: el §98 pide que el
+  // movimiento diga a dónde se fue el estado, y un acento que aparece de golpe
+  // en otro sitio no lo dice. Lo que cambió el 22/09/2026 es **qué pieza lo
+  // lleva**: antes era la barrita `::before` de cada enlace, que crecía de 0 a
+  // su altura; ahora es una sola pieza que se desliza entre secciones.
+  //
+  // Así que se mide la pieza que de verdad esté puesta. Si el indicador que
+  // viaja está dibujado, se mide SU POSICIÓN; si la medida falló y la barra
+  // volvió al dibujo de respaldo, se mide la altura del `::before`, como
+  // antes. Las dos son la misma pregunta: ¿a mitad de camino ya está donde va
+  // a acabar?
+  //
+  // Y se lee `.nav-enlace.activo`, la clase que calcula el producto, no
+  // `.router-link-active`: vue-router no marca la sección madre desde una
+  // subpantalla, que es el defecto que Dirección encontró el 21/09 y el motivo
+  // de que exista la clase propia.
+  const posicionDelAcento = () =>
     pagina.evaluate(() => {
-      const activo = document.querySelector('.nav-enlace.router-link-active')
+      const viajero = document.querySelector('.nav-indicador')
+      const marco = document.querySelector('.nav-marco')
+      if (viajero && marco && getComputedStyle(viajero).display !== 'none') {
+        return {
+          modo: 'viajero',
+          valor: viajero.getBoundingClientRect().top - marco.getBoundingClientRect().top,
+        }
+      }
+      const activo = document.querySelector('.nav-enlace.activo')
       if (!activo) return null
-      return parseFloat(getComputedStyle(activo, '::before').height)
+      return {
+        modo: 'respaldo',
+        valor: parseFloat(getComputedStyle(activo, '::before').height),
+      }
     })
 
   const medirRecorrido = async () => {
@@ -175,45 +198,64 @@ try {
     // sonda acusaba al producto de un fallo suyo.
     await pagina.goto(`http://localhost:${PUERTO}/#/ajustes`, { waitUntil: 'networkidle' })
     await pagina.waitForTimeout(500)
+    const alSalir = await posicionDelAcento()
     await pagina.click('.nav-lista li:first-child .nav-enlace')
     // Un cuarto de la duración declarada (200 ms): lo bastante pronto para
     // pillarla a medias y lo bastante tarde para que haya empezado.
     await pagina.waitForTimeout(50)
-    const aMedias = await altoDeLaBarra()
+    const aMedias = await posicionDelAcento()
     await pagina.waitForTimeout(500)
-    return { aMedias, alFinal: await altoDeLaBarra() }
+    return { alSalir, aMedias, alFinal: await posicionDelAcento() }
   }
 
-  const { aMedias, alFinal } = await medirRecorrido()
-  console.log(`\n  barra activa: a los 50 ms = ${aMedias?.toFixed(1)} px,` +
-              ` al final = ${alFinal?.toFixed(1)} px`)
+  const { alSalir, aMedias, alFinal } = await medirRecorrido()
+  console.log(
+    `\n  acento (${alFinal?.modo}): al salir = ${alSalir?.valor.toFixed(1)},` +
+      ` a los 50 ms = ${aMedias?.valor.toFixed(1)}, al final = ${alFinal?.valor.toFixed(1)}`,
+  )
 
-  if (!alFinal || alFinal <= 0) {
-    console.error('\n✗ La sección activa no dibuja su barra de acento.')
-    codigo = 1
-  } else if (aMedias === null || aMedias >= alFinal - 0.5) {
+  /**
+   * ¿Está a mitad de camino, o ya llegó?
+   *
+   * Se compara contra el punto de PARTIDA y no contra cero, porque el viajero
+   * mide una posición y la posición final de la primera sección **es** cero.
+   * Medir «mayor que cero» daría por no dibujado justo el caso más común.
+   */
+  const aMitadDeCamino = (a, b, fin) =>
+    a !== null && b !== null && fin !== null &&
+    Math.abs(b.valor - fin.valor) > 0.5 &&
+    Math.abs(b.valor - a.valor) > 0.5
+
+  if (!alFinal || !alSalir || Math.abs(alSalir.valor - alFinal.valor) < 0.5) {
     console.error(
-      '\n✗ La barra de la sección activa NO se anima: a mitad de camino ya\n' +
-        '  está en su altura final. El movimiento dice a dónde se fue el estado;\n' +
-        '  sin él, la barra aparece de golpe en otro sitio.',
+      '\n✗ La sección activa no marca su acento en ningún sitio: el indicador\n' +
+        '  no se dibuja y el respaldo tampoco. El estado se queda sólo en el\n' +
+        '  color de relleno, que es justo lo que prohíbe el §19.',
+    )
+    codigo = 1
+  } else if (!aMitadDeCamino(alSalir, aMedias, alFinal)) {
+    console.error(
+      '\n✗ El acento de la sección activa NO se mueve: a los 50 ms ya está\n' +
+        '  donde acaba. El movimiento dice a dónde se fue el estado; sin él,\n' +
+        '  el acento aparece de golpe en otro sitio.',
     )
     codigo = 1
   } else {
-    console.log('✓ La barra de la sección activa se anima al cambiar de sección.')
+    console.log('✓ El acento de la sección activa se mueve al cambiar de sección.')
   }
 
-  // ── Y deja de animarse si el sistema lo pide ──
+  // ── Y deja de moverse si el sistema lo pide ──
   await pagina.emulateMedia({ reducedMotion: 'reduce' })
   const reducido = await medirRecorrido()
-  console.log(`  con movimiento reducido: a los 50 ms = ${reducido.aMedias?.toFixed(1)} px`)
-  if (reducido.aMedias === null || reducido.aMedias < reducido.alFinal - 0.5) {
+  console.log(`  con movimiento reducido: a los 50 ms = ${reducido.aMedias?.valor.toFixed(1)}`)
+  if (aMitadDeCamino(reducido.alSalir, reducido.aMedias, reducido.alFinal)) {
     console.error(
-      '\n✗ Con `prefers-reduced-motion: reduce` la barra sigue animándose.\n' +
+      '\n✗ Con `prefers-reduced-motion: reduce` el acento sigue moviéndose.\n' +
         '  El §98 lo hace obligatorio, no opcional.',
     )
     codigo = 1
   } else {
-    console.log('✓ Con movimiento reducido, la barra llega directa a su sitio.')
+    console.log('✓ Con movimiento reducido, el acento llega directo a su sitio.')
   }
   await pagina.emulateMedia({ reducedMotion: 'no-preference' })
 

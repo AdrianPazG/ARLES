@@ -55,6 +55,11 @@
  * «contenido que no cabe» miraba el `scrollWidth` del documento y no se
  * cazaba nunca, y su versión siguiente señalaba el pie de la barra plegada en
  * las diez pantallas sin que hubiera nada que arreglar.
+ *
+ * Las dos del indicador de sección se añadieron el mismo día y también se
+ * vieron fallar: midiendo sin restar el marco de la lista (el indicador
+ * apareció 124 px más abajo que su sección) y quitando el recolocado al
+ * navegar (se quedó en la sección anterior, 124 contra 212).
  * ─────────────────────────────────────────────────────────────────────────
  */
 import { fileURLToPath } from 'node:url'
@@ -305,6 +310,75 @@ for (const ancho of ANCHOS) {
     }
   }
   console.log(`✓ ${paradas} paradas de tabulador, todas con marca visible.`)
+  await pagina.close()
+}
+
+// ── 8 · el indicador de sección viaja, y viaja al sitio ────────────────
+//
+// jsdom no maqueta, así que las pruebas de `navegacion.spec.ts` tienen que
+// fingir la medida. Aquí no se finge nada: el navegador coloca la barra y se
+// comprueba que el indicador cae ENCIMA del enlace de la sección activa, con
+// su alto, y que al cambiar de sección se va con ella.
+//
+// Es la única pieza de la navegación que depende de medir el documento. Si la
+// medida se desajusta —por la fuente, por el plegado, por un cambio de
+// maquetación— no salta ningún error: sencillamente el oro señala la sección
+// equivocada, que es peor que no señalar ninguna.
+{
+  const pagina = await navegador.newPage({ viewport: { width: 1280, height: 900 } })
+  await pagina.goto(`file://${ARCHIVO}#/inicio`, { waitUntil: 'load' })
+  await pagina.waitForTimeout(1200)
+
+  /** Dónde está el indicador y dónde el enlace activo, en la misma referencia. */
+  const donde = () =>
+    pagina.evaluate(() => {
+      const ind = document.querySelector('.nav-indicador')
+      const act = document.querySelector('.nav-enlace.activo')
+      if (!ind || !act) return null
+      const a = ind.getBoundingClientRect()
+      const b = act.getBoundingClientRect()
+      return {
+        indicador: { top: Math.round(a.top), alto: Math.round(a.height) },
+        activo: { top: Math.round(b.top), alto: Math.round(b.height) },
+        visible: getComputedStyle(ind).display !== 'none',
+        seccion: act.getAttribute('href'),
+      }
+    })
+
+  const enInicio = await donde()
+  if (!enInicio || !enInicio.visible) {
+    mal('El indicador de sección no se dibuja en un navegador de verdad.')
+  } else if (
+    Math.abs(enInicio.indicador.top - enInicio.activo.top) > 1 ||
+    Math.abs(enInicio.indicador.alto - enInicio.activo.alto) > 1
+  ) {
+    mal(
+      `El indicador no cae sobre la sección activa: está en ${enInicio.indicador.top}` +
+        ` y la sección en ${enInicio.activo.top}.`,
+    )
+  } else {
+    console.log('✓ el indicador de sección cae exactamente sobre la sección activa.')
+  }
+
+  // Y ahora se navega POR LA BARRA, como haría cualquiera.
+  await pagina.click('a.nav-enlace[href$="#/contactos"]')
+  await pagina.waitForTimeout(700)
+  const enContactos = await donde()
+
+  if (!enContactos) {
+    mal('Tras navegar no hay indicador ni sección activa.')
+  } else if (enContactos.seccion !== '#/contactos') {
+    mal(`Navegar por la barra no cambió la sección activa: sigue en ${enContactos.seccion}.`)
+  } else if (Math.abs(enContactos.indicador.top - enContactos.activo.top) > 1) {
+    mal(
+      'El indicador se quedó en la sección anterior: está en ' +
+        `${enContactos.indicador.top} y Contactos en ${enContactos.activo.top}.`,
+    )
+  } else if (enContactos.indicador.top === enInicio.indicador.top) {
+    mal('El indicador no se movió al cambiar de sección.')
+  } else {
+    console.log('✓ el indicador viaja a la sección nueva al navegar por la barra.')
+  }
   await pagina.close()
 }
 

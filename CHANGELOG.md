@@ -12,6 +12,49 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Dirección visual · primer tramo: el armazón
+
+Dirección pidió el 22/09/2026 una aplicación que se sienta cara y única, con
+degradados, contraste y dinamismo entre pestañas — «super fluida y sin bugs».
+Esa última parte es la que mandó sobre todas las decisiones.
+
+**Lo que se ve.**
+
+La barra lateral y las tarjetas ganan profundidad. El botón de acción deja de
+ser un rectángulo amarillo y pasa a tener volumen, como una pieza de metal con
+luz encima. Al pulsar cualquier botón, el botón cede bajo el dedo. Y al cambiar
+de pantalla, la nueva llega subiendo, en vez de aparecer de golpe.
+
+**La pieza de firma: el indicador de sección viaja.** Antes cada sección tenía
+su propia barrita de oro, que se encendía y se apagaba. Ahora hay **una sola**,
+que se desliza de una sección a la otra. Seis marcas que parpadean dicen «este
+estado se apagó y aquel se encendió»; una que viaja dice «eres tú quien se ha
+movido, y de aquí a allí».
+
+**Cómo se consiguió que no cueste fluidez.** Todo lo que se mueve lo hace con
+las dos únicas propiedades que la tarjeta gráfica compone sin rehacer la
+página. Ninguna animación toca medidas ni posiciones, así que esto cuesta lo
+mismo con una tabla de 500 000 contactos que con una pantalla vacía. Los
+degradados van como una capa transparente **encima del color sólido**, que se
+deja intacto: así el contraste se sigue midiendo contra un color real, y contra
+el extremo más desfavorable.
+
+**Y qué pasa si algo falla.** El indicador que viaja es la única pieza de la
+barra que depende de medir la pantalla, y medir falla de maneras que no avisan.
+Está escrito para que sea **un adorno encima de un estado que ya está dicho de
+otras dos formas**: si la medida falla, el indicador no se dibuja y la barra
+vuelve exactamente al dibujo anterior. Hay tres pruebas que lo comprueban, y
+una de ellas corre en el modo degradado de verdad.
+
+**Dos defectos encontrados por el camino, los dos propios.** Al meter el
+indicador dentro de la lista se rompió un selector de una sonda, que se quedó
+media hora esperando un elemento que existía y que ya no podía nombrar: nada
+fallaba en la pantalla, lo que se rompió fue la capacidad de comprobarla. Y una
+prueba del indicador pasaba con el defecto clásico de este patrón puesto a
+mano —medir antes de que la pantalla se dibuje, y quedarse una sección por
+detrás—, porque sólo miraba el primer montaje y el defecto sólo aparece al
+navegar. Las dos cosas están corregidas y con su comprobación.
+
 ### Auditoría de las diez pantallas · primer tramo
 
 Se recorrió el producto entero en un navegador de verdad, a tres anchos, y se
