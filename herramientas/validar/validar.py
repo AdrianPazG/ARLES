@@ -1759,6 +1759,72 @@ def una_supresion_pedida_no_se_levanta_con_un_boton():
     )
 
 
+def la_vista_previa_no_miente_sobre_las_rutas():
+    """El simulador de la vista previa lleva a donde lleva el núcleo.
+
+    Esto se escribe el 22/09/2026 porque la auditoría encontró que la vista
+    previa —que es **donde Dirección revisa**— seguía mandando «Configurar tu
+    empresa» a `/ajustes` cuatro días después de que el núcleo lo cambiara a
+    `/inicio/configuracion`. La aplicación real estaba bien. El simulador no.
+
+    El coste fue concreto: Dirección reportó el mismo defecto dos veces, y la
+    segunda vez el problema ya no existía en el producto. Una vista previa que
+    no corresponde al código convierte cada revisión visual en ruido.
+
+    Ninguna prueba podía cazarlo: las de Rust miran el núcleo, las del frontend
+    miran los componentes, y el simulador es un literal de JavaScript dentro de
+    un generador de Python que nadie compila.
+    """
+    import re as _re
+    nucleo = leer("crates", "arles-core", "src", "onboarding.rs")
+    generador = leer("herramientas", "vista-previa", "generar.py")
+
+    # Las rutas del núcleo: `Self::Empresa => Some("/inicio/configuracion"),`
+    cuerpo = _re.search(
+        r"pub fn ruta\(self\) -> Option<&'static str> \{(.*?)\n    \}",
+        nucleo,
+        _re.S,
+    )
+    del_nucleo = dict(
+        _re.findall(r'Self::(\w+)\s*=>\s*Some\("([^"]+)"\)', cuerpo.group(1) if cuerpo else "")
+    )
+
+    # Las del simulador: `['empresa', hay, true, '3.1', '/inicio/configuracion'],`
+    del_simulador = {
+        clave: ruta
+        for clave, ruta in _re.findall(
+            r"\[\s*'(\w+)',[^\]]*?'[\d.]+',\s*'([^']+)'\s*\]", generador
+        )
+    }
+
+    # Se comparan por la clave en minúsculas, que es como el núcleo las nombra
+    # para el frontend (`PasoDeOnboarding::clave`).
+    esperado = {k.lower(): v for k, v in del_nucleo.items()}
+    divergen = [
+        f"{k}: el núcleo dice {esperado.get(k, 'sin ruta')!r}, la vista previa {v!r}"
+        for k, v in del_simulador.items()
+        if esperado.get(k) != v
+    ]
+    # Y al revés: un paso que el núcleo ya sabe llevar y el simulador no.
+    divergen += [
+        f"{k}: el núcleo lleva a {v!r} y la vista previa no lleva a ningún sitio"
+        for k, v in esperado.items()
+        if k not in del_simulador
+    ]
+
+    check(
+        3,
+        "la vista previa lleva a donde lleva el núcleo",
+        del_simulador != {} and divergen == [],
+        la_vista_previa_no_miente_sobre_las_rutas.__doc__,
+        detalle=(
+            "no se pudo leer ninguna ruta del simulador"
+            if del_simulador == {}
+            else "\n".join(divergen)
+        ),
+    )
+
+
 def el_informe_de_importacion_consulta_las_supresiones():
     """Analizar y confirmar preguntan los dos por la lista de supresión.
 
@@ -2156,6 +2222,7 @@ def fase_3(rapido):
     la_bomba_se_mide_antes_de_abrir_la_hoja()
     una_supresion_pedida_no_se_levanta_con_un_boton()
     el_informe_de_importacion_consulta_las_supresiones()
+    la_vista_previa_no_miente_sobre_las_rutas()
     el_informe_de_acceso_no_deja_cruzar_una_ruta()
     ajustes_es_de_la_aplicacion_y_no_del_negocio()
     la_barra_dice_en_que_seccion_estas()
@@ -2265,6 +2332,29 @@ def fase_3(rapido):
         omitir(3, nombre, "--rapido")
     else:
         check_cmd(3, nombre, ["npm", "run", "sonda:derechos", "--silent"],
+                  porque, cwd=app, timeout=900)
+
+    nombre = "sonda: auditoría de las diez pantallas a tres anchos"
+    porque = (
+        "Las demás sondas miran una pantalla y una garantía. Ésta recorre el "
+        "producto entero a 1280, 1024 y 900 px —el último pliega la barra, que "
+        "es un montaje distinto que nadie medía— y pregunta lo aburrido: si "
+        "algo queda recortado o fuera de la ventana, si cada texto se lee, si "
+        "cada botón tiene nombre, si hay saltos de encabezado o identificadores "
+        "repetidos, si la consola está limpia y si se ve dónde está el teclado "
+        "en cada parada del tabulador.\n\n"
+        "Nació de la auditoría del 22/09/2026, y encontró en su primer "
+        "recorrido algo que nadie veía: un primario deshabilitado conservaba su "
+        "contorno de oro porque su selector pesaba más que `.boton:disabled`. "
+        "Parecía pulsable y no lo era. Los tokens se verificaban desde la "
+        "Fase 2; lo que no se verificaba era LA CASCADA."
+    )
+    if motivo:
+        omitir(3, nombre, motivo)
+    elif rapido:
+        omitir(3, nombre, "--rapido")
+    else:
+        check_cmd(3, nombre, ["npm", "run", "sonda:auditoria", "--silent"],
                   porque, cwd=app, timeout=900)
 
     nombre = "sonda: la pantalla de contactos hace lo que dice"

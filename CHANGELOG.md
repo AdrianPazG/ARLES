@@ -12,6 +12,43 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Auditoría de las diez pantallas · primer tramo
+
+Se recorrió el producto entero en un navegador de verdad, a tres anchos, y se
+midió en vez de mirarlo a ojo. Tres hallazgos, y una herramienta nueva para
+que no dependan de que alguien mire.
+
+**1 · La vista previa mandaba a Ajustes.** El 18/09 se cambió «Configurar tu
+empresa» para que llevara a la configuración y no a Ajustes. Se cambió en el
+núcleo, y la aplicación real llevaba bien desde entonces. **El simulador de la
+vista previa no se tocó**, así que seguía llevando a Ajustes — y la vista
+previa es donde Dirección revisa. Ése es el motivo de que el mismo defecto se
+reportara dos veces: la segunda vez ya no existía en el producto, sólo en la
+copia que se estaba mirando.
+
+Ahora hay una comprobación que compara las rutas del simulador con las del
+núcleo y falla si vuelven a separarse. Se probó con los dos cebos: poniendo
+otra vez `/ajustes`, y dándole al núcleo una ruta que el simulador no tuviera.
+
+**2 · Un botón apagado parecía pulsable.** En el tema claro, «Preparar el
+informe» conservaba su contorno de oro estando deshabilitado, porque la regla
+que le pone ese contorno pesaba más que la que apaga los botones. Texto
+apagado dentro de un marco de acción: a simple vista, un botón disponible que
+no responde. Se corrigió, y el propio texto del componente ya decía lo
+contrario de lo que el navegador hacía.
+
+**3 · Lo que se midió y estaba bien.** Ningún error de consola en las diez
+pantallas. Ningún texto por debajo de su mínimo de contraste, en claro y en
+oscuro. Nada recortado ni fuera de la ventana a 1280, 1024 ni 900 px. Ochenta
+y ocho paradas de tabulador, todas con marca de foco visible. Ningún botón sin
+nombre, ningún salto de encabezado, ningún identificador repetido.
+
+**La herramienta.** `npm run sonda:auditoria` repite todo eso en cada
+validación. Sus nueve comprobaciones se rompieron a propósito una a una antes
+de darlas por buenas, y dos no valían: la de «contenido que no cabe» preguntaba
+algo que no podía ser cierto nunca, y su segunda versión señalaba el pie de la
+barra plegada diez veces por recorrido sin que hubiera nada que arreglar.
+
 ### Ya se pueden borrar los datos de alguien · entrega 3.4 completa
 
 El motor estaba construido desde ayer. Ahora tiene botón, y todo el trabajo

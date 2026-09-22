@@ -25,7 +25,8 @@
     "sonda:derechos": "node pruebas/sondas/derechos.mjs",
     "sonda:vista-previa": "node pruebas/sondas/vista-previa.mjs",
     "sonda:contactos": "node pruebas/sondas/contactos.mjs",
-    "sonda:importar": "node pruebas/sondas/importar.mjs"
+    "sonda:importar": "node pruebas/sondas/importar.mjs",
+    "sonda:auditoria": "node pruebas/sondas/auditoria.mjs"
   },
   "dependencies": {
     "@tanstack/vue-virtual": "^3.13.38",

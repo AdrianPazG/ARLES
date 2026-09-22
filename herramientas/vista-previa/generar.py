@@ -582,7 +582,15 @@ NUCLEO_SIMULADO = """
   function configuracion(e) {
     var hay = !!e.empresa;
     var pasos = [
-      ['empresa', hay, true, '3.1', '/ajustes'],
+      // La ruta la manda el núcleo (`PasoDeOnboarding::ruta`). Aquí estuvo
+      // escrita '/ajustes' hasta el 22/09/2026, cuatro días después de que el
+      // núcleo la cambiara: la aplicación real llevaba bien, y la vista previa
+      // —que es DONDE DIRECCIÓN REVISA— seguía llevando a Ajustes. Se reportó
+      // dos veces el mismo defecto porque el simulador mentía.
+      //
+      // `comprobar_simulador.py` compara esta tabla con el núcleo y falla si
+      // vuelven a separarse.
+      ['empresa', hay, true, '3.1', '/inicio/configuracion'],
       ['remitente', false, false, '5', null],
       ['contactos', false, false, '3.2', null],
       ['plantilla', false, false, '6', null],

@@ -117,8 +117,17 @@ withDefaults(
 /* En el tema claro el oro sobre papel da 1.32:1: el botón se lee, pero como
    forma no existe. El borde es lo que le devuelve el contorno —5.47:1 contra
    la página— y lo que cumple el 1.4.11. En oscuro no hace falta: ahí el mismo
-   oro ya recorta contra el fondo profundo. */
-:root[data-tema='claro'] .v-primario {
+   oro ya recorta contra el fondo profundo.
+
+   El `:not(:disabled)` no es adorno. Sin él este selector pesa más que
+   `.boton:disabled` —dos clases y un atributo contra dos clases— y un primario
+   deshabilitado conservaba su contorno de oro. La auditoría del 22/09/2026 lo
+   midió en la pantalla de Derechos: «Preparar el informe», deshabilitado hasta
+   escribir una dirección, salía con borde `rgb(122, 91, 0)` y texto apagado.
+   Parecía pulsable y no lo era, que es el peor de los dos errores posibles, y
+   además contradecía lo que dice el bloque de DESHABILITADO aquí abajo: que el
+   estado se pinta igual para las cuatro variantes. */
+:root[data-tema='claro'] .v-primario:not(:disabled) {
   border-color: var(--arles-accent-ink);
 }
 
