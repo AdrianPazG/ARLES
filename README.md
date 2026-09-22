@@ -8,9 +8,9 @@ Desarrollado por **TELEMETRY INSIGHT**
 ---
 
 <!-- AVANCE:INICIO -->
-![Avance de la v1.2.0](https://img.shields.io/badge/avance_v1.2.0-38%25-orange?style=flat-square)
+![Avance de la v1.2.0](https://img.shields.io/badge/avance_v1.2.0-42%25-orange?style=flat-square)
 
-**38 % de la versión 1.2.0 construido y verificado**, a 2026-09-18.
+**42 % de la versión 1.2.0 construido y verificado**, a 2026-09-22.
 
 <details>
 <summary>Cómo sale ese número, y qué no mide</summary>
@@ -31,7 +31,7 @@ son trabajo pendiente nuestro: van aparte.
 | F0 · Discovery y auditoría | 5 % | ✅ 100 % |
 | F1 · Cimientos | 9 % | ✅ 100 % |
 | F2 · Design System | 9 % | ✅ 100 % |
-| F3 · Empresa y contactos | 14 % | 🟨 72 % |
+| F3 · Empresa y contactos | 14 % | ✅ 100 % |
 | F3W · Canales: esquema de contactos, consentimiento y etapas | 8 % | 🟨 55 % |
 | F4 · Motor de ejecución | 14 % | ⬜ 0 % |
 | F5 · Proveedores de envío | 7 % | ⬜ 0 % |
@@ -45,7 +45,7 @@ son trabajo pendiente nuestro: van aparte.
 | | Qué | Quién | Qué frena |
 |---|---|---|---|
 | **P-01** | Licencia de Mont para incrustarla en la aplicación distribuida | Dirección | El primer instalador descargable. Hay plan B: tipografía del sistema, una línea de CSS |
-| **P-09** | Revisión jurídica: ocho preguntas en 08-legal/CONSULTA-JURIDICA.md | Abogado | Ya NO bloquea la construcción (decisión D-7). Frena los textos legales visibles y el primer envío real a alguien de fuera de TELEMETRY |
+| **P-09** | Revisión jurídica: dieciocho preguntas en 08-legal/CONSULTA-JURIDICA.md | Abogado | Ya NO bloquea la construcción (ADR-0013). Frena los textos legales visibles y el primer envío real a alguien de fuera de TELEMETRY. Incluye P-17: consent_entry es de sólo-añadir y guarda la dirección en claro, lo que contradice el derecho de cancelación. |
 | **META** | Cuenta de empresa en Meta, verificada y con Coexistencia activada (L-11) | Operaciones | F3W · el alta del número, y con ella toda campaña de WhatsApp |
 | **R-07** | Revisión visual en macOS (WKWebView) | Quien tenga un Mac | Nada todavía; la fecha límite acordada es antes de la F6 |
 

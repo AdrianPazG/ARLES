@@ -12,6 +12,39 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Fase 3 cerrada · las cinco entregas
+
+`validar.py --fase 3` da **77 de 77, con 0 omitidas**. «Omitida» no es «pasa»:
+significa que una comprobación no se pudo correr, y el validador las cuenta
+aparte precisamente para que nadie las confunda. Hoy no hay ninguna.
+
+Por debajo: **386 pruebas** del motor, **102** de las pantallas y **9 sondas**
+que abren un navegador de verdad, pulsan y miden.
+
+**Lo que la fase deja listo.** Siete pantallas —Inicio, Configuración,
+Contactos, Importar, Bajas, Derechos y Ajustes—, la base cifrada con cinco
+migraciones, la lectura defensiva de archivos, y las reglas de validación de
+correos y móviles mexicanos. Es todo lo que hay que tener **antes** de poder
+mandar un solo mensaje: de qué empresa salen los envíos, a quién se le puede
+escribir, cómo entran esos contactos, y a quién no se le vuelve a escribir.
+
+**La puerta de salida que más costó.** Dar de baja a alguien, borrar su
+contacto, reimportar la lista original seis meses después, y comprobar que
+**sigue sin escribírsele**. Es el fallo más caro posible en este producto
+porque no se nota hasta que alguien que pidió no recibir nada recibe algo — y
+entonces ya es una queja ante el INAI, no un error interno.
+
+**Y el informe para Dirección**, en llano, con su PDF: `FASE-03-PARA-DIRECCION`.
+El validador comprueba que el PDF corresponde al texto que lo origina, porque un
+PDF es binario y si se queda atrás nadie lo nota en una revisión.
+
+**Sobre el diseño.** Dirección revisó la dirección visual el 22/09 y la
+considera genérica. Queda registrado, con el motivo: lo que se hizo fue pulido
+sobre lo que ya había, y lo genérico no es el color sino la composición, que no
+se tocó. Decisión de Dirección: se retoma cuando tenga referencias. No bloquea
+nada.
+
+
 ### Dirección visual · primer tramo: el armazón
 
 Dirección pidió el 22/09/2026 una aplicación que se sienta cara y única, con

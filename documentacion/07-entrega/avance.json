@@ -35,7 +35,7 @@
     "  python3 herramientas/avance/calcular.py --escribir"
   ],
   "version": "1.2.0",
-  "actualizado": "2026-09-18",
+  "actualizado": "2026-09-22",
   "fases": [
     {
       "id": "F0",
@@ -62,8 +62,8 @@
       "id": "F3",
       "nombre": "Empresa y contactos",
       "peso": 14,
-      "hecho": 0.72,
-      "porque": "Cerradas la 3.1 (empresa y alta), la 3.2 (contactos) y la 3.3 (importar CSV y Excel, con sus 13 ataques). De la 3.4 está la lista de supresión entera —núcleo, datos, comandos y pantalla— y el aviso de D-9: un archivo con gente que ya pidió la baja se enseña antes de importar, con la cifra de a cuántos se les puede escribir de verdad. Falta de la 3.4 el derecho de Acceso (exportar todo lo de una persona) y la cancelación con borrado físico. Falta entera la 3.5 cierre."
+      "hecho": 1.0,
+      "porque": "Cerrada el 22/09/2026, las cinco entregas. validar.py --fase 3 en 77/77 con 0 omitidas, 386 pruebas de Rust, 102 de frontend y 9 sondas de navegador corriendo. La puerta de salida de la 3.4 —dar de baja, borrar el contacto, reimportarlo y comprobar que sigue sin escribírsele— está probada, y el borrado recorre el esquema entero para afirmar que la dirección sólo queda en la lista de bajas."
     },
     {
       "id": "F3W",
@@ -124,9 +124,9 @@
     },
     {
       "id": "P-09",
-      "que": "Revisión jurídica: ocho preguntas en 08-legal/CONSULTA-JURIDICA.md",
+      "que": "Revisión jurídica: dieciocho preguntas en 08-legal/CONSULTA-JURIDICA.md",
       "quien": "Abogado",
-      "bloquea": "Ya NO bloquea la construcción (decisión D-7). Frena los textos legales visibles y el primer envío real a alguien de fuera de TELEMETRY"
+      "bloquea": "Ya NO bloquea la construcción (ADR-0013). Frena los textos legales visibles y el primer envío real a alguien de fuera de TELEMETRY. Incluye P-17: consent_entry es de sólo-añadir y guarda la dirección en claro, lo que contradice el derecho de cancelación."
     },
     {
       "id": "META",

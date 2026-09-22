@@ -2229,6 +2229,10 @@ def fase_3(rapido):
     la_pantalla_de_acceso_no_pide_rutas_ni_dialogos()
     la_cancelacion_borra_de_verdad()
     el_texto_legal_se_ve_provisional()
+    # Entrega 3.5 · el cierre. Una fase sin su informe para Dirección está
+    # construida pero no entregada: lo que no se puede explicar sin abrir el
+    # código no se ha entregado a nadie.
+    informe_para_direccion(3, "FASE-03-PARA-DIRECCION")
 
     print(f"{GRIS}  sondas{FIN}")
     app = os.path.join(RAIZ, "app")

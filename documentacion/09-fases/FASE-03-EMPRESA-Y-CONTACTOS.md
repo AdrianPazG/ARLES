@@ -1,16 +1,29 @@
 # Fase 3 · Empresa y contactos
 
-**Estado:** 🟡 en curso — **entrega 3.1 cerrada** · **Fecha:** 2026-09-15
-**Validación:** 23/23 comprobaciones de la fase 3, 0 omitidas — `validar.py --fase 3`
-**Pruebas:** 133 de Rust · 55 de frontend · 6 sondas de navegador
-**Auditoría de funcionamiento:** 10 hallazgos, los 10 corregidos — ver §3 bis
+**Estado:** ✅ cerrada — las cinco entregas · **Fecha:** 2026-09-22
+**Validación:** 75/75 comprobaciones de la fase 3, **0 omitidas** — `validar.py --fase 3`
+**Pruebas:** 386 de Rust · 102 de frontend · 9 sondas de navegador
+**Auditorías de funcionamiento:** dos, del 15 y del 22 de septiembre — ver §3 bis y §7
 
-> **Objetivo de la 3.1.** La primera pantalla real del producto: configurar la
-> empresa y saber qué falta para poder enviar. Y de paso, las dos peticiones
-> que Dirección dejó en la revisión visual del 14 de septiembre.
+> **Objetivo de la fase.** Todo lo que hay que tener **antes** de poder mandar
+> un solo mensaje: de qué empresa salen los envíos, a quién se le puede
+> escribir, cómo entran esos contactos, y a quién **no** se le vuelve a
+> escribir nunca.
 
-Las otras cuatro entregas de la fase siguen pendientes: 3.2 contactos, 3.3
-importación, 3.4 supresión y derechos ARCO, 3.5 cierre.
+Cinco entregas, cada una con su puerta de salida:
+
+| | Qué | Puerta de salida | Estado |
+|---|---|---|---|
+| **3.1** | Empresa y lista de alta | Configurar, cerrar, reabrir y que siga ahí | ✅ §1–§3 bis |
+| **3.2** | Contactos: alta, edición, tabla y ficha | Un móvil mexicano se guarda sin el «1» | ✅ §4 |
+| **3.3** | Importar CSV y Excel | Trece archivos maliciosos, ninguno pasa | ✅ §5 |
+| **3.4** | Supresión y derechos ARCO | Borrar un contacto, reimportarlo, y que **siga sin escribírsele** | ✅ §6 |
+| **3.5** | Cierre: documentos e informe | `--fase 3` en verde, 0 omitidas | ✅ este documento |
+
+**Lo que esta fase deja listo para la Fase 4.** El motor de ejecución podrá
+preguntar «¿a quién le escribo?» y recibir una respuesta con la que se puede
+enviar sin cometer un delito: contactos validados por el núcleo, con su canal
+normalizado, con su origen declarado, y con la lista de bajas ya restando.
 
 ---
 
@@ -246,7 +259,7 @@ solos.
 
 ---
 
-## 4. Lo que quedó pendiente
+## 3 ter. Lo que la entrega 3.1 dejó pendiente
 
 | | Estado |
 |---|---|
@@ -258,7 +271,7 @@ solos.
 
 ---
 
-## 5. Lo que esta entrega **no** hace
+## 3 quater. Lo que la entrega 3.1 **no** hace
 
 | | Por qué |
 |---|---|
@@ -266,3 +279,201 @@ solos.
 | Ofrecer más países | v1.2.0 es despliegue interno en México (D-4), y los textos legales que la aplicación cita son la LFPDPPP. Una lista de doscientos países sugeriría un soporte legal que no existe |
 | Bloquear pasos del alta entre sí | La lista sugiere un orden; no impone un embudo (UX_NAVEGACION §4) |
 | Guardar el logotipo de la empresa | La columna existe en el esquema desde la V1. Subir un archivo abre la superficie de sistema de archivos, y eso se diseña entero en su fase, no de paso |
+
+---
+
+## 4. Entrega 3.2 · Contactos
+
+**Puerta de salida:** un móvil mexicano escrito como lo escribe cualquiera se
+guarda en el formato que exige WhatsApp, sin el «1» que México dejó de usar.
+
+### Lo que se construyó
+
+Un `BorradorDeContacto` en el núcleo que **no se puede fabricar sin validar**:
+`DatosDeContacto` y `CanalValidado` sólo salen del validador, y ninguno de los
+dos se puede deserializar. Es la quinta regla de la frontera IPC, y se ganó a
+golpes: si la webview pudiera mandar un canal ya «normalizado» a su gusto, la
+deduplicación y la supresión —que comparan exactamente esa forma— dejarían de
+funcionar **sin que nada fallara**.
+
+La tabla usa virtualización headless. La pantalla ordena por lo que diga el
+repositorio y no reordena por su cuenta: dos ordenaciones que hay que mantener
+iguales son una que se va a desincronizar.
+
+### El defecto que encontró la sonda
+
+La sonda de contactos abrió el diálogo dos veces seguidas, como haría
+cualquiera dando de alta a dos personas. **El diálogo conservaba el contacto
+anterior**, así que la segunda alta chocaba contra una dirección que el usuario
+no había escrito y el error acusaba de duplicado a quien no lo era.
+
+Ninguna prueba de unidad podía verlo: cada una monta el diálogo limpio. El
+defecto sólo existe en la segunda apertura.
+
+---
+
+## 5. Entrega 3.3 · Importar CSV y Excel
+
+**Puerta de salida:** trece archivos construidos para hacer daño, y ninguno lo
+hace.
+
+### El archivo que se lee no es de fiar
+
+Es la regla que define `arles-import`, y no es retórica: un XLSX es un ZIP, y
+un ZIP se puede fabricar para que al descomprimirse ocupe mil veces lo que pesa.
+La medida se toma **antes de abrir la hoja**, no después, porque después ya es
+tarde. Hay una comprobación del validador que lo vigila por esa razón exacta.
+
+Lo demás de la lectura defensiva: tope de filas, de celdas y de tiempo; el
+nombre del archivo que viene dentro **nunca** se usa para escribir en disco; y
+las fórmulas no se evalúan jamás al importar — se neutralizan al **exportar**,
+que es donde hacen daño.
+
+### La decisión de Dirección del 18/09/2026
+
+Ante un contacto repetido, ARLES **enseña los choques antes de importar**. No
+los salta ni los fusiona solo.
+
+El motivo es que una importación de diez mil filas es irreversible en la
+práctica: nadie va a repasar diez mil contactos para deshacer una fusión que no
+pidió. Enseñarlos cuesta una pantalla más; no enseñarlos cuesta la lista.
+
+### Y la lista de bajas se consulta en los DOS comandos
+
+Analizar enseña el informe y confirmar escribe. Quitar la consulta de
+`confirmar_importacion` no rompería ninguna pantalla — sólo haría que la cifra
+guardada fuera la de antes de la última baja. Hay una comprobación del
+validador que exige la consulta en los dos, por eso.
+
+---
+
+## 6. Entrega 3.4 · Supresión y derechos de las personas
+
+**Puerta de salida:** borrar un contacto, reimportarlo seis meses después, y
+comprobar que **sigue sin escribírsele**.
+(`una_baja_sobrevive_a_borrar_el_contacto_y_a_reimportarlo`.)
+
+### La lista de bajas
+
+Una baja **no cuelga del contacto**: vive por su cuenta, indexada por la
+dirección normalizada. Si colgara del contacto, borrar al contacto borraría la
+baja, y reimportar la misma lista devolvería a esa persona al circuito. Es el
+fallo más caro posible en este producto, porque no se nota hasta que alguien
+que pidió no recibir nada recibe algo.
+
+**Una baja que pidió la persona no se levanta con un botón.** La regla vive en
+`se_puede_levantar`, que depende de `lo_pidio_la_persona`, y el validador
+comprueba el cuerpo de esas dos funciones sobre la fuente — no sólo con los
+tests, porque el día que alguien «simplifique» esa función, los tests de su
+módulo se tocan en el mismo commit.
+
+### El derecho de Acceso
+
+Se pide por **dirección**, no por contacto, y eso no es un detalle de interfaz:
+quien escribe pidiendo sus datos puede que ya no sea contacto y aun así deje
+rastro. La pantalla lo distingue y lo dice.
+
+Tres cosas que se vigilan y sólo se ven aquí: que **ninguna ruta del sistema de
+archivos** llegue a la webview (regla de frontera 4 — la carpeta donde alguien
+guarda sus cosas dice dónde vive); que un informe **vacío** avise de que va
+vacío en vez de entregarse en silencio; y que la pantalla **se alcance desde la
+barra**, porque una pantalla que existe y no se encuentra no está entregada.
+
+### La cancelación, que borra de verdad
+
+Es la única acción de ARLES sin vuelta atrás, así que todo el trabajo se fue en
+que **no se pueda pulsar por accidente**: se enseñan las cifras de qué
+desaparece y qué se conserva, y el botón sólo se arma al **escribir la
+dirección completa**. Una casilla de «entiendo que es irreversible» se marca sin
+leerla; escribir la dirección obliga a mirarla, y si te equivocaste de persona
+al teclear arriba, ahí lo ves.
+
+El orden de las operaciones importa y está probado: **primero se anonimiza y
+después se borra**, porque `contact_id` es `ON DELETE SET NULL` y borrar
+primero dejaría los envíos huérfanos sin poder marcarlos.
+
+La prueba de la puerta de salida **recorre el esquema entero**: lee las tablas
+de `sqlite_master`, las columnas de cada una con `PRAGMA table_info`, y busca la
+dirección en todas. Después del borrado tiene que quedar en **exactamente un
+sitio**: `suppression_entry.address_normalized`, que es la que impide que
+vuelva. Así la prueba no depende de que alguien se acuerde de añadir la tabla
+nueva a una lista.
+
+### P-17, que salió de construir esto
+
+`consent_entry` es de sólo-añadir y guarda la dirección en claro. Es una
+contradicción real con el derecho de cancelación, está registrada como pregunta
+abierta con cuatro alternativas y su recomendación, y es la novena pregunta de
+la consulta jurídica. **No bloquea construir**; sí necesita respuesta antes de
+entregar.
+
+---
+
+## 7. La auditoría del 22 de septiembre
+
+Se recorrió el producto entero en Chromium, a 1280, 1024 y 900 px, en los dos
+temas, midiendo en vez de mirando capturas.
+
+### El hallazgo que importa · la vista previa mentía
+
+El simulador de la vista previa seguía mandando «Configurar tu empresa» a
+`/ajustes` **cuatro días después** de que el núcleo lo cambiara a
+`/inicio/configuracion`. La aplicación real estaba bien desde el primer día.
+
+El coste fue concreto: Dirección reportó el mismo defecto dos veces, y la
+segunda vez ya no existía en el producto, sólo en la copia que estaba mirando.
+Una vista previa que no corresponde al código convierte cada revisión visual en
+ruido.
+
+Ninguna prueba podía cazarlo — las de Rust miran el núcleo, las del frontend
+miran los componentes, y el simulador es un literal de JavaScript dentro de un
+generador de Python que nadie compila. Ahora hay una comprobación que compara
+las dos tablas de rutas y falla si divergen.
+
+### El segundo · un botón apagado parecía pulsable
+
+En tema claro, un primario deshabilitado conservaba su contorno de oro, porque
+su selector pesaba más que la regla que apaga los botones. Texto apagado dentro
+de un marco de acción. Los **tokens** se verificaban desde la Fase 2; lo que no
+se verificaba era **la cascada**.
+
+### Lo que se midió y estaba bien
+
+Cero errores de consola en las diez pantallas. Ningún texto por debajo de su
+mínimo de contraste, en claro y en oscuro. Nada recortado ni fuera de la
+ventana a ninguno de los tres anchos. 88 paradas de tabulador, todas con marca
+de foco visible. Ningún botón sin nombre accesible, ningún salto de encabezado,
+ningún identificador repetido.
+
+### Y dos comprobaciones que no valían
+
+La de «hay algo que no cabe» preguntaba por el `scrollWidth` del documento, que
+el armazón nunca deja crecer: su cebo —un bloque de 3000 px dentro del
+contenido— **no se cazaba**, así que «sin desbordes» en diez pantallas no quería
+decir nada. Su segunda versión señalaba el pie de la barra plegada diez veces
+por recorrido sin que hubiera nada que arreglar.
+
+Las dos se arreglaron **porque se les puso el cebo**, no porque alguien las
+leyera. Es la regla de trabajo §2 haciendo su trabajo.
+
+---
+
+## 8. Cómo queda la fase
+
+| | |
+|---|---|
+| **Validación** | 75/75 comprobaciones de la fase 3, **0 omitidas** |
+| **Pruebas** | 386 de Rust · 102 de frontend |
+| **Sondas de navegador** | 9, todas corriendo (ninguna omitida por falta de Chromium) |
+| **Migraciones** | V1 a V5, todas aplicadas y probadas sobre base poblada |
+| **Pantallas** | Inicio, Configuración, Contactos, Importar, Bajas, Derechos, Ajustes |
+
+### Lo que la Fase 3 deja pendiente
+
+| | Estado |
+|---|---|
+| **R-07 · revisión visual en macOS** | Sigue abierta. Nadie ha abierto ARLES en WKWebView; la vista previa no cuenta, ahí el motor es el del navegador. Fecha límite acordada: antes de la Fase 6 |
+| **P-01 · licencia de Mont** | Impide distribuir un instalador con la tipografía dentro. Plan B listo: una línea de CSS |
+| **P-09 / P-17 · revisión jurídica** | 18 preguntas en `08-legal/CONSULTA-JURIDICA.md`. No frena construir (ADR-0013) |
+| **F3W · la pantalla de canales** | Las tablas existen desde la V3; la pantalla del alta del número espera a la cuenta de Meta |
+| **La dirección visual** | Dirección la revisó el 22/09 y la considera genérica. Decisión suya: se retoma cuando tenga referencias; no bloquea construir |
