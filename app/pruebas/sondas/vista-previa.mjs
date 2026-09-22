@@ -121,6 +121,64 @@ try {
   if (/#\/ajustes/.test(pagina.url())) {
     mal('El botón de la portada volvió a mandar a Ajustes.')
   }
+
+  // O-3 · Y AHORA LA BARRA TIENE QUE DECIR DÓNDE ESTÁ · 21/09/2026
+  //
+  // Segunda observación de Dirección sobre la misma pantalla: llegó a la
+  // configuración y **la barra lateral estaba entera apagada**. No había forma
+  // de saber en qué sección se encontraba.
+  //
+  // La causa medida: `router-link-active` no marca `/inicio` estando en
+  // `/inicio/configuracion`, porque son rutas hermanas. Lo mismo les pasaba a
+  // `/contactos/importar` y `/contactos/supresion` desde la entrega 3.2.
+  //
+  // Esto se mide AQUÍ, en un navegador de verdad, porque es donde se vio:
+  // las pruebas de pantalla sustituyen los enlaces por dobles que no calculan
+  // ningún estado activo, y por eso el fallo sobrevivió tres entregas.
+  const inicioMarcado = await pagina.evaluate(() => {
+    const a = document.querySelector('nav a.nav-enlace[href$="#/inicio"]')
+    return a ? a.classList.contains('activo') : null
+  })
+  if (inicioMarcado !== true) {
+    mal(
+      `Estando en la configuración, la sección INICIO no queda marcada en la barra ` +
+        `(classList.activo = ${inicioMarcado}). Es el fallo que Dirección vio el 21/09.`,
+    )
+  } else {
+    console.log('✓ O-3 · la barra marca INICIO estando en la configuración.')
+  }
+
+  // Y la subsección: indentada bajo Inicio, marcada, y sin las de Contactos.
+  const sub = await pagina.evaluate(() => {
+    const enlaces = [...document.querySelectorAll('nav a.sub-enlace')]
+    return {
+      total: enlaces.length,
+      marcada: enlaces.some(
+        (a) => a.getAttribute('href').endsWith('#/inicio/configuracion') &&
+          a.classList.contains('activo'),
+      ),
+      ajenas: enlaces.filter((a) => a.getAttribute('href').includes('/contactos/')).length,
+    }
+  })
+  if (!sub.marcada) {
+    mal(`La subsección Configuración no se enseña marcada en la barra (vistas: ${sub.total}).`)
+  } else if (sub.ajenas > 0) {
+    mal(`Se despliegan ${sub.ajenas} subsecciones de otras secciones: la barra deja de orientar.`)
+  } else {
+    console.log('✓ O-3 · la subsección Configuración se enseña marcada, y sólo la suya.')
+  }
+
+  // Las migas, que son el indicativo que sobrevive a plegar la barra.
+  const migas = await pagina.evaluate(() => {
+    const n = document.querySelector('.migas')
+    return n ? n.innerText.replace(/\s+/g, ' ').trim() : null
+  })
+  if (!migas || !migas.includes('Inicio') || !migas.includes('Configuración')) {
+    mal(`Las migas no dicen dónde estás: ${JSON.stringify(migas)}`)
+  } else {
+    console.log(`✓ O-3 · las migas dicen «${migas}».`)
+  }
+
   await pagina.fill('input[autocomplete="organization"]', 'TELEMETRY INSIGHT')
   await pagina.fill('input[type="email"]', 'hola@telemetrymx.com')
   await pagina.click('button[type="submit"]')

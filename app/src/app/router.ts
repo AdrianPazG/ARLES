@@ -20,6 +20,71 @@ export const SECCIONES = [
 
 export type Seccion = (typeof SECCIONES)[number]
 
+export function esSeccion(v: unknown): v is Seccion {
+  return SECCIONES.includes(v as Seccion)
+}
+
+/**
+ * Una pantalla que cuelga de una sección y se enseña **dentro** de ella.
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * POR QUÉ ESTO EXISTE, Y POR QUÉ NO SE USA `router-link-active`
+ *
+ * La clase `router-link-active` que pone vue-router **no compara rutas por
+ * texto**: compara si el registro de la ruta actual desciende del registro del
+ * enlace. Y aquí `/inicio/configuracion` está declarada como HERMANA de
+ * `/inicio`, no como hija suya — no hay `children`, porque eso obligaría a
+ * convertir `PantallaInicio` en un armazón con su propio `<RouterView>`.
+ *
+ * Resultado medido el 21/09/2026:
+ *
+ *     /inicio                 → casa con  ['/inicio']
+ *     /inicio/configuracion   → casa con  ['/inicio/configuracion']
+ *     /contactos/importar     → casa con  ['/contactos/importar']
+ *     /contactos/supresion    → casa con  ['/contactos/supresion']
+ *
+ * Es decir: estando en cualquiera de esas tres pantallas, **la barra lateral
+ * se quedaba entera apagada**. No es un fallo de la configuración: Importar y
+ * Quién pidió no recibir lo arrastraban desde la entrega 3.2, y nadie lo vio
+ * porque las pruebas de pantalla sustituyen `RouterLink` por un doble que no
+ * calcula ningún estado activo.
+ *
+ * Lo encontró Dirección mirando la pantalla, igual que el fallo de ayer.
+ *
+ * La marca pasa a salir de `meta.seccion`, que es el dato que ya declara cada
+ * ruta y el único que significa lo que hace falta: «a qué sección pertenece
+ * esta pantalla». El día que se añada `/campanas/plantillas`, se alumbra sola.
+ * ───────────────────────────────────────────────────────────────────────────
+ */
+export interface Subseccion {
+  /** La ruta a la que lleva. */
+  ruta: string
+  /** Clave de i18n de su nombre (§139: claves, no texto). */
+  clave: string
+  /** Orden dentro de la sección. Explícito y no alfabético: el orden es una
+   *  decisión de producto, no una casualidad de cómo se escriben las palabras. */
+  orden: number
+}
+
+/**
+ * Las subsecciones de cada sección, sacadas de las propias rutas.
+ *
+ * Derivado y no escrito a mano: una segunda lista a mano es una lista que se
+ * queda vieja el día que alguien añade una ruta y no se acuerda de tocarla.
+ * Aquí la ruta es la fuente, y si no declara `subseccion` no aparece.
+ */
+export function subseccionesDe(seccion: Seccion): Subseccion[] {
+  return router
+    .getRoutes()
+    .filter((r) => r.meta['seccion'] === seccion && r.meta['subseccion'])
+    .map((r) => ({
+      ruta: r.path,
+      clave: `nav.sub.${String(r.meta['subseccion'])}`,
+      orden: Number(r.meta['orden'] ?? 0),
+    }))
+    .sort((a, b) => a.orden - b.orden)
+}
+
 /**
  * El icono de cada sección.
  *
@@ -55,7 +120,7 @@ const rutas: RouteRecordRaw[] = [
     path: '/inicio/configuracion',
     name: 'configuracion',
     component: () => import('@/app/pantallas/PantallaConfiguracion.vue'),
-    meta: { seccion: 'inicio' },
+    meta: { seccion: 'inicio', subseccion: 'configuracion', orden: 1 },
   },
   {
     path: '/contactos',
@@ -69,7 +134,7 @@ const rutas: RouteRecordRaw[] = [
     path: '/contactos/importar',
     name: 'importar',
     component: () => import('@/app/pantallas/PantallaImportar.vue'),
-    meta: { seccion: 'contactos' },
+    meta: { seccion: 'contactos', subseccion: 'importar', orden: 1 },
   },
   {
     // Cuelga de contactos por lo mismo que importar: es una vista de los
@@ -78,7 +143,7 @@ const rutas: RouteRecordRaw[] = [
     path: '/contactos/supresion',
     name: 'supresion',
     component: () => import('@/app/pantallas/PantallaSupresion.vue'),
-    meta: { seccion: 'contactos' },
+    meta: { seccion: 'contactos', subseccion: 'supresion', orden: 2 },
   },
   {
     path: '/ajustes',

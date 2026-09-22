@@ -165,15 +165,42 @@ describe('Ajustes es de la aplicación, no del negocio', () => {
     expect(w.text()).not.toContain('Correo corporativo')
   })
 
-  /** Y sí lleva lo que le toca: la apariencia, y el puente a donde están. */
-  it('lleva la apariencia y un enlace a la configuración', () => {
+  /**
+   * Y lleva SÓLO lo que le toca: la apariencia, y nada del negocio.
+   *
+   * ─────────────────────────────────────────────────────────────────────────
+   * ESTA PRUEBA AFIRMABA LO CONTRARIO HASTA EL 21/09/2026
+   *
+   * Decía «lleva la apariencia y un enlace a la configuración», y exigía que
+   * el puente existiera. Dirección mandó quitarlo el mismo día, mirando la
+   * pantalla: «no me gusta que la opción de ir a configuración se encuentre en
+   * esta sección, elimínala, junto con el texto».
+   *
+   * Tenía razón por segunda vez seguida sobre lo mismo. Ese bloque existía
+   * sólo porque la configuración no aparecía en ninguna parte de la barra
+   * lateral — era un parche a un fallo de navegación, no una decisión. Con la
+   * barra enseñando «Inicio › Configuración», el parche sobra y lo único que
+   * hace es devolver a Ajustes el vocabulario del negocio.
+   *
+   * Se deja escrito en vez de borrar la prueba: la afirmación vieja explica
+   * por qué el bloque llegó a existir.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  it('lleva la apariencia y NINGÚN enlace a la configuración', () => {
     const w = mount(PantallaAjustes, entorno)
 
     expect(w.text()).toContain('Tema de la interfaz')
-    const enlace = w
+
+    const puente = w
       .findAll('a')
       .find((a) => a.attributes('href')?.includes('/inicio/configuracion'))
-    expect(enlace, 'sin puente, los datos de la empresa no se encuentran').toBeTruthy()
+    expect(puente, 'el puente a la configuración volvió a Ajustes').toBeUndefined()
+
+    // Y tampoco el texto, que es la otra mitad de lo que Dirección señaló: un
+    // párrafo explicando dónde viven los datos del negocio sigue siendo
+    // Ajustes hablando del negocio, aunque ya no haya botón.
+    expect(w.text()).not.toContain('Los datos de tu empresa')
+    expect(w.text()).not.toContain('zona horaria')
   })
 })
 

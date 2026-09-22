@@ -32,6 +32,23 @@ export const es = {
     plegadaPorAncho:
       'La navegación se pliega sola porque la ventana es estrecha. ' +
       'Ensánchala para poder abrirla.',
+    // El nombre accesible de las migas. Sin él, un lector de pantalla anuncia
+    // «navegación» dos veces —la barra y las migas— sin distinguirlas.
+    migas: 'Dónde estás',
+
+    /**
+     * Las subsecciones. Cada una es una pantalla que cuelga de una sección y
+     * se enseña indentada bajo ella cuando estás dentro.
+     *
+     * El nombre es el CORTO, no el título de la pantalla: en la barra compite
+     * con cinco palabras más, y «Quién pidió no recibir» ahí dentro se parte
+     * en tres líneas. El título largo sigue estando arriba, en la pantalla.
+     */
+    sub: {
+      configuracion: 'Configuración',
+      importar: 'Importar',
+      supresion: 'Quién pidió no recibir',
+    },
   },
 
   inicio: {
@@ -153,14 +170,11 @@ export const es = {
 
   ajustes: {
     entradilla: 'Cómo se ve y cómo se comporta la aplicación.',
-    datosDelNegocio: 'Los datos de tu empresa',
-    // Se dice POR QUÉ no están aquí, en vez de dejar un enlace mudo. Quien
-    // llega buscándolos merece entender el criterio, no sólo obedecerlo.
-    datosDelNegocioDetalle:
-      'El nombre, el país y la zona horaria no son ajustes de la aplicación: ' +
-      'deciden a qué hora sale cada correo y qué reglas aplican. Viven en la ' +
-      'configuración de ARLES, junto a los pasos que faltan para enviar.',
-    irAConfiguracion: 'Ir a la configuración',
+    // Aquí vivían `datosDelNegocio`, `datosDelNegocioDetalle` e
+    // `irAConfiguracion`: el bloque puente hacia la configuración. Dirección
+    // lo mandó quitar el 21/09/2026, y con razón — en cuanto la barra lateral
+    // enseña «Inicio › Configuración», el puente dejó de ser un camino y pasó
+    // a ser Ajustes volviendo a hablar del negocio.
   },
 
   empresa: {

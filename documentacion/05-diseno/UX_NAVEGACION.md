@@ -20,7 +20,17 @@ El §23 propone siete secciones. Dos se solapan:
 | **CONTACTOS** | Todos · Listas · Etiquetas · Importaciones · **Supresiones** |
 | **REMITENTES** | Cuentas conectadas · Salud de envío · Límites |
 | **ACTIVIDAD** | Ejecución en vivo · Eventos · Errores |
-| **AJUSTES** | Apariencia · Preferencias · Respaldos · Actualizaciones · Licencia. **Los datos de la empresa NO**: ver §3.3 |
+| **AJUSTES** | Apariencia · Preferencias · Respaldos · Actualizaciones · Licencia. **Los datos de la empresa NO, y tampoco un enlace a ellos**: ver §3.3 y §3.3 bis |
+
+**Subsecciones.** Tres pantallas cuelgan de una sección en vez de ser secciones
+propias, y se enseñan indentadas bajo su madre **sólo cuando estás dentro de
+ella** (§3.3 bis):
+
+| Sección | Subsección | Ruta |
+|---|---|---|
+| INICIO | Configuración | `/inicio/configuracion` |
+| CONTACTOS | Importar | `/contactos/importar` |
+| CONTACTOS | Quién pidió no recibir | `/contactos/supresion` |
 
 > 🔵 **Pendiente de revisión por la logística de los dos canales.**
 > [LOGISTICA_DE_CAMPANAS](../01-producto/LOGISTICA_DE_CAMPANAS.md) propone dos
@@ -105,8 +115,7 @@ misma.
 
 **Dónde está ahora:** los datos de la empresa y los seis pasos viven juntos en
 `/inicio/configuracion`, que **cuelga de INICIO**. En Inicio queda la cifra
-—«1 de 6»— y la acción siguiente. En Ajustes queda un **enlace**, no una copia
-del formulario: un enlace no diverge, dos formularios sobre la misma tabla sí.
+—«1 de 6»— y la acción siguiente. **En Ajustes no queda nada**: ver §3.3 bis.
 
 **Por qué no es una séptima sección.** Dirección cerró esa puerta el 17/09 al
 rechazar CONVERSACIONES: el producto son seis. Y una sección de «configuración
@@ -115,8 +124,8 @@ a usar y sigue ocupando sitio para siempre.
 
 **El punto flojo, dicho:** el formulario de la empresa no es sólo inicial —la
 zona horaria cambia si la empresa se muda—. Colgado de Inicio, dentro de seis
-meses hay que acordarse de dónde está. Por eso Ajustes lo enlaza y **explica
-por qué no está ahí**, en vez de dejar un enlace mudo.
+meses hay que acordarse de dónde está. La respuesta a eso **no es un atajo
+desde Ajustes**, es que la barra lateral lo enseñe: ver §3.3 bis.
 
 **Lo que no se vio, y por qué.** El botón llevaba a Ajustes desde la 3.1 y
 ninguna prueba lo detectó: el stub de `RouterLink` era `<a><slot /></a>`, sin
@@ -131,6 +140,87 @@ existen siguen apareciendo, con su entrega, y sin ser enlaces.
 La prueba que lo vigilaba **se repartió entre las dos pantallas en vez de
 borrarse**: lo que se comprueba no es dónde está la lista —eso es composición y
 puede volver a cambiar— sino que las dos afirmaciones sigan siendo ciertas.
+
+### 3.3 bis · La barra dice en qué sección y en qué subsección estás · 21/09/2026
+
+Segunda observación de Dirección sobre la misma pantalla, el mismo día:
+
+> «No tengo nada que me indique en la barra lateral izquierda en qué sección me
+> encuentro. No veo ningún submenú ni subpestaña que me indique si me encuentro
+> en la configuración inicial del sistema, o algo parecido. Necesito un
+> indicativo, tanto de la pestaña en que me encuentro como de la subpestaña.»
+
+Y tenía razón por segunda vez: la barra estaba **entera apagada**.
+
+#### La causa, medida
+
+`router-link-active` —la clase que vue-router pone sola— no compara rutas por
+texto. Compara si el registro de la ruta actual **desciende** del registro del
+enlace. Y las subpantallas están declaradas como **hermanas**, no como hijas:
+
+```
+/inicio                 → casa con  ['/inicio']
+/inicio/configuracion   → casa con  ['/inicio/configuracion']
+/contactos/importar     → casa con  ['/contactos/importar']
+/contactos/supresion    → casa con  ['/contactos/supresion']
+```
+
+**No era un fallo de la configuración.** `/contactos/importar` y
+`/contactos/supresion` llevaban el mismo desde la **entrega 3.2**: entrar a
+importar o a la lista de bajas dejaba la barra apagada, y nadie lo había visto.
+
+No se anidaron como hijas de verdad porque eso obliga a convertir
+`PantallaInicio` y `PantallaContactos` en armazones con su propio `<RouterView>`
+— mucha cirugía para un estado visual. La marca sale de **`meta.seccion`**, que
+cada ruta ya declara y que significa exactamente lo que hace falta.
+
+#### Lo que se ve ahora — decisión C
+
+| Indicador | Dónde | Qué resuelve |
+|---|---|---|
+| **Sección marcada** | Barra: relleno + barra de acento | En qué pestaña estás |
+| **Sub-entrada indentada** | Barra, bajo la sección **abierta** | Qué subpestañas hay y en cuál estás |
+| **Migas `Inicio › Configuración`** | Sobre el título | Dónde estás y a dónde volver |
+
+**Las dos cosas y no una.** Plegada, la barra sólo enseña iconos (P-11), así que
+las sub-entradas no se dibujan: si las migas no existieran, plegar la barra
+borraría el único indicativo de subsección. Al revés no pasa nada.
+
+**Sólo se despliegan las hijas de la sección abierta.** Las nueve a la vez
+convierten la barra de brújula en índice.
+
+**Las migas no salen en las pantallas raíz.** Una miga sola —«Inicio»— ocupa una
+línea para no decir ni de dónde vienes ni a dónde volver.
+
+#### Y por eso Ajustes se quedó sin el enlace
+
+El mismo día, Dirección: *«no me gusta que la opción de ir a configuración se
+encuentre en esta sección, elimínala, junto con el texto»*.
+
+Aquí arriba, en §3.3, ese enlace estaba justificado como la respuesta al «punto
+flojo»: cómo se encuentra la configuración dentro de seis meses. Era una
+justificación **falsa**, y se ve al ponerlas juntas: el bloque existía porque la
+configuración no aparecía en ninguna parte de la barra. Era un parche a este
+fallo de navegación, no una decisión de arquitectura de información.
+
+Con la barra enseñando «Inicio › Configuración», el parche sobra y lo único que
+hacía era devolverle a Ajustes el vocabulario del negocio — justo lo que §3.3
+existe para impedir.
+
+**La lección, que es la misma de §3.3 y por eso se repite:** la forma de que una
+pantalla no necesite un atajo no es escribirle el atajo, es que el sitio al que
+lleva se pueda encontrar solo.
+
+#### Lo que no se vio, y por qué — otra vez el mismo agujero
+
+Ayer el doble de `RouterLink` de las pruebas no tenía `href`, y por eso nadie
+vio que el botón llevaba a Ajustes. Se le puso `href`. **Pero un doble tampoco
+calcula el estado activo**, así que seguía sin poder verse esto.
+
+Arreglado de otra forma: `navegacion.spec.ts` monta la aplicación con el
+**enrutador real**, no con dobles. Trece pruebas, y la sonda de vista previa lo
+mide además en un navegador de verdad. Se comprobó devolviendo la barra al
+marcado automático: las tres subpantallas fallan, cada una nombrando su ruta.
 
 ### 3.4 La rejilla áurea
 

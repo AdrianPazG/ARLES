@@ -1,17 +1,73 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterLink, RouterView } from 'vue-router'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
 
 import { invocar } from '@/app/nucleo'
-import { CATALOGO_VISIBLE, ICONO_DE_SECCION, SECCIONES } from '@/app/router'
+import {
+  CATALOGO_VISIBLE,
+  ICONO_DE_SECCION,
+  SECCIONES,
+  esSeccion,
+  subseccionesDe,
+} from '@/app/router'
 import { useAppStore } from '@/app/stores/app'
 import { useInterfazStore } from '@/app/stores/interfaz'
 import { AIcono, ALogotipo } from '@/design/componentes'
 
 const app = useAppStore()
 const interfaz = useInterfazStore()
+const ruta = useRoute()
 const { t } = useI18n()
+
+/**
+ * En qué sección estamos, según lo que declara la ruta.
+ *
+ * NO se usa `router-link-active` para esto: ver la nota larga de `router.ts`.
+ * En resumen, esa clase no llega a `/inicio` estando en
+ * `/inicio/configuracion`, porque son rutas hermanas y no madre e hija — y por
+ * eso la barra se quedaba apagada entera en tres pantallas.
+ */
+const seccionActual = computed(() => {
+  const s = ruta.meta['seccion']
+  return esSeccion(s) ? s : undefined
+})
+
+/** La subsección abierta, si la hay. `undefined` en las pantallas raíz. */
+const subseccionActual = computed(() => {
+  const s = ruta.meta['subseccion']
+  return typeof s === 'string' ? s : undefined
+})
+
+/**
+ * Las subsecciones que se despliegan en la barra: **sólo las de la sección en
+ * la que estamos**, nunca las seis a la vez.
+ *
+ * Una barra que enseña todas las hijas de todas las secciones deja de ser una
+ * brújula y pasa a ser un índice. Se despliegan al entrar y se recogen al
+ * salir, que es cuando dejan de significar algo.
+ */
+const subseccionesVisibles = computed(() =>
+  seccionActual.value ? subseccionesDe(seccionActual.value) : [],
+)
+
+/**
+ * Las migas: «Inicio › Configuración».
+ *
+ * Existen **además** de la marca en la barra y no en su lugar. Motivo medido:
+ * plegada, la barra sólo enseña iconos (P-11), así que las subentradas no se
+ * dibujan y el único indicativo de subsección que queda es éste. Si las migas
+ * fueran el único indicador, al plegar no se perdería nada; si la barra fuera
+ * el único, al plegar se perdería todo.
+ */
+const migas = computed(() => {
+  if (!seccionActual.value || !subseccionActual.value) return null
+  return {
+    seccion: seccionActual.value,
+    rutaDeSeccion: `/${seccionActual.value}`,
+    subseccion: subseccionActual.value,
+  }
+})
 
 const etiquetaDelBoton = computed(() =>
   interfaz.plegada ? t('nav.expandir') : t('nav.plegar'),
@@ -148,8 +204,12 @@ onBeforeUnmount(() => {
         >
           <RouterLink
             class="nav-enlace"
+            :class="{ activo: seccion === seccionActual }"
             :to="`/${seccion}`"
             :title="interfaz.plegada ? $t(`nav.${seccion}`) : undefined"
+            :aria-current="
+              seccion === seccionActual && !subseccionActual ? 'page' : undefined
+            "
           >
             <AIcono
               :nombre="ICONO_DE_SECCION[seccion]"
@@ -163,6 +223,32 @@ onBeforeUnmount(() => {
               {{ $t(`nav.${seccion}`) }}
             </span>
           </RouterLink>
+
+          <!-- ── Las subsecciones de la sección abierta ────────────────────
+               Sólo cuelgan de la sección en la que estamos, y **no se dibujan
+               plegada**: ahí la barra es de iconos (P-11), y un texto indentado
+               sin icono no tiene dónde ponerse. El indicativo no se pierde,
+               se lo quedan las migas de arriba. -->
+          <ul
+            v-if="seccion === seccionActual && !interfaz.plegada && subseccionesVisibles.length"
+            class="sub-lista"
+          >
+            <li
+              v-for="sub in subseccionesVisibles"
+              :key="sub.ruta"
+            >
+              <RouterLink
+                class="sub-enlace"
+                :class="{ activo: sub.clave === `nav.sub.${subseccionActual}` }"
+                :to="sub.ruta"
+                :aria-current="
+                  sub.clave === `nav.sub.${subseccionActual}` ? 'page' : undefined
+                "
+              >
+                {{ $t(sub.clave) }}
+              </RouterLink>
+            </li>
+          </ul>
         </li>
       </ul>
 
@@ -179,6 +265,7 @@ onBeforeUnmount(() => {
       <RouterLink
         v-if="CATALOGO_VISIBLE"
         class="nav-enlace enlace-de-revision"
+        :class="{ activo: ruta.path === '/catalogo' }"
         to="/catalogo"
         :title="interfaz.plegada ? 'Catálogo del sistema' : undefined"
       >
@@ -229,6 +316,31 @@ onBeforeUnmount(() => {
     </nav>
 
     <main class="contenido">
+      <!-- ── Migas ──────────────────────────────────────────────────────────
+           Sólo aparecen dentro de una subsección. En una pantalla raíz serían
+           una miga sola —«Inicio»— que no dice a dónde volver ni de dónde se
+           viene: ocuparía una línea para no informar de nada.
+
+           `<nav>` con su propio nombre y `aria-current="page"` en la hoja: un
+           lector de pantalla anuncia «Inicio, enlace · Configuración, página
+           actual» en vez de leer dos palabras sueltas sobre el título. -->
+      <nav
+        v-if="migas"
+        class="migas"
+        :aria-label="$t('nav.migas')"
+      >
+        <ol>
+          <li>
+            <RouterLink :to="migas.rutaDeSeccion">
+              {{ $t(`nav.${migas.seccion}`) }}
+            </RouterLink>
+          </li>
+          <li aria-current="page">
+            {{ $t(`nav.sub.${migas.subseccion}`) }}
+          </li>
+        </ol>
+      </nav>
+
       <RouterView />
     </main>
   </div>
@@ -397,7 +509,7 @@ onBeforeUnmount(() => {
   transition: height var(--arles-duration-normal) var(--arles-ease);
 }
 
-.nav-enlace.router-link-active::before {
+.nav-enlace.activo::before {
   height: 60%;
 }
 
@@ -441,8 +553,114 @@ onBeforeUnmount(() => {
    barra casi blanca —**1.06:1**— y el relleno no aportaba nada: el estado se
    sostenía sólo en la barra de acento. Ahora da 1.80, prácticamente lo mismo
    que el 1.76 del tema oscuro. */
-.nav-enlace.router-link-active {
+.nav-enlace.activo {
   background: var(--arles-nav-activo);
+  color: var(--arles-text);
+}
+
+/* ── Subsecciones ───────────────────────────────────────────────────────────
+   Indentadas hasta alinear con el TEXTO del padre, no con su icono: la sangría
+   es lo que dice «esto cuelga de aquello», y alinearlas con el icono las
+   dejaría pareciendo secciones más.
+
+   Sin icono propio a propósito. Las seis secciones se reconocen por su icono
+   incluso plegadas (P-11); darle uno a una subsección la pondría al mismo
+   nivel visual que su madre. */
+.sub-lista {
+  list-style: none;
+  margin: var(--arles-space-1) 0 var(--arles-space-2);
+  padding: 0 0 0 calc(var(--arles-space-3) + 20px + var(--arles-space-3));
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-1);
+  /* La línea vertical ata las hijas a la madre sin depender del color: quien
+     no distinga el relleno del activo sigue viendo la estructura. */
+  position: relative;
+}
+
+.sub-lista::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--arles-space-3) + 10px);
+  top: 0;
+  bottom: 0;
+  width: var(--arles-border-width);
+  background: var(--arles-border);
+}
+
+.sub-enlace {
+  display: flex;
+  align-items: center;
+  min-height: var(--arles-control-height-compact);
+  padding: 0 var(--arles-space-3);
+  border-radius: var(--arles-radius-sm);
+  color: var(--arles-text-muted);
+  text-decoration: none;
+  font-size: var(--arles-font-size-small);
+  line-height: var(--arles-line-height-small);
+  font-weight: var(--arles-font-weight-semibold);
+  transition:
+    background var(--arles-duration-normal) var(--arles-ease),
+    color var(--arles-duration-normal) var(--arles-ease);
+}
+
+.sub-enlace:hover {
+  background: var(--arles-surface-raised);
+  color: var(--arles-text);
+}
+
+/* Igual que arriba: relleno Y peso, nunca sólo color (§19). */
+.sub-enlace.activo {
+  background: var(--arles-nav-activo);
+  color: var(--arles-text);
+}
+
+/* ── Migas ──────────────────────────────────────────────────────────────────
+   El separador es un pseudoelemento y no un carácter en la plantilla: escrito
+   en el marcado, el lector de pantalla leería «Inicio, mayor que,
+   Configuración». Aquí es decoración y no se anuncia. */
+.migas {
+  margin-bottom: var(--arles-space-4);
+}
+
+.migas ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--arles-space-2);
+  font-size: var(--arles-font-size-small);
+  line-height: var(--arles-line-height-small);
+}
+
+.migas li {
+  display: flex;
+  align-items: center;
+  gap: var(--arles-space-2);
+  color: var(--arles-text-muted);
+}
+
+.migas li + li::before {
+  content: '›';
+  color: var(--arles-text-disabled);
+}
+
+.migas a {
+  color: var(--arles-text-muted);
+  text-decoration: none;
+  border-radius: var(--arles-radius-sm);
+}
+
+.migas a:hover {
+  color: var(--arles-text);
+  text-decoration: underline;
+}
+
+/* La hoja es la página actual: se lee con el color normal para que se
+   distinga del enlace de vuelta sin apoyarse sólo en el subrayado. */
+.migas [aria-current='page'] {
   color: var(--arles-text);
 }
 

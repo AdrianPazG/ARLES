@@ -12,6 +12,73 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### La barra lateral ya dice en qué sección y en qué subsección estás
+
+Dirección entró en la configuración recién mudada y señaló lo siguiente: **la
+barra lateral estaba entera apagada.** Sus palabras: «no tengo nada que me
+indique en qué sección me encuentro; necesito un indicativo, tanto de la
+pestaña como de la subpestaña».
+
+**Y el fallo era más viejo y más ancho de lo que se veía.** La barra usaba el
+marcado automático de la librería de navegación, que no compara rutas por
+texto: comprueba si la pantalla actual *desciende* de la entrada de la barra. Y
+las subpantallas están declaradas como hermanas, no como hijas. Medido:
+
+```
+/inicio                 → casa con  ['/inicio']
+/inicio/configuracion   → casa con  ['/inicio/configuracion']
+/contactos/importar     → casa con  ['/contactos/importar']
+/contactos/supresion    → casa con  ['/contactos/supresion']
+```
+
+Es decir: **Importar contactos** y **Quién pidió no recibir** dejaban la barra
+apagada **desde la entrega 3.2**. Se arreglan las tres, no sólo la que se vio.
+
+**Qué se ve ahora**, en tres piezas que se sostienen entre ellas:
+
+- La **sección** queda marcada, con relleno y barra de acento, también dentro de
+  sus subpantallas. Sale de lo que cada ruta ya declara, así que el día que se
+  añada «Campañas › Plantillas» se alumbra sola.
+- Bajo la sección abierta —y **sólo** bajo ella— aparecen sus **subsecciones**
+  indentadas y unidas por una línea, con la actual marcada. Las nueve a la vez
+  convertirían la barra de brújula en índice.
+- Sobre el título, **migas**: `Inicio › Configuración`, con la primera clicable.
+
+Son dos indicadores y no uno por una razón medida: plegada, la barra sólo enseña
+iconos, así que las sub-entradas no se dibujan. Sin las migas, plegar la barra
+borraría el único indicativo de subsección. Al revés no se pierde nada.
+
+**Y por eso Ajustes se quedó sin el enlace a la configuración**, que Dirección
+mandó quitar el mismo día junto con su párrafo. Ayer ese bloque estaba
+justificado como la respuesta a «cómo se encuentra la configuración dentro de
+seis meses». Puestas las dos cosas juntas se ve que la justificación era falsa:
+**el bloque existía porque la configuración no salía en ninguna parte de la
+barra**. Era un parche a este fallo de navegación, y lo único que hacía era
+devolverle a Ajustes el vocabulario del negocio — justo lo que la corrección de
+ayer existía para impedir.
+
+La forma de que una pantalla no necesite un atajo no es escribirle el atajo, es
+que el sitio al que lleva se pueda encontrar solo.
+
+**Detalles que no se ven pero sostienen lo anterior:**
+
+- El separador `›` de las migas es decoración de estilos, no un carácter en el
+  texto: escrito en el marcado, un lector de pantalla leería «Inicio, mayor que,
+  Configuración».
+- Las migas **no salen en las pantallas raíz**. Una miga sola —«Inicio»— ocupa
+  una línea para no decir ni de dónde vienes ni a dónde volver.
+- Las subsecciones no llevan icono propio: las seis secciones se reconocen por
+  el suyo incluso plegadas, y darle uno a una hija la pondría al mismo nivel
+  visual que su madre.
+
+**El agujero de pruebas, que es la tercera vez que aparece.** Ayer se descubrió
+que el enlace de mentira de las pruebas no guardaba el destino; se le puso. Pero
+**tampoco calcula el estado activo**, así que esto seguía sin poder verse. Se
+arregló de otra forma: hay un archivo de pruebas nuevo que monta la aplicación
+con el **enrutador de verdad** —trece comprobaciones— y la sonda mide lo mismo
+en un navegador real. Verificado rompiéndolo: devolviendo la barra al marcado
+automático caen las tres subpantallas, cada una nombrando su ruta.
+
 ### Configurar la empresa ya no manda a Ajustes, y lo guardado no se toca sin querer
 
 Dirección lo vio mirando la pantalla: pulsar «Configurar mi empresa» en INICIO

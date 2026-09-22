@@ -693,6 +693,24 @@ def sin_comentarios(texto):
     return RE_COMENTARIO_JS.sub("", RE_COMENTARIO_CSS.sub("", texto))
 
 
+RE_COMENTARIO_HTML = re.compile(r"<!--.*?-->", re.S)
+
+
+def sin_comentarios_ni_html(texto):
+    """Como `sin_comentarios`, y además quita los `<!-- … -->` de la plantilla.
+
+    Hace falta en cuanto una comprobación busca una cadena que el archivo
+    **menciona para explicar por qué no la usa**. Pasó el 21/09/2026: dos
+    comprobaciones nuevas fallaron contra los comentarios que documentaban la
+    regla que ellas mismas vigilan.
+
+    No es un detalle de fontanería: una comprobación que se dispara con un
+    comentario enseña a no comentar, y en este proyecto el comentario es donde
+    vive el porqué.
+    """
+    return RE_COMENTARIO_HTML.sub("", sin_comentarios(texto))
+
+
 def primitivas():
     carpeta = os.path.join(RAIZ, "app/src/design/componentes")
     if not os.path.isdir(carpeta):
@@ -1829,6 +1847,93 @@ def ajustes_es_de_la_aplicacion_y_no_del_negocio():
         detalle="se esperaba que PasoDeOnboarding::Empresa apunte a /inicio/configuracion",
     )
 
+    # Y tampoco queda el PUENTE. Dirección lo mandó quitar el 21/09/2026:
+    # «no me gusta que la opción de ir a configuración se encuentre en esta
+    # sección, elimínala, junto con el texto».
+    #
+    # Ese bloque existía sólo porque la configuración no salía en la barra
+    # lateral — era un parche a un fallo de navegación. Con la barra
+    # enseñando «Inicio › Configuración» sobra, y lo único que hacía era
+    # devolverle a Ajustes el vocabulario del negocio.
+    # Se mira el CÓDIGO, no los comentarios: esta pantalla EXPLICA en su
+    # cabecera por qué el puente ya no está, y la primera versión de esta
+    # comprobación falló por leer su propia documentación. Una comprobación
+    # que se dispara con un comentario acaba empujando a no comentar.
+    check(
+        3,
+        "Ajustes no enlaza a la configuración",
+        "/inicio/configuracion" not in sin_comentarios_ni_html(ajustes),
+        ajustes_es_de_la_aplicacion_y_no_del_negocio.__doc__,
+        detalle="volvió el puente a la configuración dentro de PantallaAjustes.vue",
+    )
+
+
+def la_barra_dice_en_que_seccion_estas():
+    """La sección activa se marca desde `meta.seccion`, no con `router-link-active`.
+
+    Observación de Dirección del 21/09/2026, la segunda sobre lo mismo: entró
+    en la configuración y **la barra lateral se quedó entera apagada**.
+
+    La causa, medida: `router-link-active` no compara rutas por texto, compara
+    si el registro de la ruta actual DESCIENDE del registro del enlace. Y
+    `/inicio/configuracion` está declarada como hermana de `/inicio`, no como
+    hija. Lo mismo les pasaba a `/contactos/importar` y `/contactos/supresion`
+    **desde la entrega 3.2**, y nadie lo vio porque las pruebas de pantalla
+    sustituyen `RouterLink` por un doble que no calcula estado activo.
+
+        /inicio/configuracion  → casa con  ['/inicio/configuracion']
+        /contactos/importar    → casa con  ['/contactos/importar']
+
+    Se vigila aquí y no sólo en las pruebas porque volver al marcado
+    automático es la clase de cambio que parece una simplificación: «para qué
+    calcular esto si la librería ya lo hace».
+    """
+    # Igual que arriba: `App.vue` documenta en su cabecera por qué no se usa
+    # `router-link-active`, y leer el archivo crudo daría un falso positivo
+    # contra el propio comentario que explica la regla.
+    app_vue = sin_comentarios_ni_html(leer("app", "src", "app", "App.vue"))
+
+    check(
+        3,
+        "la barra no se marca con el activo automático de vue-router",
+        "router-link-active" not in app_vue,
+        la_barra_dice_en_que_seccion_estas.__doc__,
+        detalle="`router-link-active` no llega a la sección madre en una subpantalla",
+    )
+
+    check(
+        3,
+        "la sección activa se calcula desde meta.seccion",
+        "seccion === seccionActual" in app_vue,
+        la_barra_dice_en_que_seccion_estas.__doc__,
+        detalle="se esperaba que el enlace de sección compare con `seccionActual`",
+    )
+
+    # Toda ruta que se declare subsección tiene su texto. Sin esto, la barra
+    # enseñaría la clave cruda —«nav.sub.plantillas»— el día que alguien añada
+    # una y se olvide del catálogo (§139).
+    router_ts = leer("app", "src", "app", "router.ts")
+    es_ts = leer("app", "src", "app", "locales", "es.ts")
+    declaradas = set(re.findall(r"subseccion:\s*'([a-z]+)'", router_ts))
+    check(
+        3,
+        "hay al menos una subsección declarada",
+        bool(declaradas),
+        la_barra_dice_en_que_seccion_estas.__doc__,
+        detalle="sin subsecciones, la comprobación de textos no comprueba nada",
+    )
+
+    bloque = re.search(r"\n    sub: \{(.*?)\n    \},", es_ts, re.S)
+    con_texto = set(re.findall(r"(\w+):", bloque.group(1))) if bloque else set()
+    faltan = sorted(declaradas - con_texto)
+    check(
+        3,
+        "toda subsección de la barra tiene nombre en español",
+        not faltan,
+        la_barra_dice_en_que_seccion_estas.__doc__,
+        detalle=f"subsecciones sin texto en nav.sub: {faltan}",
+    )
+
 
 def el_texto_legal_se_ve_provisional():
     """Mientras P-09 siga abierta, el texto de la declaración lo dice.
@@ -1900,6 +2005,7 @@ def fase_3(rapido):
     el_informe_de_importacion_consulta_las_supresiones()
     el_informe_de_acceso_no_deja_cruzar_una_ruta()
     ajustes_es_de_la_aplicacion_y_no_del_negocio()
+    la_barra_dice_en_que_seccion_estas()
     el_texto_legal_se_ve_provisional()
 
     print(f"{GRIS}  sondas{FIN}")

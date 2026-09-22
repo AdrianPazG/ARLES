@@ -21,15 +21,27 @@
  * Y los seis pasos no son ninguna de las dos: son una guía **con final**, que
  * desaparece al completarse. Un ajuste no desaparece nunca.
  *
- * Las dos cosas se fueron a `/inicio/configuracion`. Aquí queda un enlace —no
- * una copia del formulario—: un enlace no diverge, un formulario duplicado sí.
+ * Las dos cosas se fueron a `/inicio/configuracion`.
+ *
+ * AQUÍ TAMPOCO QUEDA UN ENLACE, y eso también lo decidió Dirección · 21/09/2026
+ *
+ * El primer intento dejó un bloque «Los datos de tu negocio» con un botón que
+ * llevaba a la configuración. Era un puente, y existía sólo porque no había
+ * otro camino: la subpágina no salía en ninguna parte de la barra lateral.
+ *
+ * En cuanto la barra enseña «Inicio › Configuración», ese puente deja de ser
+ * un camino y pasa a ser lo que Dirección señaló: Ajustes volviendo a hablar
+ * del negocio. Se quitó entero, botón y texto.
+ *
+ * Es decir: la forma correcta de que una pantalla no necesite un atajo no es
+ * escribirle el atajo, es que el sitio al que lleva se pueda encontrar solo.
  * ─────────────────────────────────────────────────────────────────────────
  */
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { TEMAS, esTema, useInterfazStore } from '@/app/stores/interfaz'
-import { AAviso, ABoton, ASelector } from '@/design/componentes'
+import { AAviso, ASelector } from '@/design/componentes'
 
 const interfaz = useInterfazStore()
 const { t } = useI18n()
@@ -93,32 +105,6 @@ function elegirTema(valor: string): void {
         {{ $t('apariencia.porQueDetalle') }}
       </AAviso>
     </section>
-
-    <!-- El puente hacia donde SÍ viven los datos del negocio. Un enlace, no
-         una copia del formulario: dos formularios sobre la misma tabla
-         divergen en cuanto alguien toca uno. -->
-    <section
-      class="bloque"
-      aria-labelledby="titulo-negocio"
-    >
-      <h2
-        id="titulo-negocio"
-        class="subtitulo"
-      >
-        {{ $t('ajustes.datosDelNegocio') }}
-      </h2>
-      <p class="explicacion">
-        {{ $t('ajustes.datosDelNegocioDetalle') }}
-      </p>
-      <div class="acciones">
-        <ABoton
-          variante="secundario"
-          a="/inicio/configuracion"
-        >
-          {{ $t('ajustes.irAConfiguracion') }}
-        </ABoton>
-      </div>
-    </section>
   </section>
 </template>
 
@@ -152,14 +138,8 @@ function elegirTema(valor: string): void {
   font-weight: var(--arles-font-weight-semibold);
 }
 
-.entradilla,
-.explicacion {
+.entradilla {
   margin: 0;
   color: var(--arles-text-muted);
-}
-
-.acciones {
-  display: flex;
-  gap: var(--arles-space-3);
 }
 </style>
