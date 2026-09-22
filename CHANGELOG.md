@@ -12,6 +12,52 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Ya se pueden borrar los datos de alguien · entrega 3.4 completa
+
+El motor estaba construido desde ayer. Ahora tiene botón, y todo el trabajo
+se fue en que ese botón **no se pueda pulsar por accidente** — es la única
+acción de ARLES que no tiene vuelta atrás.
+
+**Cómo funciona, en tres pasos.**
+
+1. Escribes la dirección de quien pidió el borrado y pulsas **«Ver qué se
+   borraría»**. No borra nada.
+2. ARLES te enseña **de quién es esa dirección, por su nombre**, y dos cifras
+   grandes: cuántos datos **desaparecen** y cuántos envíos **se conservan** sin
+   su nombre. Más abajo dice si esa persona ya tenía baja o si se le creará una.
+3. Para borrar hay que **escribir su dirección completa**. Entonces, y sólo
+   entonces, se enciende el botón rojo.
+
+**Por qué escribir la dirección y no marcar una casilla.** Una casilla de
+«entiendo que es irreversible» se marca sin leerla — la prueba es que todo el
+mundo las marca. Escribir la dirección obliga a **mirarla**, y si te
+equivocaste de persona al teclear arriba, aquí lo ves. Ése es el accidente
+concreto que esto existe para evitar: borrar a quien no era, sin deshacer.
+
+**Y cambiar la dirección de arriba desarma la confirmación.** Sin eso, alguien
+podría mirar lo de Ana, confirmar escribiendo su correo, cambiar de idea,
+teclear otra dirección… y el botón seguiría armado, apuntando ya a otra
+persona.
+
+**«No consta nada» no impide borrar**, y es deliberado: la baja se crea igual,
+que es justo lo que impide que esa dirección vuelva a entrar en una lista.
+
+**Lo que se dice después no es «listo».** Es cuántos datos desaparecieron,
+cuántos envíos se conservan y qué pasó con su baja. Quien atiende la solicitud
+va a tener que responderle eso mismo a una persona, y «listo» no le sirve.
+
+**Dos comprobaciones que decían lo contrario.** Una prueba y una comprobación
+de la sonda exigían que la pantalla avisara de que el borrado «todavía no está
+construido». Ya lo está, así que ahora exigen lo contrario: que se llegue a él
+y que no deje borrar sin confirmar. Se deja escrita la afirmación vieja en vez
+de borrarla — explica por qué ese texto llegó a existir.
+
+Y otras dos comprobaciones eran **demasiado anchas**: buscaban «no hay nada
+rojo en toda la página», y eso dejó de valer en cuanto la pantalla ganó un
+aviso rojo legítimo. Ahora miran el elemento concreto. Una comprobación sobre
+la página entera no distingue «esto está mal pintado» de «hay algo rojo en
+otra parte».
+
 ### El borrado de verdad, por dentro (entrega 3.4, sin pantalla todavía)
 
 Es la parte con más tensión del producto: la ley da derecho a un **borrado

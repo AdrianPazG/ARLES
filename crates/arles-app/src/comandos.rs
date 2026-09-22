@@ -1141,6 +1141,88 @@ fn hoy_legible() -> String {
     format!("{} de {} de {}", ahora.day(), mes, ahora.year())
 }
 
+// ─── El derecho de Cancelación · borrar de verdad ───────────────────────────
+
+/// Qué se borraría si se cancelara a esa persona. **No borra nada.**
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ HAY DOS COMANDOS Y NO UNO
+///
+/// Un borrado irreversible que sólo pregunta «¿seguro?» no pregunta nada:
+/// nadie puede decidir sobre algo que no ha visto. Este comando existe para
+/// que la pantalla pueda **enseñar las cifras antes** de dejar pulsar.
+///
+/// Se apoya en el mismo expediente que arma el derecho de Acceso. Contar por
+/// separado daría dos recuentos de lo mismo, y el día que divergieran la
+/// pantalla prometería borrar algo que no borra.
+///
+/// # Errores
+///
+/// - `error.email_invalido` o `error.telefono_invalido` si lo escrito no es
+///   una dirección válida.
+#[tauri::command]
+pub fn que_se_borraria(
+    estado: tauri::State<'_, EstadoApp>,
+    canal: arles_core::Canal,
+    direccion: String,
+) -> Result<arles_core::cancelacion::VistaPrevia, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let pais = pais_de_la_empresa(&estado)?;
+    let valor =
+        arles_core::ValorDeCanal::parse(canal, &direccion, &pais).map_err(crate::AppError::Core)?;
+
+    let db = estado.db();
+    let expediente = db
+        .expediente_de(empresa, valor.normalized(), "", &hoy_legible())
+        .map_err(crate::AppError::Db)?;
+
+    Ok(arles_core::cancelacion::VistaPrevia::desde_expediente(
+        &expediente,
+    ))
+}
+
+/// Borra a esa persona. **Irreversible.**
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LA CONFIRMACIÓN NO VIVE AQUÍ, Y ES A PROPÓSITO
+///
+/// Este comando **no pregunta nada**: recibe una dirección y borra. Quien
+/// confirma es la pantalla, y lo hace obligando a escribir la dirección
+/// completa — no con una casilla, que se marca sin leer.
+///
+/// Meter la confirmación en el comando parecería más seguro y sería peor:
+/// una comprobación que sólo puede fallar con un valor que el propio programa
+/// acaba de generar no comprueba nada, y además la pantalla tendría que
+/// mandar dos veces la misma dirección para que la segunda «confirmara» la
+/// primera. La defensa real está en **lo que el núcleo hace**, que está
+/// probado: la baja se crea, los envíos se anonimizan, la ficha desaparece.
+///
+/// # Errores
+///
+/// - `error.email_invalido` o `error.telefono_invalido` si lo escrito no es
+///   una dirección válida.
+/// - `error.db.*` si algo falla al borrar. Entonces **no se borra nada**: la
+///   transacción se deshace entera.
+#[tauri::command]
+pub fn cancelar_datos_de(
+    estado: tauri::State<'_, EstadoApp>,
+    canal: arles_core::Canal,
+    direccion: String,
+) -> Result<arles_core::cancelacion::Cancelacion, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let pais = pais_de_la_empresa(&estado)?;
+    // Se valida con el MISMO validador que el alta y que la vista previa. Con
+    // dos normalizaciones distintas, la vista previa podría enseñar lo de una
+    // persona y el borrado llevarse lo de otra.
+    let valor =
+        arles_core::ValorDeCanal::parse(canal, &direccion, &pais).map_err(crate::AppError::Core)?;
+
+    estado
+        .db()
+        .cancelar_a(empresa, canal, valor.normalized())
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

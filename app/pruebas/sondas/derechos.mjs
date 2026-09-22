@@ -126,10 +126,20 @@ try {
   }
 
   // Y no se pinta como una avería.
+  // Se mira EL RESULTADO, no la página entera.
+  //
+  // La primera versión recorría todos los avisos de `main`, y eso dejó de
+  // valer el 22/09/2026 en cuanto la pantalla ganó el bloque de borrado — que
+  // lleva un aviso rojo legítimo, «esto no se puede deshacer». Una
+  // comprobación sobre toda la página no distingue «el resultado está mal
+  // pintado» de «hay algo rojo en otra parte».
   const pintadoComoError = await pagina.evaluate(() => {
-    const avisos = [...document.querySelectorAll('main [class*="aviso"], main [role="alert"]')]
-    return avisos.some((a) => /peligro|danger|error/.test(a.className))
+    const r = document.querySelector('.derechos__resultado')
+    return r ? /peligro|danger|error/.test(r.className) : null
   })
+  if (pintadoComoError === null) {
+    mal('No se pintó ningún resultado tras pedir el informe.')
+  }
   if (pintadoComoError) {
     mal('Un informe vacío se pinta como un fallo. Es una respuesta legítima, no una avería.')
   } else {
@@ -157,11 +167,64 @@ try {
     console.log('✓ 7 · cancelar se cuenta como una decisión, no como un fallo.')
   }
 
-  // ── 8 · Se dice lo que todavía no existe ──────────────────────────────
-  if (!cancelado.includes('Todavía no está construido')) {
-    mal('No se avisa de que el borrado de datos todavía no existe.')
+  // ── 8 · EL BORRADO EXISTE, Y NO SE PUEDE PULSAR POR ACCIDENTE ─────────
+  //
+  // Esta comprobación decía lo contrario hasta el 22/09/2026: exigía que la
+  // pantalla avisara de que el borrado «todavía no está construido». Ya lo
+  // está, así que lo que hay que vigilar es lo contrario — que se llegue a él
+  // y que **no deje borrar sin confirmar**.
+  //
+  // Es la única acción irreversible de ARLES. Si el botón se armara solo, el
+  // fallo no tendría arreglo: no hay papelera.
+  if (cancelado.includes('Todavía no está construido')) {
+    mal('Quedó el aviso viejo: la pantalla dice que falta el borrado, y ya está.')
+  }
+
+  const guarda = await pagina.evaluate(() => {
+    const f = [...document.querySelectorAll('form')][1]
+    if (!f) return { hay: false }
+    return { hay: true }
+  })
+  if (!guarda.hay) {
+    mal('No hay formulario de borrado: el derecho de cancelación es inalcanzable.')
   } else {
-    console.log('✓ 8 · avisa de que el borrado todavía no está construido.')
+    // Se pide la vista previa y se comprueba que el botón NACE bloqueado.
+    await pagina.fill('form >> nth=1 >> input', 'ana@empresa.mx')
+    await pagina.click('form >> nth=1 >> button[type="submit"]')
+    await pagina.waitForTimeout(700)
+
+    const previa = await pagina.locator('.borrar').count()
+    if (previa !== 1) {
+      mal('Pedir el borrado no enseña qué se borraría: nadie puede decidir a ciegas.')
+    } else {
+      const cifras = (await pagina.locator('.borrar').innerText()).replace(/\s+/g, ' ')
+      if (!/Desaparece/i.test(cifras) || !/Se conserva/i.test(cifras)) {
+        mal(`La vista previa no dice qué desaparece y qué se conserva: ${cifras.slice(0, 120)}`)
+      } else {
+        console.log('✓ 8 · el borrado enseña las cifras antes de dejar pulsar.')
+      }
+
+      const bloqueado = await pagina.locator('.borrar button[type="submit"]').isDisabled()
+      if (!bloqueado) {
+        mal('El botón de borrar nace armado, sin confirmar. Esto no tiene deshacer.')
+      } else {
+        // Y se desbloquea al escribir la dirección exacta, no antes.
+        await pagina.fill('.borrar__confirmar input', 'ana@empresa.m')
+        await pagina.waitForTimeout(250)
+        const conMedia = await pagina.locator('.borrar button[type="submit"]').isDisabled()
+        await pagina.fill('.borrar__confirmar input', 'ana@empresa.mx')
+        await pagina.waitForTimeout(250)
+        const conEntera = await pagina.locator('.borrar button[type="submit"]').isDisabled()
+
+        if (!conMedia) {
+          mal('El botón se arma con la dirección a medio escribir.')
+        } else if (conEntera) {
+          mal('El botón no se arma ni escribiendo la dirección completa: no se puede borrar.')
+        } else {
+          console.log('✓ 8b · sólo se arma al escribir la dirección completa.')
+        }
+      }
+    }
   }
 
   if (erroresDeConsola.length > 0) {

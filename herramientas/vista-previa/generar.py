@@ -529,6 +529,43 @@ NUCLEO_SIMULADO = """
           });
         }
 
+        // El borrado, en sus dos pasos. `que_se_borraria` NO borra: sólo
+        // cuenta, y es lo que la pantalla enseña antes de dejar pulsar.
+        //
+        // Se simulan los dos desenlaces que cambian el texto:
+        //   - una dirección conocida → hay datos, y baja según la semilla
+        //   - `nadie@…`              → no consta nada, y se dice
+        case 'que_se_borraria': {
+          var dv = String(args.direccion || '').trim().toLowerCase();
+          var vacia = dv.indexOf('nadie') === 0;
+          var conBaja = ['ana@empresa.mx', 'beto@otra.mx'].indexOf(dv) >= 0;
+          return Promise.resolve({
+            direccion: dv,
+            nombre: vacia ? '' : 'Ana Ruiz',
+            sigueSiendoContacto: !vacia && !conBaja,
+            direcciones: vacia ? 0 : 2,
+            campos: vacia ? 0 : 3,
+            pertenencias: vacia ? 0 : 1,
+            envios: vacia ? 0 : 4,
+            tieneBaja: conBaja,
+          });
+        }
+
+        case 'cancelar_datos_de': {
+          var dc = String(args.direccion || '').trim().toLowerCase();
+          var vacio2 = dc.indexOf('nadie') === 0;
+          var tenia = ['ana@empresa.mx', 'beto@otra.mx'].indexOf(dc) >= 0;
+          return Promise.resolve({
+            contactosBorrados: vacio2 ? 0 : 1,
+            canalesBorrados: vacio2 ? 0 : 2,
+            camposBorrados: vacio2 ? 0 : 3,
+            pertenenciasBorradas: vacio2 ? 0 : 1,
+            enviosAnonimizados: vacio2 ? 0 : 4,
+            audienciasAnonimizadas: vacio2 ? 0 : 1,
+            laBajaYaExistia: tenia,
+          });
+        }
+
         case 'suprimir_contacto':
           return Promise.resolve({ nuevas: 1, yaEstaban: 0 });
 

@@ -63,11 +63,48 @@ interface InformeEntregado {
   readonly sigueSiendoContacto: boolean
 }
 
+/** Lo que se va a destruir, antes de destruirlo. Lo calcula el núcleo. */
+interface VistaPrevia {
+  readonly direccion: string
+  readonly nombre: string
+  readonly sigueSiendoContacto: boolean
+  readonly direcciones: number
+  readonly campos: number
+  readonly pertenencias: number
+  readonly envios: number
+  readonly tieneBaja: boolean
+}
+
+/** Lo que pasó al borrar. */
+interface Cancelacion {
+  readonly contactosBorrados: number
+  readonly canalesBorrados: number
+  readonly camposBorrados: number
+  readonly pertenenciasBorradas: number
+  readonly enviosAnonimizados: number
+  readonly audienciasAnonimizadas: number
+  readonly laBajaYaExistia: boolean
+}
+
 type Canal = 'email' | 'whatsapp'
 
 const canal = ref<Canal>('email')
 const direccion = ref('')
 const trabajando = ref(false)
+
+// ── El borrado, que es otra cosa ─────────────────────────────────────────
+//
+// Vive en esta pantalla y no en otra porque es uno de los cuatro derechos, y
+// quien atiende una solicitud no sabe de antemano cuál le pidieron. Pero NO
+// comparte estado con el informe: mezclarlos dejaría el resultado de uno
+// visible mientras se prepara el otro.
+const borrarDireccion = ref('')
+const borrarCanal = ref<Canal>('email')
+const vistaPrevia = ref<VistaPrevia | null>(null)
+const confirmacion = ref('')
+const borrando = ref(false)
+const borrado = ref<Cancelacion | null>(null)
+const errorDeBorrado = ref<{ que: string; como: string; salvo: string } | null>(null)
 
 /** El resultado de la última entrega. `null` mientras no haya ninguna. */
 const entregado = ref<InformeEntregado | null>(null)
@@ -162,6 +199,128 @@ async function pedirElInforme(): Promise<void> {
     trabajando.value = false
   }
 }
+
+// ─── El derecho de Cancelación ────────────────────────────────────────────
+
+const sePuedeMirar = computed(
+  () => borrarDireccion.value.trim() !== '' && !borrando.value,
+)
+
+/**
+ * ¿Hay algo de esa persona?
+ *
+ * Se recalcula aquí y **no viaja desde Rust**: allí es un método, no un campo,
+ * y serializar el resultado de un método sería guardar una conclusión que
+ * puede quedarse vieja. La regla es la misma que la del núcleo —sigue siendo
+ * contacto, o hay envíos, o hay baja— y hay una prueba que compara las dos.
+ */
+const hayAlgoQueBorrar = computed(() => {
+  const v = vistaPrevia.value
+  if (!v) return false
+  return v.sigueSiendoContacto || v.envios > 0 || v.tieneBaja
+})
+
+/** Lo que desaparece del todo, en una sola cifra. */
+const totalABorrar = computed(() => {
+  const v = vistaPrevia.value
+  return v ? v.direcciones + v.campos + v.pertenencias : 0
+})
+
+/**
+ * La confirmación: hay que **escribir la dirección completa**.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * POR QUÉ ESCRIBIRLA Y NO MARCAR UNA CASILLA
+ *
+ * Una casilla de «entiendo que es irreversible» se marca sin leerla. Es un
+ * trámite, no una decisión, y la prueba es que todo el mundo las marca.
+ *
+ * Escribir la dirección obliga a **mirarla**. Y si quien atiende se equivocó
+ * de persona al teclear arriba, aquí vuelve a leerla y lo ve — que es el
+ * accidente concreto que esto existe para evitar: borrar a la persona
+ * equivocada, sin deshacer.
+ *
+ * Se compara contra la dirección que devolvió el NÚCLEO ya normalizada, no
+ * contra lo que se escribió arriba: así «Ana@Empresa.MX» también vale, y la
+ * comparación es la misma que usará el borrado.
+ */
+const confirmacionCorrecta = computed(() => {
+  const esperada = vistaPrevia.value?.direccion ?? ''
+  return (
+    esperada !== '' &&
+    confirmacion.value.trim().toLowerCase() === esperada.toLowerCase()
+  )
+})
+
+/** Limpia el paso de confirmación. Se llama al cambiar lo que se va a borrar. */
+function olvidarLaVistaPrevia(): void {
+  vistaPrevia.value = null
+  confirmacion.value = ''
+  borrado.value = null
+  errorDeBorrado.value = null
+}
+
+async function mirarQueSeBorraria(): Promise<void> {
+  if (!sePuedeMirar.value) return
+  olvidarLaVistaPrevia()
+
+  if (!hayNucleo()) {
+    errorDeBorrado.value = {
+      que: t('derechos.sinNucleoQue'),
+      como: t('derechos.sinNucleoComo'),
+      salvo: t('derechos.sinNucleoSalvo'),
+    }
+    return
+  }
+
+  borrando.value = true
+  try {
+    vistaPrevia.value = await invocar<VistaPrevia>('que_se_borraria', {
+      canal: borrarCanal.value,
+      direccion: borrarDireccion.value.trim(),
+    })
+  } catch (e) {
+    errorDeBorrado.value = esErrorIpc(e)
+      ? resolverError(e)
+      : {
+          que: t('derechos.falloQue'),
+          como: t('derechos.falloComo'),
+          salvo: t('derechos.falloSalvo'),
+        }
+  } finally {
+    borrando.value = false
+  }
+}
+
+async function borrarDeVerdad(): Promise<void> {
+  // Dos condiciones, y las dos se comprueban aquí aunque el botón esté
+  // deshabilitado: un botón deshabilitado es una capa de pintura, y esta
+  // función no se puede ejecutar por accidente.
+  if (!confirmacionCorrecta.value || borrando.value) return
+
+  borrando.value = true
+  errorDeBorrado.value = null
+  try {
+    borrado.value = await invocar<Cancelacion>('cancelar_datos_de', {
+      canal: borrarCanal.value,
+      direccion: borrarDireccion.value.trim(),
+    })
+    // La vista previa se retira: ya no describe nada que exista. Dejarla
+    // puesta junto al resultado haría dudar de si se borró o no.
+    vistaPrevia.value = null
+    confirmacion.value = ''
+  } catch (e) {
+    errorDeBorrado.value = esErrorIpc(e)
+      ? resolverError(e)
+      : {
+          que: t('derechos.borrarFalloQue'),
+          como: t('derechos.borrarFalloComo'),
+          salvo: t('derechos.borrarFalloSalvo'),
+        }
+  } finally {
+    borrando.value = false
+  }
+}
 </script>
 
 <template>
@@ -232,6 +391,7 @@ async function pedirElInforme(): Promise<void> {
 
       <AAviso
         v-else-if="resultado"
+        class="derechos__resultado"
         tono="exito"
         urgente
         :titulo="resultado.titulo"
@@ -241,6 +401,7 @@ async function pedirElInforme(): Promise<void> {
 
       <AAviso
         v-else-if="cancelado"
+        class="derechos__resultado"
         tono="info"
       >
         {{ t('derechos.cancelado') }}
@@ -269,12 +430,184 @@ async function pedirElInforme(): Promise<void> {
             <dt>{{ t('derechos.oposicion') }}</dt>
             <dd>{{ t('derechos.oposicionDetalle') }}</dd>
           </div>
-          <div>
-            <dt>{{ t('derechos.cancelacion') }}</dt>
-            <dd>{{ t('derechos.cancelacionDetalle') }}</dd>
-          </div>
         </dl>
       </section>
+    </AModulo>
+
+    <!-- ══ EL BORRADO ══════════════════════════════════════════════════════
+         Módulo aparte y no una sección más del de arriba. Es la única acción
+         irreversible de toda la aplicación, y mezclarla con «preparar un
+         informe» —que no rompe nada— invita a pulsarla con la misma ligereza.
+
+         Va SEGUNDO a propósito: quien llega buscando el informe lo encuentra
+         primero, y quien llega a borrar pasa por delante de lo que no hace
+         falta borrar. -->
+    <AModulo :titulo="t('derechos.borrarTitulo')">
+      <p class="derechos__explicacion">
+        {{ t('derechos.borrarExplicacion') }}
+      </p>
+
+      <AAviso
+        tono="peligro"
+        :titulo="t('derechos.borrarAvisoTitulo')"
+      >
+        {{ t('derechos.borrarAviso') }}
+      </AAviso>
+
+      <!-- ── Paso 1 · quién ─────────────────────────────────────────────── -->
+      <form
+        class="derechos__formulario"
+        @submit.prevent="mirarQueSeBorraria"
+      >
+        <ASelector
+          v-model="borrarCanal"
+          :etiqueta="t('derechos.canalEtiqueta')"
+          :opciones="opcionesDeCanal"
+          @update:model-value="olvidarLaVistaPrevia"
+        />
+
+        <AEntrada
+          v-model="borrarDireccion"
+          :etiqueta="t('derechos.borrarDireccionEtiqueta')"
+          :ayuda="t('derechos.borrarDireccionAyuda')"
+          :marcador="borrarCanal === 'email' ? t('derechos.marcadorCorreo') : t('derechos.marcadorWhatsApp')"
+          :tipo="borrarCanal === 'email' ? 'email' : 'text'"
+          requerido
+          @update:model-value="olvidarLaVistaPrevia"
+        />
+
+        <div class="derechos__acciones">
+          <ABoton
+            variante="secundario"
+            tipo="submit"
+            :deshabilitado="!sePuedeMirar"
+            :ocupado="borrando && !vistaPrevia"
+          >
+            {{ t('derechos.verQueSeBorraria') }}
+          </ABoton>
+        </div>
+      </form>
+
+      <!-- ── Paso 2 · qué se destruye ────────────────────────────────────
+           Las cifras van ANTES del botón, no después. Un «¿seguro?» sobre
+           algo que no se ha visto no pregunta nada (§94: cifras, no
+           adjetivos). -->
+      <section
+        v-if="vistaPrevia"
+        class="borrar"
+        aria-labelledby="titulo-que-se-borra"
+      >
+        <h3
+          id="titulo-que-se-borra"
+          class="derechos__subtitulo"
+        >
+          {{ t('derechos.esteEs') }}
+        </h3>
+
+        <!-- El nombre, para RECONOCER a la persona antes de borrarla. Fiarse
+             de haber tecleado bien es exactamente como se borra a quien no
+             era. -->
+        <p class="borrar__quien">
+          <strong>{{ vistaPrevia.direccion }}</strong>
+          <span v-if="vistaPrevia.nombre"> · {{ vistaPrevia.nombre }}</span>
+        </p>
+
+        <template v-if="hayAlgoQueBorrar">
+          <dl class="borrar__cifras">
+            <div class="borrar__cifra borrar__cifra--va">
+              <dt>{{ t('derechos.seBorra') }}</dt>
+              <dd>
+                <span class="borrar__numero">{{ totalABorrar }}</span>
+                {{ t('derechos.seBorraDetalle') }}
+              </dd>
+            </div>
+            <div class="borrar__cifra borrar__cifra--queda">
+              <dt>{{ t('derechos.seConserva') }}</dt>
+              <dd>
+                <span class="borrar__numero">{{ vistaPrevia.envios }}</span>
+                {{ t('derechos.seConservaDetalle') }}
+              </dd>
+            </div>
+          </dl>
+
+          <p class="borrar__baja">
+            {{ vistaPrevia.tieneBaja ? t('derechos.bajaYaEstaba') : t('derechos.bajaSeCrea') }}
+          </p>
+        </template>
+
+        <!-- «No hay nada» no es un error: es una respuesta. Y la baja se crea
+             igual, para que siga sin haberlo. -->
+        <AAviso
+          v-else
+          tono="info"
+        >
+          {{ t('derechos.nadaQueBorrar') }}
+        </AAviso>
+
+        <!-- ── Paso 3 · confirmar escribiendo ─────────────────────────────
+             Escribir la dirección y no marcar una casilla: una casilla se
+             marca sin leerla. Ver la nota de `confirmacionCorrecta`. -->
+        <form
+          class="borrar__confirmar"
+          @submit.prevent="borrarDeVerdad"
+        >
+          <AEntrada
+            v-model="confirmacion"
+            :etiqueta="t('derechos.confirmarEtiqueta', { direccion: vistaPrevia.direccion })"
+            :ayuda="t('derechos.confirmarAyuda')"
+            :marcador="vistaPrevia.direccion"
+            autocompletado="off"
+          />
+          <div class="derechos__acciones">
+            <ABoton
+              variante="peligro"
+              tipo="submit"
+              :deshabilitado="!confirmacionCorrecta"
+              :ocupado="borrando"
+            >
+              {{ t('derechos.borrarAhora') }}
+            </ABoton>
+            <ABoton
+              variante="sutil"
+              @click="olvidarLaVistaPrevia"
+            >
+              {{ t('derechos.mejorNo') }}
+            </ABoton>
+          </div>
+        </form>
+      </section>
+
+      <AAviso
+        v-if="errorDeBorrado"
+        tono="peligro"
+        urgente
+      >
+        <strong>{{ errorDeBorrado.que }}</strong>
+        <span>{{ errorDeBorrado.como }}</span>
+        <span>{{ errorDeBorrado.salvo }}</span>
+      </AAviso>
+
+      <!-- ── Después ─────────────────────────────────────────────────────
+           Se dice QUÉ se borró y QUÉ se conservó, con cifras. Quien atiende
+           la solicitud tiene que poder responderle eso mismo a una persona,
+           y «listo» no le sirve para eso. -->
+      <AAviso
+        v-else-if="borrado"
+        tono="exito"
+        urgente
+        :titulo="t('derechos.borradoTitulo')"
+      >
+        <span>{{
+          t('derechos.borradoDetalle', {
+            borradas: borrado.contactosBorrados + borrado.canalesBorrados
+              + borrado.camposBorrados + borrado.pertenenciasBorradas,
+            conservados: borrado.enviosAnonimizados + borrado.audienciasAnonimizadas,
+          })
+        }}</span>
+        <span>{{
+          borrado.laBajaYaExistia ? t('derechos.borradoBajaYaEstaba') : t('derechos.borradoBajaCreada')
+        }}</span>
+      </AAviso>
     </AModulo>
   </div>
 </template>
@@ -338,5 +671,94 @@ async function pedirElInforme(): Promise<void> {
   color: var(--arles-text-muted);
   font-size: var(--arles-font-size-small);
   line-height: var(--arles-line-height-small);
+}
+
+/* ── El paso de «esto es lo que va a pasar» ────────────────────────────────
+   Se separa del formulario con un filete y un fondo propio porque es **otro
+   momento**: arriba se busca, aquí se decide. Sin esa separación, el botón
+   rojo queda a un palmo del campo de texto y se pulsa por inercia. */
+.borrar {
+  margin-top: var(--arles-space-5);
+  padding: var(--arles-space-5);
+  border: var(--arles-border-width) solid var(--arles-border-strong);
+  border-radius: var(--arles-radius-md);
+  background: var(--arles-surface-raised);
+  max-width: 34rem;
+}
+
+.borrar__quien {
+  margin: 0 0 var(--arles-space-4);
+  font-size: var(--arles-font-size-body);
+}
+
+/* Dos columnas: lo que se va y lo que se queda, una al lado de la otra.
+   Enseñarlas en una lista vertical haría leer la segunda como una nota al
+   pie, y no lo es: es la mitad del trato. */
+.borrar__cifras {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--arles-space-4);
+  margin: 0 0 var(--arles-space-4);
+}
+
+.borrar__cifra dt {
+  font-size: var(--arles-font-size-caption);
+  line-height: var(--arles-line-height-caption);
+  font-weight: var(--arles-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--arles-text-muted);
+}
+
+.borrar__cifra dd {
+  margin: var(--arles-space-1) 0 0;
+  font-size: var(--arles-font-size-small);
+  line-height: var(--arles-line-height-small);
+  color: var(--arles-text-muted);
+}
+
+/* La cifra manda. Es lo único que alguien mira antes de decidir. */
+.borrar__numero {
+  display: block;
+  font-size: var(--arles-font-size-h2);
+  line-height: var(--arles-line-height-h2);
+  font-weight: var(--arles-font-weight-bold);
+  color: var(--arles-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Lo que desaparece lleva el color de peligro; lo que se queda, no. Es la
+   diferencia que hay que entender de un vistazo, y el §19 exige que no
+   dependa sólo del color: por eso cada columna lleva además su título en
+   palabras —«Desaparece» y «Se conserva»—. */
+.borrar__cifra--va .borrar__numero {
+  color: var(--arles-danger);
+}
+
+.borrar__baja {
+  margin: 0;
+  padding: var(--arles-space-3) 0 0;
+  border-top: var(--arles-border-width) solid var(--arles-border);
+  font-size: var(--arles-font-size-small);
+  line-height: var(--arles-line-height-small);
+  color: var(--arles-text-muted);
+}
+
+.borrar__confirmar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-4);
+  margin-top: var(--arles-space-5);
+  padding-top: var(--arles-space-5);
+  border-top: var(--arles-border-width) solid var(--arles-border);
+}
+
+@media (max-width: 40rem) {
+  /* En estrecho, dos columnas de cifras las parten en tres líneas cada una y
+     dejan de leerse como un par. Apiladas siguen siendo dos bloques. */
+  .borrar__cifras {
+    grid-template-columns: 1fr;
+    gap: var(--arles-space-3);
+  }
 }
 </style>

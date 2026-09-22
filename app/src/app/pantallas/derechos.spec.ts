@@ -100,8 +100,16 @@ describe('el informe de Acceso cuenta qué se encontró', () => {
 
     expect(w.text()).toContain('va vacío')
     expect(w.text()).toContain('es una respuesta válida')
+    // Se mira EL RESULTADO, no la página entera.
+    //
+    // La primera versión buscaba «peligro» en todo el HTML, y eso dejó de
+    // valer en cuanto la pantalla ganó el bloque de borrado —que lleva un
+    // aviso rojo legítimo—. Una aserción sobre toda la página no distingue
+    // «el resultado está mal pintado» de «hay algo rojo en otra parte».
+    const aviso = w.find('.derechos__resultado')
+    expect(aviso.exists(), 'no se pintó ningún resultado').toBe(true)
     expect(
-      w.html(),
+      aviso.html(),
       'un informe vacío se está pintando como una avería',
     ).not.toContain('peligro')
   })
@@ -141,7 +149,9 @@ describe('el informe de Acceso cuenta qué se encontró', () => {
     await pedir(w)
 
     expect(w.text()).toContain('sin guardar')
-    expect(w.html()).not.toContain('peligro')
+    const aviso = w.find('.derechos__resultado')
+    expect(aviso.exists()).toBe(true)
+    expect(aviso.html(), 'cancelar se está pintando como un fallo').not.toContain('peligro')
   })
 
   /**
@@ -203,14 +213,24 @@ describe('la pantalla dice lo que ARLES todavía no hace', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
   /**
-   * Honestidad del producto. Quien atiende una solicitud de borrado tiene que
-   * enterarse **aquí**, antes de prometérselo a nadie, de que todavía no está
-   * construido. Enterrarlo en la documentación equivale a ocultarlo.
+   * ESTA PRUEBA DECÍA LO CONTRARIO HASTA EL 22/09/2026.
+   *
+   * Decía «avisa de que el borrado todavía no existe», y era cierto: la
+   * pantalla listaba «Que borres sus datos → Todavía no está construido».
+   * Ahora está construido, así que lo que hay que vigilar es lo contrario —
+   * que se pueda llegar a él — y que no haya quedado el aviso viejo diciendo
+   * que no existe algo que sí existe.
+   *
+   * Se deja escrita la afirmación vieja en vez de borrar la prueba: explica
+   * por qué ese texto llegó a estar ahí.
    */
-  it('avisa de que el borrado todavía no existe', () => {
+  it('el borrado existe, y ya no se dice que falta', () => {
     const w = mount(PantallaDerechos, entorno)
-    expect(w.text()).toContain('Que borres sus datos')
-    expect(w.text()).toContain('Todavía no está construido')
+    expect(w.text()).toContain('Borrar los datos de alguien')
+    expect(
+      w.text(),
+      'quedó el aviso viejo: la pantalla dice que falta algo que ya está',
+    ).not.toContain('Todavía no está construido')
   })
 
   /** Y encamina los dos derechos que sí están hechos, en vez de callarlos. */
@@ -228,5 +248,175 @@ describe('la pantalla dice lo que ARLES todavía no hace', () => {
   it('no usa la sigla ARCO en la interfaz', () => {
     const w = mount(PantallaDerechos, entorno)
     expect(w.text()).not.toContain('ARCO')
+  })
+})
+
+/**
+ * El borrado · la única acción irreversible de ARLES
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * LO QUE SE VIGILA AQUÍ ES QUE NO SE PUEDA BORRAR POR ACCIDENTE
+ *
+ * Que el borrado funcione lo prueban `arles-core` y `arles-db` sobre una base
+ * real. Lo que sólo esta pantalla puede equivocar es **dejar pulsar el botón
+ * antes de tiempo** — y ése es el fallo que no tiene arreglo: no hay papelera.
+ * ───────────────────────────────────────────────────────────────────────────
+ */
+describe('borrar no se puede hacer por accidente', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.resetModules()
+    vi.clearAllMocks()
+  })
+
+  const PREVIA = {
+    direccion: 'ana@empresa.mx',
+    nombre: 'Ana Ruiz',
+    sigueSiendoContacto: true,
+    direcciones: 2,
+    campos: 3,
+    pertenencias: 1,
+    envios: 4,
+    tieneBaja: false,
+  }
+
+  /** Monta la pantalla y llega hasta la vista previa del borrado. */
+  async function hastaLaVistaPrevia(respuesta: unknown = PREVIA) {
+    const invocar = vi.fn().mockResolvedValue(respuesta)
+    vi.doMock('@/app/nucleo', async () => {
+      const real = await vi.importActual<typeof import('@/app/nucleo')>('@/app/nucleo')
+      return { ...real, hayNucleo: () => true, invocar }
+    })
+    const { default: Pantalla } = await import('./PantallaDerechos.vue')
+    const w = mount(Pantalla, entorno)
+    // El segundo formulario es el del borrado; el primero es el del informe.
+    const form = w.findAll('form')[1]!
+    await form.find('input').setValue('ana@empresa.mx')
+    await form.trigger('submit')
+    await flushPromises()
+    return { w, invocar }
+  }
+
+  /**
+   * LA GARANTÍA CENTRAL: sin escribir la dirección, no se borra.
+   *
+   * Se comprueba llamando al envío del formulario directamente, **no
+   * pulsando el botón**: un botón deshabilitado es una capa de pintura, y lo
+   * que hay que garantizar es que la función no haga nada. Si alguien quitara
+   * el `deshabilitado` de la plantilla, esta prueba seguiría protegiendo.
+   */
+  it('sin escribir la dirección, no llama al núcleo', async () => {
+    const { w, invocar } = await hastaLaVistaPrevia()
+    invocar.mockClear()
+
+    await w.find('.borrar__confirmar').trigger('submit')
+    await flushPromises()
+
+    expect(
+      invocar,
+      'se borró sin confirmar: el accidente que esto existe para impedir',
+    ).not.toHaveBeenCalled()
+  })
+
+  /** Con la dirección MAL escrita tampoco. Una letra de más no vale. */
+  it('con la dirección mal escrita, tampoco', async () => {
+    const { w, invocar } = await hastaLaVistaPrevia()
+    invocar.mockClear()
+
+    await w.find('.borrar__confirmar input').setValue('ana@empresa.m')
+    await w.find('.borrar__confirmar').trigger('submit')
+    await flushPromises()
+
+    expect(invocar).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Y con la dirección bien escrita sí. La comparación NO distingue
+   * mayúsculas: quien copia de un correo se trae «Ana@Empresa.MX», y
+   * rechazarlo sería pedir que teclee con más cuidado que el propio validador.
+   */
+  it('con la dirección bien escrita sí borra, y no distingue mayúsculas', async () => {
+    const { w, invocar } = await hastaLaVistaPrevia()
+    invocar.mockClear()
+    invocar.mockResolvedValue({
+      contactosBorrados: 1,
+      canalesBorrados: 2,
+      camposBorrados: 3,
+      pertenenciasBorradas: 1,
+      enviosAnonimizados: 4,
+      audienciasAnonimizadas: 1,
+      laBajaYaExistia: false,
+    })
+
+    await w.find('.borrar__confirmar input').setValue('Ana@Empresa.MX')
+    await w.find('.borrar__confirmar').trigger('submit')
+    await flushPromises()
+
+    expect(invocar).toHaveBeenCalledWith('cancelar_datos_de', {
+      canal: 'email',
+      direccion: 'ana@empresa.mx',
+    })
+  })
+
+  /**
+   * Cambiar la dirección de arriba **olvida la confirmación**.
+   *
+   * Sin esto, alguien podría mirar lo que se borraría de Ana, confirmar
+   * escribiendo su correo, cambiar de idea y teclear otra dirección arriba… y
+   * el botón seguiría armado, apuntando ahora a otra persona.
+   */
+  it('cambiar la dirección de arriba desarma la confirmación', async () => {
+    const { w } = await hastaLaVistaPrevia()
+    await w.find('.borrar__confirmar input').setValue('ana@empresa.mx')
+    expect(w.find('.borrar').exists()).toBe(true)
+
+    const form = w.findAll('form')[1]!
+    await form.find('input').setValue('otra@empresa.mx')
+    await flushPromises()
+
+    expect(
+      w.find('.borrar').exists(),
+      'la confirmación sobrevivió al cambio de dirección: el botón apunta a otra persona',
+    ).toBe(false)
+  })
+
+  /**
+   * Se enseñan las CIFRAS antes de decidir (§94). Un «¿seguro?» sobre algo
+   * que no se ha visto no pregunta nada.
+   */
+  it('enseña qué desaparece y qué se conserva, con números', async () => {
+    const { w } = await hastaLaVistaPrevia()
+    const texto = w.find('.borrar').text()
+
+    expect(texto).toContain('6') // 2 direcciones + 3 campos + 1 pertenencia
+    expect(texto).toContain('4') // envíos que se conservan
+    expect(texto).toContain('Desaparece')
+    expect(texto).toContain('Se conserva')
+  })
+
+  /** Y a quién se está borrando, por su nombre. Teclear bien no es reconocer. */
+  it('enseña de quién es esa dirección', async () => {
+    const { w } = await hastaLaVistaPrevia()
+    expect(w.find('.borrar').text()).toContain('Ana Ruiz')
+  })
+
+  /**
+   * Cuando no hay nada, se dice — y se puede borrar igual, porque la baja se
+   * crea de todos modos. Es la parte que impide que vuelva a entrar.
+   */
+  it('si no consta nada, lo dice y deja borrar igual', async () => {
+    const { w } = await hastaLaVistaPrevia({
+      direccion: 'nadie@empresa.mx',
+      nombre: '',
+      sigueSiendoContacto: false,
+      direcciones: 0,
+      campos: 0,
+      pertenencias: 0,
+      envios: 0,
+      tieneBaja: false,
+    })
+
+    expect(w.find('.borrar').text()).toContain('No consta nada')
+    expect(w.find('.borrar__confirmar').exists()).toBe(true)
   })
 })

@@ -173,6 +173,78 @@ impl Cancelacion {
     }
 }
 
+/// Lo que se va a destruir, **antes** de destruirlo.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTO EXISTE
+///
+/// Un borrado irreversible que sólo pregunta «¿seguro?» no está preguntando
+/// nada: nadie puede decidir sobre algo que no ha visto. Esto es lo que la
+/// pantalla enseña antes de dejar pulsar el botón — con cifras, no con
+/// adjetivos (§94).
+///
+/// Se deriva del **expediente** que ya arma el derecho de Acceso, en vez de
+/// contar por separado. Dos recuentos distintos de lo mismo divergen, y el día
+/// que divergieran la pantalla prometería borrar algo que no borra.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VistaPrevia {
+    /// La dirección por la que se preguntó, ya normalizada.
+    pub direccion: String,
+    /// El nombre que consta, si consta. Para que quien atiende **reconozca a
+    /// la persona** antes de borrarla, en vez de fiarse de haber tecleado bien.
+    pub nombre: String,
+    /// `true` si esa dirección sigue dada de alta como contacto.
+    pub sigue_siendo_contacto: bool,
+    /// Correos y móviles que se borrarán.
+    pub direcciones: u32,
+    /// Campos personalizados que se borrarán.
+    pub campos: u32,
+    /// Listas y etiquetas de las que saldrá.
+    pub pertenencias: u32,
+    /// Envíos que **se conservan**, ya sin dueño.
+    pub envios: u32,
+    /// `true` si ya tiene una baja registrada.
+    pub tiene_baja: bool,
+}
+
+impl VistaPrevia {
+    /// La saca del expediente del derecho de Acceso.
+    ///
+    /// `arles-core` no toca la base: el expediente se lo pasa quien sí la toca.
+    #[must_use]
+    pub fn desde_expediente(e: &crate::arco::Expediente) -> Self {
+        Self {
+            direccion: e.se_pregunto_por.clone(),
+            nombre: format!("{} {}", e.nombre, e.apellido).trim().to_owned(),
+            sigue_siendo_contacto: e.sigue_siendo_contacto(),
+            direcciones: u32::try_from(e.direcciones.len()).unwrap_or(u32::MAX),
+            campos: u32::try_from(e.campos.len()).unwrap_or(u32::MAX),
+            pertenencias: u32::try_from(e.listas.len().saturating_add(e.etiquetas.len()))
+                .unwrap_or(u32::MAX),
+            envios: u32::try_from(e.envios.len()).unwrap_or(u32::MAX),
+            tiene_baja: !e.negativas.is_empty(),
+        }
+    }
+
+    /// ¿Hay algo que borrar?
+    ///
+    /// **No es lo mismo que «falló»**: alguien puede pedir su borrado sin haber
+    /// estado nunca en la base. La pantalla lo dice y deja la baja igual.
+    #[must_use]
+    pub const fn hay_algo(&self) -> bool {
+        self.sigue_siendo_contacto || self.envios > 0 || self.tiene_baja
+    }
+
+    /// Lo que desaparecerá del todo, sumado. Una sola cifra para el titular.
+    #[must_use]
+    pub const fn total_a_borrar(&self) -> u32 {
+        self.direcciones
+            .saturating_add(self.campos)
+            .saturating_add(self.pertenencias)
+    }
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;

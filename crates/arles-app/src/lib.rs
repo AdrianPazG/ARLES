@@ -64,6 +64,8 @@ pub fn run() {
             comandos::suprimir_contacto,
             comandos::levantar_supresion,
             comandos::entregar_informe_de_acceso,
+            comandos::que_se_borraria,
+            comandos::cancelar_datos_de,
         ])
         .run(tauri::generate_context!());
 

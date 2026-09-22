@@ -799,12 +799,71 @@ export const es = {
       'Dale de baja desde su ficha, o desde Bajas. Queda registrado y ARLES ' +
       'no vuelve a escribirle, ni aunque su dirección reaparezca en una ' +
       'importación futura.',
-    cancelacion: 'Que borres sus datos',
-    // §94 y honestidad: se dice qué falta, no «pronto».
-    cancelacionDetalle:
-      'Todavía no está construido. Llega en esta misma entrega, junto con el ' +
-      'borrado de verdad. Su baja se conserva siempre, aunque se borre todo ' +
-      'lo demás: es lo que impide volver a escribirle por error.',
+    // Aquí vivía `cancelacion`, que decía «todavía no está construido».
+    // Ya está: es el bloque de abajo. Se quitó de esta lista porque enviar a
+    // alguien a un sitio que está tres centímetros más abajo, en la misma
+    // pantalla, es ruido.
+
+    // ── Borrar de verdad · el derecho de Cancelación ────────────────────
+    //
+    // La única acción irreversible de toda la aplicación. Todo el texto de
+    // este bloque está escrito para que nadie la pulse sin entenderla.
+    borrarTitulo: 'Borrar los datos de alguien',
+    borrarExplicacion:
+      'Si alguien te pide que borres lo que tienes de él, aquí se hace. ' +
+      'Primero te enseñamos qué va a desaparecer y qué se conserva; sólo ' +
+      'después se puede borrar.',
+
+    borrarAvisoTitulo: 'Esto no se puede deshacer',
+    // §95: qué pasa, y qué está a salvo. Se dice exactamente qué sobrevive,
+    // porque quien atiende la solicitud va a tener que explicárselo a alguien.
+    borrarAviso:
+      'La ficha de esa persona, sus correos, sus móviles y sus etiquetas ' +
+      'desaparecen del disco. No hay papelera ni deshacer. Lo único que se ' +
+      'conserva es el registro de los envíos que se le hicieron —sin su ' +
+      'nombre, sin su dirección— y su baja, que es lo que impide volver a ' +
+      'escribirle si su correo reaparece en otra lista.',
+
+    borrarDireccionEtiqueta: 'La dirección que te pidió el borrado',
+    borrarDireccionAyuda:
+      'Cópiala tal como te llegó. Antes de borrar nada verás de quién es.',
+    verQueSeBorraria: 'Ver qué se borraría',
+
+    esteEs: 'Esto es lo que va a pasar',
+    seBorra: 'Desaparece',
+    seBorraDetalle: 'datos suyos, sin vuelta atrás',
+    seConserva: 'Se conserva',
+    seConservaDetalle: 'envíos, ya sin su nombre',
+    bajaYaEstaba: 'Su baja ya está registrada y se queda.',
+    bajaSeCrea:
+      'No tenía baja: se le creará una al borrarlo, para que no vuelva a ' +
+      'recibir nada si su dirección aparece en otra lista.',
+    nadaQueBorrar:
+      'No consta nada de esa dirección. Puedes borrar igual: quedará ' +
+      'registrada su baja, para que siga sin constar nada.',
+
+    // Escribir la dirección, no marcar una casilla. Una casilla se marca sin
+    // leerla; escribir obliga a mirar a quién se está borrando.
+    confirmarEtiqueta: 'Para confirmar, escribe {direccion}',
+    confirmarAyuda:
+      'No es un trámite: es para que vuelvas a leer a quién estás borrando.',
+    borrarAhora: 'Borrar definitivamente',
+    mejorNo: 'Mejor no',
+
+    borradoTitulo: 'Borrado.',
+    borradoDetalle:
+      'Desaparecieron {borradas} datos suyos. Se conservan {conservados} ' +
+      'envíos, ya sin su nombre.',
+    borradoBajaYaEstaba: 'Su baja sigue registrada: no volverá a recibir nada.',
+    borradoBajaCreada: 'Se le creó una baja: no volverá a recibir nada.',
+
+    borrarFalloQue: 'No se pudo borrar.',
+    borrarFalloComo:
+      'Vuelve a intentarlo. Si se repite, cierra ARLES y ábrelo de nuevo.',
+    // Lo más importante del error: que no quedó a medias.
+    borrarFalloSalvo:
+      'No se borró nada. O se borra todo o no se borra nada, así que sus ' +
+      'datos siguen enteros.',
   },
 
   supresion: {
