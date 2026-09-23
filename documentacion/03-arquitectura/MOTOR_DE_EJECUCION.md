@@ -203,9 +203,21 @@ Consecuencia, que es la correcta: **un correo no enviado ayer no se recupera hoy
 | 4xx de autenticación | Circuito abierto en la cuenta; **no se reintenta** |
 | Supresión detectada | `suppressed`. No es un fallo |
 
-**Backoff:** base 30 s, factor 2, techo 1 h, con jitter completo. El jitter importa: sin él, todos los intentos fallidos de un corte de red reintentan exactamente a la vez cuando vuelve.
+**Esperas (D-12, 23/09/2026):** una **tabla**, no una fórmula — 5, 15 y 30
+minutos. **Tres reintentos**, cincuenta minutos de margen total. Después,
+`permanently_failed`.
 
-**Tope de intentos:** 5. Después, `permanently_failed`.
+!! **Este bloque decía «base 30 s, factor 2, techo 1 h, cinco intentos»**, que
+da siete minutos y medio de margen. Dirección lo cambió el 23/09/2026 con el
+argumento correcto: un apagón o una caída de proveedor duran más que eso, así
+que los cinco intentos se gastarían dentro del mismo corte y todos los envíos
+morirían por un problema que se resolvió solo veinte minutos después.
+
+**El azar (jitter) es de ±20 % alrededor de la espera, no «entre cero y el
+máximo».** El jitter importa —sin él, todos los intentos fallidos de un corte de
+red reintentan a la vez cuando vuelve—, pero la receta habitual aplicada a estas
+cifras haría que algunos reintentos salieran a los diez segundos, anulando D-12.
+Cinco minutos pasa a ser entre cuatro y seis.
 
 ---
 

@@ -391,6 +391,64 @@ sobre otra base.
 
 ---
 
+### D-12 · Los reintentos esperan 5, 15 y 30 minutos, y son tres
+
+**Fecha:** 23 de septiembre de 2026 · **Pedida por:** Dirección · **Gobierna:**
+la entrega 4.1 · `arles_core::reintento`
+
+Cuando un envío falla por algo pasajero —se cayó el internet, el proveedor está
+saturado, se fue la luz— ARLES vuelve a intentarlo. La pregunta es cuántas veces
+y cuánto esperar entre una y otra.
+
+**Lo que se proponía.** La receta de manual: empezar en 30 segundos y doblar
+—30 s, 1, 2 y 4 minutos—, cinco intentos.
+
+**Lo que Dirección observó**, y es correcto:
+
+> «Es común que los proveedores de correo o de internet, o un apagón, demoren
+> bastantito.»
+
+Aquella tabla daba **siete minutos y medio** de margen total. Un corte de luz o
+una caída de proveedor duran bastante más, así que los cinco intentos se habrían
+gastado enteros dentro del mismo corte: todos los envíos habrían terminado en
+fallo definitivo por un problema que se resolvió solo veinte minutos después.
+
+**Lo decidido:**
+
+| | Espera antes del reintento |
+|---|---|
+| Reintento 1 | **5 minutos** |
+| Reintento 2 | **15 minutos** |
+| Reintento 3 | **30 minutos** |
+| Después | Se rinde, con su motivo |
+
+**Margen total: cincuenta minutos.** Es la cifra que de verdad decide si la
+política sirve, y hay una prueba que la comprueba para que nadie recorte las
+esperas sin ver lo que pierde.
+
+**Lo que hubo que recalibrar por el camino.** Cada reintento espera un rato
+ligeramente distinto **al azar**, para que mil envíos fallidos no reintenten en
+el mismo instante y tumben el servidor que acaba de volver. La receta habitual
+para eso es esperar «entre cero y el máximo» — y aplicada a estas cifras haría
+que algunos reintentos salieran a los diez segundos, **anulando la decisión**.
+
+Así que el azar se mueve **alrededor** del número, no desde cero: ±20 %. Cinco
+minutos pasa a ser entre cuatro y seis. Reparte la carga igual de bien y respeta
+lo que se pidió. Hay una prueba cuyo único trabajo es proteger esto.
+
+**Y lo que esta decisión NO cambia:** cuando el proveedor dice explícitamente
+cuánto esperar —«no me mandes nada durante diez minutos»—, se respeta
+**literalmente**, por encima de esta tabla. Ni se acorta por prisa ni se alarga
+por precaución. Acortarlo se interpreta como intentar saltarse el límite, que es
+lo que hace el software de spam.
+
+Tampoco cambia que **un fallo definitivo no se reintenta ni una vez**: una
+dirección que no existe se da de baja en el acto, y una credencial caducada para
+la cuenta entera. Reintentar eso no recupera nada y sí quema la reputación del
+dominio.
+
+---
+
 ## Decisiones pendientes
 
 Ver **`02-auditoria/PREGUNTAS_ABIERTAS.md`** para el registro completo.

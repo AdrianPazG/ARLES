@@ -12,6 +12,49 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Los reintentos, con las esperas que fijó Dirección (D-12)
+
+Cuando un envío falla por algo pasajero —se cayó el internet, el proveedor está
+saturado, se fue la luz— ARLES vuelve a intentarlo.
+
+**La propuesta original era la de manual:** 30 segundos, 1, 2 y 4 minutos, cinco
+intentos. Dirección la cambió con un argumento que es correcto: *un apagón o una
+caída de proveedor demoran bastantito*.
+
+Aquella tabla daba **siete minutos y medio** de margen. Los cinco intentos se
+habrían gastado enteros dentro del mismo corte, y todos los envíos habrían
+muerto por un problema que se resolvió solo veinte minutos después.
+
+| | Espera |
+|---|---|
+| Reintento 1 | **5 minutos** |
+| Reintento 2 | **15 minutos** |
+| Reintento 3 | **30 minutos** |
+| Después | Se rinde, con su motivo |
+
+**Cincuenta minutos de margen**, y una prueba que lo comprueba para que nadie
+recorte las esperas sin ver lo que pierde.
+
+**Lo que hubo que recalibrar.** Cada reintento espera un rato ligeramente
+distinto al azar, para que mil envíos fallidos no reintenten en el mismo
+instante y tumben el servidor que acaba de volver. La receta habitual es esperar
+«entre cero y el máximo» — y con estas cifras algunos reintentos saldrían a los
+diez segundos, **anulando la decisión**. Así que el azar rodea el número en vez
+de partir de cero: ±20 %. Cinco minutos pasa a ser entre cuatro y seis.
+
+**Lo que no cambia.** Si el proveedor dice cuánto esperar, se respeta
+literalmente, por encima de la tabla. Y un fallo definitivo no se reintenta ni
+una vez: una dirección que no existe se da de baja en el acto, y una credencial
+caducada para la cuenta entera. Insistir ahí no recupera nada y sí quema la
+reputación del dominio.
+
+**Un defecto propio, encontrado por su propia prueba.** El código recortaba el
+número aleatorio a un rango seguro, y `clamp` **devuelve NaN si recibe NaN** —
+con lo que la multiplicación siguiente reventaba el proceso. Era una defensa que
+terminaba en pánico, que es peor que no defenderse: se llevaría la campaña por
+delante en vez de enviar un correo un minuto antes.
+
+
 ### El horario de envío es de la campaña · y una dependencia que mentía sobre México
 
 **La decisión (D-10).** Dirección lo planteó con una frase que reordena el
