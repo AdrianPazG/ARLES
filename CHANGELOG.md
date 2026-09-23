@@ -45,6 +45,46 @@ again»— funciona con el servidor con el que se probó y falla con todos los
 demás, en idiomas que nadie leyó. Hay una prueba que manda el mismo código con
 textos opuestos y exige el mismo resultado.
 
+### El adaptador de correo: cifrado obligatorio, sin excepciones
+
+**ARLES ya habla con un servidor de correo de verdad.** Y lo hace con dos reglas
+que no tienen forma de saltarse.
+
+**La primera: nunca sin cifrar.** El brief pedía «no permitir desactivar TLS por
+defecto»; esto va más lejos. No hay una casilla para desactivarlo, ni una opción
+avanzada, ni una con advertencia: **en el código no existe nada que devuelva una
+conexión sin cifrar**. El motivo es que una casilla así siempre acaba marcada —
+alguien conecta un servidor mal configurado, falla, la encuentra, la marca, y a
+partir de ese día la contraseña de correo de la empresa viaja legible por su red
+para siempre, mucho después de que el problema original se resolviera.
+
+Y ARLES no se fía ni de sí mismo: antes de mandar la contraseña, le pregunta al
+socket si está cifrado y se niega a seguir si no lo está. Son dos defensas
+independientes, y se comprobó que hacen falta las dos: al tumbar sólo una, la
+contraseña seguía sin salir.
+
+**La segunda: un rechazo se le atribuye a quien le corresponde.** Un `550` puede
+querer decir dos cosas opuestas según en qué momento de la conversación llegue:
+«esa dirección no existe» —y esa persona entra en la lista de bajas, para siempre
+y en todas las campañas— o «tu cuenta no puede enviar desde esa dirección», que
+no dice nada de quien iba a recibir el correo.
+
+La forma cómoda de enviar no distingue las dos. Por eso ARLES lleva la
+conversación paso a paso: es más código, y es la diferencia entre una decisión
+correcta y **dar de baja a un cliente sano por un problema del remitente**.
+
+**Cómo se prueba algo que no se puede desactivar.** Es la pregunta incómoda, y la
+respuesta fácil —«acepta cualquier certificado, sólo en las pruebas»— es
+exactamente la puerta que se acaba de cerrar. Lo que se hace en su lugar: el
+servidor de mentira genera un certificado de verdad y ARLES confía **en ése y en
+ninguno más**. La verificación sigue entera. Hay una prueba que le da el
+certificado equivocado y comprueba que se niega a hablar.
+
+Al escribir estas pruebas aparecieron dos que **pasaban por el motivo
+equivocado**: una comprobaba la tabla de códigos creyendo comprobar la
+atribución, y otra se buscaba a sí misma en el archivo. Las dos están corregidas
+y anotadas.
+
 ### Un servidor de correo de mentira, dentro del programa
 
 **A Gmail no se le puede pedir que conteste `550`.** Ni que se caiga a mitad de

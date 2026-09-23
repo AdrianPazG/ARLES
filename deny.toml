@@ -28,6 +28,13 @@ allow = [
     "MPL-2.0",           # Copyleft por archivo: compatible con enlazado propietario
     "CDLA-Permissive-2.0",
     "OpenSSL",
+    # BSD de cero cláusulas: permisiva sin ninguna condición, ni siquiera la de
+    # conservar el aviso de copyright. Es estrictamente MÁS permisiva que MIT,
+    # así que no añade ninguna obligación al binario.
+    #
+    # Entra en la entrega 5.2 por `quoted_printable`, que `lettre` usa para
+    # codificar el cuerpo de los correos.
+    "0BSD",
 ]
 
 # SQLCipher Community es BSD-3-Clause; entra por la lista de arriba.

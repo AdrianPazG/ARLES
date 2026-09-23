@@ -68,6 +68,14 @@ pub struct Guion {
     /// distinto de que el puerto esté cerrado: la conexión se establece y
     /// muere después.
     pub cuelga_al_saludar: bool,
+    /// ¿Anuncia `STARTTLS` en la respuesta al `EHLO`?
+    ///
+    /// Poniéndolo en `false` se consigue **un servidor que sólo habla en
+    /// claro**, que es el caso que de verdad importa comprobar: ARLES tiene que
+    /// negarse a hablar con él en vez de seguir sin cifrar (§29). Es también lo
+    /// que haría un atacante capaz de tocar la respuesta al `EHLO`: borrar esa
+    /// línea y esperar a que el cliente se conforme.
+    pub ofrece_starttls: bool,
 }
 
 impl Default for Guion {
@@ -87,6 +95,19 @@ impl Guion {
             al_destinatario: "250 2.1.5 Ok".to_owned(),
             al_cuerpo: "250 2.0.0 Ok: queued as MENTIRA1".to_owned(),
             cuelga_al_saludar: false,
+            ofrece_starttls: true,
+        }
+    }
+
+    /// Un servidor que **sólo habla en claro**: no anuncia `STARTTLS`.
+    ///
+    /// Es el caso que decide si el §29 es una regla o una intención. ARLES tiene
+    /// que negarse a hablar con él, no seguir sin cifrar.
+    #[must_use]
+    pub fn sin_cifrado() -> Self {
+        Self {
+            ofrece_starttls: false,
+            ..Self::todo_bien()
         }
     }
 
@@ -161,9 +182,14 @@ impl ServidorDeMentira {
                     return;
                 }
                 let Ok(mut flujo) = conexion else { return };
-                let lineas = conversar(&mut flujo, &guion);
+                // Este servidor no sabe cifrar: si el cliente pide `STARTTLS`
+                // se le contesta que adelante y ahí se acaba la conexión, que
+                // es lo que un servidor roto haría. El que sí sabe cifrar es
+                // `ServidorCifrado`, y vive en las pruebas para que `rustls` no
+                // entre en el binario que se entrega.
+                let conversacion = conversar(&mut flujo, &guion);
                 if let Ok(mut d) = dicho_del_hilo.lock() {
-                    d.extend(lineas);
+                    d.extend(conversacion.dicho);
                 }
             }
         });
@@ -220,20 +246,52 @@ impl Drop for ServidorDeMentira {
     }
 }
 
+/// Cómo terminó una vuelta de conversación.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Conversacion {
+    /// Todo lo que dijo el cliente, línea a línea y en orden.
+    pub dicho: Vec<String>,
+    /// El cliente pidió `STARTTLS` y ya se le contestó que adelante.
+    ///
+    /// Quien llama tiene que envolver el flujo en TLS y volver a entrar con
+    /// [`conversar_ya_saludado`]: a partir de aquí la conversación empieza de
+    /// cero —el cliente repite el `EHLO`— pero **sin saludo nuevo**, que es lo
+    /// que dice el RFC 3207.
+    pub hay_que_cifrar: bool,
+}
+
 /// Lleva una conversación SMTP entera y devuelve lo que dijo el cliente.
 ///
 /// Trabaja sobre cualquier cosa legible y escribible, **no sobre un socket**.
-/// En la entrega 5.2 el adaptador exigirá TLS, y entonces este mismo código
-/// tendrá que hablar cifrado: atado al socket eso sería reescribirlo, así es
-/// envolverlo.
-pub fn conversar<S: Read + Write>(flujo: &mut S, guion: &Guion) -> Vec<String> {
+/// Es lo que permite que el mismo código lleve la conversación cifrada sin
+/// tocarla: se envuelve el flujo en TLS y se vuelve a entrar.
+pub fn conversar<S: Read + Write>(flujo: &mut S, guion: &Guion) -> Conversacion {
+    conversar_desde(flujo, guion, true)
+}
+
+/// Como [`conversar`], pero **sin saludar**.
+///
+/// Es la vuelta de después de `STARTTLS`: el canal ya está cifrado y el cliente
+/// va a mandar un `EHLO` nuevo, pero el servidor no vuelve a decir `220` — eso
+/// sólo pasa al abrir la conexión.
+pub fn conversar_ya_saludado<S: Read + Write>(flujo: &mut S, guion: &Guion) -> Conversacion {
+    conversar_desde(flujo, guion, false)
+}
+
+fn conversar_desde<S: Read + Write>(flujo: &mut S, guion: &Guion, saludar: bool) -> Conversacion {
     let mut dicho = Vec::new();
 
     if guion.cuelga_al_saludar {
-        return dicho;
+        return Conversacion {
+            dicho,
+            hay_que_cifrar: false,
+        };
     }
-    if decir(flujo, &guion.saludo).is_err() {
-        return dicho;
+    if saludar && decir(flujo, &guion.saludo).is_err() {
+        return Conversacion {
+            dicho,
+            hay_que_cifrar: false,
+        };
     }
 
     // El lector se queda con su propio buffer, así que el flujo se lee a través
@@ -241,58 +299,85 @@ pub fn conversar<S: Read + Write>(flujo: &mut S, guion: &Guion) -> Vec<String> {
     let mut lector = BufReader::new(Lectura(flujo));
     let mut linea = String::new();
 
-    loop {
-        linea.clear();
-        match lector.read_line(&mut linea) {
-            Ok(0) | Err(_) => return dicho,
-            Ok(_) => {}
-        }
-        let comando = linea.trim_end_matches(['\r', '\n']).to_owned();
-        if comando.is_empty() {
-            continue;
-        }
-        let mayusculas = comando.to_ascii_uppercase();
-        dicho.push(comando);
+    let hay_que_cifrar = 'conversacion: {
+        loop {
+            linea.clear();
+            match lector.read_line(&mut linea) {
+                Ok(0) | Err(_) => break 'conversacion false,
+                Ok(_) => {}
+            }
+            let comando = linea.trim_end_matches(['\r', '\n']).to_owned();
+            if comando.is_empty() {
+                continue;
+            }
+            let mayusculas = comando.to_ascii_uppercase();
+            dicho.push(comando);
 
-        let flujo = &mut lector.get_mut().0;
-        let respuesta = if mayusculas.starts_with("EHLO") || mayusculas.starts_with("HELO") {
-            // Las capacidades van en varias líneas; sólo la última lleva
-            // espacio tras el código. Es lo que un cliente usa para saber que
-            // la lista terminó.
-            if decir(flujo, "250-mentira.arles").is_err() {
-                return dicho;
-            }
-            if decir(flujo, "250-AUTH PLAIN LOGIN").is_err() {
-                return dicho;
-            }
-            "250 STARTTLS".to_owned()
-        } else if mayusculas.starts_with("AUTH") {
-            guion.al_autenticar.clone()
-        } else if mayusculas.starts_with("MAIL FROM") {
-            guion.al_remitente.clone()
-        } else if mayusculas.starts_with("RCPT TO") {
-            guion.al_destinatario.clone()
-        } else if mayusculas.starts_with("DATA") {
-            if decir(flujo, "354 Adelante, termina con un punto solo").is_err() {
-                return dicho;
-            }
-            // El cuerpo se traga entero hasta el punto solo. **Sus líneas no se
-            // guardan**: son el correo del cliente, y esto es una herramienta
-            // de pruebas, no un buzón.
-            if tragar_el_cuerpo(&mut lector).is_err() {
-                return dicho;
-            }
-            guion.al_cuerpo.clone()
-        } else if mayusculas.starts_with("QUIT") {
-            let _ = decir(&mut lector.get_mut().0, "221 2.0.0 Adiós");
-            return dicho;
-        } else {
-            "250 2.0.0 Ok".to_owned()
-        };
+            let flujo = &mut lector.get_mut().0;
+            let respuesta = if mayusculas.starts_with("EHLO") || mayusculas.starts_with("HELO") {
+                // Las capacidades van en varias líneas; sólo la última lleva
+                // espacio tras el código. Es lo que un cliente usa para saber
+                // que la lista terminó.
+                if decir(flujo, "250-mentira.arles").is_err() {
+                    break 'conversacion false;
+                }
+                if guion.ofrece_starttls {
+                    if decir(flujo, "250-AUTH PLAIN LOGIN").is_err() {
+                        break 'conversacion false;
+                    }
+                    "250 STARTTLS".to_owned()
+                } else {
+                    // Un servidor que sólo habla en claro. No anuncia STARTTLS,
+                    // y ARLES tiene que negarse a seguir.
+                    "250 AUTH PLAIN LOGIN".to_owned()
+                }
+            } else if mayusculas.starts_with("STARTTLS") {
+                if !guion.ofrece_starttls {
+                    "454 4.7.0 TLS no disponible".to_owned()
+                } else {
+                    let _ = decir(flujo, "220 2.0.0 Adelante con TLS");
+                    // Se sale **soltando el lector**, y con él lo que tuviera
+                    // en el buffer. No es un descuido: un cliente correcto no
+                    // manda nada entre el `STARTTLS` y el apretón de manos, así
+                    // que si hay bytes ahí los puso alguien en medio para que
+                    // se ejecutaran como si hubieran llegado cifrados. Es la
+                    // inyección de comandos de STARTTLS, y la defensa es
+                    // exactamente ésta: tirar el buffer.
+                    break 'conversacion true;
+                }
+            } else if mayusculas.starts_with("AUTH") {
+                guion.al_autenticar.clone()
+            } else if mayusculas.starts_with("MAIL FROM") {
+                guion.al_remitente.clone()
+            } else if mayusculas.starts_with("RCPT TO") {
+                guion.al_destinatario.clone()
+            } else if mayusculas.starts_with("DATA") {
+                if decir(flujo, "354 Adelante, termina con un punto solo").is_err() {
+                    break 'conversacion false;
+                }
+                // El cuerpo se traga entero hasta el punto solo. **Sus líneas
+                // no se guardan**: son el correo del cliente, y esto es una
+                // herramienta de pruebas, no un buzón.
+                if tragar_el_cuerpo(&mut lector).is_err() {
+                    break 'conversacion false;
+                }
+                guion.al_cuerpo.clone()
+            } else if mayusculas.starts_with("QUIT") {
+                let _ = decir(&mut lector.get_mut().0, "221 2.0.0 Adiós");
+                break 'conversacion false;
+            } else {
+                "250 2.0.0 Ok".to_owned()
+            };
 
-        if decir(&mut lector.get_mut().0, &respuesta).is_err() {
-            return dicho;
+            if decir(&mut lector.get_mut().0, &respuesta).is_err() {
+                break 'conversacion false;
+            }
         }
+    };
+
+    Conversacion {
+        dicho,
+        hay_que_cifrar,
     }
 }
 

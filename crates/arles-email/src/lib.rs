@@ -31,7 +31,19 @@
 #![forbid(unsafe_code)]
 
 pub mod codigos;
+pub mod error;
 pub mod servidor;
+pub mod smtp;
+pub mod tls;
+
+// El servidor de mentira que habla cifrado vive sólo en las pruebas: así
+// `rustls` y `rcgen` —un motor de TLS y un generador de certificados— no entran
+// en el programa que se entrega.
+#[cfg(test)]
+mod servidor_cifrado;
 
 pub use codigos::{RespuestaSmtp, leer_linea, traducir};
+pub use error::ErrorDeCorreo;
 pub use servidor::{Guion, ServidorDeMentira};
+pub use smtp::{Contenido, Cuenta, ProveedorSmtp};
+pub use tls::{Cifrado, Modo};

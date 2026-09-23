@@ -115,6 +115,26 @@ Si un servidor no soporta TLS, el mensaje de error explica el problema en vez de
 
 Certificados: validación estricta. Sin opción de aceptar certificados autofirmados.
 
+#### Cómo está construido (entrega 5.2)
+
+`arles_email::tls::Cifrado` tiene **dos modos y ninguno sin cifrar**: `Starttls` (puerto 587, el de Gmail) y `Directo` (puerto 465). No existe una tercera variante, así que la regla no depende de que nadie la olvide: no hay nada que elegir.
+
+Se usa `Tls::Required` y **no `Opportunistic`**. La diferencia es el agujero clásico del protocolo: con «oportunista», un servidor que no anuncie `STARTTLS` —o alguien en medio que borre esa línea de la respuesta al `EHLO`— deja la conversación en claro y la contraseña sale legible, sin que nada avise.
+
+Las raíces de confianza son las de `webpki-roots`, no las del sistema operativo. Con las del sistema, un equipo con el almacén de raíces tocado —una empresa que inspecciona el tráfico, un programa que instaló una raíz propia— validaría distinto que el de al lado, y ARLES no podría decir qué comprobó.
+
+**Y ARLES lo comprueba por su cuenta.** Antes de mandar `AUTH`, el adaptador le pregunta al socket si está cifrado y se niega a continuar si no lo está. Configurar `lettre` correctamente es necesario y no basta: es confiar en que una biblioteca de terceros haga lo que promete justo donde equivocarse cuesta la contraseña de correo de la empresa. Se comprobó rompiéndolo: hace falta tumbar **las dos** defensas para que la contraseña aparezca sin cifrar.
+
+#### Cómo se prueba sin abrir un agujero
+
+Ésta es la pregunta que hunde a la mayoría de los proyectos que se ponen esta regla, porque la respuesta fácil es exactamente la casilla prohibida —`dangerous_accept_invalid_certs`, «sólo para los tests»—, y una vez escrita, alguien la mueve.
+
+Aquí se hace lo otro: el servidor de mentira genera un certificado de verdad para `localhost` y al adaptador se le da **ese certificado concreto como raíz de confianza de más**. La verificación sigue entera —firma y nombre—; lo único que cambia es a quién se cree. Una prueba comprueba que un certificado que no es el suyo se rechaza.
+
+El validador de fase (`--fase 5`) comprueba sobre el árbol entero de Rust, **pruebas incluidas**, que ninguna de las llamadas que desactivan la verificación esté escrita, y que confiar en un certificado concreto no se llame desde el código de producción.
+
+El servidor cifrado vive detrás de `#[cfg(test)]`: `rustls` y `rcgen` no entran en el programa que se entrega.
+
 ### Capacidades
 
 ```rust
@@ -191,7 +211,19 @@ Es la misma idea que el proveedor simulado de la Fase 4, un piso más abajo: all
 
 **Guarda lo que le dijeron, y no guarda el cuerpo.** Lo primero permite afirmar lo que **no** se pidió —que a una persona dada de baja no se le mandó ni un `RCPT TO`—; lo segundo evita que el contenido de los correos acabe en la salida de las pruebas y de ahí en una bitácora de CI.
 
-**La conversación no sabe por dónde viaja.** Trabaja sobre cualquier cosa legible y escribible, no sobre un socket, porque en la 5.2 el adaptador exigirá TLS y este mismo servidor tendrá que hablar cifrado. Atado al socket eso sería reescribirlo; así es envolverlo.
+**La conversación no sabe por dónde viaja.** Trabaja sobre cualquier cosa legible y escribible, no sobre un socket. En la 5.2 se cobró: el servidor cifrado envuelve el flujo en TLS y llama a la misma función, sin tocarla.
+
+**Y sabe qué se dijo antes de cifrar.** `dicho_en_claro()` devuelve sólo lo que el servidor recibió sin cifrado, que es lo que un vecino de red habría podido leer. Es lo que permite afirmar que la contraseña no viajó en claro mirándolo desde fuera, en vez de creerse la configuración propia.
+
+#### Por qué la conversación se lleva paso a paso
+
+`lettre` trae una función que hace el envío entero de una vez. Es cómoda y **no se usa**: cuando falla dice «el servidor contestó 550» y no dice en qué momento.
+
+Eso no es un detalle. Un `550` contestando a `RCPT TO` significa «esa dirección no existe» → esa persona entra en la lista de bajas, para siempre y en todas las campañas. El mismo `550` contestando a `MAIL FROM` significa «tu cuenta no puede enviar desde esa dirección» → el problema es de la cuenta y no dice nada de quien iba a recibir el correo. Sin distinguirlos, ARLES daría de baja a un contacto sano por un problema del remitente, y una baja no se deshace.
+
+Así que `MAIL FROM`, `RCPT TO` y `DATA` se mandan uno a uno y cada respuesta se atribuye a quien le corresponde. **`RCPT TO` y el acuse final son los únicos dos puntos que pueden acabar en una baja.**
+
+Al probar esto salió un fallo de la propia prueba, que es el ejemplo de manual: el guion usaba `550 5.7.1 Sender address rejected`, y ese código extendido ya se traduce solo a «problema de la cuenta» — o sea que la prueba pasaba con la atribución rota. Ahora usa un `550` pelado, que es lo que contestan de verdad los relés mal configurados.
 
 ### Gmail por SMTP
 

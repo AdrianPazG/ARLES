@@ -1374,7 +1374,12 @@ def claves_de_error_sin_texto():
     dato duplicado a mano que nadie compara. Aquí se compara.
     """
     claves = set()
-    for crate in ("arles-core", "arles-db", "arles-app"):
+    # `arles-email` entró en la lista el 23/09/2026, al romper esta
+    # comprobación a propósito: se borró el texto de un error nuevo del
+    # adaptador de correo y **la comprobación siguió pasando**, porque el crate
+    # no estaba en esta lista. Es el mismo fallo que ya cazó dos veces en la
+    # Fase 4: una comprobación que dice mirar el §139 entero y mira una parte.
+    for crate in ("arles-core", "arles-db", "arles-app", "arles-email"):
         d = os.path.join(RAIZ, "crates", crate, "src")
         for archivo in os.listdir(d):
             if archivo.endswith(".rs"):
@@ -1413,7 +1418,7 @@ def claves_de_error_sin_texto():
     # exactamente el fallo del §2: una comprobación que parecía cubrir el §139
     # cubría un tercio de él.
     otras = set()
-    for crate in ("arles-core", "arles-db", "arles-motor", "arles-app"):
+    for crate in ("arles-core", "arles-db", "arles-motor", "arles-app", "arles-email"):
         d = os.path.join(RAIZ, "crates", crate, "src")
         if not os.path.isdir(d):
             continue
@@ -1423,7 +1428,7 @@ def claves_de_error_sin_texto():
                 # Se quitan los tests: sus cadenas no van a ninguna pantalla.
                 cuerpo = texto.split("\n#[cfg(test)]")[0]
                 otras |= set(re.findall(
-                    r'"((?:campana|motor|reintento|ritmo|ventana|instancia|etapa|duracion|preflight|disyuntor)'
+                    r'"((?:campana|motor|reintento|ritmo|ventana|instancia|etapa|duracion|preflight|disyuntor|correo)'
                     r'\.[a-zA-Z][a-zA-Z._]*)"', cuerpo))
 
     # En el catálogo la clave es la última parte, anidada bajo las anteriores.
@@ -2621,7 +2626,116 @@ def fase_4(rapido):
           "Sin documento de fase, lo que se decidió se pierde con la sesión.")
 
 
-FASES = {0: fase_0, 1: fase_1, 2: fase_2, 3: fase_3, 4: fase_4}
+# ── Fase 5 · El correo de verdad ────────────────────────────────────────────
+
+
+def no_hay_forma_de_no_cifrar():
+    """Nada en el código de producción desactiva la verificación de TLS.
+
+    `lettre` trae dos llamadas que la apagan —una para el certificado y otra
+    para el nombre del servidor—. Cada una es UNA línea y resuelve al instante
+    cualquier problema de certificados, y por eso la regla no es «no las
+    usamos»: es que no pueden estar escritas en ninguna parte, ni siquiera tras
+    un `cfg(test)`. Una vez que la llamada existe, alguien la encuentra y la
+    mueve (§29).
+
+    Se comprueba sobre el árbol entero de Rust, pruebas incluidas, porque el
+    sitio donde de verdad tienta escribirla es una prueba.
+    """
+    # El texto se arma por trozos para que esta comprobación no se encuentre a
+    # sí misma al leer su propio archivo, que es exactamente lo que le pasó a
+    # la prueba equivalente de `tls.rs` el 23/09/2026.
+    prohibidas = [".dangerous_accept_invalid_" + q + "(" for q in ("certs", "hostnames")]
+    prohibidas.append("builder_" + "dangerous(")
+    sospechosos = []
+    for base, _, archivos in os.walk(os.path.join(RAIZ, "crates")):
+        if "target" in base:
+            continue
+        for archivo in archivos:
+            if not archivo.endswith(".rs"):
+                continue
+            ruta = os.path.join(base, archivo)
+            with open(ruta, encoding="utf-8") as f:
+                texto = f.read()
+            if any(p in texto for p in prohibidas):
+                sospechosos.append(os.path.relpath(ruta, RAIZ))
+    check(5, "nada desactiva la verificación de TLS", not sospechosos,
+          "§29: sin verificación, cifrar no sirve de nada — la conexión va "
+          "cifrada con quien sea que esté al otro lado.",
+          f"archivos: {sorted(sospechosos)}")
+
+
+def confiar_en_un_certificado_es_solo_de_pruebas():
+    """`confiando_ademas_en` no se llama desde el código de producción.
+
+    Es la puerta que permite probar contra el servidor de mentira sin escribir
+    una llamada que acepte certificados inválidos. Añade una raíz de confianza,
+    no quita comprobaciones — pero una raíz de confianza metida desde la
+    interfaz sería una forma de que alguien confiara en un certificado
+    cualquiera, que es lo mismo por otro camino.
+    """
+    sospechosos = []
+    for base, _, archivos in os.walk(os.path.join(RAIZ, "crates")):
+        if "target" in base:
+            continue
+        for archivo in archivos:
+            if not archivo.endswith(".rs"):
+                continue
+            ruta = os.path.join(base, archivo)
+            with open(ruta, encoding="utf-8") as f:
+                texto = f.read()
+            # Se corta por el primer módulo de pruebas: ahí sí está permitido.
+            produccion = texto.split("\n#[cfg(test)]")[0]
+            if ".confiando_ademas_en(" in produccion:
+                sospechosos.append(os.path.relpath(ruta, RAIZ))
+    check(5, "confiar en un certificado concreto es sólo de pruebas",
+          not sospechosos,
+          "Una raíz de confianza elegida desde la interfaz sería, por otro "
+          "camino, la casilla de «aceptar cualquier certificado».",
+          f"archivos: {sorted(sospechosos)}")
+
+
+def la_contrasena_no_viaja_en_claro():
+    """El adaptador comprueba por su cuenta que el canal está cifrado.
+
+    Configurar `lettre` para exigir TLS es necesario y no basta: es confiar en
+    que una biblioteca de terceros haga lo que promete, justo donde equivocarse
+    cuesta la contraseña de correo de la empresa. Antes de mandar `AUTH`, ARLES
+    le pregunta al socket.
+
+    Comprobado rompiéndolo el 23/09/2026: quitando esta línea Y poniendo el TLS
+    en «oportunista», la contraseña aparece en lo que el servidor de mentira
+    recibió sin cifrar. Con una sola de las dos roturas, no.
+    """
+    smtp = leer("crates/arles-email/src", "smtp.rs") or ""
+    produccion = smtp.split("\n#[cfg(test)]")[0]
+    check(5, "el adaptador comprueba el cifrado antes de autenticar",
+          "is_encrypted()" in produccion,
+          "Es la comprobación que sigue valiendo si mañana cambia un valor por "
+          "defecto de `lettre` o alguien toca la configuración.")
+
+
+def fase_5(rapido):
+    titulo("FASE 5 · El correo de verdad")
+
+    print(f"{GRIS}  estructura{FIN}")
+    for ruta, porque in [
+        ("crates/arles-email/src/codigos.rs", "Traducir lo que dice un servidor de correo a los cinco fallos del motor."),
+        ("crates/arles-email/src/servidor.rs", "Un servidor SMTP de mentira al que se le puede ordenar que falle."),
+        ("crates/arles-email/src/tls.rs", "El cifrado obligatorio, sin ninguna forma de desactivarlo (§29)."),
+        ("crates/arles-email/src/smtp.rs", "El adaptador que habla con Gmail."),
+        ("crates/arles-email/src/error.rs", "Los problemas de configuración, que no son fallos de envío."),
+    ]:
+        check(5, f"existe {ruta}", os.path.exists(os.path.join(RAIZ, ruta)), porque)
+
+    print(f"{GRIS}  invariantes{FIN}")
+    no_hay_forma_de_no_cifrar()
+    confiar_en_un_certificado_es_solo_de_pruebas()
+    la_contrasena_no_viaja_en_claro()
+    claves_de_error_sin_texto()
+
+
+FASES = {0: fase_0, 1: fase_1, 2: fase_2, 3: fase_3, 4: fase_4, 5: fase_5}
 
 
 def main():

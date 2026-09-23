@@ -451,6 +451,19 @@ export const es = {
   },
 
   /**
+   * Cómo viaja la conexión con el servidor de correo.
+   *
+   * Las dos cifran. **No hay un tercer valor**, y esto no es un desplegable
+   * con opciones: es lo que ARLES enseña de una cuenta ya configurada (§29).
+   */
+  correo: {
+    cifrado: {
+      starttls: 'Cifrado (STARTTLS, puerto 587)',
+      directo: 'Cifrado desde el inicio (puerto 465)',
+    },
+  },
+
+  /**
    * El disyuntor por cuenta (§7).
    *
    * Tras cinco fallos seguidos del canal, esa cuenta deja de enviar. Un fallo
@@ -580,6 +593,46 @@ export const es = {
 
   error: {
     // Cada error lleva sus tres partes (§95).
+
+    // ── La cuenta de correo · entrega 5.2 ─────────────────────────────────
+    //
+    // Son problemas de CONFIGURACIÓN de la cuenta, no de un envío concreto.
+    // Se leen en la pantalla de Remitentes, mientras alguien da de alta un
+    // remitente, y por eso el «cómo» habla de campos de ese formulario.
+    correo: {
+      no_se_pudo_cifrar: {
+        que: 'No se pudo preparar la conexión cifrada con el servidor.',
+        // No se ofrece ninguna forma de seguir sin cifrar, ni «avanzada»:
+        // la contraseña viajaría legible por la red (§29).
+        como:
+          'Revisa el nombre del servidor y el puerto. ARLES no envía por una ' +
+          'conexión sin cifrar, así que no hay una opción para saltarse esto.',
+        salvo: 'No se envió ningún correo y la cuenta quedó como estaba.',
+      },
+      el_servidor_no_vale: {
+        que: 'El servidor que escribiste no es un nombre válido.',
+        // El nombre y no la IP: el certificado se emite para el nombre.
+        como:
+          'Escribe el nombre del servidor, como smtp.gmail.com, sin espacios ' +
+          'y sin usar una dirección IP.',
+        salvo: 'No se envió ningún correo y la cuenta quedó como estaba.',
+      },
+      remitente_no_vale: {
+        que: 'La dirección desde la que se enviaría no es una dirección de correo.',
+        como: "Revisa que tenga la forma nombre{'@'}dominio.com.",
+        salvo: 'No se envió ningún correo y la cuenta quedó como estaba.',
+      },
+      no_se_pudo_armar: {
+        que: 'No se pudo preparar el correo con estos datos.',
+        // Esto es un fallo nuestro, y se dice: mandar a revisar la cuenta
+        // cuando el problema es de ARLES hace perder media tarde.
+        como:
+          'Vuelve a intentarlo. Si se repite, es un fallo de ARLES: avísanos ' +
+          'con lo que aparece en esta pantalla.',
+        salvo: 'No se envió nada y no se marcó a nadie.',
+      },
+    },
+
     email_invalido: {
       que: 'La dirección de correo no es válida.',
       como: "Revisa que tenga la forma nombre{'@'}dominio.com.",

@@ -10,6 +10,34 @@ publish.workspace = true
 
 [dependencies]
 arles-core = { path = "../arles-core" }
+# El `Proveedor` que este crate implementa. La dependencia va en este sentido y
+# no al revés: el motor no sabe que existe el correo, y por eso enchufar SMTP no
+# obligó a tocar ni una línea del bucle.
+arles-motor = { path = "../arles-motor" }
+# El cliente SMTP. `default-features = false` a propósito: por defecto trae el
+# transporte asíncrono con Tokio, y el motor de ARLES es síncrono (ver la nota
+# de `arles-motor/lib.rs`). Se piden sólo las cuatro piezas que se usan.
+#
+# `rustls-tls` y no `native-tls`: la validación de certificados es la misma en
+# Windows, macOS y Linux. Con la del sistema, un equipo con el almacén de raíces
+# tocado validaría distinto que el de al lado, y eso en una comprobación de
+# seguridad no es aceptable.
+lettre = { version = "0.11", default-features = false, features = [
+    "smtp-transport",
+    "builder",
+    "rustls-tls",
+    "hostname",
+] }
+
+[dev-dependencies]
+# Para que el servidor de mentira hable cifrado. `ring` y no el proveedor por
+# defecto: es el mismo que usa `lettre`, así que no se compila una segunda
+# biblioteca de criptografía —`aws-lc-sys`, que además necesita CMake y un
+# compilador de C en las tres plataformas— sólo para las pruebas.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging"] }
+# Genera el certificado de prueba. Ver la nota de `tls.rs`: en las pruebas se
+# CONFÍA en un certificado concreto, nunca se desactiva la verificación.
+rcgen = "0.14"
 
 [lints]
 workspace = true

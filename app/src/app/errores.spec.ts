@@ -61,6 +61,12 @@ const CLAVES_DEL_NUCLEO = [
   // Entrega 4.4 · pausar, reanudar y detener.
   'error.db.campana_no_existe',
   'error.estado_de_campana_desconocido',
+  // Entrega 5.2 · la cuenta de correo. Son problemas de configuración, no de
+  // un envío: se leen mientras alguien da de alta un remitente.
+  'error.correo.no_se_pudo_cifrar',
+  'error.correo.el_servidor_no_vale',
+  'error.correo.remitente_no_vale',
+  'error.correo.no_se_pudo_armar',
 ] as const
 
 describe('resolución de errores del núcleo', () => {
