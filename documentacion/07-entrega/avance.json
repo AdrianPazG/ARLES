@@ -35,7 +35,7 @@
     "  python3 herramientas/avance/calcular.py --escribir"
   ],
   "version": "1.2.0",
-  "actualizado": "2026-09-22",
+  "actualizado": "2026-09-23",
   "fases": [
     {
       "id": "F0",
@@ -76,8 +76,8 @@
       "id": "F4",
       "nombre": "Motor de ejecución",
       "peso": 14,
-      "hecho": 0.0,
-      "porque": "Sin empezar. Las tablas contra las que se escribe ya existen; el motor no."
+      "hecho": 0.6,
+      "porque": "Construido y probado: la máquina de estados del envío, la ventana con su zona IANA (D-10), la política de reintentos de D-12, la cola con compare-and-swap y recuperación al arrancar, el presupuesto persistido, el proveedor simulado con siete respuestas a la orden, el bucle del trabajador entero (MOTOR_DE_EJECUCION.md §13) y el cerrojo de instancia única con latido. Falta Pausar/Reanudar/Detener con la bandera en base, el simulador de duración (§11), el preflight de ocho puntos (§12) y el cierre de fase."
     },
     {
       "id": "F5",

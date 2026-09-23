@@ -33,8 +33,14 @@
 #![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 #![forbid(unsafe_code)]
 
+pub mod bucle;
+pub mod instancia;
 pub mod proveedor;
 pub mod simulador;
+pub mod tiempo;
 
+pub use bucle::{Ajustes, Entorno, EntornoDelSistema, Paso, Trabajador};
+pub use instancia::{Cerrojo, NoSePudoTomar};
 pub use proveedor::{Aceptado, Mensaje, Proveedor, RESPUESTA_MAXIMA, recortar_respuesta};
 pub use simulador::{ProveedorSimulado, Respuesta};
+pub use tiempo::sello;

@@ -133,7 +133,9 @@ fn leer(conn: &Connection, cuenta: &str, clase: &str, clave: &str) -> Result<u32
 ///
 /// El `CASE` es el reinicio entero, y merece leerse despacio:
 ///
-///     consumed = CASE WHEN window_start = ?nueva THEN consumed + 1 ELSE 1 END
+/// ```text
+/// consumed = CASE WHEN window_start = ?nueva THEN consumed + 1 ELSE 1 END
+/// ```
 ///
 /// Si la fila ya era de esta hora (o de este día), se suma. Si era de otra,
 /// **se empieza de nuevo en uno** — no en cero, porque este envío ya cuenta.

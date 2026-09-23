@@ -51,7 +51,7 @@
 //! Este módulo no puede cometer ese fallo aunque alguien lo intente: no lee
 //! ningún reloj ni ninguna zona. Recibe el instante y la zona como parámetros.
 
-use jiff::tz::TimeZone;
+pub use jiff::tz::TimeZone;
 use serde::Serialize;
 use time::{OffsetDateTime, UtcOffset, Weekday};
 

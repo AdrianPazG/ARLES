@@ -54,6 +54,14 @@ pub enum Respuesta {
     NoExisteEsaDireccion,
     /// La contraseña de aplicación caducó, o el permiso fue revocado.
     LaCredencialNoSirve,
+    /// El proveedor contesta que **esa persona pidió la baja**.
+    ///
+    /// Pasa de verdad, y sobre todo en WhatsApp: quien bloquea o responde
+    /// «STOP» se lo dice a Meta, no a nosotros, y nos enteramos al intentarlo.
+    /// Para el motor **no es un fallo** —no se reintenta y no cuenta como
+    /// error—, pero sí obliga a dos cosas: cerrar el intento y meter esa
+    /// dirección en la lista de bajas.
+    PidioLaBaja,
 }
 
 impl Respuesta {
@@ -74,6 +82,7 @@ impl Respuesta {
             Self::EsperaDurante(d) => Err(Fallo::NoMeMandesNadaDurante(*d)),
             Self::NoExisteEsaDireccion => Err(Fallo::LaDireccionNoExiste),
             Self::LaCredencialNoSirve => Err(Fallo::LaCuentaNoAutentica),
+            Self::PidioLaBaja => Err(Fallo::EsaPersonaPidioLaBaja),
         }
     }
 }

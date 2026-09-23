@@ -336,3 +336,39 @@ mientras no cancelado:
 ```
 
 La **doble comprobación de la parada de emergencia** —antes de tomar trabajo y otra vez justo antes de enviar— es deliberada: entre ambas puede haber pasado una consulta a la base de datos y una resolución de credencial, tiempo más que suficiente para que el usuario pulse el botón.
+
+### Lo que se construyó, y las dos cosas que cambiaron al construirlo
+
+El bucle vive en `crates/arles-motor/src/bucle.rs`, y sigue este §13 paso por paso. Dos detalles no estaban escritos aquí y se decidieron al implementarlo (entrega 4.3b, 23/09/2026):
+
+**Una credencial caducada no gasta reintentos.** El esquema de arriba dice «AuthFallida → abrir circuito», y lo que no decía es qué pasa con el envío que estaba en curso. Contarlo como intento fallido gastaría uno de los tres reintentos de D-12 sin que ningún servidor de correo hubiera visto el mensaje. Con tres campañas paradas por una contraseña caducada, media audiencia se quedaría sin reintentos y, al arreglar la cuenta, esos envíos se rendirían enseguida sin haberlo intentado nunca de verdad.
+
+El intento vuelve a la cola **intacto** (`attempt_count - 1`) y con hora de reintento *ahora*: esperar media hora no arregla una credencial, eso lo arregla una persona. Lo que impide que el motor gire mientras tanto no es la hora, es que se detiene y avisa.
+
+**Un envío ya empezado no se cierra como «baja».** El proveedor puede contestar «esa persona pidió la baja» **mientras** se le manda —pasa sobre todo en WhatsApp, donde la baja la gestiona Meta—. Parecía que la fila debía quedar como `suppressed`, y no procede: ese estado no cuenta como envío consumido, así que una fila que llegó a `sending`, donde el mensaje **pudo** salir, quedaría fuera del presupuesto de la cuenta. Se cierra como `permanently_failed` con la clave que dice por qué, y la dirección entra en la lista de bajas, que es lo que de verdad protege a esa persona.
+
+---
+
+## 14. Una sola instancia sobre una sola base
+
+El compare-and-swap del §2 impide que dos trabajadores se lleven el mismo envío. El daño de dos ARLES abiertos a la vez no está ahí: está en el **arranque**.
+
+Al abrir, ARLES ordena la cola y pasa a `presumed_sent` todo lo que quedó en `sending`, porque sólo una caída deja filas así (§3). Si un segundo ARLES arranca mientras el primero está enviando, encuentra filas en `sending` que **no son restos de nada** —son los envíos en curso del otro— y las marca como no confirmadas.
+
+El resultado no es un duplicado; es peor de leer: una lista de envíos dudosos que el usuario tiene que revisar uno a uno cuando todos salieron bien. Esa lista deja de servir para lo único que sirve.
+
+**El mecanismo.** Un archivo `arles.lock` junto a la base, con un identificador y un **latido**: su fecha de modificación, reescrita cada pocos segundos por el propio bucle del trabajador. Por eso el cerrojo llegó con el bucle y no antes.
+
+| Al arrancar se encuentra | Qué significa | Qué se hace |
+|---|---|---|
+| No hay archivo | No hay nadie | Se toma |
+| Latido de hace menos de 90 s | Hay otro ARLES vivo | **No se abre**, y se dice hace cuántos segundos latió |
+| Latido de hace más de 90 s | El otro murió sin soltarlo | Se toma, y se confirma volviendo a leer |
+
+Los noventa segundos son holgados a propósito: el margen es para el equipo que va despacio —un disco lento, una copia de seguridad—, no para el que murió. Robarle el cerrojo a un ARLES vivo es exactamente el fallo que esto evita.
+
+**Sin latido, el fallo es peor que el que se evita.** Un cerrojo que sólo comprueba si el archivo existe deja el programa inservible tras cualquier caída: el archivo se queda puesto y nadie puede volver a abrir ARLES sin saber que hay que borrar un archivo a mano.
+
+**Lo que no se promete.** No es un cerrojo del sistema operativo. Dos ARLES que arrancaran en el mismo milisegundo sobre un cerrojo caducado podrían creerse ambos dueños; por eso al robar uno viejo se escribe, se espera y se vuelve a leer, y quien lea un identificador ajeno se retira. La ventana queda cerrada en la práctica, no por demostración. La garantía dura sigue siendo la de siempre: el `UNIQUE(campaign_id, channel, contact_address)` del esquema. **Nadie recibe dos correos aunque este cerrojo falle.**
+
+Y el proceso que pierde el cerrojo —porque se quedó congelado más de noventa segundos y otro lo dio por muerto— se entera al latir, y deja de enviar.

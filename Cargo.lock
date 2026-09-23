@@ -122,6 +122,11 @@ name = "arles-motor"
 version = "1.2.0"
 dependencies = [
  "arles-core",
+ "arles-db",
+ "getrandom 0.3.4",
+ "rusqlite",
+ "tempfile",
+ "time",
 ]
 
 [[package]]

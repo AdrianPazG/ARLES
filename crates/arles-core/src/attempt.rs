@@ -84,9 +84,37 @@ impl AttemptState {
         match (self, destino) {
             (Queued, Claimed | Suppressed | Cancelled) => true,
             (Claimed, Sending | Suppressed | Cancelled) => true,
+            // `Suppressed` NO está en esta lista, y se intentó añadirlo el
+            // 23/09/2026 al escribir el bucle: el proveedor puede contestar
+            // «esa persona pidió la baja» **mientras** se le manda, y parecía
+            // que la fila debía decir «baja» y no «fallo».
+            //
+            // Lo paró la prueba `la_supresion_puede_ganar_antes_de_llamar_al_proveedor`,
+            // y tenía razón. `Suppressed` no cuenta como envío consumido
+            // (`consumio_envio`), así que una fila que llegó a `sending` —donde
+            // el mensaje **pudo** salir— no puede acabar ahí: sería un envío
+            // posible que no cuenta contra el límite del proveedor.
+            //
+            // El desenlace correcto es `permanently_failed` con la clave
+            // `reintento.pidioLaBaja`, que dice la verdad: no se envió, y por
+            // qué. A quien pidió la baja lo protege la lista de bajas, que es
+            // donde se escribe su dirección; el intento es la bitácora del
+            // envío, no el registro de su derecho.
             (Sending, Sent | Failed | PermanentlyFailed | PresumedSent) => true,
             // Un fallo transitorio vuelve a la cola tras el backoff.
-            (Failed, Queued | PermanentlyFailed | Cancelled) => true,
+            //
+            // `Claimed` está en la lista y no sobra. Se añadió el 23/09/2026 al
+            // escribir el bucle del trabajador: la cola **toma directamente**
+            // las filas en `failed` cuyo `next_retry_at` ya pasó, sin pasarlas
+            // antes por `queued`. El paso intermedio era una ficción — nadie lo
+            // ejecutaba— y esta tabla decía que la transición real estaba
+            // prohibida. Dos descripciones del mismo sistema que no coincidían:
+            // la que se lee y la que se ejecuta.
+            //
+            // Hay una prueba en `arles-db` que compara las dos: los estados que
+            // el compare-and-swap acepta tienen que ser exactamente los que
+            // esta tabla deja llegar a `Claimed`.
+            (Failed, Queued | Claimed | PermanentlyFailed | Cancelled) => true,
             _ => false,
         }
     }

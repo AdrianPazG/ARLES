@@ -158,6 +158,104 @@ impl Db {
         })
     }
 
+    /// ¿Esta dirección está en la lista de bajas, ahora mismo?
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ SE PREGUNTA EN EL INSTANTE DE ENVIAR Y NO AL ENCOLAR
+    ///
+    /// La audiencia de una campaña se congela al activarla, y entre ese momento
+    /// y el último envío pueden pasar **semanas**: con cincuenta correos al día,
+    /// una campaña de cinco mil dura cuatro meses (§11 del motor).
+    ///
+    /// Si la comprobación viviera sólo en el encolado, alguien que pide la baja
+    /// el martes seguiría recibiendo correos de esa campaña hasta enero. Habría
+    /// pedido no recibir, ARLES lo habría registrado, y le seguiría llegando.
+    ///
+    /// Por eso se pregunta otra vez **justo antes de cada envío**. Cuesta una
+    /// consulta por correo, sobre un índice único, a un ritmo de cincuenta al
+    /// día: el coste es irrelevante y lo que compra no lo es.
+    ///
+    /// La comparación es por **dirección normalizada**, no por contacto: una
+    /// baja sobrevive a que borren y reimporten a esa persona (§39).
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla.
+    pub fn esta_suprimida(
+        &self,
+        empresa: CompanyId,
+        canal: Canal,
+        direccion_normalizada: &str,
+    ) -> Result<bool, DbError> {
+        self.con(|conn| {
+            let hay: Option<i64> = conn
+                .query_row(
+                    "SELECT 1 FROM suppression_entry
+                      WHERE company_id = ?1 AND channel = ?2 AND address_normalized = ?3",
+                    params![
+                        empresa.to_string(),
+                        canal.como_texto(),
+                        direccion_normalizada
+                    ],
+                    |f| f.get(0),
+                )
+                .optional()?;
+            Ok(hay.is_some())
+        })
+    }
+
+    /// Mete una dirección en la lista de bajas **sin pasar por el contacto**.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ HACE FALTA, HABIENDO YA `suprimir`
+    ///
+    /// [`Db::suprimir`] parte de un contacto: recoge sus canales validados y
+    /// los suprime. Es lo correcto cuando alguien pulsa «dar de baja» en una
+    /// ficha.
+    ///
+    /// El motor no tiene ficha. Cuando un servidor de correo contesta «esa
+    /// dirección no existe», lo único que hay es **la dirección**: el contacto
+    /// puede haberse borrado, puede haber cambiado, o el rebote puede venir de
+    /// una dirección que nunca estuvo en la agenda. Obligar a encontrar un
+    /// contacto para poder registrar el rebote dejaría el caso más importante
+    /// —una dirección muerta a la que seguimos escribiendo— sin registrar.
+    ///
+    /// Devuelve `true` si la fila es nueva y `false` si ya estaba. Las dos son
+    /// éxito: suprimir es idempotente (regla 1 de este archivo).
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la escritura falla.
+    pub fn suprimir_direccion(
+        &self,
+        empresa: CompanyId,
+        canal: Canal,
+        direccion_normalizada: &str,
+        motivo: MotivoDeSupresion,
+        origen: OrigenDeSupresion,
+    ) -> Result<bool, DbError> {
+        let cuando = ahora();
+        self.con(|conn| {
+            let filas = conn.execute(
+                "INSERT OR IGNORE INTO suppression_entry
+                     (id, company_id, channel, address_normalized, scope,
+                      request_id, reason, origin, notes, created_at, created_by)
+                 VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6, ?7, NULL, ?8, NULL)",
+                params![
+                    SuppressionEntryId::nuevo().to_string(),
+                    empresa.to_string(),
+                    canal.como_texto(),
+                    direccion_normalizada,
+                    AlcanceDeSupresion::Canal.como_texto(),
+                    motivo.como_texto(),
+                    origen.como_texto(),
+                    cuando,
+                ],
+            )?;
+            Ok(filas == 1)
+        })
+    }
+
     /// Saca una dirección de la lista, **si su motivo lo permite**.
     ///
     /// ─────────────────────────────────────────────────────────────────────
@@ -1007,5 +1105,128 @@ mod tests {
                 .expect("no falla")
                 .is_empty()
         );
+    }
+
+    // ─── La consulta del motor (entrega 4.3b) ───────────────────────────────
+
+    /// **Quien pide la baja deja de recibir esa misma campaña.**
+    ///
+    /// Es la prueba de por qué el motor vuelve a preguntar antes de cada envío
+    /// en vez de fiarse de la audiencia congelada: con cincuenta correos
+    /// diarios, una campaña de cinco mil tarda meses, y en ese plazo la gente
+    /// se da de baja.
+    #[test]
+    fn una_baja_de_hoy_se_ve_en_el_envio_de_manana() {
+        let (_d, db, empresa) = base();
+        assert!(
+            !db.esta_suprimida(empresa, Canal::Correo, "ana@empresa.mx")
+                .expect("consulta"),
+            "antes de la baja, se le puede escribir"
+        );
+
+        db.suprimir_direccion(
+            empresa,
+            Canal::Correo,
+            "ana@empresa.mx",
+            MotivoDeSupresion::Baja,
+            OrigenDeSupresion::Usuario,
+        )
+        .expect("suprime");
+
+        assert!(
+            db.esta_suprimida(empresa, Canal::Correo, "ana@empresa.mx")
+                .expect("consulta"),
+            "después de la baja, no"
+        );
+    }
+
+    /// Una baja de correo no cierra el WhatsApp de la misma persona.
+    ///
+    /// Suena obvio y no lo es: la tabla guarda una fila por canal justamente
+    /// para que «no me mandes correos» no se interprete como «no me mandes
+    /// nada». Cuando alguien pide las dos cosas, se escriben las dos filas.
+    #[test]
+    fn la_baja_es_por_canal_y_no_se_contagia() {
+        let (_d, db, empresa) = base();
+        db.suprimir_direccion(
+            empresa,
+            Canal::Correo,
+            "ana@empresa.mx",
+            MotivoDeSupresion::Baja,
+            OrigenDeSupresion::Usuario,
+        )
+        .expect("suprime");
+
+        assert!(
+            !db.esta_suprimida(empresa, Canal::WhatsApp, "ana@empresa.mx")
+                .expect("consulta"),
+            "la baja de correo no puede cerrar otro canal por su cuenta"
+        );
+    }
+
+    /// La lista es de cada empresa. La baja de una no protege en la otra, y
+    /// —más importante— tampoco bloquea a nadie ajeno.
+    #[test]
+    fn la_baja_no_cruza_de_una_empresa_a_otra() {
+        let (_d, db, empresa) = base();
+        // Se inserta a mano: `guardar_empresa` mantiene **una sola** empresa
+        // por instalación —actualiza la que haya en vez de añadir otra—, así
+        // que por el camino normal no se puede llegar a dos. El esquema sí las
+        // admite, y la consulta filtra por empresa; esto comprueba el filtro.
+        let otra = CompanyId::nuevo();
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "INSERT INTO company (id, commercial_name, country, timezone,
+                                      corporate_email, created_at, updated_at)
+                 VALUES (?1, 'OTRA SA', 'MX', 'America/Mexico_City',
+                         'hola@otra.mx', '2026-09-23T12:00:00Z', '2026-09-23T12:00:00Z')",
+                params![otra.to_string()],
+            )
+        })
+        .expect("siembra la segunda empresa");
+
+        db.suprimir_direccion(
+            empresa,
+            Canal::Correo,
+            "ana@empresa.mx",
+            MotivoDeSupresion::Baja,
+            OrigenDeSupresion::Usuario,
+        )
+        .expect("suprime");
+
+        assert!(
+            !db.esta_suprimida(otra, Canal::Correo, "ana@empresa.mx")
+                .expect("consulta"),
+            "la lista de bajas es de cada empresa"
+        );
+    }
+
+    /// Suprimir la misma dirección dos veces no es un error ni escribe dos
+    /// filas: es la regla 1 de este archivo, aplicada al camino del motor.
+    #[test]
+    fn suprimir_una_direccion_dos_veces_no_duplica_la_fila() {
+        let (_d, db, empresa) = base();
+        let primera = db
+            .suprimir_direccion(
+                empresa,
+                Canal::Correo,
+                "rebote@empresa.mx",
+                MotivoDeSupresion::RebotePermanente,
+                OrigenDeSupresion::RespuestaSmtp,
+            )
+            .expect("suprime");
+        let segunda = db
+            .suprimir_direccion(
+                empresa,
+                Canal::Correo,
+                "rebote@empresa.mx",
+                MotivoDeSupresion::RebotePermanente,
+                OrigenDeSupresion::RespuestaSmtp,
+            )
+            .expect("suprime otra vez");
+
+        assert!(primera, "la primera es nueva");
+        assert!(!segunda, "la segunda ya estaba");
+        assert_eq!(db.contar_supresiones(empresa).expect("cuenta"), 1);
     }
 }

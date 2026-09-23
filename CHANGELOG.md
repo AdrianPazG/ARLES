@@ -12,6 +12,70 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### El bucle que junta todas las piezas, y un cerrojo para que no haya dos ARLES
+
+Hasta ahora había una cola que sabe repartir trabajo sin duplicarlo, un
+presupuesto que sobrevive a cerrar el programa, un horario con su zona, una
+política de reintentos y un proveedor de mentira. **Cinco piezas que no se
+hablaban.** Esto es lo que las junta.
+
+El bucle hace, por cada correo y en este orden:
+
+1. ¿Alguien pulsó parar? Se para.
+2. ¿Estamos dentro del horario de la campaña? Si no, se espera — **sin tocar la
+   base de datos siquiera**.
+3. ¿Queda cupo en esta hora y en este día? Si no, se pausa y se avisa. **No se
+   busca otra cuenta**: cambiar de remitente al agotar el cupo es lo que hace el
+   software de spam, y es como se consigue que un proveedor cierre todas las
+   cuentas de un dominio a la vez.
+4. Se toma un envío de la cola, y **sólo uno**.
+5. ¿Esta persona pidió la baja? Se consulta **ahora**, no al preparar la
+   campaña. Con cincuenta correos diarios, una campaña de cinco mil dura cuatro
+   meses; quien pidió la baja en octubre no puede seguir recibiendo en enero.
+6. **¿Alguien pulsó parar, otra vez?** Entre el punto 1 y aquí ha habido dos
+   consultas a la base: tiempo de sobra para que alguien pulse el botón. Y el
+   botón significa «ningún correo más», no «un correo más y paro».
+7. Se anota en la base que se está enviando, **antes** de llamar a nadie. Es lo
+   único que permite reconocer después un envío del que no se sabe si salió.
+8. Se envía, y se anota lo que pasó.
+
+**Trece pruebas**, y tres de ellas se comprobaron quitando la garantía a
+propósito para ver que fallaban: sin la comprobación del horario, un correo sale
+de noche; sin la consulta de bajas, se le escribe a quien pidió no recibir; sin
+la segunda comprobación de la parada, sale un correo después de pulsar parar.
+
+**El cerrojo de instancia única.** Dos ARLES abiertos sobre la misma base no
+producen correos duplicados —eso lo impide el esquema—, pero sí algo casi peor:
+al arrancar, ARLES marca como «envío no confirmado» todo lo que quedó a medias,
+porque sólo una caída deja filas así. Un segundo ARLES que arranque mientras el
+primero envía marcaría como dudosos **los envíos que el otro está haciendo bien
+en ese momento**, y el usuario acabaría con una lista que tiene que revisar uno
+a uno para nada.
+
+El cerrojo es un archivo con un **latido**: la hora, reescrita cada pocos
+segundos por el propio bucle. Por eso llega ahora y no antes. Sin latido, un
+ARLES que muere de golpe deja el archivo puesto y **nadie puede volver a abrir
+el programa**, que es un fallo bastante peor que el que se quería evitar. Con
+latido, el arranque distingue «hay alguien dentro» de «esto se quedó puesto».
+
+**Tres cosas que aparecieron por el camino:**
+
+- **Tres comprobaciones de la documentación del código llevaban fallando desde
+  la entrega 4.2a**, y yo había reportado las pruebas en verde. Eran ejemplos de
+  documentación que Rust intentaba compilar como si fueran programas. No
+  afectaban al producto, pero sí a lo que yo estaba afirmando. Corregidas, y
+  ahora entran en la comprobación de cada entrega.
+- **La máquina de estados describía un programa distinto del que se ejecuta.**
+  La cola toma directamente los envíos fallidos cuando llega su hora de
+  reintento; la tabla de estados decía que ese paso no existía. Ninguna de las
+  dos fallaba: simplemente no hablaban del mismo sistema. Hay una prueba nueva
+  que las enfrenta.
+- **Una credencial caducada gastaba reintentos que nadie había usado.** Si la
+  contraseña de la cuenta deja de servir, ningún envío va a funcionar hasta que
+  una persona la arregle; contarlo como intento fallido habría dejado a media
+  audiencia sin reintentos contra una puerta cerrada. Ahora el intento se
+  devuelve intacto y el motor se detiene diciendo por qué.
+
 ### Un proveedor de mentira al que se le puede ordenar que falle
 
 Las decisiones más delicadas del motor son todas respuestas a un fallo: qué

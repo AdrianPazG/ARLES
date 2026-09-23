@@ -10,6 +10,22 @@ publish.workspace = true
 
 [dependencies]
 arles-core = { path = "../arles-core" }
+arles-db = { path = "../arles-db" }
+time.workspace = true
+# Sólo para el azar de los reintentos. No hay criptografía aquí: lo que se
+# sortea es cuántos segundos de más o de menos espera cada reintento, para que
+# cien envíos que fallan a la vez no vuelvan todos a la vez.
+getrandom = "0.3"
+
+[dev-dependencies]
+tempfile = "3"
+# Sólo para sembrar la cola en las pruebas, a través de `ejecutar_en_pruebas`.
+# El código de producción del motor **no** habla SQL: ésa es la regla que
+# mantiene `rusqlite` dentro de `arles-db` (ADR-0002).
+rusqlite = "0.37"
+# `test-util` abre la puerta al SQL crudo para sembrar la cola en las pruebas.
+# Está en dev-dependencies a propósito: no entra en el binario que se entrega.
+arles-db = { path = "../arles-db", features = ["test-util"] }
 
 [lints]
 workspace = true
