@@ -12,6 +12,40 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Un proveedor de mentira al que se le puede ordenar que falle
+
+Las decisiones más delicadas del motor son todas respuestas a un fallo: qué
+hacer si se cae la red, si la contraseña caducó, si el servidor pide esperar, si
+la dirección no existe.
+
+**Y no se le puede pedir a Gmail que se caiga a voluntad.** Sin un proveedor al
+que ordenarle que falle, esas partes del programa sólo se ejercitarían el día
+que fallaran de verdad — en mitad de la campaña de un cliente, que es el peor
+momento posible para descubrir que estaban mal escritas.
+
+Ahora existe ese proveedor, con **seis formas de fallar a la orden**: se cayó la
+red, tarda demasiado, «espera diez minutos», esa dirección no existe, la
+contraseña no sirve, y contestar basura.
+
+**Y deja constancia de lo que le pidieron.** Eso permite afirmar algo que de
+otro modo habría que suponer: que a una persona dada de baja **no se la llamó ni
+una vez**. Mirar la base de datos diría «no consta un segundo envío»; mirar lo
+que recibió el proveedor dice «no se pidió», que es lo que de verdad importa —
+lo que llega al proveedor ya no se puede retirar.
+
+**Un defecto encontrado por su propia prueba.** El texto que devuelve un
+servidor se limpia antes de guardarlo, porque hay caracteres que **dan la vuelta
+al texto**: un servidor hostil puede hacer que un mensaje de error parezca decir
+otra cosa. El filtro que escribí no los quitaba — resulta que ese carácter no es
+técnicamente «de control», que es lo que el filtro miraba.
+
+Ese mismo ataque ya se había resuelto en la importación de archivos, hace dos
+semanas, con una lista de caracteres escrita allí. **Copiarla habría dejado dos
+listas que se separan**: alguien añade un carácter a una, nadie se acuerda de la
+otra, y el agujero reaparece en el sitio que no se tocó. Ahora la lista vive en
+un solo sitio y la usan las dos.
+
+
 ### El presupuesto sobrevive a cerrar el programa
 
 Cerrar ARLES y volver a abrirlo **no** devuelve a cero la cuenta de «cuántos

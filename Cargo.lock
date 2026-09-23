@@ -118,6 +118,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "arles-motor"
+version = "1.2.0"
+dependencies = [
+ "arles-core",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -242,29 +242,14 @@ fn nombre_para_ensenar(ruta: &Path) -> String {
     let crudo = ruta.file_name().and_then(|n| n.to_str()).unwrap_or("");
     let limpio: String = crudo
         .chars()
-        // `is_control` caza los C0 y C1; el resto de la condición caza los de
-        // formato —anulaciones bidireccionales, ancho cero, marcas de
-        // dirección—, que son los que disfrazan sin verse.
-        .filter(|c| !c.is_control() && !es_de_formato(*c))
+        // La lista vive en `arles_core::texto` desde el 23/09/2026: la
+        // necesitan también las respuestas de los proveedores, y dos copias se
+        // separan — alguien añade un carácter a una y nadie se acuerda de la
+        // otra. Allí está además por qué `is_control` no basta.
+        .filter(|c| !arles_core::texto::engana_al_que_mira(*c))
         .map(|c| if c == '/' || c == '\\' { '_' } else { c })
         .collect();
     limpio.chars().take(MAX_LARGO_DEL_NOMBRE).collect()
-}
-
-/// Caracteres que no se dibujan pero cambian cómo se dibuja lo demás.
-///
-/// Se enumeran a mano en vez de tirar de una tabla de categorías de Unicode:
-/// son pocos, no cambian, y una lista escrita se puede leer y discutir. Los
-/// dos primeros bloques son las marcas y anulaciones bidireccionales; el resto,
-/// los de ancho cero y el espacio que no se ve.
-fn es_de_formato(c: char) -> bool {
-    matches!(c,
-        '\u{200B}'..='\u{200F}'   // ancho cero, marcas de dirección
-        | '\u{202A}'..='\u{202E}' // incrustaciones y anulaciones bidireccionales
-        | '\u{2066}'..='\u{2069}' // aislamientos bidireccionales
-        | '\u{00A0}'              // espacio que no se parte ni se ve distinto
-        | '\u{FEFF}'              // marca de orden de bytes suelta
-    )
 }
 
 /// Huella de los bytes del archivo, leídos otra vez y en trozos.

@@ -30,6 +30,7 @@ pub mod reintento;
 pub mod ritmo;
 pub mod secret;
 pub mod supresion;
+pub mod texto;
 pub mod ventana;
 
 pub use analisis::{Analisis, Choque, FilaRechazada, FilaSuprimida, analizar};
