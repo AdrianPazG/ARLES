@@ -21,6 +21,7 @@ pub mod empresa;
 pub mod error;
 pub mod migraciones;
 pub mod preferencias;
+pub mod presupuesto;
 pub mod supresion;
 
 pub use cola::{Recuperacion, TrabajoTomado};

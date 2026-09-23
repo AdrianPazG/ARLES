@@ -12,6 +12,40 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### El presupuesto sobrevive a cerrar el programa
+
+Cerrar ARLES y volver a abrirlo **no** devuelve a cero la cuenta de «cuántos
+llevo hoy».
+
+**Por qué importa.** Con un contador en memoria, gastar el límite diario varias
+veces el mismo día sería trivial, y ni siquiera haría falta intención: basta
+cerrar la ventana y volver a abrir. Usted no vería nada raro —la aplicación
+diría que lleva cero— y el proveedor sí: tres veces el límite diario desde la
+misma cuenta es exactamente el patrón que marca una cuenta como spam.
+
+**Cómo se reinicia sin que nadie lo reinicie.** No hay ninguna tarea que borre
+contadores a medianoche. Cada contador guarda **a qué hora y a qué día
+pertenece**, y al sumar se compara con la actual: misma etiqueta, suma; etiqueta
+distinta, empieza de nuevo.
+
+Así el reinicio ocurre solo, sin relojes y sin importar cuánto tiempo estuvo el
+programa cerrado. Un contador que dependiera de una tarea a las 00:00 fallaría
+justo en el caso que más importa: con el equipo apagado.
+
+**Y «hoy» significa hoy aquí.** El día se mide en la zona horaria de su empresa,
+no en la del meridiano de Greenwich. A las 23:00 de Ciudad de México ya es el
+día siguiente en UTC: un contador que usara UTC renovaría su límite diario a las
+18:00 hora de México, y al día siguiente se quedaría corto. Nadie relacionaría
+eso con un huso horario.
+
+**Una distinción que quedó escrita.** El **horario de envío** es de la campaña
+(D-10), porque decide a qué hora recibe el destinatario. El **día del
+presupuesto** es de la empresa, porque el presupuesto cuelga de la cuenta
+remitente y una cuenta puede servir a varias campañas. Si cada campaña midiera
+su propio «hoy», la misma cuenta tendría dos días en curso a la vez y el límite
+se podría gastar dos veces.
+
+
 ### La cola que no duplica · entrega 4.2
 
 Es la pieza que concentra el riesgo de toda la Fase 4, y toda ella existe por un

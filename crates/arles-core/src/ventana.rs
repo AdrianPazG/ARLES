@@ -221,6 +221,60 @@ impl Ventana {
     }
 }
 
+/// En qué hora local cae un instante: `2026-09-23T14`.
+///
+/// Es la etiqueta del cubo horario de una cuenta remitente. Dos envíos con la
+/// misma etiqueta gastan del mismo permiso; en cuanto la etiqueta cambia, el
+/// contador vuelve a cero porque **empezó otra hora**.
+///
+/// Se guarda como texto y no como un número de horas desde 1970 a propósito:
+/// una etiqueta que se lee —`2026-09-23T14`— se puede mirar en la base de datos
+/// y entender, y eso es lo que permite auditar por qué una campaña se detuvo.
+#[must_use]
+pub fn clave_de_hora(zona: &TimeZone, instante: OffsetDateTime) -> String {
+    let z = en_zona(zona, instante);
+    format!("{}T{:02}", z.date(), z.hour())
+}
+
+/// En qué día local cae un instante: `2026-09-23`.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// ESTO ES LO QUE HACE QUE «HOY» SIGNIFIQUE ALGO
+///
+/// El cubo horario cambia a la misma vez en todo el mundo —las horas encajan—,
+/// pero **el día no**. A las 23:00 de Ciudad de México ya es el día siguiente
+/// en UTC, y un contador diario que usara UTC se reiniciaría a las 18:00 hora
+/// de México: el usuario vería su límite diario renovarse a media tarde, y al
+/// día siguiente se quedaría corto.
+///
+/// Es el caso «campaña que cruza medianoche» de `ESTRATEGIA_QA.md` §3.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// Y POR QUÉ LA ZONA DE LA EMPRESA, NO LA DE LA CAMPAÑA
+///
+/// D-10 puso el **horario de envío** en la campaña, y está bien ahí: decide a
+/// qué hora recibe el destinatario.
+///
+/// El presupuesto es otra cosa. Cuelga de la **cuenta remitente**, y una misma
+/// cuenta puede servir a varias campañas con husos distintos. Si cada una
+/// midiera su propio «hoy», la misma cuenta tendría dos días en curso a la vez
+/// y el límite diario dejaría de significar nada — se gastaría dos veces.
+///
+/// Así que el día del presupuesto es el de la empresa: uno solo, estable, y el
+/// mismo para todas sus campañas.
+#[must_use]
+pub fn clave_de_dia(zona: &TimeZone, instante: OffsetDateTime) -> String {
+    en_zona(zona, instante).date().to_string()
+}
+
+/// Un instante leído en una zona. El puente entre las dos bibliotecas de
+/// tiempo, igual que en [`Ventana::local`].
+fn en_zona(zona: &TimeZone, instante: OffsetDateTime) -> jiff::Zoned {
+    let ts = jiff::Timestamp::from_second(instante.unix_timestamp())
+        .unwrap_or(jiff::Timestamp::UNIX_EPOCH);
+    ts.to_zoned(zona.clone())
+}
+
 /// El día de la semana, traducido al vocabulario de `time`.
 ///
 /// Las dos bibliotecas numeran la semana distinto, así que se traduce por
@@ -482,6 +536,64 @@ mod tests {
         assert!(!Dias::LABORABLES.incluye(Weekday::Saturday));
         assert!(!Dias::LABORABLES.incluye(Weekday::Sunday));
         assert!(Dias::TODOS.incluye(Weekday::Sunday));
+    }
+
+    /// **El día del presupuesto cambia a medianoche EN MÉXICO, no en UTC.**
+    ///
+    /// Es el caso «campaña que cruza medianoche» de `ESTRATEGIA_QA.md` §3.
+    ///
+    /// A las 23:00 de Ciudad de México ya es el día siguiente en UTC. Un
+    /// contador diario que usara UTC se reiniciaría a las 18:00 hora de
+    /// México: el usuario vería su límite renovarse a media tarde y al día
+    /// siguiente se quedaría corto, sin ninguna forma de relacionarlo con el
+    /// huso horario.
+    #[test]
+    fn el_dia_del_presupuesto_cambia_a_medianoche_local() {
+        let mx = mexico();
+
+        // 2026-09-24 05:00 UTC = 2026-09-23 23:00 en México. Todavía es 23.
+        assert_eq!(
+            clave_de_dia(&mx, datetime!(2026-09-24 05:00 UTC)),
+            "2026-09-23",
+            "en UTC ya es día 24, pero en México son las 23:00 del 23: el \
+             presupuesto diario NO puede haberse reiniciado todavía"
+        );
+
+        // 2026-09-24 06:00 UTC = 2026-09-24 00:00 en México. Ahora sí.
+        assert_eq!(
+            clave_de_dia(&mx, datetime!(2026-09-24 06:00 UTC)),
+            "2026-09-24",
+            "medianoche en México: aquí es donde empieza el día nuevo"
+        );
+    }
+
+    /// La hora también se lee en la zona, y se ve a simple vista.
+    #[test]
+    fn la_clave_de_hora_se_lee_en_la_zona_y_es_legible() {
+        let mx = mexico();
+        assert_eq!(
+            clave_de_hora(&mx, datetime!(2026-09-23 20:30 UTC)),
+            "2026-09-23T14",
+            "20:30 UTC son las 14:30 en México"
+        );
+        // La hora siguiente es otra etiqueta: ahí se reinicia el cubo horario.
+        assert_ne!(
+            clave_de_hora(&mx, datetime!(2026-09-23 20:59 UTC)),
+            clave_de_hora(&mx, datetime!(2026-09-23 21:00 UTC)),
+        );
+    }
+
+    /// Dos husos distintos dan días distintos en el mismo instante.
+    ///
+    /// Es la razón de que el presupuesto use la zona de la EMPRESA y no la de
+    /// cada campaña: si cada campaña midiera su propio «hoy», una misma cuenta
+    /// remitente tendría dos días en curso a la vez y el límite diario se
+    /// podría gastar dos veces.
+    #[test]
+    fn el_mismo_instante_cae_en_dias_distintos_segun_la_zona() {
+        let instante = datetime!(2026-09-24 05:00 UTC);
+        assert_eq!(clave_de_dia(&mexico(), instante), "2026-09-23");
+        assert_eq!(clave_de_dia(&madrid(), instante), "2026-09-24");
     }
 
     /// Todo motivo tiene clave de texto (§139), y ninguna se repite.
