@@ -12,6 +12,44 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### La cola que no duplica · entrega 4.2
+
+Es la pieza que concentra el riesgo de toda la Fase 4, y toda ella existe por un
+solo motivo: **que nadie reciba un correo dos veces**.
+
+**Por qué un duplicado es el peor fallo posible de ARLES.** Es invisible para
+nosotros —nada falla, ningún registro lo delata—, irreversible para quien lo
+recibe, y acumulativo para su dominio: los duplicados alimentan la tasa de queja,
+y la reputación de un dominio se pierde en un día y se recupera en meses.
+
+Un correo que **no** sale, en cambio, es visible y se arregla: usted lo ve y lo
+reenvía. Esa asimetría gobierna todas las decisiones de esta entrega.
+
+**El caso que hay que resolver.** ARLES está mandando un correo. Justo entre que
+el proveedor lo acepta y que ARLES lo anota, se va la luz. Al volver a abrir, la
+base dice «enviando». ¿Salió o no salió?
+
+No hay forma de saberlo: averiguarlo exigiría leer su bandeja de enviados, un
+permiso que ARLES no pide a propósito. Así que **no se reenvía nunca solo**. Se
+marca como «envío no confirmado», con el nombre y la hora, y usted decide.
+
+**Y lo que sí vuelve a la cola.** Si la caída ocurrió *antes* de llamar al
+proveedor, no existe ningún correo que pueda estar duplicado: eso se reencola y
+se envía con normalidad. Distinguir los dos casos es todo el trabajo — tratarlos
+igual perdería envíos sin motivo, o los duplicaría.
+
+**Tres capas, y ninguna sobra.** La base de datos rechaza por sí sola dos envíos
+a la misma persona en la misma campaña, aunque el código falle. Encima, un
+seguro impide que dos partes del programa se lleven el mismo envío a la vez. Y
+cada correo lleva una marca única generada **antes** de mandarlo.
+
+**Una prueba que no valía, descubierta poniéndole el cebo.** La del seguro
+—la garantía más importante del módulo— **pasaba con el seguro quitado**. Estaba
+comprobando algo distinto de lo que creía: el filtro que elige el candidato, en
+vez del seguro que impide la carrera. Se sacó el seguro a su propia función para
+poder probarlo de frente, y ahora sí falla cuando se rompe.
+
+
 ### Los reintentos, con las esperas que fijó Dirección (D-12)
 
 Cuando un envío falla por algo pasajero —se cayó el internet, el proveedor está

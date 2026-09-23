@@ -13,6 +13,7 @@
 
 pub mod arco;
 pub mod cancelacion;
+pub mod cola;
 pub mod conexion;
 pub mod contactos;
 pub mod db;
@@ -22,6 +23,7 @@ pub mod migraciones;
 pub mod preferencias;
 pub mod supresion;
 
+pub use cola::{Recuperacion, TrabajoTomado};
 pub use conexion::{ClaveMaestra, abrir};
 pub use contactos::{
     ContactoGuardado, DatosDelLote, MAX_POR_PAGINA, PaginaDeContactos, ResumenDeImportacion,
