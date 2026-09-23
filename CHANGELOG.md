@@ -45,6 +45,37 @@ again»— funciona con el servidor con el que se probó y falla con todos los
 demás, en idiomas que nadie leyó. Hay una prueba que manda el mismo código con
 textos opuestos y exige el mismo resultado.
 
+### Guardar un remitente lo prueba antes, y la cuenta nunca miente
+
+**Guardar una cuenta de correo la prueba primero.** Una cuenta guardada sin
+probar se queda diciendo que está conectada, y el primer sitio donde se descubre
+que no lo está es una campaña en marcha, con los contactos ya en cola.
+
+**Y se guarda aunque la prueba falle.** Lo contrario pierde el trabajo de quien
+lo escribió: un servidor que no responde ahora mismo, una red de oficina que
+bloquea el puerto, un corte de dos minutos — y esa persona tendría que volver a
+teclear seis campos y una contraseña de aplicación de dieciséis caracteres. Lo
+que se guarda en ese caso queda marcado como «hay que configurarla», así que la
+cuenta existe **y no miente**.
+
+**Probar una cuenta ya guardada no exige reescribir la contraseña.** Es el caso
+de «esto funcionaba y ha dejado de funcionar, ¿qué le pasa?»: obligar a
+reescribirla para poder diagnosticar es la forma segura de que nadie use el
+botón.
+
+**El orden de escritura no es casual:** primero el llavero, después la base. Al
+revés, un fallo del llavero dejaría una cuenta que la pantalla enseña como
+configurada y cuyos envíos fallan todos por una contraseña que no existe. Y si
+falla la base, el secreto recién escrito se retira para no ir dejando
+contraseñas huérfanas por la máquina.
+
+**Dos comprobaciones distintas para la misma regla**, y hacen falta las dos. Una
+prueba serializa una cuenta y busca el secreto **por su valor** en lo que cruza
+hacia la pantalla; una comprobación del validador busca campos con nombre de
+contraseña en todo lo que se serializa. Al romperlas se vio por qué: el campo
+que se añadió para la rotura se llamaba «clave de acceso», y sólo lo cazó la que
+mira el valor.
+
 ### La cuenta se guarda, y la contraseña no toca la base de datos
 
 **La contraseña de correo de la empresa no está en la base, ni cifrada.** Va al

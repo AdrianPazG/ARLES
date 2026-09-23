@@ -66,6 +66,9 @@ pub fn run() {
             comandos::entregar_informe_de_acceso,
             comandos::que_se_borraria,
             comandos::cancelar_datos_de,
+            comandos::remitentes,
+            comandos::probar_remitente,
+            comandos::guardar_remitente,
         ])
         .run(tauri::generate_context!());
 

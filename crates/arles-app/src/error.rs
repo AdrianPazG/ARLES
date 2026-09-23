@@ -63,6 +63,14 @@ pub enum AppError {
     #[error("los datos del contacto no son válidos")]
     ContactoInvalido(Vec<arles_core::contacto::ErrorDeContacto>),
 
+    /// El formulario de la cuenta de correo trae campos inválidos.
+    ///
+    /// Lista propia por el mismo motivo que la de contacto: son tipos
+    /// distintos, y fundirlos obligaría a uno de los formularios a cargar con
+    /// campos que no significan nada para él.
+    #[error("los datos de la cuenta de correo no son válidos")]
+    CuentaDeCorreoInvalida(Vec<arles_core::correo::ErrorDeCampoDeCuenta>),
+
     /// Se pidió algo de contactos sin haber configurado la empresa.
     ///
     /// No lo puede provocar el usuario: la pantalla de CONTACTOS no es
@@ -106,6 +114,7 @@ impl AppError {
             Self::TemaDesconocido => "error.app.tema_desconocido",
             Self::EmpresaInvalida(_) => "error.app.empresa_invalida",
             Self::ContactoInvalido(_) => "error.app.contacto_invalido",
+            Self::CuentaDeCorreoInvalida(_) => "error.app.cuenta_de_correo_invalida",
             Self::EmpresaNoConfigurada => "error.app.empresa_no_configurada",
             Self::SinImportacionEnCurso => "error.app.sin_importacion_en_curso",
             Self::ArchivoNoSePudoLeer => "error.app.archivo_no_se_pudo_leer",
@@ -145,6 +154,13 @@ pub struct ErrorIpc {
     /// índice que no significa nada para él.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub canales: Vec<arles_core::contacto::ErrorDeContacto>,
+    /// Y lo mismo para el formulario de la cuenta de correo.
+    #[serde(
+        rename = "camposDeCuenta",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub campos_de_cuenta: Vec<arles_core::correo::ErrorDeCampoDeCuenta>,
 }
 
 impl From<AppError> for ErrorIpc {
@@ -157,11 +173,16 @@ impl From<AppError> for ErrorIpc {
             AppError::ContactoInvalido(c) => c.clone(),
             _ => Vec::new(),
         };
+        let campos_de_cuenta = match &e {
+            AppError::CuentaDeCorreoInvalida(c) => c.clone(),
+            _ => Vec::new(),
+        };
         Self {
             clave: e.clave_i18n().to_owned(),
             detalle: redactar_rutas(&e.to_string()),
             campos,
             canales,
+            campos_de_cuenta,
         }
     }
 }

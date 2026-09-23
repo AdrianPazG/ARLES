@@ -483,6 +483,12 @@ export const es = {
       remitenteNoVale:
         "Revisa que el remitente tenga la forma nombre{'@'}dominio.com.",
       nombreLargo: 'El nombre es demasiado largo.',
+      // No es un campo del formulario en sentido estricto —la contraseña no
+      // se guarda con los demás datos—, pero se marca igual que uno para que
+      // la pantalla señale la casilla en vez de soltar un aviso general.
+      contrasenaVacia:
+        'Escribe la contraseña de la cuenta. Si es de Gmail, tiene que ser ' +
+        'una contraseña de aplicación.',
     },
 
     cifrado: {
@@ -976,6 +982,12 @@ export const es = {
       },
     },
     app: {
+      cuenta_de_correo_invalida: {
+        que: 'Los datos de la cuenta de correo tienen algún problema.',
+        como: 'Revisa los campos marcados en rojo y vuelve a intentarlo.',
+        salvo: 'No se guardó nada y no se envió ningún correo.',
+      },
+
       llavero_no_disponible: {
         que: 'No se puede acceder al almacén de credenciales de tu sistema.',
         como:

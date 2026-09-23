@@ -62,6 +62,7 @@ const CLAVES_DEL_NUCLEO = [
   'error.db.campana_no_existe',
   'error.estado_de_campana_desconocido',
   // Entrega 5.3 · una cuenta guardada con un cifrado que no reconocemos.
+  'error.app.cuenta_de_correo_invalida',
   'error.cifrado_desconocido',
   'error.db.cuenta_de_correo_no_existe',
   // Entrega 5.2 · la cuenta de correo. Son problemas de configuración, no de

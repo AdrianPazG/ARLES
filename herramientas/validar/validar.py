@@ -1391,6 +1391,21 @@ def claves_de_error_sin_texto():
 
     # En el catálogo cada error es un objeto anidado, así que se busca la última
     # parte de la clave seguida de `: {`.
+    #
+    # ── LO QUE ESTA COMPROBACIÓN NO VE ──
+    #
+    # Sólo mira la HOJA, no la ruta. Un texto escrito en la rama equivocada
+    # —`error.cuenta_de_correo_invalida` cuando la clave es
+    # `error.app.cuenta_de_correo_invalida`— la pasa sin protestar, y en la
+    # pantalla la clave no resuelve igualmente.
+    #
+    # Pasó el 23/09/2026, con esa clave exacta: el validador dijo que todo
+    # estaba bien y quien lo cazó fue `errores.spec.ts`, que sí resuelve la ruta
+    # entera contra el catálogo compilado. Se deja así a propósito —escribir
+    # aquí un segundo intérprete de TypeScript sería peor que el problema—, y se
+    # anota para que nadie confíe en esta comprobación más de lo que aguanta:
+    # la que decide es la del frontend, y por eso la otra comprobación de aquí
+    # exige que toda clave esté en su lista.
     sin_texto = sorted(c for c in claves if f"{c.rsplit('.', 1)[-1]}: {{" not in es)
     check(3, "toda clave de error de Rust tiene texto en el catálogo",
           bool(claves) and not sin_texto,
@@ -2773,6 +2788,42 @@ def solo_el_llavero_toca_contrasenas():
           f"archivos: {sorted(sospechosos)}")
 
 
+def nada_que_cruce_la_frontera_lleva_contrasena():
+    """Ninguna estructura que se serializa hacia la webview tiene contraseña.
+
+    Es la regla 3 de la frontera (`ARQUITECTURA.md` §5) comprobada por encima
+    de la disciplina: la contraseña de correo entra —la escribe el usuario— y
+    **no sale**. Un campo con ese nombre en algo que se serializa la pondría en
+    el JSON que recibe la webview, y de ahí a las herramientas de desarrollo, a
+    una captura de pantalla o a un informe de error hay un paso.
+
+    Se miran los `struct` marcados con `Serialize` en la capa de la frontera.
+
+    **Esto busca el NOMBRE del campo, y con eso no basta.** Al romperla a
+    propósito se vio que un campo llamado `clave_de_acceso` se le escapa. La que
+    caza ése es la prueba `lo_que_cruza_la_frontera_no_lleva_la_contrasena`, que
+    serializa una cuenta y busca el valor. Las dos hacen falta: ésta ve al que
+    declara el campo aunque no lo rellene todavía; la otra, al que lo llama de
+    otra manera.
+    """
+    texto = leer("crates/arles-app/src", "comandos.rs") or ""
+    # Cada bloque «#[derive(... Serialize ...)] ... pub struct X { ... }».
+    sospechosos = []
+    for bloque in re.finditer(
+        r"#\[derive\(([^)]*)\)\][^{]*?pub struct (\w+)\s*\{([^}]*)\}",
+        texto,
+        re.S,
+    ):
+        derivados, nombre, cuerpo = bloque.group(1), bloque.group(2), bloque.group(3)
+        if "Serialize" not in derivados:
+            continue
+        if re.search(r"^\s*(pub )?(contrasena|password|secreto)\s*:", cuerpo, re.M):
+            sospechosos.append(nombre)
+    check(5, "nada que cruce la frontera lleva contraseña", not sospechosos,
+          "Regla 3 de la frontera: la contraseña entra y no sale.",
+          f"estructuras: {sorted(sospechosos)}")
+
+
 def fase_5(rapido):
     titulo("FASE 5 · El correo de verdad")
 
@@ -2796,6 +2847,7 @@ def fase_5(rapido):
     confiar_en_un_certificado_es_solo_de_pruebas()
     la_contrasena_no_viaja_en_claro()
     solo_el_llavero_toca_contrasenas()
+    nada_que_cruce_la_frontera_lleva_contrasena()
     claves_de_error_sin_texto()
 
 

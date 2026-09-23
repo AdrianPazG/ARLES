@@ -207,6 +207,27 @@ impl Db {
         })
     }
 
+    /// Marca una cuenta como pendiente de configurar.
+    ///
+    /// Se usa cuando la cuenta se guarda pero la prueba de conexión no pasa: la
+    /// cuenta existe —no se pierde lo que alguien escribió— y **no dice que
+    /// funciona**, que es lo que evita descubrirlo con una campaña en marcha.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la escritura falla.
+    pub fn marcar_cuenta_por_configurar(&self, id: EmailAccountId) -> Result<(), DbError> {
+        let id = id.to_string();
+        self.con(|conn| {
+            conn.execute(
+                "UPDATE email_account SET status = 'needs_reauth', updated_at = ?2
+                  WHERE id = ?1 AND status <> 'disabled'",
+                params![id, ahora()],
+            )?;
+            Ok(())
+        })
+    }
+
     /// Las cuentas SMTP de una empresa, de la más antigua a la más reciente.
     ///
     /// # Errores

@@ -62,6 +62,7 @@ version = "1.2.0"
 dependencies = [
  "arles-core",
  "arles-db",
+ "arles-email",
  "arles-import",
  "directories",
  "keyring",

@@ -20,6 +20,10 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 arles-core = { path = "../arles-core" }
 arles-db = { path = "../arles-db" }
+# El adaptador de correo, para «Probar conexión» de la pantalla de Remitentes.
+# Entra en la frontera y no en el núcleo:  no sabe que existe el
+# correo, y por eso el día que haya un segundo proveedor no hay que tocarlo.
+arles-email = { path = "../arles-email" }
 arles-import = { path = "../arles-import" }
 tauri = { version = "2", features = [] }
 # Sólo se usa desde Rust, NUNCA se le da el permiso a la webview. Ver la nota

@@ -1223,9 +1223,392 @@ pub fn cancelar_datos_de(
         .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))
 }
 
+// ─── Remitentes · entrega 5.3 ───────────────────────────────────────────────
+
+/// Una cuenta remitente tal como la ve la pantalla. **Sin la contraseña.**
+///
+/// No es que se omita al serializar: **no está en la estructura**. La regla 3
+/// de la frontera —ningún comando devuelve un secreto— se cumple aquí por la
+/// forma del tipo, no por acordarse de no rellenar un campo.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemitenteEnPantalla {
+    pub id: String,
+    pub servidor: String,
+    pub puerto: u16,
+    /// `starttls` o `directo`. La interfaz lo traduce con `correo.cifrado.*`.
+    pub cifrado: String,
+    pub usuario: String,
+    pub remitente: String,
+    pub nombre_visible: Option<String>,
+    /// `connected`, `needs_reauth`, `circuit_open` o `disabled`.
+    pub estado: String,
+    pub limite_diario: u32,
+    pub limite_por_hora: u32,
+}
+
+/// Lo que devuelve guardar o probar: la lista al día y qué se averiguó.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResultadoDeRemitente {
+    /// La clave del diagnóstico (`correo.prueba.*`), o `None` si no se probó.
+    pub diagnostico: Option<String>,
+    /// `true` si la cuenta quedó lista para enviar.
+    pub sirve: bool,
+    /// La lista completa, para que la pantalla no tenga que volver a pedirla.
+    pub remitentes: Vec<RemitenteEnPantalla>,
+}
+
+fn a_pantalla(c: arles_db::correo::CuentaDeCorreoGuardada) -> RemitenteEnPantalla {
+    RemitenteEnPantalla {
+        id: c.id.to_string(),
+        servidor: c.datos.servidor().to_owned(),
+        puerto: c.datos.puerto(),
+        cifrado: c.datos.cifrado().como_str().to_owned(),
+        usuario: c.datos.usuario().to_owned(),
+        remitente: c.datos.remitente().raw().to_owned(),
+        nombre_visible: c.datos.nombre_visible().map(ToOwned::to_owned),
+        estado: c.estado,
+        limite_diario: c.limites.diario,
+        limite_por_hora: c.limites.por_hora,
+    }
+}
+
+/// Lista las cuentas remitentes.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si la base no responde, o si **alguna** cuenta guardada no pasa
+/// la validación: una cuenta rota se dice, no se esconde de la lista.
+#[tauri::command]
+pub fn remitentes(
+    estado: tauri::State<'_, EstadoApp>,
+) -> Result<Vec<RemitenteEnPantalla>, ErrorIpc> {
+    let empresa = empresa_actual(&estado).map_err(ErrorIpc::from)?;
+    let cuentas = estado
+        .db()
+        .cuentas_de_correo(empresa)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+    Ok(cuentas.into_iter().map(a_pantalla).collect())
+}
+
+/// Construye el adaptador a partir de un borrador ya validado.
+fn adaptador(
+    datos: &arles_core::correo::DatosDeLaCuenta,
+    contrasena: &str,
+) -> Result<arles_email::ProveedorSmtp, ErrorIpc> {
+    use arles_core::correo::CifradoDeCorreo;
+
+    let cifrado = match datos.cifrado() {
+        CifradoDeCorreo::Starttls => arles_email::Cifrado::starttls(),
+        CifradoDeCorreo::Directo => arles_email::Cifrado::directo(),
+    };
+
+    arles_email::ProveedorSmtp::nuevo(
+        &arles_email::Cuenta {
+            servidor: datos.servidor().to_owned(),
+            puerto: Some(datos.puerto()),
+            usuario: datos.usuario().to_owned(),
+            remitente: datos.remitente().raw().to_owned(),
+            nombre_visible: datos.nombre_visible().map(ToOwned::to_owned),
+            cifrado,
+        },
+        contrasena,
+        // La prueba de conexión no manda ningún correo, así que este contenido
+        // no llega a usarse. Está porque el adaptador es el mismo que envía, y
+        // que sea el mismo es lo que hace que la prueba signifique algo.
+        arles_email::Contenido {
+            asunto: String::new(),
+            cuerpo: String::new(),
+        },
+    )
+    .map_err(|e| ErrorIpc {
+        clave: e.clave_i18n().to_owned(),
+        detalle: e.to_string(),
+        campos: Vec::new(),
+        canales: Vec::new(),
+        campos_de_cuenta: Vec::new(),
+    })
+}
+
+/// Prueba una cuenta **sin guardar nada** (§29).
+///
+/// La contraseña entra por aquí porque el usuario acaba de escribirla y todavía
+/// no está en el llavero. Entra; no sale: ningún comando la devuelve.
+///
+/// Si `id` viene relleno y `contrasena` está vacía, se prueba la contraseña ya
+/// guardada. Es el caso de «esta cuenta ha dejado de funcionar, ¿qué le pasa?»,
+/// donde obligar a reescribir la contraseña para poder diagnosticar es la forma
+/// segura de que nadie use el botón.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] con `camposDeCuenta` relleno si el formulario no es válido.
+#[tauri::command]
+pub fn probar_remitente(
+    estado: tauri::State<'_, EstadoApp>,
+    borrador: arles_core::correo::BorradorDeCuenta,
+    contrasena: String,
+    id: Option<String>,
+) -> Result<ResultadoDeRemitente, ErrorIpc> {
+    let datos = arles_core::correo::DatosDeLaCuenta::validar(&borrador)
+        .map_err(|campos| ErrorIpc::from(crate::AppError::CuentaDeCorreoInvalida(campos)))?;
+
+    let contrasena = resolver_contrasena(contrasena, id.as_deref())?;
+    let diagnostico = adaptador(&datos, &contrasena)?.probar();
+
+    Ok(ResultadoDeRemitente {
+        diagnostico: Some(diagnostico.clave_i18n().to_owned()),
+        sirve: diagnostico.sirve(),
+        remitentes: remitentes(estado)?,
+    })
+}
+
+/// La contraseña que toca usar: la escrita, o la del llavero.
+///
+/// **El valor que sale de aquí no cruza la frontera de vuelta.** Se usa para
+/// construir el adaptador y muere con él.
+fn resolver_contrasena(escrita: String, id: Option<&str>) -> Result<String, ErrorIpc> {
+    if !escrita.is_empty() {
+        return Ok(escrita);
+    }
+
+    let Some(id) = id else {
+        // Sin contraseña escrita y sin cuenta guardada no hay nada que probar.
+        // Se dice como un campo del formulario para que la pantalla marque la
+        // casilla, en vez de soltar un aviso general.
+        return Err(ErrorIpc::from(crate::AppError::CuentaDeCorreoInvalida(
+            vec![arles_core::correo::ErrorDeCampoDeCuenta {
+                campo: arles_core::correo::CampoDeCuenta::Usuario,
+                clave: "correo.error.contrasenaVacia",
+            }],
+        )));
+    };
+
+    crate::llavero::Llavero::de_la_cuenta(id)
+        .leer_contrasena()
+        .map_err(ErrorIpc::from)?
+        .ok_or_else(|| {
+            ErrorIpc::from(crate::AppError::CuentaDeCorreoInvalida(vec![
+                arles_core::correo::ErrorDeCampoDeCuenta {
+                    campo: arles_core::correo::CampoDeCuenta::Usuario,
+                    clave: "correo.error.contrasenaVacia",
+                },
+            ]))
+        })
+}
+
+/// Guarda una cuenta remitente: la valida, **la prueba** y la escribe.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ GUARDAR PRUEBA, Y POR QUÉ GUARDA IGUAL SI LA PRUEBA FALLA
+///
+/// Son dos decisiones, y las dos tienen su motivo.
+///
+/// **Prueba** porque una cuenta guardada sin probar se queda diciendo que está
+/// conectada, y el primer sitio donde se descubre que no lo está es una campaña
+/// en marcha, con los contactos ya en cola. Es un comando grueso (regla 1 de la
+/// frontera): validar, probar y guardar en un solo cruce, porque partirlo deja
+/// estados intermedios donde la pantalla y la base no dicen lo mismo.
+///
+/// **Y guarda aunque la prueba falle** porque lo contrario pierde el trabajo de
+/// quien lo escribió. Un servidor que no responde ahora mismo, una red de
+/// oficina que bloquea el puerto, un corte de dos minutos: si el guardado se
+/// rechazara, esa persona tendría que volver a teclear seis campos y una
+/// contraseña de aplicación de dieciséis caracteres. Lo que se guarda en ese
+/// caso queda marcado como `needs_reauth` —hay que configurarla—, así que la
+/// cuenta existe y no miente.
+///
+/// El diagnóstico vuelve con el resultado para que la pantalla lo diga.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// EL ORDEN DE ESCRITURA, QUE NO ES CASUAL
+///
+/// Primero el llavero, después la base. Si se hiciera al revés y el llavero
+/// fallara, quedaría una cuenta en la base apuntando a una contraseña que no
+/// existe: la pantalla la enseñaría como configurada y todos sus envíos
+/// fallarían con «la contraseña no sirve».
+///
+/// Al revés, lo peor que queda si la base falla es una entrada de llavero que
+/// nadie usa — y aun así se borra, para no ir dejando secretos huérfanos por la
+/// máquina.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] con `camposDeCuenta` si el formulario no vale, o si el llavero
+/// no está disponible. **Sin llavero no se guarda nada** (ADR-0011).
+#[tauri::command]
+pub fn guardar_remitente(
+    estado: tauri::State<'_, EstadoApp>,
+    borrador: arles_core::correo::BorradorDeCuenta,
+    contrasena: String,
+    id: Option<String>,
+) -> Result<ResultadoDeRemitente, ErrorIpc> {
+    let datos = arles_core::correo::DatosDeLaCuenta::validar(&borrador)
+        .map_err(|campos| ErrorIpc::from(crate::AppError::CuentaDeCorreoInvalida(campos)))?;
+
+    let empresa = empresa_actual(&estado).map_err(ErrorIpc::from)?;
+
+    // El identificador se genera aquí, antes de escribir nada: la referencia
+    // del llavero lo lleva dentro, y la entrada del llavero se nombra con él.
+    let id_cuenta = match &id {
+        Some(existente) => existente.parse().map_err(|_| {
+            ErrorIpc::from(crate::AppError::Db(arles_db::DbError::DatoInvalido {
+                motivo: "ese identificador de cuenta no es válido",
+            }))
+        })?,
+        None => arles_core::ids::EmailAccountId::nuevo(),
+    };
+    let texto_del_id = id_cuenta.to_string();
+
+    let contrasena = resolver_contrasena(contrasena, id.as_deref())?;
+
+    // 1 · El secreto, primero.
+    let llavero = crate::llavero::Llavero::de_la_cuenta(&texto_del_id);
+    llavero
+        .guardar_contrasena(&contrasena)
+        .map_err(ErrorIpc::from)?;
+
+    // 2 · La prueba, con el adaptador que de verdad envía.
+    let diagnostico = adaptador(&datos, &contrasena)?.probar();
+
+    // 3 · La base. Si falla, el secreto que se acaba de escribir se retira.
+    let escritura = match &id {
+        Some(_) => estado.db().actualizar_cuenta_de_correo(id_cuenta, &datos),
+        None => estado.db().alta_de_cuenta_de_correo(
+            empresa,
+            id_cuenta,
+            &datos,
+            arles_db::correo::LimitesDeLaCuenta::default(),
+            &crate::llavero::referencia_de_cuenta(&texto_del_id),
+        ),
+    };
+
+    if let Err(e) = escritura {
+        // Sólo se retira el secreto de una cuenta que se acaba de crear. En una
+        // edición, la contraseña vieja ya fue sustituida por la nueva y borrarla
+        // dejaría sin contraseña a una cuenta que sigue existiendo.
+        if id.is_none() {
+            let _ = llavero.borrar();
+        }
+        return Err(ErrorIpc::from(crate::AppError::Db(e)));
+    }
+
+    // 4 · Y si la prueba no pasó, la cuenta lo dice.
+    if !diagnostico.sirve() {
+        estado
+            .db()
+            .marcar_cuenta_por_configurar(id_cuenta)
+            .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+    }
+
+    Ok(ResultadoDeRemitente {
+        diagnostico: Some(diagnostico.clave_i18n().to_owned()),
+        sirve: diagnostico.sirve(),
+        remitentes: remitentes(estado)?,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── Remitentes · entrega 5.3 ─────────────────────────────────────────
+
+    /// **Lo que sale hacia la webview no lleva la contraseña.**
+    ///
+    /// Se serializa una cuenta de verdad y se busca el secreto en el JSON, en
+    /// vez de leer la definición del `struct`: lo que importa es lo que cruza
+    /// la frontera, no lo que creemos haber declarado. Si alguien añade un
+    /// campo mañana, esta prueba lo dice.
+    ///
+    /// Verificada rompiéndola el 23/09/2026, y con algo que merece anotarse:
+    /// el campo que se añadió para romperla se llamaba `clave_de_acceso`, no
+    /// «contraseña», y esta prueba lo cazó igual **porque busca el valor**. La
+    /// invariante del validador busca el nombre del campo, así que ésa no lo
+    /// habría visto. Las dos hacen falta: una caza al que guarda un secreto con
+    /// un nombre inocente, la otra al que lo declara sin rellenarlo todavía.
+    #[test]
+    fn lo_que_cruza_la_frontera_no_lleva_la_contrasena() {
+        const CONTRASENA: &str = "la-contrasena-de-aplicacion";
+
+        let cuenta = RemitenteEnPantalla {
+            id: "01900000-0000-7000-8000-00000000000a".to_owned(),
+            servidor: "smtp.gmail.com".to_owned(),
+            puerto: 587,
+            cifrado: "starttls".to_owned(),
+            usuario: "ventas@telemetry.mx".to_owned(),
+            remitente: "ventas@telemetry.mx".to_owned(),
+            nombre_visible: Some("TELEMETRY".to_owned()),
+            estado: "connected".to_owned(),
+            limite_diario: 50,
+            limite_por_hora: 10,
+        };
+
+        let json = serde_json::to_string(&cuenta).expect("serializa");
+        assert!(
+            !json.contains(CONTRASENA) && !json.contains("contrasena"),
+            "la cuenta que va a la pantalla no puede llevar contraseña: {json}"
+        );
+        // Y sí lleva lo que la pantalla necesita para pintarse.
+        assert!(json.contains("smtp.gmail.com") && json.contains("starttls"));
+    }
+
+    /// El resultado de guardar o probar tampoco.
+    #[test]
+    fn el_resultado_de_probar_no_lleva_la_contrasena() {
+        let r = ResultadoDeRemitente {
+            diagnostico: Some("correo.prueba.contrasena_rechazada".to_owned()),
+            sirve: false,
+            remitentes: Vec::new(),
+        };
+        let json = serde_json::to_string(&r).expect("serializa");
+        assert!(!json.contains("contrasena\":"), "{json}");
+        // La clave del diagnóstico sí va: es lo que la pantalla traduce.
+        assert!(json.contains("correo.prueba.contrasena_rechazada"));
+    }
+
+    /// **Una cuenta que sale no puede volver a entrar.**
+    ///
+    /// La misma regla que ya rige para los contactos: si `RemitenteEnPantalla`
+    /// se pudiera deserializar, la webview podría mandar una cuenta «ya
+    /// formada» —con el estado que quisiera— y saltarse la validación del
+    /// núcleo. Lo que entra es un `BorradorDeCuenta` y nada más.
+    #[test]
+    fn el_remitente_que_sale_no_puede_volver_a_entrar() {
+        fn solo_si_deserializa<T: serde::de::DeserializeOwned>() {}
+        // Esta línea NO compila si alguien le pone `Deserialize` al tipo, que
+        // es exactamente la señal que se busca:
+        // solo_si_deserializa::<RemitenteEnPantalla>();
+        solo_si_deserializa::<arles_core::correo::BorradorDeCuenta>();
+    }
+
+    /// Los seis diagnósticos que puede devolver la prueba tienen texto.
+    ///
+    /// La pantalla resuelve la clave contra el catálogo; una clave sin texto
+    /// enseñaría «correo.prueba.no_se_llego» en la cara del usuario (§139).
+    #[test]
+    fn el_diagnostico_que_cruza_es_una_clave_y_no_un_texto() {
+        use arles_email::Diagnostico;
+        for d in [
+            Diagnostico::Correcto,
+            Diagnostico::NoSeLlegoAlServidor,
+            Diagnostico::ElServidorTardoDemasiado,
+            Diagnostico::ElCifradoNoSePudoEstablecer,
+            Diagnostico::LaContrasenaNoSirve,
+            Diagnostico::ElServidorNoEstaDisponible,
+        ] {
+            let clave = d.clave_i18n();
+            assert!(
+                clave.starts_with("correo.prueba."),
+                "lo que cruza tiene que ser una clave: {clave}"
+            );
+            assert!(
+                !clave.contains(' '),
+                "una clave con espacios es un texto disfrazado: {clave}"
+            );
+        }
+    }
 
     /// ADR-0010: la interfaz no puede poner «I» junto al número porque los
     /// recibe en campos distintos. El tipo hace cumplir la regla.
