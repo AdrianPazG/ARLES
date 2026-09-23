@@ -17,6 +17,7 @@ pub mod cancelacion;
 pub mod cola;
 pub mod conexion;
 pub mod contactos;
+pub mod cuentas;
 pub mod db;
 pub mod empresa;
 pub mod error;
@@ -31,6 +32,7 @@ pub use conexion::{ClaveMaestra, abrir};
 pub use contactos::{
     ContactoGuardado, DatosDelLote, MAX_POR_PAGINA, PaginaDeContactos, ResumenDeImportacion,
 };
+pub use cuentas::SaludDeLaCuenta;
 pub use db::{Db, ResumenArranque};
 pub use empresa::EmpresaGuardada;
 pub use error::DbError;

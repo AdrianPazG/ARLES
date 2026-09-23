@@ -1423,7 +1423,7 @@ def claves_de_error_sin_texto():
                 # Se quitan los tests: sus cadenas no van a ninguna pantalla.
                 cuerpo = texto.split("\n#[cfg(test)]")[0]
                 otras |= set(re.findall(
-                    r'"((?:campana|motor|reintento|ritmo|ventana|instancia|etapa|duracion|preflight)'
+                    r'"((?:campana|motor|reintento|ritmo|ventana|instancia|etapa|duracion|preflight|disyuntor)'
                     r'\.[a-zA-Z][a-zA-Z._]*)"', cuerpo))
 
     # En el catálogo la clave es la última parte, anidada bajo las anteriores.
@@ -2466,7 +2466,162 @@ def fase_3(rapido):
                   porque, cwd=app, timeout=900)
 
 
-FASES = {0: fase_0, 1: fase_1, 2: fase_2, 3: fase_3}
+# ═══════════════════════════════════════════════════════════════════════════
+# FASE 4 · El motor de ejecución
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def el_motor_no_habla_sql():
+    """`arles-motor` no escribe SQL. Es la regla que mantiene `rusqlite` dentro.
+
+    El motor pide a `arles-db` con métodos tipados. En cuanto una consulta se
+    escriba aquí, habrá dos sitios donde auditar el SQL del producto — y el
+    segundo no lo mirará nadie, porque nadie espera encontrarlo ahí (ADR-0002).
+
+    Se mira el código de produccion, no las pruebas: las pruebas siembran la
+    cola con SQL crudo a propósito, por `test-util`.
+    """
+    sospechosos = []
+    d = os.path.join(RAIZ, "crates/arles-motor/src")
+    for archivo in sorted(os.listdir(d)):
+        if not archivo.endswith(".rs"):
+            continue
+        texto = leer("crates/arles-motor/src", archivo) or ""
+        produccion = texto.split("\n#[cfg(test)]")[0]
+        if re.search(r"\b(SELECT|INSERT|UPDATE|DELETE)\s", produccion):
+            sospechosos.append(archivo)
+    check(4, "el motor no escribe SQL", not sospechosos,
+          "ADR-0002: el SQL vive en arles-db, donde se puede auditar entero.",
+          f"archivos con SQL: {sospechosos}")
+
+
+def la_suspension_no_toca_el_presupuesto():
+    """La detección de suspensión informa; no reinicia contadores.
+
+    ROTO A PROPÓSITO, y encontrado así: `Despertar::presupuesto` devolvía el
+    presupuesto a cero al detectar una suspensión. Con una siesta dentro del
+    mismo día eso devolvía el cupo diario entero — cien envíos con un tope de
+    cincuenta, la ráfaga que el §53 prohíbe, escrita dentro de su propia
+    solución. Se quitó el 23/09/2026 al auditar la fase.
+
+    Esta comprobación impide que vuelva.
+    """
+    ritmo = leer("crates/arles-core/src", "ritmo.rs") or ""
+    check(4, "la suspensión no reinicia el presupuesto",
+          "fn presupuesto" not in ritmo,
+          "Reiniciar el presupuesto al despertar devuelve el cupo diario "
+          "entero si la siesta cae dentro del mismo día: es la ráfaga del §53.")
+
+
+def el_reloj_atrasado_no_regala_permisos():
+    """Una etiqueta de ventana más vieja no reinicia el contador.
+
+    Sin esto basta con atrasar el reloj para que la cuenta mande el cupo diario
+    otra vez. Es el caso «reloj del sistema ajustado hacia atrás» de
+    ESTRATEGIA_QA §3, que estuvo enunciado y sin cubrir hasta la auditoría.
+    """
+    p = leer("crates/arles-db/src", "presupuesto.rs") or ""
+    check(4, "atrasar el reloj no reinicia el presupuesto",
+          "excluded.window_start > window_start" in p
+          and "MAX(window_start, excluded.window_start)" in p,
+          "Mover el reloj hacia atrás no puede ser una forma de saltarse el "
+          "límite diario del proveedor.")
+
+
+def el_disyuntor_distingue_de_quien_es_la_culpa():
+    """Un rebote no abre el disyuntor; un fallo de red sí.
+
+    Es la mitad que rompería el producto: una lista importada con direcciones
+    viejas tiene rachas de rebotes, y si contaran, la campaña se pararía sola
+    cada pocos minutos sin que el usuario entendiera por qué.
+    """
+    d = leer("crates/arles-core/src", "disyuntor.rs") or ""
+    check(4, "el disyuntor distingue la cuenta del destinatario",
+          "habla_de_la_cuenta" in d
+          and "Fallo::LaDireccionNoExiste | Fallo::EsaPersonaPidioLaBaja => false" in d,
+          "Que una dirección no exista no dice nada malo del remitente.")
+
+
+def cada_suceso_tiene_un_solo_texto():
+    """Un paso del bucle no inventa una copia del texto de otro módulo.
+
+    Antes de la auditoría había una clave `motor.*` por cada paso, y eso creaba
+    dos textos para el mismo hecho: Actividad decía «Se volverá a intentar» y el
+    detalle del envío, a un clic, «Reintento 2 de 3». El mismo suceso contado de
+    dos maneras, y una sin la cifra que exige el §94.
+    """
+    b = leer("crates/arles-motor/src", "bucle.rs") or ""
+    duplicadas = [c for c in
+                  ("motor.seVolveraAIntentar", "motor.seAgotaronLosIntentos",
+                   "motor.direccionInexistente", "motor.laCuentaNoAutentica",
+                   "motor.esaPersonaPidioLaBaja", "motor.sinPresupuesto")
+                  if c in b]
+    check(4, "cada suceso del motor tiene un solo texto", not duplicadas,
+          "Dos textos para el mismo hecho hacen que la misma campaña se lea "
+          "distinta en dos pantallas.",
+          f"claves duplicadas: {duplicadas}")
+
+
+def la_parada_de_emergencia_sobrevive_al_cierre():
+    """La parada está en la base, no en memoria.
+
+    En memoria, cerrar ARLES la levanta — y quien la pulsó no está delante para
+    verlo. El caso: alguien ve que la campaña recién activada lleva la plantilla
+    equivocada, pulsa parar y cierra el programa.
+    """
+    hay_tabla = os.path.exists(os.path.join(
+        RAIZ, "crates/arles-db/migrations/V6__parada_de_emergencia.sql"))
+    c = leer("crates/arles-db/src", "campanas.rs") or ""
+    check(4, "la parada de emergencia se guarda en la base",
+          hay_tabla and "engine_control" in c,
+          "Una bandera en memoria se levanta sola al arrancar.")
+
+
+def fase_4(rapido):
+    titulo("FASE 4 · El motor de ejecución")
+
+    print(f"{GRIS}  estructura{FIN}")
+    for ruta, porque in [
+        ("crates/arles-core/src/attempt.rs", "La máquina de estados del envío: qué transición existe y cuál no."),
+        ("crates/arles-core/src/ritmo.rs", "El cupo por hora y por día, y la detección de suspensión."),
+        ("crates/arles-core/src/ventana.rs", "El horario de la campaña con su zona IANA (D-10)."),
+        ("crates/arles-core/src/reintento.rs", "La política de reintentos de D-12: 5, 15 y 30 minutos."),
+        ("crates/arles-core/src/disyuntor.rs", "El disyuntor por cuenta (§7): cuándo dejar de insistir."),
+        ("crates/arles-core/src/campana.rs", "Pausar, reanudar y detener, y por qué detener no se deshace."),
+        ("crates/arles-core/src/duracion.rs", "Cuándo terminará la campaña (§11), antes de activarla."),
+        ("crates/arles-core/src/preflight.rs", "Las ocho comprobaciones previas (§12), con «sin comprobar»."),
+        ("crates/arles-db/src/cola.rs", "La cola que no duplica: compare-and-swap y recuperación al arrancar."),
+        ("crates/arles-db/src/presupuesto.rs", "El cupo persistido, que sobrevive a cerrar el programa."),
+        ("crates/arles-db/src/cuentas.rs", "El disyuntor escrito: las columnas de la V1 que nadie tocaba."),
+        ("crates/arles-db/src/campanas.rs", "Pausar/detener en una transacción, y la parada de emergencia."),
+        ("crates/arles-db/migrations/V6__parada_de_emergencia.sql", "La parada tiene que sobrevivir a cerrar el programa."),
+        ("crates/arles-motor/src/proveedor.rs", "La frontera con el mundo: quién entrega un mensaje."),
+        ("crates/arles-motor/src/simulador.rs", "Un proveedor al que se le puede ordenar que falle."),
+        ("crates/arles-motor/src/bucle.rs", "El bucle del §13, donde todo funciona junto."),
+        ("crates/arles-motor/src/instancia.rs", "Un solo ARLES sobre una sola base."),
+        ("crates/arles-motor/src/tiempo.rs", "El sello de tiempo, que la base compara como texto."),
+    ]:
+        check(4, f"existe {ruta}", os.path.exists(os.path.join(RAIZ, ruta)), porque)
+
+    print(f"{GRIS}  invariantes{FIN}")
+    migraciones_no_se_editan()
+    el_motor_no_habla_sql()
+    la_suspension_no_toca_el_presupuesto()
+    el_reloj_atrasado_no_regala_permisos()
+    el_disyuntor_distingue_de_quien_es_la_culpa()
+    cada_suceso_tiene_un_solo_texto()
+    la_parada_de_emergencia_sobrevive_al_cierre()
+    claves_de_error_sin_texto()
+
+    print(f"{GRIS}  documentación{FIN}")
+    informe_para_direccion(4, "FASE-04-PARA-DIRECCION")
+    check(4, "existe el documento de la Fase 4",
+          os.path.exists(os.path.join(
+              RAIZ, "documentacion/09-fases/FASE-04-MOTOR-DE-EJECUCION.md")),
+          "Sin documento de fase, lo que se decidió se pierde con la sesión.")
+
+
+FASES = {0: fase_0, 1: fase_1, 2: fase_2, 3: fase_3, 4: fase_4}
 
 
 def main():

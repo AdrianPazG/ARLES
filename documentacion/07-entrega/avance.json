@@ -76,8 +76,8 @@
       "id": "F4",
       "nombre": "Motor de ejecución",
       "peso": 14,
-      "hecho": 0.9,
-      "porque": "Construido y probado: la máquina de estados del envío, la ventana con su zona IANA (D-10), la política de reintentos de D-12, la cola con compare-and-swap y recuperación al arrancar, el presupuesto persistido, el proveedor simulado con siete respuestas a la orden, el bucle del trabajador entero (MOTOR_DE_EJECUCION.md §13), el cerrojo de instancia única con latido, Pausar/Reanudar/Detener con la parada de emergencia guardada (migración V6), el simulador de duración (§11) y el preflight de ocho puntos (§12). Falta el cierre de fase: documento, informe para Dirección con su PDF y el validador de fase 4 en verde."
+      "hecho": 1.0,
+      "porque": "Fase cerrada el 23/09/2026 con 36/36 comprobaciones y 0 omitidas. Máquina de estados, ritmo, ventana con zona IANA (D-10), reintentos (D-12), cola con compare-and-swap y recuperación al arrancar, presupuesto persistido, disyuntor por cuenta (§7), proveedor simulado, bucle del trabajador (§13), cerrojo de instancia única, Pausar/Reanudar/Detener con parada de emergencia persistida (V6), simulador de duración (§11) y preflight de ocho puntos (§12). La auditoría de cierre encontró y corrigió cinco defectos, entre ellos una protección contra ráfagas que devolvía el cupo diario entero tras una siesta."
     },
     {
       "id": "F5",

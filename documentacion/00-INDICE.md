@@ -125,6 +125,8 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Fase 02 · resumen para Dirección](09-fases/FASE-02-PARA-DIRECCION.md) | Sin tecnicismos |
 | [Fase 03 · Empresa y contactos](09-fases/FASE-03-EMPRESA-Y-CONTACTOS.md) | ✅ cerrada · 77/77, 0 omitidas |
 | [Fase 03 · resumen para Dirección](09-fases/FASE-03-PARA-DIRECCION.md) | Sin tecnicismos |
+| [Fase 04 · Motor de ejecución](09-fases/FASE-04-MOTOR-DE-EJECUCION.md) | ✅ cerrada · 36/36, 0 omitidas |
+| [Fase 04 · resumen para Dirección](09-fases/FASE-04-PARA-DIRECCION.md) | Sin tecnicismos |
 
 ---
 

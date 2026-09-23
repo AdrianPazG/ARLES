@@ -97,7 +97,7 @@ su parte de esquema; el resto llega en las Fases 5 y 7.
 
 ---
 
-### Fase 4 — Motor de ejecución ⭐ 🟡 en curso
+### Fase 4 — Motor de ejecución ⭐ ✅ cerrada el 23/09/2026
 
 **Adelantada a propósito. Concentra el 70 % del riesgo técnico.**
 
@@ -124,7 +124,7 @@ Cola persistente · máquina de estados · idempotencia con restricción única 
 | **4.3** | El proveedor simulado y el bucle del worker · un proveedor al que se le puede ordenar que falle de seis formas distintas | Los casos de red y credenciales de `ESTRATEGIA_QA.md` §3 |
 | **4.4** | Pausar, reanudar, detener · y la parada de emergencia comprobada **antes de cada envío**, no entre lotes | Parar con un envío en curso y que no salga ni uno más |
 | **4.5** | El simulador de duración y el preflight · «terminará alrededor del 24 de enero» y las ocho comprobaciones previas | Los ocho puntos del preflight, con errores accionables (§95) |
-| **4.6** | Cierre: documento de fase, informe para Dirección y PDF | `validar.py --fase 4` en verde, 0 omitidas |
+| **4.6** | Cierre: **auditoría de la fase**, documento, informe y PDF | `validar.py --fase 4` en verde, 0 omitidas ✅ **36/36** |
 
 **El orden no es negociable:** cada entrega se apoya en la anterior. La 4.2 es
 la que concentra el riesgo y la que lleva el tramo más largo.

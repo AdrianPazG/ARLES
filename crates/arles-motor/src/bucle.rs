@@ -29,6 +29,7 @@
 //! frente, y cada rama del §13 tiene el suyo.
 
 use arles_core::canal::Canal;
+use arles_core::disyuntor::{Circuito, Efecto, tras_un_acierto, tras_un_fallo};
 use arles_core::ids::CompanyId;
 use arles_core::reintento::{Decision, Fallo, que_hacer};
 use arles_core::ritmo::{Limites, NoSePuede, cabe_uno_mas};
@@ -181,6 +182,12 @@ pub enum Paso {
     DadoDeBaja { intento: String },
     /// La cuenta no autentica. **Se detiene la cuenta entera**, no este envío.
     CuentaParada { intento: String },
+    /// El disyuntor de la cuenta está abierto: no se toma trabajo (§7).
+    ///
+    /// Lleva los segundos que faltan para poder decirlo con una cifra. «La
+    /// cuenta está parada» a secas se lee como una avería; «vuelve a intentarlo
+    /// en 23 minutos» es un hecho (§94).
+    CuentaEnPausa { segundos_restantes: u64 },
 }
 
 impl Paso {
@@ -198,24 +205,47 @@ impl Paso {
                 | Self::SinPresupuesto(_)
                 | Self::NoHayTrabajo
                 | Self::CuentaParada { .. }
+                | Self::CuentaEnPausa { .. }
         )
     }
 
     /// La clave de texto para la pantalla (§139).
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// UN SUCESO, UN TEXTO
+    ///
+    /// La primera versión tenía una clave `motor.*` propia para cada paso, y
+    /// eso creaba **dos textos para el mismo suceso**: la pantalla de Actividad
+    /// habría dicho «Se volverá a intentar» y el detalle del envío, a un clic
+    /// de distancia, «Reintento 2 de 3». El mismo hecho contado de dos maneras
+    /// en dos sitios, y una de las dos sin la cifra que exige el §94.
+    ///
+    /// Se corrigió al auditar la fase (23/09/2026): cuando el paso **es** el
+    /// desenlace de un intento, la clave es la del desenlace; cuando el paso
+    /// **es** una razón para no enviar, la clave es la de esa razón. Las
+    /// `motor.*` que quedan son las que no existen en ningún otro sitio.
     #[must_use]
-    pub const fn clave_i18n(&self) -> &'static str {
+    pub fn clave_i18n(&self) -> &'static str {
         match self {
+            // Estados del bucle. No los describe nadie más.
             Self::Parado => "motor.parado",
             Self::FueraDeVentana => "motor.fueraDeVentana",
-            Self::SinPresupuesto(_) => "motor.sinPresupuesto",
             Self::NoHayTrabajo => "motor.noHayTrabajo",
-            Self::Baja { .. } => "motor.esaPersonaPidioLaBaja",
             Self::Cancelado { .. } => "motor.cancelado",
             Self::Aceptado { .. } => "motor.aceptadoPorElProveedor",
-            Self::Reintentara { .. } => "motor.seVolveraAIntentar",
-            Self::Rendido { .. } => "motor.seAgotaronLosIntentos",
-            Self::DadoDeBaja { .. } => "motor.direccionInexistente",
-            Self::CuentaParada { .. } => "motor.laCuentaNoAutentica",
+            Self::CuentaEnPausa { .. } => "motor.laCuentaEstaEnPausa",
+
+            // El motivo por el que no cabe un envío ya tiene su texto, y lleva
+            // la cifra: «Se alcanzó el tope de 50 envíos al día».
+            Self::SinPresupuesto(motivo) => motivo.clave_i18n(),
+
+            // Los desenlaces de un intento los nombra `arles_core::reintento`,
+            // que es quien los decide. Repetirlos aquí era duplicar el texto.
+            Self::Baja { .. } => "reintento.pidioLaBaja",
+            Self::Reintentara { .. } => "reintento.seVolveraAIntentar",
+            Self::Rendido { .. } => "reintento.seAgotaronLosIntentos",
+            Self::DadoDeBaja { .. } => "reintento.direccionInexistente",
+            Self::CuentaParada { .. } => "reintento.laCuentaNoAutentica",
         }
     }
 }
@@ -305,6 +335,21 @@ impl<'a> Trabajador<'a> {
             return Ok(Paso::FueraDeVentana);
         }
 
+        let marca = sello(ahora);
+
+        // El disyuntor, antes del presupuesto y antes de tomar nada (§7, §13).
+        //
+        // Va aquí y no más abajo porque una cuenta con el circuito abierto no
+        // debe ni tocar la cola: tomar un trabajo que no se va a poder enviar
+        // lo deja marcado para nadie hasta el siguiente arranque.
+        if let Circuito::Abierto { segundos_restantes } = self
+            .db
+            .salud_de_la_cuenta(&self.ajustes.cuenta, &marca)?
+            .circuito
+        {
+            return Ok(Paso::CuentaEnPausa { segundos_restantes });
+        }
+
         let hora = clave_de_hora(&self.ajustes.zona_de_la_empresa, ahora);
         let dia = clave_de_dia(&self.ajustes.zona_de_la_empresa, ahora);
         let gastado = self.db.gastado_de(&self.ajustes.cuenta, &hora, &dia)?;
@@ -314,7 +359,6 @@ impl<'a> Trabajador<'a> {
             return Ok(Paso::SinPresupuesto(motivo));
         }
 
-        let marca = sello(ahora);
         let Some(trabajo) = self.db.tomar_siguiente(&self.ajustes.campana, &marca)? else {
             return Ok(Paso::NoHayTrabajo);
         };
@@ -365,6 +409,13 @@ impl<'a> Trabajador<'a> {
                 let id_del_proveedor = aceptado.id_del_proveedor.as_deref().map(recortar_respuesta);
                 self.db
                     .marcar_enviado(&trabajo.id, id_del_proveedor.as_deref(), None, &marca)?;
+                // Un envío que sale borra la racha de fallos de la cuenta.
+                self.db.aplicar_al_disyuntor(
+                    &self.ajustes.cuenta,
+                    tras_un_acierto(),
+                    &marca,
+                    None,
+                )?;
                 Ok(Paso::Aceptado {
                     intento: trabajo.id,
                 })
@@ -385,6 +436,19 @@ impl<'a> Trabajador<'a> {
         ahora: OffsetDateTime,
         marca: &str,
     ) -> Result<Paso, DbError> {
+        // El disyuntor primero: habla de la CUENTA, y la decisión de abajo
+        // habla de ESTE ENVÍO. Son dos cosas distintas y las dos ocurren.
+        let salud = self.db.salud_de_la_cuenta(&self.ajustes.cuenta, marca)?;
+        let efecto = tras_un_fallo(fallo, salud.fallos_seguidos);
+        let hasta = match efecto {
+            Efecto::Abrir { durante, .. } => Some(sello(
+                ahora.saturating_add(durante.try_into().unwrap_or(time::Duration::ZERO)),
+            )),
+            _ => None,
+        };
+        self.db
+            .aplicar_al_disyuntor(&self.ajustes.cuenta, efecto, marca, hasta.as_deref())?;
+
         let decision = que_hacer(fallo, trabajo.reintentos_ya_hechos, self.entorno.azar());
         let clave = decision.clave_i18n();
         let id = trabajo.id.clone();
@@ -480,6 +544,7 @@ mod tests {
     use std::cell::Cell;
 
     use arles_core::campana::AccionDeCampana::{Pausar, Reanudar};
+    use arles_core::disyuntor::FALLOS_PARA_ABRIR;
     use arles_core::ritmo::Limites;
     use arles_core::ventana::{Dias, zona};
     use arles_db::ClaveMaestra;
@@ -1189,6 +1254,297 @@ mod tests {
             Paso::Parado
         );
         assert_eq!(p.cuantos_pedidos(), 0, "ante la duda, no se envía");
+    }
+
+    // ─── Un suceso, un texto (auditoría de la fase) ─────────────────────────
+
+    /// **Cada paso apunta al texto de quien decide ese suceso, no a una copia.**
+    ///
+    /// Antes de la auditoría había una clave `motor.*` por cada paso, y eso
+    /// creaba dos textos para el mismo hecho: la pantalla de Actividad habría
+    /// dicho «Se volverá a intentar» y el detalle del envío, a un clic,
+    /// «Reintento 2 de 3». El mismo suceso contado de dos maneras, y una de las
+    /// dos sin la cifra que exige el §94.
+    ///
+    /// Esta prueba fija a quién pertenece cada texto, para que la duplicación
+    /// no vuelva la próxima vez que alguien añada un paso.
+    #[test]
+    fn cada_paso_apunta_al_texto_de_quien_decide_ese_suceso() {
+        let casos: Vec<(Paso, &str)> = vec![
+            // Estados del bucle: sólo existen aquí.
+            (Paso::Parado, "motor."),
+            (Paso::FueraDeVentana, "motor."),
+            (Paso::NoHayTrabajo, "motor."),
+            (
+                Paso::CuentaEnPausa {
+                    segundos_restantes: 60,
+                },
+                "motor.",
+            ),
+            (
+                Paso::Cancelado {
+                    intento: "a".into(),
+                },
+                "motor.",
+            ),
+            (
+                Paso::Aceptado {
+                    intento: "a".into(),
+                },
+                "motor.",
+            ),
+            // El motivo por el que no cabe un envío lo nombra `ritmo`, con su
+            // cifra: «Se alcanzó el tope de 50 envíos al día».
+            (
+                Paso::SinPresupuesto(NoSePuede::TopeDelDia { cabian: 50 }),
+                "ritmo.",
+            ),
+            (
+                Paso::SinPresupuesto(NoSePuede::TopeDeLaHora { cabian: 10 }),
+                "ritmo.",
+            ),
+            // Los desenlaces de un intento los nombra `reintento`, que es quien
+            // los decide.
+            (
+                Paso::Baja {
+                    intento: "a".into(),
+                },
+                "reintento.",
+            ),
+            (
+                Paso::Reintentara {
+                    intento: "a".into(),
+                    cual: 2,
+                    de: 3,
+                },
+                "reintento.",
+            ),
+            (
+                Paso::Rendido {
+                    intento: "a".into(),
+                },
+                "reintento.",
+            ),
+            (
+                Paso::DadoDeBaja {
+                    intento: "a".into(),
+                },
+                "reintento.",
+            ),
+            (
+                Paso::CuentaParada {
+                    intento: "a".into(),
+                },
+                "reintento.",
+            ),
+        ];
+
+        for (paso, familia) in casos {
+            assert!(
+                paso.clave_i18n().starts_with(familia),
+                "{paso:?} debería usar el texto de «{familia}» y usa «{}»",
+                paso.clave_i18n()
+            );
+        }
+    }
+
+    /// Y ningún paso se queda sin texto.
+    #[test]
+    fn ningun_paso_se_queda_sin_texto() {
+        for paso in [
+            Paso::Parado,
+            Paso::FueraDeVentana,
+            Paso::NoHayTrabajo,
+            Paso::SinPresupuesto(NoSePuede::FueraDeVentana),
+            Paso::CuentaEnPausa {
+                segundos_restantes: 0,
+            },
+            Paso::Baja {
+                intento: "a".into(),
+            },
+            Paso::Cancelado {
+                intento: "a".into(),
+            },
+            Paso::Aceptado {
+                intento: "a".into(),
+            },
+            Paso::Reintentara {
+                intento: "a".into(),
+                cual: 1,
+                de: 3,
+            },
+            Paso::Rendido {
+                intento: "a".into(),
+            },
+            Paso::DadoDeBaja {
+                intento: "a".into(),
+            },
+            Paso::CuentaParada {
+                intento: "a".into(),
+            },
+        ] {
+            let clave = paso.clave_i18n();
+            assert!(clave.contains('.'), "{paso:?} sin clave");
+            assert!(!clave.is_empty());
+        }
+    }
+
+    // ─── El disyuntor por cuenta (§7, auditoría de la fase) ─────────────────
+
+    /// **Cinco fallos de red seguidos paran la cuenta, y el bucle lo respeta.**
+    ///
+    /// Sin esto, cada envío de la cola gastaría sus tres reintentos contra un
+    /// servidor que no está: quince intentos para descubrir lo que ya se sabía
+    /// al quinto, y un proveedor tomando nota de que ese remitente insiste.
+    ///
+    /// Verificada rompiéndola el 23/09/2026: quitando la comprobación del
+    /// circuito en `un_paso`, el bucle sigue pidiendo envíos al proveedor con
+    /// el disyuntor abierto y esta prueba falla.
+    #[test]
+    fn el_disyuntor_abierto_detiene_el_bucle() {
+        let (_d, db) = base();
+        // Seis en cola: más que los cinco fallos que abren el disyuntor. Con
+        // menos, la cola se vaciaría antes —cada fallo programa su reintento a
+        // cinco minutos— y la prueba mediría eso en vez del circuito.
+        for (id, quien) in [
+            ("a", "a@x.mx"),
+            ("b", "b@x.mx"),
+            ("c", "c@x.mx"),
+            ("d", "d@x.mx"),
+            ("e", "e@x.mx"),
+            ("f", "f@x.mx"),
+        ] {
+            encolar(&db, id, quien);
+        }
+        let p = ProveedorSimulado::que_siempre(Respuesta::SeCayoLaRed);
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes());
+
+        // Se dan pasos hasta que el disyuntor corta. Con tres en cola y
+        // reintentos programados a cinco minutos, lo que corta es el circuito.
+        let mut pasos = 0;
+        let mut ultimo = Paso::NoHayTrabajo;
+        while pasos < 20 {
+            ultimo = t.un_paso().expect("paso");
+            pasos += 1;
+            if matches!(ultimo, Paso::CuentaEnPausa { .. }) {
+                break;
+            }
+        }
+
+        assert!(
+            matches!(ultimo, Paso::CuentaEnPausa { .. }),
+            "tras una racha de fallos de red la cuenta tiene que pararse, no              seguir insistiendo: fue {ultimo:?}"
+        );
+        assert!(
+            p.cuantos_pedidos() <= FALLOS_PARA_ABRIR as usize,
+            "no se puede llamar al proveedor más veces de las que el disyuntor              tolera: fueron {}",
+            p.cuantos_pedidos()
+        );
+        assert!(!ultimo.hay_mas_que_hacer(), "y el bucle deja de girar");
+    }
+
+    /// **Una racha de direcciones muertas NO para la cuenta.**
+    ///
+    /// Es la mitad que rompería el producto: una lista importada con
+    /// direcciones viejas tiene rachas de rebotes, y si contaran, la campaña se
+    /// pararía sola cada pocos minutos sin que el usuario entendiera por qué.
+    #[test]
+    fn una_racha_de_rebotes_no_para_la_cuenta() {
+        let (_d, db) = base();
+        for (id, quien) in [
+            ("a", "a@x.mx"),
+            ("b", "b@x.mx"),
+            ("c", "c@x.mx"),
+            ("d", "d@x.mx"),
+            ("e", "e@x.mx"),
+            ("f", "f@x.mx"),
+        ] {
+            encolar(&db, id, quien);
+        }
+        let p = ProveedorSimulado::que_siempre(Respuesta::NoExisteEsaDireccion);
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes());
+
+        let ultimo = t.correr(100).expect("corre");
+
+        assert_eq!(
+            p.cuantos_pedidos(),
+            6,
+            "las seis direcciones se intentan: que no existan no dice nada              malo del remitente"
+        );
+        assert_eq!(ultimo, Paso::NoHayTrabajo, "la cola se vacía entera");
+        assert!(
+            db.salud_de_la_cuenta(CUENTA, "2026-09-23T16:00:00Z")
+                .expect("lee")
+                .circuito
+                .puede_enviar()
+        );
+    }
+
+    /// **Una credencial caducada para la cuenta a la primera**, y la marca para
+    /// que el usuario sepa que hay que renovarla, no esperar.
+    #[test]
+    fn una_credencial_caducada_para_la_cuenta_a_la_primera() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        encolar(&db, "b", "beto@x.mx");
+        let p = ProveedorSimulado::que_siempre(Respuesta::LaCredencialNoSirve);
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes());
+
+        t.un_paso().expect("paso");
+
+        let salud = db
+            .salud_de_la_cuenta(CUENTA, "2026-09-23T16:00:00Z")
+            .expect("lee");
+        assert!(salud.hay_que_renovar_la_credencial());
+        assert!(matches!(
+            t.un_paso().expect("paso"),
+            Paso::CuentaEnPausa { .. }
+        ));
+        assert_eq!(
+            p.cuantos_pedidos(),
+            1,
+            "esperar a cinco cuando ya sabemos que la contraseña no sirve sólo              gasta los reintentos de otros cuatro envíos"
+        );
+    }
+
+    /// **Un envío que sale borra la racha.**
+    ///
+    /// Sin esto, una campaña de cuatro meses acabaría abriendo el disyuntor por
+    /// cinco tropiezos de red repartidos a lo largo de semanas.
+    #[test]
+    fn un_envio_que_sale_borra_la_racha_de_fallos() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        encolar(&db, "b", "beto@x.mx");
+        // Falla el primero, acepta el segundo.
+        let p =
+            ProveedorSimulado::con_guion(vec![Respuesta::SeCayoLaRed, Respuesta::Acepta("prov-1")]);
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes());
+
+        t.un_paso().expect("falla");
+        assert_eq!(
+            db.salud_de_la_cuenta(CUENTA, "2026-09-23T16:00:00Z")
+                .expect("lee")
+                .fallos_seguidos,
+            1
+        );
+
+        t.un_paso().expect("acierta");
+        assert_eq!(
+            db.salud_de_la_cuenta(CUENTA, "2026-09-23T16:00:00Z")
+                .expect("lee")
+                .fallos_seguidos,
+            0,
+            "un envío que sale prueba que la cuenta funciona"
+        );
     }
 
     /// **Nadie recibe dos veces aunque el bucle pase mil veces.**

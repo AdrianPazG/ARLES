@@ -431,18 +431,53 @@ export const es = {
    * Lo que el trabajador hace en cada paso. Es lo que se ve en Actividad.
    */
   motor: {
+    // UN SUCESO, UN TEXTO. Aquí sólo están los estados del bucle que no
+    // describe nadie más. Los desenlaces de un intento —reintento, rendición,
+    // baja, credencial— los nombra `reintento.*`, y los motivos por los que no
+    // cabe un envío, `ritmo.*`. Tener una copia aquí hacía que la pantalla de
+    // Actividad dijera «Se volverá a intentar» y el detalle del mismo envío,
+    // a un clic, «Reintento 2 de 3»: el mismo hecho contado de dos maneras.
     parado: 'Detenido',
     fueraDeVentana: 'Fuera del horario de envío',
-    sinPresupuesto: 'Se acabó el cupo de envíos',
     noHayTrabajo: 'No queda nada por enviar ahora mismo',
-    esaPersonaPidioLaBaja: 'No se envió: esa persona pidió no recibir',
     cancelado: 'Cancelado antes de salir',
     // §65: el proveedor se hizo cargo. No sabemos si llegó al buzón.
     aceptadoPorElProveedor: 'Aceptado por el proveedor',
-    seVolveraAIntentar: 'Se volverá a intentar',
-    seAgotaronLosIntentos: 'Se agotaron los intentos',
-    direccionInexistente: 'Esa dirección no existe',
-    laCuentaNoAutentica: 'La cuenta remitente no autentica',
+    // {minutos} es una cifra: «vuelve a intentarlo en 23 minutos» es un hecho;
+    // «la cuenta está parada» a secas se lee como una avería (§94).
+    laCuentaEstaEnPausa:
+      'Esta cuenta está en pausa por fallos seguidos. Vuelve a intentarlo en ' +
+      '{minutos} minutos.',
+  },
+
+  /**
+   * El disyuntor por cuenta (§7).
+   *
+   * Tras cinco fallos seguidos del canal, esa cuenta deja de enviar. Un fallo
+   * silencioso que simplemente ralentiza la campaña es peor que una parada
+   * visible.
+   */
+  disyuntor: {
+    cerrado: 'La cuenta está enviando con normalidad',
+    // {minutos} para no obligar a dividir segundos entre sesenta al leerlo.
+    abierto:
+      'ARLES paró esta cuenta tras {fallos} fallos seguidos. Volverá a ' +
+      'intentarlo en {minutos} minutos.',
+    porQue:
+      'Insistir contra un servidor que no responde no consigue que responda, ' +
+      'y el proveedor toma nota de que este remitente sigue llamando.',
+    // La diferencia que decide qué tiene que hacer el usuario.
+    porCredencial:
+      'Esta cuenta no para por la red: para porque su contraseña o su permiso ' +
+      'dejaron de servir. Esperar no lo arregla — hay que renovarlo.',
+    cerrarAMano: 'Ya lo arreglé, reanudar esta cuenta',
+
+    // Lo que decide el núcleo, para la bitácora y la pantalla de Remitentes.
+    reiniciar: 'Un envío salió bien: la cuenta vuelve a contar desde cero',
+    contar: 'Fallo {van} de {de} antes de parar la cuenta',
+    abrir: 'La cuenta se detiene',
+    // Que una dirección no exista no dice nada malo del remitente.
+    noCuenta: 'Este fallo es del destinatario, no de la cuenta',
   },
 
   /**
@@ -461,6 +496,12 @@ export const es = {
    * Por qué no cabe un envío más (§48, §53).
    */
   ritmo: {
+    // El equipo estuvo suspendido. ARLES lo detecta para poder explicar el
+    // retraso — NO para tocar el presupuesto: ver la nota de arles-core/ritmo.
+    sinNovedad: 'El reloj corrió con normalidad',
+    huboSuspension:
+      'Tu equipo estuvo suspendido {minutos} minutos, así que la campaña va ' +
+      'con retraso. No se perdió ningún envío ni se acumularon permisos.',
     fueraDeVentana: 'Fuera del horario que configuraste para esta campaña',
     topeDeLaHora: 'Se alcanzó el tope de {cabian} envíos por hora',
     topeDelDia: 'Se alcanzó el tope de {cabian} envíos al día',

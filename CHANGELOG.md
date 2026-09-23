@@ -12,6 +12,52 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Auditoría de cierre de la Fase 4 — cinco hallazgos
+
+Antes de cerrar la fase se recorrió entera contra sus propios requisitos.
+Ninguno de los cinco hallazgos era menor, y uno era grave.
+
+**1 · La protección contra las ráfagas hacía justo lo que quería impedir.**
+
+Si el equipo se suspende y despierta, la campaña no puede soltar de golpe los
+envíos que «se ahorró»: eso es una ráfaga, y las ráfagas son lo que hace que un
+proveedor marque a un remitente como spam.
+
+Había código para eso. Tenía su prueba. La prueba se llamaba «ocho horas dormido
+no producen una ráfaga», y pasaba. **Estaba mal.**
+
+El caso que la tumba es una siesta **dentro del mismo día**: el equipo duerme de
+10:00 a 18:00 con el cupo diario agotado, despierta, el contador vuelve a cero,
+y esa cuenta manda otros cincuenta. **Cien envíos en un día con un tope de
+cincuenta.**
+
+El motivo es instructivo: esa regla se escribió cuando el cupo vivía en memoria.
+Dos entregas después pasó a guardarse en disco con una etiqueta por hora y por
+día, y el problema **se disolvió solo**. La regla vieja se quedó ahí, apuntando,
+y su prueba estaba escrita para confirmar lo que el código hacía en vez de
+comprobar lo que el producto necesita.
+
+**2 · Atrasar el reloj del equipo regalaba el cupo diario.** Bastaba con mover la
+hora un día hacia atrás para que el contador se reiniciara. No hace falta mala
+fe: un ajuste automático de hora hace exactamente eso. Estaba enunciado en la
+estrategia de pruebas desde hace meses y nadie lo había cubierto.
+
+**3 · Faltaba el disyuntor por cuenta**, que la documentación describía y la base
+de datos tenía preparado desde el primer día. Tras cinco fallos seguidos, esa
+cuenta deja de insistir contra un servidor que no responde. La parte delicada:
+que una dirección no exista **no dice nada malo del remitente**, así que los
+rebotes no cuentan — si contaran, una lista con direcciones viejas pararía la
+campaña cada pocos minutos.
+
+**4 · El mismo suceso se contaba de dos maneras.** Actividad habría dicho «Se
+volverá a intentar» y el detalle del mismo envío, a un clic, «Reintento 2 de 3».
+
+**5 · El preflight ignoraba lo que la base ya sabía.** Con una contraseña
+caducada ya detectada, seguía diciendo «sin comprobar».
+
+**Fase 4 cerrada**: 36 de 36 comprobaciones, **0 omitidas**.
+
+
 ### «Terminará alrededor del 9 de febrero» — antes de activar, no después
 
 Alguien importa cinco mil contactos, pone cincuenta envíos diarios de lunes a

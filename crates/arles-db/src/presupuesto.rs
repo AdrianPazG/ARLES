@@ -112,6 +112,12 @@ impl Db {
 }
 
 /// Lo gastado en una ventana, o cero si la fila es de una ventana pasada.
+///
+/// El `>=` acompaña al arreglo del reloj atrasado de [`sumar_uno`]: si la fila
+/// guardada es de una ventana **posterior** a la que se pregunta —el reloj se
+/// movió hacia atrás—, se devuelve lo que hay en vez de cero. Devolver cero
+/// diría que el presupuesto está entero cuando no lo está, y sería la misma
+/// puerta por el lado de la lectura.
 fn leer(conn: &Connection, cuenta: &str, clase: &str, clave: &str) -> Result<u32, rusqlite::Error> {
     let consumido: Option<i64> = conn
         .query_row(
@@ -119,7 +125,7 @@ fn leer(conn: &Connection, cuenta: &str, clase: &str, clave: &str) -> Result<u32
                FROM rate_budget
               WHERE email_account_id = ?1
                 AND window_kind = ?2
-                AND window_start = ?3",
+                AND window_start >= ?3",
             params![cuenta, clase, clave],
             |f| f.get(0),
         )
@@ -129,19 +135,33 @@ fn leer(conn: &Connection, cuenta: &str, clase: &str, clave: &str) -> Result<u32
         .unwrap_or(0))
 }
 
-/// Suma uno a una ventana, reiniciando si la etiqueta cambió.
-///
-/// El `CASE` es el reinicio entero, y merece leerse despacio:
+/// Suma uno a una ventana, reiniciando **sólo si la etiqueta es más nueva**.
 ///
 /// ```text
-/// consumed = CASE WHEN window_start = ?nueva THEN consumed + 1 ELSE 1 END
+/// consumed = CASE WHEN ?nueva > window_start THEN 1 ELSE consumed + 1 END
 /// ```
 ///
-/// Si la fila ya era de esta hora (o de este día), se suma. Si era de otra,
-/// **se empieza de nuevo en uno** — no en cero, porque este envío ya cuenta.
+/// Tres casos, y los tres importan:
 ///
-/// Un `consumed + 1` sin el `CASE` arrastraría el gasto de ayer al día de hoy
-/// para siempre, y la cuenta se quedaría sin presupuesto el segundo día.
+/// **Etiqueta más nueva** → empieza de nuevo en uno. No en cero, porque este
+/// envío ya cuenta. Sin esto, el gasto de ayer se arrastraría al día de hoy
+/// para siempre y la cuenta se quedaría sin presupuesto el segundo día.
+///
+/// **La misma etiqueta** → se suma. Es el caso normal.
+///
+/// **Etiqueta más VIEJA** → se suma igual, y la fila conserva la etiqueta
+/// nueva. Esto es el arreglo del 23/09/2026, y tapa el caso «reloj del sistema
+/// ajustado hacia atrás» de `ESTRATEGIA_QA.md` §3, que estaba sin cubrir.
+///
+/// Con la versión anterior —`window_start = excluded.window_start` a secas—
+/// bastaba con **atrasar el reloj un día** para que la etiqueta cambiara, el
+/// contador se reiniciara y la cuenta mandara el cupo diario otra vez. Mover el
+/// reloj era una forma de saltarse el límite del proveedor, y no hace falta
+/// mala fe: un ajuste de NTP tras una deriva hace exactamente eso.
+///
+/// Se sigue gastando del presupuesto que había, que es el lado conservador —se
+/// envía de menos, nunca de más— y todo se recoloca solo en cuanto el reloj
+/// vuelve a su sitio.
 fn sumar_uno(
     conn: &Connection,
     cuenta: &str,
@@ -157,11 +177,14 @@ fn sumar_uno(
          ON CONFLICT(email_account_id, window_kind)
             WHERE email_account_id IS NOT NULL
          DO UPDATE SET
-             consumed     = CASE WHEN window_start = excluded.window_start
-                                 THEN consumed + 1
-                                 ELSE 1
+             consumed     = CASE WHEN excluded.window_start > window_start
+                                 THEN 1
+                                 ELSE consumed + 1
                             END,
-             window_start = excluded.window_start,
+             -- MAX y no `excluded` a secas: una etiqueta más vieja no puede
+             -- hacer retroceder la ventana, o el siguiente envío la vería como
+             -- «más nueva» y reiniciaría el contador.
+             window_start = MAX(window_start, excluded.window_start),
              updated_at   = excluded.updated_at",
         params![cuenta, clase, clave, ahora],
     )?;
@@ -422,6 +445,161 @@ mod tests {
         assert_eq!(
             filas, 2,
             "una fila para la ventana horaria y otra para la diaria, y nada más"
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests_de_la_auditoria_de_la_fase_4 {
+    use super::*;
+    use crate::conexion::ClaveMaestra;
+
+    const AHORA: &str = "2026-09-23T20:00:00Z";
+
+    fn base() -> (tempfile::TempDir, Db) {
+        let dir = tempfile::tempdir().expect("temporal");
+        let clave = ClaveMaestra::generar().expect("genera");
+        let db = Db::abrir(&dir.path().join("arles.db"), &clave).expect("abre");
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "INSERT INTO company (id, commercial_name, country, timezone,
+                                      corporate_email, created_at, updated_at)
+                 VALUES ('emp', 'TELEMETRY', 'MX', 'America/Mexico_City',
+                         'hola@t.mx', ?1, ?1)",
+                params![AHORA],
+            )?;
+            c.execute(
+                "INSERT INTO email_account
+                     (id, company_id, display_name, email_address, provider_kind,
+                      credential_ref, status, daily_limit, hourly_limit,
+                      created_at, updated_at)
+                 VALUES ('cuenta', 'emp', 'Envíos', 'envios@t.mx', 'smtp',
+                         'llavero:cuenta', 'connected', 50, 10, ?1, ?1)",
+                params![AHORA],
+            )
+        })
+        .expect("siembra");
+        (dir, db)
+    }
+
+    /// **LA PUERTA DE SALIDA DE LA FASE 4: dormir no produce una ráfaga.**
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// ESTA PRUEBA EXISTE PORQUE LA ANTERIOR CONFIRMABA EL FALLO
+    ///
+    /// La garantía estaba «probada» en `arles_core::ritmo`, con una función
+    /// que al detectar una suspensión devolvía el presupuesto a cero. Su
+    /// prueba se llamaba `ocho_horas_dormido_no_producen_una_rafaga` y pasaba.
+    ///
+    /// Se descubrió el 23/09/2026 auditando la fase, con el caso que nadie
+    /// había puesto: **una siesta dentro del mismo día**. El equipo duerme de
+    /// 10:00 a 18:00 con el cupo diario agotado, despierta, el contador vuelve
+    /// a cero, y esa cuenta manda otros cincuenta. **Cien envíos en un día con
+    /// un tope de cincuenta** — la ráfaga exacta que la fase existe para
+    /// impedir, escrita dentro de su propia solución.
+    ///
+    /// Aquí se mide donde la garantía vive de verdad: el presupuesto
+    /// persistido por etiquetas. El día no se arrastra en memoria, se consulta
+    /// por su etiqueta, y la etiqueta de un día no cambia porque alguien cierre
+    /// la tapa del portátil.
+    #[test]
+    fn dormir_ocho_horas_no_devuelve_el_cupo_del_dia() {
+        let (_d, db) = base();
+
+        // A las 10:00 de México se agota el cupo del día.
+        for _ in 0..50 {
+            db.anotar_un_envio("cuenta", "2026-09-23T10", "2026-09-23", AHORA)
+                .expect("gasta");
+        }
+        let antes = db
+            .gastado_de("cuenta", "2026-09-23T10", "2026-09-23")
+            .expect("lee");
+        assert_eq!(antes.en_este_dia, 50);
+
+        // El equipo duerme ocho horas. Al despertar son las 18:00 **del mismo
+        // día**: hora nueva, día viejo.
+        let despues = db
+            .gastado_de("cuenta", "2026-09-23T18", "2026-09-23")
+            .expect("lee");
+
+        assert_eq!(
+            despues.en_esta_hora, 0,
+            "la hora es otra, así que su contador empieza en cero. Eso es \
+             correcto y no es la ráfaga"
+        );
+        assert_eq!(
+            despues.en_este_dia, 50,
+            "SIGUE SIENDO EL MISMO DÍA. Si esto fuera 0, esa cuenta podría \
+             mandar otros cincuenta correos: cien en un día con un tope de \
+             cincuenta, que es exactamente lo que el §53 prohíbe"
+        );
+    }
+
+    /// Y al día siguiente sí empieza de cero, que es lo que debe pasar.
+    #[test]
+    fn al_dia_siguiente_el_cupo_vuelve_entero() {
+        let (_d, db) = base();
+        for _ in 0..50 {
+            db.anotar_un_envio("cuenta", "2026-09-23T10", "2026-09-23", AHORA)
+                .expect("gasta");
+        }
+        let manana = db
+            .gastado_de("cuenta", "2026-09-24T09", "2026-09-24")
+            .expect("lee");
+        assert_eq!(manana.en_este_dia, 0);
+    }
+
+    /// **Atrasar el reloj no regala permisos.**
+    ///
+    /// Es el caso «reloj del sistema ajustado hacia atrás» de
+    /// `ESTRATEGIA_QA.md` §3, y estaba sin cubrir. Pasa de verdad: un ajuste de
+    /// NTP tras una deriva, o alguien corrigiendo la hora a mano.
+    ///
+    /// Sin esta protección, retrasar el reloj un día cambia la etiqueta del
+    /// día, el contador se reinicia, y la cuenta manda el cupo entero otra vez.
+    /// Basta con mover el reloj para saltarse el límite del proveedor.
+    ///
+    /// La regla: **una etiqueta más vieja que la guardada no reinicia nada.**
+    /// Se sigue gastando del presupuesto que había, que es el lado conservador,
+    /// y todo vuelve a la normalidad solo en cuanto el reloj se recoloca.
+    ///
+    /// Verificada rompiéndola el 23/09/2026: sin la comparación de etiquetas,
+    /// el contador del día vuelve a 1 y esta prueba falla.
+    #[test]
+    fn atrasar_el_reloj_no_regala_el_cupo_del_dia() {
+        let (_d, db) = base();
+        for _ in 0..50 {
+            db.anotar_un_envio("cuenta", "2026-09-23T10", "2026-09-23", AHORA)
+                .expect("gasta");
+        }
+
+        // Alguien mueve el reloj un día hacia atrás.
+        let gastado = db
+            .anotar_un_envio("cuenta", "2026-09-22T10", "2026-09-22", AHORA)
+            .expect("anota");
+
+        assert_eq!(
+            gastado.en_este_dia, 51,
+            "una etiqueta más vieja no reinicia el contador: mover el reloj \
+             hacia atrás no puede ser una forma de saltarse el límite diario"
+        );
+    }
+
+    /// Y con el reloj recolocado, todo sigue como debía.
+    #[test]
+    fn recolocar_el_reloj_no_deja_el_presupuesto_roto() {
+        let (_d, db) = base();
+        db.anotar_un_envio("cuenta", "2026-09-23T10", "2026-09-23", AHORA)
+            .expect("gasta");
+        db.anotar_un_envio("cuenta", "2026-09-22T10", "2026-09-22", AHORA)
+            .expect("con el reloj atrasado");
+
+        let hoy = db
+            .gastado_de("cuenta", "2026-09-23T10", "2026-09-23")
+            .expect("lee");
+        assert_eq!(
+            hoy.en_este_dia, 2,
+            "la fila sigue etiquetada con el día bueno y con todo lo gastado"
         );
     }
 }

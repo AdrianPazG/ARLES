@@ -190,30 +190,49 @@ pub fn al_despertar(salto_monotono_s: u64, salto_de_pared_s: u64) -> Despertar {
 }
 
 impl Despertar {
-    /// Lo gastado que le corresponde al motor después de despertar.
-    ///
-    /// **Aquí es donde se impide la ráfaga.** Tras una suspensión el
-    /// presupuesto vuelve a cero, y eso no significa «te devuelvo lo que no
-    /// gastaste»: significa que la hora y el día que estaban en curso ya no
-    /// existen, y empieza el cómputo de los actuales.
-    ///
-    /// Un cubo que sumara lo dormido tendría aquí, en esta única función, el
-    /// fallo entero: ocho horas dormidas darían ocho horas de permisos de
-    /// golpe.
+    /// La clave de texto (§139).
     #[must_use]
-    pub const fn presupuesto(self, antes: Gastado) -> Gastado {
+    pub const fn clave_i18n(self) -> &'static str {
         match self {
-            Self::SinNovedad => antes,
-            Self::HuboSuspension { .. } => Gastado {
-                en_esta_hora: 0,
-                en_este_dia: 0,
-            },
+            Self::SinNovedad => "ritmo.sinNovedad",
+            Self::HuboSuspension { .. } => "ritmo.huboSuspension",
         }
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// AQUÍ HUBO UNA FUNCIÓN QUE HACÍA JUSTO LO QUE ESTE MÓDULO QUIERE IMPEDIR
+//
+// Se llamaba `Despertar::presupuesto` y devolvía `Gastado::default()` tras una
+// suspensión: «la hora y el día que estaban en curso ya no existen». Tenía su
+// prueba, se llamaba `ocho_horas_dormido_no_producen_una_rafaga`, y pasaba.
+//
+// Estaba mal, y la prueba lo estaba confirmando en vez de cazarlo. El caso que
+// la tumba es una siesta **dentro del mismo día**: el equipo duerme de 10:00 a
+// 18:00 con el cupo diario agotado, despierta, el contador diario vuelve a
+// cero, y esa cuenta manda otros cincuenta. Cien envíos en un día con un tope
+// de cincuenta — la ráfaga exacta que prohíbe el §53, con el disfraz de su
+// propia solución.
+//
+// El fallo de fondo era arquitectónico: esa función se escribió para un cubo
+// de permisos **en memoria**, donde «lo gastado» es un número que hay que
+// decidir qué hacer con él al despertar. En la 4.2b ese cubo se sustituyó por
+// el presupuesto **persistido por etiquetas** de `rate_budget`, donde lo
+// gastado no se arrastra: se consulta por la etiqueta de la hora y del día
+// actuales. Al despertar, la hora es otra y su contador ya vale cero solo; si
+// el día es el mismo, el contador del día sigue donde estaba, que es lo
+// correcto. El problema se disolvió, y la función se quedó — apuntando.
+//
+// Se quitó el 23/09/2026 al auditar la fase. La detección se queda, porque
+// sigue sirviendo para lo que de verdad sirve: decirle al usuario que su
+// equipo estuvo suspendido ocho horas y que por eso la campaña va retrasada.
+// La garantía de que no hay ráfaga se mide ahora donde vive de verdad, en
+// `arles_db::presupuesto`.
+// ─────────────────────────────────────────────────────────────────────────
+
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     /// El caso normal: hay sitio y se envía.
@@ -325,7 +344,7 @@ mod tests {
     /// vez de reiniciar —que es exactamente el cubo ingenuo del §5— y la
     /// prueba falló nombrando la ráfaga. Restaurado.
     #[test]
-    fn ocho_horas_dormido_no_producen_una_rafaga() {
+    fn ocho_horas_dormido_se_detectan_y_no_tocan_el_presupuesto() {
         const OCHO_HORAS: u64 = 8 * 3600;
 
         // El reloj monótono no avanzó durante la suspensión: sólo el segundo
@@ -339,24 +358,15 @@ mod tests {
             "la diferencia entre los dos relojes ES la suspensión"
         );
 
-        let antes = Gastado {
-            en_esta_hora: 9,
-            en_este_dia: 40,
-        };
-        let despues = despertar.presupuesto(antes);
-
-        assert_eq!(
-            despues,
-            Gastado::default(),
-            "tras dormir, el presupuesto se REINICIA. Acumularlo soltaría de \
-             golpe ocho horas de permisos, que es la ráfaga que prohíbe el §53"
-        );
-
-        // Y la consecuencia, que es la correcta: lo que no salió, no se
-        // recupera. Con el tope horario de 10 sólo cabe uno más, no los 31 que
-        // «sobraban» del día anterior.
-        let l = Limites::nuevos(10, 50);
-        assert_eq!(cabe_uno_mas(l, despues, true), Ok(()));
+        // Y hasta aquí llega este módulo. **Detectar no es tocar el
+        // presupuesto**, y el intento de que lo tocara es lo que produjo el
+        // fallo descrito arriba: una siesta dentro del mismo día devolvía el
+        // cupo diario entero.
+        //
+        // La garantía de que no hay ráfaga se mide contra el presupuesto
+        // persistido, en `arles_db::presupuesto`:
+        // `dormir_ocho_horas_no_devuelve_el_cupo_del_dia`.
+        assert_eq!(despertar.clave_i18n(), "ritmo.huboSuspension");
     }
 
     /// Un tic normal del planificador no se confunde con una suspensión.
@@ -372,15 +382,7 @@ mod tests {
             Despertar::SinNovedad,
             "un segundo de deriva entre relojes es ruido, no una suspensión"
         );
-        let antes = Gastado {
-            en_esta_hora: 7,
-            en_este_dia: 7,
-        };
-        assert_eq!(
-            Despertar::SinNovedad.presupuesto(antes),
-            antes,
-            "sin suspensión, lo gastado sigue gastado"
-        );
+        assert_eq!(Despertar::SinNovedad.clave_i18n(), "ritmo.sinNovedad");
     }
 
     /// Justo en el umbral todavía no cuenta como suspensión.

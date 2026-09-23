@@ -158,7 +158,16 @@ impl Veredicto {
 pub struct Observaciones<'a> {
     /// ¿La cuenta remitente autentica? `None` hasta la Fase 5.
     pub cuenta_autentica: Option<bool>,
-    /// ¿La credencial sigue viva? `None` hasta la Fase 5.
+    /// ¿La credencial sigue viva?
+    ///
+    /// **No es siempre `None` hasta la Fase 5.** Si el disyuntor marcó la
+    /// cuenta como `needs_reauth`, eso ya consta en la base y se sabe sin
+    /// hablar con nadie: entonces es `Some(false)`. Lo calcula
+    /// `arles_db::SaludDeLaCuenta::credencial_para_el_preflight`, y quien
+    /// construya estas observaciones debe usarlo en vez de poner `None` a mano.
+    ///
+    /// Decir «sin comprobar» de algo que está escrito en la base haría que el
+    /// usuario buscara el problema en otra parte.
     pub credencial_sirve: Option<bool>,
     /// Cuánta gente queda **después** de aplicar las bajas.
     pub audiencia: u32,

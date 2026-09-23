@@ -20,6 +20,7 @@ pub mod campana;
 pub mod canal;
 pub mod cancelacion;
 pub mod contacto;
+pub mod disyuntor;
 pub mod duracion;
 pub mod email;
 pub mod empresa;
@@ -45,6 +46,7 @@ pub use contacto::{
     BorradorDeCanal, BorradorDeContacto, CampoDeContacto, CanalValidado, DatosDeContacto,
     ErrorDeContacto, MAX_CANALES,
 };
+pub use disyuntor::{Circuito, Efecto, tras_un_acierto, tras_un_fallo};
 pub use duracion::{Desenlace, DiaDeEnvio, Estimacion, QuienManda, estimar, techo_diario};
 pub use email::EmailAddress;
 pub use empresa::{

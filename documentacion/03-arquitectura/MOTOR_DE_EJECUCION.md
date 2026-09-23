@@ -134,6 +134,16 @@ contrastar una pregunta de Dirección con la base de datos (D-10).
 
 El estado vive en `rate_budget`, así que sobrevive a cierres y reinicios. Un cubo en memoria se reiniciaría con la aplicación y permitiría enviar el límite diario varias veces al día.
 
+### El reloj que se mueve hacia atrás
+
+Una etiqueta **más vieja que la guardada no reinicia el contador** (corregido el 23/09/2026).
+
+Sin esto bastaba con atrasar el reloj un día para que la etiqueta cambiara, el contador se reiniciara y la cuenta mandara el cupo diario otra vez. **Mover el reloj era una forma de saltarse el límite del proveedor**, y no hace falta mala fe: un ajuste de NTP tras una deriva hace exactamente eso.
+
+Con la corrección se sigue gastando del presupuesto que había —el lado conservador: se envía de menos, nunca de más— y todo se recoloca solo en cuanto el reloj vuelve a su sitio. La misma regla se aplica al leer: si la fila guardada es de una ventana posterior a la que se pregunta, se devuelve lo que hay, no cero.
+
+Es el caso «reloj del sistema ajustado hacia atrás» de `ESTRATEGIA_QA.md` §3, que estaba enunciado y sin cubrir.
+
 ### Ventana de ejecución
 
 `execution_window` define días, horas operativas **y su zona horaria**. Fuera de ventana, los workers no toman trabajo. No se acumula nada: simplemente se espera.
@@ -185,11 +195,15 @@ El reloj monótono no avanza mientras el sistema está suspendido; el reloj de p
 
 ### Respuesta
 
-**El cubo se reinicia, no se acumula.** Los presupuestos horario y diario se recalculan desde cero contra la ventana actual.
+**Se detecta y se informa. No se toca el presupuesto** (corregido el 23/09/2026 al auditar la fase).
 
-Consecuencia, que es la correcta: **un correo no enviado ayer no se recupera hoy.** Se queda sin enviar y la campaña dura más. El simulador ya avisó de que la campaña tardaría 100 días; que tarde 103 porque el equipo estuvo apagado es el comportamiento esperado, no un fallo.
+Aquí había una regla que decía lo contrario: al detectar una suspensión, el presupuesto volvía a cero. Tenía su función, su prueba, y la prueba pasaba.
 
-**Verificación obligatoria:** test que simula un salto del reloj de pared y comprueba que no hay ráfaga (riesgo R-04).
+Estaba mal, y el caso que la tumba es una **siesta dentro del mismo día**: el equipo duerme de 10:00 a 18:00 con el cupo diario agotado, despierta, el contador diario vuelve a cero, y esa cuenta manda otros cincuenta. **Cien envíos en un día con un tope de cincuenta** — la ráfaga exacta que este apartado existe para impedir, escrita dentro de su propia solución.
+
+El fallo era arquitectónico. Esa regla se escribió para un cubo de permisos **en memoria**, donde «lo gastado» es un número que hay que decidir qué hacer con él al despertar. En la entrega 4.2b ese cubo se sustituyó por el presupuesto **persistido por etiquetas** (§4), donde lo gastado no se arrastra: se consulta por la etiqueta de la hora y del día actuales. Al despertar, la hora es otra y su contador ya vale cero solo; si el día es el mismo, el contador del día sigue donde estaba. **El problema se disolvió y la regla se quedó, apuntando.**
+
+La detección sigue, y sirve para lo que de verdad sirve: decirle al usuario que su equipo estuvo suspendido y que por eso su campaña va con retraso.
 
 ---
 
@@ -229,6 +243,28 @@ La interfaz lo dice explícitamente y con el motivo. Un fallo silencioso que sim
 
 Se cierra automáticamente al vencer el plazo, o manualmente cuando el usuario corrige el problema (p. ej. renueva la contraseña de aplicación).
 
+### Cómo está construido (auditoría de la fase, 23/09/2026)
+
+**Este apartado describía un disyuntor que no existía.** Las columnas `consecutive_failures` y `circuit_open_until` estaban en el esquema desde la V1, el §13 listaba la comprobación como un paso del bucle, y ningún código las leía ni las escribía. Un esquema que promete algo y un código que no lo cumple no falla: simplemente no protege de nada.
+
+**No todo fallo cuenta, y ésa es la parte que se puede hacer mal.** Que una dirección no exista no es culpa de la cuenta. Una lista importada con cinco direcciones muertas seguidas no dice nada malo del remitente, y si contaran, esa campaña se pararía sola cada pocos minutos sin que el usuario entendiera por qué.
+
+| Fallo | ¿Cuenta para el disyuntor? |
+|---|---|
+| Red caída, tiempo de espera agotado, servidor saturado | **Sí** — habla del canal |
+| «No me mandes nada durante N» | **Sí** — el proveedor dice que este remitente va rápido |
+| La credencial no sirve | **Sí, y abre a la primera** |
+| Esa dirección no existe | No — habla del destinatario |
+| Esa persona pidió la baja | No — ni siquiera es un fallo |
+
+**La credencial no espera a cinco.** Ya sabemos que ningún envío de esa cuenta va a funcionar hasta que una persona la arregle; contar hasta cinco sólo gastaría los reintentos de otros cuatro envíos.
+
+**Y se marca distinto**, porque se arregla distinto: `circuit_open` se cierra solo en media hora; `needs_reauth` no se cierra hasta que alguien renueve la credencial. Marcar los dos igual haría esperar media hora a que se arreglara sola una contraseña caducada.
+
+**Un solo acierto reinicia el contador** — pero **no** borra el aviso de credencial. Un envío que salió no prueba que la contraseña esté renovada, y quitar el aviso escondería lo único que el usuario tiene que hacer.
+
+Se cierra solo al vencer el plazo sin que nadie lo vigile: basta con comparar al leer, igual que hace el presupuesto con sus etiquetas.
+
 ---
 
 ## 8. Sin rotación de remitentes (T-1)
@@ -240,6 +276,8 @@ Al alcanzarse el límite de una cuenta, **la cola pausa**:
 **No se salta a otra cuenta.** El usuario puede tener varias cuentas registradas y asignarlas a campañas distintas, pero una campaña tiene un remitente y lo respeta.
 
 Esto es una decisión de producto, no una limitación técnica. Rotar remitentes para superar un límite es evasión, viola las políticas de Google y es el mecanismo exacto por el que se queman dominios. Ver ADR-0008.
+
+**«La cola pausa» es una forma de hablar, no un cambio de estado** (aclarado el 23/09/2026 al auditar la fase). La campaña **sigue en `running`**: el trabajador simplemente deja de encontrar cupo y espera. Cambiarla a `paused` obligaría al usuario a reanudarla a mano cada día al agotar el límite diario, que es exactamente lo contrario de lo que promete la frase «la campaña continuará mañana a las 09:00».
 
 ---
 
