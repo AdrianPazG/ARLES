@@ -1157,7 +1157,7 @@ export const es = {
       darDeAlta: 'Dar de alta',
     },
 
-    supresion: {
+  supresion: {
       titulo: '{n} de estos contactos están en la lista de no escribir',
       // La frase «no impide guardarlo» es obligatoria: un aviso sin ella se
       // lee como «esto no se puede usar» (L-13).
@@ -1536,4 +1536,103 @@ export const es = {
     cargando: 'Cargando…',
     guardar: 'Guardar',
   },
+  // ── Remitentes · entrega 5.3 ────────────────────────────────────────────
+  //
+  // «Remitente» y no «cuenta SMTP» en los títulos: quien usa ARLES sabe desde
+  // qué dirección quiere escribir, y no tiene por qué saber qué es SMTP. Lo
+  // técnico aparece donde hace falta —en el formulario, junto al campo— y no
+  // en el nombre de la sección.
+  remitentes: {
+    titulo: 'Remitentes',
+    explicacion:
+      'Son las cuentas de correo desde las que ARLES envía. Necesitas al ' +
+      'menos una para poder lanzar una campaña.',
+
+    // §94: cifras, no adjetivos.
+    nota: 'Tienes {cuantas} configuradas',
+    notaConPendientes: '{cuantas} configuradas · {pendientes} por revisar',
+
+    vacioTitulo: 'Todavía no hay ninguna cuenta',
+    vacioCuerpo:
+      'Añade la cuenta de correo desde la que quieres escribir. Si usas ' +
+      'Gmail, hace falta una contraseña de aplicación: te explicamos cómo ' +
+      'conseguirla en el formulario.',
+    cargando: 'Buscando las cuentas configuradas…',
+
+    anadir: 'Añadir remitente',
+    editar: 'Editar',
+    probarDeNuevo: 'Probar',
+    cancelar: 'Cancelar',
+    guardar: 'Guardar cuenta',
+    guardando: 'Probando y guardando…',
+    probar: 'Probar conexión',
+    probando: 'Hablando con el servidor…',
+
+    // ── El formulario ──
+    //
+    // El orden no es casual: primero de quién es el correo (lo que la persona
+    // tiene claro), y después cómo se conecta (lo que hay que copiar de algún
+    // sitio). Al revés, el primer campo del formulario sería el más técnico.
+    formularioNuevo: 'Nueva cuenta de correo',
+    formularioEditar: 'Editar la cuenta',
+
+    remitente: 'Dirección desde la que se envía',
+    remitenteAyuda: 'Es la que verá quien reciba el correo.',
+    nombreVisible: 'Nombre que acompaña a la dirección',
+    nombreVisibleAyuda: 'Opcional. Por ejemplo, el nombre de tu empresa.',
+    usuario: 'Usuario',
+    usuarioAyuda: 'Casi siempre es la misma dirección de correo.',
+    contrasena: 'Contraseña',
+    servidor: 'Servidor',
+    servidorAyuda: 'Para Gmail, smtp.gmail.com.',
+    puerto: 'Puerto',
+    cifrado: 'Cifrado',
+
+    // ── Lo que pasa con la contraseña ──
+    //
+    // Se dice en la pantalla, junto al campo, y no en un documento que nadie
+    // abre: es la pregunta que se hace cualquiera al escribir la contraseña de
+    // su correo en un programa que acaba de instalar.
+    dondeVaLaContrasena:
+      'La contraseña se guarda en el llavero de tu sistema, no en los ' +
+      'archivos de ARLES. No se puede leer desde esta pantalla ni sale en ' +
+      'ningún informe.',
+    contrasenaGuardada:
+      'La contraseña guardada se sigue usando. Escribe una nueva sólo si ' +
+      'quieres cambiarla.',
+
+    // ── La guía de Gmail ──
+    //
+    // El punto donde más gente se atasca (ABSTRACCION_EMAIL_PROVIDER.md §2).
+    // Va plegada: quien ya la tiene no necesita leerla, y quien no, la abre.
+    ayudaGmailTitulo: '¿Usas Gmail? Necesitas una contraseña de aplicación',
+    ayudaGmailCuerpo:
+      'Google no deja que otros programas entren con la contraseña normal de ' +
+      'tu cuenta. Hay que generar una contraseña aparte, sólo para ARLES:',
+    ayudaGmailPaso1:
+      'Activa la verificación en dos pasos en tu cuenta de Google. Sin eso, ' +
+      'la opción de contraseñas de aplicación no aparece.',
+    ayudaGmailPaso2:
+      'En la configuración de seguridad de Google, busca «Contraseñas de ' +
+      'aplicaciones» y crea una nueva.',
+    ayudaGmailPaso3:
+      'Google te da dieciséis letras. Ésa es la que se escribe aquí, no la ' +
+      'de tu cuenta.',
+    ayudaGmailNota:
+      'Si algún día quieres que ARLES deje de tener acceso, basta con borrar ' +
+      'esa contraseña de aplicación desde tu cuenta de Google.',
+
+    // ── El estado de cada cuenta ──
+    estado: {
+      connected: 'Lista para enviar',
+      needs_reauth: 'Hay que configurarla',
+      circuit_open: 'Detenida por fallos seguidos',
+      disabled: 'Desactivada',
+    },
+    // §65 aplicado al alta: que la cuenta conecte no dice que un correo llegue.
+    limites: 'Hasta {diario} al día · {porHora} por hora',
+
+    seEstaProbando: 'Esto puede tardar unos segundos.',
+  },
+
 } as const

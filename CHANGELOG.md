@@ -45,6 +45,42 @@ again»— funciona con el servidor con el que se probó y falla con todos los
 demás, en idiomas que nadie leyó. Hay una prueba que manda el mismo código con
 textos opuestos y exige el mismo resultado.
 
+### La pantalla de Remitentes, y la lista de alta que llevaba semanas mintiendo
+
+**Ya se puede dar de alta una cuenta de correo desde ARLES.** La pantalla lista
+las cuentas con su servidor, su puerto y sus topes de envío, distingue las que
+funcionan de las que hay que configurar, y trae el formulario con «Probar
+conexión».
+
+**Una cuenta nueva llega con los datos de Gmail puestos**, que es lo que va a
+usar casi todo el mundo. No es comodidad: equivocarse en el puerto es el error
+más común, y deja a alguien esperando a un servidor que no va a contestar nunca.
+
+**La guía de la contraseña de aplicación está en la pantalla**, plegada, junto al
+campo donde hace falta. Es el punto donde más gente se atasca, y explicarlo en un
+documento que nadie abre es no explicarlo.
+
+**Y la pantalla dice dónde acaba la contraseña**: en el llavero del sistema, no
+en los archivos de ARLES, y no se puede leer desde ahí. Es la pregunta que se
+hace cualquiera al escribir la contraseña de su correo en un programa recién
+instalado, y merece una respuesta a la vista.
+
+La contraseña vive en el campo mientras se escribe y muere al cerrar el
+formulario: no pasa por la memoria de la aplicación ni por el almacenamiento del
+navegador. Una comprobación del validador lo vigila.
+
+**Un hallazgo que no venía de esta entrega.** Al enganchar la pantalla salió que
+la lista de alta seguía anunciando Contactos como «llega en la entrega 3.2» —una
+pantalla construida hacía semanas—, y sin ningún botón para ir a ella. La
+función que decide a dónde lleva cada paso se escribió cuando sólo existía la
+primera pantalla y nadie la volvió a mirar al entregar las demás. Corregido, con
+una prueba que ahora falla si se entrega una pantalla y se olvida apuntarla.
+
+Al arreglarlo, **dos pruebas viejas fallaron, y eso era lo correcto**: daban por
+sentado que sólo el primer paso era accionable. Se han reescrito para comparar
+contra lo que cada paso declara en vez de contra su posición en la lista, así
+que sobreviven a la siguiente pantalla que se entregue.
+
 ### Guardar un remitente lo prueba antes, y la cuenta nunca miente
 
 **Guardar una cuenta de correo la prueba primero.** Una cuenta guardada sin

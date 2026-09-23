@@ -132,15 +132,47 @@ describe('La configuración sigue enseñando los seis pasos', () => {
     expect(w.text()).toContain('0 de 6')
   })
 
-  /** Un paso que aún no existe lo dice y no se puede pulsar. */
-  it('los pasos no construidos no son enlaces y declaran su entrega', () => {
+  /**
+   * Un paso que aún no existe lo dice y no se puede pulsar; uno construido
+   * lleva a su pantalla.
+   *
+   * ── POR QUÉ YA NO SE MIRA LA POSICIÓN ──
+   *
+   * Esta prueba decía «el primero es accionable y los otros cinco no», y eso
+   * era cierto cuando sólo existía la pantalla de la empresa. El 23/09/2026
+   * dejó de serlo —Contactos llevaba construida desde la 3.2 sin ruta
+   * apuntada, y Remitentes se entregó— y la prueba falló, que es justo lo que
+   * tenía que hacer.
+   *
+   * Ahora se compara **contra lo que declara cada paso**, no contra su sitio
+   * en la lista: el paso que trae ruta tiene que ser un enlace, y el que no la
+   * trae tiene que decir en qué entrega llega. Así la prueba sobrevive a la
+   * siguiente pantalla que se entregue en vez de volverse una afirmación
+   * caducada.
+   */
+  it('cada paso es enlace si su pantalla existe, y lo dice si no', () => {
+    const empresa = useEmpresaStore()
     const w = montar()
     const pasos = w.findAll('.paso')
-    expect(pasos[0]?.find('a').exists(), 'el primero sí es accionable').toBe(true)
-    for (const paso of pasos.slice(1)) {
-      expect(paso.find('a').exists(), 'no debe ser un enlace').toBe(false)
-      expect(paso.text()).toContain('Llega en la entrega')
+    const declarados = empresa.onboarding.pasos
+
+    expect(pasos).toHaveLength(declarados.length)
+
+    for (const [i, paso] of pasos.entries()) {
+      const declarado = declarados[i]
+      if (declarado?.ruta) {
+        expect(paso.find('a').exists(), `${declarado.paso} ya existe: debe llevar ahí`).toBe(true)
+        expect(paso.find('a').attributes('href')).toBe(declarado.ruta)
+      } else {
+        expect(paso.find('a').exists(), 'no debe ser un enlace').toBe(false)
+        expect(paso.text()).toContain('Llega en la entrega')
+      }
     }
+
+    // Y al menos uno de cada clase, para que la prueba no pase por vacío el
+    // día que todo esté construido o nada lo esté.
+    expect(declarados.some((p) => p.ruta)).toBe(true)
+    expect(declarados.some((p) => !p.ruta)).toBe(true)
   })
 })
 

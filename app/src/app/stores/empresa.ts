@@ -75,8 +75,8 @@ const RESERVA_SIN_NUCLEO: ConfiguracionDeEmpresa = {
   onboarding: {
     pasos: [
       { paso: 'empresa', clave: 'empresa', completado: false, disponible: true, ruta: '/inicio/configuracion', entrega: '3.1' },
-      { paso: 'remitente', clave: 'remitente', completado: false, disponible: false, ruta: null, entrega: '5' },
-      { paso: 'contactos', clave: 'contactos', completado: false, disponible: false, ruta: null, entrega: '3.2' },
+      { paso: 'remitente', clave: 'remitente', completado: false, disponible: true, ruta: '/remitentes', entrega: '5' },
+      { paso: 'contactos', clave: 'contactos', completado: false, disponible: true, ruta: '/contactos', entrega: '3.2' },
       { paso: 'plantilla', clave: 'plantilla', completado: false, disponible: false, ruta: null, entrega: '6' },
       { paso: 'ventanaDeEjecucion', clave: 'ventana', completado: false, disponible: false, ruta: null, entrega: '6' },
       { paso: 'primeraCampana', clave: 'campana', completado: false, disponible: false, ruta: null, entrega: '6' },

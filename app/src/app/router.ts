@@ -160,6 +160,15 @@ const rutas: RouteRecordRaw[] = [
     meta: { seccion: 'contactos', subseccion: 'derechos', orden: 3 },
   },
   {
+    // Sí es una de las seis secciones (P-13): una cuenta remitente es un
+    // insumo que se revisa —cuando deja de funcionar, cuando cambia la
+    // contraseña de aplicación— y no un paso que se hace una vez.
+    path: '/remitentes',
+    name: 'remitentes',
+    component: () => import('@/app/pantallas/PantallaRemitentes.vue'),
+    meta: { seccion: 'remitentes' },
+  },
+  {
     path: '/ajustes',
     name: 'ajustes',
     component: () => import('@/app/pantallas/PantallaAjustes.vue'),
@@ -169,7 +178,11 @@ const rutas: RouteRecordRaw[] = [
   // alta de Inicio dice en cuál llega cada una, así que la pantalla vacía no
   // es una sorpresa.
   ...SECCIONES.filter(
-    (s) => s !== 'inicio' && s !== 'ajustes' && s !== 'contactos',
+    (s) =>
+      s !== 'inicio' &&
+      s !== 'ajustes' &&
+      s !== 'contactos' &&
+      s !== 'remitentes',
   ).map((s) => ({
     path: `/${s}`,
     name: s,

@@ -2824,6 +2824,49 @@ def nada_que_cruce_la_frontera_lleva_contrasena():
           f"estructuras: {sorted(sospechosos)}")
 
 
+def la_contrasena_no_se_guarda_en_la_webview():
+    """Nada del frontend deja la contraseña en un sitio que sobreviva.
+
+    Ni `localStorage`, ni `sessionStorage`, ni un campo de la tienda: la tienda
+    vive lo que vive la aplicación, y un secreto ahí se queda en la memoria de
+    la webview mucho después de haberse usado (ADR-0011).
+
+    Vive en un `ref` de la pantalla, que muere al cerrar el formulario.
+    """
+    def sin_comentarios(texto: str) -> str:
+        """Quita las líneas de comentario.
+
+        Hace falta: la primera versión de esta comprobación **se encontraba a sí
+        misma**, porque los dos archivos explican en sus comentarios que la
+        contraseña NO va a `localStorage`. Es el mismo fallo que ya salió en la
+        5.2 con la invariante del TLS, y por eso ahora se mira sólo el código.
+        """
+        limpias = []
+        for l in texto.splitlines():
+            despojada = l.strip()
+            if despojada.startswith(("*", "//", "/*", "<!--")):
+                continue
+            limpias.append(l)
+        return "\n".join(limpias)
+
+    tienda = sin_comentarios(leer("app/src/app/stores", "remitentes.ts") or "")
+    pantalla = sin_comentarios(
+        leer("app/src/app/pantallas", "PantallaRemitentes.vue") or ""
+    )
+
+    # En la tienda no puede haber NINGÚN sitio donde se guarde.
+    en_la_tienda = re.search(r"^\s*(const|let)\s+contrasena\s*=\s*ref", tienda, re.M)
+    # Y en ninguno de los dos, almacenamiento del navegador.
+    almacenado = any(
+        x in tienda or x in pantalla for x in ("localStorage", "sessionStorage")
+    )
+    check(5, "la contraseña no se queda en la webview",
+          not en_la_tienda and not almacenado,
+          "ADR-0011: un secreto en la tienda o en el almacenamiento del "
+          "navegador sobrevive al formulario que lo pidió.",
+          f"en la tienda: {bool(en_la_tienda)} · almacenamiento: {almacenado}")
+
+
 def fase_5(rapido):
     titulo("FASE 5 · El correo de verdad")
 
@@ -2838,6 +2881,9 @@ def fase_5(rapido):
         ("crates/arles-core/src/correo.rs", "La cuenta de correo validada. Y el cifrado, que no tiene un «ninguno»."),
         ("crates/arles-db/migrations/V7__cuenta_smtp.sql", "Las columnas de SMTP que faltaban en `email_account` desde la V1."),
         ("crates/arles-db/src/correo.rs", "Guardar y leer cuentas remitentes. Sin ninguna contraseña."),
+        ("app/src/app/stores/remitentes.ts", "La tienda de remitentes. La contraseña no vive aquí."),
+        ("app/src/app/pantallas/PantallaRemitentes.vue", "Donde se da de alta una cuenta y se prueba."),
+        ("app/src/app/pantallas/remitentes.spec.ts", "Lo que la pantalla de Remitentes no puede dejar de decir."),
     ]:
         check(5, f"existe {ruta}", os.path.exists(os.path.join(RAIZ, ruta)), porque)
 
@@ -2848,6 +2894,7 @@ def fase_5(rapido):
     la_contrasena_no_viaja_en_claro()
     solo_el_llavero_toca_contrasenas()
     nada_que_cruce_la_frontera_lleva_contrasena()
+    la_contrasena_no_se_guarda_en_la_webview()
     claves_de_error_sin_texto()
 
 

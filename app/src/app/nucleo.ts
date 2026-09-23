@@ -28,6 +28,15 @@ export interface ErrorIpc {
   readonly detalle: string
   /** Presente sólo en errores de formulario. */
   readonly campos?: readonly ErrorDeCampo[]
+  /**
+   * Lo mismo para el formulario de la cuenta de correo.
+   *
+   * Lista aparte y no mezclada con `campos`: los nombres de campo de los dos
+   * formularios no tienen nada que ver, y fundirlos obligaría a cada pantalla
+   * a filtrar los que no son suyos — que es como se acaba marcando en rojo una
+   * casilla que no existe.
+   */
+  readonly camposDeCuenta?: readonly ErrorDeCampo[]
 }
 
 interface ConTauri {

@@ -68,6 +68,18 @@ impl PasoDeOnboarding {
     pub fn ruta(self) -> Option<&'static str> {
         match self {
             Self::Empresa => Some("/inicio/configuracion"),
+            // Existe desde la entrega 3.2. **Estuvo devolviendo `None` hasta el
+            // 23/09/2026**, o sea que la lista de alta seguía diciendo «llega en
+            // la entrega 3.2» de una pantalla que llevaba semanas construida, y
+            // sin botón para ir a ella.
+            //
+            // No es un descuido aislado: esta función se escribió cuando sólo
+            // existía la primera pantalla, y nada la vuelve a mirar cuando se
+            // entrega una nueva. La prueba de abajo lo fija: **un paso cuya
+            // pantalla existe tiene que tener ruta**, y falla al añadir una
+            // pantalla sin apuntarla aquí.
+            Self::Contactos => Some("/contactos"),
+            Self::Remitente => Some("/remitentes"),
             // Las demás pantallas llegan en sus entregas. Ver `entrega`.
             _ => None,
         }
@@ -171,6 +183,44 @@ impl ListaDeOnboarding {
 
 #[cfg(test)]
 mod tests {
+
+    /// **Un paso cuya pantalla ya existe tiene que tener a dónde llevar.**
+    ///
+    /// La lista de alta enseña «llega en la entrega X» y esconde el botón
+    /// cuando un paso no tiene ruta. Sin esta prueba, entregar una pantalla y
+    /// olvidarse de apuntarla aquí deja la lista diciendo que está por llegar
+    /// — que es lo que pasó con Contactos entre la 3.2 y la 5.3: semanas
+    /// anunciando como futura una pantalla construida, y sin forma de llegar a
+    /// ella desde la lista.
+    ///
+    /// La lista de abajo se escribe a mano a propósito: es la afirmación «esto
+    /// ya está construido», y tiene que costar un segundo de pensar al
+    /// añadirle una línea.
+    #[test]
+    fn los_pasos_ya_construidos_llevan_a_su_pantalla() {
+        let construidos = [
+            (PasoDeOnboarding::Empresa, "/inicio/configuracion"),
+            (PasoDeOnboarding::Contactos, "/contactos"),
+            (PasoDeOnboarding::Remitente, "/remitentes"),
+        ];
+        for (paso, ruta) in construidos {
+            assert_eq!(
+                paso.ruta(),
+                Some(ruta),
+                "{paso:?} ya está construido: la lista de alta tiene que poder llevar ahí"
+            );
+        }
+
+        // Y los que todavía no existen no inventan una ruta: un botón que
+        // lleva a una pantalla vacía es peor que no tener botón.
+        for paso in [
+            PasoDeOnboarding::Plantilla,
+            PasoDeOnboarding::VentanaDeEjecucion,
+            PasoDeOnboarding::PrimeraCampana,
+        ] {
+            assert_eq!(paso.ruta(), None, "{paso:?} todavía no tiene pantalla");
+        }
+    }
     use super::*;
 
     #[test]
@@ -216,12 +266,25 @@ mod tests {
     /// que la interfaz felicitara al usuario por una campaña que no existe.
     #[test]
     fn sin_siguiente_no_significa_terminada() {
+        // Todo lo que YA tiene pantalla, hecho. Lo que queda —plantilla,
+        // ventana y campaña— llega en la Fase 6, así que no hay un «siguiente»
+        // al que mandar a nadie, y la lista tampoco está terminada.
+        //
+        // Este recuento cambió el 23/09/2026: antes bastaba con la empresa,
+        // porque Contactos y Remitentes no tenían ruta —aunque Contactos
+        // llevaba construida desde la 3.2—. Al corregir eso, la prueba pasó a
+        // medir una situación que ya no existe. Lo que comprueba es lo mismo
+        // de siempre: que «no hay siguiente» y «está terminada» son cosas
+        // distintas, y confundirlas felicitaría al usuario por una campaña que
+        // no existe.
         let r = RecuentoDeAlta {
             empresas: 1,
+            remitentes: 1,
+            contactos: 1,
             ..RecuentoDeAlta::default()
         };
         let l = ListaDeOnboarding::desde(&r);
-        assert_eq!(l.siguiente, None, "solo Empresa está construido");
+        assert_eq!(l.siguiente, None, "lo construido ya está hecho");
         assert!(!l.terminada());
     }
 
