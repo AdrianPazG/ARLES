@@ -65,6 +65,10 @@ pub enum DbError {
     #[error("esa campaña no existe")]
     CampanaNoExiste,
 
+    /// No hay tal cuenta de correo.
+    #[error("esa cuenta de correo no existe")]
+    CuentaDeCorreoNoExiste,
+
     /// Esa acción no procede desde el estado en que está la campaña.
     ///
     /// **Lleva la clave i18n del caso concreto dentro**, no una genérica: la
@@ -105,6 +109,7 @@ impl DbError {
             Self::ContactoNoExiste => "error.db.contacto_no_existe",
             Self::SupresionNoExiste => "error.db.supresion_no_existe",
             Self::CampanaNoExiste => "error.db.campana_no_existe",
+            Self::CuentaDeCorreoNoExiste => "error.db.cuenta_de_correo_no_existe",
             Self::AccionDeCampanaImposible { clave } => clave,
             Self::Nucleo(e) => e.clave_i18n(),
             Self::SupresionNoSeLevanta { .. } => "error.db.supresion_no_se_levanta",

@@ -45,6 +45,44 @@ again»— funciona con el servidor con el que se probó y falla con todos los
 demás, en idiomas que nadie leyó. Hay una prueba que manda el mismo código con
 textos opuestos y exige el mismo resultado.
 
+### La cuenta se guarda, y la contraseña no toca la base de datos
+
+**La contraseña de correo de la empresa no está en la base, ni cifrada.** Va al
+llavero del sistema —Keychain en macOS, Credential Manager en Windows— y en la
+base queda una referencia que no sirve para entrar a ningún sitio.
+
+Y no es una convención que haya que recordar: **los tipos no tienen dónde meter
+una contraseña**. La función que guarda una cuenta recibe unos datos que no
+incluyen ese campo, así que ni por descuido ni con prisa se puede escribir un
+secreto ahí.
+
+Hay una prueba que **lee la tabla entera, columna por columna, y exige que la
+contraseña no aparezca en ninguna**. No comprueba el código: comprueba el disco.
+Si alguien añade mañana una columna «por comodidad», salta.
+
+Y una comprobación del validador que exige que las contraseñas entren y salgan
+**por un solo archivo**. Con una sola puerta, auditar dónde para una contraseña
+es abrir un archivo; repartida, hay que confiar en que nadie la haya guardado
+«un momento» en otro sitio — y ese momento es el que acaba en una tabla o en una
+bitácora.
+
+**Corregir una cuenta la deja lista otra vez.** Si una cuenta estaba marcada como
+rota y se editan sus datos, vuelve a quedar en servicio y sus fallos acumulados
+se ponen a cero: eran de la configuración vieja. La alternativa —dejarla marcada—
+obliga a buscar otro botón que la desmarque, y ese botón se acaba pulsando sin
+haber arreglado nada.
+
+**Una cuenta con datos corruptos para la lectura, no se salta.** Saltarla dejaría
+la lista enseñando tres cuentas donde hay cuatro, sin decir que falta una — y la
+que falta es justamente la que necesita que alguien la mire.
+
+**Y una corrección de documentación que no es cosmética:** el documento de
+secretos decía que las credenciales se guardan bajo un nombre de servicio que
+**no es el que usa el código**, y con otro separador. El nombre del servicio es
+la clave bajo la que el sistema operativo guarda los secretos: un documento que
+dice otro manda a buscar las credenciales donde no están el día que haya que
+auditarlas o mover la instalación a otro equipo.
+
 ### La cuenta de correo, validada y con sitio donde guardarse
 
 **La tabla de cuentas remitentes existía desde el primer día y no se podía

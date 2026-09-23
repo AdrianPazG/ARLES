@@ -36,13 +36,19 @@ El *refresh token* merece mención aparte: es el secreto de mayor valor, porque 
 | macOS | Keychain | Por aplicación, respaldado por el sistema |
 | Windows | Credential Manager | Por cuenta de usuario |
 
-Convención de nombres:
+Convención de nombres, **tal como está en el código** (`arles-app/src/llavero.rs`):
 
 ```
-servicio:  com.telemetryinsight.arlesrelay
+servicio:  mx.telemetryinsight.arlesrelay
 cuenta:    db-master-key
-           email-account:<uuid>
+           email-account/<uuid>
 ```
+
+> Corregido el 23/09/2026. Este documento decía `com.telemetryinsight.arlesrelay` y `email-account:<uuid>`, y ninguna de las dos cosas era lo que hacía el código. No es una errata inocente: el nombre del servicio es la clave bajo la que el sistema operativo guarda los secretos, así que un documento que dice otro manda a buscar las credenciales donde no están el día que haya que auditarlas o migrarlas de equipo (§75). Hay una prueba que fija el nombre del servicio, precisamente porque cambiarlo deja huérfanas las credenciales de las instalaciones existentes.
+
+**Una entrada por cuenta de correo, no una compartida.** Borrar una cuenta tiene que poder borrar su secreto sin tocar los de las demás; con una entrada común habría que leer, quitar una contraseña y reescribir el resto, y con dos ARLES abiertos eso pierde contraseñas de cuentas que nadie tocó.
+
+**Las contraseñas entran y salen por un solo archivo.** `llavero.rs` es el único sitio del código que llama a las funciones de guardar y leer contraseñas, y el validador de fase lo comprueba sobre el árbol entero, pruebas incluidas. Con una sola puerta, auditar dónde para una contraseña de correo es abrir un archivo; repartida, hay que confiar en que nadie la haya guardado «un momento» en otro sitio — y ese momento es el que acaba en una tabla, en una preferencia o en una bitácora.
 
 ### Si el llavero no está disponible, la aplicación no arranca
 

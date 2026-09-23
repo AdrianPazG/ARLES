@@ -956,7 +956,13 @@ export const es = {
         como: 'Actualiza la lista de contactos para ver cómo está ahora.',
         salvo: 'No se modificó nada.',
       },
-      campana_no_existe: {
+      cuenta_de_correo_no_existe: {
+      que: 'Esa cuenta de correo ya no está.',
+      como: 'Vuelve a la lista de remitentes y elige una de las que hay.',
+      salvo: 'No se cambió nada y no se envió ningún correo.',
+    },
+
+    campana_no_existe: {
         que: 'Esa campaña ya no está.',
         como: 'Actualiza la lista de campañas para ver cómo está ahora.',
         salvo: 'No se modificó nada, y no salió ningún mensaje.',

@@ -42,6 +42,21 @@ impl Llavero {
         }
     }
 
+    /// El llavero de una cuenta de correo concreta.
+    ///
+    /// Cada cuenta tiene su propia entrada, nombrada por su identificador. No
+    /// se comparte una entrada entre cuentas ni se guardan varias contraseñas
+    /// juntas: borrar una cuenta tiene que poder borrar **su** secreto sin
+    /// tocar los de las demás, y una entrada compartida obligaría a leer,
+    /// modificar y reescribir el conjunto — con dos ARLES abiertos, eso pierde
+    /// contraseñas.
+    #[must_use]
+    pub fn de_la_cuenta(id: &str) -> Self {
+        Self {
+            cuenta: format!("email-account/{id}"),
+        }
+    }
+
     fn entrada(&self) -> Result<Entry, AppError> {
         Entry::new(SERVICIO, &self.cuenta).map_err(|e| AppError::LlaveroNoDisponible(e.to_string()))
     }
@@ -84,6 +99,43 @@ impl Llavero {
             .set_secret(clave.exponer())
             .map_err(|e| AppError::LlaveroNoDisponible(e.to_string()))?;
         Ok(clave)
+    }
+
+    /// Guarda la contraseña de una cuenta de correo.
+    ///
+    /// **Es la única forma de que una contraseña de correo entre en ARLES.** No
+    /// hay un camino que la escriba en la base de datos, ni en un archivo de
+    /// configuración, ni en una preferencia: `DatosDeLaCuenta` no tiene un campo
+    /// donde quepa (ADR-0011).
+    ///
+    /// # Errores
+    ///
+    /// [`AppError::LlaveroNoDisponible`] si el almacén no responde. **No hay
+    /// respaldo a un archivo**: si el llavero no está, la contraseña no se
+    /// guarda y se dice. Guardarla «mientras tanto» en texto plano es cómo se
+    /// acaba con la contraseña de correo de una empresa en un JSON que nadie
+    /// recuerda.
+    pub fn guardar_contrasena(&self, contrasena: &str) -> Result<(), AppError> {
+        self.entrada()?
+            .set_password(contrasena)
+            .map_err(|e| AppError::LlaveroNoDisponible(e.to_string()))
+    }
+
+    /// Lee la contraseña de una cuenta. `None` si no hay entrada.
+    ///
+    /// **Este valor no cruza la frontera de la IPC.** Lo usa el adaptador de
+    /// correo en el momento de conectar y no sale de Rust: ningún comando lo
+    /// devuelve (regla 3 de la frontera, `ARQUITECTURA.md` §5).
+    ///
+    /// # Errores
+    ///
+    /// [`AppError::LlaveroNoDisponible`] si el almacén no responde.
+    pub fn leer_contrasena(&self) -> Result<Option<String>, AppError> {
+        match self.entrada()?.get_password() {
+            Ok(c) => Ok(Some(c)),
+            Err(keyring::Error::NoEntry) => Ok(None),
+            Err(e) => Err(AppError::LlaveroNoDisponible(e.to_string())),
+        }
     }
 
     /// Borra la clave maestra.
@@ -130,6 +182,40 @@ mod tests {
         assert_eq!(SERVICIO, "mx.telemetryinsight.arlesrelay");
         assert_eq!(CUENTA_CLAVE_MAESTRA, "db-master-key");
         assert_eq!(Llavero::del_sistema().cuenta, CUENTA_CLAVE_MAESTRA);
+    }
+
+    /// **Cada cuenta de correo tiene su propia entrada en el llavero.**
+    ///
+    /// Con una entrada compartida, borrar una cuenta obligaría a leer, quitar
+    /// una contraseña y reescribir el resto — y con dos ARLES abiertos eso
+    /// pierde contraseñas de cuentas que nadie tocó.
+    #[test]
+    fn cada_cuenta_de_correo_tiene_su_propia_entrada() {
+        let a = Llavero::de_la_cuenta("01900000-0000-7000-8000-00000000000a");
+        let b = Llavero::de_la_cuenta("01900000-0000-7000-8000-00000000000b");
+        assert_ne!(a.cuenta, b.cuenta);
+        assert!(a.cuenta.starts_with("email-account/"));
+        // Y ninguna se pisa con la de la clave maestra, que dejaría la base
+        // irrecuperable al borrar una cuenta.
+        assert_ne!(a.cuenta, CUENTA_CLAVE_MAESTRA);
+        assert_ne!(b.cuenta, CUENTA_CLAVE_MAESTRA);
+    }
+
+    /// La referencia que se guarda en la base **nombra la misma entrada** que
+    /// se usa para leer la contraseña.
+    ///
+    /// Si se separaran —porque alguien cambie una de las dos y no la otra—, la
+    /// base apuntaría a un sitio del llavero donde no hay nada, y el síntoma
+    /// sería «la contraseña no sirve» en una cuenta perfectamente configurada.
+    #[test]
+    fn la_referencia_guardada_y_la_entrada_del_llavero_no_se_separan() {
+        let id = "01900000-0000-7000-8000-00000000000a";
+        let referencia = referencia_de_cuenta(id);
+        let entrada = Llavero::de_la_cuenta(id).cuenta;
+        assert!(
+            referencia.ends_with(&entrada),
+            "la referencia «{referencia}» tiene que terminar en la entrada «{entrada}»"
+        );
     }
 
     #[test]

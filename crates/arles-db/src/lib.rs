@@ -17,6 +17,7 @@ pub mod cancelacion;
 pub mod cola;
 pub mod conexion;
 pub mod contactos;
+pub mod correo;
 pub mod cuentas;
 pub mod db;
 pub mod empresa;

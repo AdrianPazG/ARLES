@@ -2738,6 +2738,41 @@ def la_base_no_admite_una_conexion_sin_cifrar():
           f"la línea del CHECK: {linea.strip() or 'no se encontró'}")
 
 
+def solo_el_llavero_toca_contrasenas():
+    """Las contraseñas se leen y se escriben **en un solo archivo**.
+
+    `llavero.rs` es el único sitio que llama a `set_password` y `get_password`.
+    Con una sola puerta, auditar dónde para una contraseña de correo es abrir un
+    archivo; repartida, hay que confiar en que nadie la haya guardado «un
+    momento» en otro sitio — y ese momento es el que acaba en una tabla, en una
+    preferencia o en una bitácora (ADR-0011).
+
+    Se mira el árbol entero, pruebas incluidas: una prueba que escribe una
+    contraseña por su cuenta es exactamente igual de mala, porque el código que
+    la rodea se copia.
+    """
+    permitido = os.path.join("crates", "arles-app", "src", "llavero.rs")
+    sospechosos = []
+    for base, _, archivos in os.walk(os.path.join(RAIZ, "crates")):
+        if "target" in base:
+            continue
+        for archivo in archivos:
+            if not archivo.endswith(".rs"):
+                continue
+            ruta = os.path.join(base, archivo)
+            relativa = os.path.relpath(ruta, RAIZ)
+            if relativa == permitido:
+                continue
+            with open(ruta, encoding="utf-8") as f:
+                texto = f.read()
+            if ".set_password(" in texto or ".get_password(" in texto:
+                sospechosos.append(relativa)
+    check(5, "sólo el llavero toca contraseñas", not sospechosos,
+          "ADR-0011: con una sola puerta, auditar dónde para una contraseña es "
+          "abrir un archivo.",
+          f"archivos: {sorted(sospechosos)}")
+
+
 def fase_5(rapido):
     titulo("FASE 5 · El correo de verdad")
 
@@ -2751,6 +2786,7 @@ def fase_5(rapido):
         ("crates/arles-email/src/prueba.rs", "«Probar conexión»: seis respuestas, cada una con una acción."),
         ("crates/arles-core/src/correo.rs", "La cuenta de correo validada. Y el cifrado, que no tiene un «ninguno»."),
         ("crates/arles-db/migrations/V7__cuenta_smtp.sql", "Las columnas de SMTP que faltaban en `email_account` desde la V1."),
+        ("crates/arles-db/src/correo.rs", "Guardar y leer cuentas remitentes. Sin ninguna contraseña."),
     ]:
         check(5, f"existe {ruta}", os.path.exists(os.path.join(RAIZ, ruta)), porque)
 
@@ -2759,6 +2795,7 @@ def fase_5(rapido):
     la_base_no_admite_una_conexion_sin_cifrar()
     confiar_en_un_certificado_es_solo_de_pruebas()
     la_contrasena_no_viaja_en_claro()
+    solo_el_llavero_toca_contrasenas()
     claves_de_error_sin_texto()
 
 
