@@ -58,6 +58,9 @@ const CLAVES_DEL_NUCLEO = [
   'error.db.contacto_no_existe',
   'error.db.supresion_no_existe',
   'error.db.supresion_no_se_levanta',
+  // Entrega 4.4 · pausar, reanudar y detener.
+  'error.db.campana_no_existe',
+  'error.estado_de_campana_desconocido',
 ] as const
 
 describe('resolución de errores del núcleo', () => {

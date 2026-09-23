@@ -56,6 +56,14 @@ pub enum CoreError {
     #[error("el alcance de esa supresión no es uno de los admitidos")]
     AlcanceDeSupresionDesconocido,
 
+    /// Una campaña guardada trae un estado que no reconocemos.
+    ///
+    /// **No se repara suponiendo «borrador»**: el estado decide qué acciones
+    /// se admiten, y suponer el más inofensivo dejaría pasar un «reanudar»
+    /// sobre una campaña que en realidad estaba detenida.
+    #[error("el estado de esa campaña no es uno de los admitidos")]
+    EstadoDeCampanaDesconocido,
+
     /// Se pidió suprimir sin decir qué dirección.
     ///
     /// Una supresión sin dirección no bloquea a nadie: dejaría una fila en la
@@ -89,6 +97,7 @@ impl CoreError {
             Self::MotivoDeSupresionDesconocido => "error.motivo_de_supresion_desconocido",
             Self::OrigenDeSupresionDesconocido => "error.origen_de_supresion_desconocido",
             Self::AlcanceDeSupresionDesconocido => "error.alcance_de_supresion_desconocido",
+            Self::EstadoDeCampanaDesconocido => "error.estado_de_campana_desconocido",
             Self::SupresionSinCanales => "error.supresion_sin_canales",
             Self::AlcanceNoCoincideConLosCanales => "error.alcance_no_coincide",
             Self::Transicion(_) => "error.transicion_invalida",

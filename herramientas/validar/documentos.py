@@ -181,6 +181,16 @@ def citada(original: str, i: int) -> bool:
     return linea.count("«", 0, rel) > linea.count("»", 0, rel)
 
 
+# Una cifra ANCLADA a un momento es un registro, no una afirmación sobre hoy:
+# «133 pruebas de Rust al cerrar la 3.1» era cierto entonces y lo seguirá siendo
+# siempre. El ancla tiene que estar ESCRITA — una cifra sin fecha ni «al cerrar»
+# se lee como el estado actual, y por eso se exige.
+ANCLADA_A_UN_MOMENTO = re.compile(
+    r"al cerrar|en ese momento|entonces|hasta la (?:entrega|fase)|\b20\d\d\b",
+    re.I,
+)
+
+
 def las_cifras_afirmadas_son_ciertas(rapido: bool) -> None:
     """Lo que la documentación afirma coincide con lo que hay.
 
@@ -228,7 +238,12 @@ def las_cifras_afirmadas_son_ciertas(rapido: bool) -> None:
     AFIRMACIONES = [
         (
             "migraciones",
-            re.compile(rf"\b(\d+|{palabra})\s+migraciones\b", re.I),
+            # El `(?<![\d.])` no sobra, y se descubrió el 23/09/2026 al añadir
+            # la V6: sin él, el encabezado «### 3.5 Migraciones» se leía como
+            # «5 migraciones». La comprobación llevaba meses pasando **por el
+            # motivo equivocado** — había cinco migraciones y el número de
+            # sección coincidía por casualidad.
+            re.compile(rf"(?<![\d.])\b(\d+|{palabra})\s+migraciones\b", re.I),
             migraciones,
             None,
         ),
@@ -265,6 +280,16 @@ def las_cifras_afirmadas_son_ciertas(rapido: bool) -> None:
                 if dicho is None or dicho == real:
                     continue
                 if citada(original, m.start()):
+                    continue
+                # Anclada a un momento = registro, no afirmación sobre hoy.
+                # «cinco migraciones al cerrar la fase» era cierto entonces, y
+                # reescribirlo destruiría lo que un documento de fase guarda.
+                # Es la misma regla que ya se aplicaba al recuento de pruebas;
+                # faltaba aquí, y por eso un informe de la Fase 3 se marcaba
+                # como desfasado por decir la verdad sobre la Fase 3.
+                if ANCLADA_A_UN_MOMENTO.search(
+                    original[max(0, m.start() - 120) : m.end() + 120]
+                ):
                     continue
                 if contexto is not None:
                     # Una ventana de una frase a cada lado: lo justo para saber
@@ -336,10 +361,7 @@ def las_cifras_afirmadas_son_ciertas(rapido: bool) -> None:
     #
     # El ancla tiene que estar ESCRITA. Una cifra sin fecha ni «al cerrar» se
     # lee como el estado actual, y por eso se exige.
-    ANCLADA = re.compile(
-        r"al cerrar|en ese momento|entonces|hasta la (?:entrega|fase)|\b20\d\d\b",
-        re.I,
-    )
+    ANCLADA = ANCLADA_A_UN_MOMENTO
     for doc in documentos():
         if doc.name == "CHANGELOG.md":
             continue

@@ -263,6 +263,24 @@ Esto último importa: si se comprobara entre lotes de 50, «parar» significarí
 
 Lo que ya fue aceptado por el proveedor no se puede recuperar, y la interfaz debe decirlo.
 
+### Cómo está construido (entrega 4.4, 23/09/2026)
+
+Las **reglas** —qué acción procede desde qué estado— viven en `arles_core::campana`, no en el botón. Si «no se puede reanudar una campaña detenida» viviera en la pantalla, cualquier otro camino hasta la base se la saltaría sin enterarse.
+
+**Detener toca tres tablas y va en una transacción**: el estado de la campaña, el de sus etapas y el de los envíos pendientes. Escritas por separado, una caída en medio dejaría estados que se contradicen — una campaña detenida con la cola intacta, o una cola cancelada con la campaña marcada como enviando, que diría «enviando» sobre una cola vacía sin fallar y sin enviar nada.
+
+**Qué se cancela exactamente.** Los intentos en `queued`, `claimed` y `failed`. **`sending` no**, y no es un olvido: esa fila ya se le pasó al proveedor, y cancelarla diría que ese mensaje no salió cuando puede que sí. La termina el trabajador que la tiene en la mano; lo que impide que siga con la siguiente es el freno, no la cancelación.
+
+**La cifra que se avisa es la que se cancela.** `cuantos_quedan_sin_enviar` y la cancelación miran la misma lista de estados, y hay una prueba que las enfrenta. Si miraran listas distintas, la confirmación prometería una cosa y ocurriría otra — sobre algo que no se puede deshacer.
+
+**La parada de emergencia se guarda en la base** (migración V6, tabla `engine_control`), no en memoria. El caso concreto: alguien ve que la campaña recién activada lleva la plantilla equivocada, pulsa parar y cierra el programa. Al día siguiente ARLES arranca, no encuentra ninguna parada, y sigue enviando la plantilla equivocada a los cuatro mil que faltaban.
+
+Se guarda **cuándo** se puso, no un sí/no, para que la pantalla pueda decir «detenido desde las 14:32» en vez de un «detenido» que invita a preguntarse si se quedó puesto de ayer (§94). Volver a pulsar no reescribe ese instante.
+
+**Levantar la parada no reanuda nada.** Las campañas en pausa siguen en pausa. Una parada de emergencia se pulsa porque algo iba mal, y lo último que debe hacer el botón de quitarla es poner a enviar todo a la vez.
+
+**Y ante la duda, se para.** El freno del bucle (`arles_motor::bucle::freno_de_la_base`) pregunta a la base, y si la base no puede contestar —un estado corrupto, una base editada por fuera— responde que sí hay que parar. Los dos errores no se parecen: parar de más se ve, porque la campaña no avanza y alguien pregunta; enviar de más no se ve hasta que los correos ya salieron.
+
 ---
 
 ## 10. Independencia de la ventana

@@ -118,6 +118,41 @@ impl Entorno for EntornoDelSistema {
     }
 }
 
+/// El freno de verdad: el que pregunta a la base antes de cada envío.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTO NO ES UNA BANDERA EN MEMORIA
+///
+/// El bucle pregunta «¿hay que parar?» dos veces por envío, y hasta la entrega
+/// 4.4 detrás de esa pregunta no había nada. Ahora hay dos cosas, y al
+/// trabajador le da igual cuál de las dos conteste que sí:
+///
+/// **La parada de emergencia**, que vale para toda la empresa y **sobrevive a
+/// cerrar el programa**. Una bandera en memoria se levantaría sola al
+/// arrancar, y quien la pulsó no estaría delante para verlo.
+///
+/// **El estado de la campaña.** Si alguien la pausó o la detuvo, este
+/// trabajador para. Sin esto, pausar cambiaría el rótulo de la pantalla y los
+/// correos seguirían saliendo.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// ANTE LA DUDA, SE PARA
+///
+/// Si la base no puede contestar, el freno dice **que sí hay que parar**. Los
+/// dos errores posibles no se parecen en nada: parar de más se ve —la campaña
+/// no avanza y alguien pregunta— y enviar de más no se ve hasta que los
+/// correos ya salieron.
+///
+/// Cuesta una consulta por envío, a un ritmo de cincuenta al día. No es un
+/// coste, es el precio de que el botón de parar signifique lo que dice.
+pub fn freno_de_la_base<'a>(
+    db: &'a Db,
+    empresa: CompanyId,
+    campana: &'a str,
+) -> impl Fn() -> bool + 'a {
+    move || db.hay_que_parar(empresa, campana).unwrap_or(true)
+}
+
 /// Lo que pasó en un paso. **Cifras y hechos, no adjetivos** (§94).
 ///
 /// Es lo que la pantalla de Actividad va a enseñar, así que cada variante dice
@@ -444,6 +479,7 @@ mod tests {
     use super::*;
     use std::cell::Cell;
 
+    use arles_core::campana::AccionDeCampana::{Pausar, Reanudar};
     use arles_core::ritmo::Limites;
     use arles_core::ventana::{Dias, zona};
     use arles_db::ClaveMaestra;
@@ -505,8 +541,12 @@ mod tests {
                 params![CUENTA, EMPRESA],
             )?;
             c.execute(
-                "INSERT INTO campaign (id, company_id, name, created_at, updated_at)
-                 VALUES (?1, ?2, 'Prueba', '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
+                // `running`: una campaña activada. El estado importa desde la
+                // entrega 4.4 — el freno de la base lo consulta antes de cada
+                // envío, y una campaña en borrador no envía nada.
+                "INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                 VALUES (?1, ?2, 'Prueba', 'running',
+                         '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
                 params![CAMPANA, EMPRESA],
             )
         })
@@ -1036,6 +1076,119 @@ mod tests {
             2,
             "el tope tiene que cortar, o el bucle no suelta nunca"
         );
+    }
+
+    // ─── El freno conectado a la base (entrega 4.4) ─────────────────────────
+
+    /// **Pausar para el motor de verdad, no sólo en la pantalla.**
+    ///
+    /// Es la prueba de punta a punta de la entrega 4.4: se manda uno, alguien
+    /// pausa, y no sale ni uno más. Sin el freno conectado a la base, la
+    /// campaña diría «en pausa» y el proveedor seguiría recibiendo pedidos.
+    ///
+    /// Verificada rompiéndola el 23/09/2026: sustituyendo `freno_de_la_base`
+    /// por un freno que siempre dice que no, el simulador recibe los tres.
+    #[test]
+    fn pausar_la_campana_detiene_el_bucle_de_verdad() {
+        let (_d, db) = base();
+        for (id, quien) in [("a", "ana@x.mx"), ("b", "beto@x.mx"), ("c", "cris@x.mx")] {
+            encolar(&db, id, quien);
+        }
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = freno_de_la_base(&db, EMPRESA.parse().expect("id"), CAMPANA);
+        let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes());
+
+        assert!(matches!(t.un_paso().expect("paso"), Paso::Aceptado { .. }));
+
+        db.aplicar_a_la_campana(EMPRESA.parse().expect("id"), CAMPANA, Pausar)
+            .expect("pausa");
+
+        assert_eq!(t.un_paso().expect("paso"), Paso::Parado);
+        assert_eq!(t.correr(100).expect("corre"), Paso::Parado);
+        assert_eq!(
+            p.cuantos_pedidos(),
+            1,
+            "salió el de antes de pausar, y ninguno después"
+        );
+    }
+
+    /// Y reanudar la vuelve a poner en marcha con la cola intacta.
+    #[test]
+    fn reanudar_devuelve_el_motor_al_trabajo() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let empresa: CompanyId = EMPRESA.parse().expect("id");
+        let f = freno_de_la_base(&db, empresa, CAMPANA);
+        let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes());
+
+        db.aplicar_a_la_campana(empresa, CAMPANA, Pausar)
+            .expect("pausa");
+        assert_eq!(t.un_paso().expect("paso"), Paso::Parado);
+
+        db.aplicar_a_la_campana(empresa, CAMPANA, Reanudar)
+            .expect("reanuda");
+        assert!(matches!(t.un_paso().expect("paso"), Paso::Aceptado { .. }));
+    }
+
+    /// **La parada de emergencia para cualquier campaña, esté como esté.**
+    #[test]
+    fn la_parada_de_emergencia_para_el_bucle() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let empresa: CompanyId = EMPRESA.parse().expect("id");
+        let f = freno_de_la_base(&db, empresa, CAMPANA);
+        let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes());
+
+        db.poner_parada_de_emergencia(empresa, Some("adrian"))
+            .expect("para");
+        assert_eq!(t.un_paso().expect("paso"), Paso::Parado);
+        assert_eq!(p.cuantos_pedidos(), 0);
+
+        db.levantar_parada_de_emergencia(empresa).expect("levanta");
+        assert!(matches!(t.un_paso().expect("paso"), Paso::Aceptado { .. }));
+    }
+
+    /// **Si la base no sabe contestar, el motor para.**
+    ///
+    /// Se corrompe el estado de la campaña —lo que pasaría con una base editada
+    /// por fuera o una migración a medias— y se comprueba que el freno decide
+    /// parar en vez de seguir. Parar de más se ve; enviar de más no se ve hasta
+    /// que los correos ya salieron.
+    ///
+    /// Verificada rompiéndola el 23/09/2026: cambiando el `unwrap_or(true)` de
+    /// `freno_de_la_base` por `unwrap_or(false)`, el correo sale sobre una
+    /// campaña cuyo estado el programa no entiende.
+    #[test]
+    fn si_la_base_no_sabe_contestar_el_motor_para() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch("PRAGMA ignore_check_constraints = ON")?;
+            let r = c.execute(
+                "UPDATE campaign SET status = 'halted' WHERE id = ?1",
+                params![CAMPANA],
+            );
+            c.execute_batch("PRAGMA ignore_check_constraints = OFF")?;
+            r
+        })
+        .expect("corrompe");
+
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = freno_de_la_base(&db, EMPRESA.parse().expect("id"), CAMPANA);
+
+        assert_eq!(
+            Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+                .un_paso()
+                .expect("paso"),
+            Paso::Parado
+        );
+        assert_eq!(p.cuantos_pedidos(), 0, "ante la duda, no se envía");
     }
 
     /// **Nadie recibe dos veces aunque el bucle pase mil veces.**

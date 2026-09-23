@@ -12,6 +12,7 @@
 #![forbid(unsafe_code)]
 
 pub mod arco;
+pub mod campanas;
 pub mod cancelacion;
 pub mod cola;
 pub mod conexion;
@@ -24,6 +25,7 @@ pub mod preferencias;
 pub mod presupuesto;
 pub mod supresion;
 
+pub use campanas::ResumenDeAccion;
 pub use cola::{Recuperacion, TrabajoTomado};
 pub use conexion::{ClaveMaestra, abrir};
 pub use contactos::{

@@ -268,6 +268,180 @@ export const es = {
     presumed_sent: 'Envío no confirmado',
   },
 
+  /**
+   * El motor de ejecución (Fase 4).
+   *
+   * Aquí no hay errores de tres partes: son **rótulos de estado**, lo que la
+   * pantalla de Actividad enseña mientras la campaña corre. Las reglas que sí
+   * aplican son el §94 —cifras, no adjetivos: «2 de 6», nunca «casi listo»— y
+   * el §65: aceptado no es entregado.
+   */
+  campana: {
+    estado: {
+      borrador: 'Borrador',
+      lista: 'Lista para activar',
+      programada: 'Programada',
+      enviando: 'Enviando',
+      enPausa: 'En pausa',
+      detenida: 'Detenida',
+      terminada: 'Terminada',
+    },
+
+    accion: {
+      pausar: 'Pausar',
+      reanudar: 'Reanudar',
+      // El botón dice lo que hace. La confirmación explica lo que cuesta.
+      detener: 'Detener',
+      // {cuantos} lo calcula ARLES antes de preguntar: una confirmación sin
+      // cifra no es una confirmación informada, y esto no se deshace.
+      confirmarDetener:
+        'Detener cancela {cuantos} mensajes que todavía no han salido. ' +
+        'Los que ya salieron no se pueden recuperar, y esto no se puede ' +
+        'deshacer: para volver a escribir a esa gente habría que crear una ' +
+        'campaña nueva.',
+      pausarExplicacion:
+        'Pausar conserva la cola intacta. Puedes reanudar cuando quieras y ' +
+        'seguirá donde se quedó.',
+    },
+
+    parada: {
+      levantada: 'El envío está activo',
+      // {desde} es la hora en que se pulsó. Un «detenido» a secas invita a
+      // preguntarse si se quedó puesto de ayer (§94).
+      puesta: 'Envío detenido desde {desde}',
+      poner: 'Detener todos los envíos',
+      levantar: 'Reanudar los envíos',
+      levantarExplicacion:
+        'Quitar la parada no reanuda ninguna campaña: las que estaban en ' +
+        'pausa siguen en pausa. Cada una se vuelve a arrancar por separado.',
+    },
+
+    error: {
+      detenerNoSeDeshace: {
+        que: 'Esa campaña está detenida, y detener no se deshace.',
+        como:
+          'Los mensajes que no habían salido se cancelaron. Para volver a ' +
+          'escribir a esas personas, crea una campaña nueva.',
+        salvo:
+          'Los mensajes que sí salieron siguen registrados, y nadie ha ' +
+          'recibido nada dos veces.',
+      },
+      noSePuedePausar: {
+        que: 'Esa campaña no está enviando, así que no hay nada que pausar.',
+        como: 'Actualiza la lista de campañas para ver cómo está ahora.',
+        salvo: 'No se modificó nada.',
+      },
+      noSePuedeReanudar: {
+        que: 'Esa campaña no está en pausa.',
+        como: 'Actualiza la lista de campañas para ver cómo está ahora.',
+        salvo: 'No se modificó nada.',
+      },
+      noHayNadaQueDetener: {
+        que: 'Esa campaña ya no tiene mensajes en cola.',
+        como: 'Actualiza la lista de campañas para ver cómo está ahora.',
+        salvo: 'No se modificó nada, y no se canceló ningún mensaje.',
+      },
+      cambioMientrasTanto: {
+        que: 'Esa campaña cambió de estado mientras se preparaba la acción.',
+        como: 'Actualiza la pantalla y vuelve a decidir sobre lo que hay ahora.',
+        salvo: 'No se modificó nada: ARLES no aplica una decisión tomada sobre un estado viejo.',
+      },
+    },
+  },
+
+  /**
+   * Lo que el trabajador hace en cada paso. Es lo que se ve en Actividad.
+   */
+  motor: {
+    parado: 'Detenido',
+    fueraDeVentana: 'Fuera del horario de envío',
+    sinPresupuesto: 'Se acabó el cupo de envíos',
+    noHayTrabajo: 'No queda nada por enviar ahora mismo',
+    esaPersonaPidioLaBaja: 'No se envió: esa persona pidió no recibir',
+    cancelado: 'Cancelado antes de salir',
+    // §65: el proveedor se hizo cargo. No sabemos si llegó al buzón.
+    aceptadoPorElProveedor: 'Aceptado por el proveedor',
+    seVolveraAIntentar: 'Se volverá a intentar',
+    seAgotaronLosIntentos: 'Se agotaron los intentos',
+    direccionInexistente: 'Esa dirección no existe',
+    laCuentaNoAutentica: 'La cuenta remitente no autentica',
+  },
+
+  /**
+   * Por qué un envío se reintenta, se rinde o para la cuenta (D-12).
+   */
+  reintento: {
+    // §94: «2 de 3» es una cifra. «Pronto» no.
+    seVolveraAIntentar: 'Reintento {cual} de {de}',
+    seAgotaronLosIntentos: 'Se agotaron los {de} intentos',
+    direccionInexistente: 'Esa dirección no existe: se añadió a la lista de bajas',
+    laCuentaNoAutentica: 'La cuenta remitente no autentica: se detuvo el envío',
+    pidioLaBaja: 'Esa persona pidió no recibir',
+  },
+
+  /**
+   * Por qué no cabe un envío más (§48, §53).
+   */
+  ritmo: {
+    fueraDeVentana: 'Fuera del horario que configuraste para esta campaña',
+    topeDeLaHora: 'Se alcanzó el tope de {cabian} envíos por hora',
+    topeDelDia: 'Se alcanzó el tope de {cabian} envíos al día',
+  },
+
+  /**
+   * Qué tiene de malo un horario de envío (D-10).
+   */
+  ventana: {
+    sinDias: {
+      que: 'No marcaste ningún día, así que la campaña no enviaría nunca.',
+      como: 'Marca al menos un día de la semana.',
+      salvo: 'No se guardó el horario. La campaña sigue como estaba.',
+    },
+    horasAlReves: {
+      que: 'La hora de fin ({hasta}) no es posterior a la de inicio ({desde}).',
+      como: 'Pon una hora de fin mayor que la de inicio.',
+      salvo: 'No se guardó el horario. La campaña sigue como estaba.',
+    },
+    horaFueraDeRango: {
+      que: 'La hora {hora} no existe: van de 0 a 24.',
+      como: 'Elige una hora entre 0 y 24.',
+      salvo: 'No se guardó el horario. La campaña sigue como estaba.',
+    },
+    zonaDesconocida: {
+      que: 'Esa zona horaria no está en la lista que ARLES reconoce.',
+      como: 'Elige una de las zonas del desplegable.',
+      salvo: 'No se guardó el horario. La campaña sigue como estaba.',
+    },
+  },
+
+  /**
+   * El cerrojo de instancia única: un solo ARLES sobre una sola base.
+   */
+  instancia: {
+    yaHayOtroAbierto: {
+      // {latioHaceS} es una cifra: dice que el otro está vivo, no que quizá.
+      que: 'Ya hay otro ARLES abierto sobre estos mismos datos (dio señal hace {latioHaceS} segundos).',
+      como:
+        'Usa la ventana que ya está abierta. Si crees que no hay ninguna, ' +
+        'espera un minuto y medio y vuelve a intentarlo.',
+      salvo:
+        'Tus datos y tus campañas están intactos, y la que esté enviando ' +
+        'sigue enviando con normalidad.',
+    },
+    loTomoOtroALaVez: {
+      que: 'Otro ARLES abrió estos datos mientras éste arrancaba.',
+      como: 'Usa esa otra ventana. Ésta no va a enviar nada.',
+      salvo: 'No se envió ni se canceló nada desde esta ventana.',
+    },
+    noSePudoEscribir: {
+      que: 'ARLES no puede escribir junto a tu base de datos.',
+      como:
+        'Comprueba que la carpeta de datos existe, que tienes permiso para ' +
+        'escribir en ella y que queda espacio en el disco.',
+      salvo: 'No se modificó nada.',
+    },
+  },
+
   honestidad: {
     porQueAceptado: '¿Por qué «aceptado» y no «entregado»?',
     porQueAceptadoDetalle:
@@ -359,6 +533,18 @@ export const es = {
       que: 'Una baja guardada no dice bien a qué canales afecta.',
       como: 'Avisa a soporte: la base pudo editarse desde fuera de ARLES.',
       salvo: 'Esa persona sigue sin recibir nada. No se modificó nada.',
+    },
+    estado_de_campana_desconocido: {
+      que: 'Una campaña guardada no dice bien en qué punto está.',
+      como:
+        'Avisa a soporte: la base pudo editarse desde fuera de ARLES. ' +
+        'Mientras tanto, esa campaña no envía nada.',
+      // Ante la duda, el motor para. No se supone «borrador»: suponer el
+      // estado más inofensivo dejaría pasar un «reanudar» sobre una campaña
+      // que en realidad estaba detenida.
+      salvo:
+        'No ha salido ni un mensaje más de esa campaña, y no se ha ' +
+        'cancelado ninguno. Las demás campañas siguen normal.',
     },
     supresion_sin_canales: {
       que: 'No se dijo qué correo o qué número hay que dar de baja.',
@@ -485,6 +671,11 @@ export const es = {
         que: 'Ese contacto ya no está: alguien lo dio de baja.',
         como: 'Actualiza la lista de contactos para ver cómo está ahora.',
         salvo: 'No se modificó nada.',
+      },
+      campana_no_existe: {
+        que: 'Esa campaña ya no está.',
+        como: 'Actualiza la lista de campañas para ver cómo está ahora.',
+        salvo: 'No se modificó nada, y no salió ningún mensaje.',
       },
       dato_invalido: {
         que: 'Un dato guardado no tiene la forma que ARLES espera.',

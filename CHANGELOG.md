@@ -12,6 +12,57 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Pausar, Reanudar y Detener — y que el botón signifique lo que dice
+
+Tres botones que parecen lo mismo y son dos cosas muy distintas:
+
+| Botón | Qué le pasa a la cola | ¿Se puede deshacer? |
+|---|---|---|
+| **Pausar** | Se conserva **intacta** | Sí |
+| **Reanudar** | Sigue donde estaba | — |
+| **Detener** | Lo que no salió se cancela | **No** |
+
+Pausar es «espera un momento». Detener es «esta campaña se acabó», y no se
+deshace: volver a encolar lo cancelado significaría reconstruir una audiencia
+que se congeló al activar y que quizá ya no exista igual.
+
+Por eso detener **pide confirmación y dice cuántos mensajes se van a quedar sin
+enviar**. «¿Seguro?» no es una confirmación informada; «esto cancela 4 312
+correos que no han salido» sí. Y hay una prueba que comprueba que **la cifra que
+se avisa es exactamente la que se cancela** — si miraran cosas distintas, la
+pantalla prometería una cosa y ocurriría otra sobre algo irreversible.
+
+**Lo que detener NO toca.** Los correos que ya salieron, y los que están
+saliendo en ese preciso instante. Cancelar uno que ya se le pasó al proveedor
+diría que no salió, y puede que sí. Esa fila la termina el trabajador que la
+tiene en la mano; lo que impide que siga con la siguiente es el freno.
+
+**Pausar ahora para el motor de verdad.** Hasta esta entrega, el freno del bucle
+estaba puesto pero no había nada detrás: pausar habría cambiado el rótulo de la
+pantalla mientras los correos seguían saliendo. Es la clase de mentira que este
+producto no se puede permitir, y hay una prueba de punta a punta que la caza:
+se manda uno, se pausa, y no sale ni uno más.
+
+**La parada de emergencia sobrevive a cerrar el programa.** El caso concreto:
+alguien se da cuenta de que la campaña que acaba de activar lleva la plantilla
+equivocada, pulsa parar y cierra el programa para irse. Guardada sólo en
+memoria, al día siguiente ARLES arrancaría sin parada y seguiría enviando la
+plantilla equivocada a los cuatro mil que faltaban. Ahora se guarda en la base
+(migración V6).
+
+Se guarda **desde cuándo**, no un sí/no, para que la pantalla pueda decir
+«detenido desde las 14:32» en vez de un «detenido» a secas que invita a
+preguntarse si se quedó puesto de ayer. Volver a pulsar no reescribe esa hora.
+
+**Y levantar la parada no reanuda nada por su cuenta.** Las campañas en pausa
+siguen en pausa. Una parada de emergencia se pulsa porque algo iba mal; lo
+último que debe hacer el botón de quitarla es poner a enviar todo a la vez.
+
+**Ante la duda, se para.** Si la base no puede contestar si hay que parar —un
+estado corrupto, una base tocada por fuera—, el motor se detiene. Los dos
+errores posibles no se parecen: parar de más se ve, porque la campaña no avanza
+y alguien pregunta; enviar de más no se ve hasta que los correos ya salieron.
+
 ### El bucle que junta todas las piezas, y un cerrojo para que no haya dos ARLES
 
 Hasta ahora había una cola que sabe repartir trabajo sin duplicarlo, un

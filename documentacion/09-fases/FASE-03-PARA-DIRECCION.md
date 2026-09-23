@@ -47,7 +47,7 @@ Se ve en tres sitios concretos:
 | **Derechos** | Responder a quien le pida sus datos, o que se los borre |
 | **Ajustes** | Tema y versión. Sólo lo que es de la aplicación |
 
-Y por debajo: la base de datos cifrada con cinco migraciones, la lectura defensiva de archivos, y las reglas de validación de correos y móviles mexicanos.
+Y por debajo: la base de datos cifrada con cinco migraciones al cerrar la fase, la lectura defensiva de archivos, y las reglas de validación de correos y móviles mexicanos.
 
 **La zona horaria no es un ajuste cosmético.** Es la que decide a qué hora sale cada correo. Por eso los datos de su empresa no viven en «Ajustes» —que es tema y versión— sino en su propia pantalla dentro de Inicio.
 

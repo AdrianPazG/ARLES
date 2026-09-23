@@ -57,6 +57,30 @@ pub enum DbError {
     #[error("esa supresión no existe")]
     SupresionNoExiste,
 
+    /// No hay tal campaña en esta empresa, o ya no está.
+    ///
+    /// No se distingue «nunca existió» de «era de otra empresa», por el mismo
+    /// motivo que en los contactos: decirlo filtraría la existencia de datos
+    /// ajenos.
+    #[error("esa campaña no existe")]
+    CampanaNoExiste,
+
+    /// Esa acción no procede desde el estado en que está la campaña.
+    ///
+    /// **Lleva la clave i18n del caso concreto dentro**, no una genérica: la
+    /// diferencia entre «no se puede reanudar desde ahí» y «detener no se
+    /// deshace, y para volver a escribir a esa gente hay que crear una campaña
+    /// nueva» es lo que decide si la persona entiende qué hacer (§95).
+    #[error("esa acción no procede desde el estado actual de la campaña")]
+    AccionDeCampanaImposible { clave: &'static str },
+
+    /// El núcleo no reconoce lo que hay guardado.
+    ///
+    /// Se convierte y no se envuelve en `DatoInvalido` para que la clave i18n
+    /// que llega a la pantalla sea la del núcleo, que dice qué dato es.
+    #[error(transparent)]
+    Nucleo(#[from] arles_core::CoreError),
+
     /// La persona pidió la baja: no se levanta con un botón.
     ///
     /// **Lleva la clave i18n del motivo dentro** para que la pantalla pueda
@@ -80,6 +104,9 @@ impl DbError {
             Self::DireccionEnUso { .. } => "error.db.direccion_en_uso",
             Self::ContactoNoExiste => "error.db.contacto_no_existe",
             Self::SupresionNoExiste => "error.db.supresion_no_existe",
+            Self::CampanaNoExiste => "error.db.campana_no_existe",
+            Self::AccionDeCampanaImposible { clave } => clave,
+            Self::Nucleo(e) => e.clave_i18n(),
             Self::SupresionNoSeLevanta { .. } => "error.db.supresion_no_se_levanta",
             Self::Sqlite(_) => "error.db.sqlite",
         }

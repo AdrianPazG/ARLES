@@ -1259,6 +1259,10 @@ MIGRACIONES_PUBLICADAS = {
     # ADR-0013 §1, origen declarado de la importación. 18/09/2026.
     "V5__origen_de_la_importacion.sql":
         "d3a7533331ec838fa2df6799cc2b65ee1691dc12d9fc52f21541a9945f25720f",
+    # La parada de emergencia, guardada para que sobreviva a cerrar el
+    # programa. Entrega 4.4, 23/09/2026.
+    "V6__parada_de_emergencia.sql":
+        "e70450e110aaddc263edcb1be00be9665b9cfbca0dfdbd9ab0fb695799b77218",
 }
 
 
@@ -1395,6 +1399,41 @@ def claves_de_error_sin_texto():
           "está escrita a mano: si no se actualiza, la afirmación es falsa y "
           "el test pasa sin comprobar nada de lo nuevo.",
           f"claves sin vigilar: {sin_vigilar}")
+
+    # ── Y las claves que NO empiezan por «error.» ────────────────────────────
+    #
+    # La comprobación de arriba sólo miraba `error.*`, y el §139 no dice eso:
+    # dice que TODA clave lleva texto. Al llegar la Fase 4 aparecieron cuarenta
+    # y una claves de estado —`motor.*`, `campana.*`, `reintento.*`,
+    # `ritmo.*`, `ventana.*`, `instancia.*`— y ninguna tenía texto, porque nada
+    # las miraba. Las cuarenta y una habrían salido en pantalla como su propia
+    # clave: «motor.fueraDeVentana».
+    #
+    # Se descubrió el 23/09/2026 al añadir las de pausar y detener, y es
+    # exactamente el fallo del §2: una comprobación que parecía cubrir el §139
+    # cubría un tercio de él.
+    otras = set()
+    for crate in ("arles-core", "arles-db", "arles-motor", "arles-app"):
+        d = os.path.join(RAIZ, "crates", crate, "src")
+        if not os.path.isdir(d):
+            continue
+        for archivo in os.listdir(d):
+            if archivo.endswith(".rs"):
+                texto = leer(f"crates/{crate}/src", archivo) or ""
+                # Se quitan los tests: sus cadenas no van a ninguna pantalla.
+                cuerpo = texto.split("\n#[cfg(test)]")[0]
+                otras |= set(re.findall(
+                    r'"((?:campana|motor|reintento|ritmo|ventana|instancia|etapa)'
+                    r'\.[a-zA-Z][a-zA-Z._]*)"', cuerpo))
+
+    # En el catálogo la clave es la última parte, anidada bajo las anteriores.
+    otras_sin_texto = sorted(
+        c for c in otras if f"{c.rsplit('.', 1)[-1]}: " not in es)
+    check(3, "toda clave de estado de Rust tiene texto en el catálogo",
+          bool(otras) and not otras_sin_texto,
+          "El §139 dice TODA clave, no sólo las de error. Sin texto, la "
+          "pantalla enseña la clave cruda: «motor.fueraDeVentana».",
+          f"claves: {sorted(otras)}\nsin texto: {otras_sin_texto}")
 
 
 def iconos_de_seccion():

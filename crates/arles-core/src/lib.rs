@@ -16,6 +16,7 @@
 pub mod analisis;
 pub mod arco;
 pub mod attempt;
+pub mod campana;
 pub mod canal;
 pub mod cancelacion;
 pub mod contacto;
@@ -36,6 +37,7 @@ pub mod ventana;
 pub use analisis::{Analisis, Choque, FilaRechazada, FilaSuprimida, analizar};
 pub use arco::{Expediente, redactar};
 pub use attempt::{AttemptState, TransitionError};
+pub use campana::{AccionDeCampana, AccionImposible, EstadoDeCampana, ParadaDeEmergencia};
 pub use canal::{Canal, PhoneNumber, ValorDeCanal};
 pub use contacto::{
     BorradorDeCanal, BorradorDeContacto, CampoDeContacto, CanalValidado, DatosDeContacto,
