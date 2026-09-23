@@ -12,6 +12,57 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Fase 5 · Traducir lo que dice un servidor de correo
+
+**Arranca la fase que hace que ARLES mande correos de verdad.** El motor ya sabe
+enviar; lo que faltaba es entender lo que contesta el otro lado.
+
+El motor entiende cinco fallos. Un servidor de correo habla en números de tres
+cifras. **Toda la fase es esa traducción**, y una fila mal puesta no se puede
+deshacer:
+
+- Confundir un `450` («ahora no puedo») con un `550` («ese buzón no existe»)
+  **mete en la lista de bajas a alguien que sí existe**.
+- Y al revés, insiste tres veces contra un buzón muerto — que es exactamente lo
+  que sube el contador que los proveedores usan para marcar a un remitente
+  como spam.
+
+**Cuatro casos que el resumen no tenía**, y que mal puestos dan de baja a gente
+alcanzable:
+
+| Lo que contesta el servidor | Lo que parece | Lo que es |
+|---|---|---|
+| Buzón lleno | Definitivo, por el número | **Temporal.** El martes que viene tendrá sitio |
+| Mensaje demasiado grande | Rechazo de esa persona | **Culpa nuestra.** Su dirección funciona |
+| «Relay denegado» | Rechazo de esa persona | **De la cuenta.** Lo tendrá con todos los envíos |
+| Dirección mal puesta (`5.1.8`) | Del destinatario | **Del remitente.** Es el único de su familia |
+
+Suprimir a un cliente porque su buzón estaba lleno un día, o porque nuestro
+adjunto pesaba de más, es irreversible por una causa que no es suya.
+
+**El texto libre no decide nada.** Buscar palabras —«full», «unknown», «try
+again»— funciona con el servidor con el que se probó y falla con todos los
+demás, en idiomas que nadie leyó. Hay una prueba que manda el mismo código con
+textos opuestos y exige el mismo resultado.
+
+### Un servidor de correo de mentira, dentro del programa
+
+**A Gmail no se le puede pedir que conteste `550`.** Ni que se caiga a mitad de
+la conversación, ni que rechace la contraseña.
+
+Sin un servidor al que ordenarle eso, todas las ramas de error del adaptador
+—la mitad del código— se probarían el día del lanzamiento, con los contactos de
+un cliente.
+
+Ahora hay uno que habla el protocolo de verdad: saluda, entiende los comandos,
+respeta el punto solo que cierra el cuerpo, y **contesta lo que se le mande**.
+Es la misma idea que el proveedor simulado de la Fase 4, un piso más abajo.
+
+**Guarda lo que le dijeron, y no guarda el cuerpo.** Lo primero permite afirmar
+lo que **no** se pidió; lo segundo evita que el contenido de los correos acabe
+en la salida de las pruebas.
+
+
 ### Auditoría de cierre de la Fase 4 — cinco hallazgos
 
 Antes de cerrar la fase se recorrió entera contra sus propios requisitos.

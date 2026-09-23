@@ -148,6 +148,51 @@ El diálogo SMTP da códigos en el momento. Es la **única** detección de rebot
 
 Atrapa buzones inexistentes que el servidor destino rechaza durante el diálogo. **No atrapa los rebotes asíncronos**, que son la mayoría y llegan como correo a la bandeja del remitente horas después.
 
+### Cómo se construyó la traducción (entrega 5.1, 23/09/2026)
+
+Vive en `arles_email::codigos`, y la tabla de arriba resultó ser la mitad de la historia. Al construirla aparecieron **cuatro filas que el resumen no tenía** y que, mal puestas, dan de baja a gente alcanzable.
+
+**Tres niveles de certeza, en orden.** Un servidor contesta con hasta tres cosas:
+
+```text
+550 5.1.1 The email account that you tried to reach does not exist
+^^^ ^^^^^ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ |    |    texto libre: NO se interpreta. Sólo se enseña.
+ |    código extendido (RFC 3463): lo más preciso que hay
+ código básico (RFC 5321)
+```
+
+1. **El extendido**, si viene. `5.1.1` dice «la dirección está mal» y `5.3.4` dice «tu mensaje es demasiado grande» — los dos son `5xx`, y confundirlos suprimiría a alguien por culpa de un archivo adjunto.
+2. **El básico**, si no hay extendido.
+3. **La clase**, para lo desconocido: `4xx` temporal, `5xx` permanente. **Nunca al revés**: un `5xx` raro tratado como temporal reintentaría para siempre, y un `4xx` raro tratado como permanente suprimiría a quien no debía.
+
+**Las cuatro filas que no son obvias:**
+
+| Caso | Lo que parece | Lo que es |
+|---|---|---|
+| `552` buzón lleno | Permanente, por el número | **Temporal.** El martes que viene tendrá sitio |
+| `5.3.4` mensaje demasiado grande | Rechazo del destinatario | **Culpa nuestra.** Esa dirección funciona |
+| `5.7.x` relay denegado, IP bloqueada | Rechazo del destinatario | **De la CUENTA.** Lo tendrá con todos los envíos |
+| `5.1.8` dirección mal | Del destinatario, como el resto de `5.1.x` | **Del remitente.** Es el único de su familia |
+
+Suprimir a alguien porque su buzón estaba lleno un día, o porque nuestro adjunto pesaba de más, es un error irreversible por una causa que no es suya.
+
+**El texto libre no decide nada.** Buscar palabras —«full», «unknown», «try again»— funciona con el servidor con el que se probó y falla con todos los demás, en idiomas que nadie leyó. Hay una prueba que manda el mismo código con textos opuestos y exige el mismo resultado.
+
+**Y de SMTP nunca sale una espera concreta.** El protocolo no tiene un campo legible por máquina que diga «vuelve en N segundos»; eso es del mundo HTTP y lo usará el adaptador de WhatsApp. Sacar el número de un texto libre es tentador y peligroso: en `550 5.1.1 user 3600 not found` hay un `3600` que no es una espera. Por eso `Fallo::NoMeMandesNadaDurante` **no lo produce nunca** este adaptador.
+
+### El servidor de mentira
+
+`arles_email::servidor` levanta un servidor de correo **en el propio proceso**, que habla el protocolo de verdad —saluda, entiende `EHLO`, `AUTH`, `MAIL FROM`, `RCPT TO`, `DATA` y el punto solo que cierra el cuerpo— y al que se le puede ordenar qué contestar en cada paso.
+
+Existe porque **a Gmail no se le puede pedir que conteste `550`**. Sin él, todas las ramas de error del adaptador —la mitad del código y la mitad de las decisiones difíciles— se probarían el día del lanzamiento, con los contactos de un cliente.
+
+Es la misma idea que el proveedor simulado de la Fase 4, un piso más abajo: allí se simulaba **el proveedor** y aquí **el servidor**. El adaptador que hablará con Gmail es exactamente el mismo que habla con éste.
+
+**Guarda lo que le dijeron, y no guarda el cuerpo.** Lo primero permite afirmar lo que **no** se pidió —que a una persona dada de baja no se le mandó ni un `RCPT TO`—; lo segundo evita que el contenido de los correos acabe en la salida de las pruebas y de ahí en una bitácora de CI.
+
+**La conversación no sabe por dónde viaja.** Trabaja sobre cualquier cosa legible y escribible, no sobre un socket, porque en la 5.2 el adaptador exigirá TLS y este mismo servidor tendrá que hablar cifrado. Atado al socket eso sería reescribirlo; así es envolverlo.
+
 ### Gmail por SMTP
 
 Gmail admite SMTP con **contraseña de aplicación**, sin verificación OAuth alguna. Esto es lo que hace viable D-1: el caso de uso principal está cubierto desde el día uno.

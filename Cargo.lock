@@ -104,6 +104,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "arles-email"
+version = "1.2.0"
+dependencies = [
+ "arles-core",
+]
+
+[[package]]
 name = "arles-import"
 version = "1.2.0"
 dependencies = [
