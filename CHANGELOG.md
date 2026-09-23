@@ -45,6 +45,55 @@ again»— funciona con el servidor con el que se probó y falla con todos los
 demás, en idiomas que nadie leyó. Hay una prueba que manda el mismo código con
 textos opuestos y exige el mismo resultado.
 
+### La cuenta de correo, validada y con sitio donde guardarse
+
+**La tabla de cuentas remitentes existía desde el primer día y no se podía
+conectar a nada.** Tenía el remitente, el tipo de proveedor, los límites y el
+disyuntor. Le faltaba lo único que hace falta para hablar con un servidor de
+correo: **el servidor, el puerto, el cifrado y el usuario**.
+
+No es casualidad: cuando se diseñó, la conexión de verdad estaba a cuatro fases
+de distancia y el esquema se escribió contra un documento, no contra un
+adaptador funcionando. Es el mismo patrón que dejó las columnas del disyuntor
+sin que nadie las escribiera durante cuatro entregas. Ahora las columnas nacen
+con el código que las usa.
+
+**Y la regla del cifrado queda escrita por tercera vez, a propósito.** No hay
+ningún valor que signifique «sin cifrar»: no lo hay en el tipo del núcleo, que
+sólo tiene dos formas y las dos cifran; no lo hay en el adaptador; y ahora
+tampoco cabe en la base de datos. Tres sitios parecen muchos hasta que se piensa
+en el día en que alguien «arregle» uno de los tres para hacer funcionar un
+servidor mal configurado. Con la columna puesta así, el valor no entra aunque el
+código lo dejara pasar.
+
+**El servidor no puede ser una dirección IP**, y el texto explica por qué en vez
+de limitarse a rechazarlo: el certificado de seguridad se emite para el nombre, y
+con una IP no hay forma de comprobar que se está hablando con quien se cree. Sin
+esa explicación, quien lo lea pensará que ARLES es quisquilloso y buscará cómo
+saltárselo — que es exactamente el camino que lleva a desactivar la verificación.
+
+**Todos los campos malos se marcan a la vez.** Corregir un formulario de seis
+casillas de una en una, con un viaje por cada intento, es cómo se consigue que
+alguien apunte la cuenta en un papel y se rinda.
+
+**Lo que salió al probarlo:**
+
+- La migración que se escribió primero **hacía imposible actualizar**. Obligaba a
+  las cuentas existentes a traer los cuatro datos nuevos, y resulta que SQLite
+  revisa las filas que ya hay al añadir una columna con esa clase de regla: una
+  instalación con una cuenta ya guardada no habría podido abrir ARLES. Lo
+  descubrió la prueba que aplica las migraciones sobre datos de verdad. La salida
+  fácil —rellenar esas filas con un servidor inventado— queda descartada: un
+  servidor puesto por una migración es indistinguible de uno que escribió el
+  usuario, y el primer envío iría a donde nadie eligió. Ahora esas cuentas quedan
+  marcadas como «hay que configurarla», que es lo que son.
+
+- Una prueba nueva **pasaba por el motivo equivocado**: comprobaba que una cuenta
+  sin validar no puede entrar por la frontera, y en realidad fallaba por el tipo
+  de un campo, no por la validación. Se vio al romperla a propósito: la rotura
+  contra la que estaba escrita no la hacía fallar. Ahora mira el motivo del
+  fallo, no sólo que falle.
+
 ### «Probar conexión»: seis respuestas, cada una con una acción distinta
 
 **El botón que evita descubrir que la cuenta está mal a mitad de una campaña.**

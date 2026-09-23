@@ -61,6 +61,8 @@ const CLAVES_DEL_NUCLEO = [
   // Entrega 4.4 · pausar, reanudar y detener.
   'error.db.campana_no_existe',
   'error.estado_de_campana_desconocido',
+  // Entrega 5.3 · una cuenta guardada con un cifrado que no reconocemos.
+  'error.cifrado_desconocido',
   // Entrega 5.2 · la cuenta de correo. Son problemas de configuración, no de
   // un envío: se leen mientras alguien da de alta un remitente.
   'error.correo.no_se_pudo_cifrar',

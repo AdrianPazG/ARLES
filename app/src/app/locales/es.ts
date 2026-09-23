@@ -457,6 +457,34 @@ export const es = {
    * con opciones: es lo que ARLES enseña de una cuenta ya configurada (§29).
    */
   correo: {
+    // ── Los campos del formulario de la cuenta · entrega 5.3 ─────────────
+    //
+    // Una línea por campo, en imperativo y diciendo qué hacer: el formulario
+    // los pinta debajo de la casilla que está mal. «Campo inválido» no dice
+    // qué corregir.
+    error: {
+      // Para el caso que no debería ocurrir: mejor decir algo que callar.
+      generico: 'Revisa los datos de la cuenta.',
+      servidorVacio: 'Escribe el servidor de tu correo, como smtp.gmail.com.',
+      servidorLargo: 'El nombre del servidor es demasiado largo.',
+      servidorNoVale:
+        'Escribe sólo el nombre del servidor, sin espacios y sin http://.',
+      // La regla menos obvia, así que el texto explica el porqué: sin esto,
+      // quien lo lea pensará que ARLES es quisquilloso y buscará cómo
+      // saltárselo.
+      servidorEsUnaIp:
+        'Escribe el nombre del servidor, no su dirección IP. El certificado ' +
+        'de seguridad se emite para el nombre, y con una IP no se puede ' +
+        'comprobar que estás hablando con quien crees.',
+      puertoNoVale: 'El puerto es un número entre 1 y 65535. Para Gmail, 587.',
+      cifradoNoVale: 'Elige una de las dos formas de cifrado.',
+      usuarioVacio: 'Escribe el usuario con el que entras a tu correo.',
+      usuarioLargo: 'El usuario es demasiado largo.',
+      remitenteNoVale:
+        "Revisa que el remitente tenga la forma nombre{'@'}dominio.com.",
+      nombreLargo: 'El nombre es demasiado largo.',
+    },
+
     cifrado: {
       starttls: 'Cifrado (STARTTLS, puerto 587)',
       directo: 'Cifrado desde el inicio (puerto 465)',
@@ -704,6 +732,17 @@ export const es = {
           'con lo que aparece en esta pantalla.',
         salvo: 'No se envió nada y no se marcó a nadie.',
       },
+    },
+
+    cifrado_desconocido: {
+      que: 'Una cuenta de correo guardada tiene un cifrado que no reconocemos.',
+      // No se repara solo a propósito: elegir «el más parecido» aquí sería
+      // decidir por su cuenta cómo viaja la contraseña de la empresa.
+      como:
+        'Abre esa cuenta en Remitentes y vuelve a elegir cómo se cifra la ' +
+        'conexión. ARLES no elige por ti: sería decidir cómo viaja tu ' +
+        'contraseña.',
+      salvo: 'No se envió nada con esa cuenta y no se perdió ningún dato.',
     },
 
     email_invalido: {

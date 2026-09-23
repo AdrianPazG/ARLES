@@ -32,15 +32,28 @@ corporate_email, default_signature_id, created_at, updated_at
 ### `email_account`
 Cuenta remitente.
 
+> Ampliada en la **V7** (entrega 5.3): las cuatro columnas de SMTP.
+
 ```
 id, company_id, display_name, email_address, provider_kind,
 credential_ref, status, daily_limit, hourly_limit,
-consecutive_failures, circuit_open_until, created_at, updated_at
+consecutive_failures, circuit_open_until, created_at, updated_at,
+smtp_host, smtp_port, smtp_security, smtp_username
 ```
 
 **`credential_ref` es una referencia al llavero del sistema operativo, nunca una credencial.** Ver `04-seguridad/MODELO_DE_SECRETOS.md`.
 
 `provider_kind`: `smtp` en v1.2.0; `google` y `microsoft` previstos.
+
+**La tabla existía desde la V1 sin poder conectarse a nada.** Tenía el remitente, el proveedor, los límites y el disyuntor, y le faltaba lo único que hace falta para hablar con un servidor SMTP: el servidor, el puerto, el cifrado y el usuario. Es el mismo patrón que dejó las columnas del disyuntor sin que nadie las escribiera durante cuatro entregas — un esquema que promete algo y un código que no lo cumple no falla, simplemente no hace nada. La V7 las añade cuando ya existe el adaptador que las usa.
+
+**`smtp_security` admite dos valores y los dos cifran**: `starttls` y `directo`. No hay un `none`. Es el §29 escrito como esquema, y es la tercera vez que la misma regla aparece —está también en `arles_core::correo::CifradoDeCorreo`, que no tiene una tercera variante, y en `arles_email::tls`, que no sabe construir una conexión en claro—. Tres sitios parecen muchos hasta que se piensa en el día en que alguien «arregle» uno de los tres para hacer funcionar un servidor mal configurado.
+
+**Las columnas son opcionales, y es a propósito.** Google y Microsoft (v1.2.x y v1.3) se conectan por OAuth y no tienen servidor ni contraseña; un `NOT NULL` obligaría a inventarse un `smtp.google.com` falso para esas filas.
+
+La primera versión de la V7 sí obligaba a las cuentas SMTP a traer los cuatro datos, con un `CHECK` cruzado contra `provider_kind`. **No se puede**: la prueba que aplica las migraciones sobre datos sembrados falló, y el motivo es que SQLite **revalida las filas existentes** al añadir una columna con `CHECK`. Una base con una cuenta SMTP ya guardada no podría migrar, y ARLES no arrancaría. Rellenar esas filas con un servidor inventado para que pasaran era la salida fácil y queda descartada: un `smtp.gmail.com` puesto por una migración es indistinguible de uno que escribió el usuario. Así que la obligatoriedad vive en el código y el esquema garantiza el **dominio** de los valores, que es la parte que de verdad protege.
+
+Las cuentas SMTP anteriores a la V7 quedan en `needs_reauth`: no tienen servidor, así que no pueden enviar, y dejarlas en `connected` haría que el fallo apareciera al arrancar una campaña con los contactos ya en cola.
 
 ### `contact`
 

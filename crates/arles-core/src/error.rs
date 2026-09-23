@@ -30,6 +30,15 @@ pub enum CoreError {
     #[error("número de teléfono inválido: {motivo}")]
     TelefonoInvalido { motivo: &'static str },
 
+    /// Una fila trae un cifrado de correo que no reconocemos.
+    ///
+    /// **No se repara cayendo en un valor por defecto.** El «más parecido» a un
+    /// valor corrupto no existe aquí: lo único que hay son dos formas de
+    /// cifrar, y elegir una por su cuenta sería inventarse cómo viaja la
+    /// contraseña de la empresa (§29).
+    #[error("el cifrado de esa cuenta de correo no es uno de los admitidos")]
+    CifradoDesconocido,
+
     /// Una fila de la base trae un canal que no reconocemos.
     ///
     /// No es un caso a ignorar: el canal decide **a quién se le escribe y por
@@ -91,6 +100,7 @@ impl CoreError {
         match self {
             Self::EmailInvalido { .. } => "error.email_invalido",
             Self::TelefonoInvalido { .. } => "error.telefono_invalido",
+            Self::CifradoDesconocido => "error.cifrado_desconocido",
             Self::CanalDesconocido => "error.canal_desconocido",
             Self::IdInvalido { .. } => "error.id_invalido",
             Self::OrigenDesconocido => "error.origen_desconocido",

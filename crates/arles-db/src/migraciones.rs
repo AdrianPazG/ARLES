@@ -288,6 +288,155 @@ mod tests {
         );
     }
 
+    /// **El §29 escrito como esquema: no cabe un cifrado que no cifre.**
+    ///
+    /// Es la garantía que justifica la V7. La misma regla está en el núcleo
+    /// —`CifradoDeCorreo` no tiene una tercera variante— y en el adaptador, que
+    /// no sabe construir una conexión en claro. Ésta es la tercera, y es la
+    /// única que sigue valiendo si un día el código deja pasar el valor: aunque
+    /// lo dejara, no entra en la tabla.
+    ///
+    /// Verificada rompiéndola el 23/09/2026: añadiendo `'none'` a la lista del
+    /// `CHECK`, el primer `INSERT` pasa y esta prueba falla.
+    #[test]
+    fn la_v7_no_admite_una_conexion_sin_cifrar() {
+        let dir = tempfile::tempdir().expect("directorio temporal");
+        let clave = ClaveMaestra::generar().expect("genera");
+        let mut conn = crate::conexion::abrir_crudo(&dir.path().join("v7.db"), &clave)
+            .expect("abre sin migrar");
+        aplicar(&mut conn).expect("migra hasta la última");
+
+        conn.execute_batch(
+            "INSERT INTO company (id, commercial_name, country, timezone,
+                                  corporate_email, created_at, updated_at)
+             VALUES ('c1', 'TELEMETRY', 'MX', 'America/Mexico_City',
+                     'hola@t.mx', '2026-09-23T00:00:00Z', '2026-09-23T00:00:00Z');",
+        )
+        .expect("una empresa");
+
+        let alta = |id: &str, cifrado: &str| -> Result<usize, rusqlite::Error> {
+            conn.execute(
+                "INSERT INTO email_account (id, company_id, display_name, email_address,
+                                            provider_kind, credential_ref, daily_limit,
+                                            hourly_limit, created_at, updated_at,
+                                            smtp_host, smtp_port, smtp_security,
+                                            smtp_username)
+                 VALUES (?1, 'c1', 'Ventas', 'ventas@t.mx', 'smtp', 'llavero://x',
+                         50, 10, '2026-09-23T00:00:00Z', '2026-09-23T00:00:00Z',
+                         'smtp.gmail.com', 587, ?2, 'ventas@t.mx')",
+                rusqlite::params![id, cifrado],
+            )
+        };
+
+        // Las formas en las que alguien intentaría apagar el cifrado.
+        for (i, intento) in ["none", "ninguno", "plain", "opportunistic", "", "NONE"]
+            .into_iter()
+            .enumerate()
+        {
+            assert!(
+                alta(&format!("malo{i}"), intento).is_err(),
+                "«{intento}» no puede caber en la base: es una conexión sin cifrar"
+            );
+        }
+
+        // Y los dos que sí valen entran.
+        alta("bueno1", "starttls").expect("STARTTLS entra");
+        alta("bueno2", "directo").expect("TLS directo entra");
+    }
+
+    /// Un puerto imposible no entra.
+    ///
+    /// Sin esto, un `0` guardado daría un «no se llegó al servidor» eterno, y
+    /// el sitio donde mirar sería una columna que nadie abre.
+    #[test]
+    fn la_v7_rechaza_los_puertos_que_no_existen() {
+        let dir = tempfile::tempdir().expect("directorio temporal");
+        let clave = ClaveMaestra::generar().expect("genera");
+        let mut conn = crate::conexion::abrir_crudo(&dir.path().join("v7p.db"), &clave)
+            .expect("abre sin migrar");
+        aplicar(&mut conn).expect("migra hasta la última");
+
+        conn.execute_batch(
+            "INSERT INTO company (id, commercial_name, country, timezone,
+                                  corporate_email, created_at, updated_at)
+             VALUES ('c1', 'TELEMETRY', 'MX', 'America/Mexico_City',
+                     'hola@t.mx', '2026-09-23T00:00:00Z', '2026-09-23T00:00:00Z');",
+        )
+        .expect("una empresa");
+
+        let alta = |id: &str, puerto: i64| -> Result<usize, rusqlite::Error> {
+            conn.execute(
+                "INSERT INTO email_account (id, company_id, display_name, email_address,
+                                            provider_kind, credential_ref, daily_limit,
+                                            hourly_limit, created_at, updated_at,
+                                            smtp_host, smtp_port, smtp_security,
+                                            smtp_username)
+                 VALUES (?1, 'c1', 'Ventas', 'ventas@t.mx', 'smtp', 'llavero://x',
+                         50, 10, '2026-09-23T00:00:00Z', '2026-09-23T00:00:00Z',
+                         'smtp.gmail.com', ?2, 'starttls', 'ventas@t.mx')",
+                rusqlite::params![id, puerto],
+            )
+        };
+
+        assert!(alta("p0", 0).is_err(), "el 0 no es un puerto");
+        assert!(alta("pneg", -1).is_err(), "un puerto negativo no existe");
+        assert!(
+            alta("pmax", 65_536).is_err(),
+            "por encima de 65535 no existe"
+        );
+        alta("pok", 587).expect("el 587 sí");
+        alta("pok2", 65_535).expect("el último puerto también");
+    }
+
+    /// **Una cuenta SMTP de antes de la V7 no se queda diciendo que funciona.**
+    ///
+    /// No tiene servidor, así que no puede enviar. Dejarla como `connected`
+    /// haría que la pantalla la enseñara lista y que el fallo apareciera al
+    /// arrancar una campaña, con los contactos ya en cola.
+    ///
+    /// Verificada rompiéndola el 23/09/2026: quitando el `UPDATE` del final de
+    /// la V7, la cuenta sigue en `connected` y esta prueba falla.
+    #[test]
+    fn la_v7_marca_las_cuentas_smtp_que_venian_sin_servidor() {
+        let dir = tempfile::tempdir().expect("directorio temporal");
+        let clave = ClaveMaestra::generar().expect("genera");
+        let mut conn = crate::conexion::abrir_crudo(&dir.path().join("v7v.db"), &clave)
+            .expect("abre sin migrar");
+
+        embebidas::migrations::runner()
+            .set_target(refinery::Target::Version(6))
+            .run(&mut conn)
+            .expect("migra hasta la V6");
+
+        conn.execute_batch(
+            "INSERT INTO company (id, commercial_name, country, timezone,
+                                  corporate_email, created_at, updated_at)
+             VALUES ('c1', 'TELEMETRY', 'MX', 'America/Mexico_City',
+                     'hola@t.mx', '2026-09-23T00:00:00Z', '2026-09-23T00:00:00Z');
+
+             INSERT INTO email_account (id, company_id, display_name, email_address,
+                                        provider_kind, credential_ref, status,
+                                        daily_limit, hourly_limit, created_at, updated_at)
+             VALUES ('vieja', 'c1', 'Ventas', 'ventas@t.mx', 'smtp', 'llavero://v',
+                     'connected', 50, 10, '2026-09-17T00:00:00Z', '2026-09-17T00:00:00Z');",
+        )
+        .expect("una cuenta como las de antes");
+
+        aplicar(&mut conn).expect("la V7 se aplica sobre una base con cuentas");
+
+        let estado: String = conn
+            .query_row(
+                "SELECT status FROM email_account WHERE id = 'vieja'",
+                [],
+                |f| f.get(0),
+            )
+            .expect("la cuenta sigue ahí");
+        assert_eq!(
+            estado, "needs_reauth",
+            "una cuenta sin servidor no puede seguir diciendo que está conectada"
+        );
+    }
+
     /// La V4 sobre datos reales: una campaña con su cuenta, su plantilla y sus
     /// intentos tiene que salir convertida en una campaña **con una etapa de
     /// correo**, sin perder nada y sin dejar los intentos huérfanos.

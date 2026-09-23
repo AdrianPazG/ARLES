@@ -2715,6 +2715,29 @@ def la_contrasena_no_viaja_en_claro():
           "defecto de `lettre` o alguien toca la configuración.")
 
 
+def la_base_no_admite_una_conexion_sin_cifrar():
+    """El `CHECK` de `smtp_security` sólo deja pasar los dos valores que cifran.
+
+    Es la tercera vez que se escribe la misma regla —está en
+    `CifradoDeCorreo`, en `arles_email::tls` y aquí—, y es la única que sigue
+    valiendo si un día el código deja pasar el valor: aunque lo dejara, no
+    entra en la tabla (§29).
+    """
+    v7 = leer("crates/arles-db/migrations", "V7__cuenta_smtp.sql") or ""
+    # Se mira la línea del CHECK, no el archivo entero: los comentarios de la
+    # migración nombran 'none' y 'plain' al explicar por qué NO están.
+    linea = ""
+    for l in v7.splitlines():
+        if "smtp_security IN" in l:
+            linea = l
+            break
+    check(5, "la base no admite una conexión sin cifrar",
+          bool(linea) and "'starttls'" in linea and "'directo'" in linea
+          and not any(x in linea for x in ("'none'", "'plain'", "'opportunistic'", "'ninguno'")),
+          "§29: si el valor cabe en la columna, algún día habrá una fila con él.",
+          f"la línea del CHECK: {linea.strip() or 'no se encontró'}")
+
+
 def fase_5(rapido):
     titulo("FASE 5 · El correo de verdad")
 
@@ -2725,11 +2748,15 @@ def fase_5(rapido):
         ("crates/arles-email/src/tls.rs", "El cifrado obligatorio, sin ninguna forma de desactivarlo (§29)."),
         ("crates/arles-email/src/smtp.rs", "El adaptador que habla con Gmail."),
         ("crates/arles-email/src/error.rs", "Los problemas de configuración, que no son fallos de envío."),
+        ("crates/arles-email/src/prueba.rs", "«Probar conexión»: seis respuestas, cada una con una acción."),
+        ("crates/arles-core/src/correo.rs", "La cuenta de correo validada. Y el cifrado, que no tiene un «ninguno»."),
+        ("crates/arles-db/migrations/V7__cuenta_smtp.sql", "Las columnas de SMTP que faltaban en `email_account` desde la V1."),
     ]:
         check(5, f"existe {ruta}", os.path.exists(os.path.join(RAIZ, ruta)), porque)
 
     print(f"{GRIS}  invariantes{FIN}")
     no_hay_forma_de_no_cifrar()
+    la_base_no_admite_una_conexion_sin_cifrar()
     confiar_en_un_certificado_es_solo_de_pruebas()
     la_contrasena_no_viaja_en_claro()
     claves_de_error_sin_texto()

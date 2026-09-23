@@ -20,6 +20,7 @@ pub mod campana;
 pub mod canal;
 pub mod cancelacion;
 pub mod contacto;
+pub mod correo;
 pub mod disyuntor;
 pub mod duracion;
 pub mod email;
