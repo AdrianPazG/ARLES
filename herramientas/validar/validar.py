@@ -1423,12 +1423,21 @@ def claves_de_error_sin_texto():
                 # Se quitan los tests: sus cadenas no van a ninguna pantalla.
                 cuerpo = texto.split("\n#[cfg(test)]")[0]
                 otras |= set(re.findall(
-                    r'"((?:campana|motor|reintento|ritmo|ventana|instancia|etapa)'
+                    r'"((?:campana|motor|reintento|ritmo|ventana|instancia|etapa|duracion|preflight)'
                     r'\.[a-zA-Z][a-zA-Z._]*)"', cuerpo))
 
     # En el catálogo la clave es la última parte, anidada bajo las anteriores.
-    otras_sin_texto = sorted(
-        c for c in otras if f"{c.rsplit('.', 1)[-1]}: " not in es)
+    #
+    # Se busca al PRINCIPIO DE LÍNEA y no como subcadena `clave: `. Buscar
+    # `clave: ` fallaba con los textos largos, que se escriben con el valor en
+    # la línea siguiente —el formateador los parte— y entonces lo que hay tras
+    # los dos puntos es un salto, no un espacio. Seis claves de la 4.5 salieron
+    # marcadas como sin texto teniéndolo.
+    def tiene_texto(clave: str) -> bool:
+        hoja = re.escape(clave.rsplit(".", 1)[-1])
+        return re.search(rf"^\s*{hoja}:", es, re.M) is not None
+
+    otras_sin_texto = sorted(c for c in otras if not tiene_texto(c))
     check(3, "toda clave de estado de Rust tiene texto en el catálogo",
           bool(otras) and not otras_sin_texto,
           "El §139 dice TODA clave, no sólo las de error. Sin texto, la "

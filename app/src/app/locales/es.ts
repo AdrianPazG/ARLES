@@ -269,6 +269,84 @@ export const es = {
   },
 
   /**
+   * Cuánto va a tardar la campaña (§11).
+   *
+   * Es probablemente la información más valiosa del producto: es lo que hace
+   * que alguien reconsidere su configuración ANTES de lanzar, no después.
+   * Todas las cifras son cifras (§94), y la fecha se dice «alrededor de»
+   * porque la precisión del cálculo es de horas, no de minutos.
+   */
+  duracion: {
+    // {cuantos} mensajes, {cuando} la fecha estimada.
+    termina:
+      'Esta campaña enviará {cuantos} mensajes y terminará alrededor del {cuando}.',
+    // El caso que hay que cazar antes de activar: con este tope no sale ni uno.
+    noAvanza:
+      'Con este tope no saldría ni un mensaje. Revisa los límites por hora y ' +
+      'por día antes de activar.',
+    // {faltan} es lo que se quedaría fuera. Decir «terminará en 2053» sería
+    // correcto y no serviría de nada; decir cuántos se quedan fuera, sí.
+    noCabeEnElHorizonte:
+      'Con esta configuración la campaña no termina en cinco años: {faltan} ' +
+      'mensajes se quedarían sin enviar. Sube los límites, recorta la ' +
+      'audiencia o divide la campaña.',
+
+    // Quién pone el freno. Sin esto, lo normal es ampliar el horario y no
+    // notar ninguna diferencia porque el freno era el tope diario.
+    mandaElTopeDelDia:
+      'El freno es tu tope de {porDia} al día. Ampliar el horario no daría ni ' +
+      'un envío más.',
+    mandaElTopeDeLaHora:
+      'El freno es el horario: {horas} horas a {porHora} por hora son ' +
+      '{techo} al día. Subir el tope diario no daría ni un envío más.',
+    mandanLosDos:
+      'Los dos topes dan lo mismo: {techo} al día. Para ir más rápido hay que ' +
+      'subir los dos.',
+
+    // Cabecera del desglose. Se detallan catorce días; el total se dice entero.
+    porDia: 'Envíos por día',
+    diasConEnvio: '{dias} días con envío',
+    techoDiario: '{techo} mensajes al día',
+  },
+
+  /**
+   * Las ocho comprobaciones de antes de activar (§63).
+   *
+   * Cada punto tiene TRES respuestas, no dos. «Sin comprobar» no es un
+   * aprobado — es la misma regla que el validador aplica a las sondas.
+   */
+  preflight: {
+    titulo: 'Comprobaciones antes de activar',
+    lista: 'Todo listo para activar',
+    // §94: cifras. {fallan} lo que hay que arreglar, {sinComprobar} lo que hay
+    // que comprobar. Se dicen aparte porque lo que hay que hacer es distinto.
+    bloqueada:
+      'No se puede activar todavía: {fallan} por arreglar y {sinComprobar} ' +
+      'sin comprobar.',
+
+    pasa: 'Bien',
+    falla: 'Hay que arreglarlo',
+    // Ni aprobado ni suspenso: no se ha podido mirar, y por eso no se activa.
+    sinComprobar: 'Sin comprobar',
+    sinComprobarDetalle:
+      'ARLES no ha podido comprobar esto, así que no lo da por bueno. Un ' +
+      'punto sin comprobar impide activar igual que uno que falla.',
+
+    laCuentaAutentica: 'La cuenta remitente conecta con su proveedor',
+    laCredencialSirve: 'La contraseña o el permiso siguen vigentes',
+    laAudienciaNoEstaVacia: 'Queda alguien a quien escribir tras aplicar las bajas',
+    lasVariablesSeResuelven: 'Todos los datos de la plantilla se rellenan',
+    elHorarioAlcanza: 'El horario configurado alcanza para terminar',
+    hayConexion: 'Hay conexión a internet',
+    seHizoElEnvioDePrueba: 'Se hizo el envío de prueba',
+    // El único que no bloquea: informar, no dictar (§154).
+    losRegistrosDelDominio: 'Los registros SPF, DKIM y DMARC de tu dominio',
+    losRegistrosDelDominioAviso:
+      'Sin estos registros tus correos entregan peor, pero entregan. Esto no ' +
+      'impide activar: lo arregla quien administre tu dominio.',
+  },
+
+  /**
    * El motor de ejecución (Fase 4).
    *
    * Aquí no hay errores de tres partes: son **rótulos de estado**, lo que la

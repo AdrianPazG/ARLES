@@ -12,6 +12,74 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### «Terminará alrededor del 9 de febrero» — antes de activar, no después
+
+Alguien importa cinco mil contactos, pone cincuenta envíos diarios de lunes a
+viernes, y pulsa activar. Sin este cálculo se entera de que la campaña dura
+**cuatro meses** cuando ya lleva tres semanas corriendo y el lanzamiento que
+anunciaba fue el mes pasado.
+
+Ahora lo sabe **antes**, que es el único momento en que todavía puede decidir
+otra cosa: subir el límite, recortar la audiencia, ampliar el horario o partir
+la campaña en dos.
+
+**Y se dice cuál de los dos topes frena.** «Tu campaña tarda cuatro meses» deja
+sin saber qué tocar. «Tarda cuatro meses **porque tu tope diario es 50**,
+cuando tu horario daría para 90» dice exactamente dónde está el freno. Sin esto,
+lo normal es ampliar el horario de 9-18 a 8-20 y no notar ninguna diferencia.
+
+**Hay dos respuestas que no son una fecha**, y las dos importan más que la
+fecha:
+
+- **«Con este tope no saldría ni un mensaje.»** Con un límite mal puesto, la
+  campaña quedaría marcada como enviando y no enviaría nada — sin fallar, sin
+  avisar, y sin nada roto que mirar. Es el fallo más difícil de diagnosticar de
+  todos.
+- **«No termina en cinco años: 435 000 mensajes se quedarían fuera.»** Decir
+  «terminará el 3 de marzo de 2041» sería correcto e inútil.
+
+El cálculo **simula hora a hora** en vez de dividir, y por eso acierta en tres
+casos que una división se salta: que hay dos topes y manda el más pequeño; que
+el día en que se activa casi nunca está entero (quien activa a las 16:30 con
+horario hasta las 18:00 tiene una hora, no nueve); y que los días del cambio de
+horario duran veintitrés o veinticinco horas.
+
+**Un fallo que encontró su propia prueba.** El contador de días se apoyaba en la
+lista recortada de catorce días que se enseña en pantalla. A partir del día
+quince esa lista deja de crecer, y cada hora de envío pasaba a contarse como un
+día nuevo: la campaña de cinco mil correos decía **444 días** en vez de 100.
+Nadie lo habría notado — 444 es un número perfectamente plausible para una
+campaña larga, sólo que cuatro veces mayor que el real.
+
+### Las ocho comprobaciones de antes de activar, con una tercera respuesta
+
+Activar es irreversible en la práctica: la audiencia se congela y lo que sale no
+vuelve. Los fallos que esto caza son todos del mismo tipo — cosas que **no
+fallan al activar**, sino tres días después:
+
+- la contraseña de la cuenta caducó y no sale nada;
+- la audiencia se quedó vacía al aplicar las bajas;
+- una variable de la plantilla no se rellena para 340 contactos, y salen 340
+  correos que dicen «Hola {{nombre}}»;
+- el horario configurado no alcanza.
+
+**La parte importante es la tercera respuesta.** Cada punto puede salir «bien»,
+«hay que arreglarlo» o **«sin comprobar»** — y sin comprobar **no es un
+aprobado**. Varias de estas comprobaciones necesitan piezas que llegan después
+(los proveedores reales son de la Fase 5, las plantillas de la Fase 6). Un
+preflight que diera por bueno lo que todavía no sabe mirar sería peor que no
+tenerlo.
+
+Es la misma regla que ya aplicamos a las pruebas de navegador: **omitida no es
+pasada, y se dice**. Un punto sin comprobar impide activar igual que uno que
+falla, y las dos cifras se cuentan aparte porque lo que hay que hacer es
+distinto: uno se arregla, el otro se comprueba.
+
+**Siete de los ocho bloquean.** El único que no es el de los registros del
+dominio: sin ellos los correos entregan peor, pero entregan, y bloquear por eso
+dejaría fuera a quien no administra su propio DNS por algo que ARLES no le puede
+arreglar.
+
 ### Pausar, Reanudar y Detener — y que el botón signifique lo que dice
 
 Tres botones que parecen lo mismo y son dos cosas muy distintas:

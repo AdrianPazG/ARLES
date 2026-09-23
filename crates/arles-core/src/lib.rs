@@ -20,6 +20,7 @@ pub mod campana;
 pub mod canal;
 pub mod cancelacion;
 pub mod contacto;
+pub mod duracion;
 pub mod email;
 pub mod empresa;
 pub mod error;
@@ -27,6 +28,7 @@ pub mod etapa;
 pub mod ids;
 pub mod importacion;
 pub mod onboarding;
+pub mod preflight;
 pub mod reintento;
 pub mod ritmo;
 pub mod secret;
@@ -43,6 +45,7 @@ pub use contacto::{
     BorradorDeCanal, BorradorDeContacto, CampoDeContacto, CanalValidado, DatosDeContacto,
     ErrorDeContacto, MAX_CANALES,
 };
+pub use duracion::{Desenlace, DiaDeEnvio, Estimacion, QuienManda, estimar, techo_diario};
 pub use email::EmailAddress;
 pub use empresa::{
     BorradorDeEmpresa, CampoDeEmpresa, DatosDeEmpresa, ErrorDeCampo, PAISES_SOPORTADOS,
@@ -58,6 +61,9 @@ pub use importacion::{
     adivinar_campo, fila_a_borrador, huella, huella_de_bytes, proponer_mapeo,
 };
 pub use onboarding::{ListaDeOnboarding, PasoDeOnboarding, RecuentoDeAlta};
+pub use preflight::{
+    Observaciones, Preflight, Punto, PuntoRevisado, Resultado, Veredicto, revisar,
+};
 pub use secret::Secret;
 pub use supresion::{
     AlcanceDeSupresion, MotivoDeSupresion, OrigenDeSupresion, PeticionDeSupresion,

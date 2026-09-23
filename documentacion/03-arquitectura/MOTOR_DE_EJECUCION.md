@@ -308,6 +308,31 @@ Se presenta en lenguaje llano: «Esta campaña enviará 5 000 correos. Con tu l�
 
 Ese número es frecuentemente la información más valiosa de todo el producto: es lo que hace que alguien reconsidere su configuración **antes** de lanzar, no después.
 
+### Cómo está construido (entrega 4.5, 23/09/2026)
+
+Vive en `arles_core::duracion`, y **simula hora a hora** en vez de dividir. La tentación es `audiencia / limite_diario` por los días laborables: da un número plausible y está mal por tres motivos.
+
+**Hay dos topes, no uno.** Diez por hora en una ventana de nueve horas son noventa, pero si el tope diario es cincuenta, se mandan cincuenta. Y al revés: un tope diario de cien en una ventana de dos horas con cinco por hora son diez. Manda el más pequeño.
+
+**El primer día casi nunca está entero.** Quien activa a las 16:30 con ventana hasta las 18:00 tiene una hora útil, no nueve. La hora en curso **no cuenta**: se empieza en la siguiente en punto, porque una estimación que se queda corta se descubre tarde y mal.
+
+**Los días no duran lo mismo.** El cambio de horario hace días de veintitrés y de veinticinco horas. México ya no lo aplica (D-10), pero una campaña en horario de Madrid sí.
+
+Simular hora a hora sale gratis —cinco años son 43 800 vueltas— y los tres casos salen solos en vez de haber que acordarse de ellos.
+
+**Se dice cuál de los dos topes frena.** «Tu campaña tarda cuatro meses» deja al usuario sin saber qué tocar; «tarda cuatro meses **porque el tope diario es 50**, cuando el horario daría para 90» le dice dónde está el freno. Sin esto, lo normal es ampliar el horario de 9-18 a 8-20 y no notar ninguna diferencia.
+
+**Dos respuestas que no son una fecha:**
+
+| Caso | Qué se dice |
+|---|---|
+| El tope efectivo es cero | «Con este tope no saldría ni un mensaje» |
+| No cabe en cinco años | «{faltan} mensajes se quedarían sin enviar» |
+
+El primero es el fallo más difícil de diagnosticar de todos: la campaña quedaría marcada como enviando y no enviaría nada, **sin nada roto que mirar**. El segundo evita dar «terminará el 3 de marzo de 2041», que es correcto e inútil.
+
+**Un fallo que encontró su propia prueba.** El contador de días con envío se apoyaba en la lista recortada de catorce días; a partir del día quince esa lista deja de crecer, su último elemento se queda congelado, y cada hora de envío contaba como un día nuevo. Una campaña de cinco mil correos a cincuenta diarios decía **444 días** en vez de 100. Nadie lo habría notado: 444 es perfectamente plausible para una campaña larga, sólo que cuatro veces mayor que el real.
+
 ---
 
 ## 12. Preflight (§63)
@@ -324,6 +349,20 @@ Validación previa a la activación. Devuelve **LISTA** o bloquea con errores ac
 - [ ] SPF/DKIM/DMARC comprobados (advertencia, no bloqueo)
 
 Los errores siguen el §95: **qué pasó, cómo arreglarlo, y qué está a salvo.**
+
+### La tercera respuesta (entrega 4.5, 23/09/2026)
+
+Vive en `arles_core::preflight`. Cada punto tiene **tres** respuestas, no dos: pasa, falla, y **no se ha comprobado**.
+
+La tercera existe porque varias comprobaciones necesitan piezas que llegan después —los adaptadores de proveedor son de la Fase 5, las plantillas de la Fase 6—. Un preflight que devolviera «pasa» para lo que todavía no sabe mirar sería peor que no tenerlo: daría por bueno exactamente lo que no ha visto.
+
+Es la misma regla que el validador aplica a las sondas: **omitida no es pasada, y se dice**. De ahí la consecuencia que lo gobierna: **un punto bloqueante sin comprobar impide activar**, igual que uno que falla. La diferencia se enseña —el mensaje no es el mismo, y las cifras se cuentan aparte— pero el botón está igual de apagado. Un punto que falla se arregla; uno sin comprobar se comprueba.
+
+**Siete de los ocho bloquean.** El único que no es el de SPF/DKIM/DMARC: un dominio sin DMARC entrega peor, pero entrega, y bloquear por eso dejaría fuera a quien no controla su DNS —en una empresa pequeña, casi todo el mundo— por algo que ARLES no le puede arreglar (§154: informar, no dictar).
+
+**Se revisan los ocho aunque el primero falle.** Parar en el primero haría que el usuario arreglara la credencial, volviera, y descubriera que además la audiencia está vacía: tres viajes para tres problemas que caben en una pantalla.
+
+**El simulador de duración deja de ser informativo y se convierte en una puerta.** Si el cálculo dice que no sale nada, o que no cabe en cinco años, el punto del horario **falla** y no se puede activar.
 
 ---
 
