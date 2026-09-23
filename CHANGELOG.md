@@ -45,6 +45,58 @@ again»— funciona con el servidor con el que se probó y falla con todos los
 demás, en idiomas que nadie leyó. Hay una prueba que manda el mismo código con
 textos opuestos y exige el mismo resultado.
 
+### «Probar conexión»: seis respuestas, cada una con una acción distinta
+
+**El botón que evita descubrir que la cuenta está mal a mitad de una campaña.**
+
+Antes de esto, una cuenta mal configurada sólo se podía describir de una forma:
+«fallo pasajero». El motor reintentaba a los 5, 15 y 30 minutos, y a los cinco
+fallos seguidos paraba la cuenta diciendo **«cinco fallos seguidos»**. Cierto, y
+sin ninguna utilidad: quien lo lee no sabe si el problema es su contraseña, su
+red o el servidor del otro lado — y ha tardado media hora en enterarse de que
+hay un problema.
+
+Ahora hay seis respuestas y cada una lleva a algo distinto que hacer:
+
+| Lo que se averigua | Qué hacer |
+|---|---|
+| Funciona | Guardar la cuenta |
+| No se llegó al servidor | Revisar nombre y puerto, o la red de la oficina |
+| Aceptó y no contestó | Esperar — el nombre y el puerto están bien, porque sí se llegó |
+| No se pudo cifrar | Revisar el nombre. **No hay forma de desactivarlo** |
+| La contraseña no sirve | Generar una contraseña de aplicación de Gmail |
+| Ahora no puede atender | Esperar. **No** es la contraseña |
+
+**Las dos últimas se separan a propósito**, y es la distinción que hace útil el
+botón: un rechazo temporal no es una contraseña mala. Confundirlos hace que
+alguien genere una contraseña nueva —y tire la que funcionaba— para arreglar
+algo que se arregla solo en diez minutos.
+
+**El botón no toca a nadie.** No manda ningún correo: ni remitente, ni
+destinatario, ni cuerpo. Comprobar además el remitente con un `MAIL FROM` sería
+útil y no se hace, porque el paso siguiente apuntaría a una persona real — y la
+respuesta del servidor a ese comando es, en todo ARLES, el único camino que da
+de baja a alguien. Hay una prueba que lo mira desde el servidor y exige que esos
+comandos no lleguen.
+
+**Y recorre el mismo camino que un envío de verdad**, compartiendo el código.
+Una prueba de conexión con código propio podría decir «correcto» mientras los
+envíos fallan; a partir de ahí deja de servir para diagnosticar, porque manda a
+buscar el problema al lado equivocado.
+
+**Dos cosas que sólo se supieron probándolas:**
+
+- `lettre` tiene una función para saber si un fallo fue de cifrado. **No
+  funciona**: ante un certificado inválido contesta que no, en los dos modos. La
+  rama que la usaba no se ejecutaba nunca, y salió porque la prueba del
+  certificado ajeno falló. Ahora se clasifica por el error de fondo, no por esa
+  función.
+- Una comprobación recién escrita buscaba la contraseña **por su texto** en lo
+  que el servidor recibió sin cifrar — y viaja codificada, así que no habría
+  aparecido nunca, ni cuando el fallo ocurriera de verdad. Es el mismo patrón de
+  la sonda que buscaba un número con un formato que la pantalla no usa. Corregida
+  para buscar el comando, y verificada rompiéndola.
+
 ### El adaptador de correo: cifrado obligatorio, sin excepciones
 
 **ARLES ya habla con un servidor de correo de verdad.** Y lo hace con dos reglas

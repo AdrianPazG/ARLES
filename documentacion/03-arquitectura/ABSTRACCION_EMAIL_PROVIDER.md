@@ -125,6 +125,29 @@ Las raíces de confianza son las de `webpki-roots`, no las del sistema operativo
 
 **Y ARLES lo comprueba por su cuenta.** Antes de mandar `AUTH`, el adaptador le pregunta al socket si está cifrado y se niega a continuar si no lo está. Configurar `lettre` correctamente es necesario y no basta: es confiar en que una biblioteca de terceros haga lo que promete justo donde equivocarse cuesta la contraseña de correo de la empresa. Se comprobó rompiéndolo: hace falta tumbar **las dos** defensas para que la contraseña aparezca sin cifrar.
 
+#### «Probar conexión» (entrega 5.3)
+
+`ProveedorSmtp::probar()` conecta, cifra y autentica, y **no manda ningún correo**: ni `MAIL FROM`, ni `RCPT TO`, ni `DATA`.
+
+La tentación de añadir un `MAIL FROM` + `RSET` es real, porque comprobaría además que el servidor acepta esa dirección de remitente. No se hace por dos razones. Algunos servidores cuentan ese diálogo como un intento de envío a efectos de reputación, y quien configura una cuenta pulsa el botón muchas veces. Y la que cierra la discusión: un `RCPT TO` de prueba apuntaría a una persona real, y la respuesta a ese comando es, en todo ARLES, el único camino que da de baja a alguien. Una prueba mira el servidor de mentira desde fuera y exige que esos tres comandos no aparezcan.
+
+**Recorre el mismo camino que un envío.** La conexión, el cifrado y la autenticación están extraídos a una función que usan los dos. Una prueba de conexión con código propio podría decir «correcto» mientras los envíos fallan —o al revés—, y en cuanto eso pasa una vez, deja de servir para diagnosticar: manda a buscar el problema al lado equivocado.
+
+**Lo que devuelve no es un `Fallo`.** Un `Fallo` dice «este envío no salió», y con ese vocabulario una cuenta mal configurada sólo se puede describir como «pasajero»: el motor reintentaría a los 5, 15 y 30 minutos y el disyuntor pararía la cuenta diciendo «cinco fallos seguidos». Cierto e inútil. Los seis diagnósticos corresponden cada uno a una acción distinta:
+
+| Diagnóstico | Qué hacer |
+|---|---|
+| Correcto | Guardar la cuenta |
+| No se llegó al servidor | Revisar nombre y puerto, o la red de la oficina |
+| El servidor tardó demasiado | Esperar — el nombre y el puerto están bien, porque sí se llegó |
+| No se pudo cifrar | Revisar nombre y puerto. **No hay forma de desactivarlo** |
+| La contraseña no sirve | Generar una contraseña de aplicación |
+| El servidor no está disponible | Esperar. **No** es la contraseña |
+
+Las dos últimas se separan a propósito: un `4xx` autenticando no es una contraseña mala, y confundirlos hace que alguien tire la contraseña que funcionaba para arreglar algo que se arregla solo.
+
+**Un detalle que sólo se supo probándolo:** `lettre` tiene un `Error::is_tls()` y la primera versión lo usaba para distinguir «no llegué» de «el certificado no cuadra». No funciona — ante un certificado inválido, `lettre` devuelve un error de red con el de `rustls` dentro, y `is_tls()` contesta `false` en los dos modos de cifrado. La rama no se ejecutaba nunca, y salió porque la prueba del certificado ajeno falló. Lo que sí distingue es el error de E/S subyacente: un handshake fallido da `InvalidData`; no llegar da `ConnectionRefused`. Clasificación por tipo, no por el texto del mensaje.
+
 #### Cómo se prueba sin abrir un agujero
 
 Ésta es la pregunta que hunde a la mayoría de los proyectos que se ponen esta regla, porque la respuesta fácil es exactamente la casilla prohibida —`dangerous_accept_invalid_certs`, «sólo para los tests»—, y una vez escrita, alguien la mueve.

@@ -134,6 +134,20 @@ impl Guion {
         }
     }
 
+    /// El servidor está saturado y lo dice **de forma temporal**.
+    ///
+    /// Un `4xx` autenticando no significa que la contraseña esté mal. La
+    /// diferencia importa: confundirlo con un `535` manda a alguien a generar
+    /// una contraseña de aplicación nueva —y a tirar la que funcionaba— para
+    /// arreglar algo que se arregla solo en diez minutos.
+    #[must_use]
+    pub fn ocupado_al_autenticar() -> Self {
+        Self {
+            al_autenticar: "421 4.7.0 Too many connections, try again later".to_owned(),
+            ..Self::todo_bien()
+        }
+    }
+
     /// Acepta la conexión y cuelga sin saludar.
     #[must_use]
     pub fn se_cae_al_conectar() -> Self {

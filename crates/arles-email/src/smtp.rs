@@ -51,6 +51,7 @@ use arles_motor::proveedor::{Aceptado, Mensaje, Proveedor, recortar_respuesta};
 
 use crate::codigos::{leer_linea, traducir};
 use crate::error::ErrorDeCorreo;
+use crate::prueba::{Diagnostico, DondeSeRompio};
 use crate::tls::{Cifrado, Modo};
 
 /// Cuánto se espera a que el servidor conteste antes de darlo por perdido.
@@ -186,6 +187,79 @@ impl ProveedorSmtp {
         })
     }
 
+    /// Conecta, cifra y autentica. **El mismo camino para enviar y para
+    /// probar.**
+    ///
+    /// Está extraído a propósito. Una prueba de conexión con su propio código
+    /// podría decir «correcto» mientras los envíos fallan —o al revés—, y en
+    /// cuanto eso pasa una vez, la prueba deja de servir para diagnosticar
+    /// nada: manda a buscar el problema al lado equivocado.
+    ///
+    /// Lo que sigue después es lo único que cambia: enviar continúa con
+    /// `MAIL FROM`; probar dice adiós y cuelga.
+    fn conectar_cifrar_y_autenticar(&self) -> Result<SmtpConnection, DondeSeRompio> {
+        // Con TLS directo, el cifrado va desde el primer byte: los parámetros
+        // entran ya en la conexión. Con STARTTLS se empieza en claro y se cifra
+        // en el paso siguiente — y hasta entonces no sale nada sensible.
+        let envoltorio = match self.modo {
+            Modo::Directo => Some(&self.tls),
+            Modo::Starttls => None,
+        };
+
+        let mut conexion = SmtpConnection::connect(
+            (self.servidor.as_str(), self.puerto),
+            Some(ESPERA_MAXIMA),
+            &self.quien_dice_ser,
+            envoltorio,
+            None,
+        )
+        .map_err(DondeSeRompio::AlConectar)?;
+
+        if self.modo == Modo::Starttls {
+            // Si el servidor no ofrece STARTTLS, esto falla — y eso es lo
+            // correcto. **No hay una rama que siga en claro** (§29).
+            if let Err(e) = conexion.starttls(&self.tls, &self.quien_dice_ser) {
+                conexion.abort();
+                return Err(DondeSeRompio::AlCifrar(e));
+            }
+        }
+
+        // LA COMPROBACIÓN QUE NO SE DELEGA.
+        //
+        // Se le pregunta al socket, no a la configuración. Si por lo que sea el
+        // canal no está cifrado, aquí se corta **antes** de mandar `AUTH`, que
+        // es el comando que lleva la contraseña.
+        if !conexion.is_encrypted() {
+            conexion.abort();
+            return Err(DondeSeRompio::ElCanalNoEstabaCifrado);
+        }
+
+        if let Err(e) = conexion.auth(&[Mechanism::Plain, Mechanism::Login], &self.credenciales) {
+            conexion.abort();
+            return Err(DondeSeRompio::AlAutenticar(e));
+        }
+
+        Ok(conexion)
+    }
+
+    /// «Probar conexión» (§29). **No manda ningún correo.**
+    ///
+    /// Llega hasta donde llega un envío antes de tocar a nadie: conecta, cifra,
+    /// autentica y cuelga. Ni `MAIL FROM`, ni `RCPT TO`, ni `DATA` — el porqué
+    /// está en `prueba.rs`, y hay una prueba que lo mira desde el servidor.
+    #[must_use]
+    pub fn probar(&self) -> Diagnostico {
+        match self.conectar_cifrar_y_autenticar() {
+            Ok(mut conexion) => {
+                // Que el adiós falle no cambia el resultado: ya sabemos todo lo
+                // que queríamos saber.
+                let _ = conexion.quit();
+                Diagnostico::Correcto
+            }
+            Err(donde) => donde.como_diagnostico(),
+        }
+    }
+
     /// Arma el correo en bytes, listo para mandar tras el `DATA`.
     fn armar(&self, mensaje: &Mensaje<'_>, para: Mailbox) -> Result<Vec<u8>, Fallo> {
         let correo = Message::builder()
@@ -241,56 +315,9 @@ impl Proveedor for ProveedorSmtp {
             .map_err(|_| Fallo::LaDireccionNoExiste)?;
         let correo = self.armar(mensaje, Mailbox::new(None, destino.clone()))?;
 
-        // Con TLS directo, el cifrado va desde el primer byte: los parámetros
-        // entran ya en la conexión. Con STARTTLS se empieza en claro y se cifra
-        // en el paso siguiente — y hasta entonces no sale nada sensible.
-        let envoltorio = match self.modo {
-            Modo::Directo => Some(&self.tls),
-            Modo::Starttls => None,
-        };
-
-        let mut conexion = SmtpConnection::connect(
-            (self.servidor.as_str(), self.puerto),
-            Some(ESPERA_MAXIMA),
-            &self.quien_dice_ser,
-            envoltorio,
-            None,
-        )
-        .map_err(|e| culpa_de_la_cuenta(&e))?;
-
-        if self.modo == Modo::Starttls {
-            // Si el servidor no ofrece STARTTLS, esto falla — y eso es lo
-            // correcto. **No hay una rama que siga en claro** (§29).
-            conexion
-                .starttls(&self.tls, &self.quien_dice_ser)
-                .map_err(|e| {
-                    conexion.abort();
-                    culpa_de_la_cuenta(&e)
-                })?;
-        }
-
-        // LA COMPROBACIÓN QUE NO SE DELEGA.
-        //
-        // Se le pregunta al socket, no a la configuración. Si por lo que sea el
-        // canal no está cifrado, aquí se corta **antes** de mandar `AUTH`, que
-        // es el comando que lleva la contraseña.
-        if !conexion.is_encrypted() {
-            conexion.abort();
-            return Err(Fallo::Pasajero);
-        }
-
-        conexion
-            .auth(&[Mechanism::Plain, Mechanism::Login], &self.credenciales)
-            .map_err(|e| {
-                conexion.abort();
-                // Un fallo autenticando es de la cuenta por definición, aunque
-                // el servidor conteste algo raro: el motor para la cuenta y le
-                // pide a quien la configuró que renueve la contraseña.
-                match culpa_de_la_cuenta(&e) {
-                    Fallo::Pasajero => Fallo::Pasajero,
-                    _ => Fallo::LaCuentaNoAutentica,
-                }
-            })?;
+        let mut conexion = self
+            .conectar_cifrar_y_autenticar()
+            .map_err(|donde| donde.como_fallo())?;
 
         // `MAIL FROM` habla del REMITENTE. Un rechazo aquí no dice nada de
         // quien iba a recibir el correo, y confundirlo lo daría de baja.
@@ -329,6 +356,29 @@ impl Proveedor for ProveedorSmtp {
         Ok(Aceptado {
             id_del_proveedor: acuse.first_line().map(recortar_respuesta),
         })
+    }
+}
+
+impl DondeSeRompio {
+    /// Traduce a lo que el motor entiende, para un envío de verdad.
+    ///
+    /// Vive aquí y no junto al diagnóstico porque necesita `culpa_de_la_cuenta`,
+    /// que es la regla de este adaptador: **nada de lo que pasa antes del
+    /// `RCPT TO` puede dar de baja a nadie**.
+    pub(crate) fn como_fallo(&self) -> Fallo {
+        match self {
+            Self::AlConectar(e) | Self::AlCifrar(e) => culpa_de_la_cuenta(e),
+            // El canal no estaba cifrado: se cortó antes de mandar la
+            // contraseña. Pasajero, y nunca una baja.
+            Self::ElCanalNoEstabaCifrado => Fallo::Pasajero,
+            Self::AlAutenticar(e) => match culpa_de_la_cuenta(e) {
+                // Un fallo autenticando es de la cuenta por definición, aunque
+                // el servidor conteste algo raro: el motor para la cuenta y le
+                // pide a quien la configuró que renueve la contraseña.
+                Fallo::Pasajero => Fallo::Pasajero,
+                _ => Fallo::LaCuentaNoAutentica,
+            },
+        }
     }
 }
 
@@ -375,6 +425,7 @@ fn traducir_lo_que_dijo_el_servidor(e: &lettre::transport::smtp::Error) -> Optio
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prueba::Diagnostico;
     use crate::servidor::Guion;
     use crate::servidor_cifrado::{ComoCifra, NOMBRE_DE_PRUEBA, ServidorCifrado};
 
@@ -752,6 +803,185 @@ mod tests {
             pintado.contains("smtp") || pintado.contains(NOMBRE_DE_PRUEBA),
             "pero sigue diciendo lo útil para depurar: {pintado}"
         );
+    }
+
+    // ── «Probar conexión» · entrega 5.3 ──────────────────────────────────
+
+    /// Una cuenta buena pasa la prueba, por los dos caminos de cifrado.
+    #[test]
+    fn una_cuenta_buena_pasa_la_prueba() {
+        for como in [ComoCifra::Starttls, ComoCifra::Directo] {
+            let s = ServidorCifrado::arrancar(Guion::todo_bien(), como).expect("arranca");
+            assert_eq!(
+                adaptador(&s, como).probar(),
+                Diagnostico::Correcto,
+                "{como:?}"
+            );
+        }
+    }
+
+    /// **La prueba no toca a ninguna persona.**
+    ///
+    /// Es la garantía que justifica el módulo entero. Un `MAIL FROM` de prueba
+    /// cuenta como intento de envío para algunos servidores, y un `RCPT TO` de
+    /// prueba apuntaría a una dirección real — y la respuesta a ese comando es,
+    /// en todo ARLES, **el único camino que da de baja a alguien**. Alguien que
+    /// configura una cuenta pulsa este botón muchas veces.
+    ///
+    /// Se mira desde el servidor, no desde el adaptador: lo que importa no es
+    /// qué código creemos haber escrito, sino qué comandos llegaron.
+    ///
+    /// Verificada rompiéndola el 23/09/2026: añadiendo un `MAIL FROM` a
+    /// `probar()` —el atajo natural para comprobar también el remitente—, esta
+    /// prueba falla nombrando el comando.
+    #[test]
+    fn probar_no_manda_ningun_correo() {
+        let s =
+            ServidorCifrado::arrancar(Guion::todo_bien(), ComoCifra::Starttls).expect("arranca");
+        assert_eq!(
+            adaptador(&s, ComoCifra::Starttls).probar(),
+            Diagnostico::Correcto
+        );
+
+        for comando in ["MAIL", "RCPT", "DATA"] {
+            assert!(
+                !s.dijo(comando),
+                "probar la conexión mandó «{comando}», y eso ya es tocar a alguien: {:?}",
+                s.dicho()
+            );
+        }
+        // Y sí hizo lo que tenía que hacer: saludar, cifrar y autenticarse.
+        assert!(s.dijo("AUTH"), "no llegó a autenticar: {:?}", s.dicho());
+    }
+
+    /// **Una contraseña rechazada y un servidor ocupado no dicen lo mismo.**
+    ///
+    /// Es la distinción que hace útil el botón. Un `535` es «esa contraseña no
+    /// sirve» y se arregla generando una contraseña de aplicación; un `421` es
+    /// «ahora no puedo» y se arregla esperando. Confundirlos hace que alguien
+    /// tire la contraseña que funcionaba para arreglar un problema que no
+    /// existía.
+    ///
+    /// Verificada rompiéndola el 23/09/2026: haciendo que cualquier fallo de
+    /// `AUTH` devuelva `LaContrasenaNoSirve` —que es lo que hace el envío, y
+    /// ahí está bien—, el caso del `421` falla.
+    #[test]
+    fn la_contrasena_rechazada_no_se_confunde_con_el_servidor_ocupado() {
+        let malo = ServidorCifrado::arrancar(Guion::credencial_invalida(), ComoCifra::Starttls)
+            .expect("arranca");
+        assert_eq!(
+            adaptador(&malo, ComoCifra::Starttls).probar(),
+            Diagnostico::LaContrasenaNoSirve
+        );
+
+        let ocupado =
+            ServidorCifrado::arrancar(Guion::ocupado_al_autenticar(), ComoCifra::Starttls)
+                .expect("arranca");
+        assert_eq!(
+            adaptador(&ocupado, ComoCifra::Starttls).probar(),
+            Diagnostico::ElServidorNoEstaDisponible
+        );
+    }
+
+    /// Un servidor que no ofrece cifrado no pasa la prueba, y la contraseña no
+    /// llega a salir.
+    ///
+    /// El diagnóstico tiene que ser el del cifrado y no otro: si dijera «no se
+    /// llegó al servidor», quien lo lee revisaría el puerto para siempre.
+    #[test]
+    fn un_servidor_sin_cifrado_no_pasa_la_prueba() {
+        let s =
+            ServidorCifrado::arrancar(Guion::sin_cifrado(), ComoCifra::Starttls).expect("arranca");
+        assert_eq!(
+            adaptador(&s, ComoCifra::Starttls).probar(),
+            Diagnostico::ElCifradoNoSePudoEstablecer
+        );
+        // Se busca el COMANDO `AUTH`, no el texto de la contraseña.
+        //
+        // Buscar la contraseña literal es lo que se escribió primero, y era una
+        // aserción que no podía fallar nunca: `AUTH PLAIN` manda la credencial
+        // en base64, así que el texto no aparece ni cuando el fallo ocurre. Es
+        // el mismo patrón que la sonda que buscaba `+521` en una pantalla donde
+        // el número se enseña con espacios.
+        assert!(
+            !s.dijo_en_claro("AUTH"),
+            "la contraseña salió sin cifrar al probar: {:?}",
+            s.dicho_en_claro()
+        );
+    }
+
+    /// Un certificado que no es el suyo no pasa la prueba.
+    ///
+    /// Y el diagnóstico dice que el problema es el cifrado, que es lo que
+    /// evita la pregunta «¿puedo desactivarlo?» y su respuesta equivocada.
+    #[test]
+    fn un_certificado_que_no_cuadra_no_pasa_la_prueba() {
+        for como in [ComoCifra::Starttls, ComoCifra::Directo] {
+            let suyo = ServidorCifrado::arrancar(Guion::todo_bien(), como).expect("arranca");
+            let otro = ServidorCifrado::arrancar(Guion::todo_bien(), como).expect("arranca");
+
+            // Se le da el certificado del OTRO servidor: bien formado, válido,
+            // y de alguien que no es con quien se está hablando.
+            let cifrado = match como {
+                ComoCifra::Starttls => Cifrado::starttls(),
+                ComoCifra::Directo => Cifrado::directo(),
+            }
+            .confiando_ademas_en(otro.pem());
+
+            let p = ProveedorSmtp::nuevo(
+                &Cuenta {
+                    servidor: NOMBRE_DE_PRUEBA.to_owned(),
+                    puerto: Some(suyo.direccion().port()),
+                    usuario: "ventas@telemetry.mx".to_owned(),
+                    remitente: "ventas@telemetry.mx".to_owned(),
+                    nombre_visible: None,
+                    cifrado,
+                },
+                CONTRASENA,
+                contenido(),
+            )
+            .expect("la cuenta está bien formada");
+
+            assert_eq!(
+                p.probar(),
+                Diagnostico::ElCifradoNoSePudoEstablecer,
+                "con {como:?}, un certificado ajeno tiene que salir como problema de cifrado"
+            );
+        }
+    }
+
+    /// **Y no llegar al servidor se sigue diciendo como lo que es.**
+    ///
+    /// Es la otra mitad de la prueba anterior, y hace falta: la detección del
+    /// certificado mira el error de E/S que hay debajo, así que si se pasara
+    /// de lista diría «problema de cifrado» ante un puerto cerrado — y quien
+    /// lo lee se pondría a mirar certificados teniendo el puerto mal escrito.
+    ///
+    /// El puerto se toma de un servidor que se apaga justo antes de probar, que
+    /// es la forma fiable de tener un puerto donde seguro que no hay nadie.
+    #[test]
+    fn un_puerto_donde_no_hay_nadie_no_es_un_problema_de_cifrado() {
+        let puerto = {
+            let s = ServidorCifrado::arrancar(Guion::todo_bien(), ComoCifra::Starttls)
+                .expect("arranca");
+            s.direccion().port()
+        };
+
+        let p = ProveedorSmtp::nuevo(
+            &Cuenta {
+                servidor: NOMBRE_DE_PRUEBA.to_owned(),
+                puerto: Some(puerto),
+                usuario: "ventas@telemetry.mx".to_owned(),
+                remitente: "ventas@telemetry.mx".to_owned(),
+                nombre_visible: None,
+                cifrado: Cifrado::starttls(),
+            },
+            CONTRASENA,
+            contenido(),
+        )
+        .expect("la cuenta está bien formada");
+
+        assert_eq!(p.probar(), Diagnostico::NoSeLlegoAlServidor);
     }
 
     /// La clave de idempotencia se limpia antes de entrar en el `Message-Id`.

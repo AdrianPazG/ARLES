@@ -32,6 +32,7 @@
 
 pub mod codigos;
 pub mod error;
+pub mod prueba;
 pub mod servidor;
 pub mod smtp;
 pub mod tls;
@@ -44,6 +45,7 @@ mod servidor_cifrado;
 
 pub use codigos::{RespuestaSmtp, leer_linea, traducir};
 pub use error::ErrorDeCorreo;
+pub use prueba::Diagnostico;
 pub use servidor::{Guion, ServidorDeMentira};
 pub use smtp::{Contenido, Cuenta, ProveedorSmtp};
 pub use tls::{Cifrado, Modo};

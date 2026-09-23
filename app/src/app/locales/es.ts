@@ -461,6 +461,79 @@ export const es = {
       starttls: 'Cifrado (STARTTLS, puerto 587)',
       directo: 'Cifrado desde el inicio (puerto 465)',
     },
+
+    // ── El resultado de «Probar conexión» · entrega 5.3 ───────────────────
+    //
+    // Se leen mientras alguien configura una cuenta, con el formulario
+    // delante. Cada uno lleva a UNA acción distinta; si dos dijeran lo mismo,
+    // uno de los dos sobraría.
+    //
+    // Llevan las tres partes del §95 aunque no sean errores del núcleo: quien
+    // los lee está atascado, y «no se pudo conectar» a secas deja a alguien
+    // probando combinaciones de puerto durante media hora.
+    prueba: {
+      correcto: {
+        que: 'La cuenta funciona.',
+        como:
+          'Se conectó al servidor, la conexión va cifrada y la contraseña es ' +
+          'correcta. Ya puedes guardarla.',
+        // §65: aceptado no es entregado, y conectarse no es haber enviado.
+        salvo: 'No se envió ningún correo: sólo se comprobó la conexión.',
+      },
+      no_se_llego: {
+        que: 'No se pudo llegar al servidor.',
+        como:
+          'Revisa el nombre del servidor y el puerto. Si están bien, puede ' +
+          'que la red de tu oficina bloquee la salida de correo: muchas lo ' +
+          'hacen. Pruébalo desde otra red para salir de dudas.',
+        salvo: 'No se envió ningún correo y no se guardó nada.',
+      },
+      tardo_demasiado: {
+        que: 'El servidor aceptó la conexión y luego no contestó.',
+        // A propósito NO se manda a revisar el puerto: si hubo conexión, el
+        // nombre y el puerto están bien, y mandar ahí es hacer perder el rato.
+        como:
+          'El nombre y el puerto están bien, porque sí se llegó. Vuelve a ' +
+          'intentarlo en unos minutos; si sigue igual, el problema está en el ' +
+          'servidor de correo.',
+        salvo: 'No se envió ningún correo y no se guardó nada.',
+      },
+      sin_cifrado: {
+        que: 'No se pudo cifrar la conexión con el servidor.',
+        // Aquí es donde se pide la casilla. La respuesta va por delante, sin
+        // ambigüedad, porque dejarla abierta es invitar a pedirla otra vez.
+        como:
+          'El servidor no ofrece cifrado, o su certificado no corresponde al ' +
+          'nombre que escribiste. Revisa el nombre y el puerto. ARLES no ' +
+          'envía por una conexión sin cifrar y no hay forma de desactivarlo: ' +
+          'la contraseña viajaría legible por la red.',
+        salvo:
+          'La contraseña no llegó a enviarse: se cortó antes. No se envió ' +
+          'ningún correo y no se guardó nada.',
+      },
+      contrasena_rechazada: {
+        que: 'El servidor rechazó la contraseña.',
+        // El punto donde más gente se atasca, así que va el camino exacto.
+        como:
+          'Si es una cuenta de Gmail, necesitas una «contraseña de ' +
+          'aplicación», que no es la de tu cuenta de Google: se genera en la ' +
+          'configuración de seguridad de Google y hace falta tener activada ' +
+          'la verificación en dos pasos.',
+        salvo:
+          'No se envió ningún correo. Si ya tenías una cuenta guardada, sigue ' +
+          'como estaba.',
+      },
+      no_disponible: {
+        que: 'El servidor contestó que ahora no puede atender.',
+        // Es temporal, y decirlo importa: sin esto, alguien genera una
+        // contraseña nueva —y tira la que funcionaba— para arreglar algo que
+        // se arregla solo.
+        como:
+          'Es algo temporal del servidor, no un problema de tu contraseña. ' +
+          'Espera unos minutos y vuelve a probar.',
+        salvo: 'No se envió ningún correo y no se guardó nada.',
+      },
+    },
   },
 
   /**
