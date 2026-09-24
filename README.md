@@ -8,9 +8,9 @@ Desarrollado por **TELEMETRY INSIGHT**
 ---
 
 <!-- AVANCE:INICIO -->
-![Avance de la v1.2.0](https://img.shields.io/badge/avance_v1.2.0-56%25-yellow?style=flat-square)
+![Avance de la v1.2.0](https://img.shields.io/badge/avance_v1.2.0-58%25-yellow?style=flat-square)
 
-**56 % de la versión 1.2.0 construido y verificado**, a 2026-09-23.
+**58 % de la versión 1.2.0 construido y verificado**, a 2026-09-23.
 
 <details>
 <summary>Cómo sale ese número, y qué no mide</summary>
@@ -34,7 +34,7 @@ son trabajo pendiente nuestro: van aparte.
 | F3 · Empresa y contactos | 14 % | ✅ 100 % |
 | F3W · Canales: esquema de contactos, consentimiento y etapas | 8 % | 🟨 55 % |
 | F4 · Motor de ejecución | 14 % | ✅ 100 % |
-| F5 · Proveedores de envío | 7 % | ⬜ 0 % |
+| F5 · Proveedores de envío | 7 % | 🟨 35 % |
 | F6 · Campañas y mensajes | 13 % | 🟨 5 % |
 | F7 · Actividad y entregabilidad | 9 % | ⬜ 0 % |
 | F8 · Respaldos y endurecimiento | 7 % | ⬜ 0 % |
@@ -48,6 +48,7 @@ son trabajo pendiente nuestro: van aparte.
 | **P-09** | Revisión jurídica: dieciocho preguntas en 08-legal/CONSULTA-JURIDICA.md | Abogado | Ya NO bloquea la construcción (ADR-0013). Frena los textos legales visibles y el primer envío real a alguien de fuera de TELEMETRY. Incluye P-17: consent_entry es de sólo-añadir y guarda la dirección en claro, lo que contradice el derecho de cancelación. |
 | **META** | Cuenta de empresa en Meta, verificada y con Coexistencia activada (L-11) | Operaciones | F3W · el alta del número, y con ella toda campaña de WhatsApp |
 | **R-07** | Revisión visual en macOS (WKWebView) | Quien tenga un Mac | Nada todavía; la fecha límite acordada es antes de la F6 |
+| **R-24** | Probar ARLES contra un servidor de correo real, con una cuenta desechable | Dirección | Nada de la construcción: la Fase 5 se prueba contra un servidor de mentira que habla el protocolo de verdad. No se puede cerrar desde el entorno de desarrollo —la red bloquea los puertos de correo y no hay llavero del sistema—, así que se hace en la máquina del usuario antes de la F6 |
 
 El número se genera; no se escribe a mano en dos sitios:
 

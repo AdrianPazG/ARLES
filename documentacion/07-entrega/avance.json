@@ -83,8 +83,8 @@
       "id": "F5",
       "nombre": "Proveedores de envío",
       "peso": 7,
-      "hecho": 0.0,
-      "porque": "Sin empezar. Incluye el adaptador de WhatsApp Cloud API además del SMTP."
+      "hecho": 0.35,
+      "porque": "5.1, 5.2 y 5.3 cerradas: traducción de códigos SMTP, servidor de mentira que habla el protocolo y sabe fallar de seis maneras, adaptador con cifrado obligatorio y sin forma de desactivarlo, «Probar conexión» con seis diagnósticos, migración V7, repositorio de cuentas sin contraseñas, llavero por cuenta, tres comandos y la pantalla de Remitentes. validar.py --fase 5 en 22/22, 677 pruebas de Rust y 110 del frontend el 23/09/2026. Falta 5.4 (enganchar el adaptador al motor, que hoy usa el proveedor simulado), 5.5 (envío de prueba) y 5.6 (cierre), y el adaptador de WhatsApp Cloud API, que también cuenta en esta fase y no está empezado. R-24 abierto: nunca se ha hablado con un servidor real."
     },
     {
       "id": "F6",
@@ -139,6 +139,12 @@
       "que": "Revisión visual en macOS (WKWebView)",
       "quien": "Quien tenga un Mac",
       "bloquea": "Nada todavía; la fecha límite acordada es antes de la F6"
+    },
+    {
+      "id": "R-24",
+      "que": "Probar ARLES contra un servidor de correo real, con una cuenta desechable",
+      "quien": "Dirección",
+      "bloquea": "Nada de la construcción: la Fase 5 se prueba contra un servidor de mentira que habla el protocolo de verdad. No se puede cerrar desde el entorno de desarrollo —la red bloquea los puertos de correo y no hay llavero del sistema—, así que se hace en la máquina del usuario antes de la F6"
     }
   ]
 }

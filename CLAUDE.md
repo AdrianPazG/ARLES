@@ -38,7 +38,11 @@ No se borran, mueven, renombran, convierten, comprimen ni editan.
 **Cada commit termina con:**
 
     Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
-    Claude-Session: https://claude.ai/code/session_01LMpU9g9CeXzSDyzEWzDzhe
+    Claude-Session: <el enlace de LA SESIÓN QUE ESCRIBE EL COMMIT>
+
+La línea de sesión **no se copia de aquí ni de un commit anterior**: cada sesión
+tiene la suya, y es lo que permite volver a la conversación donde se decidió
+algo. Copiar la de otra apunta a una conversación que no explica ese commit.
 
 **Ningún identificador de modelo** en commits, cuerpos de PR, comentarios del
 código ni nada que acabe en el repositorio. En el chat sí.
@@ -99,6 +103,8 @@ Monolito modular. Tauri 2 + Rust + Vue 3. Cuatro crates y una app:
 | `arles-core` | Dominio puro | **Cero I/O.** Ni base, ni red, ni disco. `forbid(unsafe_code)` |
 | `arles-db` | SQLCipher, migraciones, repositorios | **No conoce la IPC**: no depende de `serde` |
 | `arles-import` | Lectura de CSV y XLSX | El archivo que lee **no es de fiar** |
+| `arles-motor` | El bucle que envía: cola, ritmo, ventana, disyuntor | **No escribe SQL.** Pide a `arles-db` con métodos tipados |
+| `arles-email` | El adaptador SMTP y un servidor de mentira para probarlo | **No hay forma de no cifrar** (§29). El motor no sabe que existe |
 | `arles-app` | Shell de Tauri y comandos | La única frontera con la webview |
 | `app/` | Vue 3 + TS estricto | `exactOptionalPropertyTypes` activo |
 
@@ -153,9 +159,19 @@ cargo deny check licenses advisories                    # antes de añadir depen
 
 cd app && npm test && npm run lint && npx vue-tsc --noEmit -p tsconfig.json
 
-python3 herramientas/validar/validar.py --fase 3        # o 0, 1, 2
-python3 herramientas/validar/validar.py --fase 3 --rapido   # omite las sondas
+python3 herramientas/validar/validar.py --fase 5        # 0 a 5
+python3 herramientas/validar/validar.py --fase 5 --rapido   # omite las sondas
+
+# Y ANTES DE EMPUJAR, las seis. Cuesta un minuto:
+for f in 0 1 2 3 4 5; do python3 herramientas/validar/validar.py --fase $f --rapido; done
 ```
+
+**Correr sólo la fase en curso no basta.** En la 5.2 y la 5.3 se verificó con
+`--fase 5`, que pasaba entera, y se rompieron cuatro comprobaciones de las fases
+2, 3 y 4 sin que nadie lo viera: seis tokens de diseño inventados —que el
+navegador resuelve a nada, sin error—, la huella de una migración sin registrar,
+la vista previa desalineada con el núcleo y una comprobación que se cazaba a sí
+misma en un comentario. Está contado en `ESTADO_ACTUAL.md` §8 bis.
 
 **Las sondas abren un navegador de verdad y miden.** `npm run sonda:contactos`,
 `sonda:tema`, `sonda:plegado`, `sonda:cabecera`, `sonda:vista-previa`… Necesitan
@@ -208,15 +224,49 @@ Ninguno impide construir. **Los cuatro impiden entregar la v1.2.0.**
 | **P-09 · Revisión jurídica** | Abogado | Los textos legales que el usuario lee. Las dieciocho preguntas están en `08-legal/CONSULTA-JURIDICA.md`. La construcción **no** se detiene (ADR-0013: se construye con texto marcado como provisional) |
 | **META · Cuenta con Coexistencia** | Operaciones | P-14 no se puede probar contra nada real |
 | **R-07 · Revisión en macOS** | Quien tenga un Mac | Nadie ha abierto ARLES en WKWebView. La vista previa **no cuenta**: ahí el motor es el del navegador |
+| **R-24 · Ningún servidor de correo real** | Dirección | Todo lo de la Fase 5 está probado contra un servidor de mentira. **No se puede cerrar desde un contenedor**: la red de la sesión bloquea los puertos 587, 465 y 25 —medido—, y además ARLES exige el llavero del sistema, que un Linux sin escritorio no tiene. Se cierra en la máquina del usuario, con una cuenta desechable |
 
 ---
 
 ## 9 · Dónde va el trabajo ahora
 
-**Entrega 3.3 · Importar CSV y Excel.** Hecho: el mapeo de columnas, la lectura
-defensiva, el análisis de choques y la migración V5 del origen declarado.
-Falta: la escritura en lote, la pantalla, y atacarla con archivos maliciosos.
+> **Esta sección se actualiza al cerrar cada entrega.** Estuvo diciendo
+> «entrega 3.3» hasta el 23/09/2026, con la Fase 4 cerrada y la 5 a medias: un
+> archivo que se lee al abrir el proyecto y que miente sobre el estado es peor
+> que no tenerlo, porque se cree.
 
-**Decisión de Dirección del 18/09/2026:** ante un contacto repetido, ARLES
-**enseña los choques antes de importar**. No los salta ni fusiona solo: una
-importación de diez mil filas es irreversible en la práctica.
+**El estado completo está en
+[`documentacion/07-entrega/ESTADO_ACTUAL.md`](documentacion/07-entrega/ESTADO_ACTUAL.md)**
+— qué hay construido, qué decisiones no hay que volver a discutir y qué sigue.
+Quien retome el trabajo empieza por ahí.
+
+**En curso: Fase 5 · Proveedores de envío.** Cerradas 5.1 (traducir lo que dice
+un servidor, y un servidor de mentira para probarlo), 5.2 (el adaptador SMTP con
+cifrado obligatorio) y 5.3 (probar, guardar y dar de alta una cuenta, con su
+pantalla).
+
+**Lo siguiente es 5.4:** enganchar el adaptador al motor. Hoy el bucle usa el
+proveedor **simulado** de la Fase 4; hay que construir el `ProveedorSmtp` desde
+la cuenta guardada, leyendo su contraseña del llavero, y dárselo al trabajador.
+Es donde por primera vez una campaña puede mandar un correo de verdad.
+
+Después: 5.5 (el envío de prueba del §12) y 5.6 (cierre de fase).
+
+### Las tres reglas de esta fase
+
+Están escritas más de una vez a propósito, y hay comprobaciones que fallan si
+alguien toca una.
+
+1. **No existe ninguna forma de no cifrar** (§29). Ni un valor, ni una casilla,
+   ni una opción avanzada. Está en el tipo del núcleo, en el adaptador y en el
+   `CHECK` de la columna.
+2. **La contraseña entra y no sale.** Vive en el llavero; en la base hay una
+   referencia opaca. Ningún comando la devuelve.
+3. **Nada antes del `RCPT TO` puede dar de baja a nadie.** Es la única puerta a
+   una supresión, junto con el acuse final.
+
+### Decisión de Dirección del 18/09/2026
+
+Ante un contacto repetido, ARLES **enseña los choques antes de importar**. No
+los salta ni fusiona solo: una importación de diez mil filas es irreversible en
+la práctica.

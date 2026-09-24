@@ -45,6 +45,40 @@ again»— funciona con el servidor con el que se probó y falla con todos los
 demás, en idiomas que nadie leyó. Hay una prueba que manda el mismo código con
 textos opuestos y exige el mismo resultado.
 
+### La documentación del proyecto, puesta al día para que otro pueda continuar
+
+**El archivo que Claude lee al abrir el proyecto decía «entrega 3.3»** con la
+Fase 4 cerrada y la 5 a medias. Un archivo de instrucciones que miente sobre el
+estado es peor que no tenerlo, porque se cree: quien lo leyera habría empezado a
+trabajar en algo terminado hace semanas.
+
+Repasado a fondo, y no era lo único:
+
+- **Faltaban dos de los seis módulos del programa** en la tabla que describe la
+  arquitectura: el motor de ejecución y el de correo, construidos en las dos
+  últimas fases.
+- Las instrucciones de verificación mandaban revisar **hasta la fase 3** cuando
+  hay comprobaciones hasta la 5.
+- El avance decía que la Fase 5 estaba **sin empezar**. Ahora dice 35 %, con el
+  detalle de qué lo sostiene y qué falta. El total pasa de 56 % a **58 %**.
+- La tabla de fases del documento de WhatsApp daba Contactos por «en curso» y el
+  Motor por hacer, los dos cerrados.
+
+**Y el riesgo de que ARLES nunca haya hablado con un servidor de correo real
+ahora existe como riesgo, con número propio (R-24).** Lo venía diciendo en los
+informes sin estar registrado en ninguna parte, que es la forma más fácil de que
+algo se olvide. Lleva escrito por qué no se puede comprobar desde el entorno de
+desarrollo —está medido— y el procedimiento exacto para cerrarlo.
+
+**Hay un documento nuevo, `ESTADO_ACTUAL.md`**, pensado para quien retome el
+trabajo: qué hay construido, qué decisiones **no** hay que volver a discutir, las
+tres reglas de la fase que no se negocian, y qué es lo siguiente.
+
+Una cosa más, pequeña y con consecuencias: la línea de sesión que va al pie de
+cada commit **no se copia**. Cada sesión tiene la suya, y es lo que permite
+volver a la conversación donde se decidió algo; copiar la de otra apunta a una
+conversación que no explica ese commit.
+
 ### La pantalla de Remitentes, y la lista de alta que llevaba semanas mintiendo
 
 **Ya se puede dar de alta una cuenta de correo desde ARLES.** La pantalla lista

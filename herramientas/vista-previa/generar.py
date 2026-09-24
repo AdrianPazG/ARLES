@@ -591,8 +591,12 @@ NUCLEO_SIMULADO = """
       // `comprobar_simulador.py` compara esta tabla con el núcleo y falla si
       // vuelven a separarse.
       ['empresa', hay, true, '3.1', '/inicio/configuracion'],
-      ['remitente', false, false, '5', null],
-      ['contactos', false, false, '3.2', null],
+      // Contactos y Remitentes ganaron ruta el 23/09/2026, al descubrirse que
+      // Contactos llevaba desde la 3.2 anunciándose como «llega en la entrega
+      // 3.2» con la pantalla ya construida. La comprobación de abajo volvió a
+      // hacer su trabajo: avisó de que el simulador se había quedado atrás.
+      ['remitente', false, true, '5', '/remitentes'],
+      ['contactos', false, true, '3.2', '/contactos'],
       ['plantilla', false, false, '6', null],
       ['ventana', false, false, '6', null],
       ['campana', false, false, '6', null],

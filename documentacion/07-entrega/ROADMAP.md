@@ -140,11 +140,22 @@ como cualquier dependencia (CLAUDE.md §6).
 
 ---
 
-### Fase 5 — Proveedores de correo
+### Fase 5 — Proveedores de correo · **en curso**
 
 Trait `EmailProvider` · `SmtpProvider` con TLS obligatorio · prueba de conexión · clasificación de errores SMTP · captura de rechazos 5xx síncronos hacia la supresión · guía de onboarding de contraseña de aplicación de Gmail.
 
 `GoogleProvider` entra **cuando Google verifique** (D-1), no antes.
+
+| Entrega | Estado | Qué trajo |
+|---|---|---|
+| **5.1** ✅ | Cerrada el 23/09/2026 | La traducción de códigos SMTP a los cinco fallos del motor —el texto libre **no decide nada**— y un servidor de mentira que habla el protocolo de verdad y sabe fallar a la orden. Existe porque a Gmail no se le puede pedir que conteste `550` |
+| **5.2** ✅ | Cerrada el 23/09/2026 | El adaptador. **Cifrado obligatorio sin forma de desactivarlo**, comprobado además contra el propio socket antes de mandar la contraseña. La conversación se lleva paso a paso para no confundir un rechazo del remitente con uno del destinatario, que es el único que da de baja a alguien |
+| **5.3** ✅ | Cerrada el 23/09/2026 | «Probar conexión» con seis diagnósticos accionables · migración V7 con las columnas de SMTP que faltaban desde la V1 · repositorio de cuentas **sin contraseñas** · llavero por cuenta · tres comandos · la pantalla de Remitentes con la guía de la contraseña de aplicación |
+| **5.4** ⬜ | **Lo siguiente** | Enganchar el adaptador al motor. Hoy el bucle usa el proveedor **simulado** de la Fase 4: hay que construir el `ProveedorSmtp` desde la cuenta guardada, leyendo su contraseña del llavero. Es donde una campaña puede mandar un correo de verdad por primera vez |
+| **5.5** ⬜ | | El envío de prueba a una dirección propia antes de activar una campaña (§12) |
+| **5.6** ⬜ | | Cierre de fase: documento, informe para Dirección y PDF |
+
+**R-24 sigue abierto:** todo lo anterior está probado contra el servidor de mentira, y ARLES **no ha hablado nunca con un servidor real**. No se puede cerrar desde el entorno de desarrollo —la red bloquea los puertos de correo y no hay llavero del sistema—; se cierra en la máquina del usuario, con una cuenta desechable. Ver `ESTADO_ACTUAL.md` §7.
 
 ---
 

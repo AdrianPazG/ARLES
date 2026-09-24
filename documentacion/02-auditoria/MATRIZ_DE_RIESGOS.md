@@ -168,6 +168,37 @@ Certificado OV/EV de Windows: de una a tres semanas. Apple Developer ID y notari
 | **R-21** | **Meta inhabilita el número de WhatsApp** por prospección en frío, y con él puede caer la **cuenta de empresa entera**, no sólo el número señalado. No hay a quién apelar en la práctica | **Alta** si se envía en frío | **Crítico** para el cliente | Dirección — prueba con número prescindible en **cuenta de Meta aparte** (L-e) · advertencia con casilla · ritmo lento · parada por umbral de bloqueos |
 | **R-22** | **Se pierde a quien respondió** porque nadie contesta dentro de la ventana de 24 h. Falsea además la medición que justifica la prueba, y el silencio empeora la calificación del número | **Alta** si no hay turno asignado | Alto | Dirección — asignar quién contesta y en qué horario (P-14) · sección CONVERSACIONES con el reloj visible (L-5) |
 | **R-23** | **El esquema de la Fase 1 supone que el contacto es un correo.** Migrarlo después de la Fase 4 obliga a reescribir el motor y las campañas ya guardadas | Media | Alto | Ingeniería — adoptar `contact_channel` antes de la Fase 4 (L-2, P-12) |
+| **R-24** | **ARLES no ha hablado nunca con un servidor de correo real.** Toda la Fase 5 está probada contra un servidor de mentira que habla el protocolo de verdad y sabe fallar de seis maneras. Eso cubre las ramas de error mejor que una prueba manual, y **no cubre** lo que sólo aparece con un servidor real: un saludo inesperado, una extensión no vista, un límite de tasa, una peculiaridad del certificado | **Alta** hasta que se pruebe | Medio — se descubriría en el primer envío real, no en producción de un cliente | Dirección — una cuenta de Gmail **desechable** con verificación en dos pasos y contraseña de aplicación, en una máquina de verdad. Ver `07-entrega/ESTADO_ACTUAL.md` §7 |
+
+---
+
+### R-24 · ARLES no ha hablado nunca con un servidor de correo real
+
+**Por qué no se puede cerrar desde el entorno de desarrollo.** Se midió el
+23/09/2026: la política de red de la sesión resuelve el nombre de
+`smtp.gmail.com` pero **agota el tiempo de espera en los tres puertos** —587,
+465 y 25—. Sólo sale HTTPS por un proxy.
+
+Y aunque la red se abriera, faltaría lo esencial: **ARLES exige el llavero del
+sistema y no arranca sin él** (ADR-0011). Un contenedor Linux sin escritorio no
+tiene Keychain ni Credential Manager, así que lo que se probaría es el adaptador
+suelto, no el producto. Tampoco diría nada del Windows donde se va a instalar.
+
+**Cómo se cierra**, en la máquina de quien vaya a usar ARLES:
+
+1. Una cuenta de Gmail **desechable** —no la de trabajo— con verificación en dos
+   pasos activada.
+2. Una **contraseña de aplicación** generada para ARLES. Mientras el producto no
+   esté cerrado, una credencial que se pueda tirar sin consecuencias vale más
+   que la comodidad.
+3. Darla de alta en Remitentes y pulsar «Probar conexión». Lo esperado es «La
+   cuenta funciona».
+4. Cuando 5.4 esté: un envío de prueba a una dirección propia, y comprobar que
+   llega.
+
+**Lo que no se hace:** pasar la credencial por una conversación de chat. Queda
+escrita en el historial, y una contraseña de aplicación permite enviar correo
+como esa cuenta hasta que alguien la revoque.
 
 ---
 
@@ -176,7 +207,7 @@ Certificado OV/EV de Windows: de una a tres semanas. Apple Developer ID y notari
 | Estado | Riesgos |
 |---|---|
 | 🔴 **Abiertos y bloqueantes** | *ninguno* |
-| 🟡 **Abiertos, mitigados parcialmente** | R-01 (licencia Mont, puerta en la demo), R-03, R-05, R-06, R-10, R-13, R-14 |
+| 🟡 **Abiertos, mitigados parcialmente** | R-01 (licencia Mont, puerta en la demo), R-03, R-05, R-06, R-10, R-13, R-14, **R-24** (ningún servidor de correo real) |
 | 🟢 **Mitigados o resueltos** | R-02, R-04, R-07, R-08, R-09, R-11, R-12 |
 
 **Revisión del 2026-09-11 (D-5):** R-01 pasa de bloqueante a seguimiento con la puerta en la demo, y R-08 se resuelve porque el logotipo es tipográfico por diseño (§21). **No quedan bloqueantes para arrancar las Fases 1 y 2.**

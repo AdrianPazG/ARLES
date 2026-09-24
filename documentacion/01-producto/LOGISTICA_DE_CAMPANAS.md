@@ -763,9 +763,9 @@ prueba aprobada por Dirección va a medir.
 | **0** · Discovery | cerrada | **Se reabre para anotar** la decisión de canal y la prueba del número prescindible. Documental, no bloquea |
 | **1** · Cimientos | cerrada | **Cambio real.** `contact_channel`, `consent_entry`, supresión por canal, `message_attempt` deja de suponer un correo. Migración |
 | **2** · Design System | cerrada | **Nada.** Los tokens y las primitivas sirven igual. Lo único nuevo es la paleta de tema claro, que ya estaba pedida |
-| **3** · Contactos | en curso | Importación de teléfonos en E.164, permiso visible por contacto, supresión con dos alcances |
-| **4** · Motor | por hacer | Semáforo por canal, umbral de bloqueos, disyuntor más agresivo. El núcleo del motor **no cambia** |
-| **5** · Proveedores | por hacer | Se le suma un `WhatsAppProvider` bajo la misma abstracción |
+| **3** · Contactos | cerrada | Importación de teléfonos en E.164, permiso visible por contacto, supresión con dos alcances |
+| **4** · Motor | cerrada | Semáforo por canal, umbral de bloqueos, disyuntor más agresivo. El núcleo del motor **no cambia**. **Lo de WhatsApp sigue pendiente**: el motor está construido y probado con el canal de correo |
+| **5** · Proveedores | **en curso** | SMTP cerrado hasta 5.3. Se le suma un `WhatsAppProvider` bajo la misma abstracción, todavía sin empezar |
 | **6** · Campañas | por hacer | El canal entra como paso 2 del asistente y gobierna los demás. Plantillas aprobadas, que no se editan |
 | **7** · Actividad | por hacer | **CONVERSACIONES**, el reloj de 24 h y las métricas del canal |
 

@@ -1263,6 +1263,10 @@ MIGRACIONES_PUBLICADAS = {
     # programa. Entrega 4.4, 23/09/2026.
     "V6__parada_de_emergencia.sql":
         "e70450e110aaddc263edcb1be00be9665b9cfbca0dfdbd9ab0fb695799b77218",
+    # Las cuatro columnas de SMTP que faltaban en `email_account` desde la V1.
+    # Entrega 5.3, 23/09/2026.
+    "V7__cuenta_smtp.sql":
+        "32684912c4b913f1ff64ae158c92dc265efd82c3d1bf6fef408477ae62f267fd",
 }
 
 
@@ -1513,7 +1517,21 @@ def preferencias_fuera_del_navegador():
                 continue
             ruta = os.path.join(dir_actual, a)
             with open(ruta, encoding="utf-8") as f:
-                if "localStorage" in f.read():
+                # Se quitan los comentarios antes de mirar.
+                #
+                # Hacía falta: el 24/09/2026 esta comprobación marcó como
+                # infractores los dos archivos de Remitentes, que **explican en
+                # sus comentarios** que la contraseña NO va a `localStorage`.
+                # Se encontraba a sí misma, igual que le pasó a la invariante
+                # del TLS en la 5.2 y a la del secreto en la webview en la 5.3.
+                # Es un patrón que en este proyecto ya lleva tres apariciones:
+                # una comprobación que busca texto encuentra el texto que la
+                # documenta.
+                codigo = "\n".join(
+                    l for l in f.read().splitlines()
+                    if not l.strip().startswith(("*", "//", "/*", "<!--", "#"))
+                )
+                if "localStorage" in codigo:
                     usos.append(os.path.relpath(ruta, RAIZ))
     check(3, "ninguna preferencia se guarda en localStorage", not usos,
           "Se borra con la caché, no entra en el respaldo y no viaja con los "
