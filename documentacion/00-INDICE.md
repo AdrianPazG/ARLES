@@ -106,6 +106,7 @@
 | [DISTRIBUCION_Y_FIRMA](07-entrega/DISTRIBUCION_Y_FIRMA.md) | Instaladores, firma, notarización, updater |
 | [ROADMAP](07-entrega/ROADMAP.md) | 10 fases con dependencias reales |
 | [ESTADO_ACTUAL](07-entrega/ESTADO_ACTUAL.md) | **Dónde está el trabajo hoy y qué sigue.** Por aquí se empieza al retomar |
+| [PROMPT_DE_ARRANQUE](07-entrega/PROMPT_DE_ARRANQUE.md) | El mensaje con el que se abre una sesión nueva de Claude Code sobre este proyecto |
 
 ### 08 · Legal
 | Documento | Contenido |
