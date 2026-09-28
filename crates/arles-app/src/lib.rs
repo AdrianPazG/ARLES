@@ -9,6 +9,7 @@
 pub mod comandos;
 pub mod error;
 pub mod estado;
+pub mod fabrica;
 pub mod llavero;
 pub mod rutas;
 

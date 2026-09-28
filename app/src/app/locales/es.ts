@@ -988,6 +988,61 @@ export const es = {
         salvo: 'No se guardó nada y no se envió ningún correo.',
       },
 
+      // ── Una cuenta guardada que ahora mismo no puede enviar ──
+      //
+      // Van separados de `cuenta_de_correo_invalida` a propósito: aquél es un
+      // formulario mal rellenado, y éstos son cuentas ya guardadas. Y van
+      // separados entre sí porque **cada uno pide una acción distinta**. Un
+      // único «la cuenta no sirve» obligaría a probar los seis.
+      //
+      // Los seis dicen lo mismo en «qué está a salvo» (§95) y no es relleno: la
+      // pregunta de quien lee esto en mitad de una campaña es siempre la misma
+      // —¿salió algún correo?—, y la respuesta tiene que estar en pantalla y no
+      // deducirse.
+      cuenta: {
+        no_existe: {
+          que: 'La cuenta de correo que iba a enviar ya no está.',
+          como: 'Ve a Remitentes y elige otra cuenta para esta campaña.',
+          salvo: 'No se envió ningún correo.',
+        },
+        hay_que_configurarla: {
+          que: 'Esa cuenta está pendiente de configurar.',
+          como:
+            'Ve a Remitentes, abre la cuenta y escribe su contraseña de ' +
+            'aplicación. Al guardarla se prueba la conexión.',
+          salvo: 'No se envió ningún correo.',
+        },
+        detenida_por_fallos: {
+          que: 'ARLES detuvo esa cuenta tras varios fallos seguidos.',
+          como:
+            'Ve a Remitentes y pulsa «Probar» para ver qué está contestando el ' +
+            'servidor. Si la prueba pasa, la cuenta vuelve a quedar lista.',
+          salvo: 'No se envió ningún correo.',
+        },
+        desactivada: {
+          que: 'Esa cuenta está desactivada.',
+          como: 'Ve a Remitentes y actívala, o elige otra para esta campaña.',
+          salvo: 'No se envió ningún correo.',
+        },
+        sin_contrasena: {
+          que: 'No hay ninguna contraseña guardada para esa cuenta.',
+          como:
+            'Ve a Remitentes, abre la cuenta y vuelve a escribir su contraseña ' +
+            'de aplicación. Se guarda en el llavero de tu sistema.',
+          salvo: 'No se envió ningún correo, y no se intentó entrar a tu cuenta.',
+        },
+        // No es algo que el usuario pueda arreglar: es una base escrita por una
+        // versión más nueva de ARLES, o una migración incompleta. El texto lo
+        // dice así en vez de mandarle a tocar la cuenta, que no serviría.
+        estado_desconocido: {
+          que: 'Esa cuenta está en un estado que esta versión de ARLES no conoce.',
+          como:
+            'Suele significar que los datos vienen de una versión más nueva. ' +
+            'Actualiza ARLES; si ya está actualizado, avisa a soporte.',
+          salvo: 'No se envió ningún correo y no se modificó la cuenta.',
+        },
+      },
+
       llavero_no_disponible: {
         que: 'No se puede acceder al almacén de credenciales de tu sistema.',
         como:

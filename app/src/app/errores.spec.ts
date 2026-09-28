@@ -63,6 +63,14 @@ const CLAVES_DEL_NUCLEO = [
   'error.estado_de_campana_desconocido',
   // Entrega 5.3 · una cuenta guardada con un cifrado que no reconocemos.
   'error.app.cuenta_de_correo_invalida',
+  // La fábrica del proveedor (entrega 5.4a): una cuenta guardada que en este
+  // momento no puede enviar. Seis motivos, seis acciones distintas.
+  'error.app.cuenta.no_existe',
+  'error.app.cuenta.hay_que_configurarla',
+  'error.app.cuenta.detenida_por_fallos',
+  'error.app.cuenta.desactivada',
+  'error.app.cuenta.sin_contrasena',
+  'error.app.cuenta.estado_desconocido',
   'error.cifrado_desconocido',
   'error.db.cuenta_de_correo_no_existe',
   // Entrega 5.2 · la cuenta de correo. Son problemas de configuración, no de

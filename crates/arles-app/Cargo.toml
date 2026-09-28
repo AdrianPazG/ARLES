@@ -43,6 +43,11 @@ directories = "6"
 
 [dev-dependencies]
 tempfile = "3"
+# `test-util` abre la puerta al SQL crudo para sembrar la base en las pruebas:
+# es la única forma de dejar una cuenta en `circuit_open` o en un estado que
+# todavía no existe, que es justo lo que la fábrica tiene que rechazar.
+arles-db = { path = "../arles-db", features = ["test-util"] }
+rusqlite = "0.37"
 
 [lints]
 workspace = true

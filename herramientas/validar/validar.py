@@ -2806,6 +2806,89 @@ def solo_el_llavero_toca_contrasenas():
           f"archivos: {sorted(sospechosos)}")
 
 
+def produccion_de(relativa):
+    """El código de producción de un archivo Rust: sin pruebas y sin comentarios.
+
+    Las dos cosas por el mismo motivo —que una comprobación no se dispare con
+    algo que no es el código que vigila—, y las dos ya han dado un falso
+    positivo en este proyecto.
+
+    Devuelve `None` si el archivo no existe, para que quien llama decida si eso
+    es un fallo o no.
+    """
+    ruta = os.path.join(RAIZ, relativa)
+    if not os.path.exists(ruta):
+        return None
+    with open(ruta, encoding="utf-8") as f:
+        texto = f.read()
+    corte = texto.find("#[cfg(test)]")
+    if corte != -1:
+        texto = texto[:corte]
+    return sin_comentarios(texto)
+
+
+def la_fabrica_no_envia_con_una_contrasena_vacia():
+    """La fábrica del proveedor **no continúa** si el llavero no tiene nada.
+
+    El atajo es de una línea —`unwrap_or_default()`— y es el peor error posible
+    de ese módulo: el adaptador se construiría, mandaría `AUTH` con la
+    contraseña en blanco, el servidor contestaría «credenciales incorrectas» y
+    ARLES le diría al usuario que su contraseña de aplicación no sirve. El
+    problema sería que ARLES nunca la buscó bien, y varios intentos fallidos
+    seguidos marcan la cuenta en Gmail.
+
+    Se comprueba por ausencia y no por presencia a propósito: la prueba
+    `sin_contrasena_guardada_no_se_arma_nada` ya cubre el comportamiento
+    correcto. Esto caza el atajo el día que alguien lo escriba «para salir del
+    paso», que es cuando no se corre la prueba pensando en ella.
+
+    Se mira **sólo el código de producción** —el archivo se corta en
+    `#[cfg(test)]`— y sin comentarios. Lo segundo porque esta comprobación se
+    caza a sí misma en su propia explicación si no se hace, y ya ha pasado tres
+    veces en este proyecto. Lo primero porque las pruebas usan `unwrap_or_else`
+    legítimamente para dar un mensaje de fallo.
+    """
+    codigo = produccion_de("crates/arles-app/src/fabrica.rs")
+    if codigo is None:
+        check(5, "la fábrica no envía con una contraseña vacía", False,
+              "sin el módulo no hay nada que comprobar.", "falta fabrica.rs")
+        return
+
+    atajos = [a for a in ("unwrap_or_default", 'unwrap_or("', "unwrap_or_else")
+              if a in codigo]
+    check(5, "la fábrica no envía con una contraseña vacía", not atajos,
+          "una contraseña en blanco gasta un intento de autenticación fallido y "
+          "hace que ARLES culpe al usuario de un fallo suyo.",
+          f"atajos encontrados: {atajos}")
+
+
+def solo_una_cuenta_conectada_puede_enviar():
+    """La puerta se abre con `connected`; no se cierra ante una lista.
+
+    Escrita al revés —rechazando los estados conocidos— el día que una
+    migración añada un quinto estado, una cuenta que el sistema ya había
+    marcado como problemática **enviaría correo** hasta que alguien se acordara
+    de añadirla a la lista. Y nadie se acuerda.
+
+    Se exige que la comparación con la constante exista tal cual. Es una
+    comprobación de forma y no de comportamiento: lo que prueba que funciona es
+    `un_estado_que_no_existe_no_envia`, que además está verificada rompiéndola.
+    Esto es lo que impide que alguien la reescriba sin correr aquella.
+    """
+    codigo = produccion_de("crates/arles-app/src/fabrica.rs")
+    if codigo is None:
+        check(5, "sólo una cuenta conectada puede enviar", False,
+              "sin el módulo no hay nada que comprobar.", "falta fabrica.rs")
+        return
+
+    bien = 'const PUEDE_ENVIAR: &str = "connected"' in codigo \
+        and "cuenta.estado != PUEDE_ENVIAR" in codigo
+    check(5, "sólo una cuenta conectada puede enviar", bien,
+          "escrita como lista de rechazados, un estado nuevo enviaría correo "
+          "hasta que alguien se acordara de añadirlo.",
+          "no se encontró la comparación contra PUEDE_ENVIAR")
+
+
 def nada_que_cruce_la_frontera_lleva_contrasena():
     """Ninguna estructura que se serializa hacia la webview tiene contraseña.
 
@@ -2899,6 +2982,7 @@ def fase_5(rapido):
         ("crates/arles-core/src/correo.rs", "La cuenta de correo validada. Y el cifrado, que no tiene un «ninguno»."),
         ("crates/arles-db/migrations/V7__cuenta_smtp.sql", "Las columnas de SMTP que faltaban en `email_account` desde la V1."),
         ("crates/arles-db/src/correo.rs", "Guardar y leer cuentas remitentes. Sin ninguna contraseña."),
+        ("crates/arles-app/src/fabrica.rs", "De una cuenta guardada al adaptador: el único sitio donde una contraseña sale del llavero."),
         ("app/src/app/stores/remitentes.ts", "La tienda de remitentes. La contraseña no vive aquí."),
         ("app/src/app/pantallas/PantallaRemitentes.vue", "Donde se da de alta una cuenta y se prueba."),
         ("app/src/app/pantallas/remitentes.spec.ts", "Lo que la pantalla de Remitentes no puede dejar de decir."),
@@ -2911,6 +2995,8 @@ def fase_5(rapido):
     confiar_en_un_certificado_es_solo_de_pruebas()
     la_contrasena_no_viaja_en_claro()
     solo_el_llavero_toca_contrasenas()
+    la_fabrica_no_envia_con_una_contrasena_vacia()
+    solo_una_cuenta_conectada_puede_enviar()
     nada_que_cruce_la_frontera_lleva_contrasena()
     la_contrasena_no_se_guarda_en_la_webview()
     claves_de_error_sin_texto()

@@ -93,6 +93,16 @@ pub enum AppError {
     #[error("no se pudo abrir el archivo elegido")]
     ArchivoNoSePudoLeer,
 
+    /// La cuenta de correo existe pero no puede enviar ahora mismo.
+    ///
+    /// Va aparte de [`Self::CuentaDeCorreoInvalida`] porque son dos momentos
+    /// distintos: aquélla es un formulario mal rellenado, y ésta es una cuenta
+    /// ya guardada que en este instante no sirve —porque hay que configurarla,
+    /// porque el disyuntor la paró, porque falta su contraseña—. El usuario no
+    /// hace lo mismo en los dos casos, y el motivo concreto viaja dentro.
+    #[error(transparent)]
+    CuentaNoSirve(#[from] crate::fabrica::LaCuentaNoSirve),
+
     #[error(transparent)]
     Lectura(#[from] arles_import::ErrorDeLectura),
 
@@ -118,6 +128,7 @@ impl AppError {
             Self::EmpresaNoConfigurada => "error.app.empresa_no_configurada",
             Self::SinImportacionEnCurso => "error.app.sin_importacion_en_curso",
             Self::ArchivoNoSePudoLeer => "error.app.archivo_no_se_pudo_leer",
+            Self::CuentaNoSirve(e) => e.clave_i18n(),
             Self::Lectura(e) => e.clave_i18n(),
             Self::Db(e) => e.clave_i18n(),
             Self::Core(e) => e.clave_i18n(),
