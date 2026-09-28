@@ -168,6 +168,84 @@ mod tests {
         assert_eq!(nombre, "TELEMETRY");
     }
 
+    /// **La V8 sobre una base que ya tiene etapas.**
+    ///
+    /// Es la prueba que el primer borrador de la V7 no pasaba, y por eso se
+    /// escribe igual aquí: SQLite **revalida todas las filas existentes** al
+    /// añadir una columna con `CHECK`, así que una restricción en un `ALTER
+    /// TABLE … ADD COLUMN` puede hacer la migración imposible para cualquiera
+    /// que ya tenga datos — y no para quien la prueba sobre una base recién
+    /// creada, donde no hay filas que revalidar.
+    ///
+    /// Aquí se para el runner en la V7, se puebla con una campaña y su etapa, y
+    /// sólo entonces se aplica la V8. Lo que se exige es lo único que le
+    /// importa a quien ya tiene datos: que la migración pase y que la etapa
+    /// siga ahí, sin prueba de envío, que es la verdad — nunca se hizo una.
+    ///
+    /// Verificada rompiéndola el 28/09/2026: añadiendo
+    /// `CHECK (test_sent_at IS NOT NULL)` a la primera columna de la V8, esta
+    /// prueba falla y `migrar_una_base_con_datos_no_los_toca` sigue pasando,
+    /// porque aquélla no crea ninguna etapa.
+    #[test]
+    fn la_v8_migra_una_base_que_ya_tiene_etapas() {
+        let dir = tempfile::tempdir().expect("directorio temporal");
+        let clave = ClaveMaestra::generar().expect("genera");
+        let mut conn = crate::conexion::abrir_crudo(&dir.path().join("vieja.db"), &clave)
+            .expect("abre sin migrar");
+
+        embebidas::migrations::runner()
+            .set_target(refinery::Target::Version(7))
+            .run(&mut conn)
+            .expect("migra hasta la V7");
+
+        conn.execute_batch(
+            "INSERT INTO company (id, commercial_name, country, timezone,
+                                  corporate_email, created_at, updated_at)
+             VALUES ('c1', 'TELEMETRY', 'MX', 'America/Mexico_City',
+                     'hola@t.mx', '2026-09-28T00:00:00Z', '2026-09-28T00:00:00Z');
+
+             INSERT INTO email_account (id, company_id, display_name, email_address,
+                                        provider_kind, credential_ref, status,
+                                        daily_limit, hourly_limit, created_at, updated_at,
+                                        smtp_host, smtp_port, smtp_security, smtp_username)
+             VALUES ('a1', 'c1', 'Ventas', 'ventas@t.mx', 'smtp', 'llavero://v',
+                     'connected', 50, 10, '2026-09-28T00:00:00Z', '2026-09-28T00:00:00Z',
+                     'smtp.gmail.com', 587, 'starttls', 'ventas@t.mx');
+
+             INSERT INTO execution_window (id, company_id, name, days_of_week,
+                                           start_hour, end_hour, timezone, created_at)
+             VALUES ('w1', 'c1', 'Laborables', 31, 9, 18, 'America/Mexico_City',
+                     '2026-09-28T00:00:00Z');
+
+             INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+             VALUES ('k1', 'c1', 'Una campaña de antes', 'running',
+                     '2026-09-28T00:00:00Z', '2026-09-28T00:00:00Z');
+
+             INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                         email_account_id, execution_window_id,
+                                         status, created_at, updated_at)
+             VALUES ('e1', 'k1', 1, 'email', 'a1', 'w1', 'running',
+                     '2026-09-28T00:00:00Z', '2026-09-28T00:00:00Z');",
+        )
+        .expect("puebla como estaba en la V7");
+
+        aplicar(&mut conn).expect("la V8 tiene que poder correr sobre una base con etapas");
+
+        let (id, probada): (String, Option<String>) = conn
+            .query_row(
+                "SELECT id, test_sent_at FROM campaign_stage WHERE id = 'e1'",
+                [],
+                |f| Ok((f.get(0)?, f.get(1)?)),
+            )
+            .expect("la etapa sigue ahí");
+        assert_eq!(id, "e1");
+        assert_eq!(
+            probada, None,
+            "una etapa que existía antes de la V8 no ha hecho ningún envío de \
+             prueba, y el esquema no puede decir lo contrario"
+        );
+    }
+
     /// **La prueba que de verdad ejerce la V3.**
     ///
     /// Sobre una base recién creada, el traslado de datos de la V3 no mueve

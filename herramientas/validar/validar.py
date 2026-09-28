@@ -1267,6 +1267,10 @@ MIGRACIONES_PUBLICADAS = {
     # Entrega 5.3, 23/09/2026.
     "V7__cuenta_smtp.sql":
         "32684912c4b913f1ff64ae158c92dc265efd82c3d1bf6fef408477ae62f267fd",
+    # Dónde consta el envío de prueba de una etapa, y con qué cuenta se hizo.
+    # Entrega 5.5, 28/09/2026.
+    "V8__envio_de_prueba.sql":
+        "6109f2d428222cdb69711312fc4f387bf38e038da8cd38276364d57c7e70c206",
 }
 
 
@@ -3078,6 +3082,8 @@ def fase_5(rapido):
         ("crates/arles-email/src/prueba.rs", "«Probar conexión»: seis respuestas, cada una con una acción."),
         ("crates/arles-core/src/correo.rs", "La cuenta de correo validada. Y el cifrado, que no tiene un «ninguno»."),
         ("crates/arles-db/migrations/V7__cuenta_smtp.sql", "Las columnas de SMTP que faltaban en `email_account` desde la V1."),
+        ("crates/arles-db/migrations/V8__envio_de_prueba.sql", "Dónde consta el envío de prueba de una etapa, y con qué cuenta se hizo."),
+        ("crates/arles-db/src/prueba.rs", "Registrar el envío de prueba, y saber si todavía vale."),
         ("crates/arles-db/src/correo.rs", "Guardar y leer cuentas remitentes. Sin ninguna contraseña."),
         ("crates/arles-app/src/fabrica.rs", "De una cuenta guardada al adaptador: el único sitio donde una contraseña sale del llavero."),
         ("crates/arles-db/src/trabajo.rs", "Qué etapas están enviando, con su ventana y el más bajo de sus topes."),

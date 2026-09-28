@@ -25,6 +25,7 @@ pub mod error;
 pub mod migraciones;
 pub mod preferencias;
 pub mod presupuesto;
+pub mod prueba;
 pub mod supresion;
 pub mod trabajo;
 
