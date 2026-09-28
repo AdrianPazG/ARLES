@@ -2960,6 +2960,32 @@ def un_fallo_no_saca_al_motor_del_bucle():
           f"firma: {firma}")
 
 
+def la_pantalla_sabe_si_esta_ventana_envia():
+    """El estado del motor cruza la frontera **y se enseña**.
+
+    Sin este dato, la pantalla no puede distinguir «la campaña va despacio» de
+    «esta ventana no está enviando nada». Las dos se ven igual —un contador que
+    no sube— y la segunda no se arregla esperando (§95).
+
+    Se miran los dos extremos, porque uno sin el otro no sirve de nada: el campo
+    puede viajar y no pintarse, y la pantalla no puede pintar lo que no recibe.
+    Es el mismo fallo que la 5.4 vino a arreglar un piso más abajo —dos mitades
+    construidas y sin presentar—, y por eso se vigila igual.
+    """
+    comandos = produccion_de("crates/arles-app/src/comandos.rs") or ""
+    viaja = "el_motor_envia" in comandos
+
+    ruta = os.path.join(RAIZ, "app", "src", "app", "pantallas", "PantallaInicio.vue")
+    se_pinta = False
+    if os.path.exists(ruta):
+        with open(ruta, encoding="utf-8") as f:
+            se_pinta = "estaVentanaNoEnvia" in sin_comentarios_ni_html(f.read())
+
+    check(5, "la pantalla sabe si esta ventana envía", viaja and se_pinta,
+          "una campaña que no avanza sin explicación se lee como una avería.",
+          f"viaja={viaja} se_pinta={se_pinta}")
+
+
 def nada_que_cruce_la_frontera_lleva_contrasena():
     """Ninguna estructura que se serializa hacia la webview tiene contraseña.
 
@@ -3073,6 +3099,7 @@ def fase_5(rapido):
     el_motor_arranca_con_la_aplicacion()
     el_motor_no_corre_en_el_hilo_de_la_ventana()
     un_fallo_no_saca_al_motor_del_bucle()
+    la_pantalla_sabe_si_esta_ventana_envia()
     nada_que_cruce_la_frontera_lleva_contrasena()
     la_contrasena_no_se_guarda_en_la_webview()
     claves_de_error_sin_texto()

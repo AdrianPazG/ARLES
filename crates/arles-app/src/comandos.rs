@@ -116,6 +116,24 @@ pub struct EstadoArranque {
     pub version_esquema: Option<i32>,
     /// Hay una empresa configurada (si no, toca el onboarding del §25).
     pub empresa_configurada: bool,
+
+    /// **El motor está enviando.**
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ ESTO TIENE QUE CRUZAR LA FRONTERA
+    ///
+    /// `false` significa que hay otro ARLES abierto sobre esta misma base: el
+    /// cerrojo de instancia única lo tiene el otro, y éste no envía.
+    ///
+    /// Sin este dato, la pantalla no puede distinguir «la campaña va despacio»
+    /// de «esta ventana no está enviando nada». Las dos se ven igual —una
+    /// campaña en marcha cuyo contador no sube— y la segunda no se arregla
+    /// esperando. Una campaña que no avanza sin explicación se lee como una
+    /// avería (§95).
+    ///
+    /// Va en este comando y no en uno propio por la regla 1 de la frontera:
+    /// comandos gruesos. Es un dato del arranque como los otros tres.
+    pub el_motor_envia: bool,
 }
 
 /// Comprueba el estado del arranque.
@@ -134,6 +152,7 @@ pub fn estado_arranque(estado: tauri::State<'_, EstadoApp>) -> Result<EstadoArra
         base_de_datos_lista: true,
         version_esquema: resumen.version_esquema,
         empresa_configurada: resumen.empresas > 0,
+        el_motor_envia: estado.el_motor_esta_en_marcha(),
     })
 }
 

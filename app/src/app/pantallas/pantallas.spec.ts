@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { i18n } from '@/app/i18n'
+import { useAppStore } from '@/app/stores/app'
 import { useEmpresaStore } from '@/app/stores/empresa'
 
 import PantallaAjustes from './PantallaAjustes.vue'
@@ -323,5 +324,94 @@ describe('Configurar la empresa no saca de INICIO', () => {
       destinos.some((d) => d === '/ajustes'),
       'configurar la empresa vuelve a mandar a Ajustes',
     ).toBe(false)
+  })
+})
+
+/**
+ * El aviso de «esta ventana no está enviando».
+ *
+ * Aparece cuando hay otro ARLES abierto sobre la misma base. Es la señal que
+ * distingue **«la campaña va despacio»** de **«esta ventana no manda nada»**:
+ * las dos se ven igual —un contador que no sube— y la segunda no se arregla
+ * esperando (§95).
+ */
+describe('cuando otra ventana de ARLES tiene el envío', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  /** Deja el arranque cargado, diciendo si esta ventana envía o no. */
+  function sembrarArranque(envia: boolean): void {
+    const app = useAppStore()
+    app.arranque = {
+      baseDeDatosLista: true,
+      versionEsquema: 7,
+      empresaConfigurada: true,
+      elMotorEnvia: envia,
+    }
+    app.cargada = true
+  }
+
+  /**
+   * **Se dice, y se dicen las tres cosas** (§95).
+   *
+   * Sin el «qué está a salvo», la pregunta que queda es «¿entonces mi campaña
+   * se perdió?». Alguien cerraría las dos ventanas y volvería a empezar.
+   *
+   * Verificada rompiéndola el 28/09/2026: quitando el `v-if` del aviso —o
+   * cualquiera de las tres líneas— esta prueba falla.
+   */
+  it('lo dice en pantalla, con qué pasó, qué hacer y qué está a salvo', () => {
+    sembrarEmpresa()
+    sembrarArranque(false)
+
+    const texto = mount(PantallaInicio, entorno).text()
+    expect(texto).toContain('Esta ventana no está enviando')
+    expect(texto).toContain('sólo uno puede enviar a la vez')
+    expect(texto).toContain('Ciérralo y vuelve a abrir éste')
+    expect(texto).toContain('no se ha perdido nada')
+  })
+
+  /**
+   * **Y no aparece cuando esta ventana sí envía.**
+   *
+   * Hace falta: sin ella, la de arriba pasaría igual con un aviso pintado
+   * siempre — y un aviso permanente deja de leerse, con lo que el día que
+   * significara algo nadie lo miraría.
+   */
+  it('no aparece cuando esta ventana sí está enviando', () => {
+    sembrarEmpresa()
+    sembrarArranque(true)
+
+    expect(mount(PantallaInicio, entorno).text()).not.toContain(
+      'Esta ventana no está enviando',
+    )
+  })
+
+  /**
+   * **Ni antes de que el núcleo conteste.**
+   *
+   * Es el instante entre abrir ARLES y recibir el estado. Sin cuidado, el aviso
+   * aparecería medio segundo en cada arranque — y un aviso que se enseña
+   * siempre deja de leerse.
+   *
+   * ── LO QUE ESTA PRUEBA CAZA, Y LO QUE NO ──
+   *
+   * Lo que lo impide es **el valor de reserva del almacén**, que dice que sí se
+   * envía mientras no se sepa otra cosa. No una comprobación de «ya cargó».
+   *
+   * La primera versión llevaba un `cargada.value &&` en el almacén con un
+   * comentario que se atribuía el mérito. Al romperlo a propósito **no falló
+   * ninguna prueba**: era redundante, y la explicación era falsa. Se quitó, y
+   * esta prueba se reescribió para apuntar a lo que de verdad protege.
+   *
+   * Verificada rompiéndola el 28/09/2026: poniendo `elMotorEnvia: false` en el
+   * valor de reserva, esta prueba falla.
+   */
+  it('no parpadea antes de que el núcleo conteste', () => {
+    sembrarEmpresa()
+    // Sin sembrar el arranque: el almacén está como recién creado, que es
+    // exactamente el instante que se quiere mirar.
+    expect(mount(PantallaInicio, entorno).text()).not.toContain(
+      'Esta ventana no está enviando',
+    )
   })
 })

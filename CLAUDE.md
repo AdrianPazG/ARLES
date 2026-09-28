@@ -103,7 +103,7 @@ Monolito modular. Tauri 2 + Rust + Vue 3. Cuatro crates y una app:
 | `arles-core` | Dominio puro | **Cero I/O.** Ni base, ni red, ni disco. `forbid(unsafe_code)` |
 | `arles-db` | SQLCipher, migraciones, repositorios | **No conoce la IPC**: no depende de `serde` |
 | `arles-import` | Lectura de CSV y XLSX | El archivo que lee **no es de fiar** |
-| `arles-motor` | El bucle que envía: cola, ritmo, ventana, disyuntor | **No escribe SQL.** Pide a `arles-db` con métodos tipados |
+| `arles-motor` | El bucle que envía: cola, ritmo, ventana, disyuntor | **No escribe SQL.** Pide a `arles-db` con métodos tipados. Desde la 5.4 lo arranca `arles-app` **en su propio hilo** (§51) |
 | `arles-email` | El adaptador SMTP y un servidor de mentira para probarlo | **No hay forma de no cifrar** (§29). El motor no sabe que existe |
 | `arles-app` | Shell de Tauri y comandos | La única frontera con la webview |
 | `app/` | Vue 3 + TS estricto | `exactOptionalPropertyTypes` activo |
@@ -242,15 +242,29 @@ Quien retome el trabajo empieza por ahí.
 
 **En curso: Fase 5 · Proveedores de envío.** Cerradas 5.1 (traducir lo que dice
 un servidor, y un servidor de mentira para probarlo), 5.2 (el adaptador SMTP con
-cifrado obligatorio) y 5.3 (probar, guardar y dar de alta una cuenta, con su
-pantalla).
+cifrado obligatorio), 5.3 (probar, guardar y dar de alta una cuenta, con su
+pantalla) y 5.4 (**el motor encendido**: la fábrica que va del llavero al
+adaptador, la consulta de qué etapas envían, y el hilo que las atiende aparte de
+la ventana).
 
-**Lo siguiente es 5.4:** enganchar el adaptador al motor. Hoy el bucle usa el
-proveedor **simulado** de la Fase 4; hay que construir el `ProveedorSmtp` desde
-la cuenta guardada, leyendo su contraseña del llavero, y dárselo al trabajador.
-Es donde por primera vez una campaña puede mandar un correo de verdad.
+**Lo siguiente es 5.5:** el envío de prueba del §12 — mandar un correo a una
+dirección propia antes de activar una campaña. Es además donde el hilo del motor
+se verá mandar un correo **de punta a punta**: hoy su pegamento está probado
+contra un puerto cerrado y el envío contra el servidor de mentira, pero las dos
+cosas no se han visto juntas.
 
-Después: 5.5 (el envío de prueba del §12) y 5.6 (cierre de fase).
+Después: 5.6 (cierre de fase).
+
+**Tres trampas del código de la 5.4**, por si se toca:
+
+1. La comprobación del estado de la cuenta **exige `connected`**; no enumera los
+   estados que rechaza. Escrita al revés, un estado nuevo enviaría correo hasta
+   que alguien se acordara de prohibirlo.
+2. **Los límites de envío no están en `campaign`.** La V4 los movió a
+   `campaign_stage` junto con la ventana y el remitente. El esquema de la V1
+   todavía los enseña.
+3. **`localhost` no pasa la validación del núcleo**: un servidor de correo sin
+   punto no es un nombre de dominio.
 
 ### Las tres reglas de esta fase
 

@@ -10,7 +10,7 @@
 
 ## 1. En una frase
 
-ARLES ya sabe enviar correo de verdad —adaptador SMTP con cifrado obligatorio, cuentas guardadas y probadas desde la interfaz—, pero **el motor todavía no usa esas cuentas**: eso es la entrega 5.4, y es lo siguiente.
+**ARLES ya tiene el motor encendido.** Al abrir el programa hay un hilo dentro que mira qué campañas están enviando y las atiende, con el adaptador SMTP armado a partir de la cuenta guardada y su contraseña del llavero. Lo que falta para cerrar la fase es el envío de prueba del §12 (5.5) y el cierre (5.6).
 
 ---
 
@@ -24,7 +24,7 @@ ARLES ya sabe enviar correo de verdad —adaptador SMTP con cifrado obligatorio,
 | F3 · Empresa y contactos | ✅ cerrada | Empresa, contactos, importación CSV/XLSX, supresión, derechos |
 | F3W · Canales | 🟡 55 % | V3 y V4 aplicadas: `contact_channel`, consentimiento, etapas de campaña |
 | F4 · Motor de ejecución | ✅ cerrada | Máquina de estados, ritmo, ventana con zona IANA, reintentos, disyuntor, cola, presupuesto, pausa/detención, preflight |
-| **F5 · Proveedores de envío** | **🟡 en curso** | **5.1, 5.2 y 5.3 cerradas. Ver §3** |
+| **F5 · Proveedores de envío** | **🟡 en curso** | **5.1, 5.2, 5.3 y 5.4 cerradas. Ver §3** |
 | F6 a F9 | ⬜ sin empezar | Campañas, actividad, respaldos, release |
 
 **Cifras del 23/09/2026:** 677 pruebas de Rust, 110 del frontend, validador de fase 5 en 22/22, `fmt`, `clippy`, `eslint` y `vue-tsc` limpios, `cargo deny` sin avisos.
@@ -55,9 +55,25 @@ La conversación se lleva paso a paso —`MAIL FROM`, `RCPT TO`, `DATA`— y no 
 - `arles-app/src/comandos.rs` — `remitentes`, `probar_remitente`, `guardar_remitente`.
 - `app/src/app/pantallas/PantallaRemitentes.vue` — la pantalla, con la guía de la contraseña de aplicación de Gmail.
 
-### Lo siguiente
+**5.4 · El motor corriendo de verdad** (cerrada el 28/09/2026)
 
-**5.4 · Enganchar el adaptador al motor.** Hoy el bucle del motor usa el proveedor **simulado** de la Fase 4. Hay que construir el `ProveedorSmtp` a partir de la cuenta guardada —leyendo su contraseña del llavero— y dárselo al trabajador. Es donde por primera vez una campaña puede mandar un correo de verdad.
+Resultó ser bastante más de lo que este documento decía. La frase era «construir el `ProveedorSmtp` y dárselo al trabajador», y al ir a buscar ese trabajador **no existía**: `arles-app` ni siquiera dependía de `arles-motor`. Estaban construidas las dos mitades —la que gestiona la cola y la que habla SMTP— y no estaban presentadas. Ninguna prueba lo cazaba, porque cada mitad pasaba la suya.
+
+- `arles-app/src/fabrica.rs` — de una cuenta guardada al adaptador. **El único sitio donde una contraseña sale del llavero.** Seis motivos distintos por los que una cuenta puede no enviar, cada uno con su acción.
+- `arles-db/src/trabajo.rs` — `etapas_en_marcha`: qué está enviando ahora mismo, con su ventana y el **más bajo** de sus topes.
+- `arles-app/src/motor.rs` — el hilo, aparte de la ventana (§51). **No muere por un error**: se reintenta en la vuelta siguiente.
+- `arles-app/src/estado.rs` — toma el cerrojo de instancia única y arranca el motor.
+- `app/src/app/pantallas/PantallaInicio.vue` — el aviso de «esta ventana no está enviando».
+
+**Tres cosas que conviene saber antes de tocar esto:**
+
+1. **La puerta se abre con `connected`, no se cierra ante una lista.** Escrita al revés, un estado nuevo enviaría correo hasta que alguien se acordara de prohibirlo.
+2. **Los límites de envío ya no están en `campaign`.** La V4 los movió a `campaign_stage`, junto con la ventana y el remitente. El esquema de la V1 todavía los enseña, y buscarlos ahí cuesta un rato.
+3. **`localhost` no pasa la validación del núcleo** — un servidor de correo sin punto no es un nombre de dominio. Para una prueba local hace falta algo como `a.localhost`.
+
+**Lo que 5.4 NO deja verificado, y hay que decirlo:** el hilo del motor **no se ha visto mandar un correo de punta a punta**. Su pegamento está probado contra un puerto cerrado, y el envío en sí contra el servidor de mentira de `arles-email`, pero las dos cosas no se han visto juntas. El servidor de mentira que habla cifrado no se exporta a propósito: sacarlo metería un motor de TLS en el programa que se entrega. Su sitio natural es la 5.5.
+
+### Lo siguiente
 
 **5.5 · El envío de prueba.** Mandar un correo a una dirección propia antes de activar una campaña, que es lo que el §12 exige en el preflight.
 
@@ -121,7 +137,7 @@ Ninguno impide construir. Los cuatro primeros impiden **entregar** la v1.2.0.
 
 **Cómo se cierra:** en la máquina de quien vaya a usar ARLES —Windows o macOS—, con una cuenta de Gmail con verificación en dos pasos y una **contraseña de aplicación**, y **con una cuenta desechable**, no la de trabajo: mientras el producto no esté cerrado, una credencial que se pueda tirar sin consecuencias vale más que la comodidad.
 
-**Lo que se comprueba:** que la prueba de conexión da «la cuenta funciona», y después —cuando 5.4 esté— que un envío de prueba llega.
+**Lo que se comprueba:** que la prueba de conexión da «la cuenta funciona», y —ya con 5.4 cerrada— que una campaña activada manda un correo que llega.
 
 ---
 

@@ -12,6 +12,70 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Fase 5 · Entrega 5.4 — ARLES enciende el motor
+
+Hasta esta entrega había dos mitades construidas y **sin presentar**: la que
+sabe gestionar una cola de envíos y la que sabe hablar con un servidor de
+correo. Ninguna prueba lo cazaba, porque cada mitad pasaba la suya.
+
+Lo más honesto que se puede decir de este trabajo es que **el roadmap
+subestimaba lo que faltaba**. Decía «construir el adaptador y dárselo al
+trabajador», y al ir a buscar ese trabajador resultó que no existía dentro de la
+aplicación: el shell de escritorio ni siquiera dependía del crate del motor.
+
+**Lo que cambia para quien usa ARLES:** al abrir el programa hay, por primera
+vez, algo dentro que mira si hay campañas que enviar y las atiende.
+
+#### Tres decisiones que vale la pena conocer
+
+**Una cuenta envía sólo si está lista, y «listo» se exige, no se supone.** La
+comprobación pide el único estado que puede enviar en vez de enumerar los que se
+rechazan. Escrita al revés, el día que se añada un estado nuevo —una cuenta
+suspendida, por ejemplo— esa cuenta **mandaría correo** hasta que alguien se
+acordara de añadirla a la lista de prohibidos. Y nadie se acuerda.
+
+**Sin contraseña guardada no se intenta nada.** El atajo cómodo sería probar con
+la contraseña en blanco; el servidor contestaría «credenciales incorrectas» y
+ARLES le diría al usuario que su contraseña de aplicación no sirve, cuando el
+problema es que ARLES nunca la buscó bien. Además, varios intentos fallidos
+seguidos marcan la cuenta ante el proveedor.
+
+**El motor no se detiene por un error.** Va al revés que el resto del programa,
+y a propósito: si ese hilo termina, ARLES deja de enviar con la ventana abierta
+como si nada, las campañas siguen diciendo «en marcha» y el usuario se entera
+horas después. Un fallo se reintenta en la vuelta siguiente.
+
+#### Si abres ARLES dos veces
+
+Sólo uno de los dos envía — el que abrió primero. El segundo **abre igual**: se
+pueden mirar contactos, campañas y la configuración. Negarle el arranque entero
+dejaría a alguien sin poder trabajar por haber dado doble clic.
+
+Y lo dice en pantalla, con las tres partes de siempre: qué pasa, qué hacer, y
+que **no se ha perdido ni duplicado ningún correo** — las campañas están
+saliendo por la otra ventana. Sin esa última frase, la reacción natural sería
+cerrar las dos y volver a empezar.
+
+#### Dos cosas que resultaron no ser como parecían
+
+Las dos las encontró la regla de romper a propósito lo que se afirma, y las dos
+estaban escritas en un comentario que decía algo falso:
+
+- **Los límites de envío ya no viven en la campaña.** Una migración anterior los
+  movió a la etapa, junto con el horario y el remitente. La consulta se escribió
+  con tres niveles de tope y la prueba contra una base real la tumbó: son dos, y
+  manda siempre el más bajo.
+- **La contraseña no podía escaparse por donde se creía.** La biblioteca de
+  correo ya protege sus credenciales, y la rotura que el comentario describía ni
+  siquiera compila. La prueba se reescribió apuntando a la fuga que sí es
+  posible, y se dejó escrito lo que **no** caza.
+
+Y una tercera, en la interfaz: una comprobación puesta «por si acaso» resultó no
+proteger de nada — lo que impedía el parpadeo del aviso era otra cosa. Se quitó
+el código redundante y se corrigió la explicación.
+
+---
+
 ### Fase 5 · Traducir lo que dice un servidor de correo
 
 **Arranca la fase que hace que ARLES mande correos de verdad.** El motor ya sabe

@@ -69,6 +69,27 @@ export const es = {
     avance: '{hechos} de {total}',
     verPasos: 'Ver los {n} pasos',
 
+    // ── Esta ventana no envía (entrega 5.4c) ──
+    //
+    // Aparece cuando hay otro ARLES abierto sobre la misma base: sólo uno puede
+    // enviar, y es el que abrió primero.
+    //
+    // Las tres partes del §95, y ninguna sobra. Sin el «qué está a salvo», la
+    // pregunta que queda es «¿entonces mi campaña se perdió?» — y la respuesta
+    // es que no, que la está mandando la otra ventana. Sin esa frase, alguien
+    // cerraría las dos y volvería a empezar.
+    //
+    // No dice «instancia» ni «cerrojo». Dice «otra ventana», que es lo que la
+    // persona tiene delante.
+    noEnvia: {
+      titulo: 'Esta ventana no está enviando',
+      que: 'Hay otro ARLES abierto con los mismos datos, y sólo uno puede enviar a la vez.',
+      como: 'Ciérralo y vuelve a abrir éste, o sigue trabajando desde aquélla.',
+      salvo:
+        'Tus campañas siguen saliendo por la otra ventana: no se ha perdido ' +
+        'nada ni se ha duplicado ningún correo.',
+    },
+
     // Primera vez. Una sola cosa que hacer, sin panel que la rodee: quien abre
     // ARLES por primera vez no tiene nada que mirar en un panel.
     primera: {

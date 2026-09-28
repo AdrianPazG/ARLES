@@ -40,7 +40,7 @@ import { computed, onMounted } from 'vue'
 import { resolverError } from '@/app/errores'
 import { useAppStore } from '@/app/stores/app'
 import { useEmpresaStore } from '@/app/stores/empresa'
-import { ABoton, AModulo, EstadoError } from '@/design/componentes'
+import { AAviso, ABoton, AModulo, EstadoError } from '@/design/componentes'
 
 const empresa = useEmpresaStore()
 const app = useAppStore()
@@ -51,7 +51,10 @@ const error = computed(() =>
     : null,
 )
 
-onMounted(() => void empresa.cargar())
+onMounted(() => {
+  void empresa.cargar()
+  void app.cargar()
+})
 
 const lista = computed(() => empresa.onboarding)
 const avance = computed(() => `${lista.value.completados} / ${lista.value.total}`)
@@ -90,6 +93,26 @@ const accesos = computed(() => [
 
 <template>
   <section class="pantalla">
+    <!-- ── Esta ventana no envía ────────────────────────────────────────────
+         Va ARRIBA DEL TODO y fuera de las dos composiciones, no dentro de un
+         módulo del panel. Es una condición de la ventana entera: mientras dure,
+         ninguna campaña avanza desde aquí. Meterlo en un módulo lo dejaría
+         compitiendo con el resto de la pantalla, y el usuario sólo lo miraría
+         después de preguntarse por qué su campaña no sube.
+
+         No es `urgente`: no responde a nada que el usuario acabe de hacer, y un
+         aviso permanente que se anuncia solo convierte al lector de pantalla en
+         ruido. -->
+    <AAviso
+      v-if="app.estaVentanaNoEnvia"
+      tono="aviso"
+      :titulo="$t('inicio.noEnvia.titulo')"
+    >
+      {{ $t('inicio.noEnvia.que') }}
+      {{ $t('inicio.noEnvia.como') }}
+      {{ $t('inicio.noEnvia.salvo') }}
+    </AAviso>
+
     <EstadoError
       v-if="error"
       :que="error.que"

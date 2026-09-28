@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 /**
  * Identidad de la aplicación, tal como la reporta el núcleo.
@@ -23,6 +23,40 @@ const SIN_NUCLEO: InfoApp = {
   atribucion: 'Software desarrollado por TELEMETRY INSIGHT',
 }
 
+/**
+ * Estado de salud del arranque.
+ *
+ * Coincide con `arles_app::comandos::EstadoArranque`.
+ */
+export interface EstadoArranque {
+  readonly baseDeDatosLista: boolean
+  readonly versionEsquema: number | null
+  readonly empresaConfigurada: boolean
+  /**
+   * El motor está enviando.
+   *
+   * `false` significa que hay otro ARLES abierto sobre la misma base: esta
+   * ventana deja mirar y configurar, y **no manda ningún correo**.
+   */
+  readonly elMotorEnvia: boolean
+}
+
+/**
+ * Valor de reserva fuera de Tauri.
+ *
+ * `elMotorEnvia` en `true` **a propósito**, y es la decisión menos obvia de
+ * este archivo: en `vite dev` y en las pruebas no hay núcleo, y un `false` de
+ * reserva pintaría el aviso de «esta ventana no envía» en una pantalla donde no
+ * significa nada. Un aviso que aparece siempre deja de leerse, y el día que
+ * apareciera de verdad nadie lo miraría.
+ */
+const ARRANQUE_SIN_NUCLEO: EstadoArranque = {
+  baseDeDatosLista: false,
+  versionEsquema: null,
+  empresaConfigurada: false,
+  elMotorEnvia: true,
+}
+
 interface ConTauri {
   __TAURI_INTERNALS__?: unknown
 }
@@ -39,6 +73,7 @@ interface ConTauri {
  */
 export const useAppStore = defineStore('app', () => {
   const info = ref<InfoApp>(SIN_NUCLEO)
+  const arranque = ref<EstadoArranque>(ARRANQUE_SIN_NUCLEO)
   const cargada = ref(false)
 
   async function cargar(): Promise<void> {
@@ -49,8 +84,25 @@ export const useAppStore = defineStore('app', () => {
     }
     const { invoke } = await import('@tauri-apps/api/core')
     info.value = await invoke<InfoApp>('info_app')
+    arranque.value = await invoke<EstadoArranque>('estado_arranque')
     cargada.value = true
   }
 
-  return { info, cargada, cargar }
+  /**
+   * Esta ventana no está enviando: hay otro ARLES abierto sobre la misma base.
+   *
+   * Se expone con nombre propio en vez de dejar que la pantalla escriba
+   * `!arranque.elMotorEnvia`: una negación suelta en una plantilla se lee al
+   * revés con facilidad, y equivocarse aquí pinta un aviso permanente.
+   *
+   * **Lo que impide que parpadee al abrir es el valor de reserva**, no esto.
+   * La primera versión llevaba además un `cargada.value &&` delante, con un
+   * comentario que decía que era lo que evitaba el parpadeo. Al romperlo a
+   * propósito no falló ninguna prueba: con `elMotorEnvia` en `true` mientras no
+   * hay respuesta, no hay instante en que la negación sea cierta. Era código
+   * redundante sostenido por una explicación equivocada, y se quitó.
+   */
+  const estaVentanaNoEnvia = computed(() => !arranque.value.elMotorEnvia)
+
+  return { info, arranque, cargada, estaVentanaNoEnvia, cargar }
 })

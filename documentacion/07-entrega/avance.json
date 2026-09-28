@@ -35,7 +35,7 @@
     "  python3 herramientas/avance/calcular.py --escribir"
   ],
   "version": "1.2.0",
-  "actualizado": "2026-09-23",
+  "actualizado": "2026-09-28",
   "fases": [
     {
       "id": "F0",
@@ -83,8 +83,8 @@
       "id": "F5",
       "nombre": "Proveedores de envío",
       "peso": 7,
-      "hecho": 0.35,
-      "porque": "5.1, 5.2 y 5.3 cerradas: traducción de códigos SMTP, servidor de mentira que habla el protocolo y sabe fallar de seis maneras, adaptador con cifrado obligatorio y sin forma de desactivarlo, «Probar conexión» con seis diagnósticos, migración V7, repositorio de cuentas sin contraseñas, llavero por cuenta, tres comandos y la pantalla de Remitentes. validar.py --fase 5 en 22/22, 677 pruebas de Rust y 110 del frontend el 23/09/2026. Falta 5.4 (enganchar el adaptador al motor, que hoy usa el proveedor simulado), 5.5 (envío de prueba) y 5.6 (cierre), y el adaptador de WhatsApp Cloud API, que también cuenta en esta fase y no está empezado. R-24 abierto: nunca se ha hablado con un servidor real."
+      "hecho": 0.45,
+      "porque": "5.1, 5.2, 5.3 y 5.4 cerradas: traducción de códigos SMTP, servidor de mentira que habla el protocolo y sabe fallar de seis maneras, adaptador con cifrado obligatorio y sin forma de desactivarlo, «Probar conexión» con seis diagnósticos, migración V7, repositorio de cuentas sin contraseñas, llavero por cuenta, la pantalla de Remitentes, y el motor encendido: la fábrica que va de una cuenta guardada al adaptador leyendo el llavero, la consulta de qué etapas están enviando, y el hilo que las atiende aparte de la ventana (§51), con el cerrojo de instancia única y el aviso de «esta ventana no envía». validar.py --fase 5 en 31/31, 705 pruebas de Rust y 113 del frontend el 28/09/2026. La 5.4 resultó mayor de lo previsto: arles-app ni siquiera dependía de arles-motor, así que no había trabajador al que enganchar el adaptador. Falta 5.5 (envío de prueba, donde además se verá el hilo mandar un correo de punta a punta: hoy su pegamento está probado contra un puerto cerrado y el envío contra el servidor de mentira, pero no juntos), 5.6 (cierre) y el adaptador de WhatsApp Cloud API, que también cuenta en esta fase y no está empezado. R-24 abierto: nunca se ha hablado con un servidor real."
     },
     {
       "id": "F6",

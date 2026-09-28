@@ -8,9 +8,9 @@ Desarrollado por **TELEMETRY INSIGHT**
 ---
 
 <!-- AVANCE:INICIO -->
-![Avance de la v1.2.0](https://img.shields.io/badge/avance_v1.2.0-58%25-yellow?style=flat-square)
+![Avance de la v1.2.0](https://img.shields.io/badge/avance_v1.2.0-59%25-yellow?style=flat-square)
 
-**58 % de la versión 1.2.0 construido y verificado**, a 2026-09-23.
+**59 % de la versión 1.2.0 construido y verificado**, a 2026-09-28.
 
 <details>
 <summary>Cómo sale ese número, y qué no mide</summary>
@@ -34,7 +34,7 @@ son trabajo pendiente nuestro: van aparte.
 | F3 · Empresa y contactos | 14 % | ✅ 100 % |
 | F3W · Canales: esquema de contactos, consentimiento y etapas | 8 % | 🟨 55 % |
 | F4 · Motor de ejecución | 14 % | ✅ 100 % |
-| F5 · Proveedores de envío | 7 % | 🟨 35 % |
+| F5 · Proveedores de envío | 7 % | 🟨 45 % |
 | F6 · Campañas y mensajes | 13 % | 🟨 5 % |
 | F7 · Actividad y entregabilidad | 9 % | ⬜ 0 % |
 | F8 · Respaldos y endurecimiento | 7 % | ⬜ 0 % |
