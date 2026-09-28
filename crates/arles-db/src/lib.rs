@@ -26,6 +26,7 @@ pub mod migraciones;
 pub mod preferencias;
 pub mod presupuesto;
 pub mod supresion;
+pub mod trabajo;
 
 pub use campanas::ResumenDeAccion;
 pub use cola::{Recuperacion, TrabajoTomado};

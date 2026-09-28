@@ -11,6 +11,7 @@ pub mod error;
 pub mod estado;
 pub mod fabrica;
 pub mod llavero;
+pub mod motor;
 pub mod rutas;
 
 pub use error::{AppError, ErrorIpc};

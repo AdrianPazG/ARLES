@@ -2889,6 +2889,77 @@ def solo_una_cuenta_conectada_puede_enviar():
           "no se encontró la comparación contra PUEDE_ENVIAR")
 
 
+def el_motor_arranca_con_la_aplicacion():
+    """`arles-app` depende del motor **y lo arranca**.
+
+    Hasta la 5.4b el motor estaba construido y probado entero y nadie lo
+    arrancaba: `arles-app` ni siquiera dependía de `arles-motor`. Las dos
+    mitades existían y no estaban presentadas, y eso no lo cazaba ninguna
+    prueba — porque cada mitad pasaba la suya.
+
+    Se miran las dos cosas, porque una sin la otra no dice nada: la dependencia
+    puede estar y no usarse, y el arranque no puede estar sin la dependencia.
+    """
+    manifiesto = os.path.join(RAIZ, "crates", "arles-app", "Cargo.toml")
+    depende = False
+    if os.path.exists(manifiesto):
+        with open(manifiesto, encoding="utf-8") as f:
+            depende = "arles-motor" in f.read()
+
+    estado = produccion_de("crates/arles-app/src/estado.rs") or ""
+    arranca = "MotorEnMarcha::arrancar" in estado
+
+    check(5, "el motor arranca con la aplicación", depende and arranca,
+          "un motor construido que nadie arranca deja ARLES abierto sin enviar, "
+          "y ninguna prueba de las dos mitades lo caza.",
+          f"depende={depende} arranca={arranca}")
+
+
+def el_motor_no_corre_en_el_hilo_de_la_ventana():
+    """El bucle de envío vive en su propio hilo (§51).
+
+    Cerrar la ventana no detiene una campaña, y un envío que espera sesenta
+    segundos a un servidor que no contesta no puede congelar el programa.
+    """
+    codigo = produccion_de("crates/arles-app/src/motor.rs")
+    if codigo is None:
+        check(5, "el motor no corre en el hilo de la ventana", False,
+              "sin el módulo no hay nada que comprobar.", "falta motor.rs")
+        return
+
+    check(5, "el motor no corre en el hilo de la ventana",
+          "thread::Builder" in codigo and ".spawn(" in codigo,
+          "§51: cerrar la ventana no detiene una campaña, y un envío lento no "
+          "puede congelar la interfaz.",
+          "no se encontró el hilo propio")
+
+
+def un_fallo_no_saca_al_motor_del_bucle():
+    """El bucle del motor **no propaga errores**: los reintenta.
+
+    Va al revés que el resto del programa, y a propósito. Si este hilo termina,
+    ARLES deja de enviar y la ventana sigue abierta como si nada: las campañas
+    se quedan en «en marcha», la pantalla no cambia, y el usuario se entera
+    horas después.
+
+    Se comprueba por la firma: `correr` no devuelve `Result`. Una firma que lo
+    devolviera invitaría a un `?` en el bucle, y un `?` ahí es ARLES mudo hasta
+    el siguiente arranque.
+    """
+    codigo = produccion_de("crates/arles-app/src/motor.rs")
+    if codigo is None:
+        check(5, "un fallo no saca al motor del bucle", False,
+              "sin el módulo no hay nada que comprobar.", "falta motor.rs")
+        return
+
+    firma = [l for l in codigo.splitlines() if l.startswith("fn correr(")]
+    check(5, "un fallo no saca al motor del bucle",
+          bool(firma) and "->" not in firma[0],
+          "un `?` en ese bucle deja ARLES sin enviar y sin decirlo, hasta el "
+          "siguiente arranque.",
+          f"firma: {firma}")
+
+
 def nada_que_cruce_la_frontera_lleva_contrasena():
     """Ninguna estructura que se serializa hacia la webview tiene contraseña.
 
@@ -2983,6 +3054,8 @@ def fase_5(rapido):
         ("crates/arles-db/migrations/V7__cuenta_smtp.sql", "Las columnas de SMTP que faltaban en `email_account` desde la V1."),
         ("crates/arles-db/src/correo.rs", "Guardar y leer cuentas remitentes. Sin ninguna contraseña."),
         ("crates/arles-app/src/fabrica.rs", "De una cuenta guardada al adaptador: el único sitio donde una contraseña sale del llavero."),
+        ("crates/arles-db/src/trabajo.rs", "Qué etapas están enviando, con su ventana y el más bajo de sus topes."),
+        ("crates/arles-app/src/motor.rs", "El hilo que envía, aparte de la ventana (§51)."),
         ("app/src/app/stores/remitentes.ts", "La tienda de remitentes. La contraseña no vive aquí."),
         ("app/src/app/pantallas/PantallaRemitentes.vue", "Donde se da de alta una cuenta y se prueba."),
         ("app/src/app/pantallas/remitentes.spec.ts", "Lo que la pantalla de Remitentes no puede dejar de decir."),
@@ -2997,6 +3070,9 @@ def fase_5(rapido):
     solo_el_llavero_toca_contrasenas()
     la_fabrica_no_envia_con_una_contrasena_vacia()
     solo_una_cuenta_conectada_puede_enviar()
+    el_motor_arranca_con_la_aplicacion()
+    el_motor_no_corre_en_el_hilo_de_la_ventana()
+    un_fallo_no_saca_al_motor_del_bucle()
     nada_que_cruce_la_frontera_lleva_contrasena()
     la_contrasena_no_se_guarda_en_la_webview()
     claves_de_error_sin_texto()

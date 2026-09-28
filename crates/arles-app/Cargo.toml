@@ -25,6 +25,9 @@ arles-db = { path = "../arles-db" }
 # correo, y por eso el día que haya un segundo proveedor no hay que tocarlo.
 arles-email = { path = "../arles-email" }
 arles-import = { path = "../arles-import" }
+# El motor de ejecución. Entra aquí en la 5.4b: hasta entonces estaba
+# construido y probado entero, y **nadie lo arrancaba**.
+arles-motor = { path = "../arles-motor" }
 tauri = { version = "2", features = [] }
 # Sólo se usa desde Rust, NUNCA se le da el permiso a la webview. Ver la nota
 # en comandos.rs sobre por qué la ruta del archivo no cruza la frontera.

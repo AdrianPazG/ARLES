@@ -64,6 +64,7 @@ dependencies = [
  "arles-db",
  "arles-email",
  "arles-import",
+ "arles-motor",
  "directories",
  "keyring",
  "rusqlite",
