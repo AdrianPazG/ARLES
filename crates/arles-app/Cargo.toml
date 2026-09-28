@@ -50,6 +50,9 @@ tempfile = "3"
 # es la única forma de dejar una cuenta en `circuit_open` o en un estado que
 # todavía no existe, que es justo lo que la fábrica tiene que rechazar.
 arles-db = { path = "../arles-db", features = ["test-util"] }
+# El servidor de mentira que habla cifrado, para ver el envío de prueba de punta
+# a punta. En dev-dependencies: no entra en el programa que se entrega.
+arles-email = { path = "../arles-email", features = ["test-util"] }
 rusqlite = "0.37"
 
 [lints]

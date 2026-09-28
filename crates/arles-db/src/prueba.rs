@@ -110,6 +110,45 @@ impl Db {
         Ok(())
     }
 
+    /// El remitente de una etapa de correo.
+    ///
+    /// Hace falta **antes** de activar la campaña, que es cuando se manda el
+    /// envío de prueba, así que no sirve `etapas_en_marcha`: aquélla sólo
+    /// devuelve lo que ya está enviando.
+    ///
+    /// `None` si la etapa no existe o no es de correo. Los dos casos se funden
+    /// a propósito: quien llama sólo puede hacer una cosa con cualquiera de los
+    /// dos —decir que esa etapa no se puede probar por correo— y distinguirlos
+    /// obligaría a inventarse un error para algo que la interfaz no deja hacer.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla, o [`DbError::DatoInvalido`] si
+    /// la fila guarda un identificador que no lo es.
+    pub fn remitente_de_la_etapa(&self, etapa: &str) -> Result<Option<EmailAccountId>, DbError> {
+        self.con_dominio(|conn| {
+            let guardado: Option<String> = conn
+                .query_row(
+                    "SELECT email_account_id
+                       FROM campaign_stage
+                      WHERE id = ?1 AND channel = 'email'",
+                    params![etapa],
+                    |f| f.get(0),
+                )
+                .optional()?
+                .flatten();
+
+            guardado
+                .map(|id| {
+                    id.parse::<EmailAccountId>()
+                        .map_err(|_| DbError::DatoInvalido {
+                            motivo: "campaign_stage.email_account_id",
+                        })
+                })
+                .transpose()
+        })
+    }
+
     /// El envío de prueba de una etapa, si consta.
     ///
     /// `None` significa que nunca se hizo uno. **No** significa que no valga:

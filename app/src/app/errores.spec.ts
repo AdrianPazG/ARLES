@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { i18n } from '@/app/i18n'
 import { resolverError } from '@/app/errores'
 
 /**
@@ -134,5 +135,58 @@ describe('resolución de errores del núcleo', () => {
     expect(e.salvo.length).toBeGreaterThan(0)
     expect(espia).toHaveBeenCalled()
     espia.mockRestore()
+  })
+})
+
+/**
+ * Las claves del envío de prueba, atadas a las que emite Rust.
+ *
+ * ── POR QUÉ ESTO EXISTE, Y NO ES UNA COPIA DE LO DE ARRIBA ──
+ *
+ * Éstas no son errores de `AppError`: son el campo `problema` del resultado del
+ * envío de prueba, y por eso la lista de arriba no las cubre.
+ *
+ * Se escriben aquí porque **una clave que no coincide con la que pide el código
+ * no da ningún error**. La interfaz enseña la clave en crudo —
+ * `correo.prueba.envio.pasajero`— y eso sólo se descubre abriendo esa pantalla,
+ * en ese caso concreto, que es el que casi nunca se prueba a mano.
+ *
+ * Ya pasó en esta fase: los cinco textos se escribieron primero bajo
+ * `remitentes.envioDePrueba.*` mientras el comando pedía
+ * `correo.prueba.envio.*`. Lo cazó esta prueba al escribirla.
+ *
+ * La lista viva está en `por_que_no_salio`, en `arles_app::comandos`.
+ */
+const CLAVES_DEL_ENVIO_DE_PRUEBA = [
+  'correo.prueba.envio.pasajero',
+  'correo.prueba.envio.elServidorPideEsperar',
+  'correo.prueba.envio.esaDireccionNoExiste',
+  'correo.prueba.envio.laCuentaNoAutentica',
+  'correo.prueba.envio.pidioLaBaja',
+]
+
+describe('el resultado de un envío de prueba', () => {
+  it('toda clave que emite Rust tiene su texto de tres partes', () => {
+    const faltan = CLAVES_DEL_ENVIO_DE_PRUEBA.filter((clave) => {
+      const t = i18n.global.tm(clave) as Record<string, unknown>
+      return !t || typeof t !== 'object' || !t.que || !t.como || !t.salvo
+    })
+    expect(faltan).toEqual([])
+  })
+
+  /**
+   * **Y el de la dirección que no existe dice que no se dio de baja a nadie.**
+   *
+   * Es la frase que no puede faltar. En una campaña, ese mismo rechazo del
+   * servidor **sí** suprime; quien acaba de mandarse una prueba a sí mismo y lee
+   * «esa dirección no existe» tiene que poder ver, sin preguntar, que no se ha
+   * dado de baja.
+   */
+  it('el rechazo del destinatario aclara que no se dio de baja a nadie', () => {
+    const t = i18n.global.tm('correo.prueba.envio.esaDireccionNoExiste') as Record<
+      string,
+      string
+    >
+    expect(String(t.salvo)).toContain('No se dio de baja a nadie')
   })
 })

@@ -37,11 +37,17 @@ pub mod servidor;
 pub mod smtp;
 pub mod tls;
 
-// El servidor de mentira que habla cifrado vive sólo en las pruebas: así
-// `rustls` y `rcgen` —un motor de TLS y un generador de certificados— no entran
-// en el programa que se entrega.
-#[cfg(test)]
-mod servidor_cifrado;
+// El servidor de mentira que habla cifrado no entra en el programa que se
+// entrega: `rustls` y `rcgen` —un motor de TLS y un generador de certificados—
+// sólo se compilan con la bandera `test-util`, que va en las
+// `dev-dependencies` de quien la use.
+//
+// Es público desde la entrega 5.5 porque `arles-app` necesita probar el envío
+// de prueba **de punta a punta**, y eso exige un servidor que hable cifrado:
+// el adaptador no tiene ninguna forma de no exigir TLS (§29), así que sin esto
+// no hay manera de verlo mandar un correo entero.
+#[cfg(any(test, feature = "test-util"))]
+pub mod servidor_cifrado;
 
 pub use codigos::{RespuestaSmtp, leer_linea, traducir};
 pub use error::ErrorDeCorreo;

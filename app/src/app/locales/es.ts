@@ -527,6 +527,51 @@ export const es = {
     // los lee está atascado, y «no se pudo conectar» a secas deja a alguien
     // probando combinaciones de puerto durante media hora.
     prueba: {
+      // ── El resultado de MANDAR un correo de prueba (entrega 5.5) ──
+      //
+      // Estos cinco cuelgan de `correo.prueba.envio.*` porque es la clave que
+      // devuelve el comando, y no de `remitentes.*`, que es donde se
+      // escribieron primero. Una clave que no coincide con la que pide el
+      // código **no da error**: la interfaz enseña la clave en crudo, y eso
+      // sólo se ve abriendo esa pantalla en ese caso concreto. Ya pasó una vez
+      // en esta fase.
+      envio: {
+        pasajero: {
+          que: 'El servidor no pudo atender el envío ahora mismo.',
+          como: 'Espera un momento y vuelve a intentarlo.',
+          salvo: 'No se guardó la prueba y no se cambió nada de la campaña.',
+        },
+        elServidorPideEsperar: {
+          que: 'El servidor pidió que no le mandemos nada durante un rato.',
+          como:
+            'Suele pasar tras varios intentos seguidos. Espera unos minutos y ' +
+            'vuelve a probar.',
+          salvo: 'No se guardó la prueba y no se cambió nada de la campaña.',
+        },
+        esaDireccionNoExiste: {
+          que: 'El servidor dice que esa dirección no existe.',
+          como: 'Revisa cómo la escribiste y vuelve a intentarlo.',
+          salvo:
+            'No se dio de baja a nadie: un correo de prueba nunca añade una ' +
+            'dirección a la lista de bajas. Tampoco se guardó la prueba.',
+        },
+        laCuentaNoAutentica: {
+          que: 'La cuenta rechazó la contraseña al ir a enviar.',
+          como:
+            'Ve a Remitentes, abre la cuenta y vuelve a escribir su contraseña ' +
+            'de aplicación.',
+          salvo: 'No salió ningún correo y no se guardó la prueba.',
+        },
+        // No debería poder aparecer: un correo de prueba no consulta la lista de
+        // bajas. Está por si algún día apareciera, para que nadie vea el texto
+        // de otro error.
+        pidioLaBaja: {
+          que: 'Esa dirección está en la lista de bajas.',
+          como: 'Prueba con otra dirección tuya.',
+          salvo: 'No salió ningún correo y no se guardó la prueba.',
+        },
+      },
+
       correcto: {
         que: 'La cuenta funciona.',
         como:
@@ -1709,6 +1754,31 @@ export const es = {
     limites: 'Hasta {diario} al día · {porHora} por hora',
 
     seEstaProbando: 'Esto puede tardar unos segundos.',
+
+    // ── El envío de prueba (entrega 5.5) ────────────────────────────────
+    //
+    // «Probar conexión» dice si la cuenta autentica. Esto es otra cosa: manda
+    // un correo de verdad. Son dos botones distintos a propósito — una cuenta
+    // puede autenticar y aun así no poder enviar desde esa dirección.
+    envioDePrueba: {
+      titulo: 'Mandar un correo de prueba',
+      explicacion:
+        'Se envía un correo real a la dirección que escribas, para comprobar ' +
+        'que la cuenta puede enviar antes de activar la campaña.',
+      aDonde: 'A qué dirección',
+      aDondeAyuda: 'Usa una tuya. Es la única forma de ver si llegó.',
+      mandar: 'Mandar la prueba',
+      mandando: 'Mandando…',
+
+      // §65 aplicado con todas las letras: ARLES no puede saber si llegó.
+      // «Enviado» sería la afirmación que el producto entero está construido
+      // para no hacer, y aquí es donde más tienta hacerla.
+      aceptado: 'El servidor aceptó el correo',
+      aceptadoDetalle:
+        'Se mandó a {aDonde}. ARLES no puede saber si llegó a la bandeja de ' +
+        'entrada: revísala, y mira también la carpeta de correo no deseado.',
+
+    },
   },
 
 } as const

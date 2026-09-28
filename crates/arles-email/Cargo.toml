@@ -29,14 +29,42 @@ lettre = { version = "0.11", default-features = false, features = [
     "hostname",
 ] }
 
-[dev-dependencies]
-# Para que el servidor de mentira hable cifrado. `ring` y no el proveedor por
-# defecto: es el mismo que usa `lettre`, así que no se compila una segunda
-# biblioteca de criptografía —`aws-lc-sys`, que además necesita CMake y un
-# compilador de C en las tres plataformas— sólo para las pruebas.
-rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging"] }
+# ── Sólo para el servidor de mentira que habla cifrado ──────────────────────
+#
+# Son OPCIONALES y las enciende la bandera `test-util`. Están aquí y no sólo en
+# `dev-dependencies` porque otro crate —`arles-app`, para probar el envío de
+# prueba de punta a punta— necesita ese servidor, y una `dev-dependency` no se
+# puede encender desde fuera.
+#
+# **Lo que esto NO puede hacer es engordar el instalador**, y se comprueba: con
+# `resolver = "3"` Cargo no mezcla las banderas de las dependencias de prueba
+# con las del programa. Medido antes y después del cambio con
+# `cargo tree -p arles-app -e normal`: `rcgen` no aparece. (`rustls` sí, y ya
+# estaba: lo trae `lettre` para hablar TLS de verdad.)
+#
+# `ring` y no el proveedor por defecto: es el mismo que usa `lettre`, así que no
+# se compila una segunda biblioteca de criptografía —`aws-lc-sys`, que además
+# necesita CMake y un compilador de C en las tres plataformas—.
+rustls = { version = "0.23", default-features = false, features = [
+    "ring",
+    "std",
+    "logging",
+], optional = true }
 # Genera el certificado de prueba. Ver la nota de `tls.rs`: en las pruebas se
 # CONFÍA en un certificado concreto, nunca se desactiva la verificación.
+rcgen = { version = "0.14", optional = true }
+
+[features]
+# Expone el servidor de mentira que habla cifrado, para quien tenga que probar
+# un envío completo desde fuera de este crate. **Nunca se activa en el binario
+# que se entrega**: va en `dev-dependencies` de quien la use.
+test-util = ["dep:rustls", "dep:rcgen"]
+
+[dev-dependencies]
+# Repetidas sin `optional` para que las pruebas de ESTE crate las tengan sin
+# encender la bandera. Así `cargo test -p arles-email` sigue funcionando tal
+# cual, y nadie tiene que acordarse de un `--features`.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging"] }
 rcgen = "0.14"
 
 [lints]

@@ -71,6 +71,7 @@ pub fn run() {
             comandos::remitentes,
             comandos::probar_remitente,
             comandos::guardar_remitente,
+            comandos::enviar_correo_de_prueba,
         ])
         .run(tauri::generate_context!());
 

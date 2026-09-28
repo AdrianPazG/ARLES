@@ -1528,6 +1528,206 @@ pub fn guardar_remitente(
     })
 }
 
+/// Cómo salió el envío de prueba.
+///
+/// **No dice «entregado»** (§65). ARLES no puede saberlo: lo que sabe es que el
+/// servidor se hizo cargo del mensaje. Un «entregado» aquí sería una afirmación
+/// que el producto entero está construido para no hacer.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResultadoDelEnvioDePrueba {
+    /// El servidor aceptó el mensaje.
+    pub aceptado: bool,
+    /// La clave del texto que explica qué pasó, cuando no se aceptó (§139).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub problema: Option<String>,
+    /// A dónde se mandó, ya normalizada. Se enseña: confirma al usuario que la
+    /// dirección que escribió es la que se usó.
+    pub a_donde: String,
+}
+
+/// Manda un correo de prueba por la cuenta de una etapa, y lo deja anotado.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// ESTO NO PASA POR LA COLA, Y ES LO QUE MÁS IMPORTA DE ESTA FUNCIÓN
+///
+/// Un envío de prueba **no toca nada del aparato de campañas**: no entra en la
+/// cola, no gasta presupuesto, no aparece en el registro de envíos, no consulta
+/// la lista de bajas y **no puede dar de baja a nadie**.
+///
+/// Es la regla 3 de la fase escrita como código: las únicas puertas a una
+/// supresión son el `RCPT TO` de un envío real y el acuse final. Si un `550` de
+/// esta función pudiera suprimir, probar una cuenta mal configurada contra la
+/// dirección propia del usuario **lo daría de baja a él** — y una baja no se
+/// deshace.
+///
+/// Por eso llama al adaptador directamente y no al trabajador. La tentación de
+/// reutilizar el bucle «para no duplicar» es real, y traería consigo todo lo
+/// que el bucle hace.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// SE ANOTA DESPUÉS, NUNCA ANTES
+///
+/// La marca se escribe sólo si el servidor aceptó. Escrita antes, el preflight
+/// daría luz verde a una cuenta que no envía, que es exactamente lo que este
+/// punto existe para impedir.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si la dirección no vale, si la etapa no existe o no es de
+/// correo, si la cuenta no puede enviar, o si la base falla. **Que el servidor
+/// rechace el mensaje no es un error de este comando**: es un resultado con su
+/// `problema`, porque quien lo lee tiene que poder ver la dirección que usó y
+/// volver a intentarlo sin salir de la pantalla.
+#[tauri::command]
+pub fn enviar_correo_de_prueba(
+    estado: tauri::State<'_, EstadoApp>,
+    etapa: String,
+    a_donde: String,
+) -> Result<ResultadoDelEnvioDePrueba, ErrorIpc> {
+    let destino = arles_core::EmailAddress::parse(&a_donde)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    let cuenta = estado
+        .db()
+        .remitente_de_la_etapa(&etapa)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?
+        .ok_or_else(|| {
+            ErrorIpc::from(crate::AppError::CuentaNoSirve(
+                crate::fabrica::LaCuentaNoSirve::NoExiste,
+            ))
+        })?;
+
+    let proveedor = crate::fabrica::proveedor_de_la_cuenta(
+        estado.db(),
+        &crate::fabrica::ElLlaveroDelSistema,
+        cuenta,
+        contenido_de_prueba(),
+    )?;
+
+    enviar_la_prueba(estado.db(), &proveedor, &etapa, &destino, cuenta)
+}
+
+/// Lo que lleva dentro el correo de prueba.
+///
+/// **Provisional hasta la Fase 6**, donde el asunto y el cuerpo los produce la
+/// plantilla de la campaña. Hasta entonces dice lo único que puede decir con
+/// verdad: que ARLES lo mandó, y para qué sirve haberlo recibido.
+///
+/// El texto está aquí y no en los archivos de idioma a propósito: es el
+/// contenido de un correo, no una cadena de la interfaz. Traducirlo exigiría
+/// saber en qué idioma lee quien lo recibe, y quien lo recibe es el propio
+/// usuario — que ya está viendo la aplicación en español.
+fn contenido_de_prueba() -> arles_email::Contenido {
+    arles_email::Contenido {
+        asunto: "Correo de prueba de ARLES RELAY".to_owned(),
+        cuerpo: "Si estás leyendo esto, la cuenta de correo configurada en ARLES \
+                 puede enviar.\n\n\
+                 Este mensaje se mandó a mano desde ARLES RELAY para comprobar la \
+                 conexión antes de activar una campaña. No forma parte de ninguna \
+                 campaña y nadie más lo ha recibido."
+            .to_owned(),
+    }
+}
+
+/// La misma función, para las pruebas de integración.
+///
+/// Existe porque la prueba de punta a punta necesita darle **su** proveedor
+/// —uno que apunta al servidor de mentira— y el comando real construye el suyo
+/// a partir del llavero del sistema, que no existe en la integración continua.
+///
+/// Lo que se salta es sólo la resolución de la cuenta. Todo lo demás —el
+/// envío, la conversación SMTP, el cifrado y la anotación— es el mismo código
+/// que corre en producción; si no lo fuera, la prueba no diría nada.
+#[doc(hidden)]
+pub fn envio_de_prueba_para_tests(
+    db: &arles_db::Db,
+    proveedor: &dyn arles_motor::proveedor::Proveedor,
+    etapa: &str,
+    destino: &arles_core::EmailAddress,
+    cuenta: arles_core::ids::EmailAccountId,
+) -> Result<ResultadoDelEnvioDePrueba, ErrorIpc> {
+    enviar_la_prueba(db, proveedor, etapa, destino, cuenta)
+}
+
+/// Qué se le dice al usuario cuando la prueba no salió.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LOS CINCO FALLOS DEL MOTOR NO SIGNIFICAN LO MISMO EN UNA PRUEBA
+///
+/// El motor los interpreta para decidir si reintenta; aquí no hay reintento que
+/// decidir, hay una persona mirando la pantalla. Y dos de ellos cambian de
+/// significado por completo:
+///
+/// **«La dirección no existe»** en una campaña señala a un contacto, y es la
+/// puerta a una baja. Aquí señala a **la dirección que el usuario acaba de
+/// escribir**, casi siempre la suya, y no da de baja a nadie — esta función no
+/// toca la lista de supresión ni puede hacerlo. El texto tiene que decirlo, o
+/// alguien va a creer que se acaba de dar de baja a sí mismo.
+///
+/// **«Pidió la baja»** no puede llegar aquí: eso lo produce el motor al
+/// consultar la lista de supresión, y un envío de prueba no la consulta. Se
+/// mapea igualmente, porque un `match` que no cubriera el caso obligaría a un
+/// comodín — y un comodín es lo que hace que el día que aparezca un fallo nuevo
+/// el usuario vea el mensaje de otra cosa.
+fn por_que_no_salio(fallo: &arles_core::reintento::Fallo) -> &'static str {
+    use arles_core::reintento::Fallo;
+    match fallo {
+        Fallo::Pasajero => "correo.prueba.envio.pasajero",
+        Fallo::NoMeMandesNadaDurante(_) => "correo.prueba.envio.elServidorPideEsperar",
+        Fallo::LaDireccionNoExiste => "correo.prueba.envio.esaDireccionNoExiste",
+        Fallo::LaCuentaNoAutentica => "correo.prueba.envio.laCuentaNoAutentica",
+        Fallo::EsaPersonaPidioLaBaja => "correo.prueba.envio.pidioLaBaja",
+    }
+}
+
+/// El envío en sí, separado para poder probarlo con un proveedor cualquiera.
+///
+/// Sin esta separación, el envío de prueba sólo se podría ejercitar con el
+/// llavero del sistema por medio — que no existe en la integración continua—, y
+/// se quedaría sin una sola comprobación.
+///
+/// Se expone bajo otro nombre en [`envio_de_prueba_para_tests`]: lo que hace
+/// falta probar de punta a punta es esto, y no el trozo que resuelve la cuenta.
+fn enviar_la_prueba(
+    db: &arles_db::Db,
+    proveedor: &dyn arles_motor::proveedor::Proveedor,
+    etapa: &str,
+    destino: &arles_core::EmailAddress,
+    cuenta: arles_core::ids::EmailAccountId,
+) -> Result<ResultadoDelEnvioDePrueba, ErrorIpc> {
+    // Una clave propia, que no sale de la cola: un envío de prueba no tiene
+    // fila en `message_attempt` y no puede reutilizar la de nadie.
+    let clave = format!("prueba-{}", arles_core::ids::MessageAttemptId::nuevo());
+
+    let resultado = proveedor.enviar(&arles_motor::proveedor::Mensaje {
+        para: destino.raw(),
+        clave_de_idempotencia: &clave,
+    });
+
+    match resultado {
+        Ok(_) => {
+            db.registrar_envio_de_prueba(etapa, destino.raw(), cuenta)
+                .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+            Ok(ResultadoDelEnvioDePrueba {
+                aceptado: true,
+                problema: None,
+                a_donde: destino.raw().to_owned(),
+            })
+        }
+        // Un fallo del servidor no es un error del comando: la pantalla tiene
+        // que poder enseñar la dirección y el motivo, y dejar reintentar.
+        //
+        // Y **no se anota nada**: la marca sólo se escribe si el servidor
+        // aceptó.
+        Err(fallo) => Ok(ResultadoDelEnvioDePrueba {
+            aceptado: false,
+            problema: Some(por_que_no_salio(&fallo).to_owned()),
+            a_donde: destino.raw().to_owned(),
+        }),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

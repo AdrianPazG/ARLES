@@ -2710,10 +2710,27 @@ def confiar_en_un_certificado_es_solo_de_pruebas():
     no quita comprobaciones — pero una raíz de confianza metida desde la
     interfaz sería una forma de que alguien confiara en un certificado
     cualquiera, que es lo mismo por otro camino.
+
+    ── DOS SITIOS DONDE SÍ VALE, Y POR QUÉ SON DOS ──
+
+    Uno es un módulo `#[cfg(test)]` dentro de un archivo: se corta por ahí.
+
+    El otro es un archivo bajo `tests/`, que **Cargo compila sólo al probar** y
+    nunca enlaza en el binario. Hizo falta en la entrega 5.5: la prueba de punta
+    a punta del envío vive en `arles-app/tests/`, y esta comprobación la cazó al
+    correrla —correctamente, porque un archivo de `tests/` no tiene un
+    `#[cfg(test)]` que cortar—.
+
+    Esto **no afloja la comprobación**: la hace más precisa. Un archivo bajo
+    `tests/` no puede ser código de producción por construcción, y el resto —
+    `src/`— se sigue mirando entero.
     """
     sospechosos = []
     for base, _, archivos in os.walk(os.path.join(RAIZ, "crates")):
         if "target" in base:
+            continue
+        # Las pruebas de integración de Cargo. No entran en el binario.
+        if os.sep + "tests" in base + os.sep:
             continue
         for archivo in archivos:
             if not archivo.endswith(".rs"):
@@ -2964,6 +2981,39 @@ def un_fallo_no_saca_al_motor_del_bucle():
           f"firma: {firma}")
 
 
+def un_envio_de_prueba_no_da_de_baja_a_nadie():
+    """El envío de prueba **no toca la lista de bajas**. Regla 3 de la fase.
+
+    Un `550` en una campaña señala a un contacto y es la puerta a una
+    supresión. En un envío de prueba señala a la dirección que el usuario acaba
+    de escribir, casi siempre la suya: suprimir ahí **lo daría de baja a él**, y
+    una baja no se deshace.
+
+    Se comprueba por ausencia sobre el código de producción de `comandos.rs`:
+    la función del envío de prueba no puede nombrar ninguna supresión. Lo que
+    prueba el comportamiento es `un_envio_de_prueba_rechazado_no_da_de_baja_a_nadie`,
+    que además está verificada rompiéndola; esto caza el día que alguien
+    «aproveche» el resultado del servidor para alimentar la lista.
+    """
+    codigo = produccion_de("crates/arles-app/src/comandos.rs")
+    if codigo is None:
+        check(5, "un envío de prueba no da de baja a nadie", False,
+              "sin el archivo no hay nada que comprobar.", "falta comandos.rs")
+        return
+
+    # Sólo el trozo del envío de prueba: el resto del archivo tiene comandos de
+    # supresión legítimos, que son otra pantalla y otra cosa.
+    inicio = codigo.find("fn enviar_la_prueba(")
+    trozo = codigo[inicio:] if inicio != -1 else ""
+    sospechas = [t for t in ("suprimir", "supresion", "suppression") if t in trozo]
+
+    check(5, "un envío de prueba no da de baja a nadie",
+          inicio != -1 and not sospechas,
+          "probar una cuenta mal configurada contra la dirección propia no "
+          "puede dar de baja a quien la escribió, y una baja no se deshace.",
+          f"encontrado={sospechas} trozo={inicio != -1}")
+
+
 def la_pantalla_sabe_si_esta_ventana_envia():
     """El estado del motor cruza la frontera **y se enseña**.
 
@@ -3084,6 +3134,7 @@ def fase_5(rapido):
         ("crates/arles-db/migrations/V7__cuenta_smtp.sql", "Las columnas de SMTP que faltaban en `email_account` desde la V1."),
         ("crates/arles-db/migrations/V8__envio_de_prueba.sql", "Dónde consta el envío de prueba de una etapa, y con qué cuenta se hizo."),
         ("crates/arles-db/src/prueba.rs", "Registrar el envío de prueba, y saber si todavía vale."),
+        ("crates/arles-app/tests/envio_de_prueba.rs", "ARLES mandando un correo entero, contra un servidor que habla cifrado."),
         ("crates/arles-db/src/correo.rs", "Guardar y leer cuentas remitentes. Sin ninguna contraseña."),
         ("crates/arles-app/src/fabrica.rs", "De una cuenta guardada al adaptador: el único sitio donde una contraseña sale del llavero."),
         ("crates/arles-db/src/trabajo.rs", "Qué etapas están enviando, con su ventana y el más bajo de sus topes."),
@@ -3106,6 +3157,7 @@ def fase_5(rapido):
     el_motor_no_corre_en_el_hilo_de_la_ventana()
     un_fallo_no_saca_al_motor_del_bucle()
     la_pantalla_sabe_si_esta_ventana_envia()
+    un_envio_de_prueba_no_da_de_baja_a_nadie()
     nada_que_cruce_la_frontera_lleva_contrasena()
     la_contrasena_no_se_guarda_en_la_webview()
     claves_de_error_sin_texto()
