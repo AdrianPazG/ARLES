@@ -1,0 +1,21 @@
+[package]
+name = "arles-whatsapp"
+description = "El adaptador de WhatsApp Cloud API, y un servidor de mentira para probarlo."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+arles-core = { path = "../arles-core" }
+# El `Proveedor` que este crate implementa. Igual que con el correo, la
+# dependencia va en este sentido: el motor no sabe que existe WhatsApp.
+arles-motor = { path = "../arles-motor" }
+serde = { workspace = true }
+thiserror = { workspace = true }
+ureq = { version = "3.4.2", default-features = false, features = ["rustls"] }
+
+[lints]
+workspace = true

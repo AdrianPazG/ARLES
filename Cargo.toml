@@ -4,6 +4,7 @@ members = [
   "crates/arles-core",
   "crates/arles-db",
   "crates/arles-email",
+  "crates/arles-whatsapp",
   "crates/arles-import",
   "crates/arles-motor",
   "crates/arles-app",
