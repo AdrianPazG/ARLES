@@ -62,6 +62,16 @@ const CLAVES_DEL_NUCLEO = [
   // Entrega 4.4 · pausar, reanudar y detener.
   'error.db.campana_no_existe',
   'error.db.audiencia_vacia',
+  // Entrega 6.6 · el aviso de volumen del §48. No es un límite: es la
+  // constancia de que se informó antes de crear la campaña.
+  'error.db.falta_aceptar_el_volumen',
+  // Y los cuatro motivos de una ventana que no se abriría nunca. `DbError`
+  // devuelve la clave del MOTIVO, no una suya, para que el texto diga qué
+  // campo arreglar (§95).
+  'ventana.sinDias',
+  'ventana.horasAlReves',
+  'ventana.horaFueraDeRango',
+  'ventana.zonaDesconocida',
   'error.estado_de_campana_desconocido',
   // Entrega 5.3 · una cuenta guardada con un cifrado que no reconocemos.
   'error.app.cuenta_de_correo_invalida',

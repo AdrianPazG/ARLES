@@ -91,6 +91,23 @@ pub enum DbError {
     #[error("esa acción no procede desde el estado actual de la campaña")]
     AccionDeCampanaImposible { clave: &'static str },
 
+    /// Se pidió más de 50 diarios sin aceptar el aviso del §48.
+    ///
+    /// **No es un límite**: ARLES no bloquea el volumen (§154). Lo que no se
+    /// permite es crearlo sin que conste que se avisó — y la constancia va a la
+    /// bitácora, no a un campo que alguien pueda cambiar después.
+    #[error("hace falta aceptar el aviso de volumen antes de crear esta campaña")]
+    FaltaAceptarElVolumen,
+
+    /// La ventana de ejecución no se abriría nunca.
+    ///
+    /// **Lleva el motivo dentro**, y no es adorno: sin días, con las horas al
+    /// revés y con una zona inventada se arreglan en tres campos distintos del
+    /// formulario, y un «la ventana no vale» a secas obliga a probar los tres
+    /// (§95). La clave del texto sale del propio motivo, en el núcleo.
+    #[error("esa ventana de ejecución no se abriría nunca")]
+    VentanaInvalida(arles_core::ventana::VentanaInvalida),
+
     /// El núcleo no reconoce lo que hay guardado.
     ///
     /// Se convierte y no se envuelve en `DatoInvalido` para que la clave i18n
@@ -125,6 +142,8 @@ impl DbError {
             Self::AudienciaVacia => "error.db.audiencia_vacia",
             Self::CuentaDeCorreoNoExiste => "error.db.cuenta_de_correo_no_existe",
             Self::AccionDeCampanaImposible { clave } => clave,
+            Self::FaltaAceptarElVolumen => "error.db.falta_aceptar_el_volumen",
+            Self::VentanaInvalida(motivo) => motivo.clave_i18n(),
             Self::Nucleo(e) => e.clave_i18n(),
             Self::SupresionNoSeLevanta { .. } => "error.db.supresion_no_se_levanta",
             Self::Sqlite(_) => "error.db.sqlite",

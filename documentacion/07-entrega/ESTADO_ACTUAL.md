@@ -10,9 +10,11 @@
 
 ## 1. En una frase
 
-**ARLES ya manda correos, y ya sabe qué mandar.** La parte de correo de la Fase 5 está cerrada entera (5.1 a 5.6), y la Fase 6 lleva cinco entregas de siete: plantillas con variables, saneado en Rust, versiones que no se editan, campañas con la audiencia congelada al activar, y el preflight de ocho puntos enchufado de verdad a la base y a la sonda de la cuenta.
+**ARLES ya manda correos, y ya sabe qué mandar.** La parte de correo de la Fase 5 está cerrada entera (5.1 a 5.6), y la Fase 6 lleva seis entregas de siete: plantillas con variables, saneado en Rust, versiones que no se editan, campañas con la audiencia congelada al activar, el preflight de ocho puntos enchufado de verdad, y el asistente de nueve pasos.
 
-**Lo que falta ahora mismo son dos cosas distintas.** De la Fase 6, el asistente de nueve pasos (6.6) y el cierre (6.7): todo lo construido existe y está probado, y **no hay pantalla que lo enseñe todavía**. De la Fase 5, el adaptador de WhatsApp, que no está empezado — hay una decisión pendiente de Dirección sobre cuándo.
+**Se puede crear una campaña de principio a fin y activarla**, con las nueve pantallas del asistente, el simulador de duración, las ocho comprobaciones y el correo de prueba obligatorio.
+
+**Lo que falta ahora mismo son dos cosas distintas.** De la Fase 6, el cierre (6.7): auditoría, documento e informe. De la Fase 5, el adaptador de WhatsApp, que no está empezado — hay una decisión pendiente de Dirección sobre cuándo.
 
 ---
 
@@ -27,12 +29,12 @@
 | F3W · Canales | 🟡 55 % | V3 y V4 aplicadas: `contact_channel`, consentimiento, etapas de campaña |
 | F4 · Motor de ejecución | ✅ cerrada | Máquina de estados, ritmo, ventana con zona IANA, reintentos, disyuntor, cola, presupuesto, pausa/detención, preflight |
 | **F5 · Proveedores de envío** | **🟡 70 %** | **La parte de correo cerrada (5.1 a 5.6). Falta WhatsApp. Ver §3** |
-| **F6 · Campañas y mensajes** | **🟡 55 %** | **Plantillas, saneado, versiones, campañas y preflight enchufado (6.1 a 6.5). Falta el asistente. Ver §3 bis** |
+| **F6 · Campañas y mensajes** | **🟡 85 %** | **Plantillas, saneado, versiones, campañas, preflight y el asistente de nueve pasos (6.1 a 6.6). Falta el cierre. Ver §3 bis** |
 | F7 a F9 | ⬜ sin empezar | Actividad, respaldos, release |
 
-**Cifras del 29/09/2026:** 781 pruebas de Rust, 122 del frontend, las siete fases del validador en verde (5·45·33·72·38·35·12, con las sondas omitidas por falta de Chromium y así dicho), `fmt`, `clippy`, `eslint` y `vue-tsc` limpios.
+**Cifras del 29/09/2026:** 786 pruebas de Rust, 132 del frontend, las siete fases del validador en verde (5·45·33·72·38·35·20, con las sondas omitidas por falta de Chromium y así dicho), `fmt`, `clippy`, `eslint` y `vue-tsc` limpios.
 
-**Avance de la v1.2.0: 67 %**, calculado desde `avance.json` el 29/09/2026.
+**Avance de la v1.2.0: 71 %**, calculado desde `avance.json` el 29/09/2026.
 
 ---
 
@@ -134,10 +136,17 @@ nadie lo preguntara, por fin llega a su punto. Vale **sólo con el remitente que
 la etapa usa hoy**: si se cambia de cuenta, la prueba anterior demostró que otra
 cuenta podía enviar.
 
-### Pendiente
+**6.6 · El asistente de nueve pasos** — `app/src/app/pantallas/`
+Nombre, a quién, desde qué cuenta, qué se manda, ritmo y horario, cuánto va a
+tardar, las ocho comprobaciones, el correo de prueba y activar. Tres de los
+nueve pasos no piden nada: se leen, y son los que hacen reconsiderar.
 
-**6.6 · El asistente de nueve pasos**, el simulador y el aviso de más de 50
-diarios (§48). Es donde está el grueso del trabajo de pantalla.
+La pantalla **no decide** ninguna de las tres reglas que parece decidir: si se
+puede activar lo dice el preflight, el aviso del §48 lo exige `crear_campana`, y
+la prueba obligatoria es uno de los ocho puntos. La pantalla apaga botones; las
+reglas viven en Rust, donde no se saltan por otro camino.
+
+### Pendiente
 
 **6.7 · El cierre de fase**: auditoría, documento, informe para Dirección y PDF.
 

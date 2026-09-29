@@ -1,0 +1,350 @@
+import { defineStore } from 'pinia'
+import { computed, ref } from 'vue'
+
+import { esErrorIpc, hayNucleo, invocar } from '@/app/nucleo'
+
+/**
+ * El umbral del aviso de volumen (§48).
+ *
+ * ── POR QUÉ ESTÁ AQUÍ SI YA ESTÁ EN RUST ──
+ *
+ * Porque la pantalla tiene que enseñar la casilla **antes** de llamar a nadie:
+ * un aviso que aparece después de pulsar «crear» llega tarde. Así que hay dos
+ * copias, y eso es una divergencia esperando a pasar.
+ *
+ * Lo que la sostiene: quien **exige** la aceptación es `crear_campana`, en
+ * Rust. Si estas dos cifras dejaran de coincidir, el peor caso es una casilla
+ * de más o un error del núcleo que la pantalla no vio venir — nunca una campaña
+ * de alto volumen creada sin que conste el aviso. La copia puede mentir; la
+ * regla, no.
+ */
+export const AVISO_DIARIO = 50
+
+/** Una plantilla con su versión vigente. Coincide con `PlantillaIpc`. */
+export interface Plantilla {
+  readonly id: string
+  readonly nombre: string
+  readonly version: {
+    readonly id: string
+    readonly numero: number
+    readonly asunto: string
+    readonly cuerpoHtml: string
+    /** Claves de variable: `nombre`, `apellido`, `empresa`, `mi_empresa`. */
+    readonly variables: readonly string[]
+  } | null
+}
+
+/** Una firma guardada. Coincide con `FirmaIpc`. */
+export interface Firma {
+  readonly id: string
+  readonly nombre: string
+  readonly cuerpoHtml: string
+  readonly porDefecto: boolean
+}
+
+/** Un horario de envío. Coincide con `VentanaIpc`. */
+export interface Ventana {
+  readonly id: string
+  readonly nombre: string
+  /** Máscara de bits: bit 0 = lunes … bit 6 = domingo. */
+  readonly dias: number
+  readonly desde: number
+  readonly hasta: number
+  readonly zona: string
+}
+
+/** Una campaña en la lista. Coincide con `CampanaIpc`. */
+export interface Campana {
+  readonly id: string
+  readonly nombre: string
+  /** Clave del rótulo de estado (`campana.estado.*`). */
+  readonly estado: string
+  readonly audiencia: number
+  /** Cuántos **aceptó el proveedor**. Nunca «entregados» (§65). */
+  readonly aceptados: number
+}
+
+/** Un punto del preflight con su veredicto. */
+export interface PuntoRevisado {
+  /** `laCuentaAutentica`, `hayConexion`, … */
+  readonly punto: string
+  /** `pasa`, `falla` o `sinComprobar`. */
+  readonly veredicto: string
+}
+
+/** Cuándo termina una campaña, según el simulador. */
+export interface Estimacion {
+  readonly desenlace: { readonly resultado: string; readonly cuando?: string }
+  readonly audiencia: number
+  readonly techoDiario: number
+  readonly quienManda: string
+  readonly diasConEnvio: number
+}
+
+/** Lo que devuelve `revisar_campana`. Coincide con `RevisionDeCampana`. */
+export interface Revision {
+  readonly preflight: {
+    readonly puntos: readonly PuntoRevisado[]
+    readonly resultado: {
+      readonly resultado: string
+      readonly avisos?: number
+      readonly fallan?: number
+      readonly sinComprobar?: number
+    }
+  }
+  readonly audiencia: number
+  readonly contactosConHuecos: number
+  readonly estimacion: Estimacion
+  /** Clave del diagnóstico de la sonda, o `null` si no se sondeó. */
+  readonly diagnostico: string | null
+}
+
+/** Lo que queda al crear una campaña. Coincide con `CampanaCreadaIpc`. */
+export interface CampanaCreada {
+  readonly id: string
+  /**
+   * El identificador de la etapa de correo.
+   *
+   * Viaja desde Rust porque el envío de prueba (§45) cuelga de la etapa, no de
+   * la campaña. Construirlo aquí a partir del id de la campaña sería copiar un
+   * detalle de `arles-db` que dejaría de ser cierto sin avisar.
+   */
+  readonly etapa: string
+}
+
+/** Lo que pasó al activar. Coincide con `ActivacionIpc`. */
+export interface Activacion {
+  readonly enLaAudiencia: number
+  readonly fueraPorBaja: number
+}
+
+/**
+ * Campañas, plantillas, firmas y horarios.
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * AQUÍ NO SE DECIDE SI UNA CAMPAÑA SE PUEDE ACTIVAR
+ *
+ * Eso lo dice `revision.preflight.resultado`, que viene de Rust. Esta tienda lo
+ * guarda y la pantalla lo pinta; ninguna de las dos lo recalcula.
+ *
+ * Si la regla viviera aquí habría dos copias, y el día que divergieran la
+ * pantalla encendería un botón que el núcleo rechaza — o, peor, dejaría activar
+ * una campaña que el preflight había bloqueado, que es irreversible.
+ */
+export const useCampanasStore = defineStore('campanas', () => {
+  const campanas = ref<readonly Campana[]>([])
+  const plantillas = ref<readonly Plantilla[]>([])
+  const firmas = ref<readonly Firma[]>([])
+  const ventanas = ref<readonly Ventana[]>([])
+
+  const cargada = ref(false)
+  const cargando = ref(false)
+  const trabajando = ref(false)
+  const errorGeneral = ref<string | null>(null)
+
+  /** La última revisión pedida. `null` mientras no se haya pedido ninguna. */
+  const revision = ref<Revision | null>(null)
+  const revisando = ref(false)
+
+  const hayCampanas = computed(() => campanas.value.length > 0)
+  /** Cuántas están enviando ahora mismo (§94). */
+  const enMarcha = computed(
+    () => campanas.value.filter((c) => c.estado === 'campana.estado.enviando').length,
+  )
+
+  function recordarError(e: unknown): void {
+    errorGeneral.value = esErrorIpc(e) ? e.clave : 'error.db.sqlite'
+  }
+
+  async function cargar(): Promise<void> {
+    if (cargada.value || cargando.value) return
+    cargando.value = true
+    errorGeneral.value = null
+    try {
+      if (hayNucleo()) {
+        // Las cuatro juntas: el asistente las necesita todas en su primer paso,
+        // y cargarlas por separado deja pasos que aparecen vacíos y se rellenan
+        // solos delante de quien los está leyendo.
+        campanas.value = await invocar<Campana[]>('campanas')
+        plantillas.value = await invocar<Plantilla[]>('plantillas')
+        firmas.value = await invocar<Firma[]>('firmas')
+        ventanas.value = await invocar<Ventana[]>('ventanas')
+      }
+      cargada.value = true
+    } catch (e) {
+      recordarError(e)
+    } finally {
+      cargando.value = false
+    }
+  }
+
+  async function guardarPlantilla(
+    nombre: string,
+    asunto: string,
+    cuerpoHtml: string,
+  ): Promise<boolean> {
+    trabajando.value = true
+    errorGeneral.value = null
+    try {
+      plantillas.value = await invocar<Plantilla[]>('guardar_plantilla', {
+        nombre,
+        asunto,
+        cuerpoHtml,
+      })
+      return true
+    } catch (e) {
+      recordarError(e)
+      return false
+    } finally {
+      trabajando.value = false
+    }
+  }
+
+  async function guardarFirma(
+    nombre: string,
+    cuerpoHtml: string,
+    porDefecto: boolean,
+  ): Promise<boolean> {
+    trabajando.value = true
+    errorGeneral.value = null
+    try {
+      firmas.value = await invocar<Firma[]>('guardar_firma', {
+        nombre,
+        cuerpoHtml,
+        porDefecto,
+      })
+      return true
+    } catch (e) {
+      recordarError(e)
+      return false
+    } finally {
+      trabajando.value = false
+    }
+  }
+
+  async function guardarVentana(
+    nombre: string,
+    dias: number,
+    desde: number,
+    hasta: number,
+    zona: string,
+  ): Promise<boolean> {
+    trabajando.value = true
+    errorGeneral.value = null
+    try {
+      ventanas.value = await invocar<Ventana[]>('guardar_ventana', {
+        nombre,
+        dias,
+        desde,
+        hasta,
+        zona,
+      })
+      return true
+    } catch (e) {
+      recordarError(e)
+      return false
+    } finally {
+      trabajando.value = false
+    }
+  }
+
+  /** Crea la campaña en borrador. Devuelve sus ids, o `null` si falló. */
+  async function crearCampana(datos: {
+    nombre: string
+    cuenta: string
+    versionDePlantilla: string
+    ventana: string
+    limitePorHora: number | null
+    limiteDiario: number | null
+    aceptoElRiesgoDelVolumen: boolean
+  }): Promise<CampanaCreada | null> {
+    trabajando.value = true
+    errorGeneral.value = null
+    try {
+      const creada = await invocar<CampanaCreada>('crear_campana', datos)
+      campanas.value = await invocar<Campana[]>('campanas')
+      return creada
+    } catch (e) {
+      recordarError(e)
+      return null
+    } finally {
+      trabajando.value = false
+    }
+  }
+
+  /** Pide el preflight. Habla con el servidor, así que puede tardar. */
+  async function revisar(id: string): Promise<void> {
+    revisando.value = true
+    errorGeneral.value = null
+    try {
+      revision.value = await invocar<Revision>('revisar_campana', { id })
+    } catch (e) {
+      // La revisión se pierde a propósito: dejar la anterior en pantalla
+      // mientras se enseña un error haría creer que ese veredicto sigue siendo
+      // el de ahora, y es sobre el que se pulsa «activar».
+      revision.value = null
+      recordarError(e)
+    } finally {
+      revisando.value = false
+    }
+  }
+
+  /** Manda el correo de prueba de una etapa (§45). */
+  async function enviarPrueba(
+    etapa: string,
+    aDonde: string,
+  ): Promise<{ aceptado: boolean; problema?: string } | null> {
+    trabajando.value = true
+    errorGeneral.value = null
+    try {
+      return await invocar<{ aceptado: boolean; problema?: string }>(
+        'enviar_correo_de_prueba',
+        { etapa, aDonde },
+      )
+    } catch (e) {
+      recordarError(e)
+      return null
+    } finally {
+      trabajando.value = false
+    }
+  }
+
+  /** Activa. **No se deshace.** */
+  async function activar(id: string): Promise<Activacion | null> {
+    trabajando.value = true
+    errorGeneral.value = null
+    try {
+      const a = await invocar<Activacion>('activar_campana', { id })
+      campanas.value = await invocar<Campana[]>('campanas')
+      return a
+    } catch (e) {
+      recordarError(e)
+      return null
+    } finally {
+      trabajando.value = false
+    }
+  }
+
+  return {
+    campanas,
+    plantillas,
+    firmas,
+    ventanas,
+    cargada,
+    cargando,
+    trabajando,
+    revisando,
+    revision,
+    errorGeneral,
+    hayCampanas,
+    enMarcha,
+    cargar,
+    guardarPlantilla,
+    guardarFirma,
+    guardarVentana,
+    crearCampana,
+    revisar,
+    enviarPrueba,
+    activar,
+  }
+})

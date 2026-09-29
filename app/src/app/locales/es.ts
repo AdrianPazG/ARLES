@@ -52,6 +52,7 @@ export const es = {
      */
     sub: {
       configuracion: 'Configuración',
+      nueva: 'Nueva campaña',
       importar: 'Importar',
       supresion: 'Bajas',
       derechos: 'Derechos',
@@ -1051,6 +1052,13 @@ export const es = {
         como: 'Actualiza la lista de campañas para ver cómo está ahora.',
         salvo: 'No se modificó nada, y no salió ningún mensaje.',
       },
+      falta_aceptar_el_volumen: {
+        que: 'Pediste más de 50 correos al día y no confirmaste que entiendes el riesgo.',
+        como:
+          'Vuelve al paso del ritmo y marca la casilla, o baja el máximo ' +
+          'diario a 50.',
+        salvo: 'No se creó ninguna campaña y no se envió nada.',
+      },
       dato_invalido: {
         que: 'Un dato guardado no tiene la forma que ARLES espera.',
         como:
@@ -1195,6 +1203,169 @@ export const es = {
         que: 'No se pudo guardar el tema.',
         como: 'Vuelve a elegirlo en Ajustes › Apariencia.',
         salvo: 'La pantalla sigue con el tema que ves; sólo no se recordó.',
+      },
+    },
+  },
+
+  /**
+   * Las campañas y el asistente de nueve pasos (entrega 6.6).
+   *
+   * ── DOS PALABRAS QUE NO APARECEN AQUÍ ──
+   *
+   * **«Entregado»**, porque ARLES no lo sabe (§65). El servidor se hizo cargo
+   * del mensaje; lo que pase después —la bandeja, el filtro de no deseados— no
+   * llega hasta aquí, y decirlo sería inventarlo.
+   *
+   * **«Casi»**, «prácticamente», «ya mismo». §94 pide cifras: «paso 4 de 9», «a
+   * 34 de 1 300 les falta el nombre», «60 quedaron fuera por baja».
+   */
+  campanas: {
+    titulo: 'Campañas',
+    entradilla: 'Lo que ARLES ha enviado y lo que va a enviar.',
+    nueva: 'Nueva campaña',
+    cargando: 'Buscando tus campañas',
+    // §94: una cifra, no «varias en marcha».
+    enMarcha: '{n} enviando ahora',
+
+    columna: {
+      nombre: 'Campaña',
+      estado: 'Estado',
+      audiencia: 'Destinatarios',
+      // §65. Nunca «Entregados».
+      aceptados: 'Aceptados',
+    },
+
+    aceptadoNoEsEntregado:
+      'Aceptados quiere decir que el servidor de correo se hizo cargo del ' +
+      'mensaje. ARLES no puede saber si llegó a una bandeja de entrada, así ' +
+      'que no lo dice.',
+
+    vacio: {
+      titulo: 'Todavía no hay ninguna campaña.',
+      cuerpo:
+        'Una campaña manda un mensaje a tus contactos, a un ritmo y en un ' +
+        'horario que tú decides. Antes de enviar nada, ARLES te enseña a ' +
+        'cuánta gente va a llegar y cuánto va a tardar.',
+    },
+  },
+
+  asistente: {
+    titulo: 'Nueva campaña',
+    // §94: dónde estás, con números.
+    progreso: 'Paso {paso} de {total}',
+    atras: 'Atrás',
+    siguiente: 'Continuar',
+
+    paso: {
+      informacion: {
+        titulo: 'Información',
+        nombre: 'Nombre de la campaña',
+        ayuda: 'Sólo lo ves tú. No sale en el correo.',
+      },
+
+      audiencia: {
+        titulo: 'A quién',
+        explicacion:
+          'ARLES escribirá a todos tus contactos activos que tengan correo, ' +
+          'menos los que pidieron no recibir.',
+        // Se dice el alcance real de esta versión en vez de enseñar filtros que
+        // no hacen nada: una opción que no filtra es peor que no tenerla.
+        alcance: 'En esta versión no hay listas ni filtros',
+        alcanceDetalle:
+          'Llegan todos los contactos con correo. Para dejar a alguien fuera, ' +
+          'archiva su contacto o añádelo a la lista de bajas antes de ' +
+          'continuar. En el paso 6 verás la cifra exacta.',
+      },
+
+      remitente: {
+        titulo: 'Desde qué cuenta',
+        cuenta: 'Cuenta remitente',
+        sinCuentas: 'No hay ninguna cuenta lista para enviar',
+        sinCuentasComo:
+          'Ve a Remitentes, da de alta una cuenta y pulsa «Probar conexión». ' +
+          'Aquí sólo aparecen las que ya conectan.',
+        // ADR-0008 / T-1: se dice donde se elige, no en una nota de ayuda.
+        sinRotacion:
+          'ARLES no reparte los envíos entre varias cuentas. Toda la campaña ' +
+          'sale de ésta.',
+      },
+
+      mensaje: {
+        titulo: 'Qué se manda',
+        plantilla: 'Plantilla',
+        asunto: 'Asunto',
+        variables: 'Datos que se rellenan por persona',
+      },
+
+      limites: {
+        titulo: 'Ritmo y horario',
+        horario: 'Horario de envío',
+        diario: 'Máximo al día',
+        diarioAyuda: 'Déjalo en blanco para usar el de la cuenta.',
+        porHora: 'Máximo por hora',
+
+        // §48, en línea y no en un modal. §154: informar, no dictar.
+        aviso: {
+          titulo: 'Enviar más de 50 correos al día desde una cuenta tiene riesgo',
+          cuerpo:
+            'Los proveedores de correo vigilan cuánto manda cada cuenta. Un ' +
+            'volumen alto desde una cuenta sin historial puede acabar en ' +
+            'rebotes, en la carpeta de no deseados, o con la cuenta suspendida.',
+          noBloquea: 'ARLES no te lo impide: la decisión es tuya.',
+          acepto: 'Entiendo el riesgo y quiero continuar con {n} al día.',
+        },
+      },
+
+      simulacion: {
+        titulo: 'Cuánto va a tardar',
+        calculando: 'Calculando',
+        cuantos: 'Esta campaña enviará {n} correos.',
+        ritmo:
+          'Con tu ritmo, caben {techo} al día dentro del horario, así que ' +
+          'saldrán a lo largo de {dias} días de envío.',
+        // La cifra en vez del sí/no: con 34 de 1 300 se puede seguir; con 900,
+        // conviene revisar la lista antes.
+        huecos:
+          'A {n} de {total} contactos les falta algún dato de la plantilla.',
+      },
+
+      preflight: {
+        titulo: 'Comprobaciones',
+      },
+
+      prueba: {
+        titulo: 'Envío de prueba',
+        porQue:
+          'Mándate el correo a ti mismo antes de mandárselo a nadie. Es el ' +
+          'paso que caza el error más caro: verlo como lo va a ver quien lo ' +
+          'reciba.',
+        aDonde: 'Tu dirección',
+        mandar: 'Mandar la prueba',
+        aceptado: 'El servidor aceptó el mensaje',
+        // §65 otra vez, y aquí es donde más se nota.
+        aceptadoDetalle:
+          'Quiere decir que salió. Revisa tu bandeja —y la carpeta de no ' +
+          'deseados— para ver cómo se ve.',
+        noSalio: 'La prueba no salió',
+      },
+
+      activacion: {
+        titulo: 'Activar',
+        resumen: '«{nombre}» se enviará a {n} personas.',
+        noSeDeshace: 'Activar no se puede deshacer',
+        noSeDeshaceDetalle:
+          'La lista de destinatarios queda fijada en este momento, y los ' +
+          'correos empiezan a salir. Puedes pausar o detener la campaña, pero ' +
+          'lo que ya haya salido no vuelve.',
+        activar: 'Activar campaña',
+        bloqueada:
+          'Vuelve al paso 7: hay comprobaciones que no pasan o que no se ' +
+          'pudieron hacer.',
+        activada: 'Campaña activada',
+        cifras:
+          '{n} personas entraron en la campaña. {fuera} quedaron fuera por ' +
+          'haber pedido no recibir.',
+        verCampanas: 'Ver mis campañas',
       },
     },
   },

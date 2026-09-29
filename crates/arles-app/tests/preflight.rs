@@ -134,9 +134,12 @@ fn base() -> (tempfile::TempDir, Db, CampaignId) {
                 ventana: "vent-1",
                 limite_por_hora: None,
                 limite_diario: None,
+                // Sin tope propio no se pasa de 50: el de la cuenta manda.
+                acepto_el_riesgo_del_volumen: false,
             },
         )
-        .expect("campaña");
+        .expect("campaña")
+        .id;
 
     (dir, db, campana)
 }

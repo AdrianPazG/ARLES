@@ -476,9 +476,12 @@ mod tests {
                 ventana: "vent-1",
                 limite_por_hora: None,
                 limite_diario: None,
+                // Sin tope propio no se pasa de 50: el de la cuenta manda.
+                acepto_el_riesgo_del_volumen: false,
             },
         )
         .expect("crea")
+        .id
     }
 
     fn etapa_de(db: &Db, campana: CampaignId) -> String {
@@ -634,9 +637,13 @@ mod tests {
                     ventana: "vent-1",
                     limite_por_hora: Some(500),
                     limite_diario: Some(500),
+                    // 500 diarios pasan del aviso del §48, así que sin esto
+                    // `crear_campana` la rechaza — y es lo que se quiere.
+                    acepto_el_riesgo_del_volumen: true,
                 },
             )
-            .expect("crea");
+            .expect("crea")
+            .id;
 
         assert_eq!(
             revisar(&db, c).estimacion.techo_diario,

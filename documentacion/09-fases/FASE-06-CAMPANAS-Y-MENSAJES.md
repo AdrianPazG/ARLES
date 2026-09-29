@@ -1,7 +1,7 @@
 # Fase 6 · Campañas y mensajes
 
-> **Estado: cinco entregas de siete.** 6.1 a 6.5 construidas y verificadas;
-> falta el asistente de nueve pasos (6.6) y el cierre de fase (6.7).
+> **Estado: seis entregas de siete.** 6.1 a 6.6 construidas y verificadas;
+> falta el cierre de fase (6.7).
 > Última actualización: 29/09/2026.
 
 Esta fase es donde ARLES deja de ser un motor que sabe enviar y pasa a ser un
@@ -18,7 +18,7 @@ programa al que se le puede decir **qué** enviar y **a quién**.
 | **6.3** | Plantillas con versiones que no se editan, y firmas | `arles-db/src/plantillas.rs` |
 | **6.4** | Crear campañas, y el acto que no se deshace: activar | `arles-db/src/alta_de_campana.rs` |
 | **6.5** | El preflight de ocho puntos, enchufado de verdad | `arles-db/src/revision.rs` · `arles-app/src/comandos.rs` |
-| 6.6 | El asistente de nueve pasos, y el aviso de más de 50 diarios | *pendiente* |
+| **6.6** | El asistente de nueve pasos, y el aviso de más de 50 diarios | `arles-db/src/ventanas.rs` · `arles-app/src/campanas.rs` · `app/.../AsistenteDeCampana.vue` |
 | 6.7 | Cierre: auditoría, documento, informe y PDF | *pendiente* |
 
 ---
@@ -127,15 +127,51 @@ campaña ya salió.
 
 ---
 
+## 4 bis · El asistente, y las tres cosas que no decide
+
+Nueve pasos (`UX_NAVEGACION.md` §5). Tres de ellos **no son campos que rellenar
+sino cosas que leer** —la simulación, el preflight y el resumen de activación—,
+y ésa es la razón de que sea un asistente y no un formulario largo: en un
+formulario se bajan de un scroll sin verlos, y son justo los que hacen que
+alguien reconsidere antes de mandar mil correos.
+
+**Dónde empieza lo irreversible.** Los pasos 1 a 5 no escriben nada. La campaña
+se crea al salir del 5, **en borrador**, porque el simulador y el preflight leen
+de la base y el envío de prueba cuelga de la etapa. Crear no manda nada; lo que
+manda correos es activar, en el paso 9.
+
+Y tres reglas que la pantalla **no** decide:
+
+| Regla | Quién la impone | Qué hace la pantalla |
+|---|---|---|
+| Si se puede activar | `revisar_campana` | Apaga el botón y dice a dónde volver |
+| El aviso de más de 50 diarios | `crear_campana` | Enseña el aviso antes de pedirlo |
+| La prueba es obligatoria (§45) | El preflight | Enseña el punto que falla |
+
+### El aviso de volumen (§48) no es un límite
+
+ARLES **no bloquea** el volumen: §154 pide informar, no dictar. Lo que no deja
+es crear la campaña sin que conste que se avisó, y la constancia va a
+`audit_log` —no a un campo que alguien pueda cambiar después—.
+
+La diferencia es entre «alguien decidió esto sabiendo el riesgo» y «no sabemos
+qué pasó», el día que el proveedor marque la cuenta como spam.
+
+El umbral es **más de 50**, no 50 o más. Está en `Limites::AVISO_DIARIO` y
+repetido en la pantalla —que necesita enseñarlo antes de llamar a nadie—, con
+una prueba a cada lado del umbral en los dos sitios.
+
+---
+
 ## 5 · Cómo se verifica esta fase
 
 ```bash
-python3 herramientas/validar/validar.py --fase 6 --rapido    # 12/12
-cargo test --workspace                                        # 781
-cd app && npm test                                            # 122
+python3 herramientas/validar/validar.py --fase 6 --rapido    # 20/20
+cargo test --workspace                                        # 786
+cd app && npm test                                            # 132
 ```
 
-Seis invariantes, y **las seis se rompieron a propósito para ver que la
+Nueve invariantes, y **las nueve se rompieron a propósito para ver que la
 comprobación las caza** (§2):
 
 | Invariante | Rotura probada | ¿La caza? |
@@ -146,18 +182,42 @@ comprobación las caza** (§2):
 | El preflight no se rellena a mano | `hay_conexion: Some(true)` | sí |
 | La revisión descuenta las bajas | quitar el `NOT EXISTS` de la supresión | sí |
 | El envío de prueba llega al preflight | dejar de pasar la marca | sí |
+| El aviso de volumen lo exige el núcleo | quitar la línea de bitácora | sí |
+| La pantalla no dice «entregado» | poner «Entregados» en la columna | sí |
+| El botón de activar lo apaga el preflight | quitarle el candado | sí |
 
-Y quince pruebas de la 6.5 —nueve en `revision.rs`, cinco en `tests/preflight.rs`,
-dos en `arles-email`— con su rotura anotada en el comentario de cada una.
+Una de las nueve **falló en su primera ejecución por estar mal escrita**, y
+conviene dejarlo anotado: la de «entregado» leía los archivos `.vue` y cazó la
+clave `campanas.aceptadoNoEsEntregado`, que existe justamente para explicar que
+no se dice. Mirar los `.vue` además no habría servido de nada: los componentes
+no llevan literales (§17), así que la palabra nunca estaría ahí y la
+comprobación habría pasado siempre sin verificar nada. Ahora mira los textos.
+
+Y las pruebas de las dos entregas, con su rotura anotada en el comentario de
+cada una: quince de la 6.5 —nueve en `revision.rs`, cinco en
+`tests/preflight.rs`, dos en `arles-email`— y de la 6.6, tres en `ventanas.rs`,
+dos del umbral del §48 en `alta_de_campana.rs`, y diez de pantalla en
+`campanas.spec.ts`.
+
+**Dos fallos de la 6.6 los encontraron los avisos de una tanda que estaba en
+verde**, y por eso se miran: faltaba el título del paso 7 —que habría salido en
+pantalla como `asistente.paso.preflight.titulo`— y las pruebas simulaban
+`$router` cuando las pantallas usan `useRouter()`, que lee de otro sitio. Las
+diez pruebas pasaban con las dos cosas mal.
 
 ---
 
 ## 6 · Lo que esta fase no cubre
 
-- **El asistente de nueve pasos y el simulador** son la 6.6. Hoy el preflight
-  existe y se puede llamar, pero no hay pantalla que lo pinte.
-- **El aviso de más de 50 diarios** (§48) tiene su umbral en
-  `Limites::AVISO_DIARIO` desde la Fase 4 y todavía no se enseña.
+- **La audiencia no se puede filtrar.** El paso 2 lo dice con todas las letras:
+  llegan todos los contactos activos con correo, menos las bajas. Las listas,
+  etiquetas y filtros del §40 no están, y enseñar un filtro que no filtra sería
+  peor que no tenerlo.
+- **No se puede editar una campaña ya creada**, ni borrarla. El asistente crea;
+  pausar, reanudar y detener son de la Fase 4 y viven en Actividad.
+- **Las plantillas y las firmas se guardan por comando pero no hay pantalla
+  para escribirlas.** Los comandos están y probados; el editor de texto
+  enriquecido es trabajo pendiente.
 - **El canal de WhatsApp** es de la Fase 5 y no está empezado: hay una decisión
   pendiente de Dirección en `FASE-05-PARA-DIRECCION.md`.
 - **Los registros SPF/DKIM/DMARC** (P-16) no se consultan. Es el único punto del

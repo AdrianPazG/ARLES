@@ -118,6 +118,14 @@ id_tipado!(
     SignatureId
 );
 id_tipado!(
+    /// Ventana de ejecución: los días y horas en que una campaña puede enviar.
+    ///
+    /// Es de la empresa y se reutiliza entre campañas, así que tiene id propio
+    /// en vez de vivir dentro de la etapa: «Laborables de 9 a 18» se escribe
+    /// una vez.
+    ExecutionWindowId
+);
+id_tipado!(
     /// Campaña.
     CampaignId
 );

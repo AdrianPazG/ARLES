@@ -12,7 +12,7 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
-### Fase 6 · Campañas y mensajes — cinco entregas de siete
+### Fase 6 · Campañas y mensajes — seis entregas de siete
 
 ARLES deja de ser un motor que sabe enviar y pasa a ser un programa al que se
 le puede decir **qué** enviar y **a quién**.
@@ -42,13 +42,31 @@ diagnósticos posibles, sólo dos hablan de la contraseña.
 
 #### Lo que este avance no disimula
 
-- **No hay todavía pantalla de campañas.** El asistente de nueve pasos es la
-  entrega 6.6. Hoy todo esto existe y está probado, y no se puede ver.
+- **La audiencia no se puede filtrar todavía.** Llegan todos los contactos
+  activos con correo, menos las bajas. El paso 2 del asistente lo dice con
+  todas las letras en vez de enseñar filtros que no filtran.
+- **No hay pantalla para escribir plantillas ni firmas.** Se guardan por
+  comando y están probadas; el editor es trabajo pendiente.
 - **ARLES no consulta DNS** (P-16), así que el punto de SPF/DKIM/DMARC sale
   siempre «sin comprobar». Es el único de los ocho que no bloquea.
 - **Sigue faltando el canal de WhatsApp**, que es de la Fase 5 y no está
   empezado. La decisión sobre cuándo construirlo está planteada en
   `documentacion/09-fases/FASE-05-PARA-DIRECCION.md`.
+
+**Ya se puede crear una campaña de principio a fin.** Nueve pasos: nombre, a
+quién, desde qué cuenta, qué se manda, ritmo y horario, cuánto va a tardar, las
+ocho comprobaciones, el correo de prueba, y activar.
+
+**Tres de los nueve pasos no piden nada: se leen.** La simulación —«esta
+campaña enviará 1 342 correos; con tu ritmo saldrán a lo largo de 27 días»—, las
+comprobaciones, y el resumen antes de activar. Están separados a propósito: en
+un formulario largo se bajan de un scroll sin verlos, y son los que hacen
+reconsiderar antes de mandar mil correos.
+
+**Enviar más de 50 al día se avisa, no se prohíbe.** Aparece en línea, con la
+cifra que se escribió, y hay que marcar una casilla para seguir. ARLES no lo
+impide: la decisión es de quien envía. Lo que sí queda es constancia de que se
+avisó y de que alguien dijo que sí, con su fecha.
 
 #### Por dentro
 
@@ -71,6 +89,16 @@ diagnósticos posibles, sólo dos hablan de la contraseña.
   distinguen «no autentica» de «no se llegó a intentar».
 - **Añadida** la Fase 6 al validador: seis invariantes, las seis verificadas
   rompiéndolas. El bucle previo a empujar pasa de seis fases a siete.
+- **Añadido** `arles-db::ventanas` — los horarios de envío, validados **al
+  guardarlos** construyendo una `Ventana` del núcleo. Un horario que no se
+  abriría nunca dejaría la campaña activada esperando para siempre, sin error.
+- **Añadidos** los comandos de campañas, plantillas, firmas y horarios, con sus
+  tipos de frontera propios: `arles-db` no depende de `serde` (§4), y traducir
+  en la frontera es además donde se decide qué sale y qué no.
+- **Añadido** el asistente de nueve pasos y la lista de campañas.
+- **Añadida** la exigencia del aviso del §48 en `crear_campana`, con su línea en
+  `audit_log` en la misma transacción. La regla vive en el núcleo y no en la
+  pantalla: cualquier otro camino hacia `crear_campana` se la saltaría.
 - **Corregido** un fallo real encontrado al escribir la 6.4: la consulta de la
   audiencia no filtraba por canal activo, así que un canal archivado habría
   recibido correo sin que nada fallara.

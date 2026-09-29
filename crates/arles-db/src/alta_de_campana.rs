@@ -53,6 +53,8 @@ use arles_core::ids::{
 };
 use rusqlite::{OptionalExtension, params};
 
+use arles_core::ritmo::Limites;
+
 use crate::db::Db;
 use crate::empresa::{ahora, auditar};
 use crate::error::DbError;
@@ -73,6 +75,32 @@ pub struct CampanaNueva<'a> {
     /// Los topes de esta etapa. `None` deja mandar el de la cuenta.
     pub limite_por_hora: Option<u32>,
     pub limite_diario: Option<u32>,
+    /// ¿Se aceptó el riesgo de pasar de 50 diarios (§48)?
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// LA REGLA VIVE AQUÍ Y NO EN LA PANTALLA
+    ///
+    /// La casilla la enseña el asistente, pero quien **exige** la aceptación es
+    /// esta función. Si la regla viviera arriba, cualquier otro camino hacia
+    /// `crear_campana` —otra pantalla, una prueba, el día que haya importación
+    /// de campañas— crearía la campaña sin ella y sin que nada fallara.
+    ///
+    /// Y no bloquea el volumen: §154 pide informar, no dictar. Lo que se exige
+    /// es **constancia de que se informó**, que es distinto.
+    pub acepto_el_riesgo_del_volumen: bool,
+}
+
+/// Lo que queda al crear una campaña.
+///
+/// Lleva **el id de la etapa** además del de la campaña, y no por comodidad: el
+/// envío de prueba del §45 cuelga de la etapa, no de la campaña. Sin esto,
+/// quien acabe de crearla tendría que reconstruir ese identificador por su
+/// cuenta —hoy es `st-1-{campaña}`—, y ese formato es un detalle de esta
+/// función que dejaría de serlo en cuanto alguien lo copiara.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CampanaCreada {
+    pub id: CampaignId,
+    pub etapa: String,
 }
 
 /// Una campaña tal como la enseña la lista.
@@ -113,7 +141,16 @@ impl Db {
         &self,
         empresa: CompanyId,
         nueva: &CampanaNueva<'_>,
-    ) -> Result<CampaignId, DbError> {
+    ) -> Result<CampanaCreada, DbError> {
+        // El aviso del §48 se exige **antes** de escribir nada: una campaña
+        // creada a medias y luego rechazada deja una fila que la lista enseña.
+        let de_alto_volumen = nueva
+            .limite_diario
+            .is_some_and(|d| d > Limites::AVISO_DIARIO);
+        if de_alto_volumen && !nueva.acepto_el_riesgo_del_volumen {
+            return Err(DbError::FaltaAceptarElVolumen);
+        }
+
         let id = CampaignId::nuevo();
         let etapa = format!("st-1-{id}");
 
@@ -160,8 +197,22 @@ impl Db {
                 "campaign",
                 &id.to_string(),
             )?;
+
+            // La aceptación del §48 se registra aparte, y en la misma
+            // transacción: es el rastro de que se avisó y de que alguien dijo
+            // que sí, con su fecha. Sin línea propia, el día que una cuenta se
+            // marque como spam no habría forma de saber si se informó.
+            if de_alto_volumen {
+                auditar(
+                    &tx,
+                    &empresa.to_string(),
+                    "aceptar_riesgo_de_volumen",
+                    "campaign",
+                    &id.to_string(),
+                )?;
+            }
             tx.commit()?;
-            Ok(id)
+            Ok(CampanaCreada { id, etapa })
         })
     }
 
@@ -485,9 +536,12 @@ mod tests {
                 ventana: "vent-1",
                 limite_por_hora: None,
                 limite_diario: None,
+                // Sin tope propio no se pasa de 50: el de la cuenta manda.
+                acepto_el_riesgo_del_volumen: false,
             },
         )
         .expect("crea")
+        .id
     }
 
     fn cuantos(db: &Db, tabla: &str, campana: CampaignId) -> i64 {
@@ -499,6 +553,96 @@ mod tests {
             )
         })
         .expect("cuenta")
+    }
+
+    /// **Más de 50 diarios exige aceptar el aviso, y deja rastro.**
+    ///
+    /// El §48 no pone un límite: pone una advertencia. ARLES no bloquea el
+    /// volumen —§154 pide informar, no dictar—, pero **no deja crear la campaña
+    /// sin que conste que se informó**, y la constancia va a `audit_log`, no a
+    /// un campo que alguien pueda cambiar después.
+    ///
+    /// Es la diferencia entre «alguien decidió esto sabiendo el riesgo» y «no
+    /// sabemos qué pasó», el día que el proveedor marque la cuenta como spam.
+    ///
+    /// Verificada rompiéndola el 29/09/2026: quitando la comprobación del
+    /// `de_alto_volumen`, la campaña de 120 diarios se crea sin aceptación y
+    /// esta prueba falla.
+    #[test]
+    fn mas_de_cincuenta_diarios_exige_aceptar_el_aviso() {
+        let (_d, db, v) = base();
+
+        let sin_aceptar = db.crear_campana(
+            empresa(),
+            &CampanaNueva {
+                nombre: "Deprisa",
+                cuenta: CUENTA.parse().expect("id"),
+                version_de_plantilla: v,
+                ventana: "vent-1",
+                limite_por_hora: None,
+                limite_diario: Some(120),
+                acepto_el_riesgo_del_volumen: false,
+            },
+        );
+        assert!(
+            matches!(sin_aceptar, Err(DbError::FaltaAceptarElVolumen)),
+            "120 diarios pasan del aviso del §48"
+        );
+        assert_eq!(
+            db.campanas(empresa()).expect("lista").len(),
+            0,
+            "y no quedó una campaña a medias"
+        );
+
+        let aceptando = db.crear_campana(
+            empresa(),
+            &CampanaNueva {
+                nombre: "Deprisa",
+                cuenta: CUENTA.parse().expect("id"),
+                version_de_plantilla: v,
+                ventana: "vent-1",
+                limite_por_hora: None,
+                limite_diario: Some(120),
+                acepto_el_riesgo_del_volumen: true,
+            },
+        );
+        let id = aceptando.expect("con el aviso aceptado sí se crea").id;
+
+        // Y queda escrito quién lo aceptó y cuándo.
+        let lineas: i64 = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row(
+                    "SELECT count(*) FROM audit_log
+                      WHERE entity_id = ?1 AND action = 'aceptar_riesgo_de_volumen'",
+                    params![id.to_string()],
+                    |f| f.get(0),
+                )
+            })
+            .expect("bitácora");
+        assert_eq!(lineas, 1, "la aceptación deja rastro");
+    }
+
+    /// **Justo 50 no avisa.** El umbral es «más de 50», y está en un solo sitio.
+    ///
+    /// Se comprueba porque un `>=` en vez de un `>` obligaría a aceptar un
+    /// riesgo en el caso que el §48 pone como seguro, y nadie lo notaría salvo
+    /// por la casilla de más.
+    #[test]
+    fn justo_cincuenta_no_pide_aceptar_nada() {
+        let (_d, db, v) = base();
+        db.crear_campana(
+            empresa(),
+            &CampanaNueva {
+                nombre: "Al filo",
+                cuenta: CUENTA.parse().expect("id"),
+                version_de_plantilla: v,
+                ventana: "vent-1",
+                limite_por_hora: None,
+                limite_diario: Some(arles_core::ritmo::Limites::AVISO_DIARIO),
+                acepto_el_riesgo_del_volumen: false,
+            },
+        )
+        .expect("50 no pasa del aviso");
     }
 
     /// Una campaña nace en borrador, con su etapa y sin audiencia.

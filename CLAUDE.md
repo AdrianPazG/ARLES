@@ -250,18 +250,23 @@ ROADMAP pone aquí y no está empezado. Hay una decisión pendiente de Direcció
 construirlo antes de la Fase 6, o entregar la Fase 6 ofreciendo sólo correo.
 Está planteada en `documentacion/09-fases/FASE-05-PARA-DIRECCION.md`.
 
-**La Fase 6 lleva cinco entregas de siete** (6.1 a 6.5): el motor de
+**La Fase 6 lleva seis entregas de siete** (6.1 a 6.6): el motor de
 sustitución no Turing-completo, el saneado del HTML en Rust, plantillas con
 versiones que no se editan, campañas con la audiencia congelada al activar, y el
 preflight de ocho puntos **enchufado de verdad** a la base y a la sonda de la
 cuenta — incluido el envío de prueba de la 5.5, que llevaba tres entregas
 anotándose sin que nadie lo preguntara.
 
-**Lo que falta de la Fase 6 son las pantallas:** el asistente de nueve pasos y
-el aviso de más de 50 diarios (6.6), y el cierre de fase (6.7). Todo lo
-construido existe, está probado, y **no se puede ver todavía**.
+…y el asistente de nueve pasos, con el aviso de más de 50 diarios que el núcleo
+exige y registra en la bitácora. **Se puede crear una campaña de principio a fin
+y activarla.**
 
-**Cuatro trampas del código de la Fase 6**, por si se toca:
+**Lo que falta de la Fase 6 es el cierre (6.7)**: auditoría, documento, informe
+y PDF. Y tres cosas que la fase no cubre y conviene no prometer: la audiencia no
+se puede filtrar, una campaña creada no se puede editar, y no hay pantalla para
+escribir plantillas ni firmas —los comandos están, el editor no—.
+
+**Seis trampas del código de la Fase 6**, por si se toca:
 
 1. La **empresa del contacto** vive en la columna `source`, no en una llamada
    `company_name`. Viene del esquema V1 y no se ha renombrado.
@@ -274,6 +279,11 @@ construido existe, está probado, y **no se puede ver todavía**.
    `Some(true)` a mano.
 4. De los **seis diagnósticos** de la sonda, sólo dos dicen algo sobre la
    contraseña. Los otros cuatro son `None`: no se llegó a intentar.
+5. El umbral del §48 es **más de 50**, no 50 o más, y está escrito en dos
+   sitios: `Limites::AVISO_DIARIO` y la pantalla, que necesita enseñar el aviso
+   antes de llamar a nadie. Quien lo **exige** es `crear_campana`.
+6. Las pantallas usan `useRouter()`, que lee de la inyección. Un `mocks:
+   { $router }` en una prueba **no** la cubre: Vue avisa y la prueba pasa igual.
 
 **Tres trampas del código de la Fase 5**, por si se toca:
 

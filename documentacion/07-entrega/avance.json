@@ -90,8 +90,8 @@
       "id": "F6",
       "nombre": "Campañas y mensajes",
       "peso": 13,
-      "hecho": 0.55,
-      "porque": "Cinco entregas de siete, 6.1 a 6.5. Motor de sustitución no Turing-completo, saneado del HTML con lista blanca en Rust, plantillas con versiones que no se editan, firmas, campañas con audiencia congelada al activar, y el preflight de ocho puntos enchufado de verdad a la base y a la sonda de la cuenta. validar.py --fase 6 en 12/12. Falta el asistente de nueve pasos (6.6) y el cierre de fase (6.7), que es donde está el grueso del trabajo de pantalla."
+      "hecho": 0.85,
+      "porque": "Seis entregas de siete, 6.1 a 6.6. Motor de sustitución no Turing-completo, saneado del HTML con lista blanca en Rust, plantillas con versiones que no se editan, firmas, campañas con audiencia congelada al activar, y el preflight de ocho puntos enchufado de verdad a la base y a la sonda de la cuenta. Y el asistente de nueve pasos, con el aviso de más de 50 diarios que el núcleo exige y registra en la bitácora. validar.py --fase 6 en 20/20. Falta el cierre de fase (6.7): auditoría, documento e informe."
     },
     {
       "id": "F7",

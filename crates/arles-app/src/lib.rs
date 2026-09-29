@@ -6,6 +6,7 @@
 // §138: sin `unwrap()` ni `panic!()` indiscriminados en producción.
 #![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 
+pub mod campanas;
 pub mod comandos;
 pub mod error;
 pub mod estado;
@@ -74,6 +75,15 @@ pub fn run() {
             comandos::enviar_correo_de_prueba,
             comandos::probar_envio_de_la_cuenta,
             comandos::revisar_campana,
+            campanas::plantillas,
+            campanas::guardar_plantilla,
+            campanas::firmas,
+            campanas::guardar_firma,
+            campanas::ventanas,
+            campanas::guardar_ventana,
+            campanas::campanas,
+            campanas::crear_campana,
+            campanas::activar_campana,
         ])
         .run(tauri::generate_context!());
 

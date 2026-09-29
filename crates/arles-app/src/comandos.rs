@@ -357,7 +357,9 @@ const _: () = assert!(POR_PAGINA <= arles_db::MAX_POR_PAGINA);
 ///
 /// [`AppError::Db`] si la base no responde; [`AppError::EmpresaNoConfigurada`]
 /// si todavía no se ha dado de alta.
-fn empresa_actual(estado: &EstadoApp) -> Result<arles_core::ids::CompanyId, crate::AppError> {
+pub(crate) fn empresa_actual(
+    estado: &EstadoApp,
+) -> Result<arles_core::ids::CompanyId, crate::AppError> {
     estado
         .db()
         .empresa()?

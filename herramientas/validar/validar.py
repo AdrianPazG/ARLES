@@ -3313,6 +3313,116 @@ def el_envio_de_prueba_llega_al_preflight():
           f"se_resuelve={se_resuelve} se_pasa={bool(se_pasa)}")
 
 
+def el_aviso_de_volumen_lo_exige_el_nucleo():
+    """La casilla del §48 la enseña la pantalla, pero la exige Rust.
+
+    ─────────────────────────────────────────────────────────────────────────
+    POR QUÉ NO BASTA CON QUE LA PANTALLA LA PIDA
+
+    Una casilla obligatoria en el asistente se salta por cualquier otro camino
+    que llegue a `crear_campana` —otra pantalla, una prueba, el día que haya
+    importación de campañas—, y la campaña de alto volumen se crea **sin que
+    nada falle**: los correos salen, y el día que el proveedor marque la cuenta
+    como spam no hay forma de saber si alguien avisó.
+
+    Así que se comprueban los dos extremos: que el núcleo rechace sin aceptación
+    y que la pantalla enseñe el aviso antes de pedirla. El segundo sin el
+    primero es cortesía; el primero sin el segundo es un error sin explicación.
+    """
+    db = produccion_de("crates/arles-db/src/alta_de_campana.rs") or ""
+    lo_exige = "FaltaAceptarElVolumen" in db and "AVISO_DIARIO" in db
+    # Y deja rastro: sin la línea de bitácora no hay constancia de que se avisó.
+    deja_rastro = "aceptar_riesgo_de_volumen" in db
+
+    ruta = os.path.join(RAIZ, "app", "src", "app", "pantallas", "AsistenteDeCampana.vue")
+    se_enseña = False
+    if os.path.exists(ruta):
+        with open(ruta, encoding="utf-8") as f:
+            se_enseña = "avisaDelVolumen" in sin_comentarios_ni_html(f.read())
+
+    check(6, "el aviso de volumen lo exige el núcleo",
+          lo_exige and deja_rastro and se_enseña,
+          "§48: ARLES no bloquea el volumen, pero no deja crear la campaña sin "
+          "que conste que se avisó.",
+          f"lo_exige={lo_exige} deja_rastro={deja_rastro} se_enseña={se_enseña}")
+
+
+def la_pantalla_no_dice_entregado():
+    """Ningún texto de campañas usa la palabra «entregado» (§65).
+
+    ARLES sabe que el proveedor **aceptó** el mensaje. No sabe si llegó a una
+    bandeja, ni si acabó en no deseados. La diferencia parece pequeña hasta que
+    alguien decide algo con ella delante.
+
+    ─────────────────────────────────────────────────────────────────────────
+    SE MIRAN LOS TEXTOS, NO LOS ARCHIVOS DE PANTALLA
+
+    La primera versión de esta comprobación leía los `.vue`, y falló **en su
+    primera ejecución** por una razón que conviene dejar escrita: cazó la clave
+    `campanas.aceptadoNoEsEntregado`, que existe justamente para explicar que no
+    se dice «entregado». La comprobación estaba cazando la solución.
+
+    Mirar los `.vue` además no serviría: los componentes no llevan literales
+    (§17), así que la palabra nunca estaría ahí — la comprobación pasaría
+    siempre y no verificaría nada.
+
+    Lo que se mira son los **valores de texto** bajo `campanas:` y `asistente:`
+    en el archivo de idioma, que es donde de verdad puede aparecer.
+    """
+    ruta = os.path.join(RAIZ, "app", "src", "app", "locales", "es.ts")
+    if not os.path.exists(ruta):
+        check(6, "la pantalla no dice «entregado»", False,
+              "§65: aceptado por el proveedor no es entregado a una persona.",
+              "falta el archivo de idioma")
+        return
+
+    with open(ruta, encoding="utf-8") as f:
+        texto = sin_comentarios(f.read())
+
+    # Las dos ramas de esta fase, desde su nombre hasta el cierre de su bloque.
+    culpables = []
+    for rama in ("campanas", "asistente"):
+        m = re.search(rf"^  {rama}: {{$", texto, re.M)
+        if not m:
+            continue
+        fin = texto.find("\n  },", m.end())
+        bloque = texto[m.end():fin if fin != -1 else len(texto)]
+        # Sólo el contenido de las cadenas: los nombres de clave no se leen.
+        for cadena in re.findall(r"'([^']*)'", bloque):
+            if "entregad" in cadena.lower():
+                culpables.append(f"{rama}: …{cadena[:40]}…")
+
+    check(6, "la pantalla no dice «entregado»", not culpables,
+          "§65: aceptado por el proveedor no es entregado a una persona.",
+          f"textos: {culpables}")
+
+
+def el_boton_de_activar_lo_apaga_el_preflight():
+    """Activar está atado al veredicto del núcleo, no a una regla de pantalla.
+
+    Activar congela la audiencia y empieza a mandar correos: no se deshace. Si
+    la pantalla decidiera por su cuenta cuándo se puede pulsar, habría dos
+    copias de la regla, y el día que divergieran dejaría activar algo que el
+    preflight había bloqueado.
+
+    Se comprueba que el botón mira `sePuedeActivar`, y que ese valor sale del
+    `resultado` que viene de Rust y no de una cuenta de puntos hecha aquí.
+    """
+    ruta = os.path.join(RAIZ, "app", "src", "app", "pantallas", "AsistenteDeCampana.vue")
+    codigo = ""
+    if os.path.exists(ruta):
+        with open(ruta, encoding="utf-8") as f:
+            codigo = sin_comentarios_ni_html(f.read())
+
+    atado = ':deshabilitado="!sePuedeActivar"' in codigo
+    del_nucleo = "preflight.resultado.resultado === 'lista'" in codigo
+
+    check(6, "el botón de activar lo apaga el preflight", atado and del_nucleo,
+          "§63: quien decide si se puede activar es el núcleo, y esto no se "
+          "deshace.",
+          f"atado={atado} del_nucleo={del_nucleo}")
+
+
 def fase_6(rapido):
     titulo("FASE 6 · Campañas y mensajes")
 
@@ -3324,6 +3434,11 @@ def fase_6(rapido):
         ("crates/arles-db/src/alta_de_campana.rs", "Crear campañas, y congelar la audiencia al activar."),
         ("crates/arles-db/src/revision.rs", "Lo que la base sabe de una campaña, para el preflight."),
         ("crates/arles-app/tests/preflight.rs", "Los ocho puntos, rellenados desde una base de verdad."),
+        ("crates/arles-db/src/ventanas.rs", "Los horarios de envío, validados al guardarlos."),
+        ("crates/arles-app/src/campanas.rs", "Los comandos de campañas, plantillas, firmas y horarios."),
+        ("app/src/app/pantallas/PantallaCampanas.vue", "La lista de campañas. Aceptados, nunca entregados (§65)."),
+        ("app/src/app/pantallas/AsistenteDeCampana.vue", "El asistente de nueve pasos."),
+        ("app/src/app/pantallas/campanas.spec.ts", "Lo que estas dos pantallas no pueden dejar de decir."),
     ]:
         check(6, f"existe {ruta}", os.path.exists(os.path.join(RAIZ, ruta)), porque)
 
@@ -3334,6 +3449,9 @@ def fase_6(rapido):
     el_preflight_no_se_rellena_a_mano()
     la_revision_descuenta_las_bajas()
     el_envio_de_prueba_llega_al_preflight()
+    el_aviso_de_volumen_lo_exige_el_nucleo()
+    la_pantalla_no_dice_entregado()
+    el_boton_de_activar_lo_apaga_el_preflight()
 
 
 FASES = {0: fase_0, 1: fase_1, 2: fase_2, 3: fase_3, 4: fase_4, 5: fase_5, 6: fase_6}

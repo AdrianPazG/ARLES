@@ -31,6 +31,7 @@ pub mod prueba;
 pub mod revision;
 pub mod supresion;
 pub mod trabajo;
+pub mod ventanas;
 
 pub use campanas::ResumenDeAccion;
 pub use cola::{Recuperacion, TrabajoTomado};
@@ -46,3 +47,4 @@ pub use migraciones::ultima_version;
 pub use preferencias::CLAVES_DE_INTERFAZ;
 pub use revision::LoQueSabeLaBase;
 pub use supresion::{MAX_SUPRESIONES_POR_PAGINA, ResumenDeSupresion, SupresionGuardada};
+pub use ventanas::VentanaGuardada;

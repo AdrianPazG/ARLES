@@ -123,6 +123,24 @@ const rutas: RouteRecordRaw[] = [
     meta: { seccion: 'inicio', subseccion: 'configuracion', orden: 1 },
   },
   {
+    // Es una de las seis secciones desde el principio (P-13): una campaña no es
+    // un paso que se hace una vez, es lo que se mira cada mañana mientras está
+    // enviando.
+    path: '/campanas',
+    name: 'campanas',
+    component: () => import('@/app/pantallas/PantallaCampanas.vue'),
+    meta: { seccion: 'campanas' },
+  },
+  {
+    // El asistente cuelga de campañas y no es una sección: es un camino con
+    // principio y final, como importar. Una entrada permanente en la barra
+    // diría que crear campañas es un sitio al que se va, y es algo que se hace.
+    path: '/campanas/nueva',
+    name: 'campanaNueva',
+    component: () => import('@/app/pantallas/AsistenteDeCampana.vue'),
+    meta: { seccion: 'campanas', subseccion: 'nueva', orden: 1 },
+  },
+  {
     path: '/contactos',
     name: 'contactos',
     component: () => import('@/app/pantallas/PantallaContactos.vue'),
@@ -182,6 +200,7 @@ const rutas: RouteRecordRaw[] = [
       s !== 'inicio' &&
       s !== 'ajustes' &&
       s !== 'contactos' &&
+      s !== 'campanas' &&
       s !== 'remitentes',
   ).map((s) => ({
     path: `/${s}`,
