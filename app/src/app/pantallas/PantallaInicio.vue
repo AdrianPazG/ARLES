@@ -84,9 +84,16 @@ const porConstruir = computed(
  * contactos tiene que encontrar la respuesta «aún no», no el vacío.
  */
 const accesos = computed(() => [
-  { clave: 'contactos', ruta: '/contactos', listo: false },
-  { clave: 'remitentes', ruta: '/remitentes', listo: false },
-  { clave: 'campana', ruta: '/campanas', listo: false },
+  // Los tres primeros decían `listo: false` desde la 3.1, cuando ninguna de
+  // esas pantallas existía. Siguieron diciéndolo con las tres construidas y
+  // funcionando: Inicio anunciaba «Contactos · aún no» con la pantalla de
+  // contactos a un clic, en la barra de al lado.
+  //
+  // Encontrado el 29/09/2026 mirando la demostración, no midiéndola: «aún no»
+  // es un texto legítimo y ninguna sonda podía saber que era falso.
+  { clave: 'contactos', ruta: '/contactos', listo: true },
+  { clave: 'remitentes', ruta: '/remitentes', listo: true },
+  { clave: 'campana', ruta: '/campanas', listo: true },
   { clave: 'ajustes', ruta: '/ajustes', listo: true },
 ])
 </script>
@@ -199,7 +206,7 @@ const accesos = computed(() => [
               class="enlace"
               to="/inicio/configuracion"
             >
-              {{ $t('inicio.verPasos', { n: lista.total }) }}
+              {{ $t('inicio.verPasos', { n: lista.total }, lista.total) }}
             </RouterLink>
           </template>
         </AModulo>
@@ -234,7 +241,7 @@ const accesos = computed(() => [
       <AModulo
         v-if="porConstruir > 0"
         :titulo="$t('inicio.enConstruccion.titulo')"
-        :nota="$t('inicio.enConstruccion.nota', { n: porConstruir })"
+        :nota="$t('inicio.enConstruccion.nota', { n: porConstruir }, porConstruir)"
       >
         <p class="detalle">
           {{ $t('inicio.enConstruccion.cuerpo') }}

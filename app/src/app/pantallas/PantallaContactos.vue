@@ -359,9 +359,18 @@ const errorDelDialogo = computed(() =>
         @activar="verFicha"
       />
 
+      <!-- Sin contacto elegido, la columna decía nada. Ahora dice qué hacer:
+           el hueco estaba, la pista no. -->
+      <EstadoVacio
+        v-if="!enFicha && filas.length > 0"
+        class="ficha"
+        :titulo="t('contactos.fichaVaciaTitulo')"
+        :cuerpo="t('contactos.fichaVaciaCuerpo')"
+      />
+
       <!-- La ficha, al lado de la tabla y no encima: se compara con la lista. -->
       <AModulo
-        v-if="enFicha"
+        v-else-if="enFicha"
         class="ficha"
         :titulo="nombreVisible(enFicha) || t('contactos.sinNombre')"
       >

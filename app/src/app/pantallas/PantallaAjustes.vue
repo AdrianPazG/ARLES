@@ -109,12 +109,32 @@ function elegirTema(valor: string): void {
 </template>
 
 <style scoped>
+/* ── EL ANCHO SE LE PONE AL BLOQUE, NO A LA PANTALLA ──────────────────────
+   Esto era `max-width: 62ch` sobre `.pantalla`, y `.pantalla` lleva
+   `margin-inline: auto` del armazón (base.css). Las dos reglas juntas dejaban
+   Ajustes **centrada en mitad del área de contenido**: 540 px de columna con
+   298 px de aire a cada lado, mientras las otras doce pantallas arrancan
+   pegadas al mismo borde izquierdo. Al pasar de Actividad a Ajustes el título
+   daba un salto de 300 px.
+   Se vio el 29/09/2026 mirando las pantallas una tras otra en Chromium; cada
+   una por separado se ve bien, que es por lo que no había salido antes.
+   La medida de lectura sigue existiendo: va sobre el bloque, que es lo que
+   tiene texto. */
 .pantalla {
+  /* La medida se DECLARA aquí y se APLICA abajo.
+     Es lo que lee la sonda de plegado para saber por debajo de qué ancho esta
+     pantalla deja de funcionar, y sólo la encuentra en `.pantalla`. Al llevarla
+     al bloque junto con el `max-width` —el 29/09/2026, arreglando lo de
+     arriba— la sonda se quedó sin contrato que medir y lo dijo. */
   --arles-medida: 540px;
 
   display: flex;
   flex-direction: column;
   gap: var(--arles-space-6);
+}
+
+header,
+.bloque {
   max-width: 62ch;
 }
 

@@ -8,17 +8,33 @@
  * sólido, el contraste que cuenta es el del relleno contra
  * `--arles-text-on-accent`, que pasa siempre.
  *
- * **Cada insignia lleva icono además del color** (regla 7.3). No hay forma de
- * construir una sin él: el icono se deriva del tono, no se pasa por fuera.
+ * **Cada insignia de color lleva icono además del color** (regla 7.3). No hay
+ * forma de construir una sin él: el icono se deriva del tono, no se pasa por
+ * fuera.
+ *
+ * ── EL NEUTRO ES LA EXCEPCIÓN, Y TIENE QUE SERLO ─────────────────────────
+ *
+ * El neutro llevaba el icono de reloj de «en cola». La regla 7.3 lo pedía, y
+ * la regla 7.3 no le aplica: existe para que un estado no se distinga **sólo
+ * por el color**, y el neutro no tiene color semántico —es el fondo elevado
+ * con un borde—, así que no hay nada que redundar.
+ *
+ * Lo que sí hacía el reloj era afirmar una espera que en ninguna de sus ocho
+ * apariciones existe: «3 por correo» es un contador, «Todos sus canales» una
+ * marca, «Calidad desconocida» es que no lo hemos preguntado, y una campaña en
+ * borrador no está esperando a nada. Un icono equivocado dice más que ninguno.
+ *
+ * Se vio el 29/09/2026 mirando la pantalla de Bajas en un navegador: la sonda
+ * mide contrastes y desbordes, no si un dibujo miente.
  */
 import { computed } from 'vue'
 
 import AIcono, { type NombreDeIcono } from './AIcono.vue'
 
 type Tono = 'neutro' | 'exito' | 'aviso' | 'peligro' | 'info' | 'incierto'
+type TonoDeColor = Exclude<Tono, 'neutro'>
 
-const ICONO: Record<Tono, NombreDeIcono> = {
-  neutro: 'cola',
+const ICONO: Record<TonoDeColor, NombreDeIcono> = {
   exito: 'exito',
   aviso: 'aviso',
   peligro: 'error',
@@ -30,7 +46,7 @@ const ICONO: Record<Tono, NombreDeIcono> = {
 
 const props = withDefaults(defineProps<{ tono?: Tono }>(), { tono: 'neutro' })
 
-const icono = computed(() => ICONO[props.tono])
+const icono = computed(() => (props.tono === 'neutro' ? null : ICONO[props.tono]))
 </script>
 
 <template>
@@ -38,7 +54,10 @@ const icono = computed(() => ICONO[props.tono])
     class="insignia"
     :class="`t-${tono}`"
   >
-    <AIcono :nombre="icono" />
+    <AIcono
+      v-if="icono"
+      :nombre="icono"
+    />
     <span><slot /></span>
   </span>
 </template>

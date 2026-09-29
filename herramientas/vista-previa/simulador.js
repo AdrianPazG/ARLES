@@ -42,8 +42,27 @@
  */
 (function () {
   var K = 'arles-vista-previa';
+  /**
+   * El estado de la demostración.
+   *
+   * Si no hay nada guardado todavía, **se sirve el decorado del final del
+   * archivo**, y no un objeto vacío. Es un solo sitio y por eso está aquí: los
+   * veintitantos `case` de abajo leen `e.contactos`, `e.empresa`… y así todos
+   * arrancan con datos sin que ninguno tenga que saberlo.
+   *
+   * Con el objeto vacío, la demostración se contaba dos historias distintas:
+   * Inicio decía «0 de 6» y Contactos «0 de 0» mientras Campañas enseñaba
+   * 1 342 destinatarios.
+   */
   function leer() {
-    try { return JSON.parse(sessionStorage.getItem(K) || '{}'); } catch (e) { return {}; }
+    try {
+      var guardado = sessionStorage.getItem(K);
+      if (guardado) { return JSON.parse(guardado); }
+    } catch (e) { /* sessionStorage bloqueado: se sigue con el decorado */ }
+    return {
+      empresa: DEMO.empresa,
+      contactos: DEMO.contactos,
+    };
   }
   function escribir(e) {
     try { sessionStorage.setItem(K, JSON.stringify(e)); } catch (e2) {}
@@ -152,6 +171,19 @@
             baseDeDatosLista: true,
             versionEsquema: 4,
             empresaConfigurada: !!e.empresa,
+            // ── EL CAMPO QUE FALTABA, Y LO QUE COSTÓ ──────────────────────
+            //
+            // `EstadoDeArranque` de Rust lo tiene desde la 4.3b y aquí no
+            // estaba, así que llegaba `undefined` y la pantalla de Inicio —la
+            // PRIMERA que se ve— recibía a cualquiera con «Esta ventana no
+            // está enviando: hay otro ARLES abierto». En la demostración no
+            // hay ninguna otra ventana, ni motor, ni nada.
+            //
+            // El aviso está bien escrito y hace bien en salir cuando toca; lo
+            // que estaba mal era el dato. Encontrado el 29/09/2026 mirando la
+            // demostración pantalla por pantalla, no midiéndola: la sonda leía
+            // el texto y lo daba por bueno porque es un aviso legítimo.
+            elMotorEnvia: true,
           });
 
         case 'configuracion_de_empresa':
@@ -667,16 +699,26 @@
       //
       // `comprobar_simulador.py` compara esta tabla con el núcleo y falla si
       // vuelven a separarse.
+      // ── LOS SEIS PASOS SE CALCULAN, NO SE FIJAN ─────────────────────────
+      //
+      // Los cinco de abajo estaban escritos como `false` sin mirar nada, y era
+      // correcto cuando el simulador sólo sabía de la empresa. Con remitentes,
+      // contactos, plantillas y campañas en el decorado, Inicio decía
+      // «Contactos · aún no» con tres contactos dados de alta y «1 / 6» con
+      // cinco pasos hechos.
+      //
+      // Encontrado el 29/09/2026 mirando la demostración, no midiéndola: el
+      // texto era legítimo y ninguna sonda podía saber que era falso.
       ['empresa', hay, true, '3.1', '/inicio/configuracion'],
       // Contactos y Remitentes ganaron ruta el 23/09/2026, al descubrirse que
       // Contactos llevaba desde la 3.2 anunciándose como «llega en la entrega
       // 3.2» con la pantalla ya construida. La comprobación de abajo volvió a
       // hacer su trabajo: avisó de que el simulador se había quedado atrás.
-      ['remitente', false, true, '5', '/remitentes'],
-      ['contactos', false, true, '3.2', '/contactos'],
-      ['plantilla', false, false, '6', null],
-      ['ventana', false, false, '6', null],
-      ['campana', false, false, '6', null],
+      ['remitente', (e.remitentes || DEMO.remitentes).length > 0, true, '5', '/remitentes'],
+      ['contactos', (e.contactos || []).length > 0, true, '3.2', '/contactos'],
+      ['plantilla', (e.plantillas || DEMO.plantillas).length > 0, true, '6', '/campanas/plantillas'],
+      ['ventana', (e.ventanas || DEMO.ventanas).length > 0, false, '6', null],
+      ['campana', (e.campanas || DEMO.campanas).length > 0, true, '6', '/campanas'],
     ].map(function (p) {
       return {
         paso: p[0], clave: p[0], completado: p[1], disponible: p[2],
@@ -692,9 +734,11 @@
       paises: ['MX'],
       onboarding: {
         pasos: pasos,
-        completados: hay ? 1 : 0,
+        completados: pasos.filter(function (p) { return p.completado; }).length,
         total: 6,
-        siguiente: hay ? 'remitente' : 'empresa',
+        // El primero que falta, y no una suposición. Con todo hecho no hay
+        // siguiente, y la pantalla sabe leer ese `null`.
+        siguiente: (pasos.filter(function (p) { return !p.completado; })[0] || {}).paso || null,
       },
     };
   }
@@ -710,6 +754,54 @@
    * que más vale la pena ver, y un número ya confirmado las escondería.
    */
   var DEMO = {
+    // La empresa ya configurada.
+    //
+    // El simulador arrancaba en blanco a propósito, «para que lo primero que
+    // se vea sea la portada de primera vez». Tenía sentido cuando no había
+    // más datos; con campañas de 1 342 destinatarios y un remitente dado de
+    // alta, dejaba la demostración contándose a sí misma dos historias
+    // distintas: Inicio decía «0 de 6» y Contactos «0 de 0» mientras Campañas
+    // enseñaba mil trescientos.
+    //
+    // La portada de primera vez se sigue viendo: basta con el botón de
+    // reiniciar de la demostración, o entrando en Configuración.
+    empresa: {
+      nombreComercial: 'Distribuidora del Norte',
+      pais: 'MX',
+      zonaHoraria: 'America/Monterrey',
+      correoCorporativo: 'contacto@ejemplo.mx',
+      sitioWeb: 'https://ejemplo.mx',
+    },
+
+    contactos: [
+      {
+        id: 'c-demo-1', nombre: 'Ana', apellido: 'Gutiérrez',
+        empresa: 'Ferretería Elizondo', creadoEn: '2026-09-02T10:00:00Z',
+        actualizadoEn: '2026-09-02T10:00:00Z',
+        canales: [
+          { canal: 'email', valorRaw: 'ana@ejemplo.mx', valorNormalizado: 'ana@ejemplo.mx', principal: true },
+          { canal: 'whatsapp', valorRaw: '+52 81 1111 1111', valorNormalizado: '+528111111111', principal: true },
+        ],
+      },
+      {
+        id: 'c-demo-2', nombre: 'Luis', apellido: 'Mendoza',
+        empresa: 'Aceros del Valle', creadoEn: '2026-09-03T10:00:00Z',
+        actualizadoEn: '2026-09-03T10:00:00Z',
+        canales: [
+          { canal: 'email', valorRaw: 'luis@ejemplo.mx', valorNormalizado: 'luis@ejemplo.mx', principal: true },
+        ],
+      },
+      {
+        id: 'c-demo-3', nombre: 'Carmen', apellido: 'Villarreal',
+        empresa: 'Plásticos del Golfo', creadoEn: '2026-09-04T10:00:00Z',
+        actualizadoEn: '2026-09-04T10:00:00Z',
+        canales: [
+          { canal: 'email', valorRaw: 'carmen@ejemplo.mx', valorNormalizado: 'carmen@ejemplo.mx', principal: true },
+          { canal: 'whatsapp', valorRaw: '+52 81 3333 3333', valorNormalizado: '+528133333333', principal: true },
+        ],
+      },
+    ],
+
     remitentes: [{
       id: '01900000-0000-7000-8000-00000000000a',
       servidor: 'smtp.gmail.com', puerto: 587, cifrado: 'starttls',
@@ -745,16 +837,16 @@
         version: {
           id: '01900000-0000-7000-8000-00000000000c', numero: 2,
           asunto: 'Hola {{nombre}}, gracias por escribirnos',
-          cuerpoHtml: '<p>Hola {{nombre}},</p><p>Gracias por tu interes en {{mi_empresa}}.</p>',
+          cuerpoHtml: '<p>Hola {{nombre}},</p><p>Gracias por tu interés en {{mi_empresa}}.</p>',
           variables: ['nombre', 'mi_empresa'],
         },
       },
       {
-        id: '01900000-0000-7000-8000-00000000000d', nombre: 'Seguimiento a cotizacion',
+        id: '01900000-0000-7000-8000-00000000000d', nombre: 'Seguimiento a cotización',
         version: {
           id: '01900000-0000-7000-8000-00000000000e', numero: 1,
-          asunto: 'Sobre tu cotizacion, {{nombre}}',
-          cuerpoHtml: '<p>Hola {{nombre}}, pudiste revisar la propuesta?</p>',
+          asunto: 'Sobre tu cotización, {{nombre}}',
+          cuerpoHtml: '<p>Hola {{nombre}}, ¿pudiste revisar la propuesta?</p>',
           variables: ['nombre'],
         },
       },
@@ -766,13 +858,13 @@
     }],
 
     ventanas: [{
-      id: '01900000-0000-7000-8000-0000000000d1', nombre: 'Dias laborables',
+      id: '01900000-0000-7000-8000-0000000000d1', nombre: 'Días laborables',
       dias: 31, desde: 9, hasta: 18, zona: 'America/Monterrey',
     }],
 
     whatsapp: [{
       id: '01900000-0000-7000-8000-0000000000a1',
-      nombreVisible: 'Atencion a clientes', telefonoE164: '+528100000000',
+      nombreVisible: 'Atención a clientes', telefonoE164: '+528100000000',
       wabaId: '102938475610293', modo: 'prospeccion_directa', estado: 'connected',
       coexistenciaConfirmada: null, riesgoAceptado: null,
       calidad: null, limiteDeMeta: 250,

@@ -125,7 +125,16 @@ const MEDIR = () => {
   const claves = [...(texto.match(/\b[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9_]*){2,}\b/g) ?? [])]
     .filter((c) => !DOMINIOS.test(c))
 
-  return { texto, acciones, claves, largo: texto.length }
+  // Dónde empieza el contenido de la pantalla.
+  //
+  // Se mide el primer hijo de `<main>` que tenga algo dentro: es el título, o
+  // las migas si las hay. Lo que importa no es el número en sí sino que sea el
+  // MISMO en las trece: el ojo no mide anchos, pero un salto del título de una
+  // pantalla a la siguiente lo ve cualquiera.
+  const primero = [...main.children].find((el) => (el.innerText ?? '').trim().length > 0)
+  const borde = primero ? Math.round(primero.getBoundingClientRect().left) : null
+
+  return { texto, acciones, claves, largo: texto.length, borde }
 }
 
 const ejecutable = await exigirChromium()
@@ -153,6 +162,9 @@ const navegador = await chromium.launch({ executablePath: ejecutable })
 const pagina = await navegador.newPage({ viewport: { width: 1280, height: 900 } })
 
 const resumen = []
+
+/** El borde izquierdo de la primera pantalla, contra el que se comparan todas. */
+let bordeComun = null
 
 for (const { ruta, que, minimoAcciones } of RECORRIDO) {
   await pagina.goto(`file://${ARCHIVO}${ruta}`, { waitUntil: 'load' })
@@ -227,6 +239,26 @@ for (const { ruta, que, minimoAcciones } of RECORRIDO) {
   for (const p of PROHIBIDAS) {
     if (new RegExp(`\\b${p}\\b`).test(bajo)) {
       mal(`${ruta} (${que}): dice «${p}», y ARLES no puede saberlo (§65)`)
+    }
+  }
+
+  // 8 · Las trece pantallas arrancan en el mismo borde.
+  //
+  // Escrita el 29/09/2026, después de encontrarlo a ojo: Ajustes llevaba un
+  // `max-width: 62ch` sobre `.pantalla`, que el armazón centra con
+  // `margin-inline: auto`, así que su contenido empezaba **300 px más a la
+  // derecha** que el de las otras doce. Cada pantalla por separado se veía
+  // bien; el defecto sólo existe al pasar de una a otra, que es justo lo que
+  // ninguna prueba de componente puede ver.
+  //
+  // Verificada rompiéndola (§2): devolviendo el `max-width` a `.pantalla` en
+  // `PantallaAjustes.vue`, la sonda dice «#/ajustes (Ajustes): el contenido
+  // empieza en 490 px y el de las demás en 272 px».
+  if (r.borde !== null) {
+    if (bordeComun === null) bordeComun = r.borde
+    else if (Math.abs(r.borde - bordeComun) > 2) {
+      mal(`${ruta} (${que}): el contenido empieza en ${r.borde} px y el de las demás en ` +
+          `${bordeComun} px. Al pasar de una pantalla a otra el título salta.`)
     }
   }
 

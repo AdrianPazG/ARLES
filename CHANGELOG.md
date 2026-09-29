@@ -12,6 +12,48 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### La revisión a ojo · lo que las sondas medían en verde y estaba mal
+
+Una auditoría de **mirar** las trece pantallas una tras otra en un navegador,
+después de que las sondas dieran todo por bueno. Encontró siete cosas, y
+ninguna era medible con lo que había.
+
+#### Lo que cambia para quien usa ARLES
+
+**Ajustes ya no salta.** Empezaba 300 px más a la derecha que las otras doce
+pantallas, así que al pasar de una a otra el título se movía. Cada pantalla,
+por separado, se veía bien: el defecto sólo existía al recorrerlas.
+
+**Las insignias dejan de enseñar un reloj.** «3 por correo», «Todos sus
+canales» o «Calidad desconocida» llevaban el icono de «en cola», que anuncia
+una espera que ninguna de ellas tiene.
+
+**Actividad habla en español de verdad.** Decía «Esta sección se construye en
+su fase del roadmap. El andamiaje ya aplica los tokens de diseño…» — el idioma
+del equipo, no el de quien usa ARLES. Ahora dice qué va a enseñar cuando
+exista, y **enlaza a las dos cosas que hoy sí se pueden ver**: las cifras de
+cada campaña y la lista de bajas. Antes sólo se salía por la barra lateral.
+
+**Los enlaces son del color de ARLES.** No había ninguna regla para ellos, así
+que cualquiera que no fuera de la barra o de las migas salía con el azul por
+defecto del navegador.
+
+#### Lo que cambia por dentro
+
+- Una octava garantía en la sonda del recorrido: **las trece pantallas arrancan
+  en el mismo borde izquierdo**. Verificada rompiéndola.
+- La insignia neutra ya no lleva icono derivado: no tiene color semántico que
+  redundar, y la regla 7.3 no le aplica. Con su prueba, vista fallar primero.
+- Tres sondas de la fase 3 dependían de que la demostración arrancara vacía, y
+  el decorado pasó a traer empresa y contactos. Ahora **siembran el estado que
+  necesitan** en vez de suponerlo.
+- **Dos comprobaciones eran ellas mismas el defecto.** La que compara el
+  simulador de la vista previa con el núcleo se inventaba el nombre de una
+  clave (`primeracampana` en vez de `campana`, que es lo que devuelve
+  `clave()`), y su patrón no sabía leer una fila que contuviera `[]`: llevaba
+  tiempo sin mirar el paso de Contactos **sin decirlo**. Las dos corregidas y
+  verificadas rompiéndolas en los dos sentidos.
+
 ### Fase 6 · Campañas y mensajes — cerrada
 
 ARLES deja de ser un motor que sabe enviar y pasa a ser un programa al que se

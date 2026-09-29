@@ -74,7 +74,7 @@ solas, porque ninguna tiene un valor propio.
 | `/campanas/nueva` | `AsistenteDeCampana.vue` | `stores/campanas.ts` | Campañas (sin entrada fija) |
 | `/remitentes` | `PantallaRemitentes.vue` | `stores/remitentes.ts` | Remitentes |
 | `/remitentes/whatsapp` | `PantallaWhatsApp.vue` | `stores/whatsapp.ts` | Remitentes › WhatsApp |
-| `/actividad` | `PantallaPendiente.vue` | — | Actividad *(andamio)* |
+| `/actividad` | `app/PantallaPendiente.vue` | — | Actividad *(andamio)* |
 | `/ajustes` | `PantallaAjustes.vue` | `stores/interfaz.ts` | Ajustes |
 
 **Las secciones son seis y no se tocan** (P-11). Lo que cuelga de ellas son
@@ -141,6 +141,16 @@ El paso 5 se olvidó once veces seguidas, y por eso cinco pantallas recibían co
 | Una pantalla que recibe con un error | sonda del recorrido | `npm run sonda:recorrido` |
 | Un adjetivo donde va una cifra (§94) | sonda del recorrido | `npm run sonda:recorrido` |
 | Decir «entregado» (§65) | sonda del recorrido | `npm run sonda:recorrido` |
+| Una pantalla que empieza en otro borde | sonda del recorrido | `npm run sonda:recorrido` |
+
+**Las trece arrancan en el mismo borde izquierdo**, y hay una comprobación que
+lo mide. Se escribió el 29/09/2026 después de encontrarlo a ojo: Ajustes
+llevaba `max-width` sobre `.pantalla` —que el armazón centra con
+`margin-inline: auto`— y su título empezaba 300 px más a la derecha que el de
+las otras doce. **Cada pantalla por separado se veía bien.** Si hace falta
+limitar la medida de lectura, va en el bloque de texto, nunca en `.pantalla`;
+y `--arles-medida` sí se declara en `.pantalla`, porque es lo que lee la sonda
+de plegado.
 
 **Las sondas necesitan Chromium.** Sin él, el validador las marca como
 **omitidas**, que no es lo mismo que pasadas y así lo dice.
@@ -178,4 +188,29 @@ Para no prometer lo que no hay:
 - **Una campaña creada no se edita.**
 - **Una versión de plantilla no se toca**, y eso es a propósito: guardar crea
   otra, para que una campaña activa siga mandando el texto que se aprobó.
-- **Actividad es andamio** hasta su fase.
+- **Actividad es andamio** hasta su fase. Dice qué traerá y enlaza a las dos
+  cosas que hoy sí se pueden ver —las cifras de cada campaña y la lista de
+  bajas—, porque una pantalla de la que sólo se sale por la barra lateral es un
+  callejón, y la sonda del recorrido la contaba con **cero acciones**.
+
+---
+
+## 8 · Lo que sólo se ve recorriendo, y cómo se caza ahora
+
+Cuatro defectos de esta revisión no los podía encontrar ninguna prueba de
+componente, porque **ninguno estaba dentro de una pantalla**: vivían entre dos.
+Quedan aquí porque el siguiente cambio de diseño los puede repetir.
+
+| Lo que pasaba | Por qué ninguna prueba lo veía | Qué lo caza ahora |
+|---|---|---|
+| Ajustes empezaba 300 px a la derecha | cada pantalla, sola, se ve bien | garantía 8 del recorrido |
+| Las insignias neutras llevaban un reloj | el icono existía y se pintaba | prueba del neutro sin icono |
+| Actividad hablaba de «roadmap» y «andamiaje», con el texto dentro del componente | era texto legítimo, en español y sin claves sueltas | la revisión a ojo; §139 lo prohibía y nadie lo medía |
+| Actividad no tenía salida | la sonda pedía 0 acciones mínimas | ahora pide 1 |
+
+Y dos de las comprobaciones **eran ellas mismas el defecto**: la que compara el
+simulador con el núcleo se inventaba el nombre de una clave (`primeracampana`
+en vez de `campana`) y su patrón no sabía leer una fila que contuviera `[]`, así
+que llevaba tiempo sin mirar el paso de Contactos sin decirlo. Es el mismo
+patrón del §2: **una comprobación que nunca se ha visto fallar no está
+verificada**.

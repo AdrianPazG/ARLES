@@ -21,11 +21,26 @@ import AModal from './AModal.vue'
 import APestanas from './APestanas.vue'
 
 describe('regla 7.3 · ningún estado se comunica sólo con color', () => {
-  it('toda insignia lleva un icono, en los seis tonos', () => {
-    for (const tono of ['neutro', 'exito', 'aviso', 'peligro', 'info', 'incierto'] as const) {
+  it('toda insignia de color lleva un icono, en los cinco tonos', () => {
+    for (const tono of ['exito', 'aviso', 'peligro', 'info', 'incierto'] as const) {
       const w = mount(AInsignia, { props: { tono }, slots: { default: 'x' } })
       expect(w.find('svg path').attributes('d'), tono).toBeTruthy()
     }
+  })
+
+  it('el neutro no lleva icono, porque no tiene color que redundar', () => {
+    // La regla 7.3 existe para que un estado no se distinga **sólo** por el
+    // color. El neutro no tiene color semántico —fondo elevado y borde—, así
+    // que un icono no redunda nada; y el que llevaba, el reloj de «en cola»,
+    // afirmaba una espera que ninguna de sus ocho apariciones tiene: un
+    // contador de bajas, «Todos sus canales», una calidad que no preguntamos.
+    //
+    // Verificada rompiéndola (§2): devolviendo `ICONO.exito` para el neutro en
+    // `AInsignia.vue`, esta prueba falla con
+    // «expected [ DOMWrapper{…} ] to have a length of +0 but got 1».
+    const w = mount(AInsignia, { props: { tono: 'neutro' }, slots: { default: 'x' } })
+    expect(w.findAll('svg')).toHaveLength(0)
+    expect(w.text()).toBe('x')
   })
 
   it('el envío ambiguo no comparte icono con el éxito ni con el fallo', () => {

@@ -305,6 +305,10 @@ watch(
   display: grid;
   align-items: center;
   cursor: default;
+  /* La ficha se abre con doble clic, y sin esto el doble clic **también
+     selecciona la palabra** que hay debajo del cursor: la fila se abría con
+     medio nombre resaltado en azul. */
+  user-select: none;
   /* La barra de selección se reserva siempre para que la fila no se desplace
      3 px al seleccionarla. */
   box-shadow: inset 3px 0 0 transparent;

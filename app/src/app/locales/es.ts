@@ -17,6 +17,26 @@ export const es = {
     atribucion: 'Software desarrollado por TELEMETRY INSIGHT',
   },
 
+  /**
+   * La sección que todavía no existe.
+   *
+   * Decía «Esta sección se construye en su fase del roadmap. El andamiaje ya
+   * aplica los tokens de diseño, la navegación y los textos localizados» —
+   * escrito dentro del componente, contra el §139, y en el idioma del equipo:
+   * «roadmap», «andamiaje» y «tokens» no le dicen nada a quien usa ARLES.
+   *
+   * Lo que sí necesita quien llega aquí son dos cosas: qué va a ver cuando
+   * exista, y a dónde ir ahora. Las dos caben en un párrafo.
+   */
+  seccionPendiente: {
+    cuerpo:
+      'Aquí verás el detalle de cada envío: a quién salió, cuándo, y qué ' +
+      'contestó el servidor. Esta parte todavía no está construida.',
+    mientrasTanto: 'Mientras tanto, lo que sí puedes ver hoy:',
+    verCampanas: 'Las cifras de cada campaña',
+    verBajas: 'Quién pidió no recibir',
+  },
+
   nav: {
     principal: 'Navegación principal',
     inicio: 'Inicio',
@@ -70,7 +90,7 @@ export const es = {
       'cuentas, respetando los límites que definas.',
     alta: 'Para poder enviar tu primera campaña',
     avance: '{hechos} de {total}',
-    verPasos: 'Ver los {n} pasos',
+    verPasos: 'Ver el paso que falta | Ver los {n} pasos',
 
     // ── Esta ventana no envía (entrega 5.4c) ──
     //
@@ -118,7 +138,9 @@ export const es = {
 
     enConstruccion: {
       titulo: 'Lo que falta por construir',
-      nota: '{n} pasos',
+      // vue-i18n elige la rama por la cantidad: «1 paso», «3 pasos». Decía
+      // siempre «pasos» y con uno solo quedaba «1 pasos».
+      nota: '{n} paso | {n} pasos',
       cuerpo:
         'Los módulos de campañas, canales y actividad aparecerán aquí cuando ' +
         'existan. No se dibujan vacíos a propósito: un panel de cajas en ' +
@@ -1437,6 +1459,18 @@ export const es = {
     editar: 'Editar',
     baja: 'Dar de baja',
     sinNombre: 'Sin nombre',
+    // ── LA PISTA QUE FALTABA ────────────────────────────────────────────
+    //
+    // La ficha se abre con doble clic, y **nada lo decía**: se hacía clic, la
+    // fila se marcaba y no pasaba nada más, con media pantalla en blanco al
+    // lado. Encontrado el 29/09/2026 pinchando en la demostración, no
+    // midiéndola: para una sonda no faltaba nada, porque el hueco vacío no es
+    // un error.
+    fichaVaciaTitulo: 'Elige un contacto',
+    fichaVaciaCuerpo:
+      'Haz doble clic en una fila para ver todos sus correos y WhatsApp, y ' +
+      'para editarlo o darlo de baja.',
+
     tablaEtiqueta: 'Lista de contactos',
 
     columna: {
@@ -1889,8 +1923,12 @@ export const es = {
       'menos una para poder lanzar una campaña.',
 
     // §94: cifras, no adjetivos.
-    nota: 'Tienes {cuantas} configuradas',
-    notaConPendientes: '{cuantas} configuradas · {pendientes} por revisar',
+    // Misma corrección que la nota de Inicio: con una sola cuenta se leía
+    // «Tienes 1 configuradas».
+    nota: 'Tienes {cuantas} configurada | Tienes {cuantas} configuradas',
+    notaConPendientes:
+      '{cuantas} configurada · {pendientes} por revisar | ' +
+      '{cuantas} configuradas · {pendientes} por revisar',
 
     vacioTitulo: 'Todavía no hay ninguna cuenta',
     vacioCuerpo:

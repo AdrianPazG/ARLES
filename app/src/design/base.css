@@ -293,6 +293,31 @@ table,
   font-variant-numeric: tabular-nums;
 }
 
+/* ── UN ENLACE SE PINTA CON LA PALETA, NO CON LA DEL NAVEGADOR ────────────
+ *
+ * No había ninguna regla para `a`, así que cualquier enlace que no fuera de
+ * las migas o de la barra salía **azul #0000EE y subrayado**: el estilo por
+ * defecto de Chromium, que no está en ningún token y no se mide contra ningún
+ * fondo. Se vio el 29/09/2026, en cuanto la pantalla de Actividad ganó dos
+ * enlaces de salida; el §17 lo prohibía y nada lo comprobaba, porque el color
+ * no lo escribía nadie: lo ponía el navegador al no encontrar otro.
+ *
+ * Vive en el armazón y no en una pantalla a propósito: lo que falló no fue un
+ * enlace, fue que no hubiera regla. Quien escriba el siguiente no tiene que
+ * acordarse.
+ *
+ * `text-underline-offset` en vez de quitar el subrayado: el subrayado es lo
+ * que distingue un enlace del texto de al lado sin depender del color, que es
+ * la regla 7.3 otra vez. */
+a {
+  color: var(--arles-accent-ink);
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
 /* El foco es innegociable (§100). Nunca `outline: none` sin sustituto visible.
  * El acento pasa AA no textual contra las cuatro superficies (COLOR_SYSTEM §5). */
 :focus-visible {

@@ -85,6 +85,39 @@ try {
     if (m.type() === 'error') quejas.push(`consola: ${m.text().slice(0, 200)}`)
   })
 
+  // ── LA SONDA SIEMBRA SU ESTADO, NO LO SUPONE ────────────────────────────
+  //
+  // Las cuatro comprobaciones de abajo empiezan por «no hay contactos» y luego
+  // dan de alta a Ana. Eso era cierto mientras el decorado de la demostración
+  // venía vacío; el 29/09/2026 pasó a traer tres contactos —para que Inicio no
+  // dijera «Contactos · aún no» con la tabla llena— y la sonda se cayó entera:
+  // la fila 1 ya no era Ana, así que «la ficha enseña 2 canales de 3».
+  //
+  // El defecto era de la sonda, no del producto. Una sonda que depende de un
+  // decorado que existe para otra cosa mide dos cosas a la vez y se rompe
+  // cuando cambia cualquiera de las dos. El estado de la vista previa vive en
+  // `sessionStorage` bajo esta clave, así que se escribe antes de cargar y la
+  // pantalla arranca donde esta sonda la necesita.
+
+  //
+  // Se siembra una sola vez, por la misma razón que en `vista-previa.mjs`: lo
+  // que la sonda escriba después tiene que sobrevivir a cualquier recarga.
+  // El §30 prohíbe el almacenamiento del navegador, y con razón: ahí no puede
+  // vivir nada de la aplicación. Esto no es la aplicación — es código que la
+  // sonda inyecta en la página de la DEMOSTRACIÓN para colocar su decorado,
+  // y lo que escribe son contactos de mentira. El llavero no tiene nada que
+  // ver aquí, así que la regla se desactiva en estas tres líneas y sólo en
+  // ellas, con el motivo a la vista.
+  /* eslint-disable no-restricted-syntax */
+  await pagina.addInitScript((valor) => {
+    try {
+      if (sessionStorage.getItem('arles-sonda-sembrada')) return
+      sessionStorage.setItem('arles-vista-previa', valor)
+      sessionStorage.setItem('arles-sonda-sembrada', '1')
+    } catch { /* bloqueado: se sigue con el decorado y la sonda lo dirá */ }
+  }, JSON.stringify({ contactos: [] }))
+  /* eslint-enable no-restricted-syntax */
+
   await pagina.goto(`file://${ARCHIVO}#/contactos`, { waitUntil: 'load' })
   await pagina.waitForTimeout(1200)
 

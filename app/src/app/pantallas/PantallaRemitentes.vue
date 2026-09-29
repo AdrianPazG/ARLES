@@ -91,11 +91,12 @@ const cifrados = computed(() => [
 const nota = computed(() => {
   if (!store.cargada || store.remitentes.length === 0) return ''
   return store.porConfigurar > 0
-    ? t('remitentes.notaConPendientes', {
-        cuantas: store.remitentes.length,
-        pendientes: store.porConfigurar,
-      })
-    : t('remitentes.nota', { cuantas: store.remitentes.length })
+    ? t(
+        'remitentes.notaConPendientes',
+        { cuantas: store.remitentes.length, pendientes: store.porConfigurar },
+        store.remitentes.length,
+      )
+    : t('remitentes.nota', { cuantas: store.remitentes.length }, store.remitentes.length)
 })
 
 const errorGeneral = computed(() =>

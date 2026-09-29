@@ -1910,17 +1910,40 @@ def la_vista_previa_no_miente_sobre_las_rutas():
         _re.findall(r'Self::(\w+)\s*=>\s*Some\("([^"]+)"\)', cuerpo.group(1) if cuerpo else "")
     )
 
+    # ── LA CLAVE SE LEE, NO SE ADIVINA ───────────────────────────────────
+    #
+    # Esto comparaba contra el nombre de la variante en minúsculas, dando por
+    # hecho que `PrimeraCampana` viaja como «primeracampana». Viaja como
+    # «campana», que es lo que devuelve `clave()`. Resultado: la comprobación
+    # denunciaba una divergencia que no existía, y lo hizo el 29/09/2026 —una
+    # hora de buscar un defecto en el simulador, que estaba bien—.
+    #
+    # Una comprobación que se inventa la mitad del contrato no verifica el
+    # contrato: verifica su propia suposición.
+    cuerpo_clave = _re.search(
+        r"pub fn clave\(self\) -> &'static str \{(.*?)\n    \}", nucleo, _re.S
+    )
+    clave_de = dict(
+        _re.findall(
+            r'Self::(\w+)\s*=>\s*"([^"]+)"', cuerpo_clave.group(1) if cuerpo_clave else ""
+        )
+    )
+
     # Las del simulador: `['empresa', hay, true, '3.1', '/inicio/configuracion'],`
+    #
+    # Se lee hasta el final de la LÍNEA y no hasta el primer `]`. Con el corchete
+    # la fila de contactos —`(e.contactos || []).length > 0`— era invisible: el
+    # `[]` de la lista vacía cerraba el patrón antes de tiempo. La comprobación
+    # llevaba desde entonces sin mirar ese paso y no lo decía.
     del_simulador = {
         clave: ruta
         for clave, ruta in _re.findall(
-            r"\[\s*'(\w+)',[^\]]*?'[\d.]+',\s*'([^']+)'\s*\]", generador
+            r"\[\s*'(\w+)',[^\n]*?'[\d.]+',\s*'([^']+)'\s*\]", generador
         )
     }
 
-    # Se comparan por la clave en minúsculas, que es como el núcleo las nombra
-    # para el frontend (`PasoDeOnboarding::clave`).
-    esperado = {k.lower(): v for k, v in del_nucleo.items()}
+    # Se comparan por la clave con la que el núcleo las nombra para el frontend.
+    esperado = {clave_de.get(k, k.lower()): v for k, v in del_nucleo.items()}
     divergen = [
         f"{k}: el núcleo dice {esperado.get(k, 'sin ruta')!r}, la vista previa {v!r}"
         for k, v in del_simulador.items()

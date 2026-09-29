@@ -80,8 +80,22 @@ impl PasoDeOnboarding {
             // pantalla sin apuntarla aquí.
             Self::Contactos => Some("/contactos"),
             Self::Remitente => Some("/remitentes"),
-            // Las demás pantallas llegan en sus entregas. Ver `entrega`.
-            _ => None,
+            // Y volvió a pasar, esta vez con dos pantallas, el 29/09/2026.
+            //
+            // `PantallaCampanas` existe desde la 6.4 y la de plantillas desde
+            // la 6.8a, y las dos seguían aquí como «llega en la entrega 6».
+            // Lo encontró la comprobación de la fase 3 al alinear el simulador
+            // de la vista previa: el simulador ya llevaba a las pantallas
+            // nuevas y el núcleo no, así que **divergieron**, que es
+            // exactamente lo que esa comprobación existe para cazar.
+            //
+            // La lección es la del comentario de arriba, y sigue sin
+            // automatizarse del todo: entregar una pantalla incluye venir aquí.
+            Self::Plantilla => Some("/campanas/plantillas"),
+            Self::PrimeraCampana => Some("/campanas"),
+            // La ventana de envío se configura dentro del asistente, no en una
+            // pantalla propia, así que no tiene a dónde llevar.
+            Self::VentanaDeEjecucion => None,
         }
     }
 
@@ -211,15 +225,27 @@ mod tests {
             );
         }
 
-        // Y los que todavía no existen no inventan una ruta: un botón que
-        // lleva a una pantalla vacía es peor que no tener botón.
+        // Plantilla y PrimeraCampana entraron el 29/09/2026, cuando esta misma
+        // prueba las tenía escritas como «todavía no existen» con las dos
+        // pantallas construidas —la de campañas desde la 6.4, la de plantillas
+        // desde la 6.8a—. Hizo su trabajo: falló al darles ruta, y obligó a
+        // mirar si la ruta era de verdad o inventada.
         for paso in [
             PasoDeOnboarding::Plantilla,
-            PasoDeOnboarding::VentanaDeEjecucion,
             PasoDeOnboarding::PrimeraCampana,
         ] {
-            assert_eq!(paso.ruta(), None, "{paso:?} todavía no tiene pantalla");
+            assert!(paso.ruta().is_some(), "{paso:?} ya tiene pantalla");
         }
+
+        // Y el que todavía no existe no inventa una ruta: un botón que lleva a
+        // una pantalla vacía es peor que no tener botón. La ventana de envío no
+        // tiene pantalla propia —se configura dentro del asistente—, así que
+        // esta rama sigue siendo la garantía viva de la regla.
+        assert_eq!(
+            PasoDeOnboarding::VentanaDeEjecucion.ruta(),
+            None,
+            "la ventana se configura en el asistente, no en una pantalla"
+        );
     }
     use super::*;
 
@@ -284,7 +310,10 @@ mod tests {
             ..RecuentoDeAlta::default()
         };
         let l = ListaDeOnboarding::desde(&r);
-        assert_eq!(l.siguiente, None, "lo construido ya está hecho");
+        // Con empresa, remitente y contactos hechos, el siguiente que se puede
+        // hacer es la plantilla: su pantalla existe desde la 6.8a. Antes de esa
+        // entrega no había ninguno más y esto era `None`.
+        assert_eq!(l.siguiente, Some(PasoDeOnboarding::Plantilla));
         assert!(!l.terminada());
     }
 

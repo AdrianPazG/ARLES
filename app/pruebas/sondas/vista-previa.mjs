@@ -82,6 +82,40 @@ try {
   })
   pagina.on('requestfailed', (r) => quejas.push(`petición: ${r.url().slice(0, 120)}`))
 
+  // ── ESTA SONDA RECORRE «LA PRIMERA VEZ», Y HAY QUE PEDIRLA ──────────────
+  //
+  // El bloque A de la checklist es lo que ve alguien que abre ARLES por
+  // primera vez: la portada, el botón de configurar la empresa, el alta. Eso
+  // dejó de ser el arranque de la vista previa el 29/09/2026, cuando el
+  // decorado pasó a traer la empresa ya configurada —para que la demostración
+  // no se contara dos historias a la vez—. La sonda se quedó esperando
+  // treinta segundos un botón que ya no existía, y murió con un timeout.
+  //
+  // Vaciar el estado guardado devuelve a la pantalla de primera vez, que es
+  // exactamente lo que estas comprobaciones miden. Un `{}` basta: el simulador
+  // sirve el decorado sólo cuando no hay NADA guardado.
+
+  //
+  // Se siembra **una sola vez**: `addInitScript` corre en cada carga, y la
+  // comprobación E-3 recarga la página a propósito para ver si el tema elegido
+  // se recuerda. Sin la marca, la siembra borraba esa preferencia en la
+  // recarga y la sonda acusaba al producto de no recordar nada.
+  // El §30 prohíbe el almacenamiento del navegador, y con razón: ahí no puede
+  // vivir nada de la aplicación. Esto no es la aplicación — es código que la
+  // sonda inyecta en la página de la DEMOSTRACIÓN para colocar su decorado,
+  // y lo que escribe son contactos de mentira. El llavero no tiene nada que
+  // ver aquí, así que la regla se desactiva en estas tres líneas y sólo en
+  // ellas, con el motivo a la vista.
+  /* eslint-disable no-restricted-syntax */
+  await pagina.addInitScript((valor) => {
+    try {
+      if (sessionStorage.getItem('arles-sonda-sembrada')) return
+      sessionStorage.setItem('arles-vista-previa', valor)
+      sessionStorage.setItem('arles-sonda-sembrada', '1')
+    } catch { /* bloqueado: se sigue con el decorado y la sonda lo dirá */ }
+  }, '{}')
+  /* eslint-enable no-restricted-syntax */
+
   // `file://`, no `http://`. Es la diferencia entre medir lo que va a pasar y
   // medir un caso que no se va a dar.
   await pagina.goto(`file://${ARCHIVO}`, { waitUntil: 'load' })

@@ -284,9 +284,16 @@ que **no se puede lanzar una campaña entera por WhatsApp**, solo el envío de
 prueba. Y las respuestas no se pueden contar sin el «relay ciego» que Dirección
 decidió el 29/09/2026 y que no existe todavía.
 
-**Lo siguiente:** la entrega **6.8** —el editor de plantillas y firmas— que la
-Fase 6 dejó pendiente y que bloquea crear una campaña entera desde la interfaz;
-después la **Fase 7 · Actividad**.
+**Cerrada la 6.8** —el editor de plantillas y firmas, y el registro de las
+plantillas aprobadas de Meta—, que era lo que bloqueaba crear una campaña
+entera desde la interfaz.
+
+**Y cerrada la auditoría de recorrido** (A1 a A3): el inventario de cada
+pantalla y cada acción, las nueve insignias ilegibles, y la revisión **a ojo**
+de las trece pantallas en un navegador, que encontró siete cosas con todas las
+sondas en verde. Está contado más arriba, en «Lo que sólo se ve mirando».
+
+**Lo siguiente:** la **Fase 7 · Actividad**.
 
 **Para una demostración real** con correo y WhatsApp que llegan de verdad:
 `documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md`.
@@ -315,6 +322,33 @@ Los cinco los caza ahora `validar.py --fase W`:
 `toda_pantalla_se_puede_abrir` y la sonda del recorrido.
 
 **Al añadir algo, la pregunta no es «¿funciona?» sino «¿quién lo llama?».**
+
+### Lo que sólo se ve mirando, y no midiendo
+
+Las sondas miden contrastes, focos, desbordes y textos. Nada de eso caza un
+dibujo que miente ni una pantalla que empieza en otro sitio. La revisión del
+29/09/2026 —abrir la demostración y **mirar** las trece pantallas una tras
+otra— encontró cuatro cosas que estaban en verde:
+
+1. **Ajustes empezaba 300 px más a la derecha** que las otras doce: un
+   `max-width` sobre `.pantalla`, que el armazón centra. Cada pantalla, sola,
+   se veía bien; el defecto sólo existe al pasar de una a otra.
+2. **Las insignias neutras llevaban un reloj** —el icono de «en cola»— en las
+   ocho que existen: un contador de bajas, «Todos sus canales», una calidad que
+   no hemos preguntado. Ninguna espera nada.
+3. **Actividad hablaba de «roadmap», «andamiaje» y «tokens»**, y con el texto
+   escrito dentro del componente, contra el §139.
+4. **Actividad no tenía salida**: cero acciones, sólo la barra lateral.
+
+Las dos primeras las caza ahora el recorrido y una prueba del componente; la
+lección de las cuatro es la misma: **una pantalla puede pasar todas sus
+comprobaciones y seguir estando mal.** Antes de cerrar una entrega, se abre la
+demostración y se mira.
+
+Y dos de las comprobaciones eran ellas mismas el defecto: la que compara el
+simulador con el núcleo se inventaba el nombre de una clave y su patrón no
+sabía leer una fila que contuviera `[]`, así que llevaba tiempo sin mirar el
+paso de Contactos **sin decirlo**. Es el §2 otra vez.
 
 ### Dos trampas de las herramientas
 

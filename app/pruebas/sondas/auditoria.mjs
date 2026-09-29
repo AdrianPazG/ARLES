@@ -138,7 +138,22 @@ const MEDIR = (sueloDeshabilitado) => {
     if (el.clientWidth < 4) continue
     const cs = getComputedStyle(el)
     const recorta = cs.overflowX === 'hidden' || cs.overflowX === 'clip'
-    const cortado = recorta && el.scrollWidth > el.clientWidth + 1
+
+    // ── UN TRUNCADO CON PUNTOS SUSPENSIVOS NO ES UN DEFECTO ───────────────
+    //
+    // Lo que esta comprobación busca es texto **cortado en seco**, que se lee
+    // mal sin que nada lo avise. Una celda de tabla que trunca con
+    // `text-overflow: ellipsis` está haciendo lo contrario: recorta a
+    // propósito, lo dice con los tres puntos, y el valor completo está en la
+    // ficha de al lado.
+    //
+    // Se añadió el 29/09/2026: en cuanto la demostración trajo contactos con
+    // nombres de empresa largos, las celdas de la tabla salieron trece veces
+    // —cuatro por cada ancho— y no había nada que arreglar. Un aviso que
+    // siempre está es un aviso que se deja de leer, que es la misma razón por
+    // la que se acotó el desborde de página unas líneas más arriba.
+    const truncaAdrede = cs.textOverflow === 'ellipsis'
+    const cortado = recorta && !truncaAdrede && el.scrollWidth > el.clientWidth + 1
     const fuera = el.getBoundingClientRect().right > ancho + 1
     if (!cortado && !fuera) continue
     out.desbordes.push({
