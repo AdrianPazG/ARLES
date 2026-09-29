@@ -1,0 +1,490 @@
+//! Sustituir `{{variable}}` en un mensaje. Y nada más.
+//!
+//! ─────────────────────────────────────────────────────────────────────────
+//! ESTE MOTOR NO SABE HACER NADA MÁS QUE SUSTITUIR, Y ES LO IMPORTANTE
+//!
+//! No hay condicionales. No hay bucles. No hay funciones, filtros, ni
+//! aritmética. No se puede escribir `{{#if}}`, ni `{{contacto.nombre|mayus}}`,
+//! ni nada que se parezca. **Sólo `{{clave}}` contra una lista cerrada de
+//! claves conocidas.**
+//!
+//! La tentación de usar una biblioteca de plantillas hecha —Handlebars, Tera—
+//! es real y se rechaza a propósito (ADR-0006). Esas bibliotecas evalúan
+//! expresiones, y aquí las plantillas van a llevar **datos de contacto
+//! importados de un XLSX que no escribimos nosotros**. Un motor con lógica
+//! sobre datos ajenos es una vía de ejecución, y el precio de evitarla es
+//! escribir estas ciento y pico líneas.
+//!
+//! También hay un precio de producto, y es pequeño: no se puede escribir «Hola
+//! {{nombre}}» y que ponga «Hola» a secas cuando no hay nombre. Para eso está
+//! el valor de reserva, que se elige al definir la variable y no dentro de la
+//! plantilla.
+//!
+//! ─────────────────────────────────────────────────────────────────────────
+//! LO QUE SE SUSTITUYE NO SE VUELVE A MIRAR
+//!
+//! El resultado de una sustitución **no se analiza otra vez**. Si el nombre de
+//! un contacto fuera literalmente `{{empresa}}`, se queda así en el mensaje:
+//! no se expande.
+//!
+//! Sin esta regla, un contacto importado de un archivo ajeno podría escribir
+//! plantilla — y eso es exactamente la vía de ejecución que este módulo existe
+//! para cerrar. Hay una prueba que lo sostiene.
+
+use std::collections::BTreeMap;
+use std::fmt;
+
+use serde::Serialize;
+
+/// Las variables que ARLES conoce. **La lista es cerrada.**
+///
+/// Cerrada y no abierta a propósito: una lista abierta —«cualquier columna del
+/// archivo importado»— convertiría el nombre de una columna en el nombre de una
+/// variable, y entonces el archivo de un tercero decidiría qué se puede escribir
+/// en una plantilla.
+///
+/// Crecer está previsto: se añade una variante aquí, su texto en la interfaz, y
+/// el `match` de [`Variable::de_clave`] deja de compilar hasta que alguien
+/// decida de dónde sale el valor. Ese error de compilación es la característica.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Variable {
+    /// El nombre de pila del contacto.
+    Nombre,
+    /// Su apellido.
+    Apellido,
+    /// La empresa del contacto, no la que envía.
+    Empresa,
+    /// El nombre comercial de **quien envía**. Sale de la configuración, no
+    /// del contacto: es el mismo para toda la campaña.
+    MiEmpresa,
+}
+
+impl Variable {
+    /// Todas, en el orden en que se ofrecen al escribir una plantilla.
+    ///
+    /// Primero las del contacto, que son las que se usan; la de la empresa
+    /// propia al final, porque casi siempre ya está escrita en la firma.
+    pub const TODAS: &'static [Self] =
+        &[Self::Nombre, Self::Apellido, Self::Empresa, Self::MiEmpresa];
+
+    /// Cómo se escribe dentro de `{{ }}`.
+    ///
+    /// **Es un contrato con las plantillas ya guardadas.** Cambiar una de estas
+    /// cadenas deja de resolver la variable en todas las plantillas escritas
+    /// hasta hoy — y no falla: el texto saldría con el `{{nombre}}` en crudo o
+    /// con el valor de reserva. Hay una prueba que las congela.
+    #[must_use]
+    pub const fn clave(self) -> &'static str {
+        match self {
+            Self::Nombre => "nombre",
+            Self::Apellido => "apellido",
+            Self::Empresa => "empresa",
+            Self::MiEmpresa => "mi_empresa",
+        }
+    }
+
+    /// La variable que corresponde a una clave, si existe.
+    #[must_use]
+    pub fn de_clave(clave: &str) -> Option<Self> {
+        Self::TODAS.iter().copied().find(|v| v.clave() == clave)
+    }
+
+    /// La clave del texto que la describe en la interfaz (§139).
+    #[must_use]
+    pub const fn clave_i18n(self) -> &'static str {
+        match self {
+            Self::Nombre => "plantilla.variable.nombre",
+            Self::Apellido => "plantilla.variable.apellido",
+            Self::Empresa => "plantilla.variable.empresa",
+            Self::MiEmpresa => "plantilla.variable.miEmpresa",
+        }
+    }
+}
+
+impl fmt::Display for Variable {
+    /// Cómo se escribe entera, lista para pegar en una plantilla.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{{{{{}}}}}", self.clave())
+    }
+}
+
+/// Lo que se sabe de un contacto a la hora de escribirle.
+///
+/// Es un mapa cerrado y no un diccionario libre: ver la nota de [`Variable`].
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Valores(BTreeMap<Variable, String>);
+
+impl Valores {
+    #[must_use]
+    pub fn nuevos() -> Self {
+        Self::default()
+    }
+
+    /// Da valor a una variable. Un valor en blanco cuenta como **ausente**.
+    ///
+    /// Que el blanco cuente como ausente no es pereza: en un archivo importado,
+    /// una celda vacía y una celda con un espacio son lo mismo para quien la
+    /// escribió, y tratarlas distinto haría que la mitad de los contactos
+    /// recibieran «Hola  ,» y la otra mitad el valor de reserva.
+    #[must_use]
+    pub fn con(mut self, variable: Variable, valor: &str) -> Self {
+        let valor = valor.trim();
+        if !valor.is_empty() {
+            self.0.insert(variable, valor.to_owned());
+        }
+        self
+    }
+
+    /// El valor de una variable, si lo hay.
+    #[must_use]
+    pub fn de(&self, variable: Variable) -> Option<&str> {
+        self.0.get(&variable).map(String::as_str)
+    }
+}
+
+/// Qué poner cuando una variable no tiene valor para este contacto.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTO ES UNA DECISIÓN Y NO UN DETALLE
+///
+/// Es el caso más común de una importación real: una columna a medio rellenar.
+/// Y las dos salidas fáciles son malas.
+///
+/// **Dejar el hueco** produce «Hola ,» — que se lee como un error del programa,
+/// y encima delata que era un correo automático.
+///
+/// **Dejar el `{{nombre}}` en crudo** es peor: se manda a un cliente el nombre
+/// de una variable, y ahí ya no hay duda de que nadie lo revisó.
+///
+/// Así que el valor de reserva se elige **al escribir la plantilla** y el
+/// preflight cuenta a cuántos contactos les va a tocar, para que se pueda
+/// decidir con una cifra delante y no a ciegas (§94).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum SiFalta {
+    /// Se pone lo que se haya escrito. Vacío es una opción legítima.
+    #[default]
+    Nada,
+    /// Un texto fijo: «cliente», «equipo», lo que se elija.
+    Esto(String),
+}
+
+/// Una plantilla lista para rellenar.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Plantilla {
+    texto: String,
+    si_falta: SiFalta,
+}
+
+/// Lo que quedó al rellenar una plantilla.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Rellenada {
+    /// El texto, con las variables ya sustituidas.
+    pub texto: String,
+    /// Qué variables no tenían valor y se rellenaron con la reserva.
+    ///
+    /// Se devuelve en vez de tragársela porque es lo que el preflight cuenta
+    /// para decir «a 34 contactos les falta el nombre» antes de activar.
+    pub faltaron: Vec<Variable>,
+}
+
+impl Plantilla {
+    /// Prepara una plantilla.
+    #[must_use]
+    pub fn nueva(texto: &str, si_falta: SiFalta) -> Self {
+        Self {
+            texto: texto.to_owned(),
+            si_falta,
+        }
+    }
+
+    /// Las variables que esta plantilla usa, sin repetir y en orden.
+    ///
+    /// Lo que **no** reconoce —`{{fecha}}`, `{{ nombre }}` con espacios, un
+    /// `{{` sin cerrar— no aparece aquí y tampoco se sustituye: sale tal cual.
+    /// Es deliberado: una plantilla que se «arregla» sola esconde la errata
+    /// hasta que el correo ya salió.
+    #[must_use]
+    pub fn variables(&self) -> Vec<Variable> {
+        let mut vistas = Vec::new();
+        for v in recorrer(&self.texto).filter_map(|t| match t {
+            Trozo::Variable(v) => Some(v),
+            Trozo::Texto(_) => None,
+        }) {
+            if !vistas.contains(&v) {
+                vistas.push(v);
+            }
+        }
+        vistas
+    }
+
+    /// Rellena la plantilla con lo que se sepa de un contacto.
+    ///
+    /// **Lo sustituido no se vuelve a mirar**: si un valor contiene
+    /// `{{empresa}}`, se queda así. Ver la nota de la cabecera.
+    #[must_use]
+    pub fn rellenar(&self, valores: &Valores) -> Rellenada {
+        let mut texto = String::with_capacity(self.texto.len());
+        let mut faltaron = Vec::new();
+
+        for trozo in recorrer(&self.texto) {
+            match trozo {
+                // El texto de alrededor se copia tal cual.
+                Trozo::Texto(t) => texto.push_str(t),
+                Trozo::Variable(v) => match valores.de(v) {
+                    Some(valor) => texto.push_str(valor),
+                    None => {
+                        if !faltaron.contains(&v) {
+                            faltaron.push(v);
+                        }
+                        if let SiFalta::Esto(reserva) = &self.si_falta {
+                            texto.push_str(reserva);
+                        }
+                    }
+                },
+            }
+        }
+
+        Rellenada { texto, faltaron }
+    }
+}
+
+/// Un trozo del texto: o es texto, o es una variable reconocida.
+#[derive(Debug, PartialEq, Eq)]
+enum Trozo<'a> {
+    Texto(&'a str),
+    Variable(Variable),
+}
+
+/// Parte el texto en trozos. **Es todo el análisis que se hace.**
+///
+/// Recorre buscando `{{`, y sólo si lo que sigue es una clave conocida cerrada
+/// por `}}` lo trata como variable. Cualquier otra cosa es texto.
+///
+/// No hay estado, no hay pila, no hay recursión: por eso no puede evaluar nada.
+fn recorrer(texto: &str) -> impl Iterator<Item = Trozo<'_>> {
+    let mut resto = texto;
+    std::iter::from_fn(move || {
+        if resto.is_empty() {
+            return None;
+        }
+
+        let Some(abre) = resto.find("{{") else {
+            let todo = resto;
+            resto = "";
+            return Some(Trozo::Texto(todo));
+        };
+
+        // Hay texto antes de la llave: se devuelve primero.
+        if abre > 0 {
+            let (antes, despues) = resto.split_at(abre);
+            resto = despues;
+            return Some(Trozo::Texto(antes));
+        }
+
+        // `resto` empieza por `{{`. ¿Cierra, y con una clave conocida?
+        let dentro = &resto[2..];
+        match dentro
+            .find("}}")
+            .and_then(|cierra| Variable::de_clave(&dentro[..cierra]).map(|v| (v, cierra)))
+        {
+            Some((variable, cierra)) => {
+                resto = &dentro[cierra + 2..];
+                Some(Trozo::Variable(variable))
+            }
+            // No cierra, o la clave no existe: las dos llaves son texto. Se
+            // devuelven solas para que la búsqueda siga después de ellas y un
+            // `{{{{nombre}}` no se quede dando vueltas.
+            None => {
+                resto = dentro;
+                Some(Trozo::Texto("{{"))
+            }
+        }
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ana() -> Valores {
+        Valores::nuevos()
+            .con(Variable::Nombre, "Ana")
+            .con(Variable::Empresa, "Panadería Rosa")
+    }
+
+    #[test]
+    fn sustituye_lo_que_conoce_y_deja_el_resto() {
+        let p = Plantilla::nueva("Hola {{nombre}}, ¿cómo va {{empresa}}?", SiFalta::Nada);
+        assert_eq!(
+            p.rellenar(&ana()).texto,
+            "Hola Ana, ¿cómo va Panadería Rosa?"
+        );
+    }
+
+    /// **Lo sustituido no se vuelve a analizar.**
+    ///
+    /// Es la garantía que cierra la vía de ejecución. Los datos de contacto
+    /// vienen de un archivo que no escribimos nosotros; si el valor de una
+    /// variable pudiera contener plantilla, quien escribiera ese archivo
+    /// escribiría el mensaje.
+    ///
+    /// Verificada rompiéndola el 29/09/2026: haciendo que `rellenar` se llame a
+    /// sí misma sobre el resultado, esta prueba falla.
+    #[test]
+    fn un_valor_que_parece_plantilla_no_se_expande() {
+        let travieso = Valores::nuevos()
+            .con(Variable::Nombre, "{{empresa}}")
+            .con(Variable::Empresa, "ACME");
+
+        let p = Plantilla::nueva("Hola {{nombre}}", SiFalta::Nada);
+        assert_eq!(
+            p.rellenar(&travieso).texto,
+            "Hola {{empresa}}",
+            "el valor de un contacto no puede escribir plantilla"
+        );
+    }
+
+    /// **Una variable que no existe se queda tal cual.**
+    ///
+    /// No se borra ni se «arregla»: una plantilla que se corrige sola esconde
+    /// la errata hasta que el correo ya salió, y entonces el cliente recibe un
+    /// hueco sin que nadie sepa por qué.
+    #[test]
+    fn una_variable_que_no_existe_sale_en_crudo() {
+        let p = Plantilla::nueva("Hola {{apodo}} de {{empresa}}", SiFalta::Nada);
+        assert_eq!(p.rellenar(&ana()).texto, "Hola {{apodo}} de Panadería Rosa");
+        assert_eq!(p.variables(), vec![Variable::Empresa]);
+    }
+
+    /// **Y nada que se parezca a lógica se ejecuta.**
+    ///
+    /// Es la razón de no usar una biblioteca de plantillas hecha (ADR-0006).
+    /// Cada una de estas líneas es sintaxis válida en Handlebars o en Tera.
+    #[test]
+    fn nada_que_parezca_logica_se_ejecuta() {
+        for intento in [
+            "{{#if nombre}}hola{{/if}}",
+            "{{#each contactos}}x{{/each}}",
+            "{{nombre|mayusculas}}",
+            "{{ nombre }}",
+            "{% for x in y %}",
+            "{{7*7}}",
+            "{{> otra_plantilla}}",
+        ] {
+            let p = Plantilla::nueva(intento, SiFalta::Nada);
+            assert_eq!(
+                p.rellenar(&ana()).texto,
+                intento,
+                "esto no se puede interpretar: {intento}"
+            );
+            assert!(p.variables().is_empty(), "no hay variables en {intento}");
+        }
+    }
+
+    /// **Una llave suelta no cuelga, no se come texto y no se inventa nada.**
+    ///
+    /// Se comprueba carácter por carácter, con la salida exacta de cada caso.
+    /// La primera versión de esta prueba aceptaba «que contenga "nombre" **o**
+    /// que sea "{{"», y con ese `o` casi no podía fallar: es el fallo del §2 en
+    /// su forma más común, una comprobación que pasa dijera lo que dijera el
+    /// código. Se deja escrito porque volvió a aparecer aquí.
+    ///
+    /// El tercer caso es el que importa: `{{{{nombre}}` son dos llaves sueltas
+    /// **seguidas de una variable de verdad**, y las dos cosas tienen que salir
+    /// bien. Si el recorrido no avanzara tras las llaves que no cierran, se
+    /// quedaría dando vueltas sobre ellas para siempre.
+    #[test]
+    fn una_llave_sin_cerrar_no_rompe_nada() {
+        for (entra, sale) in [
+            ("{{", "{{"),
+            ("{{nombre", "{{nombre"),
+            ("{{{{nombre}}", "{{Ana"),
+            ("}}nombre{{", "}}nombre{{"),
+            ("{{}}", "{{}}"),
+            ("a{{b}}c", "a{{b}}c"),
+        ] {
+            let p = Plantilla::nueva(entra, SiFalta::Nada);
+            assert_eq!(p.rellenar(&ana()).texto, sale, "con la entrada «{entra}»");
+        }
+    }
+
+    /// **Lo que falta se cuenta, no se traga.**
+    ///
+    /// Es lo que el preflight enseña antes de activar: «a 34 contactos les
+    /// falta el nombre» es una cifra con la que se puede decidir (§94).
+    #[test]
+    fn lo_que_falta_se_devuelve_para_poder_contarlo() {
+        let p = Plantilla::nueva("Hola {{nombre}} {{apellido}}", SiFalta::Nada);
+        let r = p.rellenar(&ana());
+        assert_eq!(r.faltaron, vec![Variable::Apellido]);
+        assert_eq!(r.texto, "Hola Ana ");
+    }
+
+    /// El valor de reserva se usa donde falta, y sólo ahí.
+    #[test]
+    fn el_valor_de_reserva_tapa_el_hueco() {
+        let p = Plantilla::nueva(
+            "Hola {{nombre}} {{apellido}}",
+            SiFalta::Esto("cliente".to_owned()),
+        );
+        assert_eq!(p.rellenar(&ana()).texto, "Hola Ana cliente");
+    }
+
+    /// **Un valor en blanco cuenta como ausente.**
+    ///
+    /// En un archivo importado, una celda vacía y una con un espacio son lo
+    /// mismo para quien la escribió. Tratarlas distinto haría que la mitad de
+    /// los contactos recibieran «Hola  ,» y la otra mitad el valor de reserva.
+    #[test]
+    fn un_valor_en_blanco_cuenta_como_que_falta() {
+        let v = Valores::nuevos().con(Variable::Nombre, "   ");
+        let p = Plantilla::nueva("Hola {{nombre}}", SiFalta::Esto("cliente".to_owned()));
+        let r = p.rellenar(&v);
+        assert_eq!(r.texto, "Hola cliente");
+        assert_eq!(r.faltaron, vec![Variable::Nombre]);
+    }
+
+    /// Las variables se listan sin repetir, en el orden en que aparecen.
+    #[test]
+    fn las_variables_se_listan_una_vez_y_en_orden() {
+        let p = Plantilla::nueva("{{empresa}} y {{nombre}} y {{empresa}}", SiFalta::Nada);
+        assert_eq!(p.variables(), vec![Variable::Empresa, Variable::Nombre]);
+    }
+
+    /// **Las claves son un contrato con las plantillas ya guardadas.**
+    ///
+    /// Cambiar una deja de resolver esa variable en todo lo escrito hasta hoy,
+    /// y **no falla**: el mensaje saldría con el `{{nombre}}` en crudo o con el
+    /// valor de reserva. Por eso se congelan aquí.
+    #[test]
+    fn las_claves_de_las_variables_son_estables() {
+        assert_eq!(Variable::Nombre.clave(), "nombre");
+        assert_eq!(Variable::Apellido.clave(), "apellido");
+        assert_eq!(Variable::Empresa.clave(), "empresa");
+        assert_eq!(Variable::MiEmpresa.clave(), "mi_empresa");
+        assert_eq!(Variable::TODAS.len(), 4);
+    }
+
+    /// Cada variable se escribe entera igual que se reconoce.
+    ///
+    /// Sin esto, el botón que pega `{{nombre}}` en el editor podría escribir
+    /// algo que el motor no reconoce, y nadie lo vería hasta el primer envío.
+    #[test]
+    fn como_se_escribe_es_como_se_reconoce() {
+        for v in Variable::TODAS {
+            let escrita = v.to_string();
+            let p = Plantilla::nueva(&escrita, SiFalta::Nada);
+            assert_eq!(p.variables(), vec![*v], "no se reconoce «{escrita}»");
+        }
+    }
+
+    /// Un texto sin variables sale idéntico, y no se pierde un carácter.
+    #[test]
+    fn un_texto_sin_variables_sale_igual() {
+        let texto = "Estimado cliente:\n\nGracias por su compra.\n\n— El equipo";
+        let p = Plantilla::nueva(texto, SiFalta::Nada);
+        assert_eq!(p.rellenar(&ana()).texto, texto);
+        assert!(p.variables().is_empty());
+    }
+}

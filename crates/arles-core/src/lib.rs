@@ -30,6 +30,7 @@ pub mod etapa;
 pub mod ids;
 pub mod importacion;
 pub mod onboarding;
+pub mod plantilla;
 pub mod preflight;
 pub mod reintento;
 pub mod ritmo;
