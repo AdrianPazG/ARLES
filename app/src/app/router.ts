@@ -187,6 +187,15 @@ const rutas: RouteRecordRaw[] = [
     meta: { seccion: 'remitentes' },
   },
   {
+    // WhatsApp cuelga de Remitentes y no es sección propia: es el otro canal
+    // desde el que se escribe, y quien busca «desde dónde sale esto» mira ahí.
+    // Una séptima sección rompería además P-11, que fija seis.
+    path: '/remitentes/whatsapp',
+    name: 'whatsapp',
+    component: () => import('@/app/pantallas/PantallaWhatsApp.vue'),
+    meta: { seccion: 'remitentes', subseccion: 'whatsapp', orden: 1 },
+  },
+  {
     path: '/ajustes',
     name: 'ajustes',
     component: () => import('@/app/pantallas/PantallaAjustes.vue'),

@@ -209,13 +209,16 @@ describe('las subsecciones salen de las rutas, no de una lista aparte', () => {
 
   /** Una sección sin hijas devuelve una lista vacía, no `undefined`. */
   it('una sección sin subsecciones devuelve una lista vacía', () => {
+    // `remitentes` era el segundo ejemplo hasta el 29/09/2026, cuando WhatsApp
+    // entró como subsección suya (entrega W.6). La garantía no cambia —una
+    // sección sin subsecciones da lista vacía—, pero el ejemplo sí tenía que
+    // cambiar: dejarlo habría obligado a elegir entre la prueba y la ruta.
     expect(subseccionesDe('ajustes')).toEqual([])
-    expect(subseccionesDe('remitentes')).toEqual([])
   })
 
   /** Toda subsección tiene texto: §139, claves de i18n con traducción. */
   it('toda subsección tiene nombre en español', () => {
-    for (const seccion of ['inicio', 'contactos'] as const) {
+    for (const seccion of ['inicio', 'contactos', 'remitentes'] as const) {
       for (const sub of subseccionesDe(seccion)) {
         const texto = i18n.global.t(sub.clave)
         expect(texto, `${sub.clave} no tiene texto`).not.toBe(sub.clave)

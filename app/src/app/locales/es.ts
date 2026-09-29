@@ -56,6 +56,7 @@ export const es = {
       importar: 'Importar',
       supresion: 'Bajas',
       derechos: 'Derechos',
+      whatsapp: 'WhatsApp',
     },
   },
 
@@ -1995,6 +1996,129 @@ export const es = {
         'Se mandó a {aDonde}. ARLES no puede saber si llegó a la bandeja de ' +
         'entrada: revísala, y mira también la carpeta de correo no deseado.',
 
+    },
+  },
+
+  // ── El número de WhatsApp · entrega W.6 ──────────────────────────────
+  //
+  // Vive bajo Remitentes porque es el otro canal desde el que se escribe, y
+  // no una sección propia: quien busca «desde dónde sale esto» mira ahí.
+  numeroDeWhatsapp: {
+    titulo: 'WhatsApp',
+    explicacion:
+      'El número de empresa desde el que ARLES manda mensajes de WhatsApp. ' +
+      'Hace falta una cuenta de WhatsApp Business con la API de Meta.',
+
+    // §94: cifras, no adjetivos.
+    nota: '{listos} de {total} pueden enviar hoy',
+    notaPorConfirmar: '{porConfirmar} esperan una confirmación tuya',
+
+    vacioTitulo: 'Todavía no hay ningún número',
+    vacioCuerpo:
+      'Añade el número de WhatsApp de tu empresa. Necesitas tenerlo dado de ' +
+      'alta en Meta y a mano su identificador y su token de acceso.',
+
+    anadir: 'Añadir número',
+    guardar: 'Guardar número',
+    cancelar: 'Cancelar',
+
+    // ── Los campos ──
+    nombreVisible: 'Nombre para identificarlo',
+    nombreVisibleAyuda:
+      'Solo para ti, dentro de ARLES. No sale en ningún mensaje.',
+    telefono: 'Número de teléfono',
+    telefonoAyuda:
+      'Con lada, por ejemplo 81 1234 5678. Es el número desde el que verán ' +
+      'llegar los mensajes.',
+    wabaId: 'Identificador de la cuenta de empresa',
+    wabaIdAyuda: 'Meta lo llama WABA ID y lo enseña en su panel.',
+    phoneNumberId: 'Identificador del número',
+    phoneNumberIdAyuda:
+      'Otro número distinto del teléfono. Meta lo llama Phone Number ID.',
+    token: 'Token de acceso',
+    tokenAyuda:
+      'Se guarda en el llavero de tu equipo, nunca en la base de datos. ' +
+      'ARLES no vuelve a enseñártelo: si lo pierdes, genera uno nuevo en Meta.',
+
+    modo: 'Cómo se va a usar',
+    modoAyuda:
+      'Se puede cambiar dando de alta el número otra vez, así que elige con ' +
+      'cuidado: es lo que decide si ARLES te avisa antes de escribir a quien ' +
+      'no te lo pidió.',
+
+    // ── Las dos marcas ──
+    //
+    // Cada una tiene su botón y su explicación. §95: qué pasó, cómo se
+    // arregla, y qué está a salvo.
+    coexistencia: {
+      titulo: 'Coexistencia sin confirmar',
+      cuerpo:
+        'Cuando un número entra en la API de Meta, sale de la aplicación de ' +
+        'WhatsApp Business del teléfono. Con Coexistencia activada, quien ' +
+        'atiende puede seguir respondiendo desde su móvil; sin ella, no.',
+      porQue:
+        'ARLES no puede comprobarlo por su cuenta: te pide que lo confirmes ' +
+        'tú, y deja constancia de cuándo.',
+      boton: 'Confirmo que está en Coexistencia',
+      confirmada: 'Coexistencia confirmada el {cuando}',
+    },
+
+    riesgo: {
+      titulo: 'Este número va a escribir a quien no lo pidió',
+      cuerpo:
+        'En prospección directa, ARLES manda el primer mensaje a personas ' +
+        'que no han dado permiso. Si suficientes lo reportan, Meta puede ' +
+        'inhabilitar el número — y eso no se recupera.',
+      porQue:
+        'A diferencia del correo, aquí no se pierde un mensaje: se pierde la ' +
+        'línea por la que tu empresa atiende a sus clientes.',
+      boton: 'Entiendo el riesgo y lo acepto',
+      aceptado: 'Riesgo aceptado el {cuando}',
+    },
+
+    // ── El estado de cada número ──
+    estado: {
+      connected: 'Conectado',
+      needs_reauth: 'Hay que volver a autorizarlo',
+      circuit_open: 'Detenido por fallos seguidos',
+      disabled: 'Desactivado',
+    },
+
+    puedeEnviar: 'Puede enviar',
+    noPuedeEnviar: 'Todavía no puede enviar',
+
+    // ── La calidad que dice Meta ──
+    //
+    // `sinConsultar` NO es un estado bueno. Un semáforo en verde porque no ha
+    // podido mirar es peor que no tener semáforo.
+    calidad: {
+      etiqueta: 'Calidad del número, según Meta',
+      green: 'Alta',
+      yellow: 'Media — conviene revisar a quién se escribe',
+      red: 'Baja — Meta puede limitar el número',
+      unknown: 'Meta todavía no la ha calculado',
+      sinConsultar: 'No consultada',
+      ayudaSinConsultar:
+        'ARLES no ha podido preguntárselo a Meta. No significa que esté ' +
+        'bien: significa que no se sabe.',
+    },
+
+    limiteDeMeta: 'Meta permite {cuantos} al día',
+    limiteSinSaber: 'Meta no ha dicho cuántos permite al día',
+  },
+
+  // ── Los dos modos del canal (L-9) ────────────────────────────────────
+  //
+  // Las claves las nombra `ModoDelCanal::clave_i18n()` en el núcleo. Faltaban
+  // desde la W.1: el núcleo las declaraba y aquí no existían, así que la
+  // pantalla pedía una clave inexistente y vue-i18n devolvía el nombre de la
+  // clave. Se encontró el 29/09/2026 con la primera prueba que montó la
+  // pantalla de verdad — ninguna prueba de Rust podía verlo, porque el núcleo
+  // solo dice CÓMO se llama el texto, no si alguien lo escribió.
+  whatsapp: {
+    modo: {
+      seguimiento: 'Seguimiento — solo a quien ya escribió',
+      prospeccionDirecta: 'Prospección directa — también a quien no lo pidió',
     },
   },
 
