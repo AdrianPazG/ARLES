@@ -73,6 +73,16 @@ const contrasena = ref('')
 /** La guía de Gmail, plegada por defecto. */
 const ayudaAbierta = ref(false)
 
+/**
+ * Qué cuenta tiene abierto el formulario de «mandar un correo de prueba».
+ *
+ * Una a la vez, y no una bandera por fila: con dos abiertos a la vez sería
+ * posible escribir una dirección en uno y pulsar en el otro.
+ */
+const probandoEnvioDe = ref<string | null>(null)
+/** La dirección a la que mandar la prueba. Vive aquí y se vacía al cerrar. */
+const aDonde = ref('')
+
 const cifrados = computed(() => [
   { valor: 'starttls', texto: t('correo.cifrado.starttls') },
   { valor: 'directo', texto: t('correo.cifrado.directo') },
@@ -183,6 +193,37 @@ async function guardar(): Promise<void> {
 }
 
 /** Probar una cuenta ya guardada, sin abrir el formulario. */
+/**
+ * Abre —o cierra— el formulario de envío de prueba de una cuenta.
+ *
+ * Al abrirlo se propone la propia dirección de la cuenta. Es la que casi
+ * siempre se quiere: mandarse la prueba a uno mismo es la única forma de ver
+ * si llegó, y escribirla a mano es un paso que no aporta nada. Se puede
+ * cambiar.
+ */
+function alternarEnvio(r: Remitente): void {
+  if (probandoEnvioDe.value === r.id) {
+    probandoEnvioDe.value = null
+    aDonde.value = ''
+    return
+  }
+  probandoEnvioDe.value = r.id
+  aDonde.value = r.remitente
+  store.limpiarAvisos()
+}
+
+async function mandarPrueba(r: Remitente): Promise<void> {
+  await store.mandarCorreoDePrueba(r.id, aDonde.value)
+}
+
+/** El texto de por qué no salió el correo, si no salió. */
+const problemaDelEnvio = computed(() => {
+  const p = store.resultadoDelEnvio
+  return p && !p.aceptado && p.problema
+    ? resolverError({ clave: p.problema, detalle: '' })
+    : null
+})
+
 async function probarGuardada(r: Remitente): Promise<void> {
   await store.probar(
     {
@@ -284,12 +325,76 @@ async function probarGuardada(r: Remitente): Promise<void> {
                 {{ t('remitentes.probarDeNuevo') }}
               </ABoton>
               <ABoton
+                variante="sutil"
+                tamano="compacto"
+                @click="alternarEnvio(r)"
+              >
+                {{ t('remitentes.envioDePrueba.titulo') }}
+              </ABoton>
+              <ABoton
                 variante="secundario"
                 tamano="compacto"
                 @click="abrirEdicion(r)"
               >
                 {{ t('remitentes.editar') }}
               </ABoton>
+            </div>
+
+            <!-- ── Mandar un correo de prueba ────────────────────────────
+                 Va plegado y dentro de la fila de su cuenta: es una acción
+                 de ESA cuenta, y sacarlo a un formulario aparte obligaría a
+                 volver a elegir cuál.
+
+                 Y lleva su propia advertencia porque hace algo que ningún
+                 otro botón de esta pantalla hace: **manda un correo de
+                 verdad**. «Probar conexión», al lado, no manda nada. -->
+            <div
+              v-if="probandoEnvioDe === r.id"
+              class="remitentes__envio"
+            >
+              <p class="remitentes__ayuda">
+                {{ t('remitentes.envioDePrueba.explicacion') }}
+              </p>
+
+              <AEntrada
+                v-model="aDonde"
+                :etiqueta="t('remitentes.envioDePrueba.aDonde')"
+                :ayuda="t('remitentes.envioDePrueba.aDondeAyuda')"
+                tipo="email"
+              />
+
+              <ABoton
+                variante="primario"
+                tamano="compacto"
+                :ocupado="store.mandando"
+                @click="mandarPrueba(r)"
+              >
+                {{ store.mandando
+                  ? t('remitentes.envioDePrueba.mandando')
+                  : t('remitentes.envioDePrueba.mandar') }}
+              </ABoton>
+
+              <!-- §65: «aceptó», nunca «entregado». ARLES no puede saber si
+                   llegó a una bandeja, y aquí es donde más tienta decirlo. -->
+              <AAviso
+                v-if="store.resultadoDelEnvio?.aceptado"
+                tono="exito"
+                urgente
+                :titulo="t('remitentes.envioDePrueba.aceptado')"
+              >
+                {{ t('remitentes.envioDePrueba.aceptadoDetalle', {
+                  aDonde: store.resultadoDelEnvio.aDonde,
+                }) }}
+              </AAviso>
+
+              <AAviso
+                v-if="problemaDelEnvio"
+                tono="peligro"
+                urgente
+                :titulo="problemaDelEnvio.que"
+              >
+                {{ problemaDelEnvio.como }} {{ problemaDelEnvio.salvo }}
+              </AAviso>
             </div>
           </li>
         </ul>
@@ -473,6 +578,16 @@ async function probarGuardada(r: Remitente): Promise<void> {
 .remitentes__limites {
   font-size: var(--arles-font-size-caption);
   color: var(--arles-text-muted);
+}
+
+.remitentes__envio {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-3);
+  margin-top: var(--arles-space-3);
+  padding-top: var(--arles-space-3);
+  border-top: var(--arles-border-width) solid var(--arles-border);
 }
 
 .remitentes__acciones {

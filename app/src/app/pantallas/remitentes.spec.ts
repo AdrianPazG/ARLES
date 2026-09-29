@@ -201,3 +201,120 @@ describe('la pantalla de Remitentes', () => {
     expect(valores).toContain('587')
   })
 })
+
+/**
+ * Mandar un correo de prueba.
+ *
+ * Es el botón que cierra R-24 desde la máquina del usuario: «Probar conexión»
+ * dice que la cuenta autentica, y esto dice que **puede enviar**, que no es lo
+ * mismo — una cuenta puede autenticar y que el servidor rechace el remitente.
+ */
+describe('mandar un correo de prueba desde Remitentes', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  async function abrirEnvio(p: ReturnType<typeof mount>): Promise<void> {
+    await p
+      .findAll('button')
+      .find((b) => b.text().includes('Mandar un correo de prueba'))
+      ?.trigger('click')
+  }
+
+  /**
+   * **El formulario avisa de que se manda un correo de verdad.**
+   *
+   * Es lo que distingue este botón de «Probar conexión», que no manda nada.
+   * Sin la advertencia, alguien lo pulsa creyendo que sólo comprueba, y sale un
+   * correo.
+   */
+  it('dice que el correo se envía de verdad', async () => {
+    sembrar([CUENTA])
+    const p = mount(PantallaRemitentes, entorno)
+    await abrirEnvio(p)
+
+    expect(p.text()).toContain('Se envía un correo real')
+  })
+
+  /**
+   * **Propone la propia dirección de la cuenta.**
+   *
+   * Mandarse la prueba a uno mismo es la única forma de ver si llegó, y
+   * escribirla a mano es un paso que no aporta nada.
+   */
+  it('propone la dirección de la propia cuenta', async () => {
+    sembrar([CUENTA])
+    const p = mount(PantallaRemitentes, entorno)
+    await abrirEnvio(p)
+
+    const valores = p.findAll('input').map((i) => (i.element as HTMLInputElement).value)
+    expect(valores).toContain(CUENTA.remitente)
+  })
+
+  /**
+   * **Cuando sale, dice «aceptó» y NUNCA «entregado»** (§65).
+   *
+   * ARLES no puede saber si el correo llegó a una bandeja: sabe que el servidor
+   * se hizo cargo. Éste es el punto de toda la aplicación donde más tienta
+   * decir lo contrario, porque el usuario acaba de pulsar un botón y quiere un
+   * sí.
+   *
+   * Verificada rompiéndola el 29/09/2026: cambiando el texto a «Correo
+   * entregado», esta prueba falla.
+   */
+  it('al salir dice que el servidor lo aceptó, no que llegó', async () => {
+    const store = sembrar([CUENTA])
+    const p = mount(PantallaRemitentes, entorno)
+    await abrirEnvio(p)
+
+    store.resultadoDelEnvio = {
+      aceptado: true,
+      aDonde: 'ventas@telemetry.mx',
+    }
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto).toContain('El servidor aceptó el correo')
+    expect(texto).toContain('no puede saber si llegó')
+    expect(texto).not.toContain('entregado')
+    expect(texto).not.toContain('Entregado')
+  })
+
+  /**
+   * **Y cuando no sale, dice las tres cosas, incluida la que más importa.**
+   *
+   * Ante «esa dirección no existe», quien acaba de mandarse una prueba a sí
+   * mismo tiene que poder ver que **no se ha dado de baja**: en una campaña ese
+   * mismo rechazo del servidor sí suprime.
+   */
+  it('ante un rechazo del destinatario aclara que no se dio de baja a nadie', async () => {
+    const store = sembrar([CUENTA])
+    const p = mount(PantallaRemitentes, entorno)
+    await abrirEnvio(p)
+
+    store.resultadoDelEnvio = {
+      aceptado: false,
+      problema: 'correo.prueba.envio.esaDireccionNoExiste',
+      aDonde: 'noexiste@telemetry.mx',
+    }
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto).toContain('esa dirección no existe')
+    expect(texto).toContain('No se dio de baja a nadie')
+  })
+
+  /**
+   * Sin haber mandado nada, no se anuncia ningún resultado.
+   *
+   * Sin esta prueba, las dos de arriba pasarían igual con un aviso pintado
+   * siempre.
+   */
+  it('no anuncia ningún resultado antes de mandar', async () => {
+    sembrar([CUENTA])
+    const p = mount(PantallaRemitentes, entorno)
+    await abrirEnvio(p)
+
+    const texto = p.text()
+    expect(texto).not.toContain('El servidor aceptó el correo')
+    expect(texto).not.toContain('No se dio de baja a nadie')
+  })
+})

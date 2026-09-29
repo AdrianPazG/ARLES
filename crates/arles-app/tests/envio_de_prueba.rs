@@ -341,3 +341,38 @@ fn la_direccion_se_normaliza_antes_de_mandar() {
         r.a_donde
     );
 }
+
+/// **Probar una cuenta desde Remitentes manda el correo y NO anota nada.**
+///
+/// Son dos preguntas distintas y las dos son legítimas: «¿esta cuenta puede
+/// mandar?» es de la cuenta y se contesta sin campaña de por medio; «¿se hizo
+/// el envío de prueba de esta etapa?» es lo que pregunta el preflight.
+///
+/// Anotar aquí sería el atajo cómodo y rompería la garantía de la 5.5a: una
+/// marca sin etapa sobreviviría a un cambio de remitente, y entonces el punto
+/// del preflight daría luz verde basándose en una prueba de otra cuenta.
+///
+/// Verificada rompiéndola el 29/09/2026: haciendo que
+/// `probar_envio_de_la_cuenta` llame a `registrar_envio_de_prueba`, esta prueba
+/// falla y `arles_manda_un_correo_de_verdad_y_lo_deja_anotado` sigue pasando —
+/// que es justo el par que hay que distinguir.
+#[test]
+fn probar_la_cuenta_manda_el_correo_pero_no_anota_la_prueba_de_ninguna_etapa() {
+    let (_dir, db) = base();
+    let servidor =
+        ServidorCifrado::arrancar(Guion::todo_bien(), ComoCifra::Starttls).expect("arranca");
+
+    let r = arles_app_lib::comandos::mandar_el_correo_para_tests(
+        &adaptador(&servidor),
+        &destino("adrian@telemetry.mx"),
+    );
+
+    assert!(r.aceptado, "el servidor tenía que aceptarlo");
+    assert!(servidor.dijo("RCPT TO"), "mandó el correo de verdad");
+    assert_eq!(
+        db.envio_de_prueba(ETAPA).expect("consulta"),
+        None,
+        "probar una cuenta no puede dar por probada una etapa: la marca del \
+         preflight cuelga de la etapa y del remitente con el que se probó"
+    );
+}

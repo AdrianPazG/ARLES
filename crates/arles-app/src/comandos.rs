@@ -1696,36 +1696,113 @@ fn enviar_la_prueba(
     destino: &arles_core::EmailAddress,
     cuenta: arles_core::ids::EmailAccountId,
 ) -> Result<ResultadoDelEnvioDePrueba, ErrorIpc> {
+    let resultado = mandar_el_correo(proveedor, destino);
+
+    // **La marca sólo se escribe si el servidor aceptó.** Escrita antes, el
+    // preflight daría luz verde a una cuenta que no envía.
+    if resultado.aceptado {
+        db.registrar_envio_de_prueba(etapa, destino.raw(), cuenta)
+            .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+    }
+    Ok(resultado)
+}
+
+/// Manda el correo y traduce lo que pasó. **No escribe nada en la base.**
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTÁ SEPARADO DE LA ANOTACIÓN
+///
+/// Hay dos preguntas distintas y las dos son legítimas:
+///
+/// **«¿Esta cuenta puede mandar un correo?»** es una pregunta de la cuenta. Se
+/// contesta desde Remitentes, no depende de ninguna campaña, y **no se anota**:
+/// no hay etapa a la que atar la respuesta.
+///
+/// **«¿Se hizo el envío de prueba de esta etapa?»** es lo que pregunta el
+/// preflight (§45), y ésa sí se anota, atada a la etapa y al remitente con el
+/// que se probó.
+///
+/// Son la misma conversación SMTP y dos cosas distintas encima. Fundirlas
+/// obligaría a inventar una etapa para poder probar una cuenta, o a dejar la
+/// marca sin etapa — y entonces cambiar de remitente no la invalidaría, que es
+/// justamente la garantía que hace que el punto del preflight signifique algo.
+fn mandar_el_correo(
+    proveedor: &dyn arles_motor::proveedor::Proveedor,
+    destino: &arles_core::EmailAddress,
+) -> ResultadoDelEnvioDePrueba {
     // Una clave propia, que no sale de la cola: un envío de prueba no tiene
     // fila en `message_attempt` y no puede reutilizar la de nadie.
     let clave = format!("prueba-{}", arles_core::ids::MessageAttemptId::nuevo());
 
-    let resultado = proveedor.enviar(&arles_motor::proveedor::Mensaje {
+    match proveedor.enviar(&arles_motor::proveedor::Mensaje {
         para: destino.raw(),
         clave_de_idempotencia: &clave,
-    });
-
-    match resultado {
-        Ok(_) => {
-            db.registrar_envio_de_prueba(etapa, destino.raw(), cuenta)
-                .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
-            Ok(ResultadoDelEnvioDePrueba {
-                aceptado: true,
-                problema: None,
-                a_donde: destino.raw().to_owned(),
-            })
-        }
-        // Un fallo del servidor no es un error del comando: la pantalla tiene
-        // que poder enseñar la dirección y el motivo, y dejar reintentar.
-        //
-        // Y **no se anota nada**: la marca sólo se escribe si el servidor
-        // aceptó.
-        Err(fallo) => Ok(ResultadoDelEnvioDePrueba {
+    }) {
+        Ok(_) => ResultadoDelEnvioDePrueba {
+            aceptado: true,
+            problema: None,
+            a_donde: destino.raw().to_owned(),
+        },
+        // Un fallo del servidor no es un error: la pantalla tiene que poder
+        // enseñar la dirección y el motivo, y dejar reintentar.
+        Err(fallo) => ResultadoDelEnvioDePrueba {
             aceptado: false,
             problema: Some(por_que_no_salio(&fallo).to_owned()),
             a_donde: destino.raw().to_owned(),
-        }),
+        },
     }
+}
+
+/// Manda un correo de prueba **por una cuenta**, sin campaña de por medio.
+///
+/// Es el botón de Remitentes, y contesta la pregunta que «Probar conexión» no
+/// contesta: aquélla dice que la cuenta autentica; ésta dice que **puede
+/// enviar**. No son lo mismo — una cuenta puede autenticar perfectamente y que
+/// el servidor rechace el remitente, o que la dirección no esté autorizada para
+/// enviar desde ese dominio.
+///
+/// **No anota nada**, y es deliberado: la marca del preflight cuelga de una
+/// etapa de campaña, y aquí no hay ninguna. Anotarla sin etapa la haría
+/// sobrevivir a un cambio de remitente, que es lo que la invalida.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si la dirección no vale, si la cuenta no existe o no puede
+/// enviar, o si el llavero no responde. Que el servidor rechace el mensaje **no
+/// es un error**: es un resultado con su `problema`.
+#[tauri::command]
+pub fn probar_envio_de_la_cuenta(
+    estado: tauri::State<'_, EstadoApp>,
+    id: String,
+    a_donde: String,
+) -> Result<ResultadoDelEnvioDePrueba, ErrorIpc> {
+    let destino = arles_core::EmailAddress::parse(&a_donde)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    let cuenta = id.parse::<arles_core::ids::EmailAccountId>().map_err(|_| {
+        ErrorIpc::from(crate::AppError::CuentaNoSirve(
+            crate::fabrica::LaCuentaNoSirve::NoExiste,
+        ))
+    })?;
+
+    let proveedor = crate::fabrica::proveedor_de_la_cuenta(
+        estado.db(),
+        &crate::fabrica::ElLlaveroDelSistema,
+        cuenta,
+        contenido_de_prueba(),
+    )?;
+
+    Ok(mandar_el_correo(&proveedor, &destino))
+}
+
+/// [`mandar_el_correo`], para las pruebas de integración. Ver
+/// [`envio_de_prueba_para_tests`].
+#[doc(hidden)]
+pub fn mandar_el_correo_para_tests(
+    proveedor: &dyn arles_motor::proveedor::Proveedor,
+    destino: &arles_core::EmailAddress,
+) -> ResultadoDelEnvioDePrueba {
+    mandar_el_correo(proveedor, destino)
 }
 
 #[cfg(test)]

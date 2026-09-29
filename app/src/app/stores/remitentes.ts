@@ -81,12 +81,30 @@ export function borradorVacio(): BorradorDeCuenta {
  * vez» la dejaría en la memoria de la webview, que es exactamente donde no
  * tiene que estar (ADR-0011).
  */
+/**
+ * Cómo salió un correo de prueba.
+ *
+ * Coincide con `arles_app::comandos::ResultadoDelEnvioDePrueba`.
+ *
+ * **No hay un campo «entregado»** y no puede haberlo (§65): ARLES sabe que el
+ * servidor se hizo cargo del mensaje, no que llegara a una bandeja.
+ */
+export interface ResultadoDelEnvio {
+  readonly aceptado: boolean
+  /** Clave del texto que explica qué pasó, si no se aceptó. */
+  readonly problema?: string
+  /** La dirección usada, ya normalizada por el núcleo. */
+  readonly aDonde: string
+}
+
 export const useRemitentesStore = defineStore('remitentes', () => {
   const remitentes = ref<readonly Remitente[]>([])
   const cargada = ref(false)
   const cargando = ref(false)
   const guardando = ref(false)
   const probando = ref(false)
+  /** Hay un correo de prueba saliendo ahora mismo. */
+  const mandando = ref(false)
 
   /** Clave de i18n del error de cada campo, por nombre de campo. */
   const erroresDeCampo = ref<Record<string, string>>({})
@@ -95,6 +113,14 @@ export const useRemitentesStore = defineStore('remitentes', () => {
   const diagnostico = ref<string | null>(null)
   /** `true` si el último diagnóstico dice que la cuenta sirve. */
   const laCuentaSirve = ref(false)
+  /**
+   * Cómo salió el último correo de prueba. `null` si no se ha mandado ninguno.
+   *
+   * Va aparte de `diagnostico` porque son dos cosas distintas —autenticar y
+   * enviar— y fundirlas haría que mandar un correo borrara el diagnóstico de la
+   * conexión, o al revés.
+   */
+  const resultadoDelEnvio = ref<ResultadoDelEnvio | null>(null)
 
   const hayRemitentes = computed(() => remitentes.value.length > 0)
   /** Cuántas cuentas hay que configurar (§94: cifras, no adjetivos). */
@@ -175,6 +201,45 @@ export const useRemitentesStore = defineStore('remitentes', () => {
   }
 
   /**
+   * Manda un correo de prueba **por una cuenta ya guardada**.
+   *
+   * ── ESTO NO ES «PROBAR CONEXIÓN», Y SON DOS BOTONES A PROPÓSITO ──
+   *
+   * `probar` dice que la cuenta autentica: se conecta, cifra y entra. Esto dice
+   * que **puede enviar**, que no es lo mismo — una cuenta puede autenticar
+   * perfectamente y que el servidor rechace el remitente, o que la dirección no
+   * esté autorizada a enviar desde ese dominio.
+   *
+   * Y hay una diferencia que el usuario tiene que ver: `probar` no manda nada;
+   * esto **manda un correo de verdad** a la dirección que escriba.
+   *
+   * No anota ninguna prueba de campaña: esa marca cuelga de una etapa, y aquí
+   * no hay ninguna.
+   */
+  async function mandarCorreoDePrueba(id: string, aDonde: string): Promise<boolean> {
+    mandando.value = true
+    limpiarAvisos()
+    resultadoDelEnvio.value = null
+    try {
+      if (!hayNucleo()) {
+        errorGeneral.value = 'error.app.sin_nucleo'
+        return false
+      }
+      const r = await invocar<ResultadoDelEnvio>('probar_envio_de_la_cuenta', {
+        id,
+        aDonde,
+      })
+      resultadoDelEnvio.value = r
+      return r.aceptado
+    } catch (e) {
+      repartirError(e)
+      return false
+    } finally {
+      mandando.value = false
+    }
+  }
+
+  /**
    * Guarda la cuenta. El núcleo la prueba antes y la marca según el resultado.
    *
    * @returns `true` si se guardó, **aunque la prueba no haya pasado**: la
@@ -218,6 +283,8 @@ export const useRemitentesStore = defineStore('remitentes', () => {
     cargando,
     guardando,
     probando,
+    mandando,
+    resultadoDelEnvio,
     erroresDeCampo,
     errorGeneral,
     diagnostico,
@@ -226,6 +293,7 @@ export const useRemitentesStore = defineStore('remitentes', () => {
     porConfigurar,
     cargar,
     probar,
+    mandarCorreoDePrueba,
     guardar,
     limpiarAvisos,
   }
