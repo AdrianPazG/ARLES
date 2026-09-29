@@ -28,6 +28,7 @@ pub mod plantillas;
 pub mod preferencias;
 pub mod presupuesto;
 pub mod prueba;
+pub mod revision;
 pub mod supresion;
 pub mod trabajo;
 
@@ -43,4 +44,5 @@ pub use empresa::EmpresaGuardada;
 pub use error::DbError;
 pub use migraciones::ultima_version;
 pub use preferencias::CLAVES_DE_INTERFAZ;
+pub use revision::LoQueSabeLaBase;
 pub use supresion::{MAX_SUPRESIONES_POR_PAGINA, ResumenDeSupresion, SupresionGuardada};

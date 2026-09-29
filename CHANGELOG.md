@@ -12,6 +12,71 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Fase 6 · Campañas y mensajes — cinco entregas de siete
+
+ARLES deja de ser un motor que sabe enviar y pasa a ser un programa al que se
+le puede decir **qué** enviar y **a quién**.
+
+#### Lo que cambia para quien usa ARLES
+
+**Se pueden escribir plantillas con el nombre de cada persona.** Cuatro
+variables —nombre, apellido, empresa del contacto y la empresa propia—, y se
+elige qué poner cuando una falta: o nada, o un texto fijo como «cliente». Se
+elige **al escribir la plantilla** y no dentro de ella, para que no haya forma
+de que salga un «Hola ,» o un `{{nombre}}` en crudo en el correo de un cliente.
+
+**Antes de activar, ARLES enseña las cifras.** «1 342 destinatarios», «a 34 les
+falta el nombre», «con este ritmo termina el jueves». No adjetivos: cifras, para
+poder decidir con ellas delante (§94).
+
+**Y el envío de prueba por fin cuenta para algo.** Se anotaba desde la entrega
+5.5 y no lo leía nadie. Ahora es uno de los ocho puntos, y vale sólo si se hizo
+con el remitente que la campaña usa hoy: si se cambia de cuenta, hay que
+repetirlo, porque la prueba anterior demostró que **otra** cuenta podía enviar.
+
+**Una comprobación que no se pudo hacer no se da por buena.** Si ARLES no llega
+al servidor, lo dice como «sin comprobar» y no deja activar — igual que si
+fallara, pero con otro texto, porque lo que hay que hacer es distinto. Y un
+puerto cerrado nunca se enseña como «la contraseña no sirve»: de los seis
+diagnósticos posibles, sólo dos hablan de la contraseña.
+
+#### Lo que este avance no disimula
+
+- **No hay todavía pantalla de campañas.** El asistente de nueve pasos es la
+  entrega 6.6. Hoy todo esto existe y está probado, y no se puede ver.
+- **ARLES no consulta DNS** (P-16), así que el punto de SPF/DKIM/DMARC sale
+  siempre «sin comprobar». Es el único de los ocho que no bloquea.
+- **Sigue faltando el canal de WhatsApp**, que es de la Fase 5 y no está
+  empezado. La decisión sobre cuándo construirlo está planteada en
+  `documentacion/09-fases/FASE-05-PARA-DIRECCION.md`.
+
+#### Por dentro
+
+- **Añadido** `arles-core::plantilla` — sustitución `{{clave}}` contra una lista
+  cerrada, sin condicionales, bucles ni funciones (ADR-0006). Lo sustituido no
+  se vuelve a analizar, que es lo que cierra la vía de ejecución desde un XLSX
+  ajeno.
+- **Añadido** `arles-core::sanear` — HTML con lista blanca vía `ammonia`,
+  aplicado al guardar **y** al enviar.
+- **Añadido** `arles-db::plantillas` — versiones inmutables y firmas. Ninguna
+  consulta actualiza `template_version`, y el validador lo comprueba.
+- **Añadido** `arles-db::alta_de_campana` — crear, listar y activar. Activar
+  congela la audiencia, llena la cola y pone la campaña en marcha **en una sola
+  transacción**.
+- **Añadido** `arles-db::revision` — lo que la base sabe de una campaña para el
+  preflight. No habla con la red: devuelve las observaciones que puede afirmar.
+- **Añadido** el comando `revisar_campana`, que completa los tres puntos de red
+  sondeando la cuenta y llama a las reglas del núcleo.
+- **Añadido** `Diagnostico::autentica` y `Diagnostico::hay_conexion`, que
+  distinguen «no autentica» de «no se llegó a intentar».
+- **Añadida** la Fase 6 al validador: seis invariantes, las seis verificadas
+  rompiéndolas. El bucle previo a empujar pasa de seis fases a siete.
+- **Corregido** un fallo real encontrado al escribir la 6.4: la consulta de la
+  audiencia no filtraba por canal activo, así que un canal archivado habría
+  recibido correo sin que nada fallara.
+
+---
+
 ### Fase 5 · La parte de correo, cerrada — ARLES manda correos
 
 Por primera vez desde que empezó el proyecto, el programa abre una conversación

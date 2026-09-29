@@ -25,6 +25,7 @@ Existen porque los ADR explican *por qué* se decidió algo y el código muestra
 | [03](FASE-03-EMPRESA-Y-CONTACTOS.md) | Empresa y contactos | ✅ cerrada | 72 / 81 · 9 omitidas |
 | [04](FASE-04-MOTOR-DE-EJECUCION.md) | Motor de ejecución | ✅ cerrada | 38 / 38 |
 | [05](FASE-05-PROVEEDORES-DE-ENVIO.md) | Proveedores de envío | 🟡 **la parte de correo cerrada · falta WhatsApp** | 35 / 35 |
+| [06](FASE-06-CAMPANAS-Y-MENSAJES.md) | Campañas y mensajes | 🟡 **cinco entregas de siete · falta el asistente** | 12 / 12 |
 | 06 | Campañas y mensajes | ⬜ pendiente | — |
 | 07 | Actividad y entregabilidad | ⬜ pendiente | — |
 | 08 | Respaldos y endurecimiento | ⬜ pendiente | — |

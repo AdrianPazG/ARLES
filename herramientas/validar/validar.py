@@ -3163,7 +3163,180 @@ def fase_5(rapido):
     claves_de_error_sin_texto()
 
 
-FASES = {0: fase_0, 1: fase_1, 2: fase_2, 3: fase_3, 4: fase_4, 5: fase_5}
+# ── Fase 6 · Campañas y mensajes ────────────────────────────────────────────
+
+
+def el_motor_de_plantillas_no_evalua_nada():
+    """El núcleo no depende de ninguna biblioteca de plantillas (ADR-0006).
+
+    Handlebars, Tera, MiniJinja y compañía **evalúan expresiones**, y aquí las
+    plantillas llevan datos de contacto importados de un XLSX que no escribimos
+    nosotros. Un motor con lógica sobre datos ajenos es una vía de ejecución.
+
+    Se comprueba por ausencia en el `Cargo.toml` porque el día que alguien
+    añada una de estas «para poder poner un `{{#if}}`», el código seguirá
+    compilando y todas las pruebas seguirán pasando: lo que cambia no falla,
+    se abre.
+    """
+    ruta = os.path.join(RAIZ, "crates", "arles-core", "Cargo.toml")
+    texto = ""
+    if os.path.exists(ruta):
+        with open(ruta, encoding="utf-8") as f:
+            texto = sin_comentarios(f.read())
+
+    motores = [m for m in ("handlebars", "tera", "minijinja", "liquid", "askama")
+               if re.search(rf"^\s*{m}\s*=", texto, re.M)]
+    check(6, "el motor de plantillas no evalúa nada", not motores,
+          "ADR-0006: sustituir es seguro; evaluar sobre datos importados, no.",
+          f"encontrado: {motores}")
+
+
+def el_html_se_sanea_en_rust():
+    """El saneado vive en Rust, con lista blanca, y no en la webview.
+
+    Un saneado en el frontend se salta escribiendo en la base por cualquier
+    otro camino, y además **no protege al destinatario**: el correo sale del
+    proceso de Rust, no del navegador. Por eso `sanear.rs` existe y por eso se
+    aplica dos veces —al guardar y al enviar—.
+
+    Se miran las dos mitades: que el módulo esté y use `ammonia`, y que el
+    frontend no traiga su propio saneador, que es como se empieza a confiar en
+    el del navegador.
+    """
+    codigo = produccion_de("crates/arles-core/src/sanear.rs") or ""
+    con_lista_blanca = "ammonia" in codigo and "ETIQUETAS" in codigo
+
+    del_navegador = []
+    for base, _, archivos in os.walk(os.path.join(RAIZ, "app", "src")):
+        for nombre in archivos:
+            if not nombre.endswith((".ts", ".vue")):
+                continue
+            with open(os.path.join(base, nombre), encoding="utf-8") as f:
+                if "DOMPurify" in f.read():
+                    del_navegador.append(nombre)
+
+    check(6, "el HTML se sanea en Rust y con lista blanca",
+          con_lista_blanca and not del_navegador,
+          "el correo sale de Rust: un saneado en la webview no protege a quien "
+          "lo recibe.",
+          f"lista blanca={con_lista_blanca} · en la webview: {del_navegador}")
+
+
+def una_version_de_plantilla_no_se_edita():
+    """Ninguna consulta actualiza `template_version`.
+
+    Una versión es lo que se envió. Editarla cambia, a posteriori, el texto de
+    los correos que ya salieron: el registro diría una cosa y los destinatarios
+    habrían leído otra, **y nada fallaría**. Por eso se crean versiones nuevas
+    y no se toca ninguna.
+
+    Se busca en todo `arles-db` y no sólo en `plantillas.rs`: el atajo lo
+    escribe quien añade una pantalla de edición, y no necesariamente ahí.
+    """
+    culpables = []
+    for base, _, archivos in os.walk(os.path.join(RAIZ, "crates", "arles-db", "src")):
+        for nombre in archivos:
+            if not nombre.endswith(".rs"):
+                continue
+            relativa = os.path.relpath(os.path.join(base, nombre), RAIZ)
+            codigo = produccion_de(relativa) or ""
+            if re.search(r"UPDATE\s+template_version", codigo, re.I):
+                culpables.append(os.path.basename(relativa))
+
+    check(6, "una versión de plantilla no se edita", not culpables,
+          "una versión es lo que se envió: cambiarla reescribe el pasado.",
+          f"archivos: {sorted(culpables)}")
+
+
+def el_preflight_no_se_rellena_a_mano():
+    """Los tres puntos que exigen salir a la red no se afirman a mano.
+
+    `cuenta_autentica`, `hay_conexion` y `registros_del_dominio` sólo se pueden
+    contestar hablando con alguien de fuera. Ponerles `Some(true)` para que el
+    preflight pase es el atajo que deja al usuario activando una campaña sobre
+    una comprobación que nadie hizo — y no falla nada: el botón se enciende.
+
+    Se mira el código de producción de la frontera, que es donde se construyen
+    las observaciones.
+    """
+    codigo = produccion_de("crates/arles-app/src/comandos.rs") or ""
+    inventados = [
+        campo
+        for campo in ("cuenta_autentica", "hay_conexion", "registros_del_dominio")
+        if re.search(rf"{campo}\s*:\s*Some\(true\)", codigo)
+    ]
+    check(6, "el preflight no se rellena a mano", not inventados,
+          "§12: lo que no se ha mirado se dice, no se da por bueno.",
+          f"afirmados sin mirar: {inventados}")
+
+
+def la_revision_descuenta_las_bajas():
+    """La audiencia del preflight aplica la lista de supresión.
+
+    Es el punto entero: una campaña puede tener tres mil contactos y cero
+    destinatarios. Contar el total diría «queda alguien a quien escribir» y la
+    activación —que congela la audiencia y no se deshace— seguiría adelante.
+
+    Se comprueba que la consulta nombra `suppression_entry`, porque el error
+    aquí no es escribir algo malo sino **quitar** una línea: un `NOT EXISTS`
+    que desaparece no rompe la consulta, sólo cambia la cifra.
+    """
+    codigo = produccion_de("crates/arles-db/src/revision.rs") or ""
+    check(6, "la revisión descuenta las bajas",
+          "suppression_entry" in codigo and "NOT EXISTS" in codigo,
+          "§63: la audiencia es la que queda después de aplicar las bajas.",
+          "la consulta de la audiencia no mira la lista de supresión")
+
+
+def el_envio_de_prueba_llega_al_preflight():
+    """La marca que la 5.5 anota la lee el preflight, y con la cuenta correcta.
+
+    Estuvo tres entregas anotándose sin que nadie la preguntara. Un preflight
+    que no la lee diría «no se hizo el envío de prueba» con el correo ya
+    mandado y recibido, y quien lo lea volverá a mandarlo pensando que falló.
+
+    Se miran los dos extremos, como en la 5.4: que la base la resuelva
+    comparando **la cuenta**, y que la frontera la pase a las observaciones.
+    """
+    revision = produccion_de("crates/arles-db/src/revision.rs") or ""
+    comandos = produccion_de("crates/arles-app/src/comandos.rs") or ""
+
+    se_resuelve = "se_hizo_el_envio_de_prueba" in revision and "test_sent_with_account_id" in revision
+    se_pasa = re.search(
+        r"se_hizo_el_envio_de_prueba:\s*Some\(sabido\.se_hizo_el_envio_de_prueba\)",
+        comandos,
+    )
+
+    check(6, "el envío de prueba llega al preflight",
+          se_resuelve and bool(se_pasa),
+          "§45: una comprobación que se hace y nadie lee es una que no se hizo.",
+          f"se_resuelve={se_resuelve} se_pasa={bool(se_pasa)}")
+
+
+def fase_6(rapido):
+    titulo("FASE 6 · Campañas y mensajes")
+
+    print(f"{GRIS}  estructura{FIN}")
+    for ruta, porque in [
+        ("crates/arles-core/src/plantilla.rs", "Sustituir `{{variable}}` y nada más (ADR-0006)."),
+        ("crates/arles-core/src/sanear.rs", "El HTML con lista blanca, en Rust y dos veces."),
+        ("crates/arles-db/src/plantillas.rs", "Plantillas con versiones que no se editan, y firmas."),
+        ("crates/arles-db/src/alta_de_campana.rs", "Crear campañas, y congelar la audiencia al activar."),
+        ("crates/arles-db/src/revision.rs", "Lo que la base sabe de una campaña, para el preflight."),
+        ("crates/arles-app/tests/preflight.rs", "Los ocho puntos, rellenados desde una base de verdad."),
+    ]:
+        check(6, f"existe {ruta}", os.path.exists(os.path.join(RAIZ, ruta)), porque)
+
+    print(f"{GRIS}  invariantes{FIN}")
+    el_motor_de_plantillas_no_evalua_nada()
+    el_html_se_sanea_en_rust()
+    una_version_de_plantilla_no_se_edita()
+    el_preflight_no_se_rellena_a_mano()
+    la_revision_descuenta_las_bajas()
+    el_envio_de_prueba_llega_al_preflight()
+
+
+FASES = {0: fase_0, 1: fase_1, 2: fase_2, 3: fase_3, 4: fase_4, 5: fase_5, 6: fase_6}
 
 
 def main():

@@ -106,6 +106,43 @@ impl Diagnostico {
     pub const fn sirve(&self) -> bool {
         matches!(self, Self::Correcto)
     }
+
+    /// Lo que este diagnóstico dice del punto «hay conexión» del preflight.
+    ///
+    /// Se llegó al servidor en todos los casos menos dos, y esos dos son
+    /// precisamente los que hablan de la red. Que el cifrado no cuaje o que la
+    /// contraseña se rechace son respuestas **del servidor**: hubo conexión.
+    #[must_use]
+    pub const fn hay_conexion(&self) -> Option<bool> {
+        match self {
+            Self::NoSeLlegoAlServidor | Self::ElServidorTardoDemasiado => Some(false),
+            _ => Some(true),
+        }
+    }
+
+    /// Lo que este diagnóstico dice del punto «la cuenta autentica».
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// AQUÍ HAY TRES RESPUESTAS Y NO DOS, Y ÉSA ES LA GRACIA
+    ///
+    /// Sólo `Correcto` prueba que la cuenta autentica, y sólo
+    /// `LaContrasenaNoSirve` prueba que no. **En los otros cuatro casos no se
+    /// llegó a intentar**: sin conexión, sin cifrado o con el servidor
+    /// diciendo «ahora no», la autenticación nunca ocurrió.
+    ///
+    /// Devolver `Some(false)` en esos cuatro sería el error cómodo: el
+    /// preflight bloquearía igual —todo lo que no pasa bloquea— pero el texto
+    /// diría «la cuenta no autentica» ante un cable desenchufado, y quien lo
+    /// lea se pasará la tarde generando contraseñas de aplicación nuevas para
+    /// un problema de red.
+    #[must_use]
+    pub const fn autentica(&self) -> Option<bool> {
+        match self {
+            Self::Correcto => Some(true),
+            Self::LaContrasenaNoSirve => Some(false),
+            _ => None,
+        }
+    }
 }
 
 /// En qué paso de la conversación se rompió.
@@ -194,6 +231,59 @@ fn fallo_de_certificado(e: &ErrorSmtp) -> bool {
 
 #[cfg(test)]
 mod tests {
+
+    /// **Sólo dos de los seis diagnósticos dicen algo sobre la contraseña.**
+    ///
+    /// Es el error cómodo de esta traducción: dar `Some(false)` a todo lo que
+    /// no salió bien. El preflight bloquearía igual —todo lo que no pasa
+    /// bloquea— así que **nada fallaría**; lo que cambiaría es el texto, que
+    /// diría «la cuenta no autentica» ante un cable desenchufado.
+    ///
+    /// Verificada rompiéndola el 29/09/2026: devolviendo
+    /// `Some(self.sirve())` en `autentica`, esta prueba falla en los cuatro
+    /// casos en que no se llegó a intentar.
+    #[test]
+    fn solo_se_afirma_de_la_contrasena_cuando_se_llego_a_probarla() {
+        assert_eq!(Diagnostico::Correcto.autentica(), Some(true));
+        assert_eq!(Diagnostico::LaContrasenaNoSirve.autentica(), Some(false));
+
+        for d in [
+            Diagnostico::NoSeLlegoAlServidor,
+            Diagnostico::ElServidorTardoDemasiado,
+            Diagnostico::ElCifradoNoSePudoEstablecer,
+            Diagnostico::ElServidorNoEstaDisponible,
+        ] {
+            assert_eq!(d.autentica(), None, "{d:?} no llegó a autenticar");
+        }
+    }
+
+    /// **Que el servidor conteste que no es haber llegado al servidor.**
+    ///
+    /// Un cifrado que no cuaja o una contraseña rechazada son respuestas: hubo
+    /// conexión. Contarlas como falta de conexión mandaría a revisar la red por
+    /// un problema de la cuenta.
+    ///
+    /// Verificada rompiéndola el 29/09/2026: devolviendo `Some(self.sirve())`
+    /// en `hay_conexion`, esta prueba falla en los tres casos en que el
+    /// servidor contestó algo distinto de «correcto».
+    #[test]
+    fn hubo_conexion_siempre_que_el_servidor_contesto() {
+        for d in [
+            Diagnostico::Correcto,
+            Diagnostico::ElCifradoNoSePudoEstablecer,
+            Diagnostico::LaContrasenaNoSirve,
+            Diagnostico::ElServidorNoEstaDisponible,
+        ] {
+            assert_eq!(d.hay_conexion(), Some(true), "{d:?} habló con el servidor");
+        }
+
+        assert_eq!(Diagnostico::NoSeLlegoAlServidor.hay_conexion(), Some(false));
+        assert_eq!(
+            Diagnostico::ElServidorTardoDemasiado.hay_conexion(),
+            Some(false)
+        );
+    }
+
     use super::*;
 
     const TODOS: [Diagnostico; 6] = [

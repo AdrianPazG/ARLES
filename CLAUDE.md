@@ -159,11 +159,11 @@ cargo deny check licenses advisories                    # antes de añadir depen
 
 cd app && npm test && npm run lint && npx vue-tsc --noEmit -p tsconfig.json
 
-python3 herramientas/validar/validar.py --fase 5        # 0 a 5
-python3 herramientas/validar/validar.py --fase 5 --rapido   # omite las sondas
+python3 herramientas/validar/validar.py --fase 6        # 0 a 6
+python3 herramientas/validar/validar.py --fase 6 --rapido   # omite las sondas
 
-# Y ANTES DE EMPUJAR, las seis. Cuesta un minuto:
-for f in 0 1 2 3 4 5; do python3 herramientas/validar/validar.py --fase $f --rapido; done
+# Y ANTES DE EMPUJAR, las siete. Cuesta un minuto:
+for f in 0 1 2 3 4 5 6; do python3 herramientas/validar/validar.py --fase $f --rapido; done
 ```
 
 **Correr sólo la fase en curso no basta.** En la 5.2 y la 5.3 se verificó con
@@ -250,9 +250,30 @@ ROADMAP pone aquí y no está empezado. Hay una decisión pendiente de Direcció
 construirlo antes de la Fase 6, o entregar la Fase 6 ofreciendo sólo correo.
 Está planteada en `documentacion/09-fases/FASE-05-PARA-DIRECCION.md`.
 
-**Lo siguiente es la Fase 6 · Campañas y mensajes:** plantillas, sustitución de
-variables no Turing-completa, sanitizado en Rust, el asistente de nueve pasos,
-el simulador y el preflight.
+**La Fase 6 lleva cinco entregas de siete** (6.1 a 6.5): el motor de
+sustitución no Turing-completo, el saneado del HTML en Rust, plantillas con
+versiones que no se editan, campañas con la audiencia congelada al activar, y el
+preflight de ocho puntos **enchufado de verdad** a la base y a la sonda de la
+cuenta — incluido el envío de prueba de la 5.5, que llevaba tres entregas
+anotándose sin que nadie lo preguntara.
+
+**Lo que falta de la Fase 6 son las pantallas:** el asistente de nueve pasos y
+el aviso de más de 50 diarios (6.6), y el cierre de fase (6.7). Todo lo
+construido existe, está probado, y **no se puede ver todavía**.
+
+**Cuatro trampas del código de la Fase 6**, por si se toca:
+
+1. La **empresa del contacto** vive en la columna `source`, no en una llamada
+   `company_name`. Viene del esquema V1 y no se ha renombrado.
+2. El **cerrojo de la conexión no es reentrante**: llamar a un método público de
+   `Db` desde dentro de un `con_dominio` cuelga el programa sin error ni traza.
+   Por eso existe `cuentas::salud_en`, que recibe la conexión ya abierta.
+3. Los **tres puntos de red del preflight** (`cuenta_autentica`, `hay_conexion`,
+   `registros_del_dominio`) no se pueden contestar desde `arles-db`. Se
+   completan en `arles-app`, y el validador falla si alguien los pone en
+   `Some(true)` a mano.
+4. De los **seis diagnósticos** de la sonda, sólo dos dicen algo sobre la
+   contraseña. Los otros cuatro son `None`: no se llegó a intentar.
 
 **Tres trampas del código de la Fase 5**, por si se toca:
 

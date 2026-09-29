@@ -90,8 +90,8 @@
       "id": "F6",
       "nombre": "Campañas y mensajes",
       "peso": 13,
-      "hecho": 0.05,
-      "porque": "Sin empezar salvo las reglas de la secuencia de etapas, que ya están en arles-core con 13 pruebas."
+      "hecho": 0.55,
+      "porque": "Cinco entregas de siete, 6.1 a 6.5. Motor de sustitución no Turing-completo, saneado del HTML con lista blanca en Rust, plantillas con versiones que no se editan, firmas, campañas con audiencia congelada al activar, y el preflight de ocho puntos enchufado de verdad a la base y a la sonda de la cuenta. validar.py --fase 6 en 12/12. Falta el asistente de nueve pasos (6.6) y el cierre de fase (6.7), que es donde está el grueso del trabajo de pantalla."
     },
     {
       "id": "F7",

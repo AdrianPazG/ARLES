@@ -191,3 +191,59 @@ describe('el resultado de un envío de prueba', () => {
     expect(String(t.salvo)).toContain('No se dio de baja a nadie')
   })
 })
+
+/**
+ * Las claves del preflight, atadas a las que emite Rust.
+ *
+ * ── POR QUÉ ESTO EXISTE ──
+ *
+ * Lo mismo que con el envío de prueba: **una clave que no coincide no da
+ * ningún error**. La pantalla enseñaría `preflight.laCuentaAutentica` en
+ * crudo, y eso sólo se descubre abriendo el preflight de una campaña — que es
+ * la pantalla a la que se llega menos veces y en el peor momento.
+ *
+ * Desde la 6.5 estas claves ya no son decorativas: el comando `revisar_campana`
+ * devuelve los ocho puntos con su veredicto, y la 6.6 los pinta.
+ *
+ * Las listas vivas están en `Punto::clave_i18n`, `Veredicto::clave_i18n` y
+ * `Resultado::clave_i18n`, en `arles_core::preflight`.
+ */
+const CLAVES_DEL_PREFLIGHT = [
+  'preflight.laCuentaAutentica',
+  'preflight.laCredencialSirve',
+  'preflight.laAudienciaNoEstaVacia',
+  'preflight.lasVariablesSeResuelven',
+  'preflight.elHorarioAlcanza',
+  'preflight.hayConexion',
+  'preflight.seHizoElEnvioDePrueba',
+  'preflight.losRegistrosDelDominio',
+  'preflight.pasa',
+  'preflight.falla',
+  'preflight.sinComprobar',
+  'preflight.lista',
+  'preflight.bloqueada',
+]
+
+describe('los ocho puntos del preflight', () => {
+  it('toda clave que emite Rust tiene texto, y no vuelve como la clave', () => {
+    for (const clave of CLAVES_DEL_PREFLIGHT) {
+      const texto = String(i18n.global.t(clave))
+      expect(texto, `${clave} no tiene texto`).not.toBe(clave)
+      expect(texto.length).toBeGreaterThan(0)
+    }
+  })
+
+  /**
+   * **«Sin comprobar» no puede leerse como un aprobado.**
+   *
+   * Es la regla que gobierna el archivo entero en Rust: un punto sin comprobar
+   * bloquea igual que uno que falla. Si el texto dijera «pendiente» o «se
+   * comprobará luego», la pantalla contaría otra cosa que el botón apagado, y
+   * quien lo lea buscará el fallo donde no está.
+   */
+  it('el texto de «sin comprobar» dice que no se da por bueno', () => {
+    const detalle = String(i18n.global.t('preflight.sinComprobarDetalle'))
+    expect(detalle).toContain('no lo da por bueno')
+    expect(detalle).toContain('impide activar')
+  })
+})

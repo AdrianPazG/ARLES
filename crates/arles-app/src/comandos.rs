@@ -1805,6 +1805,170 @@ pub fn mandar_el_correo_para_tests(
     mandar_el_correo(proveedor, destino)
 }
 
+// ── El preflight, enchufado · entrega 6.5 ────────────────────────────────
+
+/// Lo que la pantalla de preflight enseña.
+///
+/// Lleva el veredicto **y las cifras**, porque los ocho puntos dicen si pasa y
+/// no dicen cuánto: «la audiencia no está vacía» no es lo mismo que «1 342
+/// destinatarios», y §94 pide lo segundo.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RevisionDeCampana {
+    /// Los ocho puntos y si se puede activar.
+    pub preflight: arles_core::preflight::Preflight,
+    /// Cuánta gente recibiría.
+    pub audiencia: u32,
+    /// A cuántos de ellos les falta alguna variable.
+    pub contactos_con_huecos: u32,
+    /// Cuánto tardaría con el ritmo y el horario configurados.
+    pub estimacion: arles_core::duracion::Estimacion,
+    /// El diagnóstico de la sonda a la cuenta, para poder explicar **por qué**
+    /// fallan los puntos de conexión y autenticación. `None` si no se llegó a
+    /// sondear porque la cuenta ya estaba descartada.
+    pub diagnostico: Option<String>,
+}
+
+/// Revisa una campaña contra los ocho puntos, hablando con el servidor.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTE COMANDO SE CONECTA, Y POR QUÉ ESO NO ES OPCIONAL
+///
+/// Cinco de los ocho puntos salen de la base y los reúne
+/// `arles_db::Db::lo_que_se_sabe_de`. Los otros tres —«la cuenta autentica»,
+/// «hay conexión» y los registros del dominio— exigen salir a la red.
+///
+/// Y **no se pueden dejar en «sin comprobar»**: un punto bloqueante sin
+/// comprobar impide activar igual que uno que falla, así que una campaña
+/// nunca llegaría a activarse. El preflight dejaría de ser una revisión y
+/// pasaría a ser un muro.
+///
+/// Así que aquí se sondea de verdad, con el mismo adaptador que envía —el de
+/// «Probar conexión»—, y el diagnóstico se traduce a los dos puntos con
+/// `Diagnostico::autentica` y `Diagnostico::hay_conexion`, que distinguen «no
+/// autentica» de «no se llegó a intentar».
+///
+/// **Los registros del dominio siguen en `None`** y seguirán: ARLES no
+/// consulta DNS todavía (P-16). Es el único de los ocho que no bloquea, así
+/// que aparece como «sin comprobar» y no impide nada — que es exactamente lo
+/// que es.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// UNA CUENTA QUE NO PUEDE ENVIAR NO SE SONDEA
+///
+/// Si la cuenta está desactivada, detenida por fallos o sin contraseña
+/// guardada, no hay nada que preguntarle al servidor: el punto de
+/// autenticación falla y el de conexión se queda sin comprobar, porque no se
+/// llegó a mirar. Sondear igualmente daría «no se llegó al servidor» y
+/// mandaría a revisar la red por una cuenta que alguien desactivó.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si no hay empresa configurada, si el identificador no vale, o
+/// si la campaña no existe o no tiene etapa de correo. Que la cuenta no pueda
+/// enviar **no es un error**: es un punto que falla.
+#[tauri::command]
+pub fn revisar_campana(
+    estado: tauri::State<'_, EstadoApp>,
+    id: String,
+) -> Result<RevisionDeCampana, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let campana = id
+        .parse::<arles_core::ids::CampaignId>()
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    revision_de(
+        estado.db(),
+        &crate::fabrica::ElLlaveroDelSistema,
+        empresa,
+        campana,
+    )
+}
+
+/// El preflight completo, con la fuente de contraseñas que se le diga.
+///
+/// El comando de arriba le pasa el llavero del sistema. Las pruebas de
+/// integración le pasan el suyo y apuntan la cuenta al servidor de mentira, y
+/// así recorren **este mismo código**: la lectura de la base, la sonda, la
+/// traducción del diagnóstico y las reglas del núcleo. Si la prueba tuviera su
+/// propio camino, no diría nada de éste.
+///
+/// # Errores
+///
+/// Los de [`revisar_campana`].
+pub fn revision_de(
+    db: &arles_db::Db,
+    secretos: &dyn crate::fabrica::FuenteDeContrasenas,
+    empresa: arles_core::ids::CompanyId,
+    campana: arles_core::ids::CampaignId,
+) -> Result<RevisionDeCampana, ErrorIpc> {
+    let sabido = db
+        .lo_que_se_sabe_de(empresa, campana, time::OffsetDateTime::now_utc())
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    let sonda = sondear_la_cuenta(db, secretos, sabido.cuenta);
+
+    let preflight = arles_core::preflight::revisar(&arles_core::preflight::Observaciones {
+        cuenta_autentica: sonda.autentica,
+        hay_conexion: sonda.hay_conexion,
+        credencial_sirve: sabido.credencial_sirve,
+        audiencia: sabido.audiencia,
+        contactos_con_variables_sin_resolver: Some(sabido.contactos_con_huecos),
+        estimacion: &sabido.estimacion,
+        se_hizo_el_envio_de_prueba: Some(sabido.se_hizo_el_envio_de_prueba),
+        // P-16: ARLES no consulta DNS. No bloquea, y se dice.
+        registros_del_dominio: None,
+    });
+
+    Ok(RevisionDeCampana {
+        preflight,
+        audiencia: sabido.audiencia,
+        contactos_con_huecos: sabido.contactos_con_huecos,
+        estimacion: sabido.estimacion,
+        diagnostico: sonda.clave_i18n,
+    })
+}
+
+/// Lo que la sonda averiguó de la cuenta.
+struct Sonda {
+    autentica: Option<bool>,
+    hay_conexion: Option<bool>,
+    clave_i18n: Option<String>,
+}
+
+/// Pregunta al servidor si esta cuenta autentica **ahora**.
+///
+/// No devuelve error: todo lo que puede salir mal aquí es un punto del
+/// preflight que no pasa, y un preflight que se cae con un error deja al
+/// usuario sin los otros siete puntos — que son los que le dicen qué arreglar.
+fn sondear_la_cuenta(
+    db: &arles_db::Db,
+    secretos: &dyn crate::fabrica::FuenteDeContrasenas,
+    cuenta: arles_core::ids::EmailAccountId,
+) -> Sonda {
+    let proveedor =
+        crate::fabrica::proveedor_de_la_cuenta(db, secretos, cuenta, contenido_de_prueba());
+
+    match proveedor {
+        Ok(p) => {
+            let d = p.probar();
+            Sonda {
+                autentica: d.autentica(),
+                hay_conexion: d.hay_conexion(),
+                clave_i18n: Some(d.clave_i18n().to_owned()),
+            }
+        }
+        // Ver la nota del comando: una cuenta que no puede enviar no se
+        // sondea, y su punto de conexión se queda sin comprobar porque no se
+        // llegó a mirar. Decir `Some(false)` ahí mandaría a revisar la red.
+        Err(_) => Sonda {
+            autentica: Some(false),
+            hay_conexion: None,
+            clave_i18n: None,
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

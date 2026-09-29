@@ -1,7 +1,7 @@
 # Estado actual · dónde está ARLES y qué sigue
 
 **Proyecto:** ARLES RELAY I · v1.2.0
-**Última actualización:** 23 de septiembre de 2026
+**Última actualización:** 29 de septiembre de 2026
 **Para qué sirve este documento:** que quien retome el trabajo —otra sesión, otra persona, otro equipo— sepa en una lectura qué está construido, qué decisiones ya están tomadas, qué **no** hay que volver a discutir y qué es lo siguiente.
 
 > Se actualiza **al cerrar cada entrega**, no al empezarla. Un documento de estado que describe intenciones en vez de hechos es peor que no tenerlo: se lee como si fuera cierto.
@@ -10,7 +10,9 @@
 
 ## 1. En una frase
 
-**ARLES ya manda correos.** La parte de correo de la Fase 5 está cerrada entera (5.1 a 5.6): el programa abre una conversación con un servidor, cifra, entrega un mensaje y lo deja anotado, y está ejercitado de punta a punta contra un servidor que habla cifrado. **Lo que falta de la Fase 5 es el adaptador de WhatsApp**, que no está empezado — hay una decisión pendiente de Dirección sobre cuándo. Lo siguiente en el plan es la **Fase 6 · Campañas y mensajes**.
+**ARLES ya manda correos, y ya sabe qué mandar.** La parte de correo de la Fase 5 está cerrada entera (5.1 a 5.6), y la Fase 6 lleva cinco entregas de siete: plantillas con variables, saneado en Rust, versiones que no se editan, campañas con la audiencia congelada al activar, y el preflight de ocho puntos enchufado de verdad a la base y a la sonda de la cuenta.
+
+**Lo que falta ahora mismo son dos cosas distintas.** De la Fase 6, el asistente de nueve pasos (6.6) y el cierre (6.7): todo lo construido existe y está probado, y **no hay pantalla que lo enseñe todavía**. De la Fase 5, el adaptador de WhatsApp, que no está empezado — hay una decisión pendiente de Dirección sobre cuándo.
 
 ---
 
@@ -25,9 +27,12 @@
 | F3W · Canales | 🟡 55 % | V3 y V4 aplicadas: `contact_channel`, consentimiento, etapas de campaña |
 | F4 · Motor de ejecución | ✅ cerrada | Máquina de estados, ritmo, ventana con zona IANA, reintentos, disyuntor, cola, presupuesto, pausa/detención, preflight |
 | **F5 · Proveedores de envío** | **🟡 70 %** | **La parte de correo cerrada (5.1 a 5.6). Falta WhatsApp. Ver §3** |
-| F6 a F9 | ⬜ sin empezar | Campañas, actividad, respaldos, release |
+| **F6 · Campañas y mensajes** | **🟡 55 %** | **Plantillas, saneado, versiones, campañas y preflight enchufado (6.1 a 6.5). Falta el asistente. Ver §3 bis** |
+| F7 a F9 | ⬜ sin empezar | Actividad, respaldos, release |
 
-**Cifras del 23/09/2026:** 677 pruebas de Rust, 110 del frontend, validador de fase 5 en 22/22, `fmt`, `clippy`, `eslint` y `vue-tsc` limpios, `cargo deny` sin avisos.
+**Cifras del 29/09/2026:** 781 pruebas de Rust, 122 del frontend, las siete fases del validador en verde (5·45·33·72·38·35·12, con las sondas omitidas por falta de Chromium y así dicho), `fmt`, `clippy`, `eslint` y `vue-tsc` limpios.
+
+**Avance de la v1.2.0: 67 %**, calculado desde `avance.json` el 29/09/2026.
 
 ---
 
@@ -89,6 +94,52 @@ Resultó ser bastante más de lo que este documento decía. La frase era «const
 **Fase 6 · Campañas y mensajes.** Plantillas con versionado, sustitución de variables no Turing-completa, sanitizado con `ammonia` en Rust, firmas, el asistente de nueve pasos, el simulador y el preflight.
 
 **Y una decisión pendiente de Dirección:** el adaptador de **WhatsApp Cloud API** es de la Fase 5 y no está empezado. La Fase 6 ofrece dos etapas en el asistente, y la segunda no podrá enviar mientras eso falte. Planteado en `09-fases/FASE-05-PARA-DIRECCION.md`.
+
+---
+
+## 3 bis. La Fase 6 por dentro
+
+### Cerrado
+
+**6.1 · El motor de sustitución** — `arles-core/src/plantilla.rs`
+`{{clave}}` contra una lista cerrada de cuatro variables. Sin condicionales, sin
+bucles, sin funciones (ADR-0006). **Lo sustituido no se vuelve a mirar**: si el
+nombre de un contacto fuera `{{empresa}}`, se queda así. Eso cierra la vía de
+ejecución desde un XLSX que no escribimos nosotros.
+
+**6.2 · El saneado del HTML** — `arles-core/src/sanear.rs`
+Lista blanca con `ammonia`, en Rust, al guardar **y** al enviar. El saneado del
+navegador no protege a quien recibe el correo: el correo sale de Rust.
+
+**6.3 · Plantillas y firmas** — `arles-db/src/plantillas.rs`
+Versiones inmutables. Una versión es lo que se envió; editarla reescribiría el
+pasado sin que nada fallara. Las variables se leen del contenido, nunca se
+aceptan de quien llama.
+
+**6.4 · Campañas** — `arles-db/src/alta_de_campana.rs`
+Crear, listar y activar. Activar hace tres cosas en **una** transacción:
+congelar la audiencia, llenar la cola y poner la campaña en marcha. Aquí se
+encontró un fallo real: la consulta de la audiencia no filtraba por canal
+activo, así que un canal archivado habría recibido correo.
+
+**6.5 · El preflight, enchufado** — `arles-db/src/revision.rs` y el comando
+`revisar_campana`
+Cinco puntos salen de la base; los tres de red los completa `arles-app`
+sondeando la cuenta, porque `arles-db` no habla con nadie de fuera. Los que no
+se pudieron mirar se dicen «sin comprobar» y bloquean igual — rellenarlos a mano
+con `Some(true)` es el atajo que el validador vigila.
+
+Y el envío de prueba de la 5.5, que llevaba tres entregas anotándose sin que
+nadie lo preguntara, por fin llega a su punto. Vale **sólo con el remitente que
+la etapa usa hoy**: si se cambia de cuenta, la prueba anterior demostró que otra
+cuenta podía enviar.
+
+### Pendiente
+
+**6.6 · El asistente de nueve pasos**, el simulador y el aviso de más de 50
+diarios (§48). Es donde está el grueso del trabajo de pantalla.
+
+**6.7 · El cierre de fase**: auditoría, documento, informe para Dirección y PDF.
 
 ---
 

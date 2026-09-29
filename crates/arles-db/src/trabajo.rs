@@ -225,9 +225,14 @@ impl FilaDeEtapa {
 /// El menor de los topes que haya. El de la cuenta no es opcional y siempre
 /// entra en la comparación: ver la nota de la cabecera.
 ///
+/// Lo comparte la revisión de una campaña (`revision.rs`), y se comparte en vez
+/// de copiarse porque las dos respuestas tienen que ser la misma: una estima lo
+/// que va a tardar y la otra decide cuánto sale de verdad. Con dos copias, una
+/// podría cambiar sin la otra y la estimación mentiría sin que nada fallara.
+///
 /// Un valor negativo o desmesurado en la base se trata como «sin tope propio»
 /// en vez de reventar: el de la cuenta sigue ahí, y es el que importa.
-fn el_mas_bajo(etapa: Option<i64>, cuenta: i64) -> u32 {
+pub(crate) fn el_mas_bajo(etapa: Option<i64>, cuenta: i64) -> u32 {
     [etapa, Some(cuenta)]
         .into_iter()
         .flatten()

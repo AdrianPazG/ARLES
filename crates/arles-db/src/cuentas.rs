@@ -81,6 +81,54 @@ impl SaludDeLaCuenta {
     }
 }
 
+/// La salud de una cuenta, sobre una conexión ya abierta.
+///
+/// Existe aparte de [`Db::salud_de_la_cuenta`] porque el cerrojo de la conexión
+/// **no es reentrante**: quien ya esté dentro de un `con_dominio` —la revisión
+/// de una campaña, sin ir más lejos— se quedaría colgado para siempre llamando
+/// al método público. Un bloqueo no da error ni traza: la aplicación se queda
+/// quieta, y eso es más difícil de diagnosticar que cualquier excepción.
+///
+/// Y se comparte en vez de repetir la consulta porque la regla de qué cuenta
+/// como circuito abierto vive aquí, en un sitio, y no en dos que pueden
+/// separarse sin que nada falle.
+pub(crate) fn salud_en(
+    conn: &rusqlite::Connection,
+    cuenta: &str,
+    ahora: &str,
+) -> Result<SaludDeLaCuenta, DbError> {
+    let fila: Option<(i64, Option<String>, String)> = conn
+        .query_row(
+            "SELECT consecutive_failures, circuit_open_until, status
+               FROM email_account WHERE id = ?1",
+            params![cuenta],
+            |f| Ok((f.get(0)?, f.get(1)?, f.get(2)?)),
+        )
+        .optional()?;
+
+    let Some((fallos, abierto_hasta, estado)) = fila else {
+        return Err(DbError::DatoInvalido {
+            motivo: "esa cuenta remitente no existe",
+        });
+    };
+
+    // Los sellos son todos de la misma forma —UTC, segundos enteros—, así que
+    // compararlos como texto es compararlos como instantes. Es el contrato de
+    // `arles_motor::tiempo`.
+    let circuito = match abierto_hasta {
+        Some(hasta) if hasta.as_str() > ahora => Circuito::Abierto {
+            segundos_restantes: segundos_entre(ahora, &hasta),
+        },
+        _ => Circuito::Cerrado,
+    };
+
+    Ok(SaludDeLaCuenta {
+        circuito,
+        fallos_seguidos: u32::try_from(fallos).unwrap_or(0),
+        estado,
+    })
+}
+
 impl Db {
     /// Cómo está el disyuntor de esta cuenta, ahora mismo.
     ///
@@ -98,38 +146,7 @@ impl Db {
         cuenta: &str,
         ahora: &str,
     ) -> Result<SaludDeLaCuenta, DbError> {
-        self.con_dominio(|conn| {
-            let fila: Option<(i64, Option<String>, String)> = conn
-                .query_row(
-                    "SELECT consecutive_failures, circuit_open_until, status
-                       FROM email_account WHERE id = ?1",
-                    params![cuenta],
-                    |f| Ok((f.get(0)?, f.get(1)?, f.get(2)?)),
-                )
-                .optional()?;
-
-            let Some((fallos, abierto_hasta, estado)) = fila else {
-                return Err(DbError::DatoInvalido {
-                    motivo: "esa cuenta remitente no existe",
-                });
-            };
-
-            // Los sellos son todos de la misma forma —UTC, segundos enteros—,
-            // así que compararlos como texto es compararlos como instantes.
-            // Es el contrato de `arles_motor::tiempo`.
-            let circuito = match abierto_hasta {
-                Some(hasta) if hasta.as_str() > ahora => Circuito::Abierto {
-                    segundos_restantes: segundos_entre(ahora, &hasta),
-                },
-                _ => Circuito::Cerrado,
-            };
-
-            Ok(SaludDeLaCuenta {
-                circuito,
-                fallos_seguidos: u32::try_from(fallos).unwrap_or(0),
-                estado,
-            })
-        })
+        self.con_dominio(|conn| salud_en(conn, cuenta, ahora))
     }
 
     /// Aplica a la cuenta lo que decidió `arles_core::disyuntor`.
