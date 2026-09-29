@@ -75,6 +75,7 @@ pub fn run() {
             comandos::enviar_correo_de_prueba,
             comandos::probar_envio_de_la_cuenta,
             comandos::revisar_campana,
+            comandos::revisar_campana_de_whatsapp,
             campanas::plantillas,
             campanas::guardar_plantilla,
             campanas::firmas,

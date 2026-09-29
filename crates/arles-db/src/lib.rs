@@ -31,6 +31,7 @@ pub mod presupuesto;
 pub mod prueba;
 pub mod respuestas;
 pub mod revision;
+pub mod revision_whatsapp;
 pub mod supresion;
 pub mod trabajo;
 pub mod ventanas;

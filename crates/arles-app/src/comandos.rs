@@ -1971,9 +1971,177 @@ fn sondear_la_cuenta(
     }
 }
 
+// ── La puerta del canal de WhatsApp · entrega W.5 ────────────────────────
+
+/// Lo que la pantalla enseña antes de activar una campaña de WhatsApp.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ NO ES `RevisionDeCampana` CON UN CAMPO MÁS
+///
+/// Porque los ocho puntos del preflight de correo hablan de SMTP —autentica,
+/// hay conexión, los registros del dominio—, y en WhatsApp **ninguno de los
+/// tres significa nada**: no hay servidor al que conectarse con credenciales
+/// propias, ni dominio que publicar. Meterlos aquí como «sin comprobar»
+/// llenaría la pantalla de puntos que nunca se van a poder contestar.
+///
+/// Y al revés: las dos cifras de permiso, Coexistencia y la aceptación de
+/// riesgo no existen en correo. Son revisiones distintas porque los canales
+/// son distintos, y forzarlas al mismo tipo obligaría a que la mitad de los
+/// campos fueran `Option` sin significado.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RevisionDeWhatsApp {
+    /// Cuánta gente recibiría el mensaje.
+    pub audiencia: u32,
+    /// De ésos, a cuántos consta permiso vigente.
+    pub con_permiso: u32,
+    /// Y a cuántos no. Es la cifra que cambia el botón de activar.
+    pub sin_permiso: u32,
+    /// ¿Está confirmada Coexistencia (L-11)?
+    pub coexistencia: bool,
+    /// ¿Se aceptó el riesgo del modo en frío?
+    pub riesgo_aceptado: bool,
+    /// ¿Este número escribe en frío?
+    pub escribe_en_frio: bool,
+    /// Cuántas plantillas aprobadas hay.
+    pub plantillas_aprobadas: u32,
+    /// ¿Se puede activar?
+    pub se_puede_activar: bool,
+    /// ¿Hay que escribir una palabra para confirmar?
+    pub pide_palabra_de_confirmacion: bool,
+    /// La calidad que Meta asigna al número, si se pudo consultar.
+    ///
+    /// **`None` significa «no se pudo preguntar», no «está bien».** Un semáforo
+    /// que se pone en verde cuando no ha podido mirar es peor que no tener
+    /// semáforo: es la misma regla del «sin comprobar» del preflight de correo.
+    pub calidad: Option<String>,
+}
+
+/// Revisa una campaña de WhatsApp antes de activarla.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LA CALIDAD SE PREGUNTA, LAS RESPUESTAS NO SE PUEDEN PREGUNTAR
+///
+/// De las tres cosas que `LOGISTICA_DE_CAMPANAS.md` esperaba de los avisos de
+/// Meta, **ésta sí se puede consultar**: Cloud API expone la calidad del
+/// número, así que el semáforo no depende de resolver dónde se alojan los
+/// avisos. Se pregunta aquí, antes de cada campaña.
+///
+/// Lo que no se puede consultar son las respuestas de la gente: no hay forma
+/// de pedirle a Cloud API los mensajes entrantes, y ésa es la parte que queda
+/// pendiente de la decisión de Dirección (W.4).
+///
+/// Que la consulta falle **no es un error de este comando**: la calidad queda
+/// en `None` y la pantalla dice «no se pudo consultar». Tratarlo como error
+/// impediría revisar una campaña por una red caída, que es justo cuando más
+/// falta hace ver las cifras de permiso.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si no hay empresa configurada, si el identificador no vale, o
+/// si la campaña no existe o no tiene etapa de WhatsApp.
+#[tauri::command]
+pub fn revisar_campana_de_whatsapp(
+    estado: tauri::State<'_, EstadoApp>,
+    id: String,
+) -> Result<RevisionDeWhatsApp, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let campana = id
+        .parse::<arles_core::ids::CampaignId>()
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    let sabido = estado
+        .db()
+        .lo_que_se_sabe_de_whatsapp(empresa, campana)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    Ok(RevisionDeWhatsApp {
+        audiencia: sabido.audiencia,
+        con_permiso: sabido.con_permiso,
+        sin_permiso: sabido.sin_permiso,
+        coexistencia: sabido.coexistencia,
+        riesgo_aceptado: sabido.riesgo_aceptado,
+        escribe_en_frio: sabido.escribe_en_frio,
+        plantillas_aprobadas: sabido.plantillas_aprobadas,
+        se_puede_activar: sabido.se_puede_activar(),
+        pide_palabra_de_confirmacion: sabido.pide_palabra_de_confirmacion(),
+        // Todavía no se sondea a Meta desde aquí: queda en «no se pudo
+        // consultar», que es lo que es. Enchufarlo es la entrega W.6.
+        calidad: None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── La puerta del canal de WhatsApp · entrega W.5 ─────────────────────
+
+    /// **Lo que cruza la frontera no lleva el token de Meta ni el número.**
+    ///
+    /// La revisión se construye a partir de un registro que sí tiene
+    /// `numero` —la pantalla necesita las cifras, no la credencial—, y se
+    /// busca en el JSON. La regla 3 de la frontera IPC dice que ningún comando
+    /// devuelve un secreto, y el identificador del número de teléfono de Meta
+    /// es con lo que se envía en su nombre.
+    ///
+    /// Se serializa de verdad en vez de leer la definición del `struct`:
+    /// si alguien añade un campo mañana, esta prueba lo dice.
+    ///
+    /// Verificada rompiéndola el 29/09/2026: añadiendo `numero` a
+    /// `RevisionDeWhatsApp` y rellenándolo, esta prueba falla.
+    #[test]
+    fn la_revision_de_whatsapp_no_lleva_el_numero_ni_el_token() {
+        let r = RevisionDeWhatsApp {
+            audiencia: 847,
+            con_permiso: 12,
+            sin_permiso: 835,
+            coexistencia: true,
+            riesgo_aceptado: false,
+            escribe_en_frio: true,
+            plantillas_aprobadas: 2,
+            se_puede_activar: false,
+            pide_palabra_de_confirmacion: true,
+            calidad: None,
+        };
+
+        let json = serde_json::to_string(&r).expect("serializa");
+        assert!(!json.contains("+52"), "no sale el número: {json}");
+        assert!(!json.contains("llavero://"), "ni la referencia: {json}");
+        assert!(
+            !json.contains("phone_number_id"),
+            "ni el id de Meta: {json}"
+        );
+        assert!(json.contains("835"), "pero sí las cifras: {json}");
+    }
+
+    /// **Sin calidad consultada, el campo va nulo — no «bien».**
+    ///
+    /// Un semáforo que se pone en verde cuando no ha podido mirar es peor que
+    /// no tener semáforo. La pantalla tiene que poder distinguir «la calidad
+    /// es alta» de «no se pudo preguntar», y para eso el `None` tiene que
+    /// llegar como `null` y no desaparecer del JSON.
+    #[test]
+    fn la_calidad_sin_consultar_llega_como_nula_y_no_desaparece() {
+        let r = RevisionDeWhatsApp {
+            audiencia: 1,
+            con_permiso: 1,
+            sin_permiso: 0,
+            coexistencia: true,
+            riesgo_aceptado: false,
+            escribe_en_frio: false,
+            plantillas_aprobadas: 1,
+            se_puede_activar: true,
+            pide_palabra_de_confirmacion: false,
+            calidad: None,
+        };
+
+        let json = serde_json::to_string(&r).expect("serializa");
+        assert!(
+            json.contains("\"calidad\":null"),
+            "el campo tiene que estar, y nulo: {json}"
+        );
+    }
 
     // ── Remitentes · entrega 5.3 ─────────────────────────────────────────
 
