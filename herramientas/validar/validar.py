@@ -3619,6 +3619,93 @@ def las_dos_marcas_no_estan_en_el_alta():
     )
 
 
+def ninguna_tabla_se_queda_sin_escritor():
+    """**Una tabla que nadie rellena es una función que nadie llama, en datos.**
+
+    `whatsapp_template` estuvo en el esquema desde la V9 sin que ningún
+    repositorio escribiera en ella. Sólo se leía, para contar cuántas plantillas
+    aprobadas hay — y como la cuenta daba siempre cero, y la puerta del canal
+    exige al menos una, **ninguna campaña de WhatsApp se podía activar nunca**.
+
+    Ninguna prueba podía verlo: las de la migración comprueban que la tabla
+    existe con sus restricciones, y pasan; las de la revisión siembran filas a
+    mano y pasan. El hueco vive entre el esquema y el repositorio.
+
+    Es el cuarto caso del mismo patrón —algo correcto que nadie usa— y el
+    primero en forma de tabla. `lo_que_se_construye_se_usa()` no lo caza porque
+    no es código sin llamar.
+
+    Se mira el `INSERT` fuera de las pruebas: sembrar en un `mod tests` es
+    justamente el espejismo que hizo que esto pasara desapercibido.
+    """
+    import glob
+
+    huerfanas = []
+
+    tablas = set()
+    for sql in glob.glob(os.path.join(RAIZ, "crates/arles-db/migrations", "*.sql")):
+        with open(sql, encoding="utf-8") as f:
+            for m in re.finditer(r"CREATE TABLE (?:IF NOT EXISTS )?(\w+)", f.read()):
+                tablas.add(m.group(1))
+
+    # Las que nadie rellena porque nadie debe rellenarlas a mano.
+    DE_SISTEMA = {"refinery_schema_history", "schema_version", "sqlite_sequence"}
+
+    # ── Las que SÍ están sin escritor, y por qué ──
+    #
+    # Una excepción con su motivo escrito no es un silencio: si mañana aparece
+    # una tabla nueva sin quien la rellene, esta comprobación falla igual. Lo
+    # que no puede es fallar para siempre por trabajo que se decidió no hacer,
+    # porque entonces se apaga y deja de mirar.
+    #
+    # Cada una se quita de aquí el día que se construya lo suyo.
+    PENDIENTES_CONOCIDOS = {
+        # Etiquetas, listas y campos propios: §40, declarado fuera del alcance
+        # de la Fase 6 en su documento de cierre. Enseñar un filtro que no
+        # filtra sería peor que no tenerlo.
+        "tag",
+        "contact_tag",
+        "contact_list",
+        "contact_list_member",
+        "contact_field",
+        # El registro de consentimiento (P-17): la tabla existe y se LEE para
+        # decidir si alguien dio permiso, pero todavía no hay pantalla que
+        # registre uno. Hoy el permiso sólo entra por importación.
+        "consent_entry",
+        # Los eventos de calidad de Meta llegan por webhook, y el «relay ciego»
+        # que Dirección decidió el 29/09/2026 no existe todavía.
+        "whatsapp_quality_event",
+    }
+
+    cuerpo = ""
+    for base, _, ficheros in os.walk(os.path.join(RAIZ, "crates/arles-db/src")):
+        for f in ficheros:
+            if f.endswith(".rs"):
+                with open(os.path.join(base, f), encoding="utf-8") as fh:
+                    # Sólo lo que hay ANTES de `mod tests`: una siembra de
+                    # prueba no es un escritor.
+                    cuerpo += fh.read().split("#[cfg(test)]")[0]
+
+    for tabla in sorted(tablas - DE_SISTEMA - PENDIENTES_CONOCIDOS):
+        # Las `*_nueva` son el paso intermedio de una migración que reconstruye
+        # una tabla: se crean, se copian y se renombran dentro del mismo `.sql`.
+        # No existen cuando el programa arranca.
+        if tabla.endswith("_nueva"):
+            continue
+        if not re.search(rf"INSERT (?:OR \w+ )?INTO {tabla}\b", cuerpo):
+            huerfanas.append(tabla)
+
+    check(
+        "W",
+        "ninguna tabla del esquema se queda sin quien la rellene",
+        not huerfanas,
+        "Una tabla que nadie rellena hace que todo lo que dependa de ella "
+        "quede en cero para siempre. `whatsapp_template` tuvo a la puerta del "
+        "canal cerrada con llave desde dentro, y ninguna prueba podía verlo.",
+        " · ".join(huerfanas),
+    )
+
+
 def fase_w(rapido):
     titulo("CANAL W · WhatsApp")
 
@@ -3647,6 +3734,7 @@ def fase_w(rapido):
 
     print(f"{GRIS}  el cable entre las capas{FIN}")
     lo_que_se_construye_se_usa()
+    ninguna_tabla_se_queda_sin_escritor()
 
 
 # El canal de WhatsApp no es una fase numerada: cruza la 5 y la 6 y se entregó

@@ -26,6 +26,7 @@ pub mod error;
 pub mod migraciones;
 pub mod numero;
 pub mod plantillas;
+pub mod plantillas_whatsapp;
 pub mod preferencias;
 pub mod presupuesto;
 pub mod prueba;
