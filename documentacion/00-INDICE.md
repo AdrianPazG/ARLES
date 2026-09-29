@@ -138,6 +138,7 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Fase 06 · resumen para Dirección](09-fases/FASE-06-PARA-DIRECCION.md) | Sin tecnicismos |
 | [Canal W · WhatsApp](09-fases/FASE-W-CANAL-WHATSAPP.md) | W.1 a W.8 · 17/17 · con su auditoría y lo que quedó fuera |
 | [Canal W · resumen para Dirección](09-fases/FASE-W-PARA-DIRECCION.md) | Sin tecnicismos |
+| [Fase 07 · Actividad y entregabilidad · **plan**](09-fases/FASE-07-PLAN.md) | 📋 planificada · siete entregas, tres decisiones y cinco propuestas |
 
 ---
 

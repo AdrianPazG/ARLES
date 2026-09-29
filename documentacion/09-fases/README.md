@@ -26,8 +26,8 @@ Existen porque los ADR explican *por qué* se decidió algo y el código muestra
 | [04](FASE-04-MOTOR-DE-EJECUCION.md) | Motor de ejecución | ✅ cerrada | 38 / 38 |
 | [05](FASE-05-PROVEEDORES-DE-ENVIO.md) | Proveedores de envío | 🟡 **la parte de correo cerrada · falta WhatsApp** | 35 / 35 |
 | [06](FASE-06-CAMPANAS-Y-MENSAJES.md) | Campañas y mensajes | ✅ **cerrada** · [informe](FASE-06-PARA-DIRECCION.md) | 20 / 20 |
-| 06 | Campañas y mensajes | ⬜ pendiente | — |
-| 07 | Actividad y entregabilidad | ⬜ pendiente | — |
+| [W](FASE-W-CANAL-WHATSAPP.md) | Canal de WhatsApp | ✅ **cerrado** · [informe](FASE-W-PARA-DIRECCION.md) | 20 / 20 |
+| [07](FASE-07-PLAN.md) | Actividad y entregabilidad | 📋 **planificada** · [plan](FASE-07-PLAN.md) | — |
 | 08 | Respaldos y endurecimiento | ⬜ pendiente | — |
 | 09 | Release v1.2.0 | ⬜ pendiente | — |
 

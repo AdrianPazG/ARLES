@@ -293,7 +293,16 @@ pantalla y cada acción, las nueve insignias ilegibles, y la revisión **a ojo**
 de las trece pantallas en un navegador, que encontró siete cosas con todas las
 sondas en verde. Está contado más arriba, en «Lo que sólo se ve mirando».
 
-**Lo siguiente:** la **Fase 7 · Actividad**.
+**Lo siguiente:** la **Fase 7 · Actividad**, planificada en
+[`documentacion/09-fases/FASE-07-PLAN.md`](documentacion/09-fases/FASE-07-PLAN.md):
+siete entregas, tres decisiones que esperan a Dirección y cinco propuestas.
+
+**Y el séptimo caso del patrón, que la 7.0 arregla primero porque es urgente:**
+la Fase 4 construyó Pausar, Reanudar, Detener y la parada de emergencia, están
+probados y `arles-db` los expone… y **ningún comando de Tauri los llama**. Los
+textos en español llevan desde la Fase 6 escritos en `es.ts`. Hoy **una campaña
+activada no se puede parar desde la interfaz**, y eso bloquea la demostración y
+la prueba real con correo (R-24).
 
 **Para una demostración real** con correo y WhatsApp que llegan de verdad:
 `documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md`.
