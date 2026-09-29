@@ -57,25 +57,39 @@ const icono = computed(() => ICONO[props.tono])
   font-weight: var(--arles-font-weight-semibold);
   white-space: nowrap;
 
-  /* Todos los rellenos claros llevan el mismo texto oscuro: es lo que hace
-     que el contraste sea el del relleno y no dependa del tono. */
+  /* ── CADA TONO LLEVA SU PROPIA TINTA, Y NO UNA COMÚN ──────────────────
+     Aquí había un solo `--arles-text-on-accent` para todos los rellenos, con
+     el motivo escrito de que «el contraste sea el del relleno y no dependa del
+     tono». La idea era buena y el dato no la sostenía: **en el tema claro, los
+     colores de estado son oscuros** —el verde es #0F6B52 y el ámbar #8A5200—,
+     así que ponerles encima una tinta casi negra daba 2.47:1 sobre un mínimo
+     de 4.5.
+     Lo midió la auditoría el 29/09/2026, en cuanto las pantallas nuevas
+     empezaron a enseñar insignias de verdad. Antes no había datos que las
+     pintaran, así que el defecto existía y nadie lo veía.
+     Cada tono usa ahora su `--arles-text-on-*`, que ya era el patrón de
+     peligro y de info: blanco en el tema claro, tinta oscura en el oscuro. */
   color: var(--arles-text-on-accent);
 }
 
 .t-exito {
   background: var(--arles-success);
+  color: var(--arles-text-on-success);
 }
 
 .t-aviso {
   background: var(--arles-warning);
+  color: var(--arles-text-on-warning);
 }
 
 .t-peligro {
   background: var(--arles-danger);
+  color: var(--arles-text-on-danger);
 }
 
 .t-info {
   background: var(--arles-info);
+  color: var(--arles-text-on-info);
 }
 
 .t-incierto {

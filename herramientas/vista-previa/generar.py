@@ -107,9 +107,31 @@ def main() -> int:
     p.add_argument("--sin-mont", action="store_true", help="sin la tipografía de la marca")
     args = p.parse_args()
 
-    if args.sin_mont:
-        corre(["python3", "herramientas/marca/sin-mont.py", "--aplicar"], RAIZ)
+    # ─────────────────────────────────────────────────────────────────────
+    # `--sin-mont` TOCA EL PROYECTO, ASÍ QUE SE DEVUELVE COMO ESTABA
+    #
+    # `sin-mont.py --aplicar` reescribe `app/src/design/tipografia.css`, y hasta
+    # el 29/09/2026 lo dejaba reescrito para siempre. Generar una vez la vista
+    # previa sin la tipografía dejaba el repositorio sin ella **y sin avisar**:
+    # la siguiente generación normal salía también sin Mont, 232 kB más ligera,
+    # y nadie sabía por qué.
+    #
+    # Ahora se guarda el archivo antes y se restaura al terminar, pase lo que
+    # pase — incluso si la compilación falla a mitad, que es justo cuando más
+    # duele quedarse con el proyecto a medio modificar.
+    tipografia = RAIZ / "app/src/design/tipografia.css"
+    original = tipografia.read_text(encoding="utf-8") if args.sin_mont else None
 
+    try:
+        if args.sin_mont:
+            corre(["python3", "herramientas/marca/sin-mont.py", "--aplicar"], RAIZ)
+        return generar()
+    finally:
+        if original is not None:
+            tipografia.write_text(original, encoding="utf-8")
+
+
+def generar() -> int:
     print("Compilando el frontend…")
     corre(
         [

@@ -29,9 +29,11 @@
   --arles-danger-hover: #F4867A;  /* Peligro en hover · relleno del botón de peligro */
 
   /* Tintas sobre relleno */
-  --arles-text-on-accent: #041A25;  /* Texto sobre el relleno de acento. El oro es claro en los dos temas, asi que la tinta es oscura en los dos. */
-  --arles-text-on-danger: #041A25;  /* Texto sobre el relleno de peligro. En oscuro el rojo es claro; en claro es oscuro. La tinta se invierte. */
-  --arles-text-on-info  : #041A25;  /* Texto sobre relleno de info, si alguna vez lo hubiera. Misma inversion que peligro. */
+  --arles-text-on-accent : #041A25;  /* Texto sobre el relleno de acento. El oro es claro en los dos temas, asi que la tinta es oscura en los dos. */
+  --arles-text-on-danger : #041A25;  /* Texto sobre el relleno de peligro. En oscuro el rojo es claro; en claro es oscuro. La tinta se invierte. */
+  --arles-text-on-success: #041A25;  /* Texto sobre el relleno de aceptado. En claro el verde es oscuro (#0F6B52), así que la tinta es blanca; en oscuro es claro (#4FC3A1) y la tinta es oscura. */
+  --arles-text-on-warning: #041A25;  /* Texto sobre el relleno de advertencia. Mismo motivo que el de aceptado: el ámbar del tema claro (#8A5200) es oscuro. */
+  --arles-text-on-info   : #041A25;  /* Texto sobre relleno de info, si alguna vez lo hubiera. Misma inversion que peligro. */
 
   /* Marca · no se invierte */
   --arles-marca-fondo: #045686;  /* Placa del isotipo. Es el color de la placa del icono que genera `herramientas/iconos/generar-iconos.py`, y por eso vale lo mismo en los dos temas: el icono de la barra de tareas no cambia con el tema del sistema, y éste es el mismo icono. */
@@ -45,27 +47,29 @@
  * esa elección tiene que ganarle a la del sistema operativo.
  */
 :root[data-tema="claro"] {
-  --arles-bg-deep       : #F2EEE9;
-  --arles-surface       : #FAF8F5;
-  --arles-border        : #DCD3C8;
-  --arles-surface-raised: #FFFFFF;
-  --arles-surface-hover : #E7DFD4;
-  --arles-border-strong : #8A7A64;
-  --arles-nav-activo    : #A1C0D6;
-  --arles-text          : #10242E;
-  --arles-text-muted    : #46585F;
-  --arles-accent        : #FCCC0C;
-  --arles-info          : #0A5E80;
-  --arles-accent-hover  : #EFBF00;
-  --arles-text-disabled : #78868D;
-  --arles-accent-ink    : #7A5B00;
-  --arles-success       : #0F6B52;
-  --arles-warning       : #8A5200;
-  --arles-danger        : #B0281B;
-  --arles-danger-hover  : #8E1F14;
-  --arles-text-on-accent: #10242E;
-  --arles-text-on-danger: #FFFFFF;
-  --arles-text-on-info  : #FFFFFF;
-  --arles-marca-fondo   : #045686;
-  --arles-marca-tinta   : #FCCC0C;
+  --arles-bg-deep        : #F2EEE9;
+  --arles-surface        : #FAF8F5;
+  --arles-border         : #DCD3C8;
+  --arles-surface-raised : #FFFFFF;
+  --arles-surface-hover  : #E7DFD4;
+  --arles-border-strong  : #8A7A64;
+  --arles-nav-activo     : #A1C0D6;
+  --arles-text           : #10242E;
+  --arles-text-muted     : #46585F;
+  --arles-accent         : #FCCC0C;
+  --arles-info           : #0A5E80;
+  --arles-accent-hover   : #EFBF00;
+  --arles-text-disabled  : #78868D;
+  --arles-accent-ink     : #7A5B00;
+  --arles-success        : #0F6B52;
+  --arles-warning        : #8A5200;
+  --arles-danger         : #B0281B;
+  --arles-danger-hover   : #8E1F14;
+  --arles-text-on-accent : #10242E;
+  --arles-text-on-danger : #FFFFFF;
+  --arles-text-on-success: #FFFFFF;
+  --arles-text-on-warning: #FFFFFF;
+  --arles-text-on-info   : #FFFFFF;
+  --arles-marca-fondo    : #045686;
+  --arles-marca-tinta    : #FCCC0C;
 }

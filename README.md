@@ -81,6 +81,54 @@ python3 herramientas/validar/validar.py     # valida todas las fases cerradas
 
 ---
 
+## Ver ARLES funcionando, sin instalar nada
+
+**Hay un archivo que abre la aplicación entera en el navegador, con datos de
+ejemplo.** Un solo HTML de 718 kB, sin instalador, sin conexión y sin dejar nada
+en el equipo: se abre con doble clic y se puede mandar por correo a quien tenga
+que verlo.
+
+📄 **[`vista-previa/ARLES-vista-previa.html`](vista-previa/ARLES-vista-previa.html)**
+→ *Download raw file* (el botón de descarga, arriba a la derecha del archivo)
+
+### Qué se ve, y qué no
+
+**Se recorren las trece pantallas** con contactos, campañas, plantillas,
+remitentes y un número de WhatsApp ya dados de alta. Se puede escribir una
+plantilla, navegar el asistente de nueve pasos, confirmar Coexistencia y ver las
+dos cifras de permiso antes de activar una campaña.
+
+**No manda nada.** El motor que envía vive en Rust, detrás de la frontera de la
+aplicación de escritorio, y ahí no hay nadie al otro lado: lo que responde es un
+simulador que vive en
+[`herramientas/vista-previa/simulador.js`](herramientas/vista-previa/simulador.js).
+Nada de lo que se escriba se guarda de verdad — sobrevive a recargar la página y
+desaparece al cerrar la pestaña.
+
+**Los datos son inventados y se nota**: todas las direcciones llevan
+`ejemplo.mx`.
+
+### Por qué no hay un enlace público
+
+Porque publicarlo en internet distribuiría la tipografía **Mont**, y eso es lo
+que la licencia no cubre mientras P-01 siga abierta (el mismo motivo por el que
+no hay instalador todavía). Este archivo **sí** la lleva, porque es interno —
+equivale a mirar el entorno de desarrollo del equipo.
+
+Si algún día hace falta un enlace abierto, se genera sin ella:
+
+```bash
+python3 herramientas/vista-previa/generar.py --sin-mont
+```
+
+### Cómo se regenera
+
+```bash
+python3 herramientas/vista-previa/generar.py
+```
+
+---
+
 ## Descargar ARLES
 
 **Todavía no hay ninguna versión descargable, y conviene decir por qué en vez de

@@ -291,6 +291,41 @@ después la **Fase 7 · Actividad**.
 **Para una demostración real** con correo y WhatsApp que llegan de verdad:
 `documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md`.
 
+**Para cambiar el diseño sin buscar:**
+`documentacion/05-diseno/MAPA-DE-PANTALLAS.md` — qué archivo dibuja cada
+pantalla, de dónde saca los datos, dónde están sus textos y qué comprobación
+salta si se rompe.
+
+### El patrón que ya ha aparecido cinco veces
+
+**Una pieza correcta, probada, y nadie la usa.** Ninguna prueba lo caza, porque
+una prueba comprueba que la pieza funciona, no que otro módulo la llame: el
+hueco vive justo entre dos capas que cada una pasa lo suyo.
+
+| Dónde | Qué faltaba |
+|---|---|
+| Fase 6 | `guardar_plantilla` y `guardar_firma`, sin pantalla que los llamara |
+| Canal W | `ProveedorDeWhatsApp`, y `arles-app` ni dependía de él |
+| 6.8b | `whatsapp_template`, una tabla sin nadie que escribiera en ella |
+| 6.8a | `PantallaPlantillas.vue`, trece kilobytes sin ruta |
+| Vista previa | Once comandos sin respuesta en el simulador |
+
+Los cinco los caza ahora `validar.py --fase W`:
+`lo_que_se_construye_se_usa`, `ninguna_tabla_se_queda_sin_escritor`,
+`toda_pantalla_se_puede_abrir` y la sonda del recorrido.
+
+**Al añadir algo, la pregunta no es «¿funciona?» sino «¿quién lo llama?».**
+
+### Dos trampas de las herramientas
+
+1. **`generar.py --sin-mont` reescribe `tipografia.css`.** Desde el 29/09/2026
+   lo restaura al terminar, pase lo que pase. Antes lo dejaba reescrito y la
+   siguiente vista previa salía sin la tipografía sin que nadie supiera por qué.
+2. **`generar.py` aborta si la compilación falla, pero deja el HTML anterior en
+   disco.** Una sonda que no comprueba su código de salida mide **otra versión
+   del código**. La del recorrido ya lo comprueba; cualquier sonda nueva debe
+   hacerlo.
+
 **Seis trampas del código de la Fase 6**, por si se toca:
 
 1. La **empresa del contacto** vive en la columna `source`, no en una llamada

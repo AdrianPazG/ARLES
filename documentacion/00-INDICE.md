@@ -14,6 +14,7 @@
 | Tech Lead / Arquitecto | [Arquitectura](03-arquitectura/ARQUITECTURA.md) → [Motor de ejecución](03-arquitectura/MOTOR_DE_EJECUCION.md) → ADRs |
 | Backend / Rust | [Modelo de datos](03-arquitectura/MODELO_DE_DATOS.md) → [Motor](03-arquitectura/MOTOR_DE_EJECUCION.md) → [Proveedores](03-arquitectura/ABSTRACCION_EMAIL_PROVIDER.md) |
 | Frontend | [Design System](05-diseno/DESIGN_SYSTEM.md) → [Color](05-diseno/COLOR_SYSTEM.md) → [UX y navegación](05-diseno/UX_NAVEGACION.md) |
+| Cambiar el diseño | [Mapa de pantallas](05-diseno/MAPA-DE-PANTALLAS.md) — qué archivo tocar para cada cosa |
 | Seguridad | [Modelo de amenazas](04-seguridad/THREAT_MODEL.md) → [Secretos](04-seguridad/MODELO_DE_SECRETOS.md) |
 | QA | [Estrategia de QA](06-calidad/ESTRATEGIA_QA.md) → [Rendimiento](06-calidad/PRESUPUESTO_RENDIMIENTO.md) |
 | Nuevo en el proyecto | [Visión y alcance](01-producto/VISION_Y_ALCANCE.md) → [Glosario](01-producto/GLOSARIO.md) |
@@ -80,6 +81,7 @@
 |---|---|
 | [COLOR_SYSTEM](05-diseno/COLOR_SYSTEM.md) | Paleta medida, rampas, contraste calculado |
 | [DESIGN_SYSTEM](05-diseno/DESIGN_SYSTEM.md) | Tokens, componentes, movimiento, accesibilidad |
+| [MAPA_DE_PANTALLAS](05-diseno/MAPA-DE-PANTALLAS.md) | **Dónde se toca cada cosa** para cambiar el diseño: qué archivo dibuja cada pantalla, de dónde saca sus datos, dónde están sus textos y qué comprobación salta |
 | [TIPOGRAFIA](05-diseno/TIPOGRAFIA.md) | ⚠️ **Bloqueado por D-3**. Plan A y plan B |
 | [MARCA_TELEMETRY](05-diseno/MARCA_TELEMETRY.md) | El logotipo horizontal dentro de ARLES: tinta, aire, enlace |
 | [UX_NAVEGACION](05-diseno/UX_NAVEGACION.md) | 6 secciones, flujos, onboarding, teclado. **La séptima se decide en P-13** |
