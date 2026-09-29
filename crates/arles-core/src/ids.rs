@@ -118,6 +118,14 @@ id_tipado!(
     SignatureId
 );
 id_tipado!(
+    /// Número de WhatsApp dado de alta en Cloud API.
+    WhatsappAccountId
+);
+id_tipado!(
+    /// Plantilla aprobada por Meta.
+    WhatsappTemplateId
+);
+id_tipado!(
     /// Ventana de ejecución: los días y horas en que una campaña puede enviar.
     ///
     /// Es de la empresa y se reutiliza entre campañas, así que tiene id propio
