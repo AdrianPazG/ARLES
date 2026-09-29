@@ -114,6 +114,10 @@ id_tipado!(
     TemplateVersionId
 );
 id_tipado!(
+    /// Firma que se añade al final de un mensaje.
+    SignatureId
+);
+id_tipado!(
     /// Campaña.
     CampaignId
 );

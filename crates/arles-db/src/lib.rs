@@ -23,6 +23,7 @@ pub mod db;
 pub mod empresa;
 pub mod error;
 pub mod migraciones;
+pub mod plantillas;
 pub mod preferencias;
 pub mod presupuesto;
 pub mod prueba;
