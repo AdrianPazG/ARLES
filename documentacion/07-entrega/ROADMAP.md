@@ -167,7 +167,21 @@ decidir»).
 
 ### Fase 6 — Campañas y mensajes
 
-Plantillas con versionado · motor de sustitución no Turing-completo · sanitizado con `ammonia` · firmas · editor de texto enriquecido simple · el asistente de 9 pasos · simulador · preflight · envío de prueba obligatorio · aviso de más de 50 diarios con registro de aceptación.
+Plantillas con versionado · motor de sustitución no Turing-completo · sanitizado con `ammonia` · firmas · ~~editor de texto enriquecido simple~~ · el asistente de 9 pasos · simulador · preflight · envío de prueba obligatorio · aviso de más de 50 diarios con registro de aceptación.
+
+> ⚠️ **Nueve de los diez entregados. El editor de texto enriquecido no está**,
+> y con él tampoco la pantalla para escribir plantillas y firmas. Los comandos
+> `guardar_plantilla` y `guardar_firma` existen y están probados, pero **ninguna
+> pantalla los llama**, así que desde la aplicación no hay forma de crear una
+> plantilla — y el asistente exige una para pasar del paso 4 de 9
+> (`AsistenteDeCampana.vue`, `sePuedeSeguir`, caso 4).
+>
+> Consecuencia práctica: **un recorrido de punta a punta no llega al envío**
+> sin sembrar plantillas en la base por fuera. Queda como **entrega 6.8**.
+>
+> Detectado el 29/09/2026 auditando la fase contra esta misma lista. El
+> documento de cierre ya lo declaraba en su §7; esta línea del ROADMAP no, y
+> prometía los diez. Es la contradicción que se corrige aquí.
 
 **Sobre un motor ya probado.**
 

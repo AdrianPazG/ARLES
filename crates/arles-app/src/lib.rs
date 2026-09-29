@@ -14,6 +14,7 @@ pub mod fabrica;
 pub mod llavero;
 pub mod motor;
 pub mod rutas;
+pub mod whatsapp;
 
 pub use error::{AppError, ErrorIpc};
 pub use estado::EstadoApp;
@@ -76,6 +77,10 @@ pub fn run() {
             comandos::probar_envio_de_la_cuenta,
             comandos::revisar_campana,
             comandos::revisar_campana_de_whatsapp,
+            whatsapp::numeros_de_whatsapp,
+            whatsapp::guardar_numero_de_whatsapp,
+            whatsapp::confirmar_coexistencia,
+            whatsapp::aceptar_riesgo_del_canal,
             campanas::plantillas,
             campanas::guardar_plantilla,
             campanas::firmas,

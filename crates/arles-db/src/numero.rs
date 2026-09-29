@@ -110,14 +110,21 @@ impl Db {
     /// # Errores
     ///
     /// [`DbError::Sqlite`] si la escritura falla.
+    /// `id` se genera **fuera**, y no aquí, porque la referencia del llavero lo
+    /// lleva dentro: `llavero://…/whatsapp-number/{id}`. Generándolo dentro no
+    /// habría forma de construir esa referencia antes de llamar, y la fila
+    /// acabaría apuntando a una entrada del llavero que no es la suya.
+    ///
+    /// Es el mismo reparto que `alta_de_cuenta_de_correo`. Se corrigió el
+    /// 29/09/2026, al enchufar los comandos de la W.6: la firma original
+    /// generaba el identificador dentro y hacía imposible la llamada.
     pub fn guardar_numero(
         &self,
         empresa: CompanyId,
+        id: WhatsappAccountId,
         nuevo: &NumeroNuevo<'_>,
         referencia_de_credencial: &str,
     ) -> Result<WhatsappAccountId, DbError> {
-        let id = WhatsappAccountId::nuevo();
-
         self.con(|conn| {
             let tx = conn.unchecked_transaction()?;
             let cuando = ahora();
@@ -359,8 +366,15 @@ mod tests {
     }
 
     fn alta(db: &Db, modo: ModoDelCanal) -> WhatsappAccountId {
+        // El identificador se genera aquí y la referencia lo nombra, que es
+        // justamente el reparto que la firma exige. Antes del 29/09/2026 esta
+        // prueba pasaba una referencia acabada en `/x` —un identificador que no
+        // existía— y nadie lo notaba, porque el método generaba el suyo dentro
+        // y la referencia no se volvía a leer.
+        let id = WhatsappAccountId::nuevo();
         db.guardar_numero(
             empresa(),
+            id,
             &NumeroNuevo {
                 nombre_visible: "Ventas",
                 telefono_e164: "+528112345678",
@@ -368,7 +382,7 @@ mod tests {
                 phone_number_id: "pn-1",
                 modo,
             },
-            "llavero://mx.telemetryinsight.arlesrelay/whatsapp-account/x",
+            &format!("llavero://mx.telemetryinsight.arlesrelay/whatsapp-number/{id}"),
         )
         .expect("da de alta")
     }

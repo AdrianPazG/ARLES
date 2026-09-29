@@ -806,7 +806,7 @@ fn direcciones_del_archivo(
 }
 
 /// El país de la empresa configurada, que completa los móviles sin prefijo.
-fn pais_de_la_empresa(estado: &EstadoApp) -> Result<String, ErrorIpc> {
+pub(crate) fn pais_de_la_empresa(estado: &EstadoApp) -> Result<String, ErrorIpc> {
     estado
         .db()
         .empresa()

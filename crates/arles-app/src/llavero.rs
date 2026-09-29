@@ -57,6 +57,20 @@ impl Llavero {
         }
     }
 
+    /// El llavero de un número de WhatsApp.
+    ///
+    /// Un espacio de nombres distinto del de correo —`whatsapp-number/`— y no
+    /// el mismo con otro identificador. Los dos tipos de cuenta usan UUID, así
+    /// que compartir prefijo haría que un choque de identificadores entregara
+    /// el secreto equivocado al adaptador equivocado: el token de Meta a SMTP,
+    /// o al revés. Improbable, y gratis de impedir.
+    #[must_use]
+    pub fn del_numero(id: &str) -> Self {
+        Self {
+            cuenta: format!("whatsapp-number/{id}"),
+        }
+    }
+
     fn entrada(&self) -> Result<Entry, AppError> {
         Entry::new(SERVICIO, &self.cuenta).map_err(|e| AppError::LlaveroNoDisponible(e.to_string()))
     }
@@ -161,6 +175,15 @@ impl Llavero {
 #[must_use]
 pub fn referencia_de_cuenta(id_cuenta: &str) -> String {
     format!("llavero://{SERVICIO}/email-account/{id_cuenta}")
+}
+
+/// Referencia opaca que se guarda en `whatsapp_account.credential_ref`.
+///
+/// Misma regla que la de correo: en la base va la referencia, nunca el token
+/// de Meta.
+#[must_use]
+pub fn referencia_de_numero(id_numero: &str) -> String {
+    format!("llavero://{SERVICIO}/whatsapp-number/{id_numero}")
 }
 
 #[cfg(test)]
