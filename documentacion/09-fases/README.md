@@ -4,18 +4,27 @@ Una carpeta por fase del [roadmap](../07-entrega/ROADMAP.md). Cada una responde 
 
 Existen porque los ADR explican *por qué* se decidió algo y el código muestra *qué* quedó, pero nadie guarda el registro de **qué se verificó de verdad y qué se dio por bueno sin comprobar**. Esa distinción es la que importa cuando alguien pregunta, seis meses después, si algo está probado.
 
+> **Esta tabla se quedó atrás una vez.** El 29/09/2026 decía que la Fase 3
+> estaba en curso y que la 4 y la 5 estaban pendientes, con las tres ya
+> cerradas. Lo cazó la auditoría del cierre de la Fase 5 — no una comprobación
+> automática, porque no hay ninguna que mire esto.
+>
+> Las cifras salen de `validar.py --fase N`. **Las omitidas no son aprobadas**:
+> son las sondas que necesitan un navegador y que en un entorno sin Chromium no
+> se ejecutan. Por eso se enseñan aparte.
+
 ---
 
 ## Estado
 
 | Fase | Nombre | Estado | Comprobaciones |
 |---|---|---|---|
-| [00](FASE-00-DISCOVERY.md) | Discovery, auditoría y arquitectura | ✅ cerrada | 4 / 4 |
-| [01](FASE-01-CIMIENTOS.md) | Cimientos | ✅ cerrada y revisada | 32 / 32 |
-| [02](FASE-02-DESIGN-SYSTEM.md) | Design System | ✅ cerrada y revisada | 18 / 18 |
-| [03](FASE-03-EMPRESA-Y-CONTACTOS.md) | Empresa y contactos | 🟡 en curso · **3.1 cerrada** | 19 / 19 |
-| 04 | Motor de ejecución | ⬜ pendiente | — |
-| 05 | Proveedores de correo | ⬜ pendiente | — |
+| [00](FASE-00-DISCOVERY.md) | Discovery, auditoría y arquitectura | ✅ cerrada | 5 / 5 |
+| [01](FASE-01-CIMIENTOS.md) | Cimientos | ✅ cerrada y revisada | 45 / 48 · 3 omitidas |
+| [02](FASE-02-DESIGN-SYSTEM.md) | Design System | ✅ cerrada y revisada | 33 / 37 · 4 omitidas |
+| [03](FASE-03-EMPRESA-Y-CONTACTOS.md) | Empresa y contactos | ✅ cerrada | 72 / 81 · 9 omitidas |
+| [04](FASE-04-MOTOR-DE-EJECUCION.md) | Motor de ejecución | ✅ cerrada | 38 / 38 |
+| [05](FASE-05-PROVEEDORES-DE-ENVIO.md) | Proveedores de envío | 🟡 **la parte de correo cerrada · falta WhatsApp** | 35 / 35 |
 | 06 | Campañas y mensajes | ⬜ pendiente | — |
 | 07 | Actividad y entregabilidad | ⬜ pendiente | — |
 | 08 | Respaldos y endurecimiento | ⬜ pendiente | — |

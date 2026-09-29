@@ -129,6 +129,8 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Fase 03 · resumen para Dirección](09-fases/FASE-03-PARA-DIRECCION.md) | Sin tecnicismos |
 | [Fase 04 · Motor de ejecución](09-fases/FASE-04-MOTOR-DE-EJECUCION.md) | ✅ cerrada · 36/36, 0 omitidas |
 | [Fase 04 · resumen para Dirección](09-fases/FASE-04-PARA-DIRECCION.md) | Sin tecnicismos |
+| [Fase 05 · Proveedores de envío](09-fases/FASE-05-PROVEEDORES-DE-ENVIO.md) | 🟡 la parte de correo cerrada · 35/35, 0 omitidas · **falta WhatsApp** |
+| [Fase 05 · resumen para Dirección](09-fases/FASE-05-PARA-DIRECCION.md) | Sin tecnicismos |
 
 ---
 

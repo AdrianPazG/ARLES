@@ -12,6 +12,60 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Fase 5 · La parte de correo, cerrada — ARLES manda correos
+
+Por primera vez desde que empezó el proyecto, el programa abre una conversación
+con un servidor de correo, se identifica, cifra el canal, entrega un mensaje y
+lo deja anotado. Está ejercitado de punta a punta contra un servidor construido
+para eso, y lo que se comprueba es **lo que el servidor recibió**, no lo que el
+programa dice que mandó.
+
+**Dos cosas que este cierre no disimula:**
+
+- **Falta el canal de WhatsApp.** Su adaptador es de esta misma fase y no está
+  empezado. Lo que se cierra es la parte de correo, y hay una decisión pendiente
+  sobre cuándo construir el resto.
+- **ARLES todavía no ha hablado con un servidor real.** Esa prueba sólo se puede
+  hacer en la máquina del usuario — y desde esta entrega ya se puede hacer
+  entera, no sólo comprobar que la cuenta conecta.
+
+#### Lo que cambia para quien usa ARLES
+
+**Se puede mandar un correo de prueba y ver si llega.** Es el botón que cierra
+la última duda antes de una campaña. Dice «el servidor aceptó», nunca
+«entregado»: ARLES no puede saber si llegó a una bandeja, y es el punto de todo
+el programa donde más tentador sería decir lo contrario.
+
+**Las campañas siguen enviando con la ventana cerrada.** Y si se abre ARLES dos
+veces, sólo envía el primero — el segundo lo dice en pantalla, aclarando que no
+se ha perdido ni duplicado ningún correo.
+
+#### Las tres reglas que gobiernan esta fase
+
+**No existe ninguna forma de no cifrar.** Está escrita en tres sitios, incluida
+la base de datos, que no admite guardar una conexión sin cifrar aunque el resto
+del código lo dejara pasar.
+
+**La contraseña entra y no sale.** Vive en el llavero del sistema; en los
+archivos de ARLES sólo queda una referencia que no sirve para entrar a ningún
+sitio.
+
+**Nada da de baja a nadie por accidente.** Un correo de prueba no puede
+suprimir, pase lo que pase: si pudiera, probar una cuenta mal configurada contra
+la dirección propia daría de baja a quien la escribió.
+
+#### La auditoría del cierre
+
+Dos hallazgos. El primero es el de WhatsApp, arriba.
+
+El segundo fue una brecha **que no existía**: se sospechó que una garantía
+—que una cuenta con la contraseña caducada deja de intentarlo— sólo estaba
+probada a trozos, y se escribió una prueba nueva. Al romper el código a propósito
+falló también una prueba que ya existía, con una comprobación más fuerte. La
+prueba nueva se borró: una de más hace creer que hay dos garantías donde hay una.
+
+---
+
 ### Fase 5 · Entrega 5.4 — ARLES enciende el motor
 
 Hasta esta entrega había dos mitades construidas y **sin presentar**: la que

@@ -140,7 +140,7 @@ como cualquier dependencia (CLAUDE.md §6).
 
 ---
 
-### Fase 5 — Proveedores de correo · **en curso**
+### Fase 5 — Proveedores de envío · **la parte de correo, cerrada**
 
 Trait `EmailProvider` · `SmtpProvider` con TLS obligatorio · prueba de conexión · clasificación de errores SMTP · captura de rechazos 5xx síncronos hacia la supresión · guía de onboarding de contraseña de aplicación de Gmail.
 
@@ -152,10 +152,16 @@ Trait `EmailProvider` · `SmtpProvider` con TLS obligatorio · prueba de conexi�
 | **5.2** ✅ | Cerrada el 23/09/2026 | El adaptador. **Cifrado obligatorio sin forma de desactivarlo**, comprobado además contra el propio socket antes de mandar la contraseña. La conversación se lleva paso a paso para no confundir un rechazo del remitente con uno del destinatario, que es el único que da de baja a alguien |
 | **5.3** ✅ | Cerrada el 23/09/2026 | «Probar conexión» con seis diagnósticos accionables · migración V7 con las columnas de SMTP que faltaban desde la V1 · repositorio de cuentas **sin contraseñas** · llavero por cuenta · tres comandos · la pantalla de Remitentes con la guía de la contraseña de aplicación |
 | **5.4** ✅ | Cerrada el 28/09/2026 | **El motor corriendo de verdad.** Resultó ser más de lo que esta tabla decía: `arles-app` **ni siquiera dependía de `arles-motor`**, así que no había ningún trabajador al que darle el adaptador. Tres tramos: la fábrica que va de una cuenta guardada al `ProveedorSmtp` leyendo el llavero (5.4a) · la consulta de qué etapas están enviando y el hilo que las atiende, aparte de la ventana (5.4b) · el aviso de «esta ventana no envía» cuando hay otro ARLES abierto (5.4c) |
-| **5.5** ⬜ | **Lo siguiente** | El envío de prueba a una dirección propia antes de activar una campaña (§12). Es además donde el hilo del motor se verá mandar un correo **de punta a punta**: hoy su pegamento está probado contra un puerto cerrado, y el envío en sí contra el servidor de mentira, pero las dos cosas no se han visto juntas |
-| **5.6** ⬜ | | Cierre de fase: documento, informe para Dirección y PDF |
+| **5.5** ✅ | Cerrada el 29/09/2026 | **El envío de prueba, y ARLES mandando un correo entero por primera vez.** Dónde consta la prueba de una etapa y cuándo deja de valer —cambiar de remitente la invalida— (5.5a) · el comando, con una prueba de integración contra un servidor que habla **cifrado**, que mira lo que el servidor RECIBIÓ (5.5b) · el botón en Remitentes, que contesta «¿esta cuenta puede enviar?» sin campaña de por medio (5.5c) |
+| **5.6** ✅ | Cerrada el 29/09/2026 | Auditoría de la fase —dos hallazgos, §8 del documento—, documento de fase, informe para Dirección y PDF |
 
-**R-24 sigue abierto:** todo lo anterior está probado contra el servidor de mentira, y ARLES **no ha hablado nunca con un servidor real**. No se puede cerrar desde el entorno de desarrollo —la red bloquea los puertos de correo y no hay llavero del sistema—; se cierra en la máquina del usuario, con una cuenta desechable. Ver `ESTADO_ACTUAL.md` §7.
+**Lo que NO está y es de esta fase: el adaptador de WhatsApp Cloud API.** Sin
+empezar. La Fase 6 ofrece dos etapas en el asistente y la segunda no podrá
+enviar mientras esto falte; hay una decisión pendiente de Dirección sobre si se
+construye antes o después (ver el informe, «WhatsApp · lo que hay que
+decidir»).
+
+**R-24 sigue abierto:** ARLES **no ha hablado nunca con un servidor real**. No se puede cerrar desde el entorno de desarrollo —la red bloquea los puertos de correo y no hay llavero del sistema—; se cierra en la máquina del usuario, con una cuenta desechable. **Lo que la 5.5 cambia es que ahora se puede cerrar entero**: antes sólo se podía comprobar que la cuenta conectaba, y ahora se manda un correo y se mira si llega. Ver `ESTADO_ACTUAL.md` §7.
 
 ---
 

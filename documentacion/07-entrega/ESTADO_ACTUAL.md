@@ -10,7 +10,7 @@
 
 ## 1. En una frase
 
-**ARLES ya tiene el motor encendido.** Al abrir el programa hay un hilo dentro que mira qué campañas están enviando y las atiende, con el adaptador SMTP armado a partir de la cuenta guardada y su contraseña del llavero. Lo que falta para cerrar la fase es el envío de prueba del §12 (5.5) y el cierre (5.6).
+**ARLES ya manda correos.** La parte de correo de la Fase 5 está cerrada entera (5.1 a 5.6): el programa abre una conversación con un servidor, cifra, entrega un mensaje y lo deja anotado, y está ejercitado de punta a punta contra un servidor que habla cifrado. **Lo que falta de la Fase 5 es el adaptador de WhatsApp**, que no está empezado — hay una decisión pendiente de Dirección sobre cuándo. Lo siguiente en el plan es la **Fase 6 · Campañas y mensajes**.
 
 ---
 
@@ -24,7 +24,7 @@
 | F3 · Empresa y contactos | ✅ cerrada | Empresa, contactos, importación CSV/XLSX, supresión, derechos |
 | F3W · Canales | 🟡 55 % | V3 y V4 aplicadas: `contact_channel`, consentimiento, etapas de campaña |
 | F4 · Motor de ejecución | ✅ cerrada | Máquina de estados, ritmo, ventana con zona IANA, reintentos, disyuntor, cola, presupuesto, pausa/detención, preflight |
-| **F5 · Proveedores de envío** | **🟡 en curso** | **5.1, 5.2, 5.3 y 5.4 cerradas. Ver §3** |
+| **F5 · Proveedores de envío** | **🟡 70 %** | **La parte de correo cerrada (5.1 a 5.6). Falta WhatsApp. Ver §3** |
 | F6 a F9 | ⬜ sin empezar | Campañas, actividad, respaldos, release |
 
 **Cifras del 23/09/2026:** 677 pruebas de Rust, 110 del frontend, validador de fase 5 en 22/22, `fmt`, `clippy`, `eslint` y `vue-tsc` limpios, `cargo deny` sin avisos.
@@ -73,11 +73,22 @@ Resultó ser bastante más de lo que este documento decía. La frase era «const
 
 **Lo que 5.4 NO deja verificado, y hay que decirlo:** el hilo del motor **no se ha visto mandar un correo de punta a punta**. Su pegamento está probado contra un puerto cerrado, y el envío en sí contra el servidor de mentira de `arles-email`, pero las dos cosas no se han visto juntas. El servidor de mentira que habla cifrado no se exporta a propósito: sacarlo metería un motor de TLS en el programa que se entrega. Su sitio natural es la 5.5.
 
+**5.5 · El envío de prueba** (cerrada el 29/09/2026)
+
+- `arles-db/migrations/V8__envio_de_prueba.sql` — dónde consta la prueba de una **etapa**, y con qué cuenta se hizo. Cambiar de remitente la invalida, y **no la borra**: «se probó con otro remitente» es lo que hay que poder enseñar.
+- `arles-db/src/prueba.rs` — registrarla y saber si todavía vale.
+- `arles-app/src/comandos.rs` — dos caminos: `enviar_correo_de_prueba` (por etapa, anota) y `probar_envio_de_la_cuenta` (por cuenta, **no anota**). Son dos preguntas distintas.
+- `arles-app/tests/envio_de_prueba.rs` — **ARLES mandando un correo entero**, contra un servidor que habla cifrado, comprobando lo que el servidor RECIBIÓ.
+
+**Un envío de prueba no toca nada más:** no entra en la cola, no gasta presupuesto y **no puede dar de baja a nadie**. Si pudiera, probar una cuenta mal configurada contra la dirección propia daría de baja a quien la escribió.
+
+**5.6 · Cierre de fase** (cerrada el 29/09/2026) — auditoría, documento de fase, informe para Dirección y PDF. Ver `09-fases/FASE-05-PROVEEDORES-DE-ENVIO.md`.
+
 ### Lo siguiente
 
-**5.5 · El envío de prueba.** Mandar un correo a una dirección propia antes de activar una campaña, que es lo que el §12 exige en el preflight.
+**Fase 6 · Campañas y mensajes.** Plantillas con versionado, sustitución de variables no Turing-completa, sanitizado con `ammonia` en Rust, firmas, el asistente de nueve pasos, el simulador y el preflight.
 
-**5.6 · Cierre de fase.** Documento de fase, informe para Dirección y PDF, como en las fases 1 a 4.
+**Y una decisión pendiente de Dirección:** el adaptador de **WhatsApp Cloud API** es de la Fase 5 y no está empezado. La Fase 6 ofrece dos etapas en el asistente, y la segunda no podrá enviar mientras eso falte. Planteado en `09-fases/FASE-05-PARA-DIRECCION.md`.
 
 ---
 

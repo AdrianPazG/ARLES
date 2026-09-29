@@ -1486,6 +1486,20 @@ mod tests {
 
     /// **Una credencial caducada para la cuenta a la primera**, y la marca para
     /// que el usuario sepa que hay que renovarla, no esperar.
+    ///
+    /// ── LA AUDITORÍA DE LA 5.6 PASÓ POR AQUÍ ──
+    ///
+    /// Al cerrar la fase se sospechó que esta cadena —credencial mala → la
+    /// cuenta se marca → nadie la vuelve a usar— sólo estaba probada por
+    /// tramos, y se llegó a escribir una prueba nueva para recorrerla entera.
+    /// Al romper `tras_un_fallo` a propósito falló **ésta también**: ya la
+    /// cubría, y con una aserción más fuerte —`cuantos_pedidos() == 1`— que la
+    /// que se estaba escribiendo. La prueba nueva se borró.
+    ///
+    /// Queda anotado porque el resultado útil de una auditoría también es
+    /// «esto ya estaba», y porque una prueba redundante no es gratis: da una
+    /// falsa sensación de cobertura y hace creer que hay dos garantías donde
+    /// hay una.
     #[test]
     fn una_credencial_caducada_para_la_cuenta_a_la_primera() {
         let (_d, db) = base();

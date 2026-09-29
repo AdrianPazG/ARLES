@@ -35,7 +35,7 @@
     "  python3 herramientas/avance/calcular.py --escribir"
   ],
   "version": "1.2.0",
-  "actualizado": "2026-09-28",
+  "actualizado": "2026-09-29",
   "fases": [
     {
       "id": "F0",
@@ -83,8 +83,8 @@
       "id": "F5",
       "nombre": "Proveedores de envío",
       "peso": 7,
-      "hecho": 0.45,
-      "porque": "5.1, 5.2, 5.3 y 5.4 cerradas: traducción de códigos SMTP, servidor de mentira que habla el protocolo y sabe fallar de seis maneras, adaptador con cifrado obligatorio y sin forma de desactivarlo, «Probar conexión» con seis diagnósticos, migración V7, repositorio de cuentas sin contraseñas, llavero por cuenta, la pantalla de Remitentes, y el motor encendido: la fábrica que va de una cuenta guardada al adaptador leyendo el llavero, la consulta de qué etapas están enviando, y el hilo que las atiende aparte de la ventana (§51), con el cerrojo de instancia única y el aviso de «esta ventana no envía». validar.py --fase 5 en 31/31, 705 pruebas de Rust y 113 del frontend el 28/09/2026. La 5.4 resultó mayor de lo previsto: arles-app ni siquiera dependía de arles-motor, así que no había trabajador al que enganchar el adaptador. Falta 5.5 (envío de prueba, donde además se verá el hilo mandar un correo de punta a punta: hoy su pegamento está probado contra un puerto cerrado y el envío contra el servidor de mentira, pero no juntos), 5.6 (cierre) y el adaptador de WhatsApp Cloud API, que también cuenta en esta fase y no está empezado. R-24 abierto: nunca se ha hablado con un servidor real."
+      "hecho": 0.7,
+      "porque": "La PARTE DE CORREO cerrada entera: 5.1 a 5.6. Traducción de códigos SMTP, servidor de mentira que habla el protocolo y sabe fallar de seis maneras, adaptador con cifrado obligatorio y sin forma de desactivarlo, «Probar conexión» con seis diagnósticos, migraciones V7 y V8, repositorio de cuentas sin contraseñas, llavero por cuenta, pantalla de Remitentes, el motor encendido en su propio hilo (§51), y el envío de prueba: ARLES manda un correo entero contra un servidor que habla cifrado, comprobado por lo que el servidor RECIBIÓ. validar.py --fase 5 en 35/35, 720 pruebas de Rust y 120 del frontend el 29/09/2026. NO está el adaptador de WhatsApp Cloud API, que el ROADMAP pone en esta misma fase (P-15): es el 30 % que falta, y está sin empezar. Por eso la fase no se declara cerrada. R-24 sigue abierto —ARLES no ha hablado con un servidor real— pero desde la 5.5 ya se puede cerrar entero en la máquina del usuario: antes sólo se podía comprobar que la cuenta conectaba."
     },
     {
       "id": "F6",

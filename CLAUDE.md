@@ -240,22 +240,21 @@ Ninguno impide construir. **Los cuatro impiden entregar la v1.2.0.**
 — qué hay construido, qué decisiones no hay que volver a discutir y qué sigue.
 Quien retome el trabajo empieza por ahí.
 
-**En curso: Fase 5 · Proveedores de envío.** Cerradas 5.1 (traducir lo que dice
-un servidor, y un servidor de mentira para probarlo), 5.2 (el adaptador SMTP con
-cifrado obligatorio), 5.3 (probar, guardar y dar de alta una cuenta, con su
-pantalla) y 5.4 (**el motor encendido**: la fábrica que va del llavero al
-adaptador, la consulta de qué etapas envían, y el hilo que las atiende aparte de
-la ventana).
+**Cerrada la parte de correo de la Fase 5** (entregas 5.1 a 5.6): traducir lo
+que dice un servidor, el adaptador con cifrado obligatorio, la cuenta guardada
+sin su contraseña, el motor encendido en su propio hilo, y el envío de prueba —
+**ARLES manda un correo entero**, probado contra un servidor que habla cifrado.
 
-**Lo siguiente es 5.5:** el envío de prueba del §12 — mandar un correo a una
-dirección propia antes de activar una campaña. Es además donde el hilo del motor
-se verá mandar un correo **de punta a punta**: hoy su pegamento está probado
-contra un puerto cerrado y el envío contra el servidor de mentira, pero las dos
-cosas no se han visto juntas.
+**Lo que falta de la Fase 5 es el adaptador de WhatsApp Cloud API**, que el
+ROADMAP pone aquí y no está empezado. Hay una decisión pendiente de Dirección:
+construirlo antes de la Fase 6, o entregar la Fase 6 ofreciendo sólo correo.
+Está planteada en `documentacion/09-fases/FASE-05-PARA-DIRECCION.md`.
 
-Después: 5.6 (cierre de fase).
+**Lo siguiente es la Fase 6 · Campañas y mensajes:** plantillas, sustitución de
+variables no Turing-completa, sanitizado en Rust, el asistente de nueve pasos,
+el simulador y el preflight.
 
-**Tres trampas del código de la 5.4**, por si se toca:
+**Tres trampas del código de la Fase 5**, por si se toca:
 
 1. La comprobación del estado de la cuenta **exige `connected`**; no enumera los
    estados que rechaza. Escrita al revés, un estado nuevo enviaría correo hasta
