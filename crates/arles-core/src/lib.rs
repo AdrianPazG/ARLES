@@ -34,6 +34,7 @@ pub mod plantilla;
 pub mod preflight;
 pub mod reintento;
 pub mod ritmo;
+pub mod sanear;
 pub mod secret;
 pub mod supresion;
 pub mod texto;
