@@ -57,6 +57,7 @@ export const es = {
       supresion: 'Bajas',
       derechos: 'Derechos',
       whatsapp: 'WhatsApp',
+      plantillas: 'Plantillas y firmas',
     },
   },
 
@@ -2120,6 +2121,82 @@ export const es = {
       seguimiento: 'Seguimiento — solo a quien ya escribió',
       prospeccionDirecta: 'Prospección directa — también a quien no lo pidió',
     },
+  },
+
+  // ── Las variables de una plantilla ────────────────────────────────────
+  //
+  // Las claves las nombra `arles_core::plantilla::Variable`. **No existían**:
+  // el asistente las pedía desde la 6.6 y `rotulo()` las devolvía en crudo, así
+  // que el paso 4 habría enseñado «plantilla.variable.nombre» en vez de
+  // «Nombre». Nadie lo vio porque sin editor no se podía llegar al paso 4 con
+  // una plantilla elegida. Encontrado el 29/09/2026 al construir el editor.
+  plantilla: {
+    variable: {
+      nombre: 'Nombre',
+      apellido: 'Apellido',
+      empresa: 'Su empresa',
+      // La de quien envía, no la del contacto. La distinción importa: son dos
+      // datos distintos y el nombre corto los confunde.
+      mi_empresa: 'Mi empresa',
+    },
+  },
+
+  // ── Escribir plantillas y firmas · entrega 6.8a ───────────────────────
+  plantillas: {
+    titulo: 'Plantillas y firmas',
+    explicacion:
+      'El texto que ARLES manda en una campaña de correo. Necesitas al menos ' +
+      'una plantilla para poder crear una campaña.',
+
+    nuevaPlantilla: 'Nueva plantilla',
+    nuevaFirma: 'Nueva firma',
+    guardar: 'Guardar',
+    cancelar: 'Cancelar',
+
+    nombre: 'Nombre',
+    nombreAyuda: 'Solo para ti, para reconocerla en la lista. No sale en el correo.',
+    asunto: 'Asunto del correo',
+    asuntoAyuda: 'Lo que la persona ve antes de abrirlo. Admite variables.',
+    cuerpo: 'Texto del mensaje',
+    // Las llaves van escapadas con la sintaxis de literal de vue-i18n: sin
+    // ellas, `{{nombre}}` se lee como una sustitución del propio sistema de
+    // textos y el mensaje ni siquiera compila. Es la única cadena del proyecto
+    // que necesita enseñar una variable tal como se escribe.
+    cuerpoMarcador: "Hola {'{{nombre}}'}, …",
+    cuerpoAyuda:
+      'Puedes usar negritas y enlaces con HTML sencillo. ARLES limpia el ' +
+      'código antes de guardarlo, así que no hace falta que te preocupes por ' +
+      'lo que pegues desde otro sitio.',
+
+    insertar: 'Insertar dato del contacto:',
+    usaVariables: 'Usa {cuantas} dato(s) de cada contacto',
+
+    // §95: qué pasó, cómo se arregla, y qué está a salvo.
+    variableQueNoExiste: 'Hay un dato escrito que ARLES no reconoce',
+    variableQueNoExisteAyuda:
+      'Se enviaría tal cual, con las llaves incluidas, en el correo de cada ' +
+      'persona. Usa los botones de arriba para insertarlos y no se escriben ' +
+      'mal. Todavía no se ha guardado nada.',
+
+    porDefecto: 'Usar esta firma cuando no se elija otra',
+    esLaPorDefecto: 'La que se usa por defecto',
+
+    tituloPlantillas: 'Plantillas',
+    tituloFirmas: 'Firmas',
+
+    vacioPlantillasTitulo: 'Todavía no hay ninguna plantilla',
+    vacioPlantillasCuerpo:
+      'Escribe la primera para poder crear una campaña. El asistente pide ' +
+      'elegir una en su paso 4.',
+    vacioFirmasTitulo: 'Todavía no hay ninguna firma',
+    vacioFirmasCuerpo:
+      'Una firma es el cierre que se añade al final del mensaje. No es ' +
+      'obligatoria.',
+
+    // Una versión no se edita (6.3): guardar crea otra. Se dice cuál es para
+    // que quien mire una campaña vieja sepa que el texto no cambió debajo.
+    version: 'Versión {numero}',
+    sinVersion: 'Esta plantilla no tiene todavía ningún texto escrito.',
   },
 
 } as const
