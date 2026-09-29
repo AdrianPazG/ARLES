@@ -39,6 +39,7 @@ pub mod secret;
 pub mod supresion;
 pub mod texto;
 pub mod ventana;
+pub mod whatsapp;
 
 pub use analisis::{Analisis, Choque, FilaRechazada, FilaSuprimida, analizar};
 pub use arco::{Expediente, redactar};

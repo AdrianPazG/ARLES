@@ -46,6 +46,31 @@ pub enum CoreError {
     #[error("el canal no es uno de los admitidos")]
     CanalDesconocido,
 
+    /// Una fila trae un modo de canal que no reconocemos.
+    ///
+    /// **No se aproxima a «seguimiento»**, que es el seguro. Leer mal un número
+    /// en frío como si fuera de seguimiento haría desaparecer todas las
+    /// advertencias de la pantalla — y los mensajes saldrían igual, en frío, y
+    /// sin que nadie lo hubiera dicho.
+    #[error("el modo del canal no es uno de los admitidos")]
+    ModoDeCanalDesconocido,
+
+    /// Una plantilla de WhatsApp trae un estado que Meta no tenía cuando esto
+    /// se escribió.
+    ///
+    /// **No se aproxima a «aprobada»**: eso mandaría mensajes con una plantilla
+    /// que Meta no aceptó, y cada rechazo cuenta contra la calidad del número.
+    #[error("el estado de la plantilla no es uno de los admitidos")]
+    EstadoDePlantillaDesconocido,
+
+    /// Se intentó mandar con una plantilla que Meta no ha aprobado.
+    ///
+    /// Es un error del dominio y no de la API a propósito: se caza **antes** de
+    /// salir a la red, en `PlantillaDeMeta::preparar`, que es el único sitio por
+    /// el que pasa todo mensaje de WhatsApp.
+    #[error("esa plantilla no está aprobada por Meta")]
+    PlantillaNoAprobada,
+
     #[error("identificador de {tipo} inválido")]
     IdInvalido { tipo: &'static str },
 
@@ -102,6 +127,9 @@ impl CoreError {
             Self::TelefonoInvalido { .. } => "error.telefono_invalido",
             Self::CifradoDesconocido => "error.cifrado_desconocido",
             Self::CanalDesconocido => "error.canal_desconocido",
+            Self::ModoDeCanalDesconocido => "error.modo_de_canal_desconocido",
+            Self::EstadoDePlantillaDesconocido => "error.estado_de_plantilla_desconocido",
+            Self::PlantillaNoAprobada => "error.plantilla_no_aprobada",
             Self::IdInvalido { .. } => "error.id_invalido",
             Self::OrigenDesconocido => "error.origen_desconocido",
             Self::MotivoDeSupresionDesconocido => "error.motivo_de_supresion_desconocido",
@@ -126,6 +154,9 @@ mod tests {
             CoreError::EmailInvalido { motivo: "prueba" },
             CoreError::TelefonoInvalido { motivo: "prueba" },
             CoreError::CanalDesconocido,
+            CoreError::ModoDeCanalDesconocido,
+            CoreError::EstadoDePlantillaDesconocido,
+            CoreError::PlantillaNoAprobada,
             CoreError::IdInvalido { tipo: "ContactId" },
             CoreError::Transicion(
                 AttemptState::Sent

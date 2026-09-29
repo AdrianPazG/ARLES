@@ -932,6 +932,31 @@ export const es = {
         'Los contactos de esa importación siguen ahí, y el texto que se ' +
         'aceptó también.',
     },
+    modo_de_canal_desconocido: {
+      que: 'Ese número está guardado con un modo que ARLES no reconoce.',
+      como:
+        'Ve a Canales, abre el número y vuelve a elegir si es de seguimiento ' +
+        'o de prospección directa.',
+      salvo:
+        'No se envió ningún mensaje. ARLES prefiere detenerse antes que dar ' +
+        'por seguro un número que podría estar escribiendo en frío.',
+    },
+    estado_de_plantilla_desconocido: {
+      que: 'Esa plantilla tiene un estado que ARLES no reconoce.',
+      como:
+        'Vuelve a sincronizar las plantillas con Meta desde la pantalla del ' +
+        'número. Si Meta ha añadido un estado nuevo, avísanos.',
+      salvo: 'No se envió ningún mensaje con ella.',
+    },
+    plantilla_no_aprobada: {
+      que: 'Meta todavía no ha aprobado esa plantilla.',
+      como:
+        'Elige una que ya esté aprobada, o espera a que Meta revise ésta. La ' +
+        'revisión suele tardar días, no minutos.',
+      salvo:
+        'No se envió nada. Mandar con una plantilla sin aprobar cuenta como ' +
+        'intento fallido contra la calidad de tu número.',
+    },
     canal_desconocido: {
       que: 'Ese contacto tiene un medio de contacto que ARLES no reconoce.',
       como: 'Vuelve a importarlo, o avísanos con el nombre del contacto.',

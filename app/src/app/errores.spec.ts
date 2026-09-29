@@ -16,6 +16,12 @@ const CLAVES_DEL_NUCLEO = [
   'error.email_invalido',
   'error.telefono_invalido',
   'error.canal_desconocido',
+  // Entrega W.1 · WhatsApp. Los tres se niegan a aproximar hacia lo seguro:
+  // un modo desconocido no se lee como «seguimiento» y un estado desconocido
+  // no se lee como «aprobada».
+  'error.modo_de_canal_desconocido',
+  'error.estado_de_plantilla_desconocido',
+  'error.plantilla_no_aprobada',
   'error.origen_desconocido',
   'error.motivo_de_supresion_desconocido',
   'error.origen_de_supresion_desconocido',

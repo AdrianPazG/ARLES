@@ -1271,6 +1271,10 @@ MIGRACIONES_PUBLICADAS = {
     # Entrega 5.5, 28/09/2026.
     "V8__envio_de_prueba.sql":
         "6109f2d428222cdb69711312fc4f387bf38e038da8cd38276364d57c7e70c206",
+    # Las plantillas de Meta y el recuento de respuestas.
+    # Entrega W.1, 29/09/2026.
+    "V9__whatsapp.sql":
+        "3d9078e63677ee3e49a39cb83a05b94d819fe577b0fdc3efec816aa9f008f4e4",
 }
 
 

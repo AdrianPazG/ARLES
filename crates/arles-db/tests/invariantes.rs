@@ -1441,3 +1441,208 @@ fn la_base_rechaza_un_motivo_que_el_nucleo_no_ofrece() {
         );
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// La V9 · WhatsApp
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Siembra un número de WhatsApp y devuelve su id.
+fn un_numero(conn: &Connection, modo: &str) -> String {
+    let id = "01900000-0000-7000-8000-0000000000w1".replace('w', "a");
+    conn.execute(
+        "INSERT INTO whatsapp_account (id, company_id, display_name, phone_e164,
+                                       waba_id, phone_number_id, credential_ref,
+                                       modo, status, created_at, updated_at)
+         VALUES (?1, ?2, 'Ventas', ?3, 'waba-1', 'pn-1', 'llavero://w',
+                 ?4, 'connected', ?5, ?5)",
+        params![id, EMPRESA, MOVIL_A, modo, AHORA],
+    )
+    .expect("inserta número");
+    id
+}
+
+fn insertar_plantilla(
+    conn: &Connection,
+    id: &str,
+    cuenta: &str,
+    nombre: &str,
+    idioma: &str,
+    estado: &str,
+) -> Result<usize, rusqlite::Error> {
+    conn.execute(
+        "INSERT INTO whatsapp_template (id, company_id, whatsapp_account_id,
+                                        meta_name, language, status, body,
+                                        slots, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'Hola {{1}}', 'nombre', ?7, ?7)",
+        params![id, EMPRESA, cuenta, nombre, idioma, estado, AHORA],
+    )
+}
+
+/// **La base sólo admite los cinco estados que Meta tiene.**
+///
+/// Sin la `CHECK`, una fila con un estado inventado la leería el núcleo, que
+/// devolvería `EstadoDePlantillaDesconocido` — y eso está bien, pero llega
+/// tarde: la fila ya está escrita y la pantalla ya la enseña. Las dos puertas
+/// hacen falta, como con los motivos de supresión.
+#[test]
+fn la_base_solo_admite_los_estados_de_plantilla_de_meta() {
+    let (_d, conn) = base();
+    let cuenta = un_numero(&conn, "seguimiento");
+
+    for (i, estado) in ["approved", "pending", "rejected", "paused", "disabled"]
+        .iter()
+        .enumerate()
+    {
+        let id = format!("01900000-0000-7000-8000-00000000t{i:03}");
+        insertar_plantilla(&conn, &id, &cuenta, &format!("p{i}"), "es_MX", estado)
+            .unwrap_or_else(|e| panic!("«{estado}» es de Meta y debería entrar: {e}"));
+    }
+
+    let r = insertar_plantilla(
+        &conn,
+        "01900000-0000-7000-8000-00000000t999",
+        &cuenta,
+        "inventada",
+        "es_MX",
+        "casi_aprobada",
+    );
+    assert!(r.is_err(), "la base aceptó un estado que Meta no tiene");
+}
+
+/// **La misma plantilla no se puede dar de alta dos veces.**
+///
+/// Meta no admite dos plantillas con el mismo nombre e idioma en una cuenta, y
+/// la base tampoco. Sin esto, sincronizar con Meta dos veces dejaría dos filas,
+/// el asistente ofrecería la misma opción repetida, y los dos estados podrían
+/// discrepar — con lo que la respuesta a «¿se puede enviar?» dependería de cuál
+/// de las dos leyera cada consulta.
+///
+/// **Y en otro idioma sí es otra plantilla**, porque para Meta lo es.
+#[test]
+fn la_misma_plantilla_no_entra_dos_veces_pero_en_otro_idioma_si() {
+    let (_d, conn) = base();
+    let cuenta = un_numero(&conn, "seguimiento");
+
+    insertar_plantilla(
+        &conn,
+        "01900000-0000-7000-8000-00000000u001",
+        &cuenta,
+        "bienvenida",
+        "es_MX",
+        "approved",
+    )
+    .expect("la primera entra");
+
+    let repetida = insertar_plantilla(
+        &conn,
+        "01900000-0000-7000-8000-00000000u002",
+        &cuenta,
+        "bienvenida",
+        "es_MX",
+        "approved",
+    );
+    assert!(
+        repetida.is_err(),
+        "la misma plantilla no puede entrar dos veces"
+    );
+
+    insertar_plantilla(
+        &conn,
+        "01900000-0000-7000-8000-00000000u003",
+        &cuenta,
+        "bienvenida",
+        "en_US",
+        "approved",
+    )
+    .expect("en otro idioma es otra plantilla, y para Meta también");
+}
+
+/// **Quien contesta cinco veces cuenta una.**
+///
+/// La pregunta que hay que poder responder es «a cuánta GENTE le interesó», no
+/// «cuántos mensajes entraron». Sin el `UNIQUE`, una conversación de diez
+/// mensajes contaría diez respuestas y la métrica que más protege al número
+/// —Meta premia que te contesten— diría diez veces más de lo que es.
+///
+/// Lo impone el esquema y no el código a propósito: los avisos de Meta pueden
+/// llegar repetidos, y confiar en que el código los deduplique es confiar en
+/// que nadie añada otro camino de escritura.
+#[test]
+fn quien_contesta_varias_veces_cuenta_una_sola() {
+    let (_d, conn) = base();
+    let cuenta = un_numero(&conn, "seguimiento");
+
+    conn.execute_batch(&format!(
+        "INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+         VALUES ('k9', '{EMPRESA}', 'Con WhatsApp', 'draft', '{AHORA}', '{AHORA}');
+         INSERT INTO execution_window (id, company_id, name, days_of_week,
+                                       start_hour, end_hour, timezone, created_at)
+         VALUES ('w9', '{EMPRESA}', 'Laborables', 31, 9, 18,
+                 'America/Mexico_City', '{AHORA}');
+         INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                     whatsapp_account_id, execution_window_id,
+                                     status, created_at, updated_at)
+         VALUES ('e9', 'k9', 1, 'whatsapp', '{cuenta}', 'w9', 'draft',
+                 '{AHORA}', '{AHORA}');"
+    ))
+    .expect("puebla la etapa de WhatsApp");
+
+    let meter = |id: &str| {
+        conn.execute(
+            "INSERT INTO whatsapp_reply (id, company_id, campaign_stage_id,
+                                         from_normalized, first_reply_at)
+             VALUES (?1, ?2, 'e9', ?3, ?4)",
+            params![id, EMPRESA, MOVIL_A, AHORA],
+        )
+    };
+
+    meter("01900000-0000-7000-8000-00000000r001").expect("la primera respuesta cuenta");
+    assert!(
+        meter("01900000-0000-7000-8000-00000000r002").is_err(),
+        "la misma persona contestando otra vez no es otra respuesta"
+    );
+}
+
+/// **En la tabla de respuestas no cabe lo que dijo la gente.**
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// ESTA PRUEBA VIGILA UNA DECISIÓN, NO UN COMPORTAMIENTO
+///
+/// Dirección decidió el 29/09/2026 **contar** las respuestas y no guardarlas.
+/// El texto se descarta al recibirlo, antes de escribir nada.
+///
+/// Una decisión así se deshace sola con el tiempo: alguien necesita depurar
+/// algo, añade una columna «para ver qué llega», y seis meses después hay una
+/// tabla con conversaciones de clientes que nadie decidió tener, que el aviso
+/// de privacidad no menciona y que el abogado no ha revisado (P-09).
+///
+/// Así que se comprueba la forma de la tabla: sus columnas son exactamente
+/// éstas. Añadir una hace fallar esta prueba, que es el momento de preguntarse
+/// si de verdad se quiere — no de descubrirlo en una auditoría.
+#[test]
+fn en_las_respuestas_no_cabe_el_texto_del_mensaje() {
+    let (_d, conn) = base();
+
+    let mut consulta = conn
+        .prepare("SELECT name FROM pragma_table_info('whatsapp_reply') ORDER BY name")
+        .expect("lee las columnas");
+    let columnas: Vec<String> = consulta
+        .query_map([], |f| f.get::<_, String>(0))
+        .expect("recorre")
+        .collect::<Result<_, _>>()
+        .expect("nombres");
+
+    assert_eq!(
+        columnas,
+        vec![
+            "campaign_stage_id",
+            "company_id",
+            "first_reply_at",
+            "from_normalized",
+            "id",
+        ],
+        "la tabla de respuestas cambió de forma: si se añadió una columna para \
+         el contenido del mensaje, eso es una decisión de Dirección y de \
+         privacidad, no un detalle de implementación"
+    );
+}
