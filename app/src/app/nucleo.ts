@@ -67,6 +67,12 @@ export function esErrorIpc(e: unknown): e is ErrorIpc {
 /**
  * Invoca un comando del núcleo.
  *
+ * **La vista previa no pasa por aquí de otra forma**: inyecta su propio
+ * `__TAURI_INTERNALS__` con un `invoke` simulado, así que para este archivo
+ * hay núcleo y no hay nada que distinguir. El simulador vive en
+ * `herramientas/vista-previa/simulador.js`, y es el único sitio donde se
+ * añaden los comandos que la demostración tiene que saber contestar.
+ *
  * @throws el `ErrorIpc` tal cual lo devolvió el núcleo, o el error original si
  * no tiene esa forma. **No se traduce aquí**: quien llama sabe qué hacer con
  * cada clave, y una traducción temprana pierde los campos.

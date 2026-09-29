@@ -1893,7 +1893,12 @@ def la_vista_previa_no_miente_sobre_las_rutas():
     """
     import re as _re
     nucleo = leer("crates", "arles-core", "src", "onboarding.rs")
-    generador = leer("herramientas", "vista-previa", "generar.py")
+    # El simulador salió de `generar.py` a su propio archivo el 29/09/2026: eran
+    # diecinueve mil caracteres de JavaScript dentro de una cadena de Python.
+    # Esta comprobación seguía leyendo el generador y dejó de encontrar nada —
+    # y un `del_simulador` vacío la hacía fallar, que es lo correcto: prefiere
+    # gritar antes que dar por buena una comparación contra la nada.
+    generador = leer("herramientas", "vista-previa", "simulador.js")
 
     # Las rutas del núcleo: `Self::Empresa => Some("/inicio/configuracion"),`
     cuerpo = _re.search(
@@ -3706,6 +3711,51 @@ def ninguna_tabla_se_queda_sin_escritor():
     )
 
 
+def toda_pantalla_se_puede_abrir():
+    """**Una pantalla sin ruta es una pantalla que no existe.**
+
+    Pasó con `PantallaPlantillas.vue` el 29/09/2026: trece kilobytes de
+    pantalla, con sus seis pruebas en verde, y **ninguna ruta la abría**. El
+    usuario no tenía forma de llegar a ella.
+
+    Las pruebas no podían verlo porque montan el componente directamente —que
+    es lo correcto para probar lo que enseña— y nunca navegan. El hueco vive
+    entre el componente y el enrutador.
+
+    Es la misma familia que `lo_que_se_construye_se_usa`, en la capa de arriba:
+    allí una función que nadie llama, aquí una pantalla a la que nadie va.
+    """
+    sueltas = []
+    rutas = leer("app/src/app/router.ts") or ""
+
+    dir_pantallas = os.path.join(RAIZ, "app/src/app/pantallas")
+    if os.path.isdir(dir_pantallas):
+        for f in sorted(os.listdir(dir_pantallas)):
+            if not f.endswith(".vue"):
+                continue
+            # Un formulario o un diálogo no tiene ruta propia: se abre desde
+            # otra pantalla. Se distinguen porque alguien los importa.
+            usado_por_otra = False
+            for base, _, ficheros in os.walk(os.path.join(RAIZ, "app/src")):
+                for otro in ficheros:
+                    if not otro.endswith(".vue") or otro == f:
+                        continue
+                    with open(os.path.join(base, otro), encoding="utf-8") as fh:
+                        if f[:-4] in fh.read():
+                            usado_por_otra = True
+            if f not in rutas and not usado_por_otra:
+                sueltas.append(f)
+
+    check(
+        "W",
+        "toda pantalla escrita se puede abrir",
+        not sueltas,
+        "Una pantalla sin ruta no la ve nadie, y sus pruebas pasan igual "
+        "porque montan el componente sin navegar. Pasó con la de plantillas.",
+        " · ".join(sueltas),
+    )
+
+
 def fase_w(rapido):
     titulo("CANAL W · WhatsApp")
 
@@ -3732,9 +3782,28 @@ def fase_w(rapido):
     una_calidad_sin_consultar_no_es_buena()
     las_dos_marcas_no_estan_en_el_alta()
 
+    print(f"{GRIS}  el recorrido del usuario{FIN}")
+    if rapido:
+        omitir("W", "sonda: el recorrido del usuario", "--rapido")
+    else:
+        check_cmd(
+            "W",
+            "sonda: el recorrido del usuario",
+            ["npm", "run", "--silent", "sonda:recorrido"],
+            "Recorre las trece pantallas en un navegador y mira qué encuentra "
+            "quien llega: que ninguna esté muda, que todas tengan algo que "
+            "hacer, que ningún texto salga como clave, que no haya adjetivos "
+            "donde el §94 pide cifras, que nada diga «entregado» (§65), que "
+            "nadie reciba un error de bienvenida y que ningún dato aparezca "
+            "como «no reconocido». Encontró cinco pantallas que recibían con "
+            "«Ocurrió un error» y el estado de campaña mal traducido.",
+            cwd=os.path.join(RAIZ, "app"),
+        )
+
     print(f"{GRIS}  el cable entre las capas{FIN}")
     lo_que_se_construye_se_usa()
     ninguna_tabla_se_queda_sin_escritor()
+    toda_pantalla_se_puede_abrir()
 
 
 # El canal de WhatsApp no es una fase numerada: cruza la 5 y la 6 y se entregó

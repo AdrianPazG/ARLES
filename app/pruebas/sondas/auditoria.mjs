@@ -86,7 +86,14 @@ const RUTAS = [
   '#/contactos/supresion',
   '#/contactos/derechos',
   '#/campanas',
+  // Las tres de abajo faltaban hasta el 29/09/2026, y con ellas faltaba la
+  // mitad de lo que el usuario puede abrir hoy. Una auditoría que no recorre
+  // una pantalla no dice nada de esa pantalla, aunque termine en verde — que
+  // es peor que no tenerla, porque se cree.
+  '#/campanas/plantillas',
+  '#/campanas/nueva',
   '#/remitentes',
+  '#/remitentes/whatsapp',
   '#/actividad',
   '#/ajustes',
 ]

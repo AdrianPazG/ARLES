@@ -132,6 +132,19 @@ const rutas: RouteRecordRaw[] = [
     meta: { seccion: 'campanas' },
   },
   {
+    // Cuelga de Campañas porque una plantilla es el texto de una campaña, y
+    // quien busca «qué se manda» mira ahí. Otra sección rompería P-11, que
+    // fija seis.
+    //
+    // Sí es una subsección permanente, a diferencia del asistente: escribir
+    // plantillas es un sitio al que se vuelve —a añadir otra, a mirar cuál se
+    // usó—, no un camino con principio y final.
+    path: '/campanas/plantillas',
+    name: 'plantillas',
+    component: () => import('@/app/pantallas/PantallaPlantillas.vue'),
+    meta: { seccion: 'campanas', subseccion: 'plantillas', orden: 1 },
+  },
+  {
     // El asistente cuelga de campañas y no es una sección: es un camino con
     // principio y final, como importar. Una entrada permanente en la barra
     // diría que crear campañas es un sitio al que se va, y es algo que se hace.
