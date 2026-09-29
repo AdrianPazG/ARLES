@@ -1028,6 +1028,18 @@ export const es = {
         como: 'Actualiza la lista de contactos para ver cómo está ahora.',
         salvo: 'No se modificó nada.',
       },
+      // Activar una campaña sin nadie a quien escribir es un error, no un
+      // éxito con cero: una campaña «enviando» que no envía no explica nada, y
+      // el contador se queda a cero sin motivo visible.
+      audiencia_vacia: {
+        que: 'No queda nadie a quien escribir en esta campaña.',
+        como:
+          'Revisa que tengas contactos activos con correo, y que no estén ' +
+          'todos en la lista de bajas. Puedes verlo en Contactos.',
+        salvo:
+          'La campaña sigue en borrador y no se envió nada. No se ha ' +
+          'modificado ningún contacto.',
+      },
       cuenta_de_correo_no_existe: {
       que: 'Esa cuenta de correo ya no está.',
       como: 'Vuelve a la lista de remitentes y elige una de las que hay.',

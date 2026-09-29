@@ -69,6 +69,19 @@ pub enum DbError {
     #[error("esa cuenta de correo no existe")]
     CuentaDeCorreoNoExiste,
 
+    /// Se intentó activar una campaña sin nadie a quien escribir.
+    ///
+    /// **Es un error y no un éxito con cero.** Una campaña activada sin
+    /// destinatarios se queda diciendo «enviando» para siempre, y nada explica
+    /// por qué el contador no sube: ni la pantalla, ni el registro, ni el
+    /// motor, que simplemente no encuentra trabajo.
+    ///
+    /// Pasa de verdad, y no por un descuido: una lista entera de contactos
+    /// puede estar en la lista de bajas tras una importación mal hecha, y
+    /// entonces lo único honesto es no activar y decirlo.
+    #[error("no queda nadie a quien escribir en esta campaña")]
+    AudienciaVacia,
+
     /// Esa acción no procede desde el estado en que está la campaña.
     ///
     /// **Lleva la clave i18n del caso concreto dentro**, no una genérica: la
@@ -109,6 +122,7 @@ impl DbError {
             Self::ContactoNoExiste => "error.db.contacto_no_existe",
             Self::SupresionNoExiste => "error.db.supresion_no_existe",
             Self::CampanaNoExiste => "error.db.campana_no_existe",
+            Self::AudienciaVacia => "error.db.audiencia_vacia",
             Self::CuentaDeCorreoNoExiste => "error.db.cuenta_de_correo_no_existe",
             Self::AccionDeCampanaImposible { clave } => clave,
             Self::Nucleo(e) => e.clave_i18n(),

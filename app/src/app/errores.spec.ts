@@ -61,6 +61,7 @@ const CLAVES_DEL_NUCLEO = [
   'error.db.supresion_no_se_levanta',
   // Entrega 4.4 · pausar, reanudar y detener.
   'error.db.campana_no_existe',
+  'error.db.audiencia_vacia',
   'error.estado_de_campana_desconocido',
   // Entrega 5.3 · una cuenta guardada con un cifrado que no reconocemos.
   'error.app.cuenta_de_correo_invalida',
