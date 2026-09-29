@@ -1,7 +1,6 @@
 # Fase 6 · Campañas y mensajes
 
-> **Estado: seis entregas de siete.** 6.1 a 6.6 construidas y verificadas;
-> falta el cierre de fase (6.7).
+> **Estado: cerrada.** Las siete entregas construidas, verificadas y auditadas.
 > Última actualización: 29/09/2026.
 
 Esta fase es donde ARLES deja de ser un motor que sabe enviar y pasa a ser un
@@ -19,7 +18,7 @@ programa al que se le puede decir **qué** enviar y **a quién**.
 | **6.4** | Crear campañas, y el acto que no se deshace: activar | `arles-db/src/alta_de_campana.rs` |
 | **6.5** | El preflight de ocho puntos, enchufado de verdad | `arles-db/src/revision.rs` · `arles-app/src/comandos.rs` |
 | **6.6** | El asistente de nueve pasos, y el aviso de más de 50 diarios | `arles-db/src/ventanas.rs` · `arles-app/src/campanas.rs` · `app/.../AsistenteDeCampana.vue` |
-| 6.7 | Cierre: auditoría, documento, informe y PDF | *pendiente* |
+| **6.7** | Cierre: auditoría, documento, informe y PDF | este documento |
 
 ---
 
@@ -207,7 +206,74 @@ diez pruebas pasaban con las dos cosas mal.
 
 ---
 
-## 6 · Lo que esta fase no cubre
+## 6 · La auditoría del cierre
+
+Se recorrió la fase buscando lo que **no falla**: cosas que funcionan mal sin dar
+error. Cinco hallazgos, y conviene distinguirlos porque no todos eran fallos.
+
+### A-1 · La cifra del paso 6 y la que se congela son dos consultas distintas
+
+**El más serio, y resultó estar bien.** La audiencia que enseña el preflight
+(`contactos_de_la_audiencia`, entrega 6.5) y la que congela `activar_campana`
+(entrega 6.4) son **dos consultas escritas en dos entregas distintas**, con sus
+propios filtros, y nadie las había comparado.
+
+Si divergieran no fallaría nada: el paso 6 diría «1 342 correos», alguien
+decidiría con esa cifra, pulsaría activar, y se congelarían otros tantos. La
+diferencia se descubre días después contando correos.
+
+Coinciden, y ahora hay una prueba que lo sostiene. **Y la prueba hizo falta
+arreglarla**: la primera versión pasaba igual con la revisión sin el filtro de
+canal archivado, porque en los datos de prueba no había ninguno. Se añadió una
+dirección archivada, y entonces sí caza la divergencia.
+
+### A-2 · Un tope diario de cero deja la campaña colgada
+
+El asistente deja escribir el tope a mano, así que un `0` llega hasta la base. Y
+un tope de cero **no da error**: la campaña se crea, se activa, el motor la mira
+cada cinco segundos, no le toca enviar, y vuelve a mirar. Para siempre, con la
+pantalla diciendo «enviando».
+
+Lo caza la cadena entera —tope 0 → techo diario 0 → la estimación no avanza → el
+punto «el horario alcanza» falla y bloquea—, que son cuatro piezas de cuatro
+entregas y **nunca se habían visto funcionar juntas**. Ahora hay una prueba.
+
+### A-3 · El asistente sondeaba el servidor dos veces por nada · **corregido**
+
+Pedía la revisión al salir del paso 5 y otra vez al salir del 6, y entre el 6 y
+el 7 no cambia nada. Era una conexión SMTP de más, con su espera de hasta 60
+segundos (`ESPERA_MAXIMA`), para volver a calcular lo mismo — y en macOS, una
+lectura del llavero de más, o sea otro diálogo del sistema delante.
+
+### A-4 · Un paso podía tardar un minuto diciendo «Calculando» · **corregido**
+
+El paso 6 habla con el servidor de correo. Con un servidor lento, la pantalla se
+quedaba con una palabra durante hasta un minuto, que es indistinguible de una
+avería. Ahora usa `EstadoCargando`, que a partir de los 2 s explica que está
+comprobando la cuenta contra el servidor y que puede tardar.
+
+### A-5 · El respaldo de un estado desconocido no existía · **corregido**
+
+La lista de campañas cae en `campana.estado.desconocido` cuando un estado
+guardado no tiene rótulo — y esa clave no estaba escrita. La red de seguridad
+habría enseñado la clave en crudo. Ahora existe, dice «Estado no reconocido» en
+vez de inventarse un rótulo, y hay una prueba que ata las siete claves de Rust
+más el respaldo.
+
+### Lo que la auditoría **no** puede cerrar
+
+**R-07 · macOS.** Nadie ha abierto esto en WKWebView. Y esta fase tiene un motivo
+propio para que importe: el llavero se lee en cada revisión del preflight, y en
+macOS eso puede sacar un diálogo del sistema. Con la corrección de A-3 son dos
+por asistente en vez de tres, pero siguen siendo dos, y **no se pueden evitar**
+sin cachear la contraseña, que es justo lo que ADR-0011 prohíbe.
+
+**R-24 · Ningún servidor real.** Todo lo de esta fase que toca la red está
+probado contra el servidor de mentira. Se cierra en la máquina del usuario.
+
+---
+
+## 7 · Lo que esta fase no cubre
 
 - **La audiencia no se puede filtrar.** El paso 2 lo dice con todas las letras:
   llegan todos los contactos activos con correo, menos las bajas. Las listas,

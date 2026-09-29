@@ -12,7 +12,7 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
-### Fase 6 · Campañas y mensajes — seis entregas de siete
+### Fase 6 · Campañas y mensajes — cerrada
 
 ARLES deja de ser un motor que sabe enviar y pasa a ser un programa al que se
 le puede decir **qué** enviar y **a quién**.

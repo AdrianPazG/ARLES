@@ -49,6 +49,7 @@ import {
   AInsignia,
   AModulo,
   ASelector,
+  EstadoCargando,
 } from '@/design/componentes'
 
 const campanas = useCampanasStore()
@@ -198,11 +199,19 @@ async function siguiente(): Promise<void> {
     creada.value = r
   }
 
-  // El 6 y el 7 salen de la misma llamada: el simulador y el preflight se
-  // calculan juntos, y pedirlos por separado daría dos fotos de instantes
-  // distintos de la misma campaña.
-  if (paso.value === 5 || paso.value === 6) {
-    if (creada.value) await campanas.revisar(creada.value.id)
+  // El 6 y el 7 salen de **una sola** llamada, la de aquí.
+  //
+  // ── AUDITORÍA DE LA FASE 6 · 29/09/2026 ──
+  //
+  // Esto pedía la revisión otra vez al salir del 6, y entre el 6 y el 7 no
+  // cambia nada: era una sonda SMTP de más, con su espera de hasta 60 segundos
+  // (`ESPERA_MAXIMA`), para volver a calcular exactamente lo mismo. Y en macOS,
+  // una lectura del llavero de más — o sea, otro diálogo del sistema.
+  //
+  // Pedirlos juntos además es lo correcto: son dos vistas del mismo instante de
+  // la campaña, y dos llamadas darían dos fotos distintas de la misma cosa.
+  if (paso.value === 5 && creada.value) {
+    await campanas.revisar(creada.value.id)
   }
 
   paso.value = Math.min(paso.value + 1, PASOS.length)
@@ -368,9 +377,15 @@ function rotulo(clave: string): string {
 
       <!-- 6 · Simulación -->
       <template v-else-if="paso === 6">
-        <p v-if="campanas.revisando">
-          {{ t('asistente.paso.simulacion.calculando') }}
-        </p>
+        <!-- Puede tardar: habla con el servidor de correo, que tiene hasta un
+             minuto para contestar. `EstadoCargando` enseña la explicación a
+             partir de los 2 s, así que una espera larga deja de parecer una
+             avería y pasa a ser algo que está pasando. -->
+        <EstadoCargando
+          v-if="campanas.revisando"
+          :lineas="3"
+          :explicacion="t('asistente.paso.simulacion.calculando')"
+        />
         <div
           v-else-if="campanas.revision"
           class="asistente__simulacion"

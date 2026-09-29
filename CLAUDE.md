@@ -250,7 +250,7 @@ ROADMAP pone aquí y no está empezado. Hay una decisión pendiente de Direcció
 construirlo antes de la Fase 6, o entregar la Fase 6 ofreciendo sólo correo.
 Está planteada en `documentacion/09-fases/FASE-05-PARA-DIRECCION.md`.
 
-**La Fase 6 lleva seis entregas de siete** (6.1 a 6.6): el motor de
+**La Fase 6 está cerrada** (6.1 a 6.7): el motor de
 sustitución no Turing-completo, el saneado del HTML en Rust, plantillas con
 versiones que no se editan, campañas con la audiencia congelada al activar, y el
 preflight de ocho puntos **enchufado de verdad** a la base y a la sonda de la
@@ -261,10 +261,12 @@ anotándose sin que nadie lo preguntara.
 exige y registra en la bitácora. **Se puede crear una campaña de principio a fin
 y activarla.**
 
-**Lo que falta de la Fase 6 es el cierre (6.7)**: auditoría, documento, informe
-y PDF. Y tres cosas que la fase no cubre y conviene no prometer: la audiencia no
-se puede filtrar, una campaña creada no se puede editar, y no hay pantalla para
+**Tres cosas que la Fase 6 no cubre y conviene no prometer:** la audiencia no se
+puede filtrar, una campaña creada no se puede editar, y no hay pantalla para
 escribir plantillas ni firmas —los comandos están, el editor no—.
+
+**Lo siguiente es la Fase 7 · Actividad**: las dos pestañas de una campaña en
+marcha, la línea de tiempo de cada envío y el detalle de cada mensaje.
 
 **Seis trampas del código de la Fase 6**, por si se toca:
 

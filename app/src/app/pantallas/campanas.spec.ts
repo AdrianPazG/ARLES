@@ -127,6 +127,36 @@ describe('la lista de campañas', () => {
   })
 })
 
+describe('los estados de campaña', () => {
+  /**
+   * **Las siete claves que emite Rust tienen su rótulo, y el respaldo existe.**
+   *
+   * La lista viva está en `EstadoDeCampana::clave_i18n`. Una clave sin texto no
+   * da ningún error: la tabla enseñaría `campana.estado.enPausa` en crudo, y
+   * sólo se descubre con una campaña en ese estado concreto delante.
+   *
+   * El respaldo se comprueba aparte porque la pantalla cae en él cuando falta
+   * un texto — y si el respaldo tampoco existiera, la red de seguridad sería la
+   * que enseñara la clave.
+   */
+  it('las siete tienen rótulo, y hay respaldo', () => {
+    const ESTADOS = [
+      'borrador',
+      'lista',
+      'programada',
+      'enviando',
+      'enPausa',
+      'detenida',
+      'terminada',
+      'desconocido',
+    ]
+    for (const estado of ESTADOS) {
+      const clave = `campana.estado.${estado}`
+      expect(String(i18n.global.t(clave)), clave).not.toBe(clave)
+    }
+  })
+})
+
 describe('el asistente de campaña', () => {
   beforeEach(() => setActivePinia(createPinia()))
 

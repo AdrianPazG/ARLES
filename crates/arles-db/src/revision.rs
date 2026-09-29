@@ -652,6 +652,116 @@ mod tests {
         );
     }
 
+    /// **La cifra que enseña el preflight es la que se congela al activar.**
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// AUDITORÍA DE LA FASE 6 · 29/09/2026
+    ///
+    /// Son **dos consultas distintas, escritas en dos entregas distintas**: la
+    /// de `contactos_de_la_audiencia` (6.5) y la de `activar_campana` (6.4).
+    /// Cada una tiene sus filtros —contacto activo, canal activo, sin baja— y
+    /// nadie las había comparado.
+    ///
+    /// Si divergieran no fallaría nada: el paso 6 del asistente diría «1 342
+    /// correos», alguien lo leería, decidiría con esa cifra, pulsaría activar,
+    /// y se congelarían otros tantos. La diferencia se descubriría días
+    /// después, contando correos, y para entonces ya salieron.
+    ///
+    /// Un contacto con **dos direcciones** recibe dos correos, y las dos
+    /// cuentan: es lo que de verdad va a salir.
+    #[test]
+    fn lo_que_promete_el_preflight_es_lo_que_se_congela() {
+        let (_d, db, v) = base();
+        contacto(&db, "c1", "uno@t.mx", "Ana");
+        contacto(&db, "c2", "dos@t.mx", "Beto");
+        contacto(&db, "c3", "tres@t.mx", "Caro");
+        suprimir(&db, "tres@t.mx");
+
+        // Beto tiene una segunda dirección: son dos correos, no uno.
+        //
+        // Y una tercera, archivada. Está aquí porque **es el caso que hace que
+        // esta prueba sirva de algo**: sin un canal archivado, las dos
+        // consultas dan lo mismo aunque una se deje el filtro de `status`, y la
+        // prueba pasaría sin comprobar nada. Se descubrió al romperla el
+        // 29/09/2026 — quitar `ch.status = 'active'` de la revisión no la hacía
+        // fallar. Con esta fila, sí.
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO contact_channel (id, company_id, contact_id, channel,
+                                              value_raw, value_normalized, status,
+                                              created_at, updated_at)
+                 VALUES ('ch-c2b', '{EMPRESA}', 'c2', 'email', 'beto@otra.mx',
+                         'beto@otra.mx', 'active',
+                         '2026-09-29T00:00:00Z', '2026-09-29T00:00:00Z'),
+                        ('ch-c2c', '{EMPRESA}', 'c2', 'email', 'beto@vieja.mx',
+                         'beto@vieja.mx', 'archived',
+                         '2026-09-29T00:00:00Z', '2026-09-29T00:00:00Z');"
+            ))
+        })
+        .expect("las otras dos direcciones");
+
+        let c = una_campana(&db, v);
+        let prometido = revisar(&db, c).audiencia;
+        let activacion = db.activar_campana(empresa(), c).expect("activa");
+
+        assert_eq!(prometido, 3, "Ana, y Beto por partida doble");
+        assert_eq!(
+            activacion.en_la_audiencia, prometido,
+            "la cifra que se leyó antes de pulsar es la que salió"
+        );
+        assert_eq!(activacion.fuera_por_baja, 1, "Caro pidió no recibir");
+    }
+
+    /// **Un tope de cero no deja una campaña colgada en silencio.**
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// AUDITORÍA DE LA FASE 6 · 29/09/2026
+    ///
+    /// El asistente deja escribir el tope diario a mano, así que un `0` puede
+    /// llegar hasta aquí. Y un tope de cero **no da error en ninguna parte**:
+    /// la campaña se crea, se activa, el motor la mira cada cinco segundos, no
+    /// le toca enviar nada, y vuelve a mirar. Para siempre, con la pantalla
+    /// diciendo «enviando».
+    ///
+    /// Lo que lo caza no es una validación del formulario —que se salta por
+    /// cualquier otro camino— sino la cadena entera: el tope más bajo es 0, el
+    /// techo diario es 0, la estimación dice que no avanza, y el punto «el
+    /// horario alcanza» del preflight falla y bloquea la activación.
+    ///
+    /// Esta prueba existe porque **esa cadena nunca se había visto funcionar
+    /// entera**, y son cuatro piezas de cuatro entregas distintas.
+    #[test]
+    fn un_tope_de_cero_lo_caza_la_estimacion() {
+        let (_d, db, v) = base();
+        contacto(&db, "c1", "uno@t.mx", "Ana");
+
+        let c = db
+            .crear_campana(
+                empresa(),
+                &CampanaNueva {
+                    nombre: "Parada",
+                    cuenta: CUENTA.parse().expect("id"),
+                    version_de_plantilla: v,
+                    ventana: "vent-1",
+                    limite_por_hora: Some(0),
+                    limite_diario: Some(0),
+                    acepto_el_riesgo_del_volumen: false,
+                },
+            )
+            .expect("crea")
+            .id;
+
+        let sabido = revisar(&db, c);
+        assert_eq!(sabido.estimacion.techo_diario, 0, "no cabe ni uno");
+        assert!(
+            !matches!(
+                sabido.estimacion.desenlace,
+                arles_core::duracion::Desenlace::Termina { .. }
+            ),
+            "y por eso el punto del horario del preflight no pasa"
+        );
+    }
+
     /// **Una ventana que ya no se puede leer detiene la revisión.**
     ///
     /// Aproximarla —tomar UTC, o los días de la semana enteros— daría un

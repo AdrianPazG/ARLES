@@ -385,6 +385,13 @@ export const es = {
       enPausa: 'En pausa',
       detenida: 'Detenida',
       terminada: 'Terminada',
+      // El respaldo, para un estado guardado que esta versión no conoce.
+      //
+      // La pantalla cae aquí en vez de enseñar la clave en crudo. Y dice «no
+      // reconocido» en vez de inventarse un rótulo: un estado desconocido
+      // pintado como «Borrador» haría creer que la campaña está parada cuando
+      // podría estar enviando.
+      desconocido: 'Estado no reconocido',
     },
 
     accion: {
@@ -1318,7 +1325,9 @@ export const es = {
 
       simulacion: {
         titulo: 'Cuánto va a tardar',
-        calculando: 'Calculando',
+        calculando:
+          'Comprobando la cuenta contra el servidor de correo. Puede tardar ' +
+          'hasta un minuto si el servidor va lento.',
         cuantos: 'Esta campaña enviará {n} correos.',
         ritmo:
           'Con tu ritmo, caben {techo} al día dentro del horario, así que ' +

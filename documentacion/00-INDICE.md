@@ -131,7 +131,8 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Fase 04 · resumen para Dirección](09-fases/FASE-04-PARA-DIRECCION.md) | Sin tecnicismos |
 | [Fase 05 · Proveedores de envío](09-fases/FASE-05-PROVEEDORES-DE-ENVIO.md) | 🟡 la parte de correo cerrada · 35/35, 0 omitidas · **falta WhatsApp** |
 | [Fase 05 · resumen para Dirección](09-fases/FASE-05-PARA-DIRECCION.md) | Sin tecnicismos |
-| [Fase 06 · Campañas y mensajes](09-fases/FASE-06-CAMPANAS-Y-MENSAJES.md) | 🟡 seis entregas de siete · 20/20, 0 omitidas · **falta el cierre de fase** |
+| [Fase 06 · Campañas y mensajes](09-fases/FASE-06-CAMPANAS-Y-MENSAJES.md) | ✅ cerrada · 20/20, 0 omitidas · con su auditoría |
+| [Fase 06 · resumen para Dirección](09-fases/FASE-06-PARA-DIRECCION.md) | Sin tecnicismos |
 
 ---
 
