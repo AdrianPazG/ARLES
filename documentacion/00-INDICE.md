@@ -107,6 +107,7 @@
 | [ROADMAP](07-entrega/ROADMAP.md) | 10 fases con dependencias reales |
 | [ESTADO_ACTUAL](07-entrega/ESTADO_ACTUAL.md) | **Dónde está el trabajo hoy y qué sigue.** Por aquí se empieza al retomar |
 | [PROMPT_DE_ARRANQUE](07-entrega/PROMPT_DE_ARRANQUE.md) | El mensaje con el que se abre una sesión nueva de Claude Code sobre este proyecto |
+| [GUIA_DE_CONEXION_REAL](07-entrega/GUIA-DE-CONEXION-REAL.md) | **Cómo conectar ARLES a Gmail y a Meta** para mandar de verdad, y qué se puede demostrar hoy |
 
 ### 08 · Legal
 | Documento | Contenido |
@@ -133,6 +134,8 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Fase 05 · resumen para Dirección](09-fases/FASE-05-PARA-DIRECCION.md) | Sin tecnicismos |
 | [Fase 06 · Campañas y mensajes](09-fases/FASE-06-CAMPANAS-Y-MENSAJES.md) | ✅ cerrada · 20/20, 0 omitidas · con su auditoría |
 | [Fase 06 · resumen para Dirección](09-fases/FASE-06-PARA-DIRECCION.md) | Sin tecnicismos |
+| [Canal W · WhatsApp](09-fases/FASE-W-CANAL-WHATSAPP.md) | W.1 a W.8 · 17/17 · con su auditoría y lo que quedó fuera |
+| [Canal W · resumen para Dirección](09-fases/FASE-W-PARA-DIRECCION.md) | Sin tecnicismos |
 
 ---
 

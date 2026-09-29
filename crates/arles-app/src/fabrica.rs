@@ -71,6 +71,19 @@ pub trait FuenteDeContrasenas {
     /// desbloqueando el llavero. Fundirlos manda al usuario a hacer lo que no
     /// es (§95).
     fn contrasena_de(&self, id_cuenta: &str) -> Result<Option<String>, AppError>;
+
+    /// El token de Meta de un número de WhatsApp.
+    ///
+    /// Método aparte y no el mismo con otro identificador, porque **el llavero
+    /// usa espacios de nombres distintos**: `email-account/` y
+    /// `whatsapp-number/`. Los dos tipos de cuenta usan UUID, así que una sola
+    /// función entregaría el secreto equivocado al adaptador equivocado en
+    /// cuanto dos identificadores coincidieran.
+    ///
+    /// # Errores
+    ///
+    /// Los mismos que [`Self::contrasena_de`], y por las mismas razones.
+    fn token_del_numero(&self, id_numero: &str) -> Result<Option<String>, AppError>;
 }
 
 /// El llavero del sistema. La única implementación que se usa de verdad.
@@ -80,6 +93,10 @@ pub struct ElLlaveroDelSistema;
 impl FuenteDeContrasenas for ElLlaveroDelSistema {
     fn contrasena_de(&self, id_cuenta: &str) -> Result<Option<String>, AppError> {
         Llavero::de_la_cuenta(id_cuenta).leer_contrasena()
+    }
+
+    fn token_del_numero(&self, id_numero: &str) -> Result<Option<String>, AppError> {
+        Llavero::del_numero(id_numero).leer_contrasena()
     }
 }
 
@@ -232,6 +249,70 @@ fn porque_no_envia(estado: &str) -> LaCuentaNoSirve {
     }
 }
 
+// ── El proveedor de WhatsApp · entrega W.8 ───────────────────────────────
+
+/// Arma el proveedor de WhatsApp de un número guardado.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTA FUNCIÓN NO EXISTÍA, Y QUÉ COSTÓ
+///
+/// El adaptador de la W.2 hablaba con Cloud API y tenía su prueba de punta a
+/// punta contra el servidor de mentira. Pasaba. Lo que no había era **nadie
+/// que lo construyera**: `arles-app` ni siquiera dependía de `arles-whatsapp`.
+///
+/// Así que el canal entero —seis entregas, setenta pruebas en verde— no podía
+/// mandar un solo mensaje, y ninguna prueba podía decirlo: una prueba comprueba
+/// que la pieza funciona, no que otro módulo la use. El hueco vivía justo entre
+/// dos capas que cada una pasaba lo suyo.
+///
+/// Lo cazó el validador del canal, en la comprobación «todo lo que se
+/// construye lo usa alguien», que existe por esto y por el editor de plantillas
+/// de la Fase 6 — el mismo patrón, dos fases seguidas.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LA PUERTA DEL CANAL SE PREGUNTA AQUÍ, NO EN LA PANTALLA
+///
+/// `puede_enviar()` resuelve las tres condiciones —conectado, con Coexistencia,
+/// y con el riesgo aceptado si escribe en frío—. Se pregunta en la fábrica
+/// porque **es el único punto por el que pasa todo envío**: puesta solo en la
+/// pantalla, cualquier camino que no fuera la pantalla la saltaría.
+///
+/// # Errores
+///
+/// - [`AppError::Db`] si la lectura falla.
+/// - [`LaCuentaNoSirve::NoExiste`] si el número no está.
+/// - [`LaCuentaNoSirve::SinContrasenaGuardada`] si el llavero no tiene su token.
+/// - [`AppError::CuentaNoSirve`] si el número existe pero todavía no puede
+///   enviar — le falta una de las dos confirmaciones, o no está conectado.
+pub fn proveedor_del_numero(
+    db: &Db,
+    secretos: &dyn FuenteDeContrasenas,
+    empresa: arles_core::ids::CompanyId,
+    id: arles_core::ids::WhatsappAccountId,
+    contenido: arles_core::whatsapp::MensajeDePlantilla,
+    base: &str,
+) -> Result<arles_whatsapp::ProveedorDeWhatsApp, AppError> {
+    let numero = db
+        .numero(empresa, id)
+        .map_err(AppError::Db)?
+        .ok_or(LaCuentaNoSirve::NoExiste)?;
+
+    if !numero.puede_enviar() {
+        return Err(porque_no_envia(&numero.estado).into());
+    }
+
+    let token = secretos
+        .token_del_numero(&id.to_string())?
+        .ok_or(LaCuentaNoSirve::SinContrasenaGuardada)?;
+
+    Ok(arles_whatsapp::ProveedorDeWhatsApp::nuevo(
+        base,
+        &numero.phone_number_id,
+        &token,
+        contenido,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use arles_core::correo::{BorradorDeCuenta, DatosDeLaCuenta};
@@ -260,6 +341,13 @@ mod tests {
                 Self::Vacio => Ok(None),
                 Self::NoResponde => Err(AppError::LlaveroNoDisponible("de mentira".to_owned())),
             }
+        }
+
+        // El token sigue el mismo estado que la contraseña: lo que se prueba es
+        // cómo reacciona quien llama a un llavero vacío o caído, y eso no
+        // depende de qué secreto se pidiera.
+        fn token_del_numero(&self, id: &str) -> Result<Option<String>, AppError> {
+            self.contrasena_de(id)
         }
     }
 

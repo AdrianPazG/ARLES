@@ -236,6 +236,28 @@ pub fn aceptar_riesgo_del_canal(
     numeros_de_whatsapp(estado)
 }
 
+/// El texto que explica un fallo de envío (§139).
+///
+/// `Fallo` vive en el núcleo y **no tiene `clave_i18n`**: es un tipo del motor,
+/// pensado para decidir si se reintenta, no para enseñarse. La traducción a
+/// algo que una persona pueda leer se hace aquí, en la frontera, que es donde
+/// hace falta.
+///
+/// Se escribe con un `match` exhaustivo a propósito: si mañana el núcleo añade
+/// una forma de fallar, esto **no compila** hasta que alguien decida qué se le
+/// dice al usuario. Un `_ =>` genérico la enseñaría como «error desconocido»
+/// para siempre, sin que nadie se enterara.
+const fn clave_del_fallo(fallo: &arles_core::reintento::Fallo) -> &'static str {
+    use arles_core::reintento::Fallo;
+    match fallo {
+        Fallo::Pasajero => "whatsapp.prueba.pasajero",
+        Fallo::NoMeMandesNadaDurante(_) => "whatsapp.prueba.demasiadoRapido",
+        Fallo::LaDireccionNoExiste => "whatsapp.prueba.numeroNoExiste",
+        Fallo::LaCuentaNoAutentica => "whatsapp.prueba.tokenNoVale",
+        Fallo::EsaPersonaPidioLaBaja => "whatsapp.prueba.pidioLaBaja",
+    }
+}
+
 /// Quién queda anotado en las dos marcas.
 ///
 /// ARLES no tiene cuentas de usuario (está fuera de alcance en la v1.2), así
@@ -243,6 +265,142 @@ pub fn aceptar_riesgo_del_canal(
 /// Escribir aquí un identificador que no existe sería peor que esta cadena
 /// honesta: parecería una auditoría real.
 const USUARIO_LOCAL: &str = "usuario_local";
+
+/// Cómo salió el envío de prueba de WhatsApp.
+///
+/// **No dice «entregado»** (§65), igual que el de correo. Lo que ARLES sabe es
+/// que Meta se hizo cargo del mensaje. Si llegó al teléfono, y si la persona lo
+/// vio, son cosas que solo dirían los avisos — y los avisos todavía no tienen
+/// por dónde llegar.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResultadoDeLaPruebaDeWhatsApp {
+    /// ¿Meta lo aceptó?
+    pub aceptado: bool,
+    /// La clave del texto que explica qué pasó (§139). Nunca el texto crudo de
+    /// Meta: viene en inglés y a veces trae el número dentro.
+    pub clave: String,
+}
+
+/// Manda un mensaje de prueba a un número, con una plantilla aprobada.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// ESTE COMANDO ES EL QUE FALTABA PARA QUE EL CANAL EXISTIERA DE VERDAD
+///
+/// Hasta la W.8, ARLES sabía dar de alta un número, revisar una campaña y
+/// enseñar todas las cifras — y no tenía **ningún** camino por el que saliera
+/// un mensaje. El adaptador estaba probado contra el servidor de mentira y nadie
+/// lo llamaba.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LA PLANTILLA LA ELIGE QUIEN LLAMA, Y TIENE QUE ESTAR APROBADA
+///
+/// Meta **no acepta texto libre** para iniciar una conversación. Para la
+/// demostración sirve `hello_world`, que viene aprobada con el número de prueba
+/// que Meta regala — y que por eso no depende del editor de plantillas, que
+/// sigue pendiente (entrega 6.8).
+///
+/// `base` permite apuntar al servidor de mentira en las pruebas. En producción
+/// es la constante `GRAPH`, y **no se deja elegir desde la webview**: una
+/// dirección que cruzara la frontera sería un sitio al que mandar el token.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si no hay empresa, si el identificador no vale, si el número no
+/// puede enviar todavía —le falta una de las dos confirmaciones— o si el
+/// llavero no tiene su token. **Que Meta rechace el mensaje no es un error del
+/// comando**: es un resultado con `aceptado: false` y su clave, porque eso es
+/// justo lo que la prueba venía a averiguar.
+#[tauri::command]
+pub fn enviar_whatsapp_de_prueba(
+    estado: tauri::State<'_, EstadoApp>,
+    id: String,
+    para: String,
+    plantilla: String,
+    idioma: String,
+) -> Result<ResultadoDeLaPruebaDeWhatsApp, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let pais = crate::comandos::pais_de_la_empresa(&estado)?;
+    prueba_con(
+        estado.db(),
+        &crate::fabrica::ElLlaveroDelSistema,
+        empresa,
+        &pais,
+        &id,
+        &para,
+        &plantilla,
+        &idioma,
+        arles_whatsapp::cloud::GRAPH,
+    )
+}
+
+/// El envío de prueba, con la fuente de secretos y la dirección que se le diga.
+///
+/// El comando de arriba le pasa el llavero del sistema y la dirección de Meta.
+/// Las pruebas le pasan las suyas y **recorren este mismo código**: la lectura
+/// del número, la puerta del canal, el armado del proveedor y la traducción del
+/// resultado. Una prueba con su propio camino no diría nada de éste — que es
+/// exactamente cómo el canal llegó a la W.7 sin poder enviar.
+///
+/// # Errores
+///
+/// Los de [`enviar_whatsapp_de_prueba`].
+#[allow(clippy::too_many_arguments)]
+pub fn prueba_con(
+    db: &arles_db::Db,
+    secretos: &dyn crate::fabrica::FuenteDeContrasenas,
+    empresa: arles_core::ids::CompanyId,
+    pais: &str,
+    id: &str,
+    para: &str,
+    plantilla: &str,
+    idioma: &str,
+    base: &str,
+) -> Result<ResultadoDeLaPruebaDeWhatsApp, ErrorIpc> {
+    use arles_motor::proveedor::{Mensaje, Proveedor};
+
+    let numero = id
+        .parse::<arles_core::ids::WhatsappAccountId>()
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    // El destino se valida en el núcleo, con el país de la empresa: quien
+    // escribe su propio móvil para probar lo escribe como lo tiene en el móvil.
+    let destino = arles_core::canal::PhoneNumber::parse(para, pais)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    let contenido = arles_core::whatsapp::MensajeDePlantilla {
+        nombre: plantilla.to_owned(),
+        idioma: idioma.to_owned(),
+        // `hello_world` no tiene huecos. Una plantilla con huecos necesitaría
+        // los valores, y ésos los elige la campaña — no una prueba.
+        valores: Vec::new(),
+        faltaron: Vec::new(),
+    };
+
+    let proveedor =
+        crate::fabrica::proveedor_del_numero(db, secretos, empresa, numero, contenido, base)
+            .map_err(ErrorIpc::from)?;
+
+    // La clave de idempotencia de una prueba no se guarda en ningún sitio: no
+    // hay envío que deduplicar, y reutilizar la de un envío real haría que el
+    // motor creyera que ese mensaje ya salió.
+    let clave = format!("prueba-{}", numero);
+    let mensaje = Mensaje {
+        para: destino.normalized(),
+        clave_de_idempotencia: &clave,
+    };
+
+    Ok(match proveedor.enviar(&mensaje) {
+        Ok(_) => ResultadoDeLaPruebaDeWhatsApp {
+            aceptado: true,
+            clave: "whatsapp.prueba.aceptado".to_owned(),
+        },
+        Err(fallo) => ResultadoDeLaPruebaDeWhatsApp {
+            aceptado: false,
+            clave: clave_del_fallo(&fallo).to_owned(),
+        },
+    })
+}
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]

@@ -81,6 +81,7 @@ pub fn run() {
             whatsapp::guardar_numero_de_whatsapp,
             whatsapp::confirmar_coexistencia,
             whatsapp::aceptar_riesgo_del_canal,
+            whatsapp::enviar_whatsapp_de_prueba,
             campanas::plantillas,
             campanas::guardar_plantilla,
             campanas::firmas,

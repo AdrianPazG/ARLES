@@ -265,8 +265,31 @@ y activarla.**
 puede filtrar, una campaña creada no se puede editar, y no hay pantalla para
 escribir plantillas ni firmas —los comandos están, el editor no—.
 
-**Lo siguiente es la Fase 7 · Actividad**: las dos pestañas de una campaña en
-marcha, la línea de tiempo de cada envío y el detalle de cada mensaje.
+**Cerrado el canal de WhatsApp** (W.1 a W.8): el núcleo con sus dos modos, el
+adaptador de Cloud API con su servidor de mentira, el número en el llavero con
+Coexistencia y la aceptación de riesgo, el procesador de avisos, la puerta del
+canal con las dos cifras de permiso, la pantalla, y **el envío de prueba que
+manda un WhatsApp real**. `validar.py --fase W` en 17/17.
+
+**Dos huecos del mismo tipo, y la comprobación que ahora los caza.** El canal
+llegó a su cierre con setenta pruebas en verde y **sin poder mandar nada**: el
+adaptador estaba probado y `arles-app` ni siquiera dependía de él. En la Fase 6
+pasó igual con el editor de plantillas. Una prueba comprueba que la pieza
+funciona, no que otro módulo la use, y el hueco vive justo entre dos capas que
+cada una pasa lo suyo. Lo caza `lo_que_se_construye_se_usa()` en la fase W del
+validador — escrita antes de arreglar el hueco, para verla marcarlo en rojo.
+
+**Lo que WhatsApp todavía NO hace:** el motor solo recorre `Canal::Correo`, así
+que **no se puede lanzar una campaña entera por WhatsApp**, solo el envío de
+prueba. Y las respuestas no se pueden contar sin el «relay ciego» que Dirección
+decidió el 29/09/2026 y que no existe todavía.
+
+**Lo siguiente:** la entrega **6.8** —el editor de plantillas y firmas— que la
+Fase 6 dejó pendiente y que bloquea crear una campaña entera desde la interfaz;
+después la **Fase 7 · Actividad**.
+
+**Para una demostración real** con correo y WhatsApp que llegan de verdad:
+`documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md`.
 
 **Seis trampas del código de la Fase 6**, por si se toca:
 

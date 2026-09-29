@@ -3458,14 +3458,215 @@ def fase_6(rapido):
     el_boton_de_activar_lo_apaga_el_preflight()
 
 
-FASES = {0: fase_0, 1: fase_1, 2: fase_2, 3: fase_3, 4: fase_4, 5: fase_5, 6: fase_6}
+# ─── Fase W · El canal de WhatsApp ───────────────────────────────────────────
+
+
+def lo_que_se_construye_se_usa():
+    """**La comprobación que faltaba, y que habría cazado dos huecos.**
+
+    Dos veces en dos fases se construyó una pieza correcta, probada, y **nadie
+    la llamó**:
+
+    - Los comandos `guardar_plantilla` y `guardar_firma` de la Fase 6: existen,
+      tienen pruebas, y ninguna pantalla los invoca — así que desde la
+      aplicación no se puede crear una plantilla.
+    - `ProveedorDeWhatsApp` de la W.2: habla con Cloud API, tiene su prueba de
+      punta a punta contra el servidor de mentira, y **nadie lo construye** —
+      así que ARLES no puede mandar un WhatsApp.
+
+    Ninguna prueba podía verlo. Una prueba comprueba que la pieza funciona; no
+    que otro módulo la use. El hueco vive justo entre dos módulos que cada uno
+    pasa sus pruebas.
+
+    Aquí se comprueba lo que ninguna de las dos capas puede comprobar sola: que
+    cada función del store de Vue que invoca un comando **se llama desde alguna
+    pantalla**, y que cada proveedor **se construye fuera de las pruebas**.
+    """
+    sueltas = []
+
+    # 1 · Las funciones de los stores que nadie usa.
+    dir_stores = os.path.join(RAIZ, "app/src/app/stores")
+    pantallas = ""
+    for base, _, ficheros in os.walk(os.path.join(RAIZ, "app/src")):
+        for f in ficheros:
+            if f.endswith(".vue"):
+                with open(os.path.join(base, f), encoding="utf-8") as fh:
+                    pantallas += fh.read()
+
+    if os.path.isdir(dir_stores):
+        for f in sorted(os.listdir(dir_stores)):
+            if not f.endswith(".ts") or f.endswith(".spec.ts"):
+                continue
+            texto = leer("app/src/app/stores", f) or ""
+            # Las funciones que cruzan la frontera: las que llaman a `invocar`.
+            for m in re.finditer(
+                r"async function (\w+)\([^)]*\)[^{]*\{(?:[^{}]|\{[^{}]*\})*?invocar",
+                texto,
+                re.S,
+            ):
+                nombre = m.group(1)
+                # Una función que solo usan otras del mismo store no es un hueco.
+                usos_internos = len(re.findall(rf"\b{nombre}\b", texto))
+                if nombre not in pantallas and usos_internos <= 2:
+                    sueltas.append(f"{f}: {nombre}() no se llama desde ninguna pantalla")
+
+    # 2 · Los proveedores que nadie construye fuera de las pruebas.
+    for crate, tipo in [("arles-email", "ProveedorSmtp"), ("arles-whatsapp", "ProveedorDeWhatsApp")]:
+        if not os.path.isdir(os.path.join(RAIZ, "crates", crate)):
+            continue
+        usado = False
+        for base, _, ficheros in os.walk(os.path.join(RAIZ, "crates/arles-app/src")):
+            for f in ficheros:
+                if not f.endswith(".rs"):
+                    continue
+                with open(os.path.join(base, f), encoding="utf-8") as fh:
+                    cuerpo = fh.read()
+                # Solo cuenta fuera de `mod tests`: construirlo en una prueba no
+                # es usarlo, y es exactamente el espejismo que se busca romper.
+                cuerpo = cuerpo.split("#[cfg(test)]")[0]
+                if f"{tipo}::nuevo" in cuerpo:
+                    usado = True
+        if not usado:
+            sueltas.append(f"{tipo} no se construye en arles-app fuera de las pruebas")
+
+    check(
+        "W",
+        "todo lo que se construye lo usa alguien",
+        not sueltas,
+        "Una pieza probada que nadie llama no hace nada, y ninguna prueba de esa "
+        "pieza puede verlo. Pasó dos veces: el editor de plantillas de la Fase 6 "
+        "y el adaptador de WhatsApp de la W.2.",
+        " · ".join(sueltas),
+    )
+
+
+def el_token_de_meta_no_cruza_la_frontera():
+    """Regla 3 de la frontera IPC, aplicada al canal nuevo."""
+    texto = leer("crates/arles-app/src/whatsapp.rs") or ""
+    # Se mira DENTRO del struct que cruza, no en todo el archivo: mencionar el
+    # campo en un comentario que explica por qué no se copia es lo contrario de
+    # un fallo, y la primera versión de esta comprobación lo marcaba como tal.
+    m = re.search(r"pub struct NumeroIpc \{(.*?)\n\}", texto, re.S)
+    campos = m.group(1) if m else ""
+    check(
+        "W",
+        "lo que sale hacia la webview no lleva el token",
+        bool(m) and "referencia_de_credencial" not in campos and "token" not in campos,
+        "El token de Meta es con lo que se envía en nombre de la empresa. En la "
+        "base va una referencia opaca; en la pantalla, ni eso.",
+    )
+
+
+def lo_que_dice_la_gente_no_se_guarda():
+    """La decisión de Dirección hecha tipo: se cuenta quién, no qué dijo."""
+    texto = leer("crates/arles-whatsapp/src/entrante.rs") or ""
+    cuerpo = texto.split("#[cfg(test)]")[0]
+    tiene_respuesta = "pub struct Respuesta" in cuerpo
+    sin_texto = not re.search(r"pub (texto|mensaje|cuerpo|body)\s*:", cuerpo)
+    check(
+        "W",
+        "una respuesta no lleva lo que dijo la persona",
+        tiene_respuesta and sin_texto,
+        "El texto de un mensaje entrante muere en la función que lo lee. Si "
+        "viajara hasta la base y allí se ignorara, habría pasado por una capa "
+        "más — y por cualquier traza de error que haya en medio.",
+    )
+
+
+def la_firma_se_comprueba_antes_de_analizar():
+    """El orden no es estético: analizar primero es procesar lo que mande
+    cualquiera que descubra la dirección, y preguntarse después."""
+    texto = leer("crates/arles-whatsapp/src/entrante.rs") or ""
+    m = re.search(r"pub fn leer\((?:[^)]*)\)[^{]*\{(.*?)\n\}", texto, re.S)
+    cuerpo = m.group(1) if m else ""
+    pos_firma = cuerpo.find("la_firma_cuadra")
+    pos_analisis = cuerpo.find("serde_json")
+    check(
+        "W",
+        "la firma se comprueba antes de mirar el cuerpo",
+        pos_firma >= 0 and (pos_analisis < 0 or pos_firma < pos_analisis),
+        "Un aviso falso podría decir que un número contestó —lo que falsea la "
+        "métrica— o que la calidad se hundió, lo que pararía el canal.",
+    )
+
+
+def una_calidad_sin_consultar_no_es_buena():
+    """Un semáforo que se pone en verde cuando no ha podido mirar es peor que
+    no tener semáforo."""
+    texto = leer("app/src/app/pantallas/PantallaWhatsApp.vue") or ""
+    check(
+        "W",
+        "una calidad sin consultar no se pinta como alta",
+        "sinConsultar" in texto and "calidad === null" in texto,
+        "`null` significa «no se sabe», no «está bien». Es la misma regla del "
+        "«sin comprobar» del preflight de correo.",
+    )
+
+
+def las_dos_marcas_no_estan_en_el_alta():
+    """Como casillas del formulario se marcarían con el resto de los campos sin
+    leerlas — que es justo lo que existen para impedir."""
+    texto = leer("crates/arles-app/src/whatsapp.rs") or ""
+    cuerpo = texto.split("#[cfg(test)]")[0]
+    m = re.search(r"pub fn guardar_numero_de_whatsapp\(.*?\n\}", cuerpo, re.S)
+    alta = m.group(0) if m else ""
+    check(
+        "W",
+        "el alta no pone las dos confirmaciones",
+        "confirmar_coexistencia" not in alta and "aceptar_el_riesgo" not in alta,
+        "Son la constancia de que a alguien se le avisó. Puestas en el alta se "
+        "marcarían sin leerlas, y no constaría nada.",
+    )
+
+
+def fase_w(rapido):
+    titulo("CANAL W · WhatsApp")
+
+    print(f"{GRIS}  estructura{FIN}")
+    for ruta, porque in [
+        ("crates/arles-core/src/whatsapp.rs", "Los dos modos del canal (L-9) y la plantilla aprobada."),
+        ("crates/arles-whatsapp/src/cloud.rs", "El adaptador que habla con Cloud API."),
+        ("crates/arles-whatsapp/src/servidor.rs", "El servidor de mentira que imita a Meta."),
+        ("crates/arles-whatsapp/src/entrante.rs", "Los avisos: firma verificada, texto descartado."),
+        ("crates/arles-db/src/numero.rs", "El número guardado, con sus dos marcas."),
+        ("crates/arles-db/src/revision_whatsapp.rs", "La puerta del canal y las dos cifras de permiso."),
+        ("crates/arles-app/src/whatsapp.rs", "Los comandos del número."),
+        ("app/src/app/pantallas/PantallaWhatsApp.vue", "La pantalla del número."),
+        ("app/src/app/pantallas/whatsapp.spec.ts", "Lo que esa pantalla no puede dejar de decir."),
+        ("documentacion/09-fases/FASE-W-CANAL-WHATSAPP.md", "Qué se construyó, y qué no."),
+        ("documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md", "Cómo conectar a Meta y a Gmail de verdad."),
+    ]:
+        check("W", f"existe {ruta}", os.path.exists(os.path.join(RAIZ, ruta)), porque)
+
+    print(f"{GRIS}  invariantes{FIN}")
+    el_token_de_meta_no_cruza_la_frontera()
+    lo_que_dice_la_gente_no_se_guarda()
+    la_firma_se_comprueba_antes_de_analizar()
+    una_calidad_sin_consultar_no_es_buena()
+    las_dos_marcas_no_estan_en_el_alta()
+
+    print(f"{GRIS}  el cable entre las capas{FIN}")
+    lo_que_se_construye_se_usa()
+
+
+# El canal de WhatsApp no es una fase numerada: cruza la 5 y la 6 y se entregó
+# aparte. Va con clave "W" para que `--fase W` funcione y para que el recorrido
+# completo la incluya sin renumerar nada.
+FASES = {0: fase_0, 1: fase_1, 2: fase_2, 3: fase_3, 4: fase_4, 5: fase_5,
+         6: fase_6, "W": fase_w}
 
 
 def main():
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    p.add_argument("--fase", type=int, choices=sorted(FASES), help="valida solo esa fase")
+    p.add_argument(
+        "--fase",
+        type=lambda v: v.upper() if v.upper() in ("W",) else int(v),
+        choices=list(FASES),
+        metavar="{0,1,2,3,4,5,6,W}",
+        help="valida solo esa fase",
+    )
     p.add_argument("--rapido", action="store_true", help="omite lo que tarda")
     p.add_argument("--json", metavar="RUTA", help="escribe el informe en JSON")
     a = p.parse_args()
@@ -3474,7 +3675,11 @@ def main():
     print(f"{GRIS}{RAIZ}{FIN}")
 
     t0 = time.time()
-    for n in ([a.fase] if a.fase is not None else sorted(FASES)):
+    # `sorted` no puede comparar int con str, así que el orden se escribe: las
+    # numeradas y al final el canal.
+    todas = [k for k in FASES if isinstance(k, int)] + [k for k in FASES if not isinstance(k, int)]
+    for n in ([a.fase] if a.fase is not None else sorted(
+        [k for k in todas if isinstance(k, int)]) + [k for k in todas if not isinstance(k, int)]):
         FASES[n](a.rapido)
 
     total = len(R.checks)

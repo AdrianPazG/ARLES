@@ -365,12 +365,20 @@ mod el_pegamento {
         fn contrasena_de(&self, _id: &str) -> Result<Option<String>, AppError> {
             Ok(Some("dieciseis-letras".to_owned()))
         }
+
+        fn token_del_numero(&self, _id: &str) -> Result<Option<String>, AppError> {
+            Ok(Some("EAAG-token-de-mentira".to_owned()))
+        }
     }
 
     /// Un llavero que no tiene nada: la cuenta no se podrá armar.
     struct LlaveroVacio;
     impl FuenteDeContrasenas for LlaveroVacio {
         fn contrasena_de(&self, _id: &str) -> Result<Option<String>, AppError> {
+            Ok(None)
+        }
+
+        fn token_del_numero(&self, _id: &str) -> Result<Option<String>, AppError> {
             Ok(None)
         }
     }

@@ -55,6 +55,10 @@ impl FuenteDeContrasenas for LlaveroDeMentira {
     fn contrasena_de(&self, _id: &str) -> Result<Option<String>, arles_app_lib::AppError> {
         Ok(Some("dieciseis-letras".to_owned()))
     }
+
+    fn token_del_numero(&self, _id: &str) -> Result<Option<String>, arles_app_lib::AppError> {
+        Ok(Some("EAAG-token-de-mentira".to_owned()))
+    }
 }
 
 fn empresa() -> CompanyId {
