@@ -16,8 +16,12 @@
 
 pub mod cloud;
 pub mod codigos;
+pub mod entrante;
+pub mod estado;
 pub mod servidor;
 
 pub use cloud::ProveedorDeWhatsApp;
 pub use codigos::{ErrorDeMeta, traducir};
+pub use entrante::{Aviso, AvisoRechazado, Respuesta};
+pub use estado::{EstadoDelNumero, consultar};
 pub use servidor::{Guion, ServidorDeMentira};

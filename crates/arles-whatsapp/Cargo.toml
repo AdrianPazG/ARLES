@@ -13,7 +13,9 @@ arles-core = { path = "../arles-core" }
 # El `Proveedor` que este crate implementa. Igual que con el correo, la
 # dependencia va en este sentido: el motor no sabe que existe WhatsApp.
 arles-motor = { path = "../arles-motor" }
+hmac = "0.12"
 serde = { workspace = true }
+sha2.workspace = true
 thiserror = { workspace = true }
 ureq = { version = "3.4.2", default-features = false, features = ["rustls"] }
 

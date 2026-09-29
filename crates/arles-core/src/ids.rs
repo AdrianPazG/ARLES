@@ -122,6 +122,10 @@ id_tipado!(
     WhatsappAccountId
 );
 id_tipado!(
+    /// Una respuesta contada. **No guarda lo que dijo nadie.**
+    WhatsappReplyId
+);
+id_tipado!(
     /// Plantilla aprobada por Meta.
     WhatsappTemplateId
 );
