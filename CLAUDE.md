@@ -306,6 +306,12 @@ nada** — cuál de las seis razones es, con su cifra. `validar.py --fase 7` en 
 Con Actividad construida **las seis secciones tienen su pantalla**, así que el
 andamio (`PantallaPendiente.vue`) se fue con ella.
 
+**Cerrada la 7.4** —el registro con sus filtros (D-7C)—: seis criterios
+combinables que viajan en la dirección, nunca más de 500 filas con el total al
+lado, la dirección leída del intento y no guardada en el registro (P-17), y el
+recorte bimestral que dice antes de tocar nada cuánto se va y cuánto se queda.
+**Un desenlace de envío no se borra jamás.**
+
 **La parada de emergencia ya se puede pulsar.** La Fase 4 la construyó, la 7.0 le
 puso sus tres comandos… y ninguna pantalla los llamaba. Está en Campañas (D-7B),
 y Actividad la enseña porque es la razón número uno por la que no sale nada.
@@ -348,6 +354,20 @@ encontró los tres huecos de la 7.3: un comando sin nadie que lo llame y un
 decorado sin nadie que lo use son el mismo hueco visto desde los dos lados.
 
 **Al añadir algo, la pregunta no es «¿funciona?» sino «¿quién lo llama?».**
+
+### Dos formas de tumbar una pantalla con un texto
+
+Las dos son cadenas válidas de TypeScript, así que ni `vue-tsc` ni ESLint las
+ven, y las dos aparecieron escribiendo los textos del registro (7.4):
+
+1. **Una `@` suelta.** `vue-i18n` la usa para sus enlaces —`@:otra.clave`—, así
+   que un correo de ejemplo en un texto no compila: «Invalid linked format», y
+   **se cae el componente entero**, no ese texto. Un `{'@'}` escapado sí vale.
+2. **Los `**asteriscos**`.** No hay Markdown: salen literales, y justo en la
+   frase que alguien resaltó porque era la importante.
+
+Las cazan `ningun_texto_lleva_una_arroba_suelta` y `ningun_texto_lleva_markdown`
+en la fase 7.
 
 ### Lo que sólo se ve mirando, y no midiendo
 

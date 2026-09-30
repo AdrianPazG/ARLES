@@ -15,6 +15,7 @@ pub mod estado;
 pub mod fabrica;
 pub mod llavero;
 pub mod motor;
+pub mod registro;
 pub mod rutas;
 pub mod whatsapp;
 
@@ -104,6 +105,10 @@ pub fn run() {
             control::estado_del_envio,
             // Las cifras de Actividad (7.2).
             cifras::actividad,
+            // El registro con sus filtros, y el recorte bimestral (7.4, D-7C).
+            registro::registro,
+            registro::que_se_recortaria,
+            registro::recortar_registro,
         ])
         .run(tauri::generate_context!());
 

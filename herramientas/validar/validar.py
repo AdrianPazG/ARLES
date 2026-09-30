@@ -4290,6 +4290,100 @@ def todo_comando_que_piden_las_pantallas_lo_contesta_el_simulador():
     )
 
 
+def ningun_texto_lleva_una_arroba_suelta():
+    """Una `@` en un texto **tumba la pantalla entera**, no sólo ese texto.
+
+    ───────────────────────────────────────────────────────────────────────────
+    CÓMO SE DESCUBRE, Y POR QUÉ NO LO CAZA NADA MÁS
+
+    `vue-i18n` usa `@` para su sintaxis de enlaces —`@:otra.clave`— así que un
+    texto con un correo de ejemplo no compila: «Message compilation error:
+    Invalid linked format». Y no falla el texto: falla **el componente que lo
+    pide**, con la pantalla en blanco.
+
+    Pasó el 30/09/2026 al escribir la ayuda del buscador del registro —«escribe
+    ana@empresa.mx»—, que es lo más natural del mundo poner en un campo que
+    busca direcciones de correo. Las doce pruebas de esa pantalla fallaron a la
+    vez con un mensaje que no nombra ni la clave ni el archivo.
+
+    Ni `vue-tsc` ni ESLint lo ven: es una cadena válida de TypeScript. Sólo se
+    nota al renderizar, y una pantalla sin prueba de montaje no lo notaría hasta
+    que alguien la abriera.
+
+    Lo que sí se permite: `@:` a propósito —el enlace de verdad— y una arroba
+    escapada con `{'@'}`, que es como `vue-i18n` la admite literal.
+    """
+    import re as _re
+
+    catalogo = leer("app", "src", "app", "locales", "es.ts")
+    malos = []
+    for n, linea in enumerate(catalogo.split("\n"), start=1):
+        cruda = linea.split("//")[0]
+        for m in _re.finditer(r"@", cruda):
+            trozo = cruda[m.start() : m.start() + 2]
+            # `@:clave` es un enlace de verdad, y se deja pasar.
+            if trozo == "@:":
+                continue
+            # `{'@'}` es la forma escapada que `vue-i18n` admite. Dentro de una
+            # cadena de comillas simples aparece como `{\'@\'}`, con las
+            # comillas a su vez escapadas — y la primera versión de esto sólo
+            # reconocía la forma sin escapar, así que denunció un texto que
+            # estaba bien. Se ve al estrenarla, que es lo barato.
+            antes = cruda[max(0, m.start() - 3) : m.start()]
+            despues = cruda[m.start() + 1 : m.start() + 4]
+            if antes.endswith(("{'", "{\\'")) and despues.startswith(("'}", "\\'}")):
+                continue
+            malos.append(f"es.ts:{n}: {cruda.strip()[:70]}")
+            break
+
+    check(
+        7,
+        "ningún texto lleva una arroba suelta",
+        not malos,
+        "\n      ".join(malos),
+        ningun_texto_lleva_una_arroba_suelta.__doc__,
+    )
+
+
+def ningun_texto_lleva_markdown():
+    """Los `**asteriscos**` de un texto salen **literales** en la pantalla.
+
+    `vue-i18n` no interpreta Markdown: lo que se escribe es lo que se ve. Un
+    `**no se tocan**` en un aviso se lee tal cual, con los cuatro asteriscos, y
+    encima en el sitio donde más se mira — la frase que alguien resaltó porque
+    era la importante.
+
+    Pasó el 30/09/2026 en el aviso del recorte, y no lo ve nada: es una cadena
+    de TypeScript perfectamente válida, la prueba del componente busca «no se
+    tocan» y lo encuentra —los asteriscos no estorban a un `toContain`—, y sólo
+    se nota abriendo la pantalla.
+
+    Se miran los valores, no los comentarios: los comentarios de este archivo
+    usan Markdown a propósito y se leen en el editor, no en la aplicación.
+    """
+    import re as _re
+
+    catalogo = leer("app", "src", "app", "locales", "es.ts")
+    malos = []
+    for n, linea in enumerate(catalogo.split("\n"), start=1):
+        cruda = linea.split("//")[0]
+        # Sólo dentro de un valor: `clave: '…'` o la continuación de una cadena.
+        if "'" not in cruda:
+            continue
+        for trozo in _re.findall(r"'([^']*)'", cruda):
+            if "**" in trozo or _re.search(r"(?<![\w`])`[^`]+`(?![\w])", trozo):
+                malos.append(f"es.ts:{n}: {trozo[:60]}")
+                break
+
+    check(
+        7,
+        "ningún texto lleva Markdown",
+        not malos,
+        "\n      ".join(malos),
+        ningun_texto_lleva_markdown.__doc__,
+    )
+
+
 def fase_7(rapido=False):
     print(f"{NEGRITA}Fase 7 · Actividad y entregabilidad{FIN}")
 
@@ -4306,6 +4400,10 @@ def fase_7(rapido=False):
 
     print(f"{GRIS}  la pantalla de lo de ahora (7.3){FIN}")
     todo_comando_que_piden_las_pantallas_lo_contesta_el_simulador()
+
+    print(f"{GRIS}  el registro con sus filtros (7.4){FIN}")
+    ningun_texto_lleva_una_arroba_suelta()
+    ningun_texto_lleva_markdown()
 
 
 # El canal de WhatsApp no es una fase numerada: cruza la 5 y la 6 y se entregó

@@ -42,7 +42,16 @@ import AIcono from './AIcono.vue'
 const props = withDefaults(
   defineProps<{
     etiqueta: string
-    tipo?: 'text' | 'email' | 'password' | 'number'
+    /**
+     * Qué clase de dato se escribe.
+     *
+     * `date` se añadió en la 7.4 para los filtros del registro: escribir una
+     * fecha a mano en un campo de texto obliga a adivinar el formato —«30/09»,
+     * «2026-09-30»— y a validar lo que salga. El selector nativo da siempre
+     * `AAAA-MM-DD`, que es lo que la base compara, y en Windows y macOS ya lo
+     * dibuja el sistema con el idioma del equipo.
+     */
+    tipo?: 'text' | 'email' | 'password' | 'number' | 'date'
     /** Texto de ayuda permanente. Se oculta cuando hay error. */
     ayuda?: string
     error?: string

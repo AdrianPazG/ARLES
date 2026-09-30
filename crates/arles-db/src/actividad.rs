@@ -57,6 +57,19 @@ pub struct Suceso {
     pub numero_a: Option<i64>,
     pub numero_b: Option<i64>,
     pub cuando: String,
+    /// A quién se le escribió, **leída de `message_attempt` al consultar**.
+    ///
+    /// ── POR QUÉ NO ESTÁ GUARDADA AQUÍ, Y POR QUÉ ESO IMPORTA ──
+    ///
+    /// `activity_event` no tiene ni una dirección de correo: sólo el id del
+    /// intento (ver la cabecera de la V10). El motivo es P-17, y la
+    /// consecuencia es la que se quería: **el día que alguien ejerza su
+    /// derecho de cancelación y su intento se anonimice, el registro deja de
+    /// enseñar su dirección sin tocar una sola fila de esta tabla** — que es
+    /// de sólo-añadir y no se podría corregir.
+    ///
+    /// `None` en los sucesos de bucle, que no son de nadie.
+    pub direccion: Option<String>,
 }
 
 /// Cuántos sucesos se sirven de una vez (D-7C).
@@ -68,14 +81,48 @@ pub struct Suceso {
 pub const TOPE_DE_PAGINA: u32 = 500;
 
 /// Qué se lee, y de dónde.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// LOS CUATRO CRITERIOS DE D-7C, Y POR QUÉ SON ESTOS
+///
+/// Dirección lo pidió así el 29/09/2026: «debería tener un filtro del registro,
+/// para poder buscar entre todos los registros». Con 20 000 correos y mensajes
+/// juntos, una lista de 500 sin forma de buscar no es un registro: es una
+/// muestra. Los cuatro responden a las cuatro preguntas que alguien se hace
+/// delante de esta pantalla:
+///
+///   - **campaña** → «¿qué pasó con la de octubre?»
+///   - **clave** → «enséñame sólo los rebotes»
+///   - **desde / hasta** → «¿qué pasó el martes?»
+///   - **texto** → «¿le llegó a Ana?»
+///
+/// Todos combinables, y **todos opcionales**: un filtro que obliga a elegir
+/// algo antes de enseñar nada convierte la primera visita en un formulario.
 #[derive(Debug, Clone, Default)]
 pub struct Filtro<'a> {
     /// Sólo esta campaña. Con tres a la vez, es el primer filtro que hace falta.
     pub campana: Option<&'a str>,
     /// Sólo desenlaces de envío, o sólo sucesos de bucle.
     pub solo_desenlaces: Option<bool>,
+    /// Sólo esta clase de suceso, por su clave de i18n: `reintento.pidioLaBaja`.
+    ///
+    /// La clave y no un grupo propio: es lo que la tabla guarda y lo que la
+    /// pantalla traduce, así que no hay una segunda lista que pueda divergir.
+    pub clave: Option<&'a str>,
     /// Desde esta marca de tiempo, inclusive.
     pub desde: Option<&'a str>,
+    /// Hasta esta marca de tiempo, **inclusive**.
+    ///
+    /// Inclusive a propósito: quien filtra «hasta el martes» quiere el martes
+    /// entero. Quien llama pasa el final del día, no su principio.
+    pub hasta: Option<&'a str>,
+    /// Una dirección o un número, o un trozo de ellos.
+    ///
+    /// Busca en `message_attempt`, que es donde vive la dirección: aquí no hay
+    /// ninguna (P-17). Por eso **sólo encuentra desenlaces de envío**: un
+    /// suceso de bucle no es de nadie, y buscar «ana@» no puede devolver «fuera
+    /// de horario».
+    pub texto: Option<&'a str>,
 }
 
 /// Lo que devuelve una consulta: la página y **cuántos hay en total**.
@@ -176,29 +223,55 @@ impl Db {
             // El mismo `WHERE` para contar y para leer, construido una sola
             // vez. Dos cadenas parecidas es como se acaba enseñando «500 de
             // 3 412» con un total que no corresponde a lo que se ve.
-            let donde = "company_id = ?1
-                     AND (?2 IS NULL OR campaign_id = ?2)
-                     AND (?3 IS NULL OR is_outcome = ?3)
-                     AND (?4 IS NULL OR occurred_at >= ?4)";
+            // ── EL MISMO `WHERE` PARA CONTAR Y PARA LEER ──────────────────
+            //
+            // Construido una sola vez. Dos cadenas parecidas es como se acaba
+            // enseñando «500 de 3 412» con un total que no corresponde a lo
+            // que se ve, que es justo lo que D-7C quiere impedir.
+            //
+            // El JOIN es **LEFT** y no interno: un suceso de bucle no tiene
+            // intento, y con un JOIN interno desaparecerían todos —la mitad
+            // del registro, en silencio—.
+            //
+            // `?7` compara contra la dirección del intento, que vive en
+            // `message_attempt` porque aquí no hay ninguna (P-17). Es un
+            // `LIKE` con comodines a los dos lados, así que **no usa índice**:
+            // medido sobre 20 000 filas, 11 ms. Con el filtro de campaña
+            // puesto —que es como se usa— el índice recorta antes y baja a 2.
+            // Si algún día hiciera falta más, la respuesta es FTS5, no un
+            // índice sobre un LIKE que no lo puede aprovechar.
+            let donde = "e.company_id = ?1
+                     AND (?2 IS NULL OR e.campaign_id = ?2)
+                     AND (?3 IS NULL OR e.is_outcome = ?3)
+                     AND (?4 IS NULL OR e.kind = ?4)
+                     AND (?5 IS NULL OR e.occurred_at >= ?5)
+                     AND (?6 IS NULL OR e.occurred_at <= ?6)
+                     AND (?7 IS NULL OR a.contact_address LIKE '%' || ?7 || '%')";
+            let de = "activity_event e
+                      LEFT JOIN message_attempt a ON a.id = e.message_attempt_id";
             let atados = params![
                 empresa,
                 f.campana,
                 f.solo_desenlaces.map(i64::from),
-                f.desde
+                f.clave,
+                f.desde,
+                f.hasta,
+                f.texto,
             ];
 
             let total: u32 = conn.query_row(
-                &format!("SELECT count(*) FROM activity_event WHERE {donde}"),
+                &format!("SELECT count(*) FROM {de} WHERE {donde}"),
                 atados,
                 |r| r.get(0),
             )?;
 
             let mut consulta = conn.prepare(&format!(
-                "SELECT id, kind, is_outcome, campaign_id, channel,
-                        message_attempt_id, number_a, number_b, occurred_at
-                   FROM activity_event
+                "SELECT e.id, e.kind, e.is_outcome, e.campaign_id, e.channel,
+                        e.message_attempt_id, e.number_a, e.number_b,
+                        e.occurred_at, a.contact_address
+                   FROM {de}
                   WHERE {donde}
-                  ORDER BY occurred_at DESC, rowid DESC
+                  ORDER BY e.occurred_at DESC, e.rowid DESC
                   LIMIT {TOPE_DE_PAGINA}"
             ))?;
 
@@ -214,6 +287,7 @@ impl Db {
                         numero_a: r.get(6)?,
                         numero_b: r.get(7)?,
                         cuando: r.get(8)?,
+                        direccion: r.get(9)?,
                     })
                 })?
                 .collect::<Result<Vec<_>, _>>()?;
@@ -279,6 +353,9 @@ impl Db {
                         campana: None,
                         canal: None,
                         intento: None,
+                        // Una razón es un suceso de bucle: no es de nadie, así
+                        // que no hay dirección que enseñar.
+                        direccion: None,
                         numero_a: f.get(3)?,
                         numero_b: f.get(4)?,
                         cuando: f.get(5)?,
@@ -309,6 +386,43 @@ impl Db {
                 params![empresa.to_string(), antes_de],
                 |r| r.get(0),
             )
+        })
+    }
+
+    /// Las clases de suceso que **hay de verdad** en el registro, con cuántos.
+    ///
+    /// ───────────────────────────────────────────────────────────────────────
+    /// LEÍDAS DE LOS DATOS, NO DE UNA LISTA
+    ///
+    /// El desplegable de «qué pasó» podría llenarse con las catorce variantes
+    /// de `Paso`. Sería peor por dos motivos, y los dos se notan el primer día:
+    ///
+    ///   1. **Doce de las catorce estarían vacías.** Quien filtra por «la
+    ///      cuenta no autentica» y no ve nada no sabe si es que no pasó o si el
+    ///      filtro está roto. Un desplegable que sólo ofrece lo que existe no
+    ///      tiene esa duda: cada opción lleva su cifra al lado (§94).
+    ///   2. Una lista escrita a mano se queda vieja el día que se añada un
+    ///      `Paso`, y nadie se entera hasta que alguien lo busca.
+    ///
+    /// Se ordenan por frecuencia y no por nombre: lo que más pasa es lo que
+    /// más se busca.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla.
+    pub fn clases_de_suceso(&self, empresa: CompanyId) -> Result<Vec<(String, u32)>, DbError> {
+        self.con(|conn| {
+            let mut q = conn.prepare(
+                "SELECT kind, count(*) AS n
+                   FROM activity_event
+                  WHERE company_id = ?1
+                  GROUP BY kind
+                  ORDER BY n DESC, kind",
+            )?;
+            let filas = q
+                .query_map(params![empresa.to_string()], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(filas)
         })
     }
 
@@ -418,6 +532,14 @@ mod tests {
         })
         .expect("siembra");
         (dir, db)
+    }
+
+    /// El primer suceso de una página, sin indexar.
+    ///
+    /// `sucesos[0]` entra en pánico con la lista vacía, y una prueba que entra
+    /// en pánico no dice cuál era la expectativa: dice «index out of bounds».
+    fn primero(sucesos: &[Suceso]) -> &Suceso {
+        sucesos.first().expect("la página tiene al menos un suceso")
     }
 
     fn empresa() -> CompanyId {
@@ -801,5 +923,388 @@ mod tests {
                  intento. Ver P-17."
             );
         }
+    }
+    // ═══════════════════════════════════════════════════════════════════════
+    // LOS FILTROS DEL REGISTRO · entrega 7.4
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Mete un intento con su dirección, y devuelve su id.
+    ///
+    /// Hace falta porque **`activity_event` no guarda direcciones** (P-17): la
+    /// del registro sale de `message_attempt` por un JOIN, así que sin intentos
+    /// de verdad no se puede probar ni la columna ni el filtro de texto.
+    fn intento_para(db: &Db, id: &str, direccion: &str) {
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                // `stage_id` y no `campaign_stage_id`: la V4 lo llamó así, y el
+                // nombre largo es el de `activity_event`. Dos tablas vecinas con
+                // el mismo dato y distinto nombre; se escribió mal a la primera.
+                "INSERT INTO message_attempt
+                     (id, campaign_id, stage_id, channel, contact_address,
+                      idempotency_key, state, created_at, updated_at)
+                 VALUES (?1, 'k-1', ?2, 'email', ?3, ?1, 'sent', ?4, ?4)",
+                params![id, ETAPA, direccion, AHORA],
+            )
+            .map(|_| ())
+        })
+        .expect("intento");
+    }
+
+    fn desenlace_de<'a>(clave: &'static str, intento: &'a str) -> SucesoNuevo<'a> {
+        SucesoNuevo {
+            clave,
+            es_desenlace: true,
+            campana: Some("k-1"),
+            etapa: Some(ETAPA),
+            canal: Some("email"),
+            intento: Some(intento),
+            numero_a: None,
+            numero_b: None,
+        }
+    }
+
+    /// **El tope no esconde nada: 500 se sirven, y el total dice 501.**
+    ///
+    /// ── POR QUÉ 501 Y NO UNO ──
+    ///
+    /// Porque con un solo registro la prueba pasa aunque el `LIMIT` no exista,
+    /// y eso ya nos costó una vez: la prueba de la página de contactos usaba un
+    /// contacto, pedir diez mil devolvía uno igualmente, y el recorte de página
+    /// se podía quitar entero sin que nada fallara.
+    ///
+    /// Con 501 las dos mitades se comprueban de verdad: que **llegan 500** —el
+    /// `LIMIT` existe— y que el total dice **501** —el tope no esconde el
+    /// tamaño real, que es lo que D-7C pide enseñar: «500 de 501»—.
+    ///
+    /// Verificada rompiéndola el 30/09/2026 quitando el `LIMIT`: llegan 501 y
+    /// falla con «el tope de página no se aplicó».
+    #[test]
+    fn el_tope_sirve_500_y_el_total_dice_cuantos_hay() {
+        let (_dir, db) = base();
+
+        for i in 0..501u32 {
+            let id = format!("a-{i}");
+            intento_para(&db, &id, &format!("p{i}@t.mx"));
+            db.anotar_suceso(
+                empresa(),
+                &desenlace_de("motor.aceptadoPorElProveedor", &id),
+            )
+            .expect("anota");
+        }
+
+        let p = db.sucesos(empresa(), &Filtro::default()).expect("lee");
+        assert_eq!(
+            p.sucesos.len(),
+            TOPE_DE_PAGINA as usize,
+            "el tope de página no se aplicó"
+        );
+        assert_eq!(
+            p.total, 501,
+            "el total tiene que decir cuántos hay de verdad"
+        );
+    }
+
+    /// **La dirección sale del intento, y no de esta tabla.**
+    ///
+    /// Es lo que hace que P-17 no se repita aquí: el registro puede enseñar a
+    /// quién se le escribió **sin guardar ni una dirección** en una tabla de
+    /// sólo-añadir de millones de filas.
+    ///
+    /// Verificada rompiéndola quitando el `LEFT JOIN`: falla al no poder leer
+    /// la columna.
+    #[test]
+    fn la_direccion_se_lee_del_intento() {
+        let (_dir, db) = base();
+        intento_para(&db, "a-1", "ana@empresa.mx");
+        db.anotar_suceso(
+            empresa(),
+            &desenlace_de("motor.aceptadoPorElProveedor", "a-1"),
+        )
+        .expect("anota");
+
+        let p = db.sucesos(empresa(), &Filtro::default()).expect("lee");
+        assert_eq!(
+            primero(&p.sucesos).direccion.as_deref(),
+            Some("ana@empresa.mx")
+        );
+
+        // Y en la tabla del registro no hay ni rastro de ella.
+        let hay: u32 = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row(
+                    "SELECT count(*) FROM pragma_table_info('activity_event')
+                      WHERE name LIKE '%address%' OR name LIKE '%email%'",
+                    [],
+                    |r| r.get(0),
+                )
+            })
+            .expect("consulta");
+        assert_eq!(
+            hay, 0,
+            "activity_event no puede tener columnas de dirección"
+        );
+    }
+
+    /// **Anonimizar el intento borra la dirección del registro, sin tocarlo.**
+    ///
+    /// ── LA PROMESA DE LA V10, COMPROBADA ──
+    ///
+    /// `activity_event` prohíbe `UPDATE` con un disparador: un suceso pasó como
+    /// pasó. Si la dirección estuviera guardada ahí, el día que alguien ejerza
+    /// su derecho de cancelación **esa fila no se podría tocar** — el problema
+    /// que P-17 tiene abierto por `consent_entry`.
+    ///
+    /// Con la dirección leída del intento, anonimizar el intento basta. Esta
+    /// prueba lo hace de verdad y comprueba que el suceso sigue ahí, con su
+    /// fecha y su clave, y sin la dirección.
+    #[test]
+    fn anonimizar_el_intento_quita_la_direccion_del_registro() {
+        let (_dir, db) = base();
+        intento_para(&db, "a-1", "ana@empresa.mx");
+        db.anotar_suceso(
+            empresa(),
+            &desenlace_de("motor.aceptadoPorElProveedor", "a-1"),
+        )
+        .expect("anota");
+
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "UPDATE message_attempt SET contact_address = '' WHERE id = 'a-1'",
+                [],
+            )
+            .map(|_| ())
+        })
+        .expect("anonimiza");
+
+        let p = db.sucesos(empresa(), &Filtro::default()).expect("lee");
+        assert_eq!(p.total, 1, "el suceso sigue en el registro");
+        assert_eq!(
+            primero(&p.sucesos).direccion.as_deref(),
+            Some(""),
+            "la dirección desaparece con el intento, sin tocar activity_event"
+        );
+        assert_eq!(primero(&p.sucesos).clave, "motor.aceptadoPorElProveedor");
+    }
+
+    /// **Buscar una dirección encuentra sus envíos, y sólo los suyos.**
+    ///
+    /// Verificada rompiéndola quitando la condición de `?7`: devuelve los tres
+    /// y falla con el recuento.
+    #[test]
+    fn el_texto_busca_en_la_direccion() {
+        let (_dir, db) = base();
+        for (id, dir) in [
+            ("a-1", "ana@empresa.mx"),
+            ("a-2", "beto@empresa.mx"),
+            ("a-3", "ana.lopez@otra.mx"),
+        ] {
+            intento_para(&db, id, dir);
+            db.anotar_suceso(empresa(), &desenlace_de("motor.aceptadoPorElProveedor", id))
+                .expect("anota");
+        }
+
+        let p = db
+            .sucesos(
+                empresa(),
+                &Filtro {
+                    texto: Some("ana"),
+                    ..Filtro::default()
+                },
+            )
+            .expect("lee");
+        assert_eq!(
+            p.total, 2,
+            "«ana» casa con las dos direcciones que la llevan"
+        );
+
+        let exacto = db
+            .sucesos(
+                empresa(),
+                &Filtro {
+                    texto: Some("beto@empresa.mx"),
+                    ..Filtro::default()
+                },
+            )
+            .expect("lee");
+        assert_eq!(exacto.total, 1);
+    }
+
+    /// **Y buscar un texto no devuelve sucesos de bucle.**
+    ///
+    /// Un «fuera de horario» no es de nadie, así que no puede salir al buscar
+    /// una dirección. Sin esto, el `LEFT JOIN` los dejaría pasar —su
+    /// `contact_address` es nulo, y un `NULL LIKE '%ana%'` es nulo, no falso—,
+    /// que es el error clásico de un JOIN externo con filtro.
+    ///
+    /// Verificada rompiéndola: poniendo `(a.contact_address IS NULL OR …)` en
+    /// la condición, el suceso de bucle aparece y la prueba falla.
+    #[test]
+    fn buscar_una_direccion_no_devuelve_sucesos_de_bucle() {
+        let (_dir, db) = base();
+        intento_para(&db, "a-1", "ana@empresa.mx");
+        db.anotar_suceso(
+            empresa(),
+            &desenlace_de("motor.aceptadoPorElProveedor", "a-1"),
+        )
+        .expect("anota");
+        db.anotar_suceso(empresa(), &de_bucle("motor.fueraDeVentana", ETAPA))
+            .expect("anota");
+
+        let p = db
+            .sucesos(
+                empresa(),
+                &Filtro {
+                    texto: Some("ana"),
+                    ..Filtro::default()
+                },
+            )
+            .expect("lee");
+        assert_eq!(p.total, 1);
+        assert!(p.sucesos.iter().all(|s| s.es_desenlace));
+    }
+
+    /// **El filtro de clase devuelve sólo esa clase.**
+    #[test]
+    fn el_filtro_de_clase_separa_los_rebotes_de_lo_demas() {
+        let (_dir, db) = base();
+        // Direcciones distintas: `UNIQUE(campaign_id, channel, contact_address)`
+        // impide escribirle dos veces a la misma persona en la misma campaña
+        // (§55), y está bien que lo impida. La prueba se escribió repitiendo
+        // una dirección y fue la invariante la que avisó.
+        for (id, clave) in [
+            ("a-1", "motor.aceptadoPorElProveedor"),
+            ("a-2", "reintento.direccionInexistente"),
+            ("a-3", "motor.aceptadoPorElProveedor"),
+        ] {
+            intento_para(&db, id, &format!("{id}@t.mx"));
+            db.anotar_suceso(empresa(), &desenlace_de(clave, id))
+                .expect("anota");
+        }
+
+        let p = db
+            .sucesos(
+                empresa(),
+                &Filtro {
+                    clave: Some("reintento.direccionInexistente"),
+                    ..Filtro::default()
+                },
+            )
+            .expect("lee");
+        assert_eq!(p.total, 1);
+        assert_eq!(primero(&p.sucesos).clave, "reintento.direccionInexistente");
+    }
+
+    /// **«Hasta» incluye su propio instante.**
+    ///
+    /// Quien filtra «hasta el martes» quiere el martes entero. Con un `<` en
+    /// vez de un `<=`, el último suceso del día elegido desaparece — y es
+    /// justo el que se estaba buscando.
+    ///
+    /// Verificada rompiéndola: cambiando `<=` por `<`, llegan 1 en vez de 2.
+    #[test]
+    fn el_hasta_incluye_su_instante() {
+        let (_dir, db) = base();
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO activity_event
+                     (id, company_id, kind, is_outcome, occurred_at)
+                 VALUES ('s-1', '{EMPRESA}', 'motor.parado', 0, '2026-09-28T10:00:00Z'),
+                        ('s-2', '{EMPRESA}', 'motor.parado', 0, '2026-09-29T23:59:59Z'),
+                        ('s-3', '{EMPRESA}', 'motor.parado', 0, '2026-09-30T00:00:01Z');"
+            ))
+        })
+        .expect("siembra");
+
+        let p = db
+            .sucesos(
+                empresa(),
+                &Filtro {
+                    hasta: Some("2026-09-29T23:59:59Z"),
+                    ..Filtro::default()
+                },
+            )
+            .expect("lee");
+        assert_eq!(p.total, 2, "el instante de «hasta» cuenta");
+    }
+
+    /// **Los cuatro criterios se combinan, y el total corresponde a lo servido.**
+    ///
+    /// Es la garantía que sostiene «500 de 3 412»: el mismo `WHERE` para contar
+    /// y para leer. Con dos cadenas parecidas, el total acaba diciendo una cosa
+    /// y la tabla otra, que es exactamente lo que D-7C quiere impedir.
+    #[test]
+    fn los_filtros_se_combinan_y_el_total_corresponde() {
+        let (_dir, db) = base();
+        // Dos direcciones que contienen «ana» y una que no. No se repite
+        // ninguna: la misma dirección no puede tener dos intentos en la misma
+        // campaña (§55), así que buscar una persona dentro de una campaña
+        // devuelve como mucho un intento — y todos los sucesos de ese intento.
+        for (id, dir, clave) in [
+            ("a-1", "ana@t.mx", "motor.aceptadoPorElProveedor"),
+            ("a-2", "ana.lopez@t.mx", "reintento.direccionInexistente"),
+            ("a-3", "beto@t.mx", "motor.aceptadoPorElProveedor"),
+        ] {
+            intento_para(&db, id, dir);
+            db.anotar_suceso(empresa(), &desenlace_de(clave, id))
+                .expect("anota");
+        }
+        db.anotar_suceso(empresa(), &de_bucle("motor.fueraDeVentana", ETAPA))
+            .expect("anota");
+
+        let p = db
+            .sucesos(
+                empresa(),
+                &Filtro {
+                    campana: Some("k-1"),
+                    texto: Some("ana"),
+                    clave: Some("motor.aceptadoPorElProveedor"),
+                    solo_desenlaces: Some(true),
+                    ..Filtro::default()
+                },
+            )
+            .expect("lee");
+        assert_eq!(p.total, 1, "sólo el aceptado de ana");
+        assert_eq!(
+            p.total as usize,
+            p.sucesos.len(),
+            "el total y lo servido tienen que salir del mismo WHERE"
+        );
+    }
+
+    /// **El desplegable ofrece lo que hay, con su cifra, y lo más frecuente
+    /// primero.**
+    ///
+    /// Una opción vacía en un filtro es peor que no tenerla: quien la elige y
+    /// no ve nada no sabe si es que no pasó o si el filtro está roto.
+    #[test]
+    fn las_clases_salen_de_los_datos_y_no_de_una_lista() {
+        let (_dir, db) = base();
+        // ── LA FRECUENTE ES LA SEGUNDA POR ORDEN ALFABÉTICO, A PROPÓSITO ──
+        //
+        // Con `motor.*` como la más repetida, ordenar por frecuencia y ordenar
+        // por nombre dan **el mismo resultado**, y la prueba pasaba con las
+        // dos: no verificaba nada del orden. Se vio al romperla (§2). Con
+        // `reintento.*` como la frecuente, los dos órdenes difieren y la
+        // aserción distingue.
+        for _ in 0..3 {
+            db.anotar_suceso(empresa(), &desenlace("reintento.direccionInexistente"))
+                .expect("anota");
+        }
+        db.anotar_suceso(empresa(), &desenlace("motor.aceptadoPorElProveedor"))
+            .expect("anota");
+
+        let clases = db.clases_de_suceso(empresa()).expect("lee");
+        assert_eq!(
+            clases,
+            vec![
+                ("reintento.direccionInexistente".to_owned(), 3),
+                ("motor.aceptadoPorElProveedor".to_owned(), 1),
+            ],
+            "ordenadas por frecuencia: lo que más pasa es lo que más se busca"
+        );
+        assert!(
+            !clases.iter().any(|(_, n)| *n == 0),
+            "no puede ofrecerse una clase sin sucesos"
+        );
     }
 }

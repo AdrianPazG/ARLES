@@ -726,6 +726,78 @@
           });
         }
 
+        // ── EL REGISTRO Y SU RECORTE (7.4, D-7C) ─────────────────────────
+        //
+        // El filtro se aplica **aquí de verdad** y no se ignora: un simulador
+        // que devuelve siempre lo mismo enseña unos filtros que no hacen nada,
+        // y en la demostración eso se lee como que están rotos.
+        case 'registro': {
+          var f = args.filtro || {};
+          var todos = (e.registro || DEMO.registro).slice();
+          var filtrados = todos.filter(function (s) {
+            if (f.campana && s.campana !== f.campana) return false;
+            if (f.clave && s.clave !== f.clave) return false;
+            if (f.soloDesenlaces === true && !s.esDesenlace) return false;
+            if (f.soloDesenlaces === false && s.esDesenlace) return false;
+            if (f.desde && s.cuando < f.desde) return false;
+            // Inclusive, igual que el núcleo: quien pide «hasta el martes»
+            // quiere el martes entero.
+            if (f.hasta && s.cuando.slice(0, 10) > f.hasta) return false;
+            if (f.texto) {
+              // Sin dirección no puede casar: un suceso del motor no es de
+              // nadie. Es la misma regla que el `LEFT JOIN` de la consulta.
+              if (!s.direccion) return false;
+              if (s.direccion.indexOf(f.texto) < 0) return false;
+            }
+            return true;
+          });
+
+          // Las clases **sin filtrar**, como el comando real: si se calcularan
+          // sobre el filtro, elegir una dejaría el desplegable con una sola
+          // opción y no habría forma de volver.
+          var cuenta = {};
+          todos.forEach(function (s) { cuenta[s.clave] = (cuenta[s.clave] || 0) + 1; });
+          var clases = Object.keys(cuenta)
+            .map(function (k) { return { clave: k, cuantos: cuenta[k] }; })
+            .sort(function (a, b) { return b.cuantos - a.cuantos; });
+
+          // Ordenado por fecha descendente, igual que el `ORDER BY` del
+          // núcleo. Sin esto la demostración enseña el registro desordenado y
+          // parece un fallo del producto, cuando es del decorado.
+          filtrados.sort(function (a, b) { return a.cuando < b.cuando ? 1 : -1; });
+
+          return Promise.resolve({
+            sucesos: filtrados.slice(0, 500),
+            total: filtrados.length,
+            porPagina: 500,
+            clases: clases,
+          });
+        }
+
+        case 'que_se_recortaria': {
+          var lista = e.registro || DEMO.registro;
+          var ruido = lista.filter(function (s) { return !s.esDesenlace && s.viejo; });
+          return Promise.resolve({
+            seIrian: ruido.length,
+            antesDe: '2026-07-31T00:00:00Z',
+            seQuedan: lista.length - ruido.length,
+          });
+        }
+
+        case 'recortar_registro': {
+          // Se quedan los envíos **y** el ruido reciente. Lo que se va es sólo
+          // el ruido viejo, que es lo que D-7C define.
+          e.registro = (e.registro || DEMO.registro).filter(function (s) {
+            return s.esDesenlace || !s.viejo;
+          });
+          escribir(e);
+          return Promise.resolve({
+            seIrian: 0,
+            antesDe: '2026-07-31T00:00:00Z',
+            seQuedan: e.registro.length,
+          });
+        }
+
         case 'plantillas':
           return Promise.resolve(e.plantillas || DEMO.plantillas);
 
@@ -1142,6 +1214,71 @@
         gastadoHoy: 89, topeDiario: 300, quedanHoy: 211,
         gastadoEstaHora: 12, topePorHora: 60,
         campanas: ['Reactivación'], hayReparto: false,
+      },
+    ],
+
+    // ── EL REGISTRO DE LA DEMOSTRACIÓN ────────────────────────────────────
+    //
+    // Mezcla las tres cosas que hay que poder ver: envíos con su dirección,
+    // sucesos del motor que no son de nadie, y ruido **viejo** —marcado con
+    // `viejo`— que es lo único que el recorte se lleva.
+    registro: [
+      {
+        id: 'r-1', clave: 'motor.aceptadoPorElProveedor', esDesenlace: true,
+        campana: '01900000-0000-7000-8000-0000000000c3', canal: 'email',
+        direccion: 'ana.lopez@empresa.mx', numeroA: null, numeroB: null,
+        cuando: '2026-09-30T17:48:00Z',
+      },
+      {
+        id: 'r-2', clave: 'reintento.seVolveraAIntentar', esDesenlace: true,
+        campana: '01900000-0000-7000-8000-0000000000c3', canal: 'email',
+        direccion: 'beto@otraempresa.mx', numeroA: 2, numeroB: 3,
+        cuando: '2026-09-30T17:41:00Z',
+      },
+      {
+        id: 'r-3', clave: 'reintento.direccionInexistente', esDesenlace: true,
+        campana: '01900000-0000-7000-8000-0000000000c3', canal: 'email',
+        direccion: 'no.existe@empresa.mx', numeroA: null, numeroB: null,
+        cuando: '2026-09-30T17:36:00Z',
+      },
+      {
+        id: 'r-4', clave: 'ritmo.topeDeLaHora', esDesenlace: false,
+        campana: '01900000-0000-7000-8000-0000000000c5', canal: 'email',
+        direccion: null, numeroA: 100, numeroB: null,
+        cuando: '2026-09-30T17:52:00Z',
+      },
+      {
+        id: 'r-5', clave: 'reintento.pidioLaBaja', esDesenlace: true,
+        campana: '01900000-0000-7000-8000-0000000000c1', canal: 'email',
+        direccion: 'ana.martinez@tercera.mx', numeroA: null, numeroB: null,
+        cuando: '2026-09-29T11:20:00Z',
+      },
+      {
+        id: 'r-6', clave: 'motor.fueraDeVentana', esDesenlace: false,
+        campana: '01900000-0000-7000-8000-0000000000c3', canal: 'email',
+        direccion: null, numeroA: null, numeroB: null,
+        cuando: '2026-09-29T18:00:00Z',
+      },
+      // Ruido de hace más de dos meses: lo único que el recorte se lleva.
+      {
+        id: 'r-7', clave: 'motor.fueraDeVentana', esDesenlace: false,
+        campana: '01900000-0000-7000-8000-0000000000c1', canal: 'email',
+        direccion: null, numeroA: null, numeroB: null,
+        cuando: '2026-06-15T18:00:00Z', viejo: true,
+      },
+      {
+        id: 'r-8', clave: 'motor.noHayTrabajo', esDesenlace: false,
+        campana: '01900000-0000-7000-8000-0000000000c1', canal: 'email',
+        direccion: null, numeroA: null, numeroB: null,
+        cuando: '2026-06-14T09:00:00Z', viejo: true,
+      },
+      // Un envío viejo, que **no** se recorta: es la prueba de a quién se le
+      // escribió, y eso se guarda siempre.
+      {
+        id: 'r-9', clave: 'motor.aceptadoPorElProveedor', esDesenlace: true,
+        campana: '01900000-0000-7000-8000-0000000000c1', canal: 'email',
+        direccion: 'cliente.antiguo@empresa.mx', numeroA: null, numeroB: null,
+        cuando: '2026-06-13T10:00:00Z', viejo: true,
       },
     ],
 

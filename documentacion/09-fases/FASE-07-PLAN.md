@@ -268,24 +268,37 @@ y rompiendo la rejilla, la insignia de estado enterrada al pie —`AModulo` sirv
 `#acciones` abajo—, y las cifras sin separador de millares, «1342» aquí y
 «1,342» en Campañas.
 
-### 7.4 · El registro, con sus filtros
-
-### 7.4 · El registro, con sus filtros
+### 7.4 · El registro, con sus filtros  ✅ **cerrada el 30/09/2026**
 
 Lo que D-7C define, y es la mitad más delicada de la fase.
 
-- **Nunca más de 500 filas en pantalla**, siempre, con el total a la vista:
-  «500 de 3 412 · usa el filtro para encontrar los demás».
-- **Cuatro filtros combinables**: campaña, qué pasó, cuándo, dirección o número.
-  Se reflejan en la dirección para poder volver a un estado concreto.
-- Cada fallo dice las **tres cosas del §95**: qué pasó, cómo se arregla y qué
-  está a salvo.
-- **«Aceptado» con su aclaración a la vista**, no en un pie de página.
-- El recorte bimestral con su aviso previo y la opción de guardar copia; los
-  desenlaces de envío **no se borran jamás**, sólo dejan de salir por defecto.
+- **Nunca más de 500 filas en pantalla**, con el total al lado: «500 de 3 412 ·
+  usa los filtros para encontrar los demás». La prueba usa **501 registros** y
+  comprueba las dos mitades: que llegan 500 y que el total dice 501.
+- **Seis filtros combinables** —campaña, qué pasó, envíos o motor, desde, hasta,
+  y un buscador por dirección o número—, **todos reflejados en la dirección**:
+  `?texto=ana` se puede guardar, volver a abrir o pasar a alguien.
+- **La dirección sale de `message_attempt`, no del registro.** `activity_event`
+  no guarda ni una (P-17), así que anonimizar un intento borra la dirección del
+  registro **sin tocar una fila** de una tabla que prohíbe `UPDATE`. Hay una
+  prueba que lo hace de verdad.
+- **«Aceptado» con su aclaración a la vista**, en la cabecera y no en un pie.
+- El recorte bimestral dice **antes de tocar nada** cuánto se va y cuánto se
+  queda; los desenlaces de envío **no se borran jamás**, y la prueba que lo
+  comprueba usa un envío de hace cuatro meses — con uno de hoy lo protegía la
+  fecha y la garantía no estaba verificada.
 
-**La prueba del tope usa 501 registros**, no uno: comprueba que llegan 500 y
-que el total dice 501. Es exactamente el defecto que ya nos costó una vez.
+**Cuatro defectos que sólo se vieron mirando la pantalla**, con las doce pruebas
+en verde: «Reintento 2 **de 2**» —la segunda cifra salía de `numeroA`—, el
+desplegable ofreciendo frases con marcadores sin rellenar («Reintento de»), la
+tabla sin ordenar en la demostración, y la cifra de registros repetida dos veces
+a diez centímetros.
+
+**Y dos que tumban la pantalla entera, ahora vigilados por el validador:** una
+`@` en un texto —un correo de ejemplo en la ayuda del buscador— hace que
+`vue-i18n` no compile el mensaje y el componente se cae; y los `**asteriscos**`
+de Markdown salen literales, porque `vue-i18n` no lo interpreta. Ninguna de las
+dos la ve TypeScript ni ESLint: son cadenas válidas.
 
 ### 7.5 · Entregabilidad: SPF, DKIM y DMARC
 

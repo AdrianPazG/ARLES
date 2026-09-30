@@ -124,6 +124,148 @@ export const es = {
     verRemitentes: 'Las cuentas remitentes',
   },
 
+  /**
+   * El registro de actividad · entrega 7.4 (D-7C).
+   *
+   * ───────────────────────────────────────────────────────────────────────────
+   * LO QUE DIRECCIÓN PIDIÓ, CON SUS PALABRAS · 29/09/2026
+   *
+   * «Se recorta, pero no se borra, me gustaría que tuviera los registros
+   * bimestrales o en caso que sean demasiados, más de 20 000 correos y mensajes
+   * juntos, pues que solo sea posible visualizar los últimos 500 registros, así
+   * que debería tener un filtro del registro, para poder buscar entre todos los
+   * registros, todo perfectamente estructurado y ordenado.»
+   *
+   * De ahí salen las tres reglas de estos textos:
+   *
+   *   1. **El tope nunca esconde el tamaño.** Siempre «500 de 3 412», nunca
+   *      «500 registros» a secas: 500 filas se leen como «esto es todo».
+   *   2. **Recortar no es borrar.** Lo que se va es ruido del motor de hace más
+   *      de dos meses. Lo que prueba que se le escribió a alguien no se toca
+   *      jamás, y el aviso lo dice antes de que nadie pulse (§95).
+   *   3. **«Aceptado» lleva su aclaración a la vista** (§65), no en un pie de
+   *      página que nadie lee.
+   */
+  registro: {
+    titulo: 'Registro',
+    intro:
+      'Todo lo que fue pasando: cada envío con su desenlace, y cada vez que el ' +
+      'motor se paró y por qué.',
+    // §65, a la vista y no en un pie de página.
+    aceptadoAclaracion:
+      '«Aceptado» quiere decir que el servidor se hizo cargo del mensaje. ARLES ' +
+      'no puede saber si llegó a una bandeja de entrada, así que no lo dice.',
+
+    // ── Cuántos hay, y cuántos se ven ─────────────────────────────────────
+    //
+    // Las dos cifras juntas siempre (§94). Con «500 registros» a secas, quien
+    // busca algo de la semana pasada y no lo ve concluye que no pasó.
+    deTantos: '{cuantos} de {total} registros',
+    todos: '{total} registros',
+    usaElFiltro: 'Usa los filtros para encontrar los demás.',
+
+    // ── Los cuatro filtros ────────────────────────────────────────────────
+    filtros: 'Buscar en el registro',
+    campana: 'Campaña',
+    campanaTodas: 'Todas las campañas',
+    quePaso: 'Qué pasó',
+    quePasoTodo: 'Todo',
+    // La cifra al lado de cada opción: un desplegable que ofrece algo que no
+    // existe hace dudar del filtro cuando la lista sale vacía.
+    claseConCifra: '{que} ({cuantos})',
+
+    // ── LOS NOMBRES CORTOS DEL DESPLEGABLE ──────────────────────────────
+    //
+    // Un filtro ofrece categorías, no frases. El texto de un suceso lleva
+    // cifras —«Reintento {cual} de {de}»— y en un desplegable, sin cifras,
+    // queda «Reintento de». Aquí van los nombres en plural, que es como se
+    // piensa al filtrar: «enséñame los rebotes».
+    //
+    // La clave es la última parte de la del suceso, así que
+    // `reintento.seVolveraAIntentar` busca `seVolveraAIntentar`. Hay una
+    // prueba que falla si el motor puede anotar una clase sin nombre corto.
+    clase: {
+      aceptadoPorElProveedor: 'Aceptados',
+      parado: 'Paradas del envío',
+      fueraDeVentana: 'Fuera de horario',
+      noHayTrabajo: 'Sin nada que enviar',
+      cancelado: 'Cancelados',
+      laCuentaEstaEnPausa: 'Cuenta en pausa',
+      topeDeLaHora: 'Sin cupo por hora',
+      topeDelDia: 'Sin cupo del día',
+      seVolveraAIntentar: 'Reintentos',
+      seAgotaronLosIntentos: 'Sin más intentos',
+      direccionInexistente: 'Rebotes definitivos',
+      laCuentaNoAutentica: 'Fallos de la cuenta',
+      pidioLaBaja: 'Bajas',
+    },
+    tipo: 'De qué tipo',
+    tipoTodo: 'Envíos y motor',
+    tipoEnvios: 'Sólo envíos',
+    tipoMotor: 'Sólo el motor',
+    desde: 'Desde',
+    hasta: 'Hasta',
+    texto: 'Correo o número',
+    // ── SIN ARROBAS, Y NO ES CAPRICHO ─────────────────────────────────
+    //
+    // `vue-i18n` usa `@` para su sintaxis de enlaces —`@:otra.clave`—, así que
+    // un texto con un correo de ejemplo **no compila**: «Invalid linked
+    // format», y la pantalla entera se cae. Pasó al escribir este mismo texto.
+    // Lo vigila ahora `ningun_texto_lleva_una_arroba_suelta` en el validador.
+    textoAyuda: 'Un trozo basta: escribe «ana» para encontrar a Ana López.',
+    limpiar: 'Quitar los filtros',
+
+    // ── La tabla ──────────────────────────────────────────────────────────
+    columna: {
+      cuando: 'Cuándo',
+      quePaso: 'Qué pasó',
+      quien: 'A quién',
+      campana: 'Campaña',
+    },
+    // Un suceso del motor no es de nadie: no se inventa un destinatario.
+    sinDestinatario: 'Del motor, no de nadie en concreto',
+    desconocido: 'Suceso sin texto ({clave})',
+
+    vacio: {
+      titulo: 'Todavía no hay nada registrado',
+      cuerpo:
+        'Aquí aparecerá cada envío y cada parada del motor, en cuanto una ' +
+        'campaña empiece a enviar.',
+    },
+    sinResultados: {
+      titulo: 'Ningún registro coincide con esos filtros',
+      cuerpo: 'Prueba a quitar alguno, o a ampliar las fechas.',
+    },
+
+    // ── El recorte bimestral (D-7C) ───────────────────────────────────────
+    recorte: {
+      titulo: 'Liberar espacio',
+      // Las tres cosas del §95, y la tercera es la que importa: lo que NO se
+      // toca. Sin ella, nadie pulsa el botón.
+      que: 'Se pueden quitar {seIrian} registros del motor de hace más de dos meses.',
+      como: 'Son anotaciones de cuándo se paró y por qué. No son envíos.',
+      // ── DOS DEFECTOS DE ESTE TEXTO, LOS DOS VISTOS MIRÁNDOLO ──────────
+      //
+      // 1. Llevaba `**no se tocan**`. `vue-i18n` no interpreta Markdown, así
+      //    que los asteriscos salían **literales** en el aviso. Ningún lint lo
+      //    ve: es una cadena válida.
+      // 2. Decía «los {seQuedan} registros **de envío**», y `seQuedan` es todo
+      //    lo que no se recorta — los envíos **y** el ruido de los últimos dos
+      //    meses. Con 7 restantes de los que 4 eran envíos, el aviso afirmaba
+      //    una cifra falsa sobre lo que se conserva. Ahora dice lo que la cifra
+      //    es, y la garantía aparte.
+      salvo:
+        'Los otros {seQuedan} registros se quedan, y entre ellos están todos ' +
+        'los envíos: quién recibió qué, y cuándo, se guarda siempre.',
+      nada: 'No hay nada que recortar: todo lo del motor es de los últimos dos meses.',
+      accion: 'Quitar los {seIrian} registros del motor',
+      hecho: 'Listo. Se quitaron los registros del motor de hace más de dos meses.',
+      revisar: 'Ver qué se puede liberar',
+    },
+
+    volver: 'Ver cómo va ahora',
+  },
+
   nav: {
     principal: 'Navegación principal',
     inicio: 'Inicio',
@@ -165,6 +307,7 @@ export const es = {
       derechos: 'Derechos',
       whatsapp: 'WhatsApp',
       plantillas: 'Plantillas y firmas',
+      registro: 'Registro',
     },
   },
 

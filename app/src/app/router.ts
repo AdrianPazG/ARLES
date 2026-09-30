@@ -218,6 +218,19 @@ const rutas: RouteRecordRaw[] = [
     meta: { seccion: 'actividad' },
   },
   {
+    // Cuelga de Actividad y no es sección propia: el registro es el detalle de
+    // lo que Actividad resume, y quien busca «qué pasó con Ana» mira ahí. Una
+    // séptima entrada en la barra rompería P-11, que fija seis.
+    //
+    // Sí es una subsección permanente, a diferencia del asistente de campaña:
+    // es un sitio al que se vuelve —a buscar un envío, a revisar un rebote—, no
+    // un camino con principio y final.
+    path: '/actividad/registro',
+    name: 'registro',
+    component: () => import('@/app/pantallas/PantallaRegistro.vue'),
+    meta: { seccion: 'actividad', subseccion: 'registro', orden: 1 },
+  },
+  {
     path: '/ajustes',
     name: 'ajustes',
     component: () => import('@/app/pantallas/PantallaAjustes.vue'),
