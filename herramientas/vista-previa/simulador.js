@@ -620,6 +620,70 @@
         case 'campanas':
           return Promise.resolve(e.campanas || DEMO.campanas);
 
+        // ── EL FRENO (7.0) ────────────────────────────────────────────────
+        //
+        // Los seis comandos de control. Se responden aquí porque, si no, la
+        // demostración enseñaría un error justo al pulsar el botón más
+        // importante de la pantalla — que es el defecto que once comandos sin
+        // respuesta ya causaron una vez en cinco pantallas.
+        case 'pausar_campana':
+        case 'reanudar_campana':
+        case 'detener_campana': {
+          var lista = (e.campanas || DEMO.campanas).slice();
+          var i = lista.findIndex(function (c) { return c.id === (args.id || ''); });
+          if (i < 0) {
+            return Promise.reject({ clave: 'error.db.campana_no_existe', detalle: '' });
+          }
+
+          // El nombre se comprueba igual que en Rust: sin espacios de sobra y
+          // **sin ignorar mayúsculas**. Si el simulador fuera más blando que
+          // el núcleo, la demostración enseñaría un control que el producto
+          // real rechaza.
+          if (cmd === 'detener_campana') {
+            var escrito = (args.nombreEscrito || '').trim();
+            if (escrito !== lista[i].nombre.trim()) {
+              return Promise.reject({ clave: 'error.app.nombre_no_coincide', detalle: '' });
+            }
+          }
+
+          var destino = cmd === 'pausar_campana' ? 'campana.estado.enPausa'
+            : cmd === 'reanudar_campana' ? 'campana.estado.enviando'
+            : 'campana.estado.detenida';
+          var cancelados = cmd === 'detener_campana'
+            ? Math.max(0, lista[i].audiencia - lista[i].aceptados)
+            : 0;
+
+          lista[i] = Object.assign({}, lista[i], { estado: destino });
+          e.campanas = lista;
+          escribir(e);
+          return Promise.resolve({ estado: destino, cancelados: cancelados, etapas: 1 });
+        }
+
+        case 'parar_todo': {
+          e.parada = { desde: ahora(), por: args.quien || null };
+          escribir(e);
+          return Promise.resolve({
+            parado: true, desde: e.parada.desde, por: e.parada.por,
+            clave: 'campana.parada.puesta',
+          });
+        }
+
+        case 'levantar_parada': {
+          e.parada = null;
+          escribir(e);
+          return Promise.resolve({
+            parado: false, desde: null, por: null, clave: 'campana.parada.levantada',
+          });
+        }
+
+        case 'estado_del_envio':
+          return Promise.resolve(e.parada
+            ? {
+              parado: true, desde: e.parada.desde, por: e.parada.por,
+              clave: 'campana.parada.puesta',
+            }
+            : { parado: false, desde: null, por: null, clave: 'campana.parada.levantada' });
+
         case 'plantillas':
           return Promise.resolve(e.plantillas || DEMO.plantillas);
 
@@ -823,6 +887,26 @@
         // 29/09/2026 recorriendo la demostración pantalla por pantalla.
         nombre: 'Bienvenida · septiembre', estado: 'campana.estado.terminada',
         audiencia: 1342, aceptados: 1342,
+      },
+      // ── DOS EN MARCHA, Y NO ES DECORADO GRATUITO ──────────────────────
+      //
+      // Hasta el 30/09/2026 el decorado sólo tenía una campaña terminada y un
+      // borrador, así que en la demostración **no se veía ni un botón de
+      // pausar o detener**: ninguno de esos dos estados los enseña.
+      //
+      // Dirección trabaja con hasta tres campañas a la vez, que además es el
+      // caso donde el freno importa —el riesgo no es detener sin querer, es
+      // detener la equivocada—. Sin una campaña enviando, la demostración
+      // enseñaba un producto sin freno, que es justo lo que la 7.0 arregla.
+      {
+        id: '01900000-0000-7000-8000-0000000000c3',
+        nombre: 'Clientes de agosto', estado: 'campana.estado.enviando',
+        audiencia: 1342, aceptados: 340,
+      },
+      {
+        id: '01900000-0000-7000-8000-0000000000c4',
+        nombre: 'Reactivación', estado: 'campana.estado.enPausa',
+        audiencia: 420, aceptados: 89,
       },
       {
         id: '01900000-0000-7000-8000-0000000000c2',

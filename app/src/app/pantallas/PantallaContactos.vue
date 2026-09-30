@@ -503,7 +503,7 @@ const errorDelDialogo = computed(() =>
         <p>{{ errorDelDialogo.como }}</p>
       </AAviso>
 
-      <template #pie>
+      <template #acciones>
         <ABoton
           variante="secundario"
           @click="cerrar"

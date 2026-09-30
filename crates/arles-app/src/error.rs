@@ -31,6 +31,17 @@ pub enum AppError {
     #[error("no se pudo determinar el directorio de datos de la aplicación")]
     DirectorioDeDatos,
 
+    /// El nombre escrito no es el de la campaña que se va a detener.
+    ///
+    /// Detener no se deshace, y con tres campañas a la vez el riesgo real no
+    /// es detener sin querer: es **detener la equivocada**. Un «¿seguro?» no
+    /// protege de eso; escribir el nombre sí, porque obliga a mirar cuál.
+    ///
+    /// Vive aquí y no sólo en la pantalla porque la pantalla es la webview: lo
+    /// que sólo se comprueba ahí se lo salta cualquier otro camino al comando.
+    #[error("el nombre escrito no coincide con el de la campaña")]
+    NombreNoCoincide,
+
     /// No se pudo lanzar el navegador del sistema.
     ///
     /// No es grave —el usuario puede escribir la dirección— pero tiene que
@@ -120,6 +131,7 @@ impl AppError {
             Self::LlaveroNoDisponible(_) => "error.app.llavero_no_disponible",
             Self::ClaveMaestraPerdida => "error.app.clave_maestra_perdida",
             Self::DirectorioDeDatos => "error.app.directorio_de_datos",
+            Self::NombreNoCoincide => "error.app.nombre_no_coincide",
             Self::SitioNoAbre(_) => "error.app.sitio_no_abre",
             Self::TemaDesconocido => "error.app.tema_desconocido",
             Self::EmpresaInvalida(_) => "error.app.empresa_invalida",

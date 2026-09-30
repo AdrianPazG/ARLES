@@ -325,6 +325,47 @@ export const useCampanasStore = defineStore('campanas', () => {
     }
   }
 
+  /**
+   * Pausar, reanudar y detener.
+   *
+   * ── LAS TRES COMPARTEN CAMINO, Y NO ES POR AHORRAR LÍNEAS ──
+   *
+   * Es para que **las tres refresquen la lista igual**. La versión obvia
+   * —una función por acción— deja que una de ellas se olvide del refresco, y
+   * entonces la pantalla enseña «enviando» sobre una campaña ya detenida.
+   * Eso no es un defecto cosmético: es alguien mirando un estado que no es.
+   */
+  async function aplicar(
+    comando: 'pausar_campana' | 'reanudar_campana' | 'detener_campana',
+    argumentos: Record<string, unknown>,
+  ): Promise<boolean> {
+    trabajando.value = true
+    errorGeneral.value = null
+    try {
+      await invocar<unknown>(comando, argumentos)
+      campanas.value = await invocar<Campana[]>('campanas')
+      return true
+    } catch (e) {
+      recordarError(e)
+      return false
+    } finally {
+      trabajando.value = false
+    }
+  }
+
+  const pausar = (id: string): Promise<boolean> => aplicar('pausar_campana', { id })
+  const reanudar = (id: string): Promise<boolean> => aplicar('reanudar_campana', { id })
+
+  /**
+   * Detener **no se deshace**, y por eso pide el nombre escrito.
+   *
+   * Quien comprueba que coincide es el comando en Rust, no esta función: lo
+   * que sólo se comprueba en la webview se lo salta cualquier otro camino.
+   * Aquí se manda tal cual y se deja que el núcleo lo rechace.
+   */
+  const detener = (id: string, nombreEscrito: string): Promise<boolean> =>
+    aplicar('detener_campana', { id, nombreEscrito })
+
   return {
     campanas,
     plantillas,
@@ -346,5 +387,8 @@ export const useCampanasStore = defineStore('campanas', () => {
     revisar,
     enviarPrueba,
     activar,
+    pausar,
+    reanudar,
+    detener,
   }
 })

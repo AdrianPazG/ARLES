@@ -46,6 +46,8 @@ const CLAVES_DEL_NUCLEO = [
   'error.app.llavero_no_disponible',
   'error.app.clave_maestra_perdida',
   'error.app.directorio_de_datos',
+  // El freno (7.0): detener pide el nombre escrito de la campaña.
+  'error.app.nombre_no_coincide',
   'error.app.sitio_no_abre',
   'error.app.tema_desconocido',
   'error.app.empresa_invalida',

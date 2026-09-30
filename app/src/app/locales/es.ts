@@ -433,6 +433,14 @@ export const es = {
       pausarExplicacion:
         'Pausar conserva la cola intacta. Puedes reanudar cuando quieras y ' +
         'seguirá donde se quedó.',
+      // ── POR QUÉ SE PIDE ESCRIBIR EL NOMBRE ──
+      //
+      // No es ceremonia. Con tres campañas en marcha —el escenario de
+      // Dirección— el riesgo real no es detener sin querer: es detener **la
+      // equivocada**. Un «¿seguro?» no protege de eso; escribir el nombre sí,
+      // porque obliga a mirar cuál se está deteniendo.
+      escribeElNombre: 'Para confirmar, escribe el nombre de la campaña:',
+      nombreEsperado: 'Escribe «{nombre}»',
     },
 
     parada: {
@@ -442,6 +450,9 @@ export const es = {
       puesta: 'Envío detenido desde {desde}',
       poner: 'Detener todos los envíos',
       levantar: 'Reanudar los envíos',
+      // Cuántas se van a parar, porque puede haber tres. «Detener todo» sin
+      // cifra no dice cuánto abarca (§94).
+      pararCuantas: 'Detener el envío de {n} campaña | Detener el envío de {n} campañas',
       levantarExplicacion:
         'Quitar la parada no reanuda ninguna campaña: las que estaban en ' +
         'pausa siguen en pausa. Cada una se vuelve a arrancar por separado.',
@@ -1248,6 +1259,14 @@ export const es = {
           'de datos de las aplicaciones.',
         salvo: 'No se ha creado ni modificado ningún archivo.',
       },
+      nombre_no_coincide: {
+        que: 'El nombre escrito no es el de esa campaña.',
+        como:
+          'Cópialo tal cual aparece en la lista. Se pide justo para esto: ' +
+          'con varias campañas a la vez, lo fácil no es detener sin querer, ' +
+          'es detener la que no era.',
+        salvo: 'No se detuvo ninguna campaña. Todo sigue igual.',
+      },
       sitio_no_abre: {
         que: 'No se pudo abrir tu navegador.',
         como: 'Escribe telemetrymx.com en la barra de direcciones.',
@@ -1289,6 +1308,9 @@ export const es = {
       audiencia: 'Destinatarios',
       // §65. Nunca «Entregados».
       aceptados: 'Aceptados',
+      // Sólo para el lector de pantalla: la columna de botones no lleva
+      // rótulo visible, pero sin nombre la tabla queda con una cabecera muda.
+      acciones: 'Acciones',
     },
 
     aceptadoNoEsEntregado:

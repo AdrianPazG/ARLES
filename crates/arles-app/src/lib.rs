@@ -8,6 +8,7 @@
 
 pub mod campanas;
 pub mod comandos;
+mod control;
 pub mod error;
 pub mod estado;
 pub mod fabrica;
@@ -91,6 +92,15 @@ pub fn run() {
             campanas::campanas,
             campanas::crear_campana,
             campanas::activar_campana,
+            // El freno (7.0). Estos seis llevaban desde la Fase 4 sin existir,
+            // con todo lo demás construido debajo: una campaña activada no se
+            // podía parar desde la aplicación.
+            control::pausar_campana,
+            control::reanudar_campana,
+            control::detener_campana,
+            control::parar_todo,
+            control::levantar_parada,
+            control::estado_del_envio,
         ])
         .run(tauri::generate_context!());
 

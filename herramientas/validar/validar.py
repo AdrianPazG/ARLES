@@ -3829,11 +3829,216 @@ def fase_w(rapido):
     toda_pantalla_se_puede_abrir()
 
 
+def toda_capacidad_del_nucleo_tiene_puerta():
+    """**Lo que el núcleo sabe hacer, alguien lo tiene que poder pedir.**
+
+    El séptimo caso del patrón, y el que lo cierra de raíz.
+
+    Las tres comprobaciones que ya existen miran **de dentro hacia fuera**:
+    `lo_que_se_construye_se_usa` exige que `arles-app` dependa de cada crate,
+    `ninguna_tabla_se_queda_sin_escritor` que cada tabla tenga quien escriba, y
+    `toda_pantalla_se_puede_abrir` que cada `.vue` tenga su ruta. **Ninguna
+    pregunta lo contrario**: qué sabe hacer el núcleo que nadie puede pedir.
+
+    Por eso pasó lo siguiente, y pasó durante seis entregas sin que nada
+    fallara: la Fase 4 construyó Pausar, Reanudar, Detener y la parada de
+    emergencia; `arles-db` los expone; están probados y sobreviven a cerrar el
+    programa; los textos en español llevan escritos en `es.ts` desde la Fase 6
+    — y **ningún comando de Tauri los llamaba**, así que una campaña activada
+    no se podía parar desde la aplicación.
+
+    Los seis anteriores dejaban una función sin usar. Éste dejaba al usuario
+    **sin freno** sobre un proceso que escribe a personas reales.
+
+    ─────────────────────────────────────────────────────────────────────────
+    CÓMO SE COMPRUEBA, Y POR QUÉ LA LISTA ES A MANO
+
+    Se podría intentar deducir «qué métodos cambian estado» leyendo todo
+    `arles-db`, y sería una comprobación que casi funciona: la clase de
+    comprobación que da falsos negativos en silencio y que este proyecto ya ha
+    pagado cuatro veces.
+
+    Así que la lista es explícita. Cada entrada dice el método de `arles-db` y
+    el comando que lo tiene que alcanzar. **Añadir una capacidad sin añadirla
+    aquí no falla**, y eso es una limitación real y declarada; lo que esta
+    comprobación garantiza es que **lo que está en la lista no se rompe**, y
+    que quien añada una capacidad de control encuentre el sitio donde apuntarla.
+    """
+    db = leer("crates", "arles-db", "src", "campanas.rs")
+    # Se leen TODOS los `.rs` del crate, no una lista escrita a mano.
+    #
+    # La primera versión llevaba la lista a mano —`comandos.rs`, `campanas.rs`,
+    # `whatsapp.rs`— y falló en su estreno: los comandos nuevos se escribieron
+    # en `control.rs`, que no estaba en ella, así que la comprobación siguió
+    # diciendo «falta el comando» con el comando delante.
+    #
+    # Es el mismo defecto que esta comprobación existe para cazar, una capa más
+    # arriba: algo construido que el que mira no ve. Una lista a mano de dónde
+    # buscar envejece; el directorio, no.
+    carpeta = os.path.join(RAIZ, "crates", "arles-app", "src")
+    app = "".join(
+        open(os.path.join(carpeta, f), encoding="utf-8").read()
+        for f in sorted(os.listdir(carpeta))
+        if f.endswith(".rs")
+    )
+    registro = leer("crates", "arles-app", "src", "lib.rs")
+
+    # (método de arles-db, comando que lo alcanza, para qué sirve)
+    PUERTAS = [
+        ("aplicar_a_la_campana", "pausar_campana", "pausar una campaña"),
+        ("aplicar_a_la_campana", "reanudar_campana", "reanudar una campaña"),
+        ("aplicar_a_la_campana", "detener_campana", "detener una campaña"),
+        ("poner_parada_de_emergencia", "parar_todo", "parar todos los envíos"),
+        ("levantar_parada_de_emergencia", "levantar_parada", "volver a enviar"),
+        ("parada_de_emergencia", "estado_del_envio", "saber si hay algo parado"),
+    ]
+
+    sin_puerta = []
+    for metodo, comando, para_que in PUERTAS:
+        if f"pub fn {metodo}" not in db:
+            # El método ya no existe: no es este fallo, y decirlo como si lo
+            # fuera mandaría a quien lo lea al sitio equivocado.
+            sin_puerta.append(f"{metodo}: ya no está en arles-db (¿se renombró?)")
+            continue
+        if f"fn {comando}" not in app:
+            sin_puerta.append(f"{para_que}: falta el comando `{comando}`")
+        elif comando not in registro:
+            sin_puerta.append(f"{para_que}: `{comando}` existe pero no está registrado en lib.rs")
+
+    check(
+        7,
+        "toda capacidad de control tiene su comando",
+        not sin_puerta,
+        toda_capacidad_del_nucleo_tiene_puerta.__doc__,
+        detalle="\n      ".join(sin_puerta),
+    )
+
+
+def el_freno_llega_hasta_la_pantalla():
+    """No basta con el comando: tiene que haber un botón.
+
+    La otra mitad del §1. Un comando que ninguna pantalla invoca es el mismo
+    hueco una capa más arriba — es exactamente lo que pasó con
+    `guardar_plantilla` en la Fase 6, que tenía comando y no tenía editor.
+    """
+    fuentes = []
+    for carpeta, nombre in (
+        ("pantallas", "PantallaCampanas.vue"),
+        ("pantallas", "PantallaActividad.vue"),
+        ("stores", "campanas.ts"),
+        ("stores", "actividad.ts"),
+    ):
+        ruta = os.path.join(RAIZ, "app", "src", "app", carpeta, nombre)
+        if os.path.exists(ruta):
+            fuentes.append(open(ruta, encoding="utf-8").read())
+    unido = "".join(fuentes)
+
+    faltan = [c for c in ("detener_campana", "pausar_campana") if c not in unido]
+    check(
+        7,
+        "el freno llega hasta la pantalla",
+        not faltan,
+        el_freno_llega_hasta_la_pantalla.__doc__,
+        detalle=f"comandos que ninguna pantalla ni almacén invoca: {faltan}",
+    )
+
+
+def ningun_slot_se_escribe_a_ciegas():
+    """Un `<template #loquesea>` que el componente no declara **no existe**.
+
+    Vue no avisa: no compila mal, no da error en consola, no rompe ninguna
+    prueba. Sencillamente **no pinta nada**.
+
+    Lo encontró la revisión a ojo de la 7.0, y lo que salió fue peor que el
+    defecto que se buscaba: `AModal` sirve su pie por un slot llamado
+    `acciones`, y el diálogo de baja de contactos llevaba desde la Fase 3
+    escribiendo `#pie`. Resultado: **un diálogo destructivo sin ningún botón**,
+    y el propio componente documenta que en una acción destructiva sólo cierran
+    los botones del pie. Un callejón sin salida, en producción, seis fases.
+
+    Se comprueba contra los slots que cada componente declara de verdad, leídos
+    de su `<slot name="…">`, y no contra una lista escrita a mano: una lista a
+    mano envejece, y el defecto que esto caza es precisamente el de una
+    suposición que dejó de ser cierta.
+    """
+    import re as _re
+
+    comp = os.path.join(RAIZ, "app", "src", "design", "componentes")
+    declarados = {}
+    for archivo in sorted(os.listdir(comp)):
+        if not archivo.endswith(".vue"):
+            continue
+        fuente = open(os.path.join(comp, archivo), encoding="utf-8").read()
+        declarados[archivo[:-4]] = set(_re.findall(r'<slot\s+name="([\w-]+)"', fuente))
+
+    malos = []
+    for carpeta, _, archivos in os.walk(os.path.join(RAIZ, "app", "src", "app")):
+        for archivo in sorted(archivos):
+            if not archivo.endswith(".vue"):
+                continue
+            ruta = os.path.join(carpeta, archivo)
+            fuente = open(ruta, encoding="utf-8").read()
+            # Qué componente envuelve cada `#slot`: se busca hacia atrás la
+            # última etiqueta de componente abierta antes del template.
+            for m in _re.finditer(r"<template\s+#([\w-]+)", fuente):
+                # Qué componente ENVUELVE este template, con una pila.
+                #
+                # La primera versión tomaba «la última etiqueta que aparece
+                # antes», y se equivocaba en cuanto había un componente
+                # autocerrado —`<AEntrada … />`— entre la apertura y el
+                # template: lo atribuía a ése. Dio un falso positivo en su
+                # estreno, que es la forma más barata de descubrir que una
+                # comprobación mide mal.
+                pila = []
+                # Se reconocen **los componentes que existen**, no los que
+                # empiezan por A: `EstadoVacio` y `EstadoCargando` también
+                # sirven slots, y un patrón por la inicial los dejaba fuera —
+                # es decir, ciego justo donde vive uno de los defectos.
+                nombres = "|".join(_re.escape(n) for n in sorted(declarados))
+                for t in _re.finditer(
+                    rf"<({nombres})(?P<cuerpo>(?:[^<>\"']|\"[^\"]*\"|'[^']*')*?)>"
+                    rf"|</({nombres})>",
+                    fuente[: m.start()],
+                ):
+                    if t.group(1):
+                        if not t.group("cuerpo").rstrip().endswith("/"):
+                            pila.append(t.group(1))
+                    elif pila and pila[-1] == t.group(3):
+                        pila.pop()
+                if not pila:
+                    continue
+                componente = pila[-1]
+                if componente not in declarados:
+                    continue
+                if m.group(1) not in declarados[componente]:
+                    malos.append(
+                        f"{archivo}: `#{m.group(1)}` sobre <{componente}>, que sirve "
+                        f"{sorted(declarados[componente]) or 'ningún slot con nombre'}"
+                    )
+
+    check(
+        7,
+        "ningún slot se escribe a ciegas",
+        not malos,
+        ningun_slot_se_escribe_a_ciegas.__doc__,
+        detalle="\n      ".join(malos),
+    )
+
+
+def fase_7(rapido=False):
+    print(f"{NEGRITA}Fase 7 · Actividad y entregabilidad{FIN}")
+
+    print(f"{GRIS}  el freno (7.0){FIN}")
+    toda_capacidad_del_nucleo_tiene_puerta()
+    el_freno_llega_hasta_la_pantalla()
+    ningun_slot_se_escribe_a_ciegas()
+
+
 # El canal de WhatsApp no es una fase numerada: cruza la 5 y la 6 y se entregó
 # aparte. Va con clave "W" para que `--fase W` funcione y para que el recorrido
 # completo la incluya sin renumerar nada.
 FASES = {0: fase_0, 1: fase_1, 2: fase_2, 3: fase_3, 4: fase_4, 5: fase_5,
-         6: fase_6, "W": fase_w}
+         6: fase_6, "W": fase_w, 7: fase_7}
 
 
 def main():
@@ -3844,7 +4049,7 @@ def main():
         "--fase",
         type=lambda v: v.upper() if v.upper() in ("W",) else int(v),
         choices=list(FASES),
-        metavar="{0,1,2,3,4,5,6,W}",
+        metavar="{0,1,2,3,4,5,6,W,7}",
         help="valida solo esa fase",
     )
     p.add_argument("--rapido", action="store_true", help="omite lo que tarda")

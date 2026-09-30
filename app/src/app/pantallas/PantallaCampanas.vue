@@ -13,7 +13,7 @@
  * delante —«entregamos 1 240 y no contestó nadie»— y resulta que la mitad
  * nunca se vio.
  */
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
@@ -22,7 +22,9 @@ import { useCampanasStore } from '@/app/stores/campanas'
 import {
   AAviso,
   ABoton,
+  AEntrada,
   AInsignia,
+  AModal,
   AModulo,
   EstadoCargando,
   EstadoVacio,
@@ -55,6 +57,62 @@ function tonoDe(clave: string): 'neutro' | 'exito' | 'aviso' | 'peligro' {
 
 function nueva(): void {
   void router.push({ name: 'campanaNueva' })
+}
+
+/* ── EL FRENO (7.0) ──────────────────────────────────────────────────────
+ *
+ * Estos botones llevaban desde la Fase 4 sin existir. El núcleo, la base y sus
+ * pruebas estaban; los textos, escritos desde la Fase 6. Lo único que faltaba
+ * era esto, y sin ello **una campaña activada no se podía parar**.
+ *
+ * Qué se puede hacer con cada estado lo decide el núcleo
+ * (`AccionDeCampana::aplicar`). Aquí sólo se decide qué botón se ENSEÑA, y es
+ * a propósito que las dos cosas no sean la misma: enseñar un botón de más
+ * termina en un error del núcleo, que es feo pero seguro; aceptar una acción
+ * que el núcleo rechaza no puede pasar, porque el núcleo la rechaza.
+ */
+function sePuedePausar(estado: string): boolean {
+  return estado === 'campana.estado.enviando' || estado === 'campana.estado.programada'
+}
+
+function sePuedeReanudar(estado: string): boolean {
+  return estado === 'campana.estado.enPausa'
+}
+
+function sePuedeDetener(estado: string): boolean {
+  return sePuedePausar(estado) || sePuedeReanudar(estado)
+}
+
+/** La campaña que se está deteniendo, y lo que el usuario lleva escrito. */
+const deteniendo = ref<{ id: string; nombre: string; cuantos: number } | null>(null)
+const nombreEscrito = ref('')
+
+function pedirDetener(c: { id: string; nombre: string; audiencia: number; aceptados: number }): void {
+  deteniendo.value = {
+    id: c.id,
+    nombre: c.nombre,
+    // Lo que se va a cancelar es lo que queda por salir, no la audiencia
+    // entera: decir «cancela 1 342» cuando ya salieron 900 es una cifra falsa
+    // en la única pantalla donde la cifra decide (§94).
+    cuantos: Math.max(0, c.audiencia - c.aceptados),
+  }
+  nombreEscrito.value = ''
+}
+
+function cerrarDetener(): void {
+  deteniendo.value = null
+  nombreEscrito.value = ''
+}
+
+/** El botón de confirmar sólo se enciende con el nombre exacto. */
+const puedeConfirmar = computed(
+  () => deteniendo.value !== null && nombreEscrito.value.trim() === deteniendo.value.nombre.trim(),
+)
+
+async function confirmarDetener(): Promise<void> {
+  if (!deteniendo.value || !puedeConfirmar.value) return
+  const ok = await campanas.detener(deteniendo.value.id, nombreEscrito.value)
+  if (ok) cerrarDetener()
 }
 </script>
 
@@ -135,6 +193,9 @@ function nueva(): void {
             >
               {{ t('campanas.columna.aceptados') }}
             </th>
+            <th scope="col">
+              <span class="sr-only">{{ t('campanas.columna.acciones') }}</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -154,6 +215,33 @@ function nueva(): void {
             <td class="campanas__cifra">
               {{ c.aceptados.toLocaleString('es-MX') }}
             </td>
+            <td>
+              <div class="campanas__acciones">
+                <ABoton
+                  v-if="sePuedePausar(c.estado)"
+                  variante="secundario"
+                  :cargando="campanas.trabajando"
+                  @click="campanas.pausar(c.id)"
+                >
+                  {{ t('campana.accion.pausar') }}
+                </ABoton>
+                <ABoton
+                  v-if="sePuedeReanudar(c.estado)"
+                  variante="secundario"
+                  :cargando="campanas.trabajando"
+                  @click="campanas.reanudar(c.id)"
+                >
+                  {{ t('campana.accion.reanudar') }}
+                </ABoton>
+                <ABoton
+                  v-if="sePuedeDetener(c.estado)"
+                  variante="peligro"
+                  @click="pedirDetener(c)"
+                >
+                  {{ t('campana.accion.detener') }}
+                </ABoton>
+              </div>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -161,6 +249,55 @@ function nueva(): void {
         {{ t('campanas.aceptadoNoEsEntregado') }}
       </p>
     </AModulo>
+
+    <!--
+      Detener no se deshace, así que la confirmación lleva la cifra de lo que
+      se cancela y pide escribir el nombre. Con varias campañas a la vez, el
+      riesgo no es detener sin querer: es detener la que no era.
+    -->
+    <AModal
+      :abierto="deteniendo !== null"
+      :titulo="t('campana.accion.detener')"
+      destructiva
+      @cerrar="cerrarDetener"
+    >
+      <!--
+        La cifra va formateada como las de la tabla: «1,002», no «1002».
+        Se vio mirando el diálogo — el resto de la pantalla usa
+        `toLocaleString` y aquí se había quedado el número crudo, así que la
+        cifra que más importa era la peor presentada.
+      -->
+      <p>
+        {{
+          t('campana.accion.confirmarDetener', {
+            cuantos: (deteniendo?.cuantos ?? 0).toLocaleString('es-MX'),
+          })
+        }}
+      </p>
+
+      <AEntrada
+        v-model="nombreEscrito"
+        :etiqueta="t('campana.accion.escribeElNombre')"
+        :marcador="t('campana.accion.nombreEsperado', { nombre: deteniendo?.nombre ?? '' })"
+      />
+
+      <template #acciones>
+        <ABoton
+          variante="secundario"
+          @click="cerrarDetener"
+        >
+          {{ t('comun.cancelar') }}
+        </ABoton>
+        <ABoton
+          variante="peligro"
+          :deshabilitado="!puedeConfirmar"
+          :cargando="campanas.trabajando"
+          @click="confirmarDetener"
+        >
+          {{ t('campana.accion.detener') }}
+        </ABoton>
+      </template>
+    </AModal>
   </section>
 </template>
 
@@ -205,6 +342,12 @@ function nueva(): void {
 .campanas__tabla th {
   font-weight: var(--arles-font-weight-semibold);
   color: var(--arles-text-muted);
+}
+
+.campanas__acciones {
+  display: flex;
+  gap: var(--arles-space-2);
+  justify-content: flex-end;
 }
 
 .campanas__cifra {
