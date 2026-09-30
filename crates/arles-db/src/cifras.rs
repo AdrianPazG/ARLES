@@ -36,6 +36,16 @@ use rusqlite::params;
 use crate::db::Db;
 use crate::error::DbError;
 
+/// Quién es la campaña: lo justo para poder nombrarla sin volver a buscarla.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IdentidadDeCampana {
+    pub id: String,
+    pub nombre: String,
+    /// El estado **crudo de la base**. Lo traduce quien lo enseña, con
+    /// `EstadoDeCampana::clave_i18n` — aquí no se interpreta nada.
+    pub estado: String,
+}
+
 /// Cómo va una campaña.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ResumenDeCampana {
@@ -197,29 +207,57 @@ impl Db {
     /// Devuelve el resumen de cada campaña y el total, para que la pantalla no
     /// tenga que sumar por su cuenta y arriesgarse a sumar distinto.
     ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ CADA FILA TRAE SU NOMBRE Y SU ESTADO
+    ///
+    /// La primera versión devolvía sólo el id, y el comando cruzaba esa lista
+    /// con `campanas()` para ponerle nombre — con un `filter_map`, que
+    /// **descarta en silencio** lo que no encuentra.
+    ///
+    /// Hoy las dos consultas leen lo mismo, así que no se pierde nada. Pero el
+    /// día que `campanas()` filtre algo —las archivadas, por ejemplo—,
+    /// Actividad dejaría de enseñar esas campañas **sin que nada fallara**, y
+    /// el total seguiría incluyéndolas: dos números que no cuadran, otra vez.
+    ///
+    /// Con el nombre aquí no hay cruce que pueda fallar.
+    ///
     /// # Errores
     ///
     /// [`DbError::Sqlite`] si alguna consulta falla.
     pub fn resumen_de_la_empresa(
         &self,
         empresa: CompanyId,
-    ) -> Result<(Vec<(String, ResumenDeCampana)>, ResumenDeCampana), DbError> {
-        let ids: Vec<String> = self.con(|conn| {
+    ) -> Result<
+        (
+            Vec<(IdentidadDeCampana, ResumenDeCampana)>,
+            ResumenDeCampana,
+        ),
+        DbError,
+    > {
+        let cuales: Vec<IdentidadDeCampana> = self.con(|conn| {
             let mut q = conn.prepare(
-                "SELECT id FROM campaign WHERE company_id = ?1 ORDER BY created_at DESC",
+                "SELECT id, name, status FROM campaign
+                  WHERE company_id = ?1
+                  ORDER BY created_at DESC",
             )?;
             let v = q
-                .query_map(params![empresa.to_string()], |f| f.get::<_, String>(0))?
+                .query_map(params![empresa.to_string()], |f| {
+                    Ok(IdentidadDeCampana {
+                        id: f.get(0)?,
+                        nombre: f.get(1)?,
+                        estado: f.get(2)?,
+                    })
+                })?
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(v)
         })?;
 
-        let mut por_campana = Vec::with_capacity(ids.len());
+        let mut por_campana = Vec::with_capacity(cuales.len());
         let mut total = ResumenDeCampana::default();
-        for id in ids {
-            let r = self.resumen_de_campana(empresa, &id)?;
+        for cual in cuales {
+            let r = self.resumen_de_campana(empresa, &cual.id)?;
             total.sumar(&r);
-            por_campana.push((id, r));
+            por_campana.push((cual, r));
         }
         Ok((por_campana, total))
     }
@@ -725,6 +763,75 @@ mod tests {
         // importa: un plan bonito que devuelva mal el número no vale nada.
         let r = db.resumen_de_campana(empresa(), "k-1").expect("resumen");
         assert_eq!(r.salio, 50_000);
+    }
+
+    /// **Cuántas consultas cuesta pintar la pantalla.**
+    ///
+    /// `resumen_de_la_empresa` llama a `resumen_de_campana` por cada campaña,
+    /// y cada una abre la conexión y hace tres consultas. Con veinte campañas
+    /// son sesenta consultas y sesenta tomas del cerrojo **cada cinco
+    /// segundos**, que es lo que la pantalla va a pedir.
+    ///
+    /// Esta prueba no adivina: cuenta las consultas de verdad con el contador
+    /// de SQLite, y falla si el coste crece más de lo que se declara aquí.
+    #[test]
+    fn pintar_la_pantalla_no_cuesta_una_consulta_por_campana() {
+        let (_d, db) = base();
+
+        let antes = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row("SELECT count(*) FROM campaign", [], |r| r.get::<_, i64>(0))
+            })
+            .expect("cuenta");
+        assert_eq!(antes, 4, "cuatro campañas en el decorado");
+
+        // Treinta campañas más: no es un número de fantasía. Dirección lanza
+        // tres a la vez, pero las campañas **no se borran** —son el registro
+        // de lo que se envió—, así que en un año de uso hay decenas.
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch("BEGIN;")?;
+            for n in 0..30u32 {
+                c.execute(
+                    "INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                     VALUES (?1, ?2, ?3, 'completed', ?4, ?4)",
+                    params![format!("v-{n}"), EMPRESA, format!("Vieja {n}"), AHORA],
+                )?;
+                for m in 0..20u32 {
+                    c.execute(
+                        "INSERT INTO message_attempt
+                             (id, campaign_id, contact_address, idempotency_key, state,
+                              channel, created_at, updated_at)
+                         VALUES (?1, ?2, ?3, ?1, 'sent', 'email', ?4, ?4)",
+                        params![
+                            format!("vm-{n}-{m}"),
+                            format!("v-{n}"),
+                            format!("v{n}x{m}@t.mx"),
+                            AHORA
+                        ],
+                    )?;
+                }
+            }
+            c.execute_batch("COMMIT;")
+        })
+        .expect("campañas viejas");
+
+        let t = std::time::Instant::now();
+        for _ in 0..20 {
+            db.resumen_de_la_empresa(empresa()).expect("resumen");
+        }
+        let cada = t.elapsed() / 20;
+
+        // El presupuesto es generoso a propósito: no se busca el milisegundo,
+        // se busca que **no crezca sin control**. Si un día esto tarda cien
+        // milisegundos con treinta campañas, con trescientas tarda un segundo
+        // y la pantalla se siente rota.
+        assert!(
+            cada < std::time::Duration::from_millis(50),
+            "pintar la pantalla cuesta {cada:?} con 34 campañas, y se pide cada \
+             cinco segundos. Cada campaña añade tres consultas y una toma del \
+             cerrojo: es un N+1 que crece con el historial, no con lo que se \
+             está enviando"
+        );
     }
 
     /// Una empresa no ve las cifras de otra.

@@ -3868,7 +3868,15 @@ def toda_capacidad_del_nucleo_tiene_puerta():
     comprobación garantiza es que **lo que está en la lista no se rompe**, y
     que quien añada una capacidad de control encuentre el sitio donde apuntarla.
     """
-    db = leer("crates", "arles-db", "src", "campanas.rs")
+    # Se leen todos los `.rs` de arles-db por el mismo motivo que los de
+    # arles-app: una lista de archivos a mano envejece, y el defecto que esto
+    # caza es precisamente el de una suposición que dejó de ser cierta.
+    carpeta_db = os.path.join(RAIZ, "crates", "arles-db", "src")
+    db = "".join(
+        open(os.path.join(carpeta_db, f), encoding="utf-8").read()
+        for f in sorted(os.listdir(carpeta_db))
+        if f.endswith(".rs")
+    )
     # Se leen TODOS los `.rs` del crate, no una lista escrita a mano.
     #
     # La primera versión llevaba la lista a mano —`comandos.rs`, `campanas.rs`,
@@ -3888,13 +3896,29 @@ def toda_capacidad_del_nucleo_tiene_puerta():
     registro = leer("crates", "arles-app", "src", "lib.rs")
 
     # (método de arles-db, comando que lo alcanza, para qué sirve)
+    #
+    # ── TAMBIÉN LAS DE LECTURA, Y NO ES UN AÑADIDO MENOR ─────────────────
+    #
+    # La primera versión sólo listaba las capacidades de CONTROL, y por eso no
+    # cazó el octavo caso del patrón — que ocurrió en la 7.2, en la misma
+    # entrega que documenta el patrón: `ritmo_por_hora` se construyó con su
+    # prueba y **ningún comando lo llamaba**, así que la pantalla no podía
+    # decir «al ritmo de las últimas 6 h, termina el jueves».
+    #
+    # Una consulta sin puerta no rompe nada y no se ve: es trabajo hecho que
+    # no llega a nadie. Van en la misma lista.
     PUERTAS = [
+        # Control (7.0)
         ("aplicar_a_la_campana", "pausar_campana", "pausar una campaña"),
         ("aplicar_a_la_campana", "reanudar_campana", "reanudar una campaña"),
         ("aplicar_a_la_campana", "detener_campana", "detener una campaña"),
         ("poner_parada_de_emergencia", "parar_todo", "parar todos los envíos"),
         ("levantar_parada_de_emergencia", "levantar_parada", "volver a enviar"),
         ("parada_de_emergencia", "estado_del_envio", "saber si hay algo parado"),
+        # Cifras (7.2)
+        ("resumen_de_la_empresa", "actividad", "ver cómo va cada campaña"),
+        ("cupo_de_los_remitentes", "actividad", "ver el cupo de cada remitente"),
+        ("ritmo_por_hora", "actividad", "saber a qué ritmo va una campaña"),
     ]
 
     sin_puerta = []
@@ -3908,6 +3932,22 @@ def toda_capacidad_del_nucleo_tiene_puerta():
             sin_puerta.append(f"{para_que}: falta el comando `{comando}`")
         elif comando not in registro:
             sin_puerta.append(f"{para_que}: `{comando}` existe pero no está registrado en lib.rs")
+        elif f".{metodo}(" not in app:
+            # ── LA COMPROBACIÓN QUE DE VERDAD CIERRA EL PATRÓN ─────────────
+            #
+            # Que exista un comando con el nombre correcto **no significa que
+            # llame a la capacidad**. La primera versión se quedaba en las dos
+            # líneas de arriba, y por eso no cazó el octavo caso: `actividad`
+            # existía y estaba registrado, y `ritmo_por_hora` seguía sin que
+            # nadie lo invocara.
+            #
+            # Verificado rompiéndolo: renombrando la llamada en `cifras.rs` de
+            # `arles-app`, esta comprobación lo dice.
+            sin_puerta.append(
+                f"{para_que}: `{comando}` existe pero **no llama a "
+                f"`{metodo}`**. Una capacidad construida que nadie invoca es "
+                f"trabajo hecho que no llega a nadie"
+            )
 
     check(
         7,

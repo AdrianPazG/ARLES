@@ -30,6 +30,24 @@ pub struct CifrasDeCampanaIpc {
     pub cancelado: u32,
     /// Cuánta gente contestó (D-7A). **Nunca lo que dijeron.**
     pub respondieron: u32,
+    /// Cuántos salieron en cada una de las últimas seis horas.
+    ///
+    /// ── POR QUÉ VIAJAN LAS SEIS HORAS Y NO UN PROMEDIO ──
+    ///
+    /// Porque **un número sin su método es una promesa** (§94). La pantalla
+    /// tiene que poder decir «al ritmo de las últimas 6 h» con los datos
+    /// detrás, y con un promedio ya masticado no puede enseñar de dónde sale
+    /// ni ver que las dos últimas horas fueron a cero.
+    pub ritmo: Vec<RitmoDeHoraIpc>,
+}
+
+/// Lo que salió en una hora concreta.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RitmoDeHoraIpc {
+    /// La hora, como «2026-09-30T10».
+    pub hora: String,
+    pub salieron: u32,
 }
 
 /// El cupo de un remitente, y quién compite por él.
@@ -78,30 +96,58 @@ pub fn actividad(estado: tauri::State<'_, EstadoApp>) -> Result<ActividadIpc, Er
         .resumen_de_la_empresa(empresa)
         .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
 
-    // Los nombres y estados vienen de la misma lista que pinta Campañas, para
-    // que las dos pantallas no puedan llamar distinto a la misma campaña.
-    let guardadas = db
-        .campanas(empresa)
-        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
-
-    let campanas = por_campana
+    // ── SIN CRUCE CON OTRA LISTA ───────────────────────────────────────────
+    //
+    // El nombre y el estado vienen en el propio resumen. La primera versión
+    // los buscaba en `campanas()` con un `filter_map`, que **descarta en
+    // silencio** lo que no encuentra: el día que esa lista filtre algo,
+    // Actividad dejaría de enseñar esas campañas mientras el total seguiría
+    // contándolas. Dos números que no cuadran, que es justo lo que esta
+    // entrega existe para impedir.
+    let campanas: Vec<CifrasDeCampanaIpc> = por_campana
         .into_iter()
-        .filter_map(|(id, r)| {
-            let g = guardadas.iter().find(|c| c.id.to_string() == id)?;
-            Some(CifrasDeCampanaIpc {
-                id,
-                nombre: g.nombre.clone(),
-                estado: g.estado.clave_i18n().to_owned(),
-                audiencia: r.audiencia,
-                salio: r.salio,
-                pendiente: r.pendiente,
-                fallo: r.fallo,
-                dado_de_baja: r.dado_de_baja,
-                cancelado: r.cancelado,
-                respondieron: r.respondieron,
-            })
+        .map(|(quien, r)| CifrasDeCampanaIpc {
+            // El estado crudo se traduce aquí, con el núcleo: la pantalla
+            // recibe la clave y no el valor de la base (§139).
+            estado: arles_core::campana::EstadoDeCampana::desde_texto(&quien.estado)
+                .map_or("campana.estado.desconocido", |e| e.clave_i18n())
+                .to_owned(),
+            id: quien.id,
+            nombre: quien.nombre,
+            audiencia: r.audiencia,
+            salio: r.salio,
+            pendiente: r.pendiente,
+            fallo: r.fallo,
+            dado_de_baja: r.dado_de_baja,
+            cancelado: r.cancelado,
+            respondieron: r.respondieron,
+            ritmo: Vec::new(),
         })
         .collect();
+
+    // ── EL RITMO, SÓLO DE LO QUE ESTÁ ENVIANDO ─────────────────────────────
+    //
+    // `ritmo_por_hora` se construyó en la 7.2 y **ningún comando lo llamaba**:
+    // el octavo caso del patrón del §9, creado en la misma entrega que lo
+    // documenta. Sin esto, la pantalla no puede decir «al ritmo de las últimas
+    // 6 h, termina el jueves».
+    //
+    // Se pide sólo para las campañas en marcha, y no para las treinta
+    // terminadas del historial: una consulta más por campaña parada no dice
+    // nada que alguien vaya a leer.
+    let desde = hace_seis_horas();
+    let mut campanas = campanas;
+    for c in &mut campanas {
+        if c.estado != "campana.estado.enviando" {
+            continue;
+        }
+        c.ritmo = db
+            .ritmo_por_hora(empresa, &c.id, &desde)
+            .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?
+            .into_iter()
+            .map(|(hora, salieron)| RitmoDeHoraIpc { hora, salieron })
+            .collect();
+    }
 
     // La zona de la empresa, que es donde se cuentan las horas del presupuesto.
     // Sin empresa no se habría llegado hasta aquí: `empresa_actual` ya falló.
@@ -170,6 +216,20 @@ pub fn actividad(estado: tauri::State<'_, EstadoApp>) -> Result<ActividadIpc, Er
 /// Se usan las mismas funciones del núcleo que usa el motor, y no una copia:
 /// dos formas de calcular la misma clave es como se acaba leyendo un cubo que
 /// nadie está llenando.
+/// El instante de hace seis horas, en el formato de las marcas guardadas.
+///
+/// Seis y no una: con una hora, una campaña que acaba de arrancar o que lleva
+/// un rato sin cupo daría ritmo cero, y la estimación diría «no termina
+/// nunca». Seis horas suavizan los huecos sin llegar a esconder una parada.
+fn hace_seis_horas() -> String {
+    let t = time::OffsetDateTime::now_utc() - time::Duration::hours(6);
+    t.format(&time::format_description::well_known::Rfc3339)
+        // Un `OffsetDateTime` siempre cabe en RFC 3339. Si un día no cupiera,
+        // pedir «desde el principio de los tiempos» da más datos de la cuenta,
+        // que es preferible a no dar ninguno y enseñar un ritmo de cero.
+        .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_owned())
+}
+
 fn claves_de_ahora(zona: &arles_core::ventana::TimeZone) -> (String, String) {
     let ahora = time::OffsetDateTime::now_utc();
     (
