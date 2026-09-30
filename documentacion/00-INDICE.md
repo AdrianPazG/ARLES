@@ -91,6 +91,7 @@
 | Documento | Contenido |
 |---|---|
 | [ESTRATEGIA_QA](06-calidad/ESTRATEGIA_QA.md) | Camino dorado, casos frontera, las 4 auditorías |
+| [CATALOGO-DE-FALLOS](06-calidad/CATALOGO-DE-FALLOS.md) | **Qué puede salir mal, qué hace ARLES y qué ve el usuario.** Lo resuelto, lo que se resuelve ahora y lo que queda escrito sin construir |
 | [REVISION_VISUAL](06-calidad/REVISION_VISUAL.md) | Cómo revisar la aplicación en Windows y macOS, paso a paso |
 | [PRESUPUESTO_RENDIMIENTO](06-calidad/PRESUPUESTO_RENDIMIENTO.md) | Objetivos a 500 k, medidos en CI |
 | [UMBRAL_DE_PLEGADO](06-calidad/UMBRAL_DE_PLEGADO.md) | Dónde se pliega sola la barra lateral, y por qué ese número |

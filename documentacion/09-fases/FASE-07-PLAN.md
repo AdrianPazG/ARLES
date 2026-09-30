@@ -203,34 +203,61 @@ ver fallar la prueba que exige que todo desenlace quede escrito.
 
 ### 7.2 · Las cifras, y un solo sitio que las calcula
 
-- `resumen_de_campana(id)`: los nueve estados agrupados, en una consulta.
-- `resumen_del_dia`: lo de hoy, por cuenta y por canal.
-- `ritmo_real`: envíos por hora de las últimas seis, para la estimación.
+Todo **por campaña**, porque puede haber tres (§6 bis). El total es una suma de
+lo mismo, nunca una consulta aparte que pueda desviarse.
+
+- `resumen_de_campana(id)`: los nueve estados agrupados, en una consulta, con
+  desglose **por etapa** — una campaña puede tener correo y WhatsApp (L-1).
+- `respuestas_de_campana(id)`: la cifra de D-7A, sumando sus etapas. Sobre el
+  `count` que `respuestas.rs` ya tiene.
+- `cupo_de_los_remitentes()`: cuánto queda por cuenta, **y qué campañas tiran
+  de cada una**. Es lo que resuelve el problema del §6 bis.
+- `ritmo_real(id)`: envíos por hora de las últimas seis, para la estimación.
 - **La estimación de término lleva su método**: «al ritmo de las últimas 6 h».
   Un número sin método es una promesa.
 
-**La trampa a evitar, que ya nos costó una vez:** una prueba con **un solo
-envío** pasa con cualquier agregación. Las pruebas de esta entrega usan al
-menos un caso de cada estado y **dos cuentas**, para que un `GROUP BY` que
-olvide una columna falle.
+**Dos trampas a evitar, las dos ya pagadas antes (§2):**
+
+1. Una prueba con **un solo envío** pasa con cualquier agregación. Las de esta
+   entrega usan un caso de cada estado, **dos cuentas y tres campañas**, para
+   que un `GROUP BY` al que le falte una columna falle.
+2. El total **se calcula sumando las campañas**, y hay una prueba que lo exige:
+   si alguien escribe un `SELECT` general aparte, el día que las dos consultas
+   discrepen nadie sabrá cuál creer.
 
 ---
 
 ### 7.3 · La pantalla · lo de ahora
 
-- El estado del motor: en marcha, parado, fuera de ventana, sin cupo.
-- Las campañas en marcha con su progreso en cifras (§94).
-- Cuánto cupo queda, por cuenta, con la hora a la que se renueva.
+**Se organiza por campaña** (§6 bis), no por métricas globales.
+
+- Una línea arriba: «3 campañas enviando · 47 en la última hora».
+- **Una tarjeta por campaña en marcha**, con su progreso en cifras (§94), su
+  cifra de respuestas (D-7A) y su botón de detener (D-7B).
+- **Los remitentes y su cupo**, con las campañas que compiten por cada cuenta.
+  Es el problema que va a salir el primer día y la sección que lo explica.
+- La razón por la que algo está quieto, **cuál de las seis es** (propuesta P-A),
+  con su cifra: «vuelve a las 9:00», «quedan 20 para las tres».
+- «Parar todo» en la cabecera, sólo si hay algo enviando (D-7B).
 - Actualización **cada 5 s mientras la pestaña está visible**; al ocultarse, se
   para. Y sin saltos: los números cambian, la pantalla no se rehace.
 
-### 7.4 · La pantalla · lo que pasó
+### 7.4 · El registro, con sus filtros
 
-- Línea de tiempo por campaña, agrupada por causa.
-- Buscar por dirección: la historia de un destinatario.
+Lo que D-7C define, y es la mitad más delicada de la fase.
+
+- **Nunca más de 500 filas en pantalla**, siempre, con el total a la vista:
+  «500 de 3 412 · usa el filtro para encontrar los demás».
+- **Cuatro filtros combinables**: campaña, qué pasó, cuándo, dirección o número.
+  Se reflejan en la dirección para poder volver a un estado concreto.
 - Cada fallo dice las **tres cosas del §95**: qué pasó, cómo se arregla y qué
   está a salvo.
 - **«Aceptado» con su aclaración a la vista**, no en un pie de página.
+- El recorte bimestral con su aviso previo y la opción de guardar copia; los
+  desenlaces de envío **no se borran jamás**, sólo dejan de salir por defecto.
+
+**La prueba del tope usa 501 registros**, no uno: comprueba que llegan 500 y
+que el total dice 501. Es exactamente el defecto que ya nos costó una vez.
 
 ### 7.5 · Entregabilidad: SPF, DKIM y DMARC
 
@@ -264,67 +291,222 @@ hace falta, documento de fase, informe para Dirección y el avance recalculado.
 
 ---
 
-## 6 · Lo que necesito que decida Dirección
+## 6 · Las tres decisiones, resueltas por Dirección
 
-Tres decisiones. Ninguna frena el arranque —la 7.0 y la 7.1 no dependen de
-ellas— pero sí condicionan de la 7.3 en adelante.
-
-### D-7A · ¿Actividad enseña las respuestas de WhatsApp?
-
-**Problema.** `whatsapp_reply` cuenta respuestas desde la W.4, pero sin el
-relay ciego sólo se llenan en el envío de prueba. Enseñar «2 respuestas» junto
-a las cifras de correo sugiere una paridad que no existe.
-
-**Riesgo.** Que la demostración prometa un seguimiento de WhatsApp que el
-producto no da hasta que exista el relay.
-
-**Impacto.** Bajo si se decide ahora; alto si se descubre delante de un cliente.
-
-**Alternativa.** Una sección aparte, con la limitación escrita: «de WhatsApp,
-ARLES ve lo que Meta le cuenta en el momento del envío. Las respuestas
-necesitan el relay».
-
-**Trade-off.** Una pantalla algo menos redonda a cambio de no prometer de más.
-
-**Recomendación.** La alternativa. Y decidir el relay ciego por separado, con
-su propio plan.
-
-### D-7B · ¿La parada de emergencia vive en el armazón?
-
-**Problema.** Si hay que parar todo, buscar la pantalla correcta cuesta
-segundos que importan.
-
-**Riesgo.** Un botón rojo siempre visible se puede pulsar sin querer.
-
-**Impacto.** Pulsarlo sin querer detiene envíos —recuperable—. No encontrarlo
-manda correo que no se quería mandar —irreversible—.
-
-**Alternativa.** En el armazón pero **sólo visible cuando hay algo enviando**,
-con confirmación.
-
-**Trade-off.** Un elemento más en la barra, presente sólo cuando significa algo.
-
-**Recomendación.** La alternativa: los dos errores no cuestan lo mismo.
-
-### D-7C · ¿Se recorta el registro de sucesos?
-
-**Problema.** Una campaña de 500 000 con reintentos puede generar millones de
-filas.
-
-**Riesgo.** La base crece sin techo; las consultas se frenan.
-
-**Impacto.** Medible en la Fase 8, cuando se verifiquen los presupuestos.
-
-**Alternativa.** Recortar sólo los sucesos de bucle a 30 días; **los desenlaces
-de envío no se borran jamás** — son la prueba de que se envió y la base del
-control anti-abuso.
-
-**Trade-off.** La bitácora deja de ser completa hacia atrás en lo que no es
-prueba de nada.
-
-**Recomendación.** La alternativa, con el plazo configurable en Ajustes.
+Contestadas el **30/09/2026**. Dejan de ser preguntas y pasan a ser requisitos:
+lo que sigue es lo que se construye, y el motivo por el que se construye así.
 
 ---
+
+### D-7A ✅ · Las respuestas se **cuentan**, no se leen — y van por campaña
+
+**Lo que decidió Dirección.** Contestar los mensajes es trabajo del asesor de
+ventas, no de ARLES. De la respuesta sólo interesa **la cifra**: cuántas
+personas contestaron a cada campaña. Y como se pueden tener **tres campañas a
+la vez**, las cifras tienen que ir **por campaña**, no sólo en total.
+
+**Lo que esto significa técnicamente** — verificado en el esquema antes de
+prometerlo:
+
+`whatsapp_reply` (V9, entrega W.4) ya guarda exactamente eso y nada más:
+
+```sql
+campaign_stage_id  TEXT NOT NULL REFERENCES campaign_stage(id)
+from_normalized    TEXT NOT NULL        -- para no contar dos veces a la misma persona
+first_reply_at     TEXT NOT NULL
+UNIQUE (campaign_stage_id, from_normalized)
+```
+
+Tres cosas que salen gratis porque ya se decidieron bien en la W.4:
+
+1. **El texto del mensaje no existe en la base.** No hay que quitarlo: nunca se
+   guardó. Se descarta al recibirlo, antes de escribir nada.
+2. **El `UNIQUE` cuenta personas, no mensajes.** Alguien que conteste cinco
+   veces suma uno. Es la cifra que Dirección quiere, y ya está bien contada.
+3. **`arles-db` ya sabe contarlas**: `SELECT count(*) … WHERE campaign_stage_id = ?1`
+   existe en `respuestas.rs`. Falta el comando y la pantalla — otro caso del
+   patrón del §1, y esta vez con el trabajo de datos hecho.
+
+**Lo que cambia en el plan.** La reestructuración de las pantallas está en §6
+bis, porque «tres campañas a la vez» no es un detalle de esta decisión: es la
+forma de toda la pantalla.
+
+**Lo que hay que seguir declarando.** Sin el relay ciego, `whatsapp_reply` sólo
+se llena en el envío de prueba. La cifra existirá y será correcta; **estará en
+cero hasta que haya relay**, y la pantalla lo dirá con esas palabras en vez de
+enseñar un cero que parece un fracaso.
+
+---
+
+### D-7B ✅ · Detener vive en la campaña. «Parar todo» es otra cosa, y también
+
+**Lo que pidió Dirección.** El botón en el apartado de Campañas — y que yo
+proponga y elijamos la más sencilla.
+
+**La propuesta, y por qué.** Aquí hay **dos acciones que se parecen y no son la
+misma**, y confundirlas es lo que hace daño cuando hay tres campañas en marcha:
+
+| | Detener una campaña | Parar todo |
+|---|---|---|
+| Qué hace | Termina **esa** campaña; las otras siguen | Congela **las tres** de golpe |
+| Cuándo se usa | «Esta ya no la quiero» | «Algo va muy mal, para ya» |
+| Se deshace | No: hay que crear otra | **Sí**: se levanta y todo sigue donde iba |
+| Quién lo pulsa | Alguien que decidió | Alguien asustado |
+
+Con tres campañas, un solo botón rojo que signifique las dos cosas es una
+trampa: quien quiere apagar una apaga las tres, o al revés.
+
+**Las cuatro opciones que consideré:**
+
+| | Dónde | Problema |
+|---|---|---|
+| A | Sólo en Campañas | En una emergencia hay que navegar. Y si se está mirando Actividad —que es donde se ve que algo va mal—, hay que salir de ahí |
+| B | Un botón rojo fijo en la barra lateral | La barra es **navegación**; un botón destructivo entre enlaces se pulsa sin querer. Y no distingue las dos acciones |
+| C | En la barra, sólo si hay algo enviando | Mejor que B, pero sigue mezclando navegar con actuar |
+| **D** | **Detener en cada campaña · Parar todo en la cabecera de Actividad, sólo si hay algo enviando** | Ninguno |
+
+**Recomendación: D.** El razonamiento en una frase: **cada acción vive donde
+está la información que la justifica.**
+
+- **Detener esta campaña** → en la ficha de la campaña, y también en su tarjeta
+  dentro de Actividad. Ahí se ve de qué campaña se habla, con su nombre y sus
+  cifras delante. Pide confirmación escribiendo el nombre, porque no se deshace.
+- **Parar todo** → en la cabecera de Actividad, **visible sólo cuando hay al
+  menos una campaña enviando**, porque el resto del tiempo no significa nada.
+  Dice cuántas va a parar —«parar las 3»— y **no pide confirmación**: es
+  reversible, y una emergencia con un diálogo de por medio es una emergencia
+  peor. Lo que sí hace es dejar constancia de quién y cuándo en `audit_log`.
+- **Reanudar** aparece en el mismo sitio en cuanto hay una parada puesta, para
+  que levantarla sea tan fácil como ponerla.
+
+**El trade-off que acepto:** en una emergencia hay que estar en Actividad o ir
+a ella — un clic. A cambio, ningún botón destructivo vive en la navegación, y
+las dos acciones no se confunden nunca.
+
+---
+
+### D-7C ✅ · Se recorta, no se borra — y nunca se enseñan más de 500
+
+**Lo que decidió Dirección.** Registros bimestrales; con más de 20 000 correos
+y mensajes juntos, que sólo se vean los últimos 500; y un filtro para buscar
+entre todos.
+
+**Lo que se construye, con una precisión y una propuesta de ajuste:**
+
+**1 · «Se recorta pero no se borra» — hay que separar dos cosas**, porque la
+frase puede significar dos cosas muy distintas y una de ellas es ilegal:
+
+| Qué | Qué se hace a los 2 meses | Por qué |
+|---|---|---|
+| **Sucesos de bucle** (`NoHayTrabajo`, `FueraDeVentana`, «sin cupo») | **Se borran.** Son ruido: dicen que ARLES estaba esperando | Nadie los consulta a dos meses vista, y son el 95 % del volumen |
+| **Desenlaces de envío** (salió, falló, se dio de baja, se rindió) | **No se borran jamás** | Son la prueba de que se escribió a alguien. Es lo que sostiene el control anti-abuso (§37) y lo que contesta un derecho ARCO. Borrarlos nos deja sin respuesta ante una reclamación |
+
+Lo que sí ocurre con los desenlaces al pasar dos meses es que **dejan de
+salir por defecto**: siguen ahí, y el filtro los encuentra. «Recortado» pasa a
+significar *fuera de la vista*, no *fuera de la base* — que es, entiendo, lo que
+Dirección quiere decir con «se recorta pero no se borra».
+
+**Y antes de borrar los sucesos de bucle, ARLES ofrece guardarlos en un
+archivo.** Un aviso una vez, con la cifra: «se van a quitar 42 100 líneas de
+espera de hace más de dos meses. ¿Guardar una copia antes?». El plazo se
+configura en Ajustes; dos meses es el valor de partida, no una imposición.
+
+**2 · El tope de 500 · propongo aplicarlo siempre, no a partir de 20 000**
+
+**Problema.** El umbral de 20 000 deja sin proteger el tramo de en medio: una
+campaña de 3 000 envíos produce una tabla de 3 000 líneas que ya es
+inmanejable a ojo, y no llega al umbral.
+
+**Riesgo.** La pantalla se vuelve lenta y confusa mucho antes de los 20 000, y
+el usuario no entiende por qué a veces hay tope y a veces no.
+
+**Impacto.** Bajo en lo técnico, alto en confianza: una pantalla que cambia de
+comportamiento sin avisar se siente rota.
+
+**Alternativa.** **Siempre 500**, con la cifra completa a la vista arriba: «se
+enseñan 500 de 3 412 · usa el filtro para encontrar los demás». Un
+comportamiento único, predecible, y que no cambia según el tamaño.
+
+**Trade-off.** Con pocos registros el aviso sobra — se resuelve no enseñándolo
+cuando el total cabe en 500, que es el caso normal al principio.
+
+**Recomendación: siempre 500.** Es más simple de entender, más simple de
+construir y más simple de probar.
+
+**3 · El filtro, que es lo que hace útil el tope**
+
+Cuatro filtros que se combinan, ninguno más:
+
+| Filtro | Por qué éste |
+|---|---|
+| **Campaña** | Con tres a la vez, es el primero que se necesita |
+| **Qué pasó** | Salió · Falló · Se dio de baja · Se rindió. Agrupado, no nueve estados sueltos |
+| **Cuándo** | Hoy · Esta semana · Este mes · Todo |
+| **Dirección o número** | «¿Le llegó a Ana?» — la pregunta más frecuente |
+
+Los filtros **se reflejan en la dirección** (`/actividad?campana=…&estado=fallo`),
+para que un estado concreto se pueda guardar y volver a él.
+
+**La trampa a evitar, que ya nos costó una vez:** una prueba de paginación con
+**un solo registro** pasa aunque el `LIMIT` esté mal — pedir diez mil devolvía
+uno y el recorte se podía quitar entero (§2). La prueba de este tope usa **501
+registros** y comprueba que llegan 500 y que el total dice 501.
+
+---
+
+## 6 bis · Tres campañas a la vez: lo que eso cambia
+
+Dirección apuntó algo que reordena la pantalla entera: **se pueden lanzar tres
+campañas**. No es un detalle de D-7A; es la forma de Actividad.
+
+### La pantalla se organiza por campaña, y el total va debajo
+
+```
+ACTIVIDAD
+├─ ¿Está pasando algo?          ← una línea: «3 campañas enviando · 47 en la última hora»
+│
+├─ Campaña «Clientes de agosto»    340 de 1 342 · 12 fallos · 3 respuestas
+├─ Campaña «Reactivación»           89 de   420 ·  1 fallo  · 0 respuestas
+├─ Campaña «Bienvenida»          en pausa · 0 de 88
+│
+├─ Los remitentes y su cupo     ← aquí está el problema de abajo
+└─ El registro, con sus filtros
+```
+
+Cada campaña es una tarjeta con **sus** cifras, **su** progreso y **su** botón
+de detener. El total existe, pero debajo: nadie pregunta «cuántos correos
+salieron en total», preguntan «cómo va la de agosto».
+
+### El problema que nadie ha visto todavía, y que va a salir el primer día
+
+**Tres campañas pueden compartir la misma cuenta de correo. El cupo es de la
+cuenta, no de la campaña.**
+
+Si la cuenta permite 500 diarios y la campaña de agosto se come 480, las otras
+dos **se paran** —correctamente, el motor hace lo que debe— y en la pantalla se
+ven dos campañas quietas sin ninguna explicación visible. El usuario concluye
+que ARLES se rompió.
+
+Esto no es hipotético: es lo que va a pasar la primera vez que se lancen tres
+campañas con un solo remitente, que es exactamente el escenario de Dirección.
+
+**La solución, dentro de la 7.3:**
+
+- Una sección **de remitentes** con el cupo de cada cuenta: «quedan 20 de 500
+  hoy · se renueva a las 00:00».
+- **Y qué campañas compiten por esa cuenta**, nombradas. Que se vea que son
+  tres tirando del mismo cubo.
+- En la tarjeta de una campaña parada por cupo, la razón con su cifra: «esperando
+  cupo de ventas@… · quedan 20 para las tres».
+
+Es la propuesta **P-A** aplicada al caso concreto: el motor ya sabe por qué está
+quieto; sólo hay que dejar de tirarlo.
+
+**Y una recomendación de producto que no es técnica:** con tres campañas sobre
+una cuenta, lo que el usuario necesita no es sólo ver el reparto — es poder
+**ordenarlas**. Una campaña marcada como prioritaria se serviría primero. Eso
+**no está en la v1.2.0** y no lo propongo para ahora; lo dejo escrito porque el
+día que se pida, se pida sabiendo que lo vimos venir.
 
 ## 7 · Cinco propuestas más allá de lo planeado
 
@@ -400,6 +582,33 @@ herramienta, y a mitad de fase se paga caro.
 
 ---
 
+## 7 bis · Estar un paso adelante · el catálogo de fallos
+
+Dirección pidió «todas las soluciones de todos los posibles problemas». Eso,
+literalmente, no se puede y haría daño intentarlo: la lista de lo que *podría*
+pasar no tiene fin, y cada defensa es código que mantener, probar, y que puede
+fallar por su cuenta.
+
+Lo que sí se puede, y está hecho, es
+**[`06-calidad/CATALOGO-DE-FALLOS.md`](../06-calidad/CATALOGO-DE-FALLOS.md)**:
+cuarenta y tantas cosas que pueden salir mal, recorridas en el código —no de
+memoria—, con qué hace ARLES hoy, qué ve el usuario, y en qué estado está cada
+una. Separadas en tres: **resuelto y probado**, **se resuelve en esta fase**, y
+**escrito sin construir**, que vale porque el día que ocurra ya sabemos qué
+hacer y no nos sorprende delante de un cliente.
+
+De ese catálogo salen dos cosas que esta fase recoge:
+
+1. **Las seis razones del silencio** (§1 del catálogo). El fallo más frecuente
+   de un producto así no es un error: es que no pase nada y nadie sepa por qué.
+   Las seis ya las calcula el motor. Van a la 7.3.
+2. **Un problema resuelto no es un problema cerrado** (§4.3). La garantía de
+   «dormir no produce una ráfaga» estuvo probada y era falsa durante días,
+   porque la prueba no cubría una siesta dentro del mismo día. Lo que cierra un
+   problema es una prueba que se ha visto fallar.
+
+---
+
 ## 8 · Riesgos de esta fase
 
 | Riesgo | Probabilidad | Impacto | Mitigación |
@@ -445,7 +654,12 @@ opcional.
 4. **Después las dos mitades de la pantalla**: lo de ahora (7.3) y lo que pasó
    (7.4).
 5. **La entregabilidad va al final** (7.5) porque es lo único que necesita red.
-6. **Tres decisiones** esperan a Dirección: D-7A, D-7B y D-7C.
-7. **Cinco propuestas** fuera del plan, con recomendación explícita en cada una.
+6. **Las tres decisiones están tomadas** (30/09/2026): las respuestas se
+   cuentan y no se leen, detener vive en la campaña y «parar todo» en Actividad,
+   y el registro se recorta a dos meses sin borrar nunca un envío.
+7. **Todo va por campaña**, porque se pueden lanzar tres a la vez — y tres
+   campañas sobre una sola cuenta de correo se pisan el cupo. Eso se ve, con
+   nombres y cifras, antes de que parezca una avería.
+8. **Cinco propuestas** fuera del plan, con recomendación explícita en cada una.
    Dos son para ahora (P-A y P-D), una para la 7.6 (P-B), y dos para después
    (P-C y P-E).
