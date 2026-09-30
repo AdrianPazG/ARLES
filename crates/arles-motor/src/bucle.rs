@@ -527,9 +527,42 @@ impl<'a> Trabajador<'a> {
     ///
     /// [`DbError`] si la base falla.
     pub fn correr(&self, tope: u32) -> Result<Paso, DbError> {
+        self.correr_contando(tope, &mut |_| {})
+    }
+
+    /// Lo mismo, pero **contando cada paso a quien quiera escucharlo**.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ UN AVISO Y NO UN `Vec<Paso>` DEVUELTO
+    ///
+    /// Porque `correr` puede dar veinticinco pasos por vuelta y el bucle no
+    /// para nunca: acumular en memoria para devolverlo al final crece sin
+    /// techo mientras haya trabajo, y lo que quiere quien llama es escribir
+    /// cada suceso a medida que pasa, no un montón al terminar.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// Y POR QUÉ ESTE CRATE NO ESCRIBE EL REGISTRO ÉL MISMO
+    ///
+    /// Porque `arles-motor` **no escribe SQL** — pide a `arles-db` con métodos
+    /// tipados (`ARQUITECTURA.md`). Anotar la actividad es una escritura, y
+    /// quien la hace es `arles-app`, que es quien ya conoce la campaña, la
+    /// etapa y el canal que este trabajador está sirviendo.
+    ///
+    /// El aviso se llama **después** de cada paso, nunca antes: un suceso que
+    /// se anuncia y luego falla sería una bitácora que cuenta lo que no pasó.
+    ///
+    /// # Errores
+    ///
+    /// Los mismos que [`Self::un_paso`].
+    pub fn correr_contando(
+        &self,
+        tope: u32,
+        avisar: &mut dyn FnMut(&Paso),
+    ) -> Result<Paso, DbError> {
         let mut ultimo = Paso::NoHayTrabajo;
         for _ in 0..tope {
             ultimo = self.un_paso()?;
+            avisar(&ultimo);
             if !ultimo.hay_mas_que_hacer() {
                 break;
             }

@@ -52,9 +52,10 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use arles_db::Db;
+use arles_db::actividad::SucesoNuevo;
 use arles_db::trabajo::EtapaEnMarcha;
 use arles_email::Contenido;
-use arles_motor::bucle::{Ajustes, EntornoDelSistema, Trabajador, freno_de_la_base};
+use arles_motor::bucle::{Ajustes, EntornoDelSistema, Paso, Trabajador, freno_de_la_base};
 use arles_motor::instancia::Cerrojo;
 
 use crate::fabrica::{ElLlaveroDelSistema, FuenteDeContrasenas, proveedor_de_la_cuenta};
@@ -226,12 +227,97 @@ fn servir(
         },
     );
 
+    // ── AQUÍ SE TIRABA LO QUE EL MOTOR SABE (7.1) ──────────────────────────
+    //
+    // Esto era:
+    //
+    //     .correr(PASOS_POR_VUELTA)
+    //     .map(|ultimo| ultimo.hay_mas_que_hacer())
+    //
+    // Once desenlaces distintos, cada uno con su texto en español escrito desde
+    // la Fase 4 y pensado para la pantalla de Actividad, convertidos en un
+    // sí/no. De que a las 10:04 la cuenta se paró no quedaba nada.
+    //
+    // Ahora cada paso se anota. Y se anota **fuera de la transacción del
+    // envío**, a propósito: meter una segunda escritura dentro de la
+    // transacción que decide si un correo sale es arriesgar lo que importa
+    // —el intento— por lo que acompaña —la narración—. El precio es que una
+    // línea se puede perder si el programa muere justo ahí, y está aceptado y
+    // escrito en la cabecera de la migración V10.
+    let mut anotar = |paso: &Paso| anotar_el_paso(db, empresa, etapa, paso);
+
     // Un fallo de la base en un paso no saca al hilo del bucle: se vuelve a
     // intentar en la siguiente vuelta.
     trabajador
-        .correr(PASOS_POR_VUELTA)
+        .correr_contando(PASOS_POR_VUELTA, &mut anotar)
         .map(|ultimo| ultimo.hay_mas_que_hacer())
         .unwrap_or(false)
+}
+
+/// Escribe un paso del motor en el registro de actividad.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LAS DOS PUERTAS, Y POR QUÉ NO ES UNA SOLA
+///
+/// Un desenlace de envío se anota **siempre**: cien aceptados son cien correos
+/// a cien personas, y contarlos como uno perdería justo lo que hay que
+/// guardar.
+///
+/// Un suceso de bucle se anota **sólo si cambió**. El motor da una vuelta cada
+/// cinco segundos: fuera de horario, una etapa diría «fuera de ventana» 17 280
+/// veces al día. Con el recorte, un fin de semana entero son dos líneas — la
+/// del viernes y la del lunes—, que es lo que alguien querría leer.
+///
+/// **Un fallo al anotar no para el motor.** Es la regla que ordena las dos
+/// cosas: enviar es el trabajo, contarlo es el acompañamiento, y perder la
+/// bitácora de un paso nunca puede costar un envío. Se traga en silencio
+/// porque el sitio donde se diría —la pantalla de Actividad— es justo el que
+/// no se pudo escribir.
+fn anotar_el_paso(
+    db: &Db,
+    empresa: arles_core::ids::CompanyId,
+    etapa: &EtapaEnMarcha,
+    paso: &Paso,
+) {
+    // `como_texto()` y no un `match` aquí: esa función **es** el contrato con
+    // el esquema —las `CHECK` de las migraciones contienen literalmente esas
+    // cadenas— y repetirlo sería una segunda copia que puede divergir.
+    let canal = etapa.canal.como_texto();
+
+    let (intento, a, b) = match paso {
+        Paso::Reintentara { intento, cual, de } => (
+            Some(intento.as_str()),
+            Some(i64::from(*cual)),
+            Some(i64::from(*de)),
+        ),
+        Paso::Baja { intento }
+        | Paso::Cancelado { intento }
+        | Paso::Aceptado { intento }
+        | Paso::Rendido { intento }
+        | Paso::DadoDeBaja { intento }
+        | Paso::CuentaParada { intento } => (Some(intento.as_str()), None, None),
+        Paso::CuentaEnPausa { segundos_restantes } => {
+            (None, i64::try_from(*segundos_restantes).ok(), None)
+        }
+        _ => (None, None, None),
+    };
+
+    let suceso = SucesoNuevo {
+        clave: paso.clave_i18n(),
+        es_desenlace: intento.is_some(),
+        campana: Some(&etapa.campana),
+        etapa: Some(&etapa.etapa),
+        canal: Some(canal),
+        intento,
+        numero_a: a,
+        numero_b: b,
+    };
+
+    let _ = if suceso.es_desenlace {
+        db.anotar_suceso(empresa, &suceso)
+    } else {
+        db.anotar_si_cambia(empresa, &suceso).map(|_| ())
+    };
 }
 
 /// Duerme, pero mirando la bandera de parada por el camino.
@@ -478,6 +564,56 @@ mod el_pegamento {
             estado_del_intento(&db),
             "queued",
             "el motor no llegó a tocar el envío: la cadena se cortó antes"
+        );
+    }
+
+    /// **El motor deja constancia de lo que hizo** (7.1).
+    ///
+    /// Es la prueba de que el `Paso` ya no se tira. Antes de esta entrega,
+    /// `una_vuelta` lo convertía en un booleano y de un envío entero no
+    /// quedaba ni cuándo ni por qué — sólo el estado final del intento.
+    ///
+    /// Se mide sobre la base de verdad y no sobre el valor devuelto: lo que
+    /// importa no es que `correr_contando` llame al aviso, es que **la línea
+    /// acabe escrita**, que es lo que la pantalla va a leer.
+    ///
+    /// Verificada rompiéndola: volviendo a `.correr(PASOS_POR_VUELTA)` en
+    /// `servir`, esta prueba falla con «el motor dio una vuelta entera y no
+    /// dejó constancia de nada».
+    #[test]
+    fn una_vuelta_deja_constancia_en_el_registro() {
+        let (_dir, db) = base_con_una_campana_enviando();
+        let empresa: arles_core::ids::CompanyId = EMPRESA.parse().expect("id");
+
+        assert_eq!(
+            db.sucesos(empresa, &arles_db::actividad::Filtro::default())
+                .expect("lee")
+                .total,
+            0,
+            "antes de la vuelta el registro está vacío"
+        );
+
+        una_vuelta(&db, &LlaveroDeMentira, &AtomicBool::new(false));
+
+        let p = db
+            .sucesos(empresa, &arles_db::actividad::Filtro::default())
+            .expect("lee");
+        assert!(
+            p.total > 0,
+            "el motor dio una vuelta entera y no dejó constancia de nada"
+        );
+
+        // Y lo que quedó es una clave de i18n, no un texto suelto (§139): es
+        // lo que la pantalla pasa a `t()`, y un texto en español aquí haría
+        // imposible traducir o corregir el mensaje sin migrar la tabla.
+        let s = p
+            .sucesos
+            .first()
+            .expect("acaba de comprobarse que hay al menos uno");
+        assert!(
+            s.clave.contains('.') && !s.clave.contains(' '),
+            "la clave del suceso tiene que ser de i18n, y salió «{}»",
+            s.clave
         );
     }
 

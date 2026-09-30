@@ -11,6 +11,7 @@
 // que la audita y la envuelve. Aquí no entra ninguna.
 #![forbid(unsafe_code)]
 
+pub mod actividad;
 pub mod alta_de_campana;
 pub mod arco;
 pub mod campanas;

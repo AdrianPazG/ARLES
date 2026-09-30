@@ -1275,6 +1275,10 @@ MIGRACIONES_PUBLICADAS = {
     # Entrega W.1, 29/09/2026.
     "V9__whatsapp.sql":
         "3d9078e63677ee3e49a39cb83a05b94d819fe577b0fdc3efec816aa9f008f4e4",
+    # El registro de actividad: qué fue pasando y cuándo.
+    # Entrega 7.1, 30/09/2026.
+    "V10__registro_de_actividad.sql":
+        "e8a4a7338c20ca88a766c6713041abf7587b0c3bb6e86943b35d9b9c548f4cd9",
 }
 
 
@@ -4025,6 +4029,54 @@ def ningun_slot_se_escribe_a_ciegas():
     )
 
 
+def el_motor_no_tira_lo_que_sabe():
+    """Cada paso del motor acaba escrito, no convertido en un sí/no.
+
+    `Trabajador::un_paso` devuelve once desenlaces distintos, **cada uno con su
+    clave de texto en español** escrita desde la Fase 4 y pensada para la
+    pantalla de Actividad. Y `una_vuelta()` en `arles-app` hacía:
+
+        .map(|ultimo| ultimo.hay_mas_que_hacer())
+
+    Lo convertía en un booleano. De que a las 10:04 la cuenta de ventas se paró
+    no quedaba nada: sólo el estado final de cada intento, sin cuándo ni por
+    qué. Seis entregas sin que nada fallara, porque un dato que no se guarda no
+    rompe ninguna prueba.
+
+    Se comprueba que el pegamento use `correr_contando` y que lo que anota sea
+    `clave_i18n()` y no un texto: un texto en español dentro de la tabla haría
+    imposible corregir el mensaje sin migrar millones de filas.
+    """
+    pegamento = leer("crates", "arles-app", "src", "motor.rs")
+
+    faltas = []
+    if "correr_contando" not in pegamento:
+        faltas.append(
+            "`una_vuelta` no usa `correr_contando`: los pasos del motor se "
+            "vuelven a tirar"
+        )
+    if "clave_i18n()" not in pegamento:
+        faltas.append(
+            "lo que se anota no es `Paso::clave_i18n()`: un texto en la tabla "
+            "no se puede traducir ni corregir después (§139)"
+        )
+    # Y que el recorte por repetición siga en pie: sin él, el motor escribe
+    # 17 280 filas al día por etapa fuera de horario.
+    if "anotar_si_cambia" not in pegamento:
+        faltas.append(
+            "no se usa `anotar_si_cambia` para los sucesos de bucle: la tabla "
+            "se llena de «fuera de ventana» repetido"
+        )
+
+    check(
+        7,
+        "el motor no tira lo que sabe",
+        not faltas,
+        el_motor_no_tira_lo_que_sabe.__doc__,
+        detalle="\n      ".join(faltas),
+    )
+
+
 def fase_7(rapido=False):
     print(f"{NEGRITA}Fase 7 · Actividad y entregabilidad{FIN}")
 
@@ -4032,6 +4084,9 @@ def fase_7(rapido=False):
     toda_capacidad_del_nucleo_tiene_puerta()
     el_freno_llega_hasta_la_pantalla()
     ningun_slot_se_escribe_a_ciegas()
+
+    print(f"{GRIS}  el registro de actividad (7.1){FIN}")
+    el_motor_no_tira_lo_que_sabe()
 
 
 # El canal de WhatsApp no es una fase numerada: cruza la 5 y la 6 y se entregó

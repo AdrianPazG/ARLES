@@ -126,6 +126,10 @@ id_tipado!(
     WhatsappReplyId
 );
 id_tipado!(
+    /// Un suceso del registro de actividad. **No guarda ninguna dirección.**
+    ActivityEventId
+);
+id_tipado!(
     /// Plantilla aprobada por Meta.
     WhatsappTemplateId
 );

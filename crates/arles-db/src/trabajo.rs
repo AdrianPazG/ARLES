@@ -52,6 +52,12 @@ use crate::error::DbError;
 /// aquí obligaría a esta consulta a crecer cada vez que la pantalla cambie.
 #[derive(Debug, Clone)]
 pub struct EtapaEnMarcha {
+    /// La etapa misma.
+    ///
+    /// Hace falta desde la 7.1: el registro de actividad recorta el ruido
+    /// **por etapa**, no por campaña. Con dos etapas fuera de ventana a la vez,
+    /// una comparación por campaña dejaría muda a la segunda.
+    pub etapa: String,
     /// La campaña de la que se toma trabajo.
     pub campana: String,
     /// La cuenta remitente. **El presupuesto cuelga de ella.**
@@ -117,7 +123,8 @@ impl Db {
                 })?;
 
             let mut consulta = conn.prepare(
-                "SELECT e.campaign_id,
+                "SELECT e.id,
+                        e.campaign_id,
                         e.email_account_id,
                         v.days_of_week, v.start_hour, v.end_hour, v.timezone,
                         e.hourly_limit, e.daily_limit,
@@ -135,16 +142,17 @@ impl Db {
 
             let filas = consulta.query_map(params![empresa_txt], |f| {
                 Ok(FilaDeEtapa {
-                    campana: f.get(0)?,
-                    cuenta: f.get(1)?,
-                    dias: f.get(2)?,
-                    desde: f.get(3)?,
-                    hasta: f.get(4)?,
-                    zona: f.get(5)?,
-                    hora_etapa: f.get(6)?,
-                    dia_etapa: f.get(7)?,
-                    hora_cuenta: f.get(8)?,
-                    dia_cuenta: f.get(9)?,
+                    etapa: f.get(0)?,
+                    campana: f.get(1)?,
+                    cuenta: f.get(2)?,
+                    dias: f.get(3)?,
+                    desde: f.get(4)?,
+                    hasta: f.get(5)?,
+                    zona: f.get(6)?,
+                    hora_etapa: f.get(7)?,
+                    dia_etapa: f.get(8)?,
+                    hora_cuenta: f.get(9)?,
+                    dia_cuenta: f.get(10)?,
                 })
             })?;
 
@@ -163,6 +171,7 @@ impl Db {
 /// del `query_map` sólo caben errores de `rusqlite`, y decir «error de SQLite»
 /// ante una zona horaria inventada mandaría a buscar el problema al disco.
 struct FilaDeEtapa {
+    etapa: String,
     campana: String,
     cuenta: String,
     dias: i64,
@@ -206,6 +215,7 @@ impl FilaDeEtapa {
         })?;
 
         Ok(EtapaEnMarcha {
+            etapa: self.etapa,
             campana: self.campana,
             cuenta,
             // La consulta filtra por `channel = 'email'`, así que no hay otro
