@@ -4077,6 +4077,65 @@ def el_motor_no_tira_lo_que_sabe():
     )
 
 
+def las_cifras_salen_de_un_solo_sitio():
+    """El total es la suma de las campañas, y la agrupación vive en el núcleo.
+
+    Dos garantías de la 7.2, y las dos existen por el mismo motivo: **dos
+    formas de calcular lo mismo acaban discrepando**, y cuando lo hacen la
+    pantalla enseña dos números que no cuadran y nadie sabe cuál creer.
+
+    1. `resumen_de_la_empresa` suma los resúmenes de campaña. No puede tener un
+       `SELECT` propio sobre `message_attempt`: eso sería la segunda forma.
+    2. Los nueve estados se agrupan con `GrupoDeDesenlace`, del núcleo. La
+       necesitan la tarjeta de campaña, el filtro del registro y el resumen
+       exportable; con una copia en cada sitio, la que se olvide de cambiar
+       enseñaría otra cifra sin que nada falle.
+
+    Y una tercera, de honestidad: las cifras salen de `message_attempt`, que es
+    la prueba de que se envió, **no de `activity_event`**, que es la narración
+    y puede perder una línea (ver la cabecera de la V10).
+    """
+    cifras = leer("crates", "arles-db", "src", "cifras.rs")
+    import re as _re
+
+    faltas = []
+
+    cuerpo = _re.search(
+        r"pub fn resumen_de_la_empresa\(.*?\n    \}", cifras, _re.S
+    )
+    cuerpo = cuerpo.group(0) if cuerpo else ""
+    if "message_attempt" in cuerpo:
+        faltas.append(
+            "`resumen_de_la_empresa` consulta `message_attempt` por su cuenta: "
+            "el total tiene que ser la suma de las campañas, no otra consulta"
+        )
+    if "total.sumar" not in cuerpo:
+        faltas.append("`resumen_de_la_empresa` no suma los resúmenes de campaña")
+
+    if "GrupoDeDesenlace" not in cifras:
+        faltas.append(
+            "la agrupación de estados no usa `GrupoDeDesenlace` del núcleo: "
+            "es una copia que puede divergir"
+        )
+    # Se busca la CONSULTA, no la palabra: la cabecera de este módulo explica
+    # justamente que las cifras **no** salen de `activity_event`, y una
+    # comprobación que mire el texto suelto marca en rojo el comentario que
+    # documenta la regla. Falso positivo en su estreno, corregido el 30/09/2026.
+    if _re.search(r"(?i)FROM\s+activity_event", cifras):
+        faltas.append(
+            "las cifras consultan `activity_event`, que es la narración y puede "
+            "perder líneas. Tienen que salir de `message_attempt`"
+        )
+
+    check(
+        7,
+        "las cifras salen de un solo sitio",
+        not faltas,
+        las_cifras_salen_de_un_solo_sitio.__doc__,
+        detalle="\n      ".join(faltas),
+    )
+
+
 def fase_7(rapido=False):
     print(f"{NEGRITA}Fase 7 · Actividad y entregabilidad{FIN}")
 
@@ -4087,6 +4146,9 @@ def fase_7(rapido=False):
 
     print(f"{GRIS}  el registro de actividad (7.1){FIN}")
     el_motor_no_tira_lo_que_sabe()
+
+    print(f"{GRIS}  las cifras (7.2){FIN}")
+    las_cifras_salen_de_un_solo_sitio()
 
 
 # El canal de WhatsApp no es una fase numerada: cruza la 5 y la 6 y se entregó

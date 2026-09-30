@@ -1,0 +1,746 @@
+//! Las cifras de la pantalla de Actividad.
+//!
+//! Entrega 7.2.
+//!
+//! ─────────────────────────────────────────────────────────────────────────
+//! UN SOLO SITIO QUE LAS CALCULA, Y EL TOTAL ES UNA SUMA
+//!
+//! Todo va **por campaña**, porque Dirección trabaja con hasta tres a la vez.
+//! El total de la empresa no es una consulta aparte: es la suma de las
+//! campañas, y hay una prueba que lo exige.
+//!
+//! No es purismo. Con dos consultas distintas —una por campaña y otra
+//! general— llega el día en que discrepan, y entonces la pantalla enseña dos
+//! números que no cuadran y **nadie sabe cuál creer**. Con una suma, si el
+//! detalle está mal el total está igual de mal, y eso se nota y se arregla.
+//!
+//! ─────────────────────────────────────────────────────────────────────────
+//! DE DÓNDE SALE CADA NÚMERO
+//!
+//! De `message_attempt`, siempre. **No de `activity_event`**, que es la
+//! narración (7.1) y puede perder una línea si el programa muere en el
+//! instante justo. La prueba de que se escribió a alguien es el intento, y las
+//! cifras se calculan sobre la prueba.
+//!
+//! La agrupación de los nueve estados en cinco grupos vive en
+//! `arles_core::attempt::GrupoDeDesenlace`, no aquí: la necesitan la tarjeta
+//! de campaña, el filtro del registro y el resumen exportable, y con tres
+//! copias la que se olvidara de cambiar enseñaría otra cifra sin fallar.
+
+use std::collections::HashMap;
+
+use arles_core::attempt::{AttemptState, GrupoDeDesenlace};
+use arles_core::ids::CompanyId;
+use rusqlite::params;
+
+use crate::db::Db;
+use crate::error::DbError;
+
+/// Cómo va una campaña.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ResumenDeCampana {
+    /// Cuánta gente tiene congelada. Cero mientras es borrador.
+    pub audiencia: u32,
+    /// Cuántos salieron. **No dice «entregados»** (§65).
+    pub salio: u32,
+    /// Cuántos quedan por intentar, incluidos los que se reintentarán.
+    pub pendiente: u32,
+    /// Cuántos no salieron y no saldrán.
+    pub fallo: u32,
+    /// Cuántos estaban en la lista de bajas. No es un fallo.
+    pub dado_de_baja: u32,
+    /// Cuántos se cancelaron al detener. Tampoco es un fallo.
+    pub cancelado: u32,
+    /// Cuánta gente contestó (D-7A). Sólo WhatsApp, y sólo lo que haya.
+    pub respondieron: u32,
+}
+
+impl ResumenDeCampana {
+    /// Cuántos intentos hay en total.
+    ///
+    /// **Puede no coincidir con `audiencia`**, y es correcto: la audiencia se
+    /// congela al activar, y los intentos se crean a partir de ella. Entre las
+    /// dos cosas, una supresión puede dejar a alguien fuera.
+    #[must_use]
+    pub const fn intentos(&self) -> u32 {
+        self.salio + self.pendiente + self.fallo + self.dado_de_baja + self.cancelado
+    }
+
+    /// Suma otra campaña a ésta. Es como se calcula el total de la empresa.
+    pub const fn sumar(&mut self, otra: &Self) {
+        self.audiencia += otra.audiencia;
+        self.salio += otra.salio;
+        self.pendiente += otra.pendiente;
+        self.fallo += otra.fallo;
+        self.dado_de_baja += otra.dado_de_baja;
+        self.cancelado += otra.cancelado;
+        self.respondieron += otra.respondieron;
+    }
+}
+
+/// Lo que queda de cupo en una cuenta, y **quién compite por él**.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// EL PROBLEMA QUE ESTO EXISTE PARA CONTAR
+///
+/// Tres campañas pueden compartir la misma cuenta de correo, y **el cupo es de
+/// la cuenta, no de la campaña**. Si la de agosto se come 480 de 500, las
+/// otras dos se paran —el motor hace exactamente lo que debe— y en la pantalla
+/// se ven dos campañas quietas sin ninguna explicación.
+///
+/// Va a pasar el primer día que se lancen tres campañas con un remitente. Por
+/// eso `campanas` no es un adorno: sin los nombres, la cifra «quedan 20 de
+/// 500» no explica por qué se paró la campaña que el usuario está mirando.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CupoDeCuenta {
+    pub cuenta: String,
+    pub nombre: String,
+    pub direccion: String,
+    /// Lo gastado hoy y su tope, si hay tope.
+    pub gastado_hoy: u32,
+    pub tope_diario: Option<u32>,
+    pub gastado_esta_hora: u32,
+    pub tope_por_hora: Option<u32>,
+    /// Los nombres de las campañas en marcha que tiran de esta cuenta.
+    pub campanas: Vec<String>,
+}
+
+impl CupoDeCuenta {
+    /// Cuántos quedan hoy, si hay tope.
+    #[must_use]
+    pub fn quedan_hoy(&self) -> Option<u32> {
+        self.tope_diario.map(|t| t.saturating_sub(self.gastado_hoy))
+    }
+
+    /// ¿Más de una campaña tira de esta cuenta?
+    ///
+    /// Es lo que decide si la pantalla tiene que explicar el reparto o puede
+    /// callarse: con una sola campaña, nombrarla es ruido.
+    #[must_use]
+    pub fn hay_reparto(&self) -> bool {
+        self.campanas.len() > 1
+    }
+}
+
+impl Db {
+    /// Cómo va una campaña, por grupos.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si alguna consulta falla.
+    pub fn resumen_de_campana(
+        &self,
+        empresa: CompanyId,
+        campana: &str,
+    ) -> Result<ResumenDeCampana, DbError> {
+        self.con(|conn| {
+            let audiencia = conn.query_row(
+                "SELECT count(*) FROM campaign_audience a
+                  JOIN campaign c ON c.id = a.campaign_id
+                 WHERE a.campaign_id = ?1 AND c.company_id = ?2",
+                params![campana, empresa.to_string()],
+                |f| f.get(0),
+            )?;
+
+            let mut r = ResumenDeCampana {
+                audiencia,
+                ..ResumenDeCampana::default()
+            };
+
+            // Los nueve estados en una sola consulta, y se agrupan en Rust con
+            // `GrupoDeDesenlace`. Agruparlos en SQL con un `CASE` sería una
+            // segunda copia de la misma decisión, en otro lenguaje, y el día
+            // que cambie una de las dos nadie se enteraría.
+            let mut q = conn.prepare(
+                "SELECT m.state, count(*)
+                   FROM message_attempt m
+                   JOIN campaign c ON c.id = m.campaign_id
+                  WHERE m.campaign_id = ?1 AND c.company_id = ?2
+                  GROUP BY m.state",
+            )?;
+
+            for fila in q.query_map(params![campana, empresa.to_string()], |f| {
+                Ok((f.get::<_, String>(0)?, f.get::<_, u32>(1)?))
+            })? {
+                let (estado, cuantos) = fila?;
+                // Un estado que el núcleo no conoce **no se reparte al azar ni
+                // se suma a «pendiente»**: se ignora y se dice en la prueba de
+                // invariantes. Sumarlo a un grupo cualquiera sería inventar.
+                let Some(grupo) = de_texto(&estado).map(AttemptState::grupo) else {
+                    continue;
+                };
+                match grupo {
+                    GrupoDeDesenlace::Salio => r.salio += cuantos,
+                    GrupoDeDesenlace::Pendiente => r.pendiente += cuantos,
+                    GrupoDeDesenlace::Fallo => r.fallo += cuantos,
+                    GrupoDeDesenlace::DadoDeBaja => r.dado_de_baja += cuantos,
+                    GrupoDeDesenlace::Cancelado => r.cancelado += cuantos,
+                }
+            }
+
+            // Las respuestas (D-7A): la cifra, nunca el contenido. Se suman las
+            // de todas sus etapas — una campaña puede tener correo y WhatsApp.
+            r.respondieron = conn.query_row(
+                "SELECT count(*) FROM whatsapp_reply w
+                  JOIN campaign_stage e ON e.id = w.campaign_stage_id
+                 WHERE e.campaign_id = ?1 AND w.company_id = ?2",
+                params![campana, empresa.to_string()],
+                |f| f.get(0),
+            )?;
+
+            Ok(r)
+        })
+    }
+
+    /// El total de la empresa: **la suma de sus campañas**, no otra consulta.
+    ///
+    /// Devuelve el resumen de cada campaña y el total, para que la pantalla no
+    /// tenga que sumar por su cuenta y arriesgarse a sumar distinto.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si alguna consulta falla.
+    pub fn resumen_de_la_empresa(
+        &self,
+        empresa: CompanyId,
+    ) -> Result<(Vec<(String, ResumenDeCampana)>, ResumenDeCampana), DbError> {
+        let ids: Vec<String> = self.con(|conn| {
+            let mut q = conn.prepare(
+                "SELECT id FROM campaign WHERE company_id = ?1 ORDER BY created_at DESC",
+            )?;
+            let v = q
+                .query_map(params![empresa.to_string()], |f| f.get::<_, String>(0))?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(v)
+        })?;
+
+        let mut por_campana = Vec::with_capacity(ids.len());
+        let mut total = ResumenDeCampana::default();
+        for id in ids {
+            let r = self.resumen_de_campana(empresa, &id)?;
+            total.sumar(&r);
+            por_campana.push((id, r));
+        }
+        Ok((por_campana, total))
+    }
+
+    /// El cupo de cada remitente, y qué campañas compiten por él.
+    ///
+    /// Ver [`CupoDeCuenta`]: es lo que explica por qué dos campañas están
+    /// quietas cuando una tercera se comió el cupo.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si alguna consulta falla.
+    pub fn cupo_de_los_remitentes(
+        &self,
+        empresa: CompanyId,
+        clave_de_hora: &str,
+        clave_de_dia: &str,
+    ) -> Result<Vec<CupoDeCuenta>, DbError> {
+        self.con(|conn| {
+            // Qué campañas en marcha usan cada cuenta. Se lee de una vez y no
+            // por cuenta: con tres campañas y dos cuentas serían seis
+            // consultas para responder algo que cabe en una.
+            let mut q = conn.prepare(
+                "SELECT e.email_account_id, c.name
+                   FROM campaign_stage e
+                   JOIN campaign c ON c.id = e.campaign_id
+                  WHERE c.company_id = ?1
+                    AND c.status = 'running'
+                    AND e.email_account_id IS NOT NULL
+                  ORDER BY c.name",
+            )?;
+            let mut tiran: HashMap<String, Vec<String>> = HashMap::new();
+            for fila in q.query_map(params![empresa.to_string()], |f| {
+                Ok((f.get::<_, String>(0)?, f.get::<_, String>(1)?))
+            })? {
+                let (cuenta, nombre) = fila?;
+                let suyas = tiran.entry(cuenta).or_default();
+                // Una campaña con dos etapas sobre la misma cuenta se nombraría
+                // dos veces, y «Agosto, Agosto y Reactivación» se lee como un
+                // defecto de la pantalla.
+                if !suyas.contains(&nombre) {
+                    suyas.push(nombre);
+                }
+            }
+
+            let mut cuentas = conn.prepare(
+                "SELECT a.id, a.display_name, a.email_address,
+                        a.daily_limit, a.hourly_limit,
+                        (SELECT consumed FROM rate_budget b
+                          WHERE b.email_account_id = a.id
+                            AND b.window_kind = 'daily'
+                            AND b.window_start >= ?2),
+                        (SELECT consumed FROM rate_budget b
+                          WHERE b.email_account_id = a.id
+                            AND b.window_kind = 'hourly'
+                            AND b.window_start >= ?3)
+                   FROM email_account a
+                  WHERE a.company_id = ?1
+                  ORDER BY a.display_name",
+            )?;
+
+            let filas = cuentas.query_map(
+                params![empresa.to_string(), clave_de_dia, clave_de_hora],
+                |f| {
+                    Ok(CupoDeCuenta {
+                        cuenta: f.get(0)?,
+                        nombre: f.get(1)?,
+                        direccion: f.get(2)?,
+                        tope_diario: f.get(3)?,
+                        tope_por_hora: f.get(4)?,
+                        gastado_hoy: f.get::<_, Option<u32>>(5)?.unwrap_or(0),
+                        gastado_esta_hora: f.get::<_, Option<u32>>(6)?.unwrap_or(0),
+                        campanas: Vec::new(),
+                    })
+                },
+            )?;
+
+            let mut v = Vec::new();
+            for fila in filas {
+                let mut c = fila?;
+                c.campanas = tiran.remove(&c.cuenta).unwrap_or_default();
+                v.push(c);
+            }
+            Ok(v)
+        })
+    }
+
+    /// Cuántos salieron en cada una de las últimas horas.
+    ///
+    /// Es lo que sostiene la estimación de término, y por eso devuelve las
+    /// horas y no un promedio ya calculado: **un número sin su método es una
+    /// promesa**, y la pantalla tiene que poder decir «al ritmo de las últimas
+    /// 6 h» con los datos a la vista.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla.
+    pub fn ritmo_por_hora(
+        &self,
+        empresa: CompanyId,
+        campana: &str,
+        desde: &str,
+    ) -> Result<Vec<(String, u32)>, DbError> {
+        self.con(|conn| {
+            let mut q = conn.prepare(
+                // `substr(sent_at, 1, 13)` recorta a «2026-09-30T10», que es la
+                // hora. Las marcas se guardan en UTC con formato fijo, así que
+                // el recorte es estable; `strftime` haría lo mismo más despacio
+                // y con una dependencia del formato igual de fuerte.
+                "SELECT substr(m.sent_at, 1, 13) AS hora, count(*)
+                   FROM message_attempt m
+                   JOIN campaign c ON c.id = m.campaign_id
+                  WHERE m.campaign_id = ?1
+                    AND c.company_id = ?2
+                    AND m.state = 'sent'
+                    AND m.sent_at IS NOT NULL
+                    AND m.sent_at >= ?3
+                  GROUP BY hora
+                  ORDER BY hora",
+            )?;
+            let v = q
+                .query_map(params![campana, empresa.to_string(), desde], |f| {
+                    Ok((f.get::<_, String>(0)?, f.get::<_, u32>(1)?))
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(v)
+        })
+    }
+}
+
+/// El texto guardado, de vuelta al estado del núcleo.
+///
+/// Devuelve `None` para un estado que el núcleo no conoce, en vez de adivinar.
+/// Es la única forma de que una fila con un valor imposible —de una migración
+/// futura mal aplicada, por ejemplo— no acabe sumada al grupo equivocado.
+fn de_texto(estado: &str) -> Option<AttemptState> {
+    AttemptState::TODOS
+        .iter()
+        .copied()
+        .find(|e: &AttemptState| e.as_str() == estado)
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
+mod tests {
+    use super::*;
+    use crate::conexion::ClaveMaestra;
+
+    const EMPRESA: &str = "11111111-1111-4111-8111-111111111111";
+    const AHORA: &str = "2026-09-30T10:00:00Z";
+    const DIA: &str = "2026-09-30";
+    const HORA: &str = "2026-09-30T10";
+
+    /// Tres campañas y dos cuentas, con **una cuenta compartida**.
+    ///
+    /// No es decorado: es el escenario de Dirección, y es el único en el que
+    /// aparecen los dos defectos que estas pruebas buscan — un `GROUP BY` al
+    /// que le falte una columna, y el reparto de cupo que deja dos campañas
+    /// quietas sin explicación.
+    ///
+    /// Con una sola campaña y una sola cuenta, **las dos cosas pasan igual
+    /// estando mal**. Es la misma trampa que la prueba de contactos con un
+    /// solo contacto (§2).
+    fn base() -> (tempfile::TempDir, Db) {
+        let dir = tempfile::tempdir().expect("temporal");
+        let clave = ClaveMaestra::generar().expect("genera");
+        let db = Db::abrir(&dir.path().join("arles.db"), &clave).expect("abre");
+
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO company (id, commercial_name, country, timezone,
+                                      corporate_email, created_at, updated_at)
+                 VALUES ('{EMPRESA}', 'TELEMETRY', 'MX', 'America/Mexico_City',
+                         'hola@t.mx', '{AHORA}', '{AHORA}');
+
+                 INSERT INTO email_account (id, company_id, display_name, email_address,
+                                            provider_kind, credential_ref, status,
+                                            daily_limit, hourly_limit, created_at, updated_at)
+                 VALUES ('c-1', '{EMPRESA}', 'Ventas', 'ventas@t.mx', 'smtp',
+                         'llavero://v', 'connected', 500, 60, '{AHORA}', '{AHORA}'),
+                        ('c-2', '{EMPRESA}', 'Soporte', 'soporte@t.mx', 'smtp',
+                         'llavero://s', 'connected', 100, 20, '{AHORA}', '{AHORA}');
+
+                 INSERT INTO execution_window (id, company_id, name, days_of_week,
+                                               start_hour, end_hour, timezone, created_at)
+                 VALUES ('v-1', '{EMPRESA}', 'Laborables', 31, 9, 18,
+                         'America/Mexico_City', '{AHORA}');
+
+                 -- Tres campañas: dos en marcha sobre la MISMA cuenta, una aparte.
+                 INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                 VALUES ('k-1', '{EMPRESA}', 'Clientes de agosto', 'running',
+                         '2026-09-30T09:00:00Z', '{AHORA}'),
+                        ('k-2', '{EMPRESA}', 'Reactivación', 'running',
+                         '2026-09-30T08:00:00Z', '{AHORA}'),
+                        ('k-3', '{EMPRESA}', 'Bienvenida', 'running',
+                         '2026-09-30T07:00:00Z', '{AHORA}'),
+                        -- Detenida, y sobre una cuenta que sí se usa. Sin ella,
+                        -- la prueba del reparto pasaba igual al quitar el filtro
+                        -- por `running` — afirmaba algo que no verificaba, que
+                        -- es el defecto que el §2 existe para cazar. Se vio
+                        -- rompiéndola el 30/09/2026.
+                        ('k-4', '{EMPRESA}', 'Verano (detenida)', 'stopped',
+                         '2026-09-30T06:00:00Z', '{AHORA}');
+
+                 INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                             email_account_id, execution_window_id,
+                                             status, created_at, updated_at)
+                 VALUES ('e-1', 'k-1', 1, 'email', 'c-1', 'v-1', 'running', '{AHORA}', '{AHORA}'),
+                        ('e-2', 'k-2', 1, 'email', 'c-1', 'v-1', 'running', '{AHORA}', '{AHORA}'),
+                        ('e-3', 'k-3', 1, 'email', 'c-2', 'v-1', 'running', '{AHORA}', '{AHORA}'),
+                        ('e-4', 'k-4', 1, 'email', 'c-2', 'v-1', 'stopped', '{AHORA}', '{AHORA}');"
+            ))
+        })
+        .expect("siembra");
+        (dir, db)
+    }
+
+    fn empresa() -> CompanyId {
+        EMPRESA.parse().expect("id")
+    }
+
+    /// Mete un intento en el estado que se pida.
+    fn intento(db: &Db, campana: &str, n: u32, estado: &str, cuando: Option<&str>) {
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "INSERT INTO message_attempt
+                     (id, campaign_id, contact_address, idempotency_key, state,
+                      channel, sent_at, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, 'email', ?6, ?7, ?7)",
+                params![
+                    format!("m-{campana}-{n}"),
+                    campana,
+                    format!("p{n}@t.mx"),
+                    format!("k-{campana}-{n}"),
+                    estado,
+                    cuando,
+                    AHORA
+                ],
+            )
+            .map(|_| ())
+        })
+        .expect("intento");
+    }
+
+    /// **Los nueve estados, uno de cada, y cada grupo cuenta lo suyo.**
+    ///
+    /// Con un solo intento esta prueba pasaría con casi cualquier agregación.
+    /// Con los nueve, un `GROUP BY` mal escrito o un grupo olvidado falla.
+    ///
+    /// Verificada rompiéndola: haciendo que `PresumedSent` caiga en
+    /// `Pendiente`, falla con «salio» a 1 en vez de 2.
+    #[test]
+    fn los_nueve_estados_caen_cada_uno_en_su_grupo() {
+        let (_d, db) = base();
+
+        for (n, e) in AttemptState::TODOS.iter().enumerate() {
+            let n = u32::try_from(n).expect("cabe");
+            intento(&db, "k-1", n, e.as_str(), Some(AHORA));
+        }
+
+        let r = db.resumen_de_campana(empresa(), "k-1").expect("resumen");
+
+        // queued, claimed, sending, failed
+        assert_eq!(
+            r.pendiente, 4,
+            "pendientes: los cuatro que aún se pueden intentar"
+        );
+        // sent, presumed_sent
+        assert_eq!(r.salio, 2, "salió: incluye el envío ambiguo del ADR-0004");
+        assert_eq!(r.fallo, 1, "falló: sólo el definitivo");
+        assert_eq!(r.dado_de_baja, 1);
+        assert_eq!(r.cancelado, 1);
+        assert_eq!(
+            r.intentos(),
+            9,
+            "los nueve tienen que estar contados en algún grupo: si uno no \
+             cuadra, hay un estado sin sitio"
+        );
+    }
+
+    /// **El total es la suma de las campañas, no otra consulta.**
+    ///
+    /// Es la garantía que impide que la pantalla enseñe dos números que no
+    /// cuadran sin que nadie sepa cuál creer.
+    ///
+    /// Verificada rompiéndola: haciendo que `resumen_de_la_empresa` cuente con
+    /// un `SELECT` propio sobre `message_attempt` sin filtrar por campaña, las
+    /// dos cifras dejan de coincidir y esta prueba lo dice.
+    #[test]
+    fn el_total_de_la_empresa_es_la_suma_de_sus_campanas() {
+        let (_d, db) = base();
+
+        intento(&db, "k-1", 1, "sent", Some(AHORA));
+        intento(&db, "k-1", 2, "sent", Some(AHORA));
+        intento(&db, "k-2", 1, "sent", Some(AHORA));
+        intento(&db, "k-2", 2, "permanently_failed", None);
+        intento(&db, "k-3", 1, "suppressed", None);
+
+        let (por_campana, total) = db.resumen_de_la_empresa(empresa()).expect("resumen");
+
+        assert_eq!(
+            por_campana.len(),
+            4,
+            "las cuatro campañas: el resumen las cuenta todas, también las \
+             detenidas, porque sus envíos ocurrieron"
+        );
+
+        let sumado = por_campana
+            .iter()
+            .fold(ResumenDeCampana::default(), |mut acc, (_, r)| {
+                acc.sumar(r);
+                acc
+            });
+        assert_eq!(
+            total, sumado,
+            "el total no coincide con la suma de las campañas: hay dos formas \
+             de calcular lo mismo y ya discrepan"
+        );
+        assert_eq!(total.salio, 3);
+        assert_eq!(total.fallo, 1);
+        assert_eq!(total.dado_de_baja, 1);
+    }
+
+    /// **Dos campañas que comparten cuenta se ven compartiéndola.**
+    ///
+    /// Es el problema que va a salir el primer día: el cupo es de la cuenta, y
+    /// si una campaña se lo come las otras se paran sin explicación visible.
+    ///
+    /// Verificada rompiéndola: quitando `AND c.status = 'running'` de la
+    /// consulta de campañas, la cuenta de Soporte aparece con campañas que no
+    /// están enviando y el reparto que se enseña es falso.
+    #[test]
+    fn el_cupo_dice_que_campanas_compiten_por_cada_cuenta() {
+        let (_d, db) = base();
+
+        let cupos = db
+            .cupo_de_los_remitentes(empresa(), HORA, DIA)
+            .expect("cupos");
+
+        assert_eq!(cupos.len(), 2, "las dos cuentas");
+
+        let ventas = cupos.iter().find(|c| c.cuenta == "c-1").expect("ventas");
+        assert_eq!(
+            ventas.campanas,
+            vec!["Clientes de agosto".to_owned(), "Reactivación".to_owned()],
+            "las dos campañas que tiran de Ventas, por nombre: sin ellos, «quedan \
+             20 de 500» no explica por qué se paró la que el usuario mira"
+        );
+        assert!(ventas.hay_reparto());
+
+        let soporte = cupos.iter().find(|c| c.cuenta == "c-2").expect("soporte");
+        assert_eq!(
+            soporte.campanas,
+            vec!["Bienvenida".to_owned()],
+            "«Verano» está detenida y usa esta cuenta: no compite por su cupo, \
+             y enseñarla haría creer que el reparto es peor de lo que es"
+        );
+        assert!(
+            !soporte.hay_reparto(),
+            "con una sola campaña, nombrarla es ruido"
+        );
+    }
+
+    /// El cupo gastado se lee de verdad, y lo que queda se calcula.
+    #[test]
+    fn el_cupo_gastado_sale_del_presupuesto_persistido() {
+        let (_d, db) = base();
+
+        for _ in 0..480 {
+            db.anotar_un_envio("c-1", HORA, DIA, AHORA).expect("gasta");
+        }
+
+        let cupos = db
+            .cupo_de_los_remitentes(empresa(), HORA, DIA)
+            .expect("cupos");
+        let ventas = cupos.iter().find(|c| c.cuenta == "c-1").expect("ventas");
+
+        assert_eq!(ventas.gastado_hoy, 480);
+        assert_eq!(ventas.tope_diario, Some(500));
+        assert_eq!(
+            ventas.quedan_hoy(),
+            Some(20),
+            "quedan 20 para las dos campañas: es la cifra que explica por qué \
+             una se va a parar"
+        );
+    }
+
+    /// **El ritmo va por horas, no como un promedio ya masticado.**
+    ///
+    /// Un número sin su método es una promesa: la pantalla tiene que poder
+    /// decir «al ritmo de las últimas 6 h» con los datos delante.
+    #[test]
+    fn el_ritmo_se_agrupa_por_hora_y_solo_cuenta_lo_que_salio() {
+        let (_d, db) = base();
+
+        intento(&db, "k-1", 1, "sent", Some("2026-09-30T09:15:00Z"));
+        intento(&db, "k-1", 2, "sent", Some("2026-09-30T09:47:00Z"));
+        intento(&db, "k-1", 3, "sent", Some("2026-09-30T10:02:00Z"));
+        // Un fallo con fecha: no cuenta para el ritmo, porque el ritmo es de
+        // lo que sale, no de lo que se intenta.
+        intento(
+            &db,
+            "k-1",
+            4,
+            "permanently_failed",
+            Some("2026-09-30T10:05:00Z"),
+        );
+
+        let r = db
+            .ritmo_por_hora(empresa(), "k-1", "2026-09-30T00:00:00Z")
+            .expect("ritmo");
+
+        assert_eq!(
+            r,
+            vec![
+                ("2026-09-30T09".to_owned(), 2),
+                ("2026-09-30T10".to_owned(), 1),
+            ],
+            "dos horas con lo que salió en cada una, y el fallo fuera"
+        );
+    }
+
+    /// Las cifras de una campaña **no se mezclan con las de otra**.
+    ///
+    /// Con tres a la vez es el error más fácil de cometer y el más difícil de
+    /// ver: todas las cifras parecen razonables.
+    #[test]
+    fn las_cifras_de_una_campana_no_traen_las_de_las_otras() {
+        let (_d, db) = base();
+
+        intento(&db, "k-1", 1, "sent", Some(AHORA));
+        for n in 1..=5 {
+            intento(&db, "k-2", n, "sent", Some(AHORA));
+        }
+
+        let uno = db.resumen_de_campana(empresa(), "k-1").expect("r");
+        let dos = db.resumen_de_campana(empresa(), "k-2").expect("r");
+
+        assert_eq!(uno.salio, 1);
+        assert_eq!(dos.salio, 5);
+    }
+
+    /// **El resumen no se arrastra con una campaña grande.**
+    ///
+    /// `resumen_de_campana` cuenta con un `GROUP BY` sobre `message_attempt`,
+    /// que con 500 000 filas es un recorrido si no hay índice por campaña. Y
+    /// la pantalla lo pide **cada cinco segundos** mientras está abierta.
+    ///
+    /// Aquí se mide el plan de verdad con 50 000 intentos. La primera versión
+    /// sólo exigía que no hubiera «SCAN», y **pasaba igual con el índice
+    /// reducido a `(campaign_id)`**: no verificaba lo que decía verificar.
+    ///
+    /// Medido, la diferencia es real y está en el plan: con
+    /// `(campaign_id, state)` sale «USING COVERING INDEX» —SQLite lee sólo el
+    /// índice—, y con `(campaign_id)` sale «USE TEMP B-TREE FOR GROUP BY».
+    /// Eso es lo que ahora se exige.
+    #[test]
+    fn contar_los_estados_no_recorre_la_tabla_entera() {
+        let (_d, db) = base();
+
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch("BEGIN;")?;
+            for n in 0..50_000u32 {
+                c.execute(
+                    "INSERT INTO message_attempt
+                         (id, campaign_id, contact_address, idempotency_key, state,
+                          channel, created_at, updated_at)
+                     VALUES (?1, 'k-1', ?2, ?1, 'sent', 'email', ?3, ?3)",
+                    params![format!("g-{n}"), format!("g{n}@t.mx"), AHORA],
+                )?;
+            }
+            c.execute_batch("COMMIT;")
+        })
+        .expect("siembra grande");
+
+        let plan: String = db
+            .ejecutar_en_pruebas(|c| {
+                let mut q = c.prepare(
+                    "EXPLAIN QUERY PLAN
+                     SELECT m.state, count(*)
+                       FROM message_attempt m
+                       JOIN campaign c ON c.id = m.campaign_id
+                      WHERE m.campaign_id = ?1 AND c.company_id = ?2
+                      GROUP BY m.state",
+                )?;
+                let v = q
+                    .query_map(params!["k-1", EMPRESA], |r| r.get::<_, String>(3))?
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(v.join(" · "))
+            })
+            .expect("plan");
+
+        assert!(
+            plan.contains("COVERING INDEX") && !plan.contains("TEMP B-TREE"),
+            "contar los estados no se sirve entero del índice. Con \
+             `(campaign_id, state)` SQLite lee sólo el índice y agrupa sobre la \
+             marcha; con `(campaign_id)` a secas monta un árbol temporal para el \
+             GROUP BY — medido, no supuesto. Y la pantalla lo pide cada cinco \
+             segundos con la campaña entera detrás. Plan: {plan}"
+        );
+
+        // Y la cifra sale bien con la tabla llena, que es lo que de verdad
+        // importa: un plan bonito que devuelva mal el número no vale nada.
+        let r = db.resumen_de_campana(empresa(), "k-1").expect("resumen");
+        assert_eq!(r.salio, 50_000);
+    }
+
+    /// Una empresa no ve las cifras de otra.
+    ///
+    /// Hoy ARLES es de una sola empresa, así que esto no puede fallar en
+    /// producción — y por eso mismo es fácil escribir la consulta sin el
+    /// filtro y no enterarse hasta que deje de serlo.
+    #[test]
+    fn el_resumen_filtra_por_empresa() {
+        let (_d, db) = base();
+        intento(&db, "k-1", 1, "sent", Some(AHORA));
+
+        let otra: CompanyId = "22222222-2222-4222-8222-222222222222".parse().expect("id");
+        let r = db.resumen_de_campana(otra, "k-1").expect("resumen");
+
+        assert_eq!(r.salio, 0, "la campaña es de otra empresa: no se cuenta");
+        assert_eq!(r.audiencia, 0);
+    }
+}

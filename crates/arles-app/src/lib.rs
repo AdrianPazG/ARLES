@@ -7,6 +7,7 @@
 #![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 
 pub mod campanas;
+mod cifras;
 pub mod comandos;
 mod control;
 pub mod error;
@@ -101,6 +102,8 @@ pub fn run() {
             control::parar_todo,
             control::levantar_parada,
             control::estado_del_envio,
+            // Las cifras de Actividad (7.2).
+            cifras::actividad,
         ])
         .run(tauri::generate_context!());
 

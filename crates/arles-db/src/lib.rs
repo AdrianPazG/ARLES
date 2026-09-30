@@ -16,6 +16,7 @@ pub mod alta_de_campana;
 pub mod arco;
 pub mod campanas;
 pub mod cancelacion;
+pub mod cifras;
 pub mod cola;
 pub mod conexion;
 pub mod contactos;

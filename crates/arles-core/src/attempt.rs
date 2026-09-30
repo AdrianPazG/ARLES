@@ -42,7 +42,108 @@ pub enum AttemptState {
     PresumedSent,
 }
 
+/// Los nueve estados, contados como los cuenta una persona.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTO VIVE EN EL NÚCLEO Y NO EN LA PANTALLA
+///
+/// Porque hay **tres sitios** que necesitan agrupar lo mismo: la tarjeta de
+/// una campaña, el filtro del registro de actividad y el resumen exportable.
+/// Con la agrupación escrita en cada uno, el día que alguien decida que
+/// `presumed_sent` cuenta como salido —o deje de contar— habría que acordarse
+/// de tres sitios, y la pantalla que se olvidara enseñaría una cifra distinta
+/// **sin que nada fallara**.
+///
+/// Es exactamente el patrón que ya costó una vez con el umbral del §48.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LAS DECISIONES QUE HAY DENTRO, Y NO SON OBVIAS
+///
+/// **`PresumedSent` cuenta como salido.** Es el envío ambiguo del ADR-0004:
+/// la aplicación murió con el correo a medio mandar y no se sabe si llegó a
+/// salir. No se reenvía nunca, así que para quien mira la pantalla ese
+/// destinatario está atendido — contarlo como pendiente invitaría a volver a
+/// escribirle, que es justo lo que el ADR impide.
+///
+/// **`Suppressed` no es un fallo.** Que alguien pidiera la baja no es un
+/// error del envío: es el sistema funcionando. Mezclarlo con los fallos haría
+/// que una campaña a una lista muy trabajada pareciera rota.
+///
+/// **`Cancelled` tampoco.** Es la consecuencia de que alguien pulsara detener.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GrupoDeDesenlace {
+    /// Todavía no se ha intentado, o está en curso.
+    Pendiente,
+    /// Salió. **No dice «entregado»** (§65): el proveedor se hizo cargo.
+    Salio,
+    /// No salió y no saldrá.
+    Fallo,
+    /// Esa persona está en la lista de bajas. No es un fallo.
+    DadoDeBaja,
+    /// Se canceló al detener la campaña. Tampoco es un fallo.
+    Cancelado,
+}
+
+impl GrupoDeDesenlace {
+    /// Los cinco, en el orden en que se enseñan.
+    pub const TODOS: &'static [Self] = &[
+        Self::Salio,
+        Self::Pendiente,
+        Self::Fallo,
+        Self::DadoDeBaja,
+        Self::Cancelado,
+    ];
+
+    /// La clave de texto del grupo (§139).
+    #[must_use]
+    pub const fn clave_i18n(self) -> &'static str {
+        match self {
+            Self::Pendiente => "envio.grupo.pendiente",
+            Self::Salio => "envio.grupo.salio",
+            Self::Fallo => "envio.grupo.fallo",
+            Self::DadoDeBaja => "envio.grupo.dadoDeBaja",
+            Self::Cancelado => "envio.grupo.cancelado",
+        }
+    }
+}
+
 impl AttemptState {
+    /// A qué grupo pertenece este estado. Ver [`GrupoDeDesenlace`].
+    #[must_use]
+    pub const fn grupo(self) -> GrupoDeDesenlace {
+        match self {
+            Self::Queued | Self::Claimed | Self::Sending | Self::Failed => {
+                // `Failed` es **transitorio**: se volverá a intentar. Contarlo
+                // como fallo enseñaría un número que baja solo al reintentar,
+                // y una cifra que se mueve sola no se puede usar para decidir.
+                GrupoDeDesenlace::Pendiente
+            }
+            Self::Sent | Self::PresumedSent => GrupoDeDesenlace::Salio,
+            Self::PermanentlyFailed => GrupoDeDesenlace::Fallo,
+            Self::Suppressed => GrupoDeDesenlace::DadoDeBaja,
+            Self::Cancelled => GrupoDeDesenlace::Cancelado,
+        }
+    }
+}
+
+impl AttemptState {
+    /// Los nueve, para recorrerlos sin olvidarse de ninguno.
+    ///
+    /// Estaba sólo dentro de las pruebas de este archivo, así que cualquier
+    /// otro sitio que necesitara recorrerlos escribía su propia lista — y una
+    /// lista a mano se queda corta el día que se añade un estado, en silencio.
+    pub const TODOS: &'static [Self] = &[
+        Self::Queued,
+        Self::Claimed,
+        Self::Sending,
+        Self::Sent,
+        Self::Failed,
+        Self::PermanentlyFailed,
+        Self::Suppressed,
+        Self::Cancelled,
+        Self::PresumedSent,
+    ];
+
     /// Identificador estable para persistir. No cambiar: hay datos con él.
     pub fn as_str(self) -> &'static str {
         match self {
