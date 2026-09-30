@@ -99,6 +99,21 @@ export interface Revision {
   readonly diagnostico: string | null
 }
 
+/**
+ * El estado de la parada de emergencia. Coincide con `EstadoDelEnvioIpc`.
+ *
+ * `clave` es el texto para la pantalla (§139), no un código propio: lo decide
+ * el núcleo, así que no hay dos formas de nombrar el mismo estado.
+ */
+export interface Parada {
+  readonly parado: boolean
+  /** Desde cuándo, si está puesta. */
+  readonly desde: string | null
+  /** Quién la puso, si consta. */
+  readonly por: string | null
+  readonly clave: string
+}
+
 /** Lo que queda al crear una campaña. Coincide con `CampanaCreadaIpc`. */
 export interface CampanaCreada {
   readonly id: string
@@ -366,7 +381,76 @@ export const useCampanasStore = defineStore('campanas', () => {
   const detener = (id: string, nombreEscrito: string): Promise<boolean> =>
     aplicar('detener_campana', { id, nombreEscrito })
 
+  /**
+   * La parada de emergencia: **todas las campañas a la vez**.
+   *
+   * ═════════════════════════════════════════════════════════════════════════
+   * EL SÉPTIMO CASO DEL PATRÓN, OTRA VEZ, Y EN LA ENTREGA QUE LO ARREGLABA
+   *
+   * La Fase 4 construyó la parada de emergencia. La 7.0 le puso sus tres
+   * comandos de Tauri —parar todo, levantarla y consultarla—, con sus pruebas,
+   * y el simulador de la vista previa los contestaba.
+   *
+   * Y **ninguna pantalla los llamaba**. La comprobación que la 7.0 escribió
+   * para este patrón, `el_freno_llega_hasta_la_pantalla`, sólo miraba pausar,
+   * reanudar y detener: verificaba tres de seis y pasaba en verde.
+   *
+   * Lo encontró otra comprobación en la 7.3, por la dirección contraria: tres
+   * `case` del simulador que nadie pedía. **Un comando sin nadie que lo llame y
+   * un decorado sin nadie que lo use son el mismo hueco visto desde los dos
+   * lados.**
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * Es distinta de detener una campaña, y las dos hacen falta:
+   *
+   *   - **Detener** cancela lo pendiente de una campaña, y no se deshace.
+   *   - **Parar todo** es un interruptor: nada sale de ninguna campaña hasta
+   *     que alguien lo levante, y lo pendiente sigue pendiente. Es lo que se
+   *     pulsa cuando algo va mal y no se sabe todavía qué.
+   *
+   * Por eso ésta **sí se puede levantar** y no pide escribir ningún nombre: lo
+   * que se pide confirmar es lo irreversible, y pedir confirmación para algo
+   * reversible y urgente sólo añade segundos a una emergencia.
+   */
+  const parada = ref<Parada | null>(null)
+
+  async function estadoDelEnvio(): Promise<void> {
+    if (!hayNucleo()) return
+    try {
+      parada.value = await invocar<Parada>('estado_del_envio')
+    } catch (e) {
+      recordarError(e)
+    }
+  }
+
+  /** Pone o levanta la parada. `poner` dice cuál de las dos. */
+  async function cambiarParada(poner: boolean, quien?: string): Promise<boolean> {
+    trabajando.value = true
+    errorGeneral.value = null
+    try {
+      parada.value = poner
+        ? await invocar<Parada>('parar_todo', { quien: quien ?? null })
+        : await invocar<Parada>('levantar_parada')
+      // La lista se refresca por lo mismo que en `aplicar`: si no, la pantalla
+      // sigue enseñando «enviando» sobre campañas que ya no salen.
+      campanas.value = await invocar<Campana[]>('campanas')
+      return true
+    } catch (e) {
+      recordarError(e)
+      return false
+    } finally {
+      trabajando.value = false
+    }
+  }
+
+  const pararTodo = (quien?: string): Promise<boolean> => cambiarParada(true, quien)
+  const levantarParada = (): Promise<boolean> => cambiarParada(false)
+
   return {
+    parada,
+    estadoDelEnvio,
+    pararTodo,
+    levantarParada,
     campanas,
     plantillas,
     firmas,

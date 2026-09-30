@@ -209,27 +209,28 @@ const rutas: RouteRecordRaw[] = [
     meta: { seccion: 'remitentes', subseccion: 'whatsapp', orden: 1 },
   },
   {
+    // Sí es una de las seis (P-13): «cómo va lo que mandé» es lo que se mira
+    // cada mañana mientras hay una campaña enviando, y con tres a la vez
+    // (D-7A) es el sitio donde se compara una con otra.
+    path: '/actividad',
+    name: 'actividad',
+    component: () => import('@/app/pantallas/PantallaActividad.vue'),
+    meta: { seccion: 'actividad' },
+  },
+  {
     path: '/ajustes',
     name: 'ajustes',
     component: () => import('@/app/pantallas/PantallaAjustes.vue'),
     meta: { seccion: 'ajustes' },
   },
-  // Las demás siguen siendo andamio hasta su entrega del roadmap. La lista de
-  // alta de Inicio dice en cuál llega cada una, así que la pantalla vacía no
-  // es una sorpresa.
-  ...SECCIONES.filter(
-    (s) =>
-      s !== 'inicio' &&
-      s !== 'ajustes' &&
-      s !== 'contactos' &&
-      s !== 'campanas' &&
-      s !== 'remitentes',
-  ).map((s) => ({
-    path: `/${s}`,
-    name: s,
-    component: () => import('@/app/PantallaPendiente.vue'),
-    meta: { seccion: s },
-  })),
+  // ── YA NO HAY ANDAMIO ─────────────────────────────────────────────────
+  //
+  // Hasta la 7.3, las secciones sin pantalla se registraban en bloque contra
+  // `PantallaPendiente.vue`. Con Actividad construida, **las seis tienen la
+  // suya**, así que ese bloque dejó de casar con nada y se quitó junto con el
+  // componente: un `filter` que excluye las seis de seis es un `map` sobre una
+  // lista vacía, y el componente al que apuntaba habría quedado sin ruta — el
+  // patrón del §9 justo al revés, y de los que sólo se ven leyendo.
 ]
 
 /**

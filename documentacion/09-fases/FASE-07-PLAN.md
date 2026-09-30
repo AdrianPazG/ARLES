@@ -227,20 +227,48 @@ lo mismo, nunca una consulta aparte que pueda desviarse.
 
 ---
 
-### 7.3 · La pantalla · lo de ahora
+### 7.3 · La pantalla · lo de ahora  ✅ **cerrada el 30/09/2026**
 
 **Se organiza por campaña** (§6 bis), no por métricas globales.
 
-- Una línea arriba: «3 campañas enviando · 47 en la última hora».
-- **Una tarjeta por campaña en marcha**, con su progreso en cifras (§94), su
-  cifra de respuestas (D-7A) y su botón de detener (D-7B).
+- Una franja de totales arriba, que es **la suma de las tarjetas** y no otra
+  consulta, con «2 de 5 campañas enviando».
+- **Una tarjeta por campaña**, con su estado, su progreso en cifras (§94) y su
+  cifra de respuestas (D-7A). El botón de detener **no** se duplicó aquí: vive
+  en Campañas (D-7B) y desde Actividad se llega por un enlace — dos sitios que
+  paran lo mismo acaban diciendo cosas distintas del mismo envío.
 - **Los remitentes y su cupo**, con las campañas que compiten por cada cuenta.
-  Es el problema que va a salir el primer día y la sección que lo explica.
 - La razón por la que algo está quieto, **cuál de las seis es** (propuesta P-A),
-  con su cifra: «vuelve a las 9:00», «quedan 20 para las tres».
-- «Parar todo» en la cabecera, sólo si hay algo enviando (D-7B).
-- Actualización **cada 5 s mientras la pestaña está visible**; al ocultarse, se
-  para. Y sin saltos: los números cambian, la pantalla no se rehace.
+  con su cifra: «Se alcanzó el tope de 100 envíos por hora · desde las 5:52 p.m.».
+  Se enseña sólo cuando la campaña envía y no sale nada: con la campaña
+  avanzando, el último suceso del bucle compite con las cifras.
+- **La parada de emergencia, también aquí.** Es la razón número uno del
+  silencio, y sin ella la pantalla decía «2 de 5 enviando» con el envío entero
+  detenido.
+- Actualización **cada 5 s**, con dos relojes: uno pide datos y otro cuenta la
+  antigüedad. Si el refresco deja de contestar, la pantalla **lo dice** en vez
+  de seguir enseñando cifras congeladas como si fueran de ahora.
+
+**Lo que esta entrega encontró, y no estaba en el plan.** Una comprobación nueva
+—«la vista previa contesta lo que las pantallas piden»— comparó las llamadas del
+frontend con las respuestas del simulador, en las dos direcciones:
+
+| Qué | Cuántos | Efecto |
+|---|---|---|
+| Comandos que la pantalla pide y la demostración no contestaba | 6 | En la vista previa **no se podía crear una campaña, ni activarla, ni revisarla**, ni guardar un horario o un número, ni probar el envío |
+| Comandos del freno que el simulador contestaba y **ninguna pantalla llamaba** | 3 | La **parada de emergencia** llegó al cierre de la 7.0 sin pantalla. `el_freno_llega_hasta_la_pantalla` miraba dos de seis comandos y pasaba en verde |
+
+Los nueve están cerrados. La comprobación del freno ahora lee los comandos de
+`control.rs` en vez de una lista a mano, y no se conforma con que el nombre
+aparezca en un comentario.
+
+**Y tres cosas que sólo se vieron mirando** la demostración, con las once
+pruebas de la pantalla en verde: la aclaración de D-7A repetida en cada tarjeta
+y rompiendo la rejilla, la insignia de estado enterrada al pie —`AModulo` sirve
+`#acciones` abajo—, y las cifras sin separador de millares, «1342» aquí y
+«1,342» en Campañas.
+
+### 7.4 · El registro, con sus filtros
 
 ### 7.4 · El registro, con sus filtros
 

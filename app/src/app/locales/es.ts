@@ -18,23 +18,110 @@ export const es = {
   },
 
   /**
-   * La sección que todavía no existe.
+   * La pantalla de Actividad · entrega 7.3.
    *
-   * Decía «Esta sección se construye en su fase del roadmap. El andamiaje ya
-   * aplica los tokens de diseño, la navegación y los textos localizados» —
-   * escrito dentro del componente, contra el §139, y en el idioma del equipo:
-   * «roadmap», «andamiaje» y «tokens» no le dicen nada a quien usa ARLES.
+   * ───────────────────────────────────────────────────────────────────────────
+   * TRES REGLAS QUE ESTOS TEXTOS CUMPLEN, Y POR QUÉ CADA UNA
    *
-   * Lo que sí necesita quien llega aquí son dos cosas: qué va a ver cuando
-   * exista, y a dónde ir ahora. Las dos caben en un párrafo.
+   * 1. **§65 · «Aceptados» y nunca «entregados».** ARLES sabe que el proveedor
+   *    aceptó el correo. No sabe si llegó a un buzón, y no puede saberlo sin
+   *    leer un inbox (ADR-0009). Decir «entregado» sería vender un dato que no
+   *    existe. Lo vigila una prueba de la pantalla.
+   * 2. **§94 · cifras, no adjetivos.** Ni «casi», ni «pocos», ni «va bien».
+   *    Los números llevan su total al lado: «2 de 6».
+   * 3. **D-7A · cuántos contestaron, nunca qué dijeron.** Dirección lo decidió
+   *    el 29/09/2026: leer las respuestas es trabajo del asesor de ventas en su
+   *    WhatsApp, no de ARLES. Aquí sólo va la cifra.
+   *
+   * Aquí estaba `seccionPendiente`, los textos del andamio. Se fue con él: con
+   * Actividad construida, las seis secciones tienen su pantalla.
    */
-  seccionPendiente: {
-    cuerpo:
-      'Aquí verás el detalle de cada envío: a quién salió, cuándo, y qué ' +
-      'contestó el servidor. Esta parte todavía no está construida.',
-    mientrasTanto: 'Mientras tanto, lo que sí puedes ver hoy:',
-    verCampanas: 'Las cifras de cada campaña',
+  actividad: {
+    titulo: 'Actividad',
+    intro:
+      'Lo que está pasando ahora mismo, campaña por campaña. Se actualiza solo ' +
+      'cada cinco segundos.',
+
+    // ── La frescura del dato ──────────────────────────────────────────────
+    //
+    // Sin esto, cuando el refresco deja de contestar la pantalla se queda con
+    // las cifras de hace un rato **y siguen pareciendo las de ahora**. Alguien
+    // pararía una campaña mirando un número congelado.
+    actualizado: 'Actualizado hace {segundos} s',
+    actualizadoAhora: 'Actualizado ahora mismo',
+    viejo: {
+      que: 'Estas cifras son de hace {segundos} segundos y no se han podido actualizar.',
+      como: 'Comprueba que ARLES sigue abierto y vuelve a entrar en esta pantalla.',
+      salvo: 'El envío no se ha parado: lo que falló es la consulta, no el motor.',
+    },
+
+    // ── Los totales de arriba ─────────────────────────────────────────────
+    totales: 'En total, entre todas las campañas',
+    // §65. Lo que el proveedor aceptó, que no es lo mismo que entregado.
+    salio: 'Aceptados',
+    pendiente: 'Por enviar',
+    fallo: 'Fallaron',
+    enMarcha: '{n} de {total} campañas enviando',
+    // Con la parada de emergencia puesta, esa cifra es de un estado que ya no
+    // es cierto: las campañas siguen «enviando» y **no sale nada**.
+    enMarchaDetenido: 'El envío está detenido: no sale nada',
+    // El botón para levantarla vive en Campañas (D-7B), así que de aquí se
+    // dice dónde está y no se duplica el control.
+    paradaComo:
+      'El botón para reanudarlo está en Campañas. Ninguna cifra de abajo va a ' +
+      'avanzar mientras siga puesto.',
+
+    // ── Cada campaña ──────────────────────────────────────────────────────
+    audiencia: 'Audiencia congelada',
+    dadoDeBaja: 'Se dieron de baja',
+    cancelado: 'Cancelados',
+    // D-7A: la cifra, y nada más.
+    respondieron: 'Contestaron',
+    respondieronNota:
+      'ARLES cuenta cuántas personas contestaron. No guarda lo que dijeron.',
+
+    // ── El ritmo y lo que falta ───────────────────────────────────────────
+    ritmo: 'Al ritmo de las últimas 6 h: {porHora} por hora',
+    ritmoCero: 'En las últimas 6 h no salió ninguno',
+    // «unas» a propósito: es una proyección, y darla como exacta sería la clase
+    // de promesa que el §94 prohíbe. La cifra es cifra; lo que se matiza es la
+    // certeza, no el número.
+    faltan: 'Quedan {n} por enviar: unas {horas} h a este ritmo',
+
+    // ── Por qué está quieta (propuesta P-A del plan de la Fase 7) ─────────
+    //
+    // Es el dato de más valor de la pantalla. Un cero sin explicación es lo que
+    // hace que alguien reinicie el programa, y reiniciar no arregla «fuera de
+    // ventana» ni «sin cupo». El motor conocía las seis razones desde la Fase 4
+    // y las tiraba todas.
+    razon: 'Por qué no sale nada ahora',
+    razonDesde: 'Desde las {hora}',
+    sinRazon: 'Esta campaña todavía no ha dado ninguna vuelta.',
+
+    // ── Los remitentes y su cupo ──────────────────────────────────────────
+    remitentes: 'El cupo de cada remitente, hoy',
+    cupoDia: '{gastado} de {tope} hoy',
+    cupoDiaSinTope: '{gastado} hoy, sin tope',
+    cupoHora: '{gastado} de {tope} esta hora',
+    cupoHoraSinTope: '{gastado} esta hora, sin tope',
+    // Lo que explica por qué dos campañas están quietas cuando una tercera se
+    // comió el cupo. Sin los nombres, «quedan 20 de 500» no dice de quién.
+    reparto: 'Comparten este cupo: {campanas}',
+    sinRemitentes: 'Todavía no hay ninguna cuenta remitente configurada.',
+
+    // ── Los vacíos y las salidas ──────────────────────────────────────────
+    sinCampanas: {
+      titulo: 'Todavía no hay ninguna campaña',
+      cuerpo:
+        'Cuando crees y actives una campaña, aquí verás lo que va pasando.',
+      accion: 'Crear una campaña',
+    },
+    // La 7.0 puso el freno en Campañas (D-7B): es donde ya está la lista, y
+    // duplicar el botón en dos pantallas es como se acaba con dos sitios que
+    // dicen cosas distintas del mismo envío.
+    parar: 'Pausar o detener una campaña',
     verBajas: 'Quién pidió no recibir',
+    verRemitentes: 'Las cuentas remitentes',
   },
 
   nav: {
@@ -456,6 +543,27 @@ export const es = {
       levantarExplicacion:
         'Quitar la parada no reanuda ninguna campaña: las que estaban en ' +
         'pausa siguen en pausa. Cada una se vuelve a arrancar por separado.',
+
+      // ── EL AVISO DE LA PANTALLA DE CAMPAÑAS · entrega 7.3 ──────────────
+      //
+      // Tres partes porque lo pide el §95: qué pasó, cómo se arregla y qué
+      // está a salvo. Y hacen falta las tres: alguien que ve «envío detenido»
+      // sin saber si se perdió algo, lo primero que hace es volver a crear la
+      // campaña — y ahí sí se duplican correos.
+      //
+      // La parada vive en la base y **sobrevive a cerrar ARLES**, así que este
+      // aviso puede estar diciendo algo que se decidió ayer. Por eso va con su
+      // fecha al lado.
+      avisoQue: 'El envío está detenido: no sale nada de ninguna campaña.',
+      avisoComo:
+        'Pulsa «Reanudar los envíos» cuando lo que pasaba esté resuelto. Cada ' +
+        'campaña sigue en el estado en que estaba.',
+      avisoSalvo:
+        'No se canceló ningún mensaje: lo que estaba por enviar sigue por ' +
+        'enviar, y nadie va a recibir nada dos veces.',
+      // Sin punto final: la hora en español de México termina en «p.m.», y el
+      // punto del texto daba «… 8:44 p.m..». Se vio mirando la pantalla.
+      desdeCuando: 'Detenido desde el {cuando}',
     },
 
     error: {
@@ -1301,6 +1409,11 @@ export const es = {
     cargando: 'Buscando tus campañas',
     // §94: una cifra, no «varias en marcha».
     enMarcha: '{n} enviando ahora',
+    // Con la parada de emergencia puesta, «2 enviando ahora» es falso: no sale
+    // nada. La pantalla enseñaba el aviso rojo arriba y esta cifra debajo,
+    // contradiciéndolo. Se vio mirando la demostración con la parada puesta.
+    enMarchaDetenido: 'Ninguna está enviando: el envío está detenido',
+
 
     columna: {
       nombre: 'Campaña',

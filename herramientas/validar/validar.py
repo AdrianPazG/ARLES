@@ -3964,20 +3964,60 @@ def el_freno_llega_hasta_la_pantalla():
     La otra mitad del §1. Un comando que ninguna pantalla invoca es el mismo
     hueco una capa más arriba — es exactamente lo que pasó con
     `guardar_plantilla` en la Fase 6, que tenía comando y no tenía editor.
-    """
-    fuentes = []
-    for carpeta, nombre in (
-        ("pantallas", "PantallaCampanas.vue"),
-        ("pantallas", "PantallaActividad.vue"),
-        ("stores", "campanas.ts"),
-        ("stores", "actividad.ts"),
-    ):
-        ruta = os.path.join(RAIZ, "app", "src", "app", carpeta, nombre)
-        if os.path.exists(ruta):
-            fuentes.append(open(ruta, encoding="utf-8").read())
-    unido = "".join(fuentes)
 
-    faltan = [c for c in ("detener_campana", "pausar_campana") if c not in unido]
+    ───────────────────────────────────────────────────────────────────────────
+    Y ESTA COMPROBACIÓN TUVO EL MISMO DEFECTO QUE PERSEGUÍA
+
+    Miraba **dos de los seis** comandos de control: `pausar_campana` y
+    `detener_campana`. Los tres de la parada de emergencia —`parar_todo`,
+    `levantar_parada`, `estado_del_envio`— no estaban en la lista, así que
+    llegaron al cierre de la 7.0 **sin ninguna pantalla que los llamara** y
+    esta comprobación pasó en verde las dos veces que se corrió.
+
+    Lo encontró otra, por la dirección contraria: tres `case` del simulador de
+    la vista previa que nadie pedía. Un comando sin nadie que lo llame y un
+    decorado sin nadie que lo use son el mismo hueco visto desde los dos lados.
+
+    Ahora la lista se lee **de los propios comandos de `control.rs`**, no a
+    mano: el día que se añada un séptimo, entra aquí solo. Una lista escrita a
+    mano es lo que dejó fuera a los tres de arriba.
+    """
+    import re as _re
+
+    fuentes = []
+    # Se leen todas las pantallas y todos los almacenes, y no cuatro archivos
+    # elegidos: el freno podría vivir en otra pantalla —y de hecho la parada de
+    # emergencia acabó en Campañas, que sí estaba, mientras los comandos no
+    # estaban en la lista de comandos—.
+    for carpeta in ("pantallas", "stores"):
+        raiz = os.path.join(RAIZ, "app", "src", "app", carpeta)
+        for archivo in sorted(os.listdir(raiz)):
+            if archivo.endswith((".vue", ".ts")) and not archivo.endswith(".spec.ts"):
+                fuentes.append(open(os.path.join(raiz, archivo), encoding="utf-8").read())
+
+    # ── SIN COMENTARIOS, Y LA PRIMERA VERSIÓN CON ELLOS ────────────────────
+    #
+    # Buscaba el nombre del comando en el archivo entero. Y el almacén los
+    # nombra en un comentario —el que cuenta por qué la parada llegó tarde—, así
+    # que **la comprobación se satisfacía con la explicación del defecto**.
+    # Comprobado el 30/09/2026: renombrando las dos llamadas a `xx_parar_todo`,
+    # seguía pasando en verde.
+    #
+    # Ahora se quitan los comentarios de línea y de bloque antes de buscar, y lo
+    # que se busca es el nombre **entre comillas**, que es como viaja en una
+    # llamada. Hablar de un comando no es llamarlo.
+    sin_comentarios = _re.sub(r"/\*.*?\*/|//[^\n]*|<!--.*?-->", "", "".join(fuentes), flags=_re.S)
+    unido = sin_comentarios
+
+    control = leer("crates", "arles-app", "src", "control.rs")
+    del_nucleo = _re.findall(r"#\[tauri::command\]\s*\npub fn (\w+)", control)
+    assert del_nucleo, "no se leyó ningún comando de control.rs: el patrón dejó de casar"
+
+    faltan = [
+        c
+        for c in sorted(del_nucleo)
+        if f"'{c}'" not in unido and f'"{c}"' not in unido
+    ]
     check(
         7,
         "el freno llega hasta la pantalla",
@@ -4176,6 +4216,80 @@ def las_cifras_salen_de_un_solo_sitio():
     )
 
 
+def todo_comando_que_piden_las_pantallas_lo_contesta_el_simulador():
+    """Un comando que el frontend invoca y la vista previa no contesta **es un error en pantalla**.
+
+    ───────────────────────────────────────────────────────────────────────────
+    EL QUINTO CASO DEL PATRÓN, Y EL QUE MÁS CARO SALIÓ
+
+    La vista previa es **donde Dirección revisa**. Su simulador responde los
+    comandos de Tauri con datos de mentira, y lo que no responde acaba en un
+    `Promise.reject` que la pantalla enseña como un error — o peor, en una
+    pantalla vacía sin explicación.
+
+    Pasó con **once comandos a la vez**, en cinco pantallas, y se descubrió
+    recorriendo la demostración a mano. Nada podía cazarlo: las pruebas de Rust
+    miran el núcleo, las de Vue montan los componentes con el store ya relleno,
+    y el simulador es un literal de JavaScript que nadie compila.
+
+    Se comprueba en las dos direcciones a propósito:
+
+      - Un comando que el frontend pide y el simulador no contesta → la
+        demostración enseña un error donde el producto funciona.
+      - Un `case` del simulador que ningún comando pide → código muerto que
+        alguien mantiene creyendo que sirve, y que esconde el renombrado de un
+        comando: el simulador sigue contestando al nombre viejo y la pantalla
+        pide el nuevo.
+    """
+    import re as _re
+
+    simulador = leer("herramientas", "vista-previa", "simulador.js")
+    contesta = set(_re.findall(r"case \"([a-z_]+)\":|case '([a-z_]+)':", simulador))
+    contesta = {a or b for a, b in contesta}
+    assert contesta, "no se leyó ningún `case` del simulador: la comparación sería contra la nada"
+
+    # ── DOS LECTURAS, PORQUE LA PRIMERA VERSIÓN SE EQUIVOCÓ EN UNA ──────────
+    #
+    # `piden` son las llamadas con el nombre escrito en la propia llamada:
+    # `invocar<Algo>('nombre')`. Es lo que hace falta para saber que un comando
+    # **se usa**, y es fiable.
+    #
+    # `nombrados` es cualquier aparición del literal en el frontend, y hace
+    # falta para la dirección contraria: el freno invoca a través de una
+    # variable —`aplicar('detener_campana', …)`, con el comando en una unión de
+    # tipos—, así que buscando sólo `invocar('…')` esta comprobación denunciaba
+    # como muerto un `case` que se usa todos los días. Ocho falsos positivos en
+    # su estreno, que es la forma más barata de descubrir que mide mal.
+    piden = set()
+    nombrados = set()
+    for carpeta, _, archivos in os.walk(os.path.join(RAIZ, "app", "src")):
+        for archivo in sorted(archivos):
+            if not archivo.endswith((".ts", ".vue")) or archivo.endswith(".spec.ts"):
+                continue
+            fuente = open(os.path.join(carpeta, archivo), encoding="utf-8").read()
+            piden |= set(
+                _re.findall(r"invocar(?:<[^>]*>)?\(\s*[\"']([a-z_]+)[\"']", fuente)
+            )
+            nombrados |= set(_re.findall(r"[\"']([a-z_]+_[a-z_]+)[\"']", fuente))
+    assert piden, "no se leyó ninguna llamada a `invocar`: el patrón dejó de casar"
+
+    # El arranque de la aplicación pide estos tres antes de que haya pantalla;
+    # los invoca `app.ts` con el nombre escrito, así que salen por `piden`.
+    malos = []
+    for cmd in sorted(piden - contesta):
+        malos.append(f"la pantalla pide «{cmd}» y el simulador no lo contesta")
+    for cmd in sorted(contesta - piden - nombrados):
+        malos.append(f"el simulador contesta «{cmd}» y nadie en el frontend lo nombra")
+
+    check(
+        7,
+        "la vista previa contesta lo que las pantallas piden",
+        not malos,
+        "\n      ".join(malos),
+        todo_comando_que_piden_las_pantallas_lo_contesta_el_simulador.__doc__,
+    )
+
+
 def fase_7(rapido=False):
     print(f"{NEGRITA}Fase 7 · Actividad y entregabilidad{FIN}")
 
@@ -4189,6 +4303,9 @@ def fase_7(rapido=False):
 
     print(f"{GRIS}  las cifras (7.2){FIN}")
     las_cifras_salen_de_un_solo_sitio()
+
+    print(f"{GRIS}  la pantalla de lo de ahora (7.3){FIN}")
+    todo_comando_que_piden_las_pantallas_lo_contesta_el_simulador()
 
 
 # El canal de WhatsApp no es una fase numerada: cruza la 5 y la 6 y se entregó

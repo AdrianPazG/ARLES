@@ -349,4 +349,66 @@ describe('el asistente de campaña', () => {
     expect(texto).toContain('27 días')
     expect(texto).toContain('34 de 1342')
   })
+  // ═══════════════════════════════════════════════════════════════════════
+  // LA PARADA DE EMERGENCIA · enchufada en la 7.3
+  //
+  // La Fase 4 la construyó, la 7.0 le puso sus tres comandos con sus pruebas, y
+  // **ninguna pantalla los llamaba**. La comprobación que la 7.0 escribió para
+  // este patrón sólo miraba pausar, reanudar y detener: verificaba tres de seis
+  // y pasaba en verde. Estas dos pruebas miran los otros tres.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * **Con la parada puesta, la pantalla lo dice y ofrece levantarla.**
+   *
+   * Sin el aviso, cada cifra de la tabla es de algo que no está saliendo y no
+   * hay nada que lo diga: alguien mira «enviando, 340 de 1 342» y espera a que
+   * avance para siempre.
+   *
+   * Verificada rompiéndola el 30/09/2026 quitando el bloque del aviso: falla
+   * porque no encuentra el texto de la parada ni el botón de reanudar.
+   */
+  it('avisa de la parada de emergencia y ofrece reanudar', async () => {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.campanas = [CAMPANA]
+    campanas.parada = {
+      parado: true,
+      desde: '2026-09-30T16:40:00Z',
+      por: 'Adrián',
+      clave: 'campana.parada.puesta',
+    }
+
+    const w = mount(PantallaCampanas, entorno)
+    await w.vm.$nextTick()
+
+    expect(w.text()).toContain('no sale nada de ninguna campaña')
+    // §95: las tres partes, no sólo el qué.
+    expect(w.text()).toContain('sigue por enviar')
+    const botones = w.findAll('button').map((b) => b.text())
+    expect(botones.join(' | ')).toContain('Reanudar los envíos')
+    // Y no ofrece parar otra vez lo que ya está parado.
+    expect(botones.join(' | ')).not.toContain('Detener todos los envíos')
+  })
+
+  /**
+   * **Y sin la parada puesta, el botón de pararlo todo está.**
+   *
+   * Es la mitad que faltaba: un aviso que sólo aparece cuando ya está parado no
+   * sirve de nada si no hay forma de pararlo. Ésta es la prueba que habría
+   * fallado desde la 7.0.
+   */
+  it('con el envío activo ofrece la parada de emergencia', async () => {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.campanas = [CAMPANA]
+    campanas.parada = { parado: false, desde: null, por: null, clave: 'campana.parada.levantada' }
+
+    const w = mount(PantallaCampanas, entorno)
+    await w.vm.$nextTick()
+
+    const botones = w.findAll('button').map((b) => b.text())
+    expect(botones.join(' | ')).toContain('Detener todos los envíos')
+    expect(w.text()).not.toContain('no sale nada de ninguna campaña')
+  })
 })

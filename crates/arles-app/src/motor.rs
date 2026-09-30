@@ -284,23 +284,7 @@ fn anotar_el_paso(
     // cadenas— y repetirlo sería una segunda copia que puede divergir.
     let canal = etapa.canal.como_texto();
 
-    let (intento, a, b) = match paso {
-        Paso::Reintentara { intento, cual, de } => (
-            Some(intento.as_str()),
-            Some(i64::from(*cual)),
-            Some(i64::from(*de)),
-        ),
-        Paso::Baja { intento }
-        | Paso::Cancelado { intento }
-        | Paso::Aceptado { intento }
-        | Paso::Rendido { intento }
-        | Paso::DadoDeBaja { intento }
-        | Paso::CuentaParada { intento } => (Some(intento.as_str()), None, None),
-        Paso::CuentaEnPausa { segundos_restantes } => {
-            (None, i64::try_from(*segundos_restantes).ok(), None)
-        }
-        _ => (None, None, None),
-    };
+    let (intento, a, b) = cifras_del_paso(paso);
 
     let suceso = SucesoNuevo {
         clave: paso.clave_i18n(),
@@ -318,6 +302,66 @@ fn anotar_el_paso(
     } else {
         db.anotar_si_cambia(empresa, &suceso).map(|_| ())
     };
+}
+
+/// El intento y las dos cifras que acompañan a un paso.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTÁ FUERA DE `anotar_el_paso`
+///
+/// Para poder probarla sin base de datos y sin motor, que es lo que hace falta
+/// para comprobar la garantía de verdad: **que cada clave que lleva un
+/// marcador en su texto traiga la cifra que ese marcador necesita**. Dentro de
+/// `anotar_el_paso` haría falta montar un `Db` y una etapa para responder a una
+/// pregunta que no depende de ninguno de los dos.
+///
+/// El orden de las dos cifras es el orden en que aparecen los marcadores en el
+/// texto del catálogo. Lo comprueba `toda_razon_trae_las_cifras_de_su_texto`.
+fn cifras_del_paso(paso: &Paso) -> (Option<&str>, Option<i64>, Option<i64>) {
+    match paso {
+        Paso::Reintentara { intento, cual, de } => (
+            Some(intento.as_str()),
+            Some(i64::from(*cual)),
+            Some(i64::from(*de)),
+        ),
+        // `de` y no nada: el texto dice «Se agotaron los **{de}** intentos», y
+        // sin la cifra la pantalla enseñaba el marcador. El número sale de la
+        // misma constante del núcleo que usa la decisión de reintentar, no de
+        // una copia: dos formas de decir cuántos intentos hay es como se acaba
+        // enseñando «se agotaron los 3» cuando la tabla tiene cuatro.
+        Paso::Rendido { intento } => (
+            Some(intento.as_str()),
+            Some(i64::from(arles_core::reintento::total_de_reintentos())),
+            None,
+        ),
+        Paso::Baja { intento }
+        | Paso::Cancelado { intento }
+        | Paso::Aceptado { intento }
+        | Paso::DadoDeBaja { intento }
+        | Paso::CuentaParada { intento } => (Some(intento.as_str()), None, None),
+        Paso::CuentaEnPausa { segundos_restantes } => {
+            (None, i64::try_from(*segundos_restantes).ok(), None)
+        }
+        // ── EL TOPE, CON SU CIFRA ──────────────────────────────────────────
+        //
+        // Sin esto, `SinPresupuesto` caía en el `_` de abajo y se anotaba sin
+        // números. Y su texto —`ritmo.topeDeLaHora`— dice «Se alcanzó el tope
+        // de **{cabian}** envíos por hora»: la pantalla habría enseñado el
+        // marcador `{cabian}` tal cual, en la razón más frecuente de las seis.
+        //
+        // No lo cazaba ninguna prueba porque las dos capas pasan lo suyo: el
+        // motor anota una clave correcta, y el catálogo tiene su texto. El
+        // hueco está en que la clave pide una cifra que nadie guardó. Lo caza
+        // ahora `toda_razon_trae_las_cifras_de_su_texto()`.
+        Paso::SinPresupuesto(
+            arles_core::ritmo::NoSePuede::TopeDeLaHora { cabian }
+            | arles_core::ritmo::NoSePuede::TopeDelDia { cabian },
+        ) => (None, Some(i64::from(*cabian)), None),
+        Paso::Parado
+        | Paso::FueraDeVentana
+        | Paso::NoHayTrabajo
+        | Paso::SinPresupuesto(arles_core::ritmo::NoSePuede::FueraDeVentana) => (None, None, None),
+    }
 }
 
 /// Duerme, pero mirando la bandera de parada por el camino.
@@ -668,5 +712,200 @@ mod el_pegamento {
         una_vuelta(&db, &LlaveroDeMentira, &AtomicBool::new(true));
 
         assert_eq!(estado_del_intento(&db), "queued");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // LA CLAVE Y SU CIFRA · entrega 7.3
+    //
+    // El hueco que esto caza es del octavo tipo del §9 y el más difícil de
+    // ver: las dos capas pasan lo suyo. El motor anota una clave correcta
+    // —`ritmo.topeDeLaHora`—, y el catálogo tiene su texto —«Se alcanzó el tope
+    // de {cabian} envíos por hora»—. Nadie compara las dos cosas, y lo que
+    // llega a la pantalla es el marcador `{cabian}` tal cual, en la razón más
+    // frecuente por la que una campaña está quieta.
+    //
+    // Lo encontró esta prueba antes de existir la pantalla, en dos claves:
+    // `ritmo.topeDeLaHora`/`topeDelDia`, que caían en el `_` del `match`, y
+    // `reintento.seAgotaronLosIntentos`, que pedía `{de}` y no traía nada.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Cuántos marcadores `{…}` tiene el texto de una clave del catálogo.
+    ///
+    /// Lee `es.ts` de verdad y no una copia: el catálogo es la fuente, y una
+    /// lista de marcadores escrita a mano aquí se quedaría vieja el día que
+    /// alguien reescriba un texto — que es exactamente el día en que hace falta
+    /// que esta prueba salte.
+    fn marcadores_de(clave: &str) -> usize {
+        let catalogo = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../app/src/app/locales/es.ts"),
+        )
+        .expect("el catálogo de textos está en el repositorio");
+
+        // La clave viaja como `grupo.nombre`, y en `es.ts` vive anidada. Se
+        // busca el grupo y dentro de él la propiedad, que es lo bastante
+        // preciso para las claves de un nivel que emite el motor. Si algún día
+        // hubiera dos niveles, esta prueba fallaría al no encontrar el texto —
+        // que es el fallo correcto: obliga a mirarla.
+        let (grupo, nombre) = clave.split_once('.').expect("la clave es grupo.nombre");
+        let desde = catalogo
+            .find(&format!("\n  {grupo}: {{"))
+            .unwrap_or_else(|| panic!("el catálogo no tiene el grupo «{grupo}» de «{clave}»"));
+        // El grupo acaba en el primer `\n  },` a su nivel de sangría.
+        let hasta = catalogo[desde..]
+            .find("\n  },")
+            .map_or(catalogo.len(), |n| desde + n);
+        let bloque = &catalogo[desde..hasta];
+
+        // ── SE RECORRE POR LÍNEAS, Y LA PRIMERA VERSIÓN NO ──────────────────
+        //
+        // Buscaba el fin del texto con `find("\n    ")`, cuatro espacios. Y
+        // `\n      ` —seis, la continuación de un texto partido con `+`— empieza
+        // por esos cuatro, así que cortaba en la primera continuación y se
+        // perdía los marcadores de la segunda línea. Se vio al estrenarla:
+        // `motor.laCuentaEstaEnPausa` salía con cero marcadores y su `{minutos}`
+        // está justo ahí. Otra comprobación que miraba la línea equivocada (§2).
+        //
+        // Ahora una línea pertenece al texto mientras esté MÁS sangrada que la
+        // propiedad, que es lo que significa ser su continuación.
+        let mut dentro = false;
+        let mut texto = String::new();
+        for linea in bloque.lines() {
+            let sangria = linea.len() - linea.trim_start().len();
+            if dentro {
+                // Una línea al nivel de la propiedad o menos cierra el texto.
+                if !linea.trim().is_empty() && sangria <= 4 {
+                    break;
+                }
+                texto.push_str(linea);
+            } else if linea.trim_start().starts_with(&format!("{nombre}:")) && sangria == 4 {
+                dentro = true;
+                texto.push_str(linea);
+            }
+        }
+        assert!(dentro, "el grupo «{grupo}» no tiene «{nombre}»");
+
+        // Un comentario de línea detrás del texto no forma parte de él, y podría
+        // llevar llaves: se corta cada línea en su `//`.
+        texto
+            .lines()
+            .filter_map(|l| l.split("//").next())
+            .map(|l| l.matches('{').count())
+            .sum()
+    }
+
+    /// **Cada clave que el motor anota trae las cifras que su texto pide.**
+    ///
+    /// Si el texto dice «{cabian} envíos por hora», el suceso tiene que traer
+    /// una cifra; si dice «{cual} de {de}», dos. Un marcador sin cifra sale a la
+    /// pantalla tal cual, y una cifra sin marcador es un dato que nadie enseña.
+    ///
+    /// Verificada rompiéndola el 30/09/2026 de dos formas: devolviendo
+    /// `(None, None, None)` para `SinPresupuesto` falla con
+    /// «ritmo.topeDeLaHora: el texto pide 1 cifra(s) y el paso trae 0», y
+    /// quitando el `de` de `Rendido` falla igual con
+    /// `reintento.seAgotaronLosIntentos`.
+    #[test]
+    fn toda_razon_trae_las_cifras_de_su_texto() {
+        use arles_core::ritmo::NoSePuede;
+
+        // Las trece variantes, con un valor cualquiera: lo que se comprueba es
+        // la forma, no los números. La lista es exhaustiva a mano **y el
+        // `match` de `cifras_del_paso` no tiene comodín**, así que un `Paso`
+        // nuevo no compila hasta que alguien decida sus cifras — y entonces
+        // esta prueba comprueba que coinciden con su texto.
+        let un_id = || "intento-1".to_owned();
+        let pasos = vec![
+            Paso::Parado,
+            Paso::FueraDeVentana,
+            Paso::NoHayTrabajo,
+            Paso::SinPresupuesto(NoSePuede::FueraDeVentana),
+            Paso::SinPresupuesto(NoSePuede::TopeDeLaHora { cabian: 100 }),
+            Paso::SinPresupuesto(NoSePuede::TopeDelDia { cabian: 500 }),
+            Paso::Baja { intento: un_id() },
+            Paso::Cancelado { intento: un_id() },
+            Paso::Aceptado { intento: un_id() },
+            Paso::Reintentara {
+                intento: un_id(),
+                cual: 2,
+                de: 3,
+            },
+            Paso::Rendido { intento: un_id() },
+            Paso::DadoDeBaja { intento: un_id() },
+            Paso::CuentaParada { intento: un_id() },
+            Paso::CuentaEnPausa {
+                segundos_restantes: 1_380,
+            },
+        ];
+
+        for paso in &pasos {
+            let clave = paso.clave_i18n();
+            let (_, a, b) = cifras_del_paso(paso);
+            let cifras = usize::from(a.is_some()) + usize::from(b.is_some());
+            let pide = marcadores_de(clave);
+            assert_eq!(
+                pide, cifras,
+                "{clave}: el texto pide {pide} cifra(s) y el paso trae {cifras}"
+            );
+        }
+    }
+
+    /// **Y el catálogo tiene texto para las catorce**, no sólo para las que
+    /// alguien se acordó de escribir.
+    ///
+    /// Sin esta segunda prueba, un `Paso` cuya clave no existe en `es.ts` pasa
+    /// la de arriba —cero marcadores, cero cifras— y la pantalla enseña la
+    /// clave cruda, `motor.parado`, delante del usuario. Es lo que hace el §139
+    /// con los errores; los pasos del motor no lo tenían.
+    #[test]
+    fn el_catalogo_tiene_texto_para_cada_paso_del_motor() {
+        use arles_core::ritmo::NoSePuede;
+
+        for clave in [
+            Paso::Parado.clave_i18n(),
+            Paso::FueraDeVentana.clave_i18n(),
+            Paso::NoHayTrabajo.clave_i18n(),
+            Paso::SinPresupuesto(NoSePuede::FueraDeVentana).clave_i18n(),
+            Paso::SinPresupuesto(NoSePuede::TopeDeLaHora { cabian: 1 }).clave_i18n(),
+            Paso::SinPresupuesto(NoSePuede::TopeDelDia { cabian: 1 }).clave_i18n(),
+            Paso::Baja {
+                intento: String::new(),
+            }
+            .clave_i18n(),
+            Paso::Cancelado {
+                intento: String::new(),
+            }
+            .clave_i18n(),
+            Paso::Aceptado {
+                intento: String::new(),
+            }
+            .clave_i18n(),
+            Paso::Reintentara {
+                intento: String::new(),
+                cual: 1,
+                de: 1,
+            }
+            .clave_i18n(),
+            Paso::Rendido {
+                intento: String::new(),
+            }
+            .clave_i18n(),
+            Paso::DadoDeBaja {
+                intento: String::new(),
+            }
+            .clave_i18n(),
+            Paso::CuentaParada {
+                intento: String::new(),
+            }
+            .clave_i18n(),
+            Paso::CuentaEnPausa {
+                segundos_restantes: 0,
+            }
+            .clave_i18n(),
+        ] {
+            // `marcadores_de` entra en pánico con un mensaje que nombra la
+            // clave si no la encuentra, que es la comprobación.
+            let _ = marcadores_de(clave);
+        }
     }
 }

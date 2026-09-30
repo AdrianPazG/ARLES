@@ -297,12 +297,19 @@ sondas en verde. Está contado más arriba, en «Lo que sólo se ve mirando».
 [`documentacion/09-fases/FASE-07-PLAN.md`](documentacion/09-fases/FASE-07-PLAN.md):
 siete entregas, tres decisiones que esperan a Dirección y cinco propuestas.
 
-**Y el séptimo caso del patrón, que la 7.0 arregla primero porque es urgente:**
-la Fase 4 construyó Pausar, Reanudar, Detener y la parada de emergencia, están
-probados y `arles-db` los expone… y **ningún comando de Tauri los llama**. Los
-textos en español llevan desde la Fase 6 escritos en `es.ts`. Hoy **una campaña
-activada no se puede parar desde la interfaz**, y eso bloquea la demostración y
-la prueba real con correo (R-24).
+**Cerrada la 7.0** —el freno—, **la 7.1** —el registro de actividad—, **la 7.2**
+—las cifras de cada campaña— y **la 7.3, la pantalla de Actividad**: una tarjeta
+por campaña con sus cifras, cuánta gente contestó (D-7A, nunca qué dijeron), el
+cupo de cada remitente con las campañas que se lo reparten, y **por qué no sale
+nada** — cuál de las seis razones es, con su cifra. `validar.py --fase 7` en 6/6.
+
+Con Actividad construida **las seis secciones tienen su pantalla**, así que el
+andamio (`PantallaPendiente.vue`) se fue con ella.
+
+**La parada de emergencia ya se puede pulsar.** La Fase 4 la construyó, la 7.0 le
+puso sus tres comandos… y ninguna pantalla los llamaba. Está en Campañas (D-7B),
+y Actividad la enseña porque es la razón número uno por la que no sale nada.
+
 
 **Para una demostración real** con correo y WhatsApp que llegan de verdad:
 `documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md`.
@@ -312,7 +319,7 @@ la prueba real con correo (R-24).
 pantalla, de dónde saca los datos, dónde están sus textos y qué comprobación
 salta si se rompe.
 
-### El patrón que ya ha aparecido cinco veces
+### El patrón que ya ha aparecido ocho veces
 
 **Una pieza correcta, probada, y nadie la usa.** Ninguna prueba lo caza, porque
 una prueba comprueba que la pieza funciona, no que otro módulo la llame: el
@@ -325,10 +332,20 @@ hueco vive justo entre dos capas que cada una pasa lo suyo.
 | 6.8b | `whatsapp_template`, una tabla sin nadie que escribiera en ella |
 | 6.8a | `PantallaPlantillas.vue`, trece kilobytes sin ruta |
 | Vista previa | Once comandos sin respuesta en el simulador |
+| 7.0 | La **parada de emergencia**: tres comandos con pruebas, y ninguna pantalla los llamaba. La comprobación que la 7.0 escribió para este patrón miraba **dos de seis** comandos |
+| 7.3 | Seis comandos más que la vista previa no contestaba: en la demostración no se podía crear ni activar una campaña |
+| 7.3 | `ritmo_por_hora`, construido en la 7.2 sin nadie que lo llamara — y la comprobación no lo cazaba porque verificaba que el comando existiera, no que llamara |
 
-Los cinco los caza ahora `validar.py --fase W`:
+Los cinco primeros los caza `validar.py --fase W`:
 `lo_que_se_construye_se_usa`, `ninguna_tabla_se_queda_sin_escritor`,
 `toda_pantalla_se_puede_abrir` y la sonda del recorrido.
+
+Y los tres últimos, `--fase 7`: `el_freno_llega_hasta_la_pantalla` —que ahora
+lee los comandos de `control.rs` en vez de una lista a mano— y **`la vista previa
+contesta lo que las pantallas piden`**, que compara las llamadas del frontend
+con los `case` del simulador **en las dos direcciones**. Esa última es la que
+encontró los tres huecos de la 7.3: un comando sin nadie que lo llame y un
+decorado sin nadie que lo use son el mismo hueco visto desde los dos lados.
 
 **Al añadir algo, la pregunta no es «¿funciona?» sino «¿quién lo llama?».**
 

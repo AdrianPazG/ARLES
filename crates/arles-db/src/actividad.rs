@@ -15,6 +15,8 @@
 //! viernes a las 18:00 diciendo que se acabó el horario, y la del lunes a las
 //! 9:00 diciendo que volvió. Que es exactamente lo que alguien querría leer.
 
+use std::collections::HashMap;
+
 use arles_core::ids::{ActivityEventId, CompanyId};
 use rusqlite::{Connection, OptionalExtension, params};
 
@@ -217,6 +219,76 @@ impl Db {
                 .collect::<Result<Vec<_>, _>>()?;
 
             Ok(Pagina { sucesos, total })
+        })
+    }
+
+    /// **Por qué está quieta cada campaña.**
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// EL FALLO MÁS FRECUENTE DE UN PRODUCTO ASÍ NO ES UN ERROR: ES EL SILENCIO
+    ///
+    /// ARLES puede estar completamente quieto por **seis razones distintas**,
+    /// todas correctas: fuera de horario, sin cupo, disyuntor abierto, campaña
+    /// en pausa, parada de emergencia, o una cuenta sin contraseña. Quien mira
+    /// la pantalla no ve ninguna: ve que no pasa nada, y concluye que ARLES se
+    /// rompió.
+    ///
+    /// El motor ya las calcula las seis —son variantes de `Paso`, cada una con
+    /// su texto en español—, y desde la 7.1 quedan escritas. Esto las lee.
+    ///
+    /// Devuelve el **último suceso de bucle** de cada campaña, que es
+    /// literalmente la última razón por la que el motor no envió. Los
+    /// desenlaces no cuentan: «se aceptó un correo» no explica por qué ahora
+    /// no sale ninguno.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla.
+    pub fn por_que_esta_quieta_cada_campana(
+        &self,
+        empresa: CompanyId,
+    ) -> Result<HashMap<String, Suceso>, DbError> {
+        self.con(|conn| {
+            // Una sola consulta para todas las campañas, y no una por campaña:
+            // con tres enviando y treinta en el historial serían treinta y tres
+            // viajes cada cinco segundos.
+            //
+            // `MAX(rowid)` por campaña es el último insertado, por el mismo
+            // motivo que en `anotar_si_cambia`: el rowid es monótono y no hace
+            // falta ordenar por fecha.
+            let mut q = conn.prepare(
+                "SELECT e.campaign_id, e.id, e.kind, e.number_a, e.number_b, e.occurred_at
+                   FROM activity_event e
+                   JOIN (SELECT campaign_id, MAX(rowid) AS ultimo
+                           FROM activity_event
+                          WHERE company_id = ?1
+                            AND is_outcome = 0
+                            AND campaign_id IS NOT NULL
+                          GROUP BY campaign_id) u
+                     ON u.ultimo = e.rowid",
+            )?;
+
+            let mut por_campana = HashMap::new();
+            for fila in q.query_map(params![empresa.to_string()], |f| {
+                Ok((
+                    f.get::<_, String>(0)?,
+                    Suceso {
+                        id: f.get(1)?,
+                        clave: f.get(2)?,
+                        es_desenlace: false,
+                        campana: None,
+                        canal: None,
+                        intento: None,
+                        numero_a: f.get(3)?,
+                        numero_b: f.get(4)?,
+                        cuando: f.get(5)?,
+                    },
+                ))
+            })? {
+                let (campana, suceso) = fila?;
+                por_campana.insert(campana, suceso);
+            }
+            Ok(por_campana)
         })
     }
 
@@ -611,6 +683,77 @@ mod tests {
             "la consulta del recorte no va directa al índice, o monta un árbol \
              temporal. Corre cada cinco segundos por etapa: con la tabla llena, \
              el motor se frena solo. Plan: {plan}"
+        );
+    }
+
+    /// **Cada campaña dice por qué está quieta, y no la de al lado.**
+    ///
+    /// Es la propuesta P-A del plan: el fallo más frecuente de un producto así
+    /// no es un error, es el silencio. Con tres campañas a la vez, cada una
+    /// puede estar parada por un motivo distinto —una fuera de horario, otra
+    /// sin cupo—, y darles a las tres la misma explicación sería peor que no
+    /// dar ninguna.
+    ///
+    /// Verificada rompiéndola: quitando `GROUP BY campaign_id` de la subconsulta,
+    /// las dos campañas reciben el mismo suceso y esta prueba lo dice.
+    #[test]
+    fn cada_campana_dice_su_propia_razon() {
+        let (_d, db) = base();
+
+        // k-1 se quedó sin cupo; k-2 está fuera de su horario.
+        db.anotar_si_cambia(empresa(), &de_bucle("ritmo.topeDiario", ETAPA))
+            .expect("anota");
+        db.anotar_si_cambia(
+            empresa(),
+            &SucesoNuevo {
+                campana: Some("k-2"),
+                etapa: Some(OTRA_ETAPA),
+                ..de_bucle("motor.fueraDeVentana", OTRA_ETAPA)
+            },
+        )
+        .expect("anota");
+
+        let razones = db
+            .por_que_esta_quieta_cada_campana(empresa())
+            .expect("razones");
+
+        assert_eq!(
+            razones.get("k-1").map(|s| s.clave.as_str()),
+            Some("ritmo.topeDiario")
+        );
+        assert_eq!(
+            razones.get("k-2").map(|s| s.clave.as_str()),
+            Some("motor.fueraDeVentana"),
+            "cada campaña tiene su motivo: darles el mismo sería peor que \
+             no dar ninguno"
+        );
+    }
+
+    /// **Un envío aceptado no explica por qué ahora no sale nada.**
+    ///
+    /// La razón se busca entre los sucesos de bucle. Si se colaran los
+    /// desenlaces, una campaña que acaba de mandar un correo y luego se quedó
+    /// sin cupo diría «se aceptó un correo» — que es cierto y no responde a la
+    /// pregunta.
+    #[test]
+    fn la_razon_no_es_un_desenlace_de_envio() {
+        let (_d, db) = base();
+
+        db.anotar_si_cambia(empresa(), &de_bucle("ritmo.topeDiario", ETAPA))
+            .expect("anota");
+        // Después, un envío. Es más reciente, pero no es una razón.
+        db.anotar_suceso(empresa(), &desenlace("motor.aceptadoPorElProveedor"))
+            .expect("anota");
+
+        let razones = db
+            .por_que_esta_quieta_cada_campana(empresa())
+            .expect("razones");
+
+        assert_eq!(
+            razones.get("k-1").map(|s| s.clave.as_str()),
+            Some("ritmo.topeDiario"),
+            "la razón tiene que ser el último suceso de BUCLE, no el último de \
+             todos: «se aceptó un correo» no explica por qué no sale ninguno"
         );
     }
 

@@ -36,11 +36,34 @@ const { t, te } = useI18n()
 
 onMounted(() => {
   void campanas.cargar()
+  // El estado de la parada de emergencia. Se pide al entrar y no se supone:
+  // sobrevive a cerrar ARLES —vive en la base—, así que al abrir el programa
+  // puede estar puesta de ayer, y la pantalla tiene que decirlo antes de que
+  // alguien se pregunte por qué no sale nada.
+  void campanas.estadoDelEnvio()
 })
 
 const error = computed(() =>
   campanas.errorGeneral ? resolverError({ clave: campanas.errorGeneral, detalle: '' }) : null,
 )
+
+/**
+ * La fecha de la parada, legible.
+ *
+ * Con día y hora, no sólo la hora: una parada puesta ayer por la tarde es una
+ * jornada entera sin enviar, y «desde las 18:40» a secas se lee como de hoy.
+ */
+function fecha(sello: string): string {
+  const d = new Date(sello)
+  return Number.isNaN(d.getTime())
+    ? ''
+    // `dateStyle`/`timeStyle` y no los campos sueltos: con
+    // `{ day: '2-digit', month: 'long' }` el navegador da el formato compacto
+    // —«30-septiembre, 08:44 p.m.»—, con un guion en medio que no se escribe
+    // así en español. Con `dateStyle: 'long'` sale «30 de septiembre de 2026».
+    // Se vio mirando la pantalla; ninguna prueba compara formatos de fecha.
+    : d.toLocaleString('es-MX', { dateStyle: 'long', timeStyle: 'short' })
+}
 
 /** El rótulo del estado. Si falta el texto se dice, no se inventa. */
 function rotulo(clave: string): string {
@@ -136,6 +159,41 @@ async function confirmarDetener(): Promise<void> {
       </ABoton>
     </header>
 
+    <!-- ── LA PARADA DE EMERGENCIA · enchufada en la 7.3 ──────────────────
+         Arriba de todo, y con el aviso antes de la tabla: mientras está puesta,
+         cada cifra de abajo es de algo que **no está saliendo**. Verlo después
+         de leer la tabla es leerla mal.
+
+         Aquí y no en una sección aparte: D-7B puso el freno en Campañas, que es
+         donde está la lista. Y separada de Detener, porque son dos cosas: detener
+         cancela una campaña y no se deshace; parar todo es un interruptor. -->
+    <AAviso
+      v-if="campanas.parada?.parado"
+      tono="peligro"
+      :titulo="t('campana.parada.avisoQue')"
+      urgente
+    >
+      <p>{{ t('campana.parada.avisoComo') }}</p>
+      <p class="campanas__salvo">
+        {{ t('campana.parada.avisoSalvo') }}
+      </p>
+      <p
+        v-if="campanas.parada.desde"
+        class="campanas__salvo"
+      >
+        {{ t('campana.parada.desdeCuando', { cuando: fecha(campanas.parada.desde) }) }}
+      </p>
+      <template #acciones>
+        <ABoton
+          variante="primario"
+          :cargando="campanas.trabajando"
+          @click="campanas.levantarParada()"
+        >
+          {{ t('campana.parada.levantar') }}
+        </ABoton>
+      </template>
+    </AAviso>
+
     <AAviso
       v-if="error"
       tono="peligro"
@@ -169,8 +227,29 @@ async function confirmarDetener(): Promise<void> {
     <AModulo
       v-else
       :titulo="t('campanas.titulo')"
-      :nota="t('campanas.enMarcha', { n: campanas.enMarcha })"
+      :nota="
+        campanas.parada?.parado
+          ? t('campanas.enMarchaDetenido')
+          : t('campanas.enMarcha', { n: campanas.enMarcha })
+      "
     >
+      <!-- No pide confirmación, a diferencia de Detener, y es deliberado: se
+           pulsa cuando algo va mal y no se sabe todavía qué. Lo que se confirma
+           es lo irreversible, y esto se levanta con el botón del aviso de
+           arriba. Pedir que alguien escriba algo en una emergencia sólo añade
+           segundos. -->
+      <template
+        v-if="!campanas.parada?.parado"
+        #acciones
+      >
+        <ABoton
+          variante="peligro"
+          :cargando="campanas.trabajando"
+          @click="campanas.pararTodo()"
+        >
+          {{ t('campana.parada.poner') }}
+        </ABoton>
+      </template>
       <table class="campanas__tabla">
         <thead>
           <tr>

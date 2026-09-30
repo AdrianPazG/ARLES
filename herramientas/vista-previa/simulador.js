@@ -69,6 +69,14 @@
   }
   function ahora() { return new Date().toISOString(); }
 
+  /** Un identificador de mentira, con la misma pinta que los del núcleo.
+   *
+   * No es un UUIDv7 de verdad y no hace falta: lo único que la pantalla hace
+   * con un id es volver a pasarlo por la frontera. Lo que sí importa es que sea
+   * distinto cada vez, porque dos campañas con el mismo id en la demostración
+   * hacen que el freno pause la equivocada. */
+  function nuevoId() { return 'x' + Math.random().toString(36).slice(2, 10); }
+
   // Reproduce lo que hace `arles_core::analizar` EN LO QUE SE VE: reparte cada
   // fila en lista, choque, inválida o rechazada, y numera las filas como Excel
   // —la primera de datos es la 2—.
@@ -684,6 +692,40 @@
             }
             : { parado: false, desde: null, por: null, clave: 'campana.parada.levantada' });
 
+        // ── ACTIVIDAD (7.3) ───────────────────────────────────────────────
+        //
+        // **Se DERIVA de las campañas**, no es una segunda lista. Si fuera un
+        // decorado suelto, pausar una campaña en la pantalla de Campañas la
+        // dejaría «enviando» en Actividad, y la demostración enseñaría dos
+        // pantallas contradiciéndose sobre el mismo envío — que es exactamente
+        // lo que el comando grueso de la 7.2 existe para impedir.
+        case 'actividad': {
+          var cs = (e.campanas || DEMO.campanas).map(function (c) {
+            var extra = DEMO.actividad[c.id] || {};
+            var pendiente = Math.max(0, c.audiencia - c.aceptados - (extra.fallo || 0));
+            return {
+              id: c.id, nombre: c.nombre, estado: c.estado,
+              audiencia: c.audiencia, salio: c.aceptados, pendiente: pendiente,
+              fallo: extra.fallo || 0, dadoDeBaja: extra.dadoDeBaja || 0,
+              cancelado: extra.cancelado || 0, respondieron: extra.respondieron || 0,
+              // El ritmo sólo de las que envían, igual que hace el comando de
+              // Rust: una consulta por campaña parada no dice nada que alguien
+              // vaya a leer.
+              ritmo: c.estado === 'campana.estado.enviando' ? (extra.ritmo || []) : [],
+              razon: extra.razon || null,
+            };
+          });
+          return Promise.resolve({
+            campanas: cs,
+            // La suma de las de arriba, **nunca otra cuenta**: dos números que
+            // no cuadran hacen que alguien deje de creerse los dos.
+            totalSalio: cs.reduce(function (s, c) { return s + c.salio; }, 0),
+            totalPendiente: cs.reduce(function (s, c) { return s + c.pendiente; }, 0),
+            totalFallo: cs.reduce(function (s, c) { return s + c.fallo; }, 0),
+            remitentes: DEMO.cupos,
+          });
+        }
+
         case 'plantillas':
           return Promise.resolve(e.plantillas || DEMO.plantillas);
 
@@ -725,8 +767,125 @@
         case 'ventanas':
           return Promise.resolve(e.ventanas || DEMO.ventanas);
 
+        // ── SEIS COMANDOS QUE LA DEMOSTRACIÓN NO CONTESTABA ───────────────
+        //
+        // Los encontró `todo_comando_que_piden_las_pantallas_lo_contesta_el_simulador`
+        // el 30/09/2026, escrita en la 7.3. Sin ellos, el `default` de este
+        // `switch` rechaza y la pantalla enseña un error: en la demostración
+        // **no se podía crear una campaña, ni activarla, ni revisarla**, ni
+        // guardar un horario, ni guardar un número de WhatsApp, ni probar el
+        // envío de una cuenta. Todo eso funciona en el producto.
+        //
+        // Es el mismo defecto que once comandos causaron una vez en cinco
+        // pantallas, y volvió porque nada comparaba las dos listas. Ahora sí.
+        case 'guardar_ventana': {
+          var vs = (e.ventanas || DEMO.ventanas).slice();
+          vs.push({
+            id: nuevoId(), nombre: String(args.nombre || 'Horario'),
+            dias: Number(args.dias || 31), desde: Number(args.desde || 9),
+            hasta: Number(args.hasta || 18),
+            zona: String(args.zona || 'America/Monterrey'),
+          });
+          e.ventanas = vs;
+          escribir(e);
+          return Promise.resolve(vs);
+        }
+
+        case 'crear_campana': {
+          // El aviso del §48 lo **exige** `crear_campana` en Rust, así que el
+          // simulador tiene que exigirlo igual: si aquí fuera más blando, la
+          // demostración enseñaría una campaña de alto volumen creada sin que
+          // conste el aviso, que es justo lo que el núcleo impide.
+          var tope = Number(args.limiteDiario || 0);
+          if (tope > 50 && !args.avisoAceptado) {
+            return Promise.reject({ clave: 'error.app.falta_aceptar_el_aviso', detalle: '' });
+          }
+          var nueva = {
+            id: nuevoId(),
+            nombre: String(args.nombre || 'Campaña nueva'),
+            estado: 'campana.estado.borrador',
+            audiencia: 0, aceptados: 0,
+          };
+          e.campanas = (e.campanas || DEMO.campanas).concat([nueva]);
+          escribir(e);
+          // `etapa` viaja desde Rust porque el envío de prueba cuelga de la
+          // etapa y no de la campaña: se devuelve un id propio, no el de la
+          // campaña con un sufijo.
+          return Promise.resolve({ id: nueva.id, etapa: nuevoId() });
+        }
+
+        case 'activar_campana': {
+          var cl = (e.campanas || DEMO.campanas).slice();
+          var ci = cl.findIndex(function (c) { return c.id === (args.id || ''); });
+          if (ci < 0) {
+            return Promise.reject({ clave: 'error.db.campana_no_existe', detalle: '' });
+          }
+          // La audiencia se congela al activar (§57): a partir de aquí, quien
+          // entre en la lista de contactos ya no entra en esta campaña.
+          var enLa = (e.contactos || DEMO.contactos).length;
+          var fuera = 1;
+          cl[ci] = Object.assign({}, cl[ci], {
+            estado: 'campana.estado.enviando',
+            audiencia: Math.max(0, enLa - fuera),
+          });
+          e.campanas = cl;
+          escribir(e);
+          return Promise.resolve({ enLaAudiencia: Math.max(0, enLa - fuera), fueraPorBaja: fuera });
+        }
+
+        case 'revisar_campana':
+          // El preflight de ocho puntos, en verde menos los tres de red, que
+          // desde un navegador **no se pueden contestar**: van como «sin
+          // comprobar» y no como aprobados, que es lo que hace el producto.
+          return Promise.resolve({
+            preflight: {
+              puntos: [
+                { punto: 'hayRemitente', veredicto: 'pasa' },
+                { punto: 'laCuentaAutentica', veredicto: 'sinComprobar' },
+                { punto: 'hayConexion', veredicto: 'sinComprobar' },
+                { punto: 'registrosDelDominio', veredicto: 'sinComprobar' },
+                { punto: 'hayPlantilla', veredicto: 'pasa' },
+                { punto: 'hayAudiencia', veredicto: 'pasa' },
+                { punto: 'hayHorario', veredicto: 'pasa' },
+                { punto: 'seEnvioUnaPrueba', veredicto: 'avisa' },
+              ],
+              resultado: { resultado: 'preflight.conAvisos', avisos: 1, sinComprobar: 3 },
+            },
+            audiencia: (e.contactos || DEMO.contactos).length,
+            contactosConHuecos: 0,
+            estimacion: { horas: 27, dias: 2, porDia: 50 },
+            diagnostico: null,
+          });
+
+        case 'probar_envio_de_la_cuenta':
+          // Aceptado, **que no es entregado** (§65). El simulador no manda nada.
+          return Promise.resolve({
+            aceptado: true, problema: null,
+            aDonde: String(args.para || 'tu@ejemplo.mx'),
+          });
+
         case 'numeros_de_whatsapp':
           return Promise.resolve(e.whatsapp || DEMO.whatsapp);
+
+        case 'guardar_numero_de_whatsapp': {
+          // **Sin el token**, igual que el comando real: la credencial entra y
+          // no sale (§29 y ADR-0011). Lo que se guarda aquí es lo que la
+          // pantalla puede volver a leer, y el token no está en esa lista.
+          var ns = [{
+            id: nuevoId(),
+            nombreVisible: String(args.nombreVisible || ''),
+            telefonoE164: String(args.telefono || ''),
+            wabaId: String(args.wabaId || ''),
+            modo: String(args.modo || 'prospeccion_directa'),
+            estado: 'connected',
+            coexistenciaConfirmada: null, riesgoAceptado: null,
+            calidad: null, limiteDeMeta: 250,
+            puedeEnviar: false, escribeEnFrio: args.modo !== 'coexistencia',
+          }];
+          e.whatsapp = ns;
+          escribir(e);
+          return Promise.resolve(ns);
+        }
 
         // Las dos marcas se ponen de una en una, cada una con su pulsación.
         // Aquí se guardan con su fecha para que la pantalla enseñe el «desde
@@ -908,10 +1067,81 @@
         nombre: 'Reactivación', estado: 'campana.estado.enPausa',
         audiencia: 420, aceptados: 89,
       },
+      // Una tercera enviando, y **quieta a propósito**: es la que enseña la
+      // razón. Dirección trabaja con hasta tres a la vez (D-7A), y el caso que
+      // hay que poder ver en la demostración es el de dos avanzando y una
+      // parada sin que nadie la haya parado.
+      {
+        id: '01900000-0000-7000-8000-0000000000c5',
+        nombre: 'Promoción de octubre', estado: 'campana.estado.enviando',
+        audiencia: 860, aceptados: 120,
+      },
       {
         id: '01900000-0000-7000-8000-0000000000c2',
         nombre: 'Seguimiento a cotizaciones', estado: 'campana.estado.borrador',
         audiencia: 0, aceptados: 0,
+      },
+    ],
+
+    // ── LO QUE ACTIVIDAD AÑADE A CADA CAMPAÑA ─────────────────────────────
+    //
+    // Aparte y no dentro de `campanas` porque `CampanaIpc` no lleva estos
+    // campos: mezclarlos haría que el decorado de la lista de campañas
+    // enseñara un objeto que el comando real no devuelve, y la próxima
+    // divergencia de esquema no se vería.
+    //
+    // Las tres situaciones que hay que poder mirar están representadas:
+    // avanzando con ritmo, enviando y quieta por falta de cupo, y en pausa.
+    actividad: {
+      // Terminada: nada pendiente, y contestaron 87.
+      '01900000-0000-7000-8000-0000000000c1': {
+        respondieron: 87, dadoDeBaja: 14, fallo: 0,
+      },
+      // Enviando y avanzando: seis horas de ritmo desigual, con las dos
+      // últimas más bajas — así la estimación no sale de un número plano.
+      '01900000-0000-7000-8000-0000000000c3': {
+        respondieron: 23, dadoDeBaja: 3, fallo: 11,
+        ritmo: [
+          { hora: '2026-09-30T12', salieron: 58 },
+          { hora: '2026-09-30T13', salieron: 60 },
+          { hora: '2026-09-30T14', salieron: 61 },
+          { hora: '2026-09-30T15', salieron: 59 },
+          { hora: '2026-09-30T16', salieron: 42 },
+          { hora: '2026-09-30T17', salieron: 39 },
+        ],
+      },
+      // En pausa: sin ritmo, y con la razón de por qué se paró el bucle.
+      '01900000-0000-7000-8000-0000000000c4': {
+        respondieron: 6, fallo: 4,
+        razon: { clave: 'motor.parado', numeroA: null, numeroB: null, cuando: '2026-09-30T16:40:00Z' },
+      },
+      // **Enviando y quieta**: el caso que esta pantalla existe para explicar.
+      // Se comió el cupo de la hora, y sin decirlo el cero de arriba parece una
+      // avería y lo primero que alguien hace es reiniciar ARLES.
+      '01900000-0000-7000-8000-0000000000c5': {
+        respondieron: 9, fallo: 2, ritmo: [],
+        razon: {
+          clave: 'ritmo.topeDeLaHora', numeroA: 100, numeroB: null,
+          cuando: '2026-09-30T17:52:00Z',
+        },
+      },
+    },
+
+    // El cupo de cada remitente. El primero lo comparten dos campañas, que es
+    // lo que explica por qué una de ellas está quieta: sin los nombres, «100 de
+    // 100 esta hora» no dice de quién se lo comió.
+    cupos: [
+      {
+        nombre: 'Ventas', direccion: 'ventas@telemetry.mx',
+        gastadoHoy: 460, topeDiario: 500, quedanHoy: 40,
+        gastadoEstaHora: 100, topePorHora: 100,
+        campanas: ['Clientes de agosto', 'Promoción de octubre'], hayReparto: true,
+      },
+      {
+        nombre: 'Contacto', direccion: 'contacto@telemetry.mx',
+        gastadoHoy: 89, topeDiario: 300, quedanHoy: 211,
+        gastadoEstaHora: 12, topePorHora: 60,
+        campanas: ['Reactivación'], hayReparto: false,
       },
     ],
 

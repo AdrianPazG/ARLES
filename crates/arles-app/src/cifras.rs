@@ -39,6 +39,38 @@ pub struct CifrasDeCampanaIpc {
     /// detrás, y con un promedio ya masticado no puede enseñar de dónde sale
     /// ni ver que las dos últimas horas fueron a cero.
     pub ritmo: Vec<RitmoDeHoraIpc>,
+    /// El último suceso de bucle de esta campaña: **por qué no sale nada**.
+    ///
+    /// ── ES EL DATO DE MÁS VALOR DE LA PANTALLA, Y EL QUE FALTABA ──
+    ///
+    /// Un cero sin explicación es lo que hace que alguien reinicie el programa,
+    /// y reiniciar no arregla «fuera de ventana» ni «sin cupo». Las seis razones
+    /// del silencio están en `06-calidad/CATALOGO-DE-FALLOS.md` §1, y ARLES las
+    /// conocía todas desde la Fase 4 sin decir ninguna.
+    ///
+    /// Es un suceso de bucle y **nunca un desenlace**: «se aceptó un correo» no
+    /// explica por qué ahora no sale ninguno.
+    ///
+    /// `None` en una campaña que nunca dio una vuelta —recién creada, o
+    /// terminada antes de que existiera el registro (7.1)—.
+    ///
+    /// **Quién decide si está quieta es la pantalla**, no esto: aquí viaja el
+    /// último suceso, y el `ritmo` de arriba dice si además está avanzando. Una
+    /// campaña puede haber pasado por «sin cupo» hace tres horas y estar
+    /// enviando ahora mismo.
+    pub razon: Option<RazonIpc>,
+}
+
+/// Lo último que le pasó al bucle de una campaña.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RazonIpc {
+    /// La clave de i18n del suceso (§139), tal cual la dio `Paso::clave_i18n()`.
+    pub clave: String,
+    /// Las cifras del suceso: «vuelve a las **9:00**», «quedan **20** de **500**».
+    pub numero_a: Option<i64>,
+    pub numero_b: Option<i64>,
+    pub cuando: String,
 }
 
 /// Lo que salió en una hora concreta.
@@ -96,6 +128,12 @@ pub fn actividad(estado: tauri::State<'_, EstadoApp>) -> Result<ActividadIpc, Er
         .resumen_de_la_empresa(empresa)
         .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
 
+    // Una sola consulta para todas: la razón de cada campaña de golpe. Ver
+    // `por_que_esta_quieta_cada_campana`, que agrupa por campaña con MAX(rowid).
+    let mut razones = db
+        .por_que_esta_quieta_cada_campana(empresa)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
     // ── SIN CRUCE CON OTRA LISTA ───────────────────────────────────────────
     //
     // El nombre y el estado vienen en el propio resumen. La primera versión
@@ -107,6 +145,16 @@ pub fn actividad(estado: tauri::State<'_, EstadoApp>) -> Result<ActividadIpc, Er
     let campanas: Vec<CifrasDeCampanaIpc> = por_campana
         .into_iter()
         .map(|(quien, r)| CifrasDeCampanaIpc {
+            // `remove` y no `get`: cada campaña sale una vez, y así lo que
+            // quede en el mapa al final sería una razón de una campaña que el
+            // resumen no trajo —imposible hoy, porque las dos consultas parten
+            // de la misma empresa—.
+            razon: razones.remove(&quien.id).map(|s| RazonIpc {
+                clave: s.clave,
+                numero_a: s.numero_a,
+                numero_b: s.numero_b,
+                cuando: s.cuando,
+            }),
             // El estado crudo se traduce aquí, con el núcleo: la pantalla
             // recibe la clave y no el valor de la base (§139).
             estado: arles_core::campana::EstadoDeCampana::desde_texto(&quien.estado)
@@ -216,6 +264,14 @@ pub fn actividad(estado: tauri::State<'_, EstadoApp>) -> Result<ActividadIpc, Er
 /// Se usan las mismas funciones del núcleo que usa el motor, y no una copia:
 /// dos formas de calcular la misma clave es como se acaba leyendo un cubo que
 /// nadie está llenando.
+fn claves_de_ahora(zona: &arles_core::ventana::TimeZone) -> (String, String) {
+    let ahora = time::OffsetDateTime::now_utc();
+    (
+        arles_core::ventana::clave_de_hora(zona, ahora),
+        arles_core::ventana::clave_de_dia(zona, ahora),
+    )
+}
+
 /// El instante de hace seis horas, en el formato de las marcas guardadas.
 ///
 /// Seis y no una: con una hora, una campaña que acaba de arrancar o que lleva
@@ -228,12 +284,4 @@ fn hace_seis_horas() -> String {
         // pedir «desde el principio de los tiempos» da más datos de la cuenta,
         // que es preferible a no dar ninguno y enseñar un ritmo de cero.
         .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_owned())
-}
-
-fn claves_de_ahora(zona: &arles_core::ventana::TimeZone) -> (String, String) {
-    let ahora = time::OffsetDateTime::now_utc();
-    (
-        arles_core::ventana::clave_de_hora(zona, ahora),
-        arles_core::ventana::clave_de_dia(zona, ahora),
-    )
 }

@@ -35,7 +35,7 @@
     "  python3 herramientas/avance/calcular.py --escribir"
   ],
   "version": "1.2.0",
-  "actualizado": "2026-09-29",
+  "actualizado": "2026-09-30",
   "fases": [
     {
       "id": "F0",
@@ -97,8 +97,8 @@
       "id": "F7",
       "nombre": "Actividad y entregabilidad",
       "peso": 9,
-      "hecho": 0.0,
-      "porque": "Sin empezar. Incluye las dos pestañas de ACTIVIDAD y la línea de tiempo de la calificación de Meta."
+      "hecho": 0.55,
+      "porque": "Cuatro de las siete entregas cerradas el 30/09/2026. 7.0: el freno —Pausar, Reanudar, Detener y la parada de emergencia— con sus seis comandos y su pantalla; hasta ahora una campaña activada no se podía parar desde la interfaz. 7.1: el registro de actividad, con el motor anotando los once sucesos que antes tiraba y un recorte que convierte un fin de semana fuera de horario en dos líneas en vez de 17 280. 7.2: las cifras de cada campaña y el cupo de cada remitente, de un solo sitio. 7.3: la pantalla de Actividad —una tarjeta por campaña (D-7A), cuánta gente contestó y nunca qué dijo, y POR QUÉ no sale nada, cuál de las seis razones es, con su cifra. validar.py --fase 7 en 6/6 y las nueve fases en verde (277 comprobaciones). Faltan la 7.4 (el registro con sus filtros, D-7C), la 7.5 (SPF/DKIM/DMARC, que necesita aprobar una dependencia de DNS), la 7.6 (el resumen exportable) y la 7.7 (cierre)."
     },
     {
       "id": "F8",
