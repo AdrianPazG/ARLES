@@ -155,6 +155,35 @@ export const useActividadStore = defineStore('actividad', () => {
     remitentes.value.filter((r) => r.hayReparto),
   )
 
+  /** Lo que consta de un resumen guardado. Coincide con `ResumenGuardado`. */
+  const ultimoResumen = ref<string | null>(null)
+
+  /**
+   * Guarda el resumen de una campaña en un archivo.
+   *
+   * ── LA RUTA NO CRUZA, Y ESO ES LA REGLA 4 ──
+   *
+   * El diálogo lo abre el núcleo y lo único que vuelve es **el nombre** del
+   * archivo, nunca la carpeta: dónde guarda alguien sus cosas dice dónde vive,
+   * y a esta pantalla no le aporta nada.
+   *
+   * `null` si se cerró el diálogo sin guardar. Cancelar no es un fallo.
+   */
+  async function exportar(id: string): Promise<boolean> {
+    if (!hayNucleo()) return false
+    errorGeneral.value = null
+    try {
+      const r = await invocar<{ nombreDelArchivo: string } | null>('exportar_resumen', {
+        campana: id,
+      })
+      ultimoResumen.value = r === null ? null : r.nombreDelArchivo
+      return r !== null
+    } catch (e) {
+      recordarError(e)
+      return false
+    }
+  }
+
   function recordarError(e: unknown): void {
     errorGeneral.value = esErrorIpc(e) ? e.clave : 'error.db.sqlite'
   }
@@ -244,5 +273,7 @@ export const useActividadStore = defineStore('actividad', () => {
     cargar,
     refrescar,
     latir,
+    exportar,
+    ultimoResumen,
   }
 })

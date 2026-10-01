@@ -4363,8 +4363,10 @@ def ningun_texto_lleva_markdown():
     """
     import re as _re
 
-    catalogo = leer("app", "src", "app", "locales", "es.ts")
     malos = []
+
+    # ── 1 · El catálogo de la pantalla ──────────────────────────────────────
+    catalogo = leer("app", "src", "app", "locales", "es.ts")
     for n, linea in enumerate(catalogo.split("\n"), start=1):
         cruda = linea.split("//")[0]
         # Sólo dentro de un valor: `clave: '…'` o la continuación de una cadena.
@@ -4375,12 +4377,80 @@ def ningun_texto_lleva_markdown():
                 malos.append(f"es.ts:{n}: {trozo[:60]}")
                 break
 
+    # ── 2 · Y EL ARCHIVO QUE SE EXPORTA ────────────────────────────────────
+    #
+    # La primera versión sólo miraba `es.ts`, y el mismo día el defecto
+    # apareció **en el núcleo**: el resumen exportable llevaba `**Esto no
+    # quiere decir…**` en su frase más importante, y un `.txt` tampoco
+    # interpreta Markdown. Una comprobación que mira un sitio y no el otro deja
+    # pasar el mismo error por la puerta de al lado.
+    #
+    # Se miran los `push_str` de `resumen.rs`, que es lo que acaba en el
+    # archivo; sus comentarios usan Markdown a propósito y se quedan fuera.
+    resumen = leer("crates", "arles-core", "src", "resumen.rs")
+    for m in _re.finditer(r'push_str\(\s*\n?\s*"((?:[^"\\]|\\.)*)"', resumen, _re.S):
+        if "**" in m.group(1):
+            linea = resumen[: m.start()].count("\n") + 1
+            malos.append(f"resumen.rs:{linea}: {m.group(1)[:60]}")
+
     check(
         7,
         "ningún texto lleva Markdown",
         not malos,
         "\n      ".join(malos),
         ningun_texto_lleva_markdown.__doc__,
+    )
+
+
+def el_resumen_no_puede_llevar_direcciones():
+    """El archivo que se exporta **no tiene dónde meter una dirección**.
+
+    ───────────────────────────────────────────────────────────────────────────
+    POR QUÉ ES UNA COMPROBACIÓN Y NO SÓLO UNA PRUEBA
+
+    El resumen de una campaña se manda por correo: a Dirección, a un cliente.
+    Si llevara la lista de destinatarios dentro, una campaña se convertiría en
+    una filtración — y el descuido sería de una línea, en un `format!` que
+    alguien añade para «que se vea mejor».
+
+    La prueba de `arles-core` comprueba que el texto no lleva ninguna; ésta
+    comprueba algo más fuerte y más difícil de romper sin querer: que
+    `ResumenDeCampana`, la estructura que se redacta, **no tiene ningún campo
+    donde pudiera entrar una**. Sin campo no hay descuido posible.
+
+    Los nombres que se buscan son los que usan las tablas y los tipos del
+    proyecto para una dirección o un teléfono.
+    """
+    import re as _re
+
+    fuente = leer("crates", "arles-core", "src", "resumen.rs")
+    cuerpo = _re.search(
+        r"pub struct ResumenDeCampana \{(.*?)\n\}", fuente, _re.S
+    )
+    assert cuerpo, "no se encontró la estructura del resumen: el patrón dejó de casar"
+
+    prohibidos = (
+        "direccion",
+        "correo",
+        "email",
+        "telefono",
+        "contacto",
+        "destinatario",
+    )
+    malos = [
+        linea.strip()
+        for linea in cuerpo.group(1).split("\n")
+        # Sólo los campos, no los comentarios que los explican.
+        if linea.strip().startswith("pub ")
+        and any(p in linea.lower() for p in prohibidos)
+    ]
+
+    check(
+        7,
+        "el resumen exportable no puede llevar direcciones",
+        not malos,
+        "\n      ".join(malos),
+        el_resumen_no_puede_llevar_direcciones.__doc__,
     )
 
 
@@ -4404,6 +4474,9 @@ def fase_7(rapido=False):
     print(f"{GRIS}  el registro con sus filtros (7.4){FIN}")
     ningun_texto_lleva_una_arroba_suelta()
     ningun_texto_lleva_markdown()
+
+    print(f"{GRIS}  el resumen exportable (7.6){FIN}")
+    el_resumen_no_puede_llevar_direcciones()
 
 
 # El canal de WhatsApp no es una fase numerada: cruza la 5 y la 6 y se entregó

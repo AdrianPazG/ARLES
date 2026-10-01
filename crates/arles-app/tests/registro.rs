@@ -17,13 +17,22 @@
 
 #![allow(clippy::expect_used)]
 
-use arles_app_lib::registro::{FiltroIpc, que_se_recortaria_de, recortar_registro_de, registro_de};
+use arles_app_lib::registro::{
+    FiltroIpc, que_se_recortaria_de, recortar_registro_de, redactar_resumen_de, registro_de,
+};
 use arles_core::ids::CompanyId;
 use arles_db::actividad::SucesoNuevo;
 use arles_db::{ClaveMaestra, Db};
 
 const EMPRESA: &str = "11111111-1111-4111-8111-111111111111";
 const ETAPA: &str = "01900000-0000-7000-8000-0000000000e1";
+/// El id de la campaña, **con forma de UUID y no `k-1`**.
+///
+/// `db.campanas()` convierte el id a `CampaignId` al leerlo, así que un id
+/// inventado da «un dato almacenado no es válido» — que es lo correcto: la
+/// base no debería tener ids que no lo son. Las pruebas de `arles-db` podían
+/// usar `k-1` porque consultan por cadena; ésta cruza por el tipo.
+const CAMPANA: &str = "01900000-0000-7000-8000-0000000000c1";
 const AHORA: &str = "2026-09-30T12:00:00Z";
 /// Hace cuatro meses: al otro lado del corte bimestral, se mire cuando se mire.
 const VIEJO: &str = "2026-05-30T12:00:00Z";
@@ -63,12 +72,13 @@ fn base() -> (tempfile::TempDir, Db) {
                      'America/Mexico_City', '{AHORA}');
 
              INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
-             VALUES ('k-1', '{EMPRESA}', 'Clientes de agosto', 'running', '{AHORA}', '{AHORA}');
+             VALUES ('{CAMPANA}', '{EMPRESA}', 'Clientes de agosto', 'running',
+                     '{AHORA}', '{AHORA}');
 
              INSERT INTO campaign_stage (id, campaign_id, position, channel,
                                          email_account_id, execution_window_id,
                                          status, created_at, updated_at)
-             VALUES ('{ETAPA}', 'k-1', 1, 'email', 'c-1', 'v-1', 'running',
+             VALUES ('{ETAPA}', '{CAMPANA}', 1, 'email', 'c-1', 'v-1', 'running',
                      '{AHORA}', '{AHORA}');"
         ))
     })
@@ -83,8 +93,8 @@ fn envio(db: &Db, id: &str, direccion: &str, clave: &'static str) {
             "INSERT INTO message_attempt
                  (id, campaign_id, stage_id, channel, contact_address,
                   idempotency_key, state, created_at, updated_at)
-             VALUES (?1, 'k-1', ?2, 'email', ?3, ?1, 'sent', ?4, ?4)",
-            rusqlite::params![id, ETAPA, direccion, AHORA],
+             VALUES (?1, ?5, ?2, 'email', ?3, ?1, 'sent', ?4, ?4)",
+            rusqlite::params![id, ETAPA, direccion, AHORA, CAMPANA],
         )
         .map(|_| ())
     })
@@ -95,7 +105,7 @@ fn envio(db: &Db, id: &str, direccion: &str, clave: &'static str) {
         &SucesoNuevo {
             clave,
             es_desenlace: true,
-            campana: Some("k-1"),
+            campana: Some(CAMPANA),
             etapa: Some(ETAPA),
             canal: Some("email"),
             intento: Some(id),
@@ -125,15 +135,15 @@ fn envio_viejo(db: &Db, id: &str, direccion: &str, cuando: &str) {
             "INSERT INTO message_attempt
                  (id, campaign_id, stage_id, channel, contact_address,
                   idempotency_key, state, created_at, updated_at)
-             VALUES (?1, 'k-1', ?2, 'email', ?3, ?1, 'sent', ?4, ?4)",
-            rusqlite::params![id, ETAPA, direccion, cuando],
+             VALUES (?1, ?5, ?2, 'email', ?3, ?1, 'sent', ?4, ?4)",
+            rusqlite::params![id, ETAPA, direccion, cuando, CAMPANA],
         )?;
         c.execute(
             "INSERT INTO activity_event
                  (id, company_id, campaign_id, kind, is_outcome,
                   message_attempt_id, occurred_at)
-             VALUES (?1, ?2, 'k-1', 'motor.aceptadoPorElProveedor', 1, ?1, ?3)",
-            rusqlite::params![id, EMPRESA, cuando],
+             VALUES (?1, ?2, ?4, 'motor.aceptadoPorElProveedor', 1, ?1, ?3)",
+            rusqlite::params![id, EMPRESA, cuando, CAMPANA],
         )
         .map(|_| ())
     })
@@ -149,8 +159,8 @@ fn ruido_viejo(db: &Db, id: &str, cuando: &str) {
         c.execute(
             "INSERT INTO activity_event
                  (id, company_id, campaign_id, kind, is_outcome, occurred_at)
-             VALUES (?1, ?2, 'k-1', 'motor.fueraDeVentana', 0, ?3)",
-            rusqlite::params![id, EMPRESA, cuando],
+             VALUES (?1, ?2, ?4, 'motor.fueraDeVentana', 0, ?3)",
+            rusqlite::params![id, EMPRESA, cuando, CAMPANA],
         )
         .map(|_| ())
     })
@@ -335,4 +345,163 @@ fn recortar_respeta_lo_de_los_ultimos_dos_meses() {
         "el ruido reciente explica lo que pasó esta semana"
     );
     assert_eq!(primero(&r.sucesos).id, "s-2");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EL RESUMEN EXPORTABLE · entrega 7.6
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Un fallo definitivo con su causa, para el resumen.
+fn fallo(db: &Db, id: &str, direccion: &str, causa: &str) {
+    db.ejecutar_en_pruebas(|c| {
+        c.execute(
+            "INSERT INTO message_attempt
+                 (id, campaign_id, stage_id, channel, contact_address,
+                  idempotency_key, state, error_kind, created_at, updated_at)
+             VALUES (?1, ?6, ?2, 'email', ?3, ?1, 'permanently_failed', ?4, ?5, ?5)",
+            rusqlite::params![id, ETAPA, direccion, causa, AHORA, CAMPANA],
+        )
+        .map(|_| ())
+    })
+    .expect("fallo");
+}
+
+/// **El resumen sale con el nombre de la campaña y sus cifras, no las de otra.**
+///
+/// Verificada rompiéndola el 30/09/2026 quitando el `find` por id —tomando la
+/// primera campaña de la lista—: el archivo sale con el nombre equivocado y
+/// falla.
+#[test]
+fn el_resumen_es_de_la_campana_que_se_pide() {
+    let (_dir, db) = base();
+    envio(&db, "a-1", "ana@t.mx", "motor.aceptadoPorElProveedor");
+
+    let t = redactar_resumen_de(&db, empresa(), CAMPANA).expect("redacta");
+
+    assert!(t.contains("Clientes de agosto"), "el nombre de la campaña");
+    assert!(t.contains("TELEMETRY"), "la empresa que la mandó");
+    assert!(t.contains("RESUMEN DE CAMPAÑA"));
+}
+
+/// **Los fallos del archivo van con su causa en español.**
+///
+/// Sin esto el resumen diría «fallaron: 2» y nada más, que no sirve para
+/// arreglar nada. Y la causa sale como frase, no como
+/// `reintento.direccionInexistente`: este archivo lo lee Dirección.
+#[test]
+fn el_resumen_explica_por_que_fallo() {
+    let (_dir, db) = base();
+    fallo(
+        &db,
+        "f-1",
+        "no.existe@t.mx",
+        "reintento.direccionInexistente",
+    );
+    fallo(&db, "f-2", "tampoco@t.mx", "reintento.direccionInexistente");
+
+    let t = redactar_resumen_de(&db, empresa(), CAMPANA).expect("redacta");
+
+    assert!(
+        t.contains("2 · La dirección no existe"),
+        "la causa con su cifra"
+    );
+    assert!(
+        !t.contains("reintento.direccionInexistente"),
+        "una clave de i18n no es un texto para una persona"
+    );
+}
+
+/// **Y el archivo no lleva ni una dirección de correo.**
+///
+/// Es la garantía que hace que este archivo se pueda mandar por correo. Un
+/// resumen con la lista de destinatarios dentro convierte una campaña en una
+/// filtración, y el descuido sería de una línea.
+///
+/// Se comprueba con la base llena de direcciones **de verdad**, no con un
+/// resumen vacío: es la única forma de que la prueba signifique algo.
+///
+/// Verificada rompiéndola el 30/09/2026 añadiendo la dirección de un fallo al
+/// texto del núcleo: falla nombrando la arroba.
+#[test]
+fn el_resumen_no_lleva_ninguna_direccion() {
+    let (_dir, db) = base();
+    envio(
+        &db,
+        "a-1",
+        "ana.lopez@empresa.mx",
+        "motor.aceptadoPorElProveedor",
+    );
+    fallo(
+        &db,
+        "f-1",
+        "rebota@otraempresa.mx",
+        "reintento.direccionInexistente",
+    );
+
+    let t = redactar_resumen_de(&db, empresa(), CAMPANA).expect("redacta");
+
+    assert!(
+        !t.contains('@'),
+        "el resumen se manda por correo: no puede llevar destinatarios dentro"
+    );
+    assert!(t.contains("A quién se le escribió"), "y dice dónde sí está");
+}
+
+/// **Una campaña que no existe da error, no un archivo en blanco.**
+///
+/// Un resumen con el nombre vacío y todo a cero es un archivo que parece bueno
+/// y no lo es: alguien lo manda creyendo que la campaña no envió nada.
+#[test]
+fn una_campana_que_no_existe_no_da_un_archivo_vacio() {
+    let (_dir, db) = base();
+
+    let r = redactar_resumen_de(&db, empresa(), "k-inventada");
+    assert!(r.is_err(), "sin campaña no hay resumen");
+}
+
+/// **El estado sale en español, no como clave ni como valor de la base.**
+#[test]
+fn el_estado_del_resumen_se_lee() {
+    let (_dir, db) = base();
+
+    let t = redactar_resumen_de(&db, empresa(), CAMPANA).expect("redacta");
+
+    assert!(t.contains("Estado: Enviando"));
+    assert!(
+        !t.contains("running"),
+        "el valor crudo de la base no se enseña"
+    );
+    assert!(!t.contains("campana.estado"), "ni la clave de i18n");
+}
+
+/// Temporal · imprime el resumen para leerlo como lo leería Dirección.
+#[test]
+#[ignore = "sólo para leerlo a ojo: cargo test -- --ignored ver_el_resumen"]
+fn ver_el_resumen() {
+    let (_dir, db) = base();
+    envio(
+        &db,
+        "a-1",
+        "ana.lopez@empresa.mx",
+        "motor.aceptadoPorElProveedor",
+    );
+    envio(&db, "a-2", "beto@t.mx", "motor.aceptadoPorElProveedor");
+    fallo(
+        &db,
+        "f-1",
+        "no.existe@t.mx",
+        "reintento.direccionInexistente",
+    );
+    fallo(&db, "f-2", "tampoco@t.mx", "reintento.direccionInexistente");
+    fallo(
+        &db,
+        "f-3",
+        "agotado@t.mx",
+        "reintento.seAgotaronLosIntentos",
+    );
+
+    println!(
+        "{}",
+        redactar_resumen_de(&db, empresa(), CAMPANA).expect("redacta")
+    );
 }

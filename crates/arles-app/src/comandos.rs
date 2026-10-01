@@ -1121,7 +1121,7 @@ pub fn entregar_informe_de_acceso(
 /// guion**. Una arroba o un `+` en un nombre de archivo son legales en Linux y
 /// problemáticos en otros sitios, y una barra convertiría el nombre en una
 /// ruta.
-fn nombre_seguro(direccion: &str) -> String {
+pub(crate) fn nombre_seguro(direccion: &str) -> String {
     let limpio: String = direccion
         .chars()
         .map(|c| {
@@ -1139,7 +1139,7 @@ fn nombre_seguro(direccion: &str) -> String {
 ///
 /// Sin dependencias de formato: el informe lo lee alguien que preguntó por sus
 /// datos, y `2026-09-21T14:03:22Z` no es una fecha para esa persona.
-fn hoy_legible() -> String {
+pub(crate) fn hoy_legible() -> String {
     const MESES: [&str; 12] = [
         "enero",
         "febrero",

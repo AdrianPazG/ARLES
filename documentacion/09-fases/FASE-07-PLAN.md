@@ -302,6 +302,15 @@ dos la ve TypeScript ni ESLint: son cadenas válidas.
 
 ### 7.5 · Entregabilidad: SPF, DKIM y DMARC
 
+> **Se hace después de la 7.6, por decisión de Dirección del 30/09/2026.** Es lo
+> único de la fase que necesita red y una dependencia nueva, y **sólo se puede
+> verificar de verdad el día que se cierre R-24** — la prueba con una cuenta de
+> correo real, que no se puede hacer desde un contenedor. Construirla antes
+> repetiría lo de SMTP: todo en verde contra un servidor de mentira.
+>
+> No bloquea nada: la 7.6 no la necesita, y el punto `registros_del_dominio` del
+> preflight sigue diciendo «sin comprobar», que es lo que hace hoy.
+
 Lo único de la fase que necesita **red y una dependencia nueva**.
 
 - Resolución DNS con `hickory-resolver` (antes `trust-dns`), que es Rust puro y
@@ -318,12 +327,36 @@ igual que bloquea los puertos de correo (R-24). Si es el caso, la comprobación
 se prueba contra un resolutor de mentira y **se dice que no se probó contra
 uno real**, como se hizo con SMTP.
 
-### 7.6 · El resumen exportable
+### 7.6 · El resumen exportable  ✅ **cerrada el 01/10/2026**
 
-- Un archivo de una campaña: cifras, fallos por causa, y el método de cada
-  número.
-- **Ninguna ruta cruza la frontera IPC** (regla 4): se usa el mismo camino que
-  el informe de acceso ARCO, que ya lo resuelve.
+- Un archivo de texto por campaña: cifras, fallos por causa, y **el método de
+  cada número** al lado de cada cifra.
+- **Ninguna ruta cruza la frontera IPC** (regla 4): el diálogo lo abre el
+  núcleo y lo único que vuelve es el nombre del archivo. Mismo camino que el
+  informe de acceso ARCO.
+- **No lleva ni una dirección de correo**, y lo dice por escrito al final. Lo
+  garantiza una comprobación del validador: la estructura que se redacta **no
+  tiene ningún campo** donde pudiera entrar una, así que el descuido de una
+  línea no es posible.
+
+**Por qué un `.txt` y no un CSV.** El valor está en el método: «aceptados:
+1 342» en una celda es lo que acaba en una presentación llamándose
+«entregados» (§65). Un CSV no tiene dónde poner «esto no quiere decir que
+llegara a una bandeja de entrada», y sin esa frase la cifra viaja sin su
+significado. Ocupa más y no se puede sumar en Excel; las dos cosas son a
+propósito.
+
+**Lo que salió de leer el archivo generado**, que ninguna prueba vio: los
+`**asteriscos**` salían literales —un `.txt` tampoco interpreta Markdown, el
+mismo defecto que el día anterior en la pantalla— y las causas se salían a 89
+columnas en un Bloc de notas sin ajuste de línea. La comprobación de Markdown
+ahora mira los dos sitios: el catálogo de la pantalla **y** los textos del
+núcleo que acaban en un archivo.
+
+**Y un defecto de criterio:** `fallos_por_causa` contaba los `failed`, que son
+los que **se van a reintentar**. El resumen habría dicho que se perdieron
+mensajes que todavía estaban en camino, y alguien habría parado una campaña por
+un problema que no existía. Sólo cuentan los estados definitivos.
 
 ### 7.7 · Cierre
 

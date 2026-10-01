@@ -224,6 +224,48 @@ impl Db {
     /// # Errores
     ///
     /// [`DbError::Sqlite`] si alguna consulta falla.
+    /// Los fallos de una campaña, **agrupados por su causa**.
+    ///
+    /// ───────────────────────────────────────────────────────────────────────
+    /// POR QUÉ SALE DE `message_attempt` Y NO DEL REGISTRO
+    ///
+    /// Porque el registro de actividad es derivado y se puede recortar (D-7C),
+    /// y los intentos son la prueba. Un resumen que contara los fallos desde
+    /// `activity_event` daría cifras distintas antes y después del recorte
+    /// bimestral, sobre una campaña que no cambió.
+    ///
+    /// Se cuentan los estados **definitivos**: `permanently_failed` y
+    /// `suppressed`. Un `failed` a secas va a volver a intentarse, así que
+    /// contarlo como fallo diría que se perdió algo que todavía está en camino.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla.
+    pub fn fallos_por_causa(
+        &self,
+        empresa: CompanyId,
+        campana: &str,
+    ) -> Result<Vec<(String, u32)>, DbError> {
+        self.con(|conn| {
+            let mut q = conn.prepare(
+                "SELECT COALESCE(a.error_kind, ''), count(*) AS n
+                   FROM message_attempt a
+                   JOIN campaign c ON c.id = a.campaign_id
+                  WHERE c.company_id = ?1
+                    AND a.campaign_id = ?2
+                    AND a.state IN ('permanently_failed', 'suppressed')
+                  GROUP BY a.error_kind
+                  ORDER BY n DESC, a.error_kind",
+            )?;
+            let filas = q
+                .query_map(params![empresa.to_string(), campana], |r| {
+                    Ok((r.get(0)?, r.get(1)?))
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(filas)
+        })
+    }
+
     pub fn resumen_de_la_empresa(
         &self,
         empresa: CompanyId,
@@ -849,5 +891,138 @@ mod tests {
 
         assert_eq!(r.salio, 0, "la campaña es de otra empresa: no se cuenta");
         assert_eq!(r.audiencia, 0);
+    }
+    /// Mete un intento fallido con su causa.
+    fn fallo_con_causa(db: &Db, campana: &str, n: u32, estado: &str, causa: Option<&str>) {
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "INSERT INTO message_attempt
+                     (id, campaign_id, contact_address, idempotency_key, state,
+                      channel, error_kind, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, 'email', ?6, ?7, ?7)",
+                params![
+                    format!("f-{campana}-{n}"),
+                    campana,
+                    format!("f{n}@t.mx"),
+                    format!("kf-{campana}-{n}"),
+                    estado,
+                    causa,
+                    AHORA
+                ],
+            )
+            .map(|_| ())
+        })
+        .expect("fallo");
+    }
+
+    /// **Los fallos se agrupan por causa, de más a menos.**
+    ///
+    /// Es lo que el resumen exportable necesita para decir «30 · la dirección
+    /// no existe» en vez de «30 fallaron» a secas. Un resumen que dice cuántos
+    /// fallaron sin decir por qué no sirve para arreglar nada.
+    ///
+    /// Verificada rompiéndola el 30/09/2026 quitando el `GROUP BY`: llega una
+    /// sola fila con todo junto y falla.
+    #[test]
+    fn los_fallos_se_agrupan_por_causa() {
+        let (_dir, db) = base();
+        fallo_con_causa(
+            &db,
+            "k-1",
+            1,
+            "permanently_failed",
+            Some("reintento.direccionInexistente"),
+        );
+        fallo_con_causa(
+            &db,
+            "k-1",
+            2,
+            "permanently_failed",
+            Some("reintento.direccionInexistente"),
+        );
+        fallo_con_causa(
+            &db,
+            "k-1",
+            3,
+            "permanently_failed",
+            Some("reintento.seAgotaronLosIntentos"),
+        );
+
+        let causas = db.fallos_por_causa(empresa(), "k-1").expect("lee");
+        assert_eq!(
+            causas,
+            vec![
+                ("reintento.direccionInexistente".to_owned(), 2),
+                ("reintento.seAgotaronLosIntentos".to_owned(), 1),
+            ],
+            "de más a menos: la causa más frecuente es la que hay que atacar"
+        );
+    }
+
+    /// **Un fallo que se va a reintentar NO cuenta como fallo.**
+    ///
+    /// ── EL DEFECTO QUE ESTO CAZA ──
+    ///
+    /// `failed` significa «falló esta vez y se reintentará». Contarlo en el
+    /// resumen diría que se perdieron mensajes que todavía están en camino, y
+    /// alguien tomaría una decisión —parar la campaña, cambiar de remitente—
+    /// sobre un problema que no existe.
+    ///
+    /// Sólo cuentan los estados definitivos: `permanently_failed` y
+    /// `suppressed`.
+    ///
+    /// Verificada rompiéndola el 30/09/2026 añadiendo `'failed'` a la lista de
+    /// estados: llegan 2 causas en vez de 1 y falla.
+    #[test]
+    fn un_reintento_pendiente_no_es_un_fallo() {
+        let (_dir, db) = base();
+        fallo_con_causa(
+            &db,
+            "k-1",
+            1,
+            "permanently_failed",
+            Some("reintento.seAgotaronLosIntentos"),
+        );
+        // Éste va a volver a intentarse: todavía no se ha perdido nada.
+        fallo_con_causa(
+            &db,
+            "k-1",
+            2,
+            "failed",
+            Some("reintento.seVolveraAIntentar"),
+        );
+
+        let causas = db.fallos_por_causa(empresa(), "k-1").expect("lee");
+        assert_eq!(causas.len(), 1, "un reintento pendiente no es un fallo");
+        let (clave, _) = causas.first().expect("hay una causa");
+        assert_eq!(clave, "reintento.seAgotaronLosIntentos");
+    }
+
+    /// **Y los fallos son de la campaña que se pide, no de todas.**
+    ///
+    /// Sin el filtro por campaña, el resumen de la campaña de octubre llevaría
+    /// los rebotes de la de agosto — cifras correctas bajo un título falso.
+    #[test]
+    fn los_fallos_son_de_una_sola_campana() {
+        let (_dir, db) = base();
+        fallo_con_causa(
+            &db,
+            "k-1",
+            1,
+            "permanently_failed",
+            Some("reintento.direccionInexistente"),
+        );
+        fallo_con_causa(
+            &db,
+            "k-2",
+            2,
+            "permanently_failed",
+            Some("reintento.laCuentaNoAutentica"),
+        );
+
+        let causas = db.fallos_por_causa(empresa(), "k-1").expect("lee");
+        assert_eq!(causas.len(), 1);
+        let (clave, _) = causas.first().expect("hay una causa");
+        assert_eq!(clave, "reintento.direccionInexistente");
     }
 }

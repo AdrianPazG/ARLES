@@ -774,6 +774,24 @@
           });
         }
 
+        // ── EL RESUMEN EXPORTABLE (7.6) ───────────────────────────────────
+        //
+        // En la demostración **no se guarda ningún archivo**: no hay diálogo
+        // del sistema en un navegador, y escribir en disco desde una vista
+        // previa sería peor que no hacer nada. Se devuelve el nombre que
+        // tendría, que es lo único que la pantalla enseña.
+        case 'exportar_resumen': {
+          var laCampana = (e.campanas || DEMO.campanas)
+            .filter(function (c) { return c.id === (args.campana || ''); })[0];
+          if (!laCampana) {
+            return Promise.reject({ clave: 'error.db.campana_no_existe', detalle: '' });
+          }
+          var limpio = laCampana.nombre
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-zA-Z0-9.\-_]/g, '-');
+          return Promise.resolve({ nombreDelArchivo: 'resumen-' + limpio + '.txt' });
+        }
+
         case 'que_se_recortaria': {
           var lista = e.registro || DEMO.registro;
           var ruido = lista.filter(function (s) { return !s.esDesenlace && s.viejo; });

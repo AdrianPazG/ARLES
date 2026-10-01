@@ -33,6 +33,7 @@ pub mod onboarding;
 pub mod plantilla;
 pub mod preflight;
 pub mod reintento;
+pub mod resumen;
 pub mod ritmo;
 pub mod sanear;
 pub mod secret;

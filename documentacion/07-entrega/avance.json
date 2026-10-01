@@ -35,7 +35,7 @@
     "  python3 herramientas/avance/calcular.py --escribir"
   ],
   "version": "1.2.0",
-  "actualizado": "2026-09-30",
+  "actualizado": "2026-10-01",
   "fases": [
     {
       "id": "F0",
@@ -97,8 +97,8 @@
       "id": "F7",
       "nombre": "Actividad y entregabilidad",
       "peso": 9,
-      "hecho": 0.7,
-      "porque": "Cinco de las siete entregas cerradas el 30/09/2026. 7.0: el freno completo —Pausar, Reanudar, Detener y la parada de emergencia— con sus seis comandos y su pantalla. 7.1: el registro de actividad, con el motor anotando los once sucesos que antes tiraba. 7.2: las cifras de cada campaña y el cupo de cada remitente, de un solo sitio. 7.3: la pantalla de Actividad, con una tarjeta por campaña (D-7A) y POR QUE no sale nada, cual de las seis razones es. 7.4: el registro con seis filtros combinables que viajan en la direccion, nunca mas de 500 filas con el total al lado, la direccion leida del intento y no guardada (P-17), y el recorte bimestral que dice antes de tocar nada cuanto se va y cuanto se queda — un desenlace de envio no se borra jamas. validar.py --fase 7 en 8/8 y las nueve fases en verde (279 comprobaciones). Faltan la 7.5 (SPF/DKIM/DMARC, que necesita aprobar una dependencia de DNS), la 7.6 (el resumen exportable) y la 7.7 (cierre)."
+      "hecho": 0.85,
+      "porque": "Seis de las siete entregas cerradas (30/09 y 01/10 de 2026). 7.0: el freno completo, con la parada de emergencia enchufada. 7.1: el registro de actividad, con el motor anotando los once sucesos que antes tiraba. 7.2: las cifras de cada campana y el cupo de cada remitente, de un solo sitio. 7.3: la pantalla de Actividad, con una tarjeta por campana (D-7A) y POR QUE no sale nada. 7.4: el registro con seis filtros que viajan en la direccion, 500 filas con el total al lado, y el recorte bimestral que no toca ni un envio (D-7C). 7.6: el resumen exportable, un archivo de texto por campana con el metodo de cada cifra y sin una sola direccion de correo. validar.py --fase 7 en 9/9 y las nueve fases en verde (280 comprobaciones). Falta la 7.5 (SPF/DKIM/DMARC), que Direccion movio al final el 30/09/2026 porque necesita red y una dependencia nueva y solo se puede verificar cuando se cierre R-24; y la 7.7, el cierre de la fase."
     },
     {
       "id": "F8",

@@ -58,6 +58,7 @@ import {
 import { useCampanasStore } from '@/app/stores/campanas'
 import {
   AAviso,
+  ABoton,
   AInsignia,
   AModulo,
   EstadoCargando,
@@ -257,6 +258,16 @@ const error = computed(() =>
       </template>
     </AAviso>
 
+    <!-- Lo que consta de la última exportación. Sólo el nombre del archivo:
+         la carpeta no cruza la frontera (regla 4). -->
+    <AAviso
+      v-if="actividad.ultimoResumen"
+      tono="exito"
+      :titulo="$t('actividad.resumen.guardado', { archivo: actividad.ultimoResumen })"
+    >
+      <p>{{ $t('actividad.resumen.queLleva') }}</p>
+    </AAviso>
+
     <!-- El aviso de datos viejos va ARRIBA de las cifras, no debajo: debajo se
          lee después de haberse creído los números. -->
     <AAviso
@@ -397,6 +408,20 @@ const error = computed(() =>
           {{ $t('actividad.ritmoCero') }}
         </p>
 
+        <!-- Guardar el resumen. En la tarjeta de cada campaña y no en una
+             pantalla aparte: quien quiere el resumen de una campaña la está
+             mirando. Y en cualquier estado, no sólo terminadas: el resumen de
+             una que va por la mitad es exactamente lo que se pide en una
+             reunión de seguimiento. -->
+        <p class="exportar">
+          <ABoton
+            variante="secundario"
+            @click="actividad.exportar(c.id)"
+          >
+            {{ $t('actividad.resumen.accion') }}
+          </ABoton>
+        </p>
+
         <!-- La razón, sólo cuando explica algo: con la campaña avanzando, el
              último suceso del bucle es ruido que compite con las cifras. -->
         <div
@@ -524,6 +549,10 @@ const error = computed(() =>
 
 .estado {
   margin: 0 0 var(--arles-space-4);
+}
+
+.exportar {
+  margin: var(--arles-space-4) 0 0;
 }
 
 .frescura {

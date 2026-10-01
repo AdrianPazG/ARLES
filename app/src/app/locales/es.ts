@@ -116,6 +116,21 @@ export const es = {
         'Cuando crees y actives una campaña, aquí verás lo que va pasando.',
       accion: 'Crear una campaña',
     },
+    // ── EL RESUMEN EXPORTABLE · entrega 7.6 ──────────────────────────────
+    //
+    // El archivo lleva **el método de cada cifra**, y por eso es un texto y no
+    // una hoja de cálculo: «aceptados: 1 342» en una celda es lo que acaba en
+    // una presentación llamándose «entregados» (§65).
+    resumen: {
+      accion: 'Guardar el resumen de esta campaña',
+      guardado: 'Resumen guardado en {archivo}',
+      // Lo que lleva y lo que no, dicho al guardarlo y no dentro del archivo:
+      // quien lo manda por correo tiene que saberlo antes de mandarlo.
+      queLleva:
+        'Lleva las cifras con lo que significa cada una. No lleva ninguna ' +
+        'dirección de correo: a quién se le escribió sólo está dentro de ARLES.',
+    },
+
     // La 7.0 puso el freno en Campañas (D-7B): es donde ya está la lista, y
     // duplicar el botón en dos pantallas es como se acaba con dos sitios que
     // dicen cosas distintas del mismo envío.

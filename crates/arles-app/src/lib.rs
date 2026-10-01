@@ -109,6 +109,8 @@ pub fn run() {
             registro::registro,
             registro::que_se_recortaria,
             registro::recortar_registro,
+            // El resumen exportable (7.6).
+            registro::exportar_resumen,
         ])
         .run(tauri::generate_context!());
 

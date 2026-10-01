@@ -297,3 +297,168 @@ fn corte_bimestral() -> String {
         // no recorta nada. Ante la duda, no se borra.
         .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_owned())
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EL RESUMEN EXPORTABLE · entrega 7.6
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Lo que consta de un resumen guardado.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResumenGuardado {
+    /// **Sólo el nombre del archivo, nunca la carpeta.**
+    ///
+    /// Regla 4 de la frontera: ninguna ruta del sistema cruza hacia la webview.
+    /// La carpeta donde alguien guarda sus cosas dice dónde vive y no le aporta
+    /// nada a la pantalla (`THREAT_MODEL.md` §4.1).
+    pub nombre_del_archivo: String,
+}
+
+/// Guarda el resumen de una campaña en un archivo que elige el usuario.
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// POR QUÉ UN TEXTO Y NO UNA HOJA DE CÁLCULO
+///
+/// Porque el valor de este archivo está en **el método de cada número**, y eso
+/// no cabe en una celda. Un CSV con «aceptados: 1 342» es exactamente lo que el
+/// §65 existe para impedir: alguien lo pega en una presentación y para la
+/// tercera reunión la cifra ya se llama «entregados». Nadie mintió; el número
+/// viajó sin su significado.
+///
+/// Lo redacta `arles_core::resumen`, que no sabe nada de archivos: aquí sólo se
+/// juntan los datos, se pregunta dónde guardar y se escribe. Es el mismo camino
+/// que el informe de acceso ARCO, que ya resolvió lo de no pasar rutas.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si no hay empresa, si la campaña no existe o si no se pudo
+/// escribir el archivo.
+///
+/// Devuelve `None` si se cerró el diálogo sin guardar: cancelar es una
+/// decisión, no un fallo.
+#[tauri::command]
+pub fn exportar_resumen(
+    estado: tauri::State<'_, EstadoApp>,
+    app: tauri::AppHandle,
+    campana: String,
+) -> Result<Option<ResumenGuardado>, ErrorIpc> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let empresa = crate::comandos::empresa_actual(&estado)?;
+    let db = estado.db();
+    let texto = redactar_resumen_de(db, empresa, &campana)?;
+
+    let sugerido = format!("resumen-{}.txt", crate::comandos::nombre_seguro(&campana));
+
+    let Some(destino) = app
+        .dialog()
+        .file()
+        .set_file_name(&sugerido)
+        .add_filter("Texto", &["txt"])
+        .blocking_save_file()
+    else {
+        return Ok(None);
+    };
+    let destino = destino
+        .into_path()
+        .map_err(|_| ErrorIpc::from(crate::AppError::ArchivoNoSePudoLeer))?;
+
+    std::fs::write(&destino, texto.as_bytes())
+        .map_err(|_| ErrorIpc::from(crate::AppError::ArchivoNoSePudoLeer))?;
+
+    Ok(Some(ResumenGuardado {
+        nombre_del_archivo: destino
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(&sugerido)
+            .to_owned(),
+    }))
+}
+
+/// El texto del resumen, con la base ya abierta.
+///
+/// Separado del comando por lo mismo que `registro_de`: un `tauri::State` no se
+/// construye en una prueba, así que lo que viva dentro del comando **no se
+/// puede probar**. Y aquí lo que hay que probar es justo esto: que las cifras
+/// del archivo son las de esa campaña y no otras.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si la campaña no existe o si la base no responde.
+pub fn redactar_resumen_de(
+    db: &arles_db::Db,
+    empresa: arles_core::ids::CompanyId,
+    campana: &str,
+) -> Result<String, ErrorIpc> {
+    let cifras = db
+        .resumen_de_campana(empresa, campana)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    // El nombre y el estado salen de la lista de campañas. Se busca por id y
+    // **no se inventa nada si no está**: un resumen con el nombre en blanco es
+    // un archivo que no se sabe de qué campaña es.
+    let quien = db
+        .campanas(empresa)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?
+        .into_iter()
+        .find(|c| c.id.to_string() == campana)
+        .ok_or_else(|| ErrorIpc::from(crate::AppError::Db(arles_db::DbError::CampanaNoExiste)))?;
+
+    let causas = db
+        .fallos_por_causa(empresa, campana)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?
+        .into_iter()
+        .map(|(clave, cuantos)| arles_core::resumen::FalloPorCausa { clave, cuantos })
+        .collect();
+
+    let empresa_nombre = db
+        .empresa()
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?
+        .map(|e| e.datos.nombre_comercial().to_owned())
+        .unwrap_or_default();
+
+    // El estado se traduce aquí: el archivo lo lee una persona, así que no
+    // puede salir `running` ni `campana.estado.enviando`. Y `quien.estado` ya
+    // es el tipo del núcleo —lo interpretó `arles-db` al leerlo—, así que no
+    // hace falta volver a adivinarlo desde una cadena.
+    let estado_legible = estado_en_espanol(quien.estado);
+
+    Ok(arles_core::resumen::redactar(
+        &arles_core::resumen::ResumenDeCampana {
+            campana: quien.nombre,
+            empresa: empresa_nombre,
+            fecha: crate::comandos::hoy_legible(),
+            estado: estado_legible.to_owned(),
+            // v1.2.0 sólo lanza campañas enteras por correo: el motor recorre
+            // `Canal::Correo`. Cuando WhatsApp pueda lanzar una campaña
+            // completa, esto sale de la etapa.
+            canal: "correo electrónico".to_owned(),
+            audiencia: cifras.audiencia,
+            salio: cifras.salio,
+            pendiente: cifras.pendiente,
+            fallo: cifras.fallo,
+            dado_de_baja: cifras.dado_de_baja,
+            cancelado: cifras.cancelado,
+            respondieron: cifras.respondieron,
+            causas,
+        },
+    ))
+}
+
+/// El estado de una campaña, en español, para un archivo.
+///
+/// No usa `clave_i18n()` porque una clave no es un texto: en la pantalla la
+/// traduce el catálogo, y aquí no hay catálogo. Es el mismo criterio que sigue
+/// `arco.rs`, que escribe «correo electrónico» directamente.
+const fn estado_en_espanol(e: arles_core::campana::EstadoDeCampana) -> &'static str {
+    use arles_core::campana::EstadoDeCampana as E;
+    match e {
+        E::Borrador => "Borrador",
+        E::Lista => "Lista para enviar",
+        E::Programada => "Programada",
+        E::Enviando => "Enviando",
+        E::EnPausa => "En pausa",
+        E::Terminada => "Terminada",
+        E::Detenida => "Detenida",
+    }
+}

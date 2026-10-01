@@ -312,6 +312,15 @@ lado, la dirección leída del intento y no guardada en el registro (P-17), y el
 recorte bimestral que dice antes de tocar nada cuánto se va y cuánto se queda.
 **Un desenlace de envío no se borra jamás.**
 
+**Cerrada la 7.6** —el resumen exportable—: un archivo de texto por campaña con
+**el método de cada cifra** al lado, los fallos agrupados por causa en español,
+y **sin una sola dirección de correo** — lo garantiza una comprobación, no sólo
+una prueba: la estructura que se redacta no tiene dónde meter una.
+
+**La 7.5 (SPF, DKIM y DMARC) se hace al final**, por decisión de Dirección del
+30/09/2026: es lo único que necesita red y una dependencia nueva, y sólo se
+puede verificar de verdad el día que se cierre R-24. No bloquea nada.
+
 **La parada de emergencia ya se puede pulsar.** La Fase 4 la construyó, la 7.0 le
 puso sus tres comandos… y ninguna pantalla los llamaba. Está en Campañas (D-7B),
 y Actividad la enseña porque es la razón número uno por la que no sale nada.

@@ -380,4 +380,56 @@ describe('la pantalla de Actividad', () => {
     const destinos = w.findAll('a').map((a) => a.attributes('href'))
     expect(destinos).toContain('/campanas')
   })
+  /**
+   * **Cada campaña ofrece guardar su resumen.**
+   *
+   * En la tarjeta y no en una pantalla aparte: quien quiere el resumen de una
+   * campaña la está mirando.
+   *
+   * Verificada rompiéndola el 30/09/2026 quitando el bloque `.exportar` de la
+   * plantilla: falla porque no encuentra el botón.
+   */
+  it('ofrece guardar el resumen de cada campaña', async () => {
+    conDatos([campana({ id: 'a' }), campana({ id: 'b', nombre: 'Promoción' })])
+    const w = mount(PantallaActividad, entorno)
+    await w.vm.$nextTick()
+
+    const guardar = w.findAll('button').filter((b) => b.text().includes('Guardar el resumen'))
+    expect(guardar.length, 'una por campaña').toBe(2)
+  })
+
+  /**
+   * **Y al guardarlo dice qué lleva el archivo y qué no.**
+   *
+   * Quien lo va a mandar por correo tiene que saber **antes de mandarlo** que
+   * no lleva direcciones dentro. Decirlo sólo dentro del archivo llega tarde:
+   * para entonces ya se adjuntó.
+   */
+  it('al guardar dice que el archivo no lleva direcciones', async () => {
+    const s = conDatos([campana()])
+    s.ultimoResumen = 'resumen-Clientes-de-agosto.txt'
+
+    const w = mount(PantallaActividad, entorno)
+    await w.vm.$nextTick()
+
+    expect(w.text()).toContain('resumen-Clientes-de-agosto.txt')
+    expect(w.text()).toContain('No lleva ninguna dirección')
+  })
+
+  /**
+   * **Lo que vuelve es el nombre del archivo, nunca la carpeta.**
+   *
+   * Regla 4 de la frontera: dónde guarda alguien sus cosas dice dónde vive, y
+   * a esta pantalla no le aporta nada (`THREAT_MODEL.md` §4.1).
+   */
+  it('no enseña la carpeta donde se guardó', async () => {
+    const s = conDatos([campana()])
+    s.ultimoResumen = 'resumen-Clientes-de-agosto.txt'
+
+    const w = mount(PantallaActividad, entorno)
+    await w.vm.$nextTick()
+
+    const t = w.text()
+    expect(t).not.toMatch(/[A-Z]:\\|\/home\/|\/Users\//)
+  })
 })
