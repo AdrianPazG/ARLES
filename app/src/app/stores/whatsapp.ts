@@ -123,6 +123,45 @@ export const useWhatsappStore = defineStore('whatsapp', () => {
     }
   }
 
+  /**
+   * Manda un WhatsApp de prueba desde un número dado de alta.
+   *
+   * ───────────────────────────────────────────────────────────────────────
+   * ESTA FUNCIÓN FALTABA, Y ERA LO ÚNICO QUE FALTABA
+   *
+   * `enviar_whatsapp_de_prueba` existe en Rust desde la W.8, con su prueba de
+   * punta a punta contra el servidor de mentira. Nadie lo invocaba: ni este
+   * almacén ni ninguna pantalla. El canal llegó al cierre de la W.7 y al de la
+   * 6.8 **sin un camino por el que un mensaje saliera desde la aplicación**, y
+   * el `CLAUDE.md` lo daba por hecho. Lo encontró
+   * `ningun_comando_se_queda_sin_quien_lo_llame` el 01/10/2026 (7.7).
+   *
+   * Que Meta rechace el mensaje **no es un error**: es un resultado con
+   * `aceptado: false` y su clave. Es justo lo que la prueba venía a averiguar,
+   * así que no se mete en `error` ni borra lo que hay en pantalla.
+   */
+  async function enviarPrueba(
+    id: string,
+    para: string,
+    plantilla: string,
+    idioma: string,
+  ): Promise<{ aceptado: boolean; clave: string } | null> {
+    if (!hayNucleo()) return null
+    cargando.value = true
+    error.value = null
+    try {
+      return await invocar<{ aceptado: boolean; clave: string }>(
+        'enviar_whatsapp_de_prueba',
+        { id, para, plantilla, idioma },
+      )
+    } catch (e) {
+      error.value = esErrorIpc(e) ? e.clave : 'error.desconocido'
+      return null
+    } finally {
+      cargando.value = false
+    }
+  }
+
   async function confirmarCoexistencia(id: string): Promise<void> {
     await marcar('confirmar_coexistencia', id)
   }
@@ -153,6 +192,7 @@ export const useWhatsappStore = defineStore('whatsapp', () => {
     porConfirmar,
     cargar,
     guardar,
+    enviarPrueba,
     confirmarCoexistencia,
     aceptarRiesgo,
   }

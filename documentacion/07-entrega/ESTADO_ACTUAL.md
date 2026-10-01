@@ -1,7 +1,7 @@
 # Estado actual · dónde está ARLES y qué sigue
 
 **Proyecto:** ARLES RELAY I · v1.2.0
-**Última actualización:** 29 de septiembre de 2026
+**Última actualización:** 1 de octubre de 2026 (cierre de la 7.7)
 **Para qué sirve este documento:** que quien retome el trabajo —otra sesión, otra persona, otro equipo— sepa en una lectura qué está construido, qué decisiones ya están tomadas, qué **no** hay que volver a discutir y qué es lo siguiente.
 
 > Se actualiza **al cerrar cada entrega**, no al empezarla. Un documento de estado que describe intenciones en vez de hechos es peor que no tenerlo: se lee como si fuera cierto.
@@ -14,7 +14,9 @@
 
 **Se puede crear una campaña de principio a fin y activarla**, con las nueve pantallas del asistente, el simulador de duración, las ocho comprobaciones y el correo de prueba obligatorio.
 
-**Lo que falta es el adaptador de WhatsApp**, que es de la Fase 5 y no está empezado — hay una decisión pendiente de Dirección sobre cuándo. Lo siguiente en el plan es la **Fase 7 · Actividad**.
+**Y ARLES cuenta lo que hace.** La Fase 7 está cerrada salvo la 7.5: el freno —pausar, reanudar, detener y la parada de emergencia, con botón—, el registro de actividad, las cifras de cada campaña, la pantalla de Actividad con **por qué no sale nada**, el registro con sus seis filtros y el resumen exportable.
+
+**El canal de WhatsApp (W.1 a W.8) está construido**, y desde la 7.7 **se puede mandar un WhatsApp de prueba desde la aplicación** — hasta entonces el comando existía sin botón. Lo que WhatsApp **no** hace es lanzar una campaña entera: el motor sólo recorre `Canal::Correo`. Es la decisión que espera a Dirección en `09-fases/FASE-05-PARA-DIRECCION.md`.
 
 ---
 
@@ -30,11 +32,12 @@
 | F4 · Motor de ejecución | ✅ cerrada | Máquina de estados, ritmo, ventana con zona IANA, reintentos, disyuntor, cola, presupuesto, pausa/detención, preflight |
 | **F5 · Proveedores de envío** | **🟡 70 %** | **La parte de correo cerrada (5.1 a 5.6). Falta WhatsApp. Ver §3** |
 | **F6 · Campañas y mensajes** | **✅ cerrada** | **Plantillas, saneado, versiones, campañas, preflight y el asistente de nueve pasos (6.1 a 6.7), con su auditoría. Ver §3 bis** |
-| F7 a F9 | ⬜ sin empezar | Actividad, respaldos, release |
+| **F7 · Actividad** | **🟡 92 %** | **El freno, el registro, las cifras, la pantalla de Actividad, el registro con filtros, el resumen exportable y la auditoría de cierre (7.0 a 7.4, 7.6 y 7.7). Falta sólo la 7.5 · SPF/DKIM/DMARC, movida al final por Dirección. Ver `09-fases/FASE-07-ACTIVIDAD.md`** |
+| F8 y F9 | ⬜ sin empezar | Respaldos y endurecimiento, release |
 
-**Cifras del 29/09/2026:** 788 pruebas de Rust, 133 del frontend, las siete fases del validador en verde (5·45·33·72·38·35·20, con las sondas omitidas por falta de Chromium y así dicho), `fmt`, `clippy`, `eslint` y `vue-tsc` limpios.
+**Cifras del 01/10/2026:** 187 pruebas del frontend y las nueve fases del validador **con las sondas corriendo de verdad** — 298 comprobaciones, 0 fallos y **0 omitidas** (5·48·37·83·40·35·20·21·9). `fmt`, `clippy`, `eslint` y `vue-tsc` limpios.
 
-**Avance de la v1.2.0: 73 %**, calculado desde `avance.json` el 29/09/2026.
+**Avance de la v1.2.0: 82 %**, calculado desde `avance.json` el 01/10/2026.
 
 ---
 

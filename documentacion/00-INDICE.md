@@ -137,9 +137,11 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Fase 05 · resumen para Dirección](09-fases/FASE-05-PARA-DIRECCION.md) | Sin tecnicismos |
 | [Fase 06 · Campañas y mensajes](09-fases/FASE-06-CAMPANAS-Y-MENSAJES.md) | ✅ cerrada · 20/20, 0 omitidas · con su auditoría |
 | [Fase 06 · resumen para Dirección](09-fases/FASE-06-PARA-DIRECCION.md) | Sin tecnicismos |
-| [Canal W · WhatsApp](09-fases/FASE-W-CANAL-WHATSAPP.md) | W.1 a W.8 · 17/17 · con su auditoría y lo que quedó fuera |
+| [Canal W · WhatsApp](09-fases/FASE-W-CANAL-WHATSAPP.md) | W.1 a W.8 · 21/21 · con su auditoría y lo que quedó fuera |
 | [Canal W · resumen para Dirección](09-fases/FASE-W-PARA-DIRECCION.md) | Sin tecnicismos |
-| [Fase 07 · Actividad y entregabilidad · **plan**](09-fases/FASE-07-PLAN.md) | 📋 planificada · siete entregas, tres decisiones y cinco propuestas |
+| [Fase 07 · Actividad y entregabilidad · **plan**](09-fases/FASE-07-PLAN.md) | El plan: ocho entregas, las tres decisiones ya resueltas |
+| [Fase 07 · Actividad](09-fases/FASE-07-ACTIVIDAD.md) | 🟡 92 % · 9/9, 0 omitidas · con la auditoría de cierre y sus siete hallazgos |
+| [Fase 07 · resumen para Dirección](09-fases/FASE-07-PARA-DIRECCION.md) | Sin tecnicismos |
 
 ---
 

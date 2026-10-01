@@ -59,7 +59,6 @@ pub fn run() {
             comandos::guardar_tema,
             comandos::abrir_sitio_de_telemetry,
             comandos::listar_contactos,
-            comandos::contacto,
             comandos::crear_contacto,
             comandos::editar_contacto,
             comandos::borrar_contacto,
@@ -79,7 +78,20 @@ pub fn run() {
             comandos::enviar_correo_de_prueba,
             comandos::probar_envio_de_la_cuenta,
             comandos::revisar_campana,
-            comandos::revisar_campana_de_whatsapp,
+            // ── `revisar_campana_de_whatsapp` NO está registrado, y es a
+            //    propósito desde la 7.7 ──────────────────────────────────────
+            //
+            // Es el preflight del canal (W.5), con sus dos cifras de permiso.
+            // Funciona y tiene sus pruebas, pero **es la puerta de un flujo que
+            // no existe**: el motor sólo recorre `Canal::Correo`, así que no se
+            // puede lanzar una campaña entera por WhatsApp y no hay pantalla
+            // que pueda pedir esta revisión con sentido.
+            //
+            // Registrarlo era peor que no tenerlo: un comando en la frontera
+            // que nadie llama es superficie de ataque que nadie vigila. Vuelve
+            // aquí el día que el motor recorra WhatsApp, que es la decisión que
+            // espera a Dirección en `FASE-05-PARA-DIRECCION.md`. La función y
+            // sus pruebas se quedan donde están.
             whatsapp::numeros_de_whatsapp,
             whatsapp::guardar_numero_de_whatsapp,
             whatsapp::confirmar_coexistencia,

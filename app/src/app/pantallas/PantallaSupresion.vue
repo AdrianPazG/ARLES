@@ -131,6 +131,7 @@ function pagina(delta: number): void {
       :titulo="t('supresion.titulo')"
       :nota="nota"
       principal
+      nivel="h1"
     >
       <p class="supresion__explicacion">
         {{ t('supresion.explicacion') }}

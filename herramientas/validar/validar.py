@@ -1377,6 +1377,55 @@ def nombres_de_las_opciones():
               f"sin nombre: {faltan}")
 
 
+def _esqueleto_del_catalogo(fuente):
+    """El catálogo sin comentarios ni textos, para poder contar sus llaves.
+
+    Las dos cosas hay que quitarlas **antes** de contar llaves, y las dos las
+    aprendí rompiéndolo:
+
+    - Un texto como `'… {fallan} por arreglar'` lleva una `}` dentro. Contándola,
+      el nivel de anidación baja uno por cada marcador, y a mitad del archivo el
+      catálogo parece tener la mitad de las rutas que tiene.
+    - Un comentario de bloque puede llevar las llaves que quiera.
+
+    Con los dos defectos puestos, `preflight.pasa` —que existe desde la 4.5— se
+    leía como inexistente.
+    """
+    s = re.sub(r"/\*.*?\*/", "", fuente, flags=re.S)
+    s = re.sub(r"//[^\n]*", "", s)
+    s = re.sub(r"'(?:\\.|[^'\\\n])*'", "·", s)
+    s = re.sub(r'"(?:\\.|[^"\\\n])*"', "·", s)
+    return re.sub(r"`(?:\\.|[^`\\])*`", "·", s, flags=re.S)
+
+
+def rutas_del_catalogo(fuente):
+    """Las rutas punteadas que el catálogo define, **nodos incluidos**.
+
+    Un nodo cuenta porque hay claves que apuntan a uno: `resolverError` pide
+    `error.db.clave_incorrecta`, que no es una cadena sino `{que, como, salvo}`.
+    """
+    pila, rutas = [], set()
+    for linea in _esqueleto_del_catalogo(fuente).splitlines():
+        cuerpo = linea.strip()
+        if not cuerpo:
+            continue
+        m = re.match(r"^'?([A-Za-z_]\w*)'?\s*:\s*\{", cuerpo)
+        if m:
+            pila.append(m.group(1))
+            rutas.add(".".join(pila))
+            continue
+        m = re.match(r"^'?([A-Za-z_]\w*)'?\s*:", cuerpo)
+        if m:
+            # Vale tanto `clave: 'texto'` como `clave:` con el valor debajo: el
+            # formateador parte los textos largos, y buscar algo tras los dos
+            # puntos dejaba fuera justo los más largos.
+            rutas.add(".".join(pila + [m.group(1)]))
+        for ch in cuerpo:
+            if ch == "}" and pila:
+                pila.pop()
+    return rutas
+
+
 def claves_de_error_sin_texto():
     """Toda clave que emite Rust está declarada y tiene texto.
 
@@ -1448,36 +1497,72 @@ def claves_de_error_sin_texto():
     # Se descubrió el 23/09/2026 al añadir las de pausar y detener, y es
     # exactamente el fallo del §2: una comprobación que parecía cubrir el §139
     # cubría un tercio de él.
+    #
+    # ─────────────────────────────────────────────────────────────────────────
+    # Y VOLVIÓ A CUBRIR UNA PARTE. REESCRITA EL 01/10/2026, EN LA 7.7
+    #
+    # Tenía los dos defectos que ya había tenido una vez:
+    #
+    # 1 · **Una lista de prefijos escrita a mano** —`campana|motor|reintento|
+    #     ritmo|ventana|instancia|etapa|duracion|preflight|disyuntor|correo`—.
+    #     Faltaban `whatsapp` y `plantilla`, así que once claves no las miraba
+    #     nadie: las seis de `whatsapp.prueba.*` que devuelve el envío de prueba
+    #     y las cinco de `whatsapp.plantilla.*` de los estados de Meta.
+    # 2 · **Comparaba la hoja, no la ruta.** Estaba anotado arriba como límite
+    #     conocido, con el argumento de que `errores.spec.ts` resuelve la ruta
+    #     de verdad — pero ese test sólo cubre `error.*`. Para todo lo demás
+    #     nadie resolvía la ruta, y así `plantilla.variable.miEmpresa` pasaba en
+    #     verde teniendo el catálogo `mi_empresa`: la hoja `mi_empresa` existía,
+    #     la ruta `…miEmpresa` no, y el asistente habría enseñado la clave cruda.
+    #
+    # Ahora los prefijos **son los bloques del propio catálogo** y se resuelve
+    # la ruta entera. La regla es: si el primer tramo nombra un bloque de la
+    # interfaz, la ruta completa tiene que resolver dentro de él. Eso deja fuera
+    # lo que sólo se parece a una clave —`smtp.gmail.com`, `lista.csv`,
+    # `wamid.ABC`, `v21.0`— sin ninguna lista que mantener.
+    rutas = rutas_del_catalogo(es)
+    bloques = {r for r in rutas if "." not in r}
+    assert len(bloques) > 20, f"se leyeron sólo {len(bloques)} bloques del catálogo"
+
+    # ── Las acciones de la bitácora NO son claves de i18n ───────────────────
+    #
+    # `audit_log` guarda acciones con la misma forma punteada, y dos de ellas
+    # caen bajo un bloque que sí existe en la interfaz. No se enseñan en ninguna
+    # pantalla: el registro de Actividad (7.4) lee `activity_event`, que es otra
+    # tabla. La excepción se declara aquí, y **se comprueba**: si una de estas
+    # dejara de ser una acción de bitácora, esta comprobación falla en vez de
+    # tragarse una clave de verdad.
+    ACCIONES_DE_BITACORA = ("empresa.actualizada", "empresa.configurada")
+    cuerpo_empresa = leer("crates/arles-db/src", "empresa.rs") or ""
+    assert "auditar(" in cuerpo_empresa, (
+        "las excepciones de bitácora se justifican por `auditar(`, y ya no está"
+    )
+
     otras = set()
-    for crate in ("arles-core", "arles-db", "arles-motor", "arles-app", "arles-email"):
+    for crate in ("arles-core", "arles-db", "arles-motor", "arles-app", "arles-email",
+                  "arles-whatsapp", "arles-import"):
         d = os.path.join(RAIZ, "crates", crate, "src")
         if not os.path.isdir(d):
             continue
-        for archivo in os.listdir(d):
-            if archivo.endswith(".rs"):
-                texto = leer(f"crates/{crate}/src", archivo) or ""
-                # Se quitan los tests: sus cadenas no van a ninguna pantalla.
-                cuerpo = texto.split("\n#[cfg(test)]")[0]
-                otras |= set(re.findall(
-                    r'"((?:campana|motor|reintento|ritmo|ventana|instancia|etapa|duracion|preflight|disyuntor|correo)'
-                    r'\.[a-zA-Z][a-zA-Z._]*)"', cuerpo))
+        for archivo in sorted(os.listdir(d)):
+            if not archivo.endswith(".rs"):
+                continue
+            texto = leer(f"crates/{crate}/src", archivo) or ""
+            # Se quitan los tests: sus cadenas no van a ninguna pantalla.
+            cuerpo = texto.split("\n#[cfg(test)]")[0]
+            cuerpo = re.sub(r"//[^\n]*", "", cuerpo)
+            for m in re.finditer(r'"([a-z][a-zA-Z0-9]*(?:\.[a-zA-Z0-9_]+)+)"', cuerpo):
+                clave = m.group(1)
+                if clave.split(".")[0] in bloques and clave not in ACCIONES_DE_BITACORA:
+                    otras.add(clave)
 
-    # En el catálogo la clave es la última parte, anidada bajo las anteriores.
-    #
-    # Se busca al PRINCIPIO DE LÍNEA y no como subcadena `clave: `. Buscar
-    # `clave: ` fallaba con los textos largos, que se escriben con el valor en
-    # la línea siguiente —el formateador los parte— y entonces lo que hay tras
-    # los dos puntos es un salto, no un espacio. Seis claves de la 4.5 salieron
-    # marcadas como sin texto teniéndolo.
-    def tiene_texto(clave: str) -> bool:
-        hoja = re.escape(clave.rsplit(".", 1)[-1])
-        return re.search(rf"^\s*{hoja}:", es, re.M) is not None
-
-    otras_sin_texto = sorted(c for c in otras if not tiene_texto(c))
+    otras_sin_texto = sorted(c for c in otras if c not in rutas)
     check(3, "toda clave de estado de Rust tiene texto en el catálogo",
           bool(otras) and not otras_sin_texto,
           "El §139 dice TODA clave, no sólo las de error. Sin texto, la "
-          "pantalla enseña la clave cruda: «motor.fueraDeVentana».",
+          "pantalla enseña la clave cruda: «motor.fueraDeVentana». Se compara "
+          "la RUTA entera, no la hoja: un texto en la rama equivocada no "
+          "resuelve, y la hoja sola pasaba en verde.",
           f"claves: {sorted(otras)}\nsin texto: {otras_sin_texto}")
 
 
@@ -3783,6 +3868,92 @@ def toda_pantalla_se_puede_abrir():
     )
 
 
+def ningun_comando_se_queda_sin_quien_lo_llame():
+    """**El patrón del §9, por fin visto desde el único sitio que lo ve entero.**
+
+    Había tres comprobaciones persiguiendo este patrón, y cada una miraba un
+    tramo del cable:
+
+    - `lo_que_se_construye_se_usa` · función de store → pantalla.
+    - `toda_capacidad_del_nucleo_tiene_puerta` · núcleo → comando.
+    - `el_freno_llega_hasta_la_pantalla` · los comandos **de `control.rs`** →
+      pantalla.
+
+    Falta el tramo de en medio, y es el único que el usuario pisa:
+    **comando registrado → alguien que lo invoque.** La tercera lo cubre para
+    seis comandos de un archivo; los otros cuarenta y nueve no los miraba nadie.
+
+    ───────────────────────────────────────────────────────────────────────────
+    LO QUE ENCONTRÓ AL ESCRIBIRLA, EL 01/10/2026, CON LAS NUEVE FASES EN VERDE
+
+    Tres comandos registrados en `generate_handler!` que **ninguna pantalla y
+    ningún almacén invocan**:
+
+    1. `enviar_whatsapp_de_prueba` — el envío de prueba de la W.8. Construido,
+       probado de punta a punta contra el servidor de mentira, y **sin botón**.
+       El `CLAUDE.md` decía «el envío de prueba que manda un WhatsApp real»:
+       cierto del adaptador, falso del producto. Desde ARLES no se podía mandar.
+    2. `revisar_campana_de_whatsapp` — el preflight del canal de la W.5, con sus
+       dos cifras de permiso. Mismo caso.
+    3. `contacto` — la ficha completa de un contacto. Éste no es un botón que
+       falte: **es un comando que no hace falta**, porque la lista ya trae todos
+       los canales y la ficha se recalcula de ella. Se quitó.
+
+    Los tres sobrevivieron al cierre de la W.7, al de la 6.8 y a la auditoría de
+    recorrido A1–A3, que inventarió **pantallas y acciones** — y un comando sin
+    botón no aparece en un inventario de botones.
+
+    Y hay una razón que no es de pulcritud: **cada comando registrado es
+    superficie de ataque**. Uno que nadie llama es una puerta que nadie vigila,
+    y la regla 3 de la frontera —ningún comando devuelve un secreto— hay que
+    sostenerla en todas, no sólo en las que se usan.
+
+    La lista se lee de `generate_handler!`, no a mano, por la misma razón que la
+    del freno: la lista a mano fue el defecto.
+    """
+    import re as _re
+
+    lib = leer("crates", "arles-app", "src", "lib.rs") or ""
+    bloque = _re.search(r"generate_handler!\[(.*?)\]", lib, _re.S)
+    assert bloque, "no se encontró generate_handler![…]: el patrón dejó de casar"
+    # Sin comentarios: el bloque los lleva, y un comando nombrado en uno no
+    # está registrado.
+    crudo = _re.sub(r"//[^\n]*", "", bloque.group(1))
+    registrados = sorted(set(_re.findall(r"(?:\w+::)?(\w+)\s*,", crudo)))
+    assert len(registrados) > 40, f"se leyeron sólo {len(registrados)} comandos"
+
+    # ── TODO `app/src`, Y NO UNA LISTA DE CARPETAS ─────────────────────────
+    #
+    # La primera versión leía `pantallas/` y `stores/`, más `nucleo.ts` y
+    # `app.ts` a mano. Dio **un falso positivo inmediato**:
+    # `abrir_sitio_de_telemetry` se invoca desde `App.vue`, que no está en
+    # ninguna de las dos carpetas ni en la lista de sueltos.
+    #
+    # Es el mismo defecto que esta comprobación persigue, cometido al
+    # escribirla: una lista a mano de dónde mirar. Ahora se recorre el árbol.
+    fuentes = []
+    for base, _, ficheros in os.walk(os.path.join(RAIZ, "app", "src")):
+        for archivo in sorted(ficheros):
+            if not archivo.endswith((".vue", ".ts")) or archivo.endswith(".spec.ts"):
+                continue
+            with open(os.path.join(base, archivo), encoding="utf-8") as fh:
+                fuentes.append(fh.read())
+
+    # Sin comentarios: hablar de un comando no es llamarlo. Es la lección de
+    # `el_freno_llega_hasta_la_pantalla`, que llegó a satisfacerse con el
+    # comentario que explicaba el defecto que buscaba.
+    unido = _re.sub(r"/\*.*?\*/|//[^\n]*|<!--.*?-->", "", "".join(fuentes), flags=_re.S)
+
+    huerfanos = [c for c in registrados if f"'{c}'" not in unido and f'"{c}"' not in unido]
+    check(
+        "W",
+        "ningún comando se queda sin quien lo llame",
+        not huerfanos,
+        ningun_comando_se_queda_sin_quien_lo_llame.__doc__,
+        detalle=f"registrados y sin invocar: {huerfanos}",
+    )
+
+
 def fase_w(rapido):
     titulo("CANAL W · WhatsApp")
 
@@ -3831,6 +4002,7 @@ def fase_w(rapido):
     lo_que_se_construye_se_usa()
     ninguna_tabla_se_queda_sin_escritor()
     toda_pantalla_se_puede_abrir()
+    ningun_comando_se_queda_sin_quien_lo_llame()
 
 
 def toda_capacidad_del_nucleo_tiene_puerta():

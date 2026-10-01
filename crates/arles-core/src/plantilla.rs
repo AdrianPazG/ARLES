@@ -91,13 +91,28 @@ impl Variable {
     }
 
     /// La clave del texto que la describe en la interfaz (§139).
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// DECÍA `miEmpresa` Y EL CATÁLOGO DICE `mi_empresa`
+    ///
+    /// Encontrado el 01/10/2026, en la auditoría de la 7.7. La ruta
+    /// `plantilla.variable.miEmpresa` **no existe**: el catálogo la tiene como
+    /// `mi_empresa`, igual que [`Self::clave`].
+    ///
+    /// No se vio por tres razones a la vez, y las tres son el §9: nadie llama a
+    /// este método —las pantallas construyen la clave con `clave()`, que sí
+    /// valía—; la comprobación del §139 comparaba **la hoja** `mi_empresa`, que
+    /// existe, en vez de la ruta; y su lista de prefijos no incluía `plantilla`.
+    ///
+    /// Ahora la prueba `la_clave_de_i18n_se_deriva_de_la_clave` ata las dos, así
+    /// que no pueden volver a separarse sin que algo falle.
     #[must_use]
     pub const fn clave_i18n(self) -> &'static str {
         match self {
             Self::Nombre => "plantilla.variable.nombre",
             Self::Apellido => "plantilla.variable.apellido",
             Self::Empresa => "plantilla.variable.empresa",
-            Self::MiEmpresa => "plantilla.variable.miEmpresa",
+            Self::MiEmpresa => "plantilla.variable.mi_empresa",
         }
     }
 }
@@ -464,6 +479,33 @@ mod tests {
         assert_eq!(Variable::Empresa.clave(), "empresa");
         assert_eq!(Variable::MiEmpresa.clave(), "mi_empresa");
         assert_eq!(Variable::TODAS.len(), 4);
+    }
+
+    /// La clave de i18n se deriva de la clave, y no se escribe por separado.
+    ///
+    /// ── POR QUÉ EXISTE ESTA PRUEBA ────────────────────────────────────────
+    ///
+    /// Porque las dos estaban escritas a mano y **se habían separado**:
+    /// `clave()` decía `mi_empresa` y `clave_i18n()` decía `miEmpresa`. El
+    /// catálogo sólo tiene la primera, así que la segunda apuntaba a un texto
+    /// inexistente y la interfaz habría enseñado la clave cruda.
+    ///
+    /// Nadie lo vio porque las pantallas no usan `clave_i18n()`: construyen la
+    /// clave con `clave()`, que era la correcta. El método estaba mal **y no lo
+    /// llamaba nadie** — el patrón del §9, esta vez en un valor y no en una
+    /// función.
+    ///
+    /// Verificada rompiéndola el 01/10/2026: volviendo `miEmpresa`, falla
+    /// nombrando la variable. (§2)
+    #[test]
+    fn la_clave_de_i18n_se_deriva_de_la_clave() {
+        for v in Variable::TODAS {
+            assert_eq!(
+                v.clave_i18n(),
+                format!("plantilla.variable.{}", v.clave()),
+                "la clave de i18n de {v:?} no deriva de su clave"
+            );
+        }
     }
 
     /// Cada variable se escribe entera igual que se reconoce.

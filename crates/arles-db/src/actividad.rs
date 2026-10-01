@@ -823,7 +823,7 @@ mod tests {
         let (_d, db) = base();
 
         // k-1 se quedó sin cupo; k-2 está fuera de su horario.
-        db.anotar_si_cambia(empresa(), &de_bucle("ritmo.topeDiario", ETAPA))
+        db.anotar_si_cambia(empresa(), &de_bucle("ritmo.topeDelDia", ETAPA))
             .expect("anota");
         db.anotar_si_cambia(
             empresa(),
@@ -841,7 +841,7 @@ mod tests {
 
         assert_eq!(
             razones.get("k-1").map(|s| s.clave.as_str()),
-            Some("ritmo.topeDiario")
+            Some("ritmo.topeDelDia")
         );
         assert_eq!(
             razones.get("k-2").map(|s| s.clave.as_str()),
@@ -861,7 +861,7 @@ mod tests {
     fn la_razon_no_es_un_desenlace_de_envio() {
         let (_d, db) = base();
 
-        db.anotar_si_cambia(empresa(), &de_bucle("ritmo.topeDiario", ETAPA))
+        db.anotar_si_cambia(empresa(), &de_bucle("ritmo.topeDelDia", ETAPA))
             .expect("anota");
         // Después, un envío. Es más reciente, pero no es una razón.
         db.anotar_suceso(empresa(), &desenlace("motor.aceptadoPorElProveedor"))
@@ -873,7 +873,7 @@ mod tests {
 
         assert_eq!(
             razones.get("k-1").map(|s| s.clave.as_str()),
-            Some("ritmo.topeDiario"),
+            Some("ritmo.topeDelDia"),
             "la razón tiene que ser el último suceso de BUCLE, no el último de \
              todos: «se aceptó un correo» no explica por qué no sale ninguno"
         );

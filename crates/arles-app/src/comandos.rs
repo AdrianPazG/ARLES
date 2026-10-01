@@ -448,27 +448,21 @@ pub fn listar_contactos(
     })
 }
 
-/// La ficha completa de un contacto, con **todos** sus canales (L-14).
-///
-/// Devuelve `None` si no existe, en vez de un error: pedir la ficha de algo que
-/// alguien acaba de dar de baja no es una avería, y la pantalla tiene que poder
-/// decir «ya no está» sin enseñar un mensaje de error.
-///
-/// # Errores
-///
-/// [`ErrorIpc`] si la empresa no está configurada o si la base no responde.
-#[tauri::command]
-pub fn contacto(
-    estado: tauri::State<'_, EstadoApp>,
-    id: arles_core::ids::ContactId,
-) -> Result<Option<ContactoParaLaPantalla>, ErrorIpc> {
-    let empresa = empresa_actual(&estado)?;
-    estado
-        .db()
-        .contacto(empresa, id)
-        .map(|c| c.map(Into::into))
-        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))
-}
+// ── AQUÍ VIVÍA EL COMANDO `contacto`, Y SE QUITÓ EN LA 7.7 ────────────────
+//
+// Devolvía la ficha completa de un contacto con todos sus canales (L-14).
+// Estaba registrado en `generate_handler!` desde la Fase 3 y **nadie lo
+// invocaba**: `listar_contactos` ya trae los canales de cada contacto, y la
+// ficha de la pantalla se recalcula de la lista a propósito —una copia dejaría
+// la ficha enseñando los datos viejos tras editar—.
+//
+// No se quita por pulcritud. **Cada comando registrado es superficie de
+// ataque**: una puerta que nadie usa es una puerta que nadie vigila, y las
+// cuatro reglas de la frontera hay que sostenerlas en todas, no sólo en las
+// que alguien abre. Lo encontró `ningun_comando_se_queda_sin_quien_lo_llame`.
+//
+// `Db::contacto` **se queda**: seis pruebas de `arles-db` lo usan para verificar
+// garantías de verdad, entre ellas que otra empresa no puede leer el contacto.
 
 /// Da de alta un contacto escrito a mano (L-13).
 ///

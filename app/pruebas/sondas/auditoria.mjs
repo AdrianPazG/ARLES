@@ -29,7 +29,9 @@
  *     primario deshabilitado conservaba su borde de oro porque su selector
  *     pesaba más que `.boton:disabled`.
  *  4. Nombre accesible de cada botón y cada enlace.
- *  5. Jerarquía de encabezados sin saltos.
+ *  5. Jerarquía de encabezados: que empiece en `h1` y que no dé saltos. El
+ *     principio importa tanto como los huecos, y era justo lo que no se
+ *     miraba: tres pantallas sin `h1` pasaban en verde.
  *  6. Identificadores repetidos, que rompen `for`/`aria-labelledby` en
  *     silencio: la etiqueta deja de apuntar al campo y nada falla.
  *  7. Marca de foco visible en cada parada del tabulador.
@@ -238,9 +240,35 @@ const MEDIR = (sueloDeshabilitado) => {
     if (!nombre) out.sinNombre.push(el.outerHTML.slice(0, 140))
   }
 
-  // ── 5 · encabezados sin saltos ──────────────────────────────────────
+  // ── 5 · encabezados: sin saltos, Y EMPEZANDO POR h1 ─────────────────
+  //
+  // ── ESTA COMPROBACIÓN NO MIRABA EL PRINCIPIO ──
+  //
+  // `previo` empezaba en 0 y la condición era `if (previo && …)`, así que **el
+  // primer encabezado nunca se comprobaba**. Una pantalla que empieza en `h2`,
+  // sin ningún `h1`, pasaba en verde: no hay salto entre dos encabezados porque
+  // el que falta no está ahí para saltárselo.
+  //
+  // Dejó pasar tres pantallas de catorce sin título de página —Remitentes,
+  // Bajas y Derechos—, y se vio **mirando**, el 01/10/2026 en la 7.7, al medir
+  // dónde empieza el `h1` de cada una y encontrar que en tres no había ninguno.
+  // Para quien usa un lector de pantalla, «ir al encabezado 1» no lleva a
+  // ningún sitio; para quien mira, once pantallas se presentan con su nombre y
+  // tres empiezan directamente con una tarjeta.
+  const encabezados = document.querySelectorAll(
+    'main h1,main h2,main h3,main h4,main h5,main h6',
+  )
+  if (encabezados.length === 0) {
+    out.encabezados.push('la pantalla no tiene ningún encabezado')
+  } else if (encabezados[0].tagName !== 'H1') {
+    out.encabezados.push(
+      `empieza en ${encabezados[0].tagName.toLowerCase()} y no en h1: ` +
+        `«${(encabezados[0].textContent || '').trim().slice(0, 40)}»`,
+    )
+  }
+
   let previo = 0
-  for (const h of document.querySelectorAll('main h1,main h2,main h3,main h4,main h5,main h6')) {
+  for (const h of encabezados) {
     const n = parseInt(h.tagName[1], 10)
     if (previo && n > previo + 1) {
       out.encabezados.push(`h${previo} → h${n}: «${(h.textContent || '').trim().slice(0, 40)}»`)

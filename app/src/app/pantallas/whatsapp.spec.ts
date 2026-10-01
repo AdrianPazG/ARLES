@@ -156,4 +156,107 @@ describe('la pantalla del número de WhatsApp', () => {
     expect(pantalla.find('input[type="password"]').exists()).toBe(false)
     expect(pantalla.html()).not.toContain('EAAG-un-token-de-meta')
   })
+
+  // ── El envío de prueba, que es lo que la 7.7 añadió ─────────────────────
+  //
+  // El comando existía desde la W.8 y ninguna pantalla lo llamaba, así que
+  // desde ARLES no se podía mandar un WhatsApp. Estas cuatro pruebas miran lo
+  // que ninguna prueba de Rust podía ver: que hay un botón, que llama al
+  // comando, y que los dos desenlaces se enseñan por lo que son.
+
+  /**
+   * **Un número que todavía no puede enviar no tiene botón: tiene una
+   * explicación.**
+   *
+   * El comando devolvería un error si el número le falta una confirmación. Un
+   * botón cuyo único resultado posible es un error no es un botón, es una
+   * trampa — y el §95 pide explicar, no fallar.
+   */
+  it('si el número no puede enviar todavía, no ofrece el botón', () => {
+    sembrar([EN_FRIO])
+    const pantalla = mount(PantallaWhatsApp, entorno)
+
+    expect(pantalla.text()).toContain('Este número no puede enviar todavía')
+    const mandar = pantalla.findAll('button').find((b) => b.text().includes('Mandar la prueba'))
+    expect(mandar).toBeUndefined()
+  })
+
+  /**
+   * **Cuando sí puede enviar, el botón está y llama al comando.**
+   *
+   * Esto es exactamente lo que faltaba: no que el comando funcione —eso ya
+   * estaba probado en Rust— sino que alguien lo llame.
+   */
+  it('manda la prueba con el número escrito, la plantilla y el idioma', async () => {
+    const store = sembrar([{ ...EN_FRIO, puedeEnviar: true }])
+    const pedidas: unknown[][] = []
+    store.enviarPrueba = (...args: unknown[]) => {
+      pedidas.push(args)
+      return Promise.resolve({ aceptado: true, clave: 'whatsapp.prueba.aceptado' })
+    }
+
+    const pantalla = mount(PantallaWhatsApp, entorno)
+    const campos = pantalla.findAll('input')
+    const destino = campos[campos.length - 3]
+    await destino?.setValue('+528112345678')
+
+    const mandar = pantalla.findAll('button').find((b) => b.text().includes('Mandar la prueba'))
+    await mandar?.trigger('click')
+    await pantalla.vm.$nextTick()
+
+    expect(pedidas).toHaveLength(1)
+    // Los cuatro argumentos, en orden: el número de ARLES, el destino, y los
+    // dos valores que Meta exige y que vienen rellenos por defecto.
+    expect(pedidas[0]).toEqual([EN_FRIO.id, '+528112345678', 'hello_world', 'en_US'])
+  })
+
+  /**
+   * **Aceptado no es entregado** (§65).
+   *
+   * Es el mismo texto que el del correo y por la misma razón: ARLES no lee
+   * teléfonos. Si esta prueba se pudiera cambiar a «entregado» sin que fallara,
+   * la distinción no estaría sostenida por nada.
+   */
+  it('cuando Meta acepta, no dice «entregado»', async () => {
+    const store = sembrar([{ ...EN_FRIO, puedeEnviar: true }])
+    store.enviarPrueba = () =>
+      Promise.resolve({ aceptado: true, clave: 'whatsapp.prueba.aceptado' })
+
+    const pantalla = mount(PantallaWhatsApp, entorno)
+    const campos = pantalla.findAll('input')
+    await campos[campos.length - 3]?.setValue('+528112345678')
+    const mandar = pantalla.findAll('button').find((b) => b.text().includes('Mandar la prueba'))
+    await mandar?.trigger('click')
+    await pantalla.vm.$nextTick()
+
+    const texto = pantalla.text()
+    expect(texto).toContain('Meta aceptó el mensaje')
+    expect(texto).toContain('Mira tu teléfono')
+    expect(texto.toLowerCase()).not.toContain('entregado')
+  })
+
+  /**
+   * **Un rechazo de Meta se enseña con su texto, no como clave ni como error.**
+   *
+   * Las seis claves de `whatsapp.prueba.*` no tenían texto en el catálogo —el
+   * comando llevaba tres entregas devolviéndolas sin que nadie las pintara—, así
+   * que esta prueba comprueba lo que se habría visto: la clave cruda.
+   */
+  it('un rechazo de Meta sale con su explicación en español', async () => {
+    const store = sembrar([{ ...EN_FRIO, puedeEnviar: true }])
+    store.enviarPrueba = () =>
+      Promise.resolve({ aceptado: false, clave: 'whatsapp.prueba.tokenNoVale' })
+
+    const pantalla = mount(PantallaWhatsApp, entorno)
+    const campos = pantalla.findAll('input')
+    await campos[campos.length - 3]?.setValue('+528112345678')
+    const mandar = pantalla.findAll('button').find((b) => b.text().includes('Mandar la prueba'))
+    await mandar?.trigger('click')
+    await pantalla.vm.$nextTick()
+
+    const texto = pantalla.text()
+    expect(texto).toContain('La prueba no salió')
+    expect(texto).toContain('Meta rechazó el token')
+    expect(texto).not.toContain('whatsapp.prueba')
+  })
 })

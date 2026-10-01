@@ -269,7 +269,14 @@ escribir plantillas ni firmas —los comandos están, el editor no—.
 adaptador de Cloud API con su servidor de mentira, el número en el llavero con
 Coexistencia y la aceptación de riesgo, el procesador de avisos, la puerta del
 canal con las dos cifras de permiso, la pantalla, y **el envío de prueba que
-manda un WhatsApp real**. `validar.py --fase W` en 17/17.
+manda un WhatsApp real**. `validar.py --fase W` en 21/21.
+
+> **Esta frase fue falsa durante tres entregas, y conviene saber en qué sentido.**
+> El comando existía, probado de punta a punta contra el servidor de mentira; lo
+> que no existía era **el botón**, así que desde ARLES no se podía mandar un
+> WhatsApp. Lo cerró la 7.7 el 01/10/2026, con sus seis textos — que tampoco
+> estaban escritos. Un archivo que se lee al abrir el proyecto y afirma de más
+> es peor que no tenerlo, porque se cree: §9, dicho de otra forma.
 
 **Dos huecos del mismo tipo, y la comprobación que ahora los caza.** El canal
 llegó a su cierre con setenta pruebas en verde y **sin poder mandar nada**: el
@@ -317,6 +324,23 @@ recorte bimestral que dice antes de tocar nada cuánto se va y cuánto se queda.
 y **sin una sola dirección de correo** — lo garantiza una comprobación, no sólo
 una prueba: la estructura que se redacta no tiene dónde meter una.
 
+**Cerrada la 7.7, el cierre de la fase** —auditoría, revisión a ojo de las
+catorce pantallas, documento e informe—. Con las nueve fases en verde encontró
+**siete defectos**: los cinco comandos y claves de la tabla de arriba, «Detener»
+con 2.41:1 de contraste, y tres pantallas de catorce **sin `h1`**. Está contado
+en [`FASE-07-ACTIVIDAD.md`](documentacion/09-fases/FASE-07-ACTIVIDAD.md).
+
+**Dos comprobaciones que decían cubrir una regla cubrían una parte**, las dos
+por una lista escrita a mano, y las dos están reescritas para leer del código:
+
+- La del §139 tenía una lista de prefijos sin `whatsapp` ni `plantilla`, y
+  comparaba **la hoja y no la ruta** — así pasó en verde una clave guardada en la
+  rama equivocada. Ahora los prefijos **son los bloques del propio catálogo** y
+  se resuelve la ruta entera.
+- La sonda de accesibilidad decía vigilar la jerarquía de encabezados y nunca
+  miraba **por cuál empieza**: `previo` arrancaba en 0, así que un `h2` inicial
+  sin `h1` no era un salto. Tres pantallas llevaban así desde la Fase 3.
+
 **La 7.5 (SPF, DKIM y DMARC) se hace al final**, por decisión de Dirección del
 30/09/2026: es lo único que necesita red y una dependencia nueva, y sólo se
 puede verificar de verdad el día que se cierre R-24. No bloquea nada.
@@ -350,10 +374,26 @@ hueco vive justo entre dos capas que cada una pasa lo suyo.
 | 7.0 | La **parada de emergencia**: tres comandos con pruebas, y ninguna pantalla los llamaba. La comprobación que la 7.0 escribió para este patrón miraba **dos de seis** comandos |
 | 7.3 | Seis comandos más que la vista previa no contestaba: en la demostración no se podía crear ni activar una campaña |
 | 7.3 | `ritmo_por_hora`, construido en la 7.2 sin nadie que lo llamara — y la comprobación no lo cazaba porque verificaba que el comando existiera, no que llamara |
+| W.8 | **`enviar_whatsapp_de_prueba`: comando probado de punta a punta, y sin botón.** El canal llegó a su cierre y a la 6.8 sin que se pudiera mandar un WhatsApp desde la aplicación, y este archivo lo daba por hecho |
+| W.5 | `revisar_campana_de_whatsapp`, registrado en la frontera para un flujo que no existe: el motor no recorre WhatsApp. Desregistrado en la 7.7 |
+| Fase 3 | `contacto`, un comando que además **no hacía falta**: la lista ya trae todos los canales |
+| Fase 2 | **El token `--arles-text-on-danger`, definido y sin usar en `ABoton`.** «Detener» pintaba tinta de acento sobre rojo: 2.41:1 |
+| W.1 / 6.1 | Once claves de i18n que el núcleo devuelve y el catálogo no tenía, más una —`plantilla.variable.miEmpresa`— que apuntaba a un texto inexistente |
 
 Los cinco primeros los caza `validar.py --fase W`:
 `lo_que_se_construye_se_usa`, `ninguna_tabla_se_queda_sin_escritor`,
 `toda_pantalla_se_puede_abrir` y la sonda del recorrido.
+
+**Y el tramo que faltaba, que es el único que el usuario pisa:**
+`ningun_comando_se_queda_sin_quien_lo_llame` (fase W) compara los comandos de
+`generate_handler!` con quien los invoca en todo `app/src`. Había tres
+comprobaciones persiguiendo este patrón y cada una miraba un tramo del cable —
+store→pantalla, núcleo→comando, y los seis comandos de `control.rs`→pantalla—;
+**comando registrado → alguien que lo llame** no lo miraba nadie. Encontró tres
+el día que se escribió, con las nueve fases en verde.
+
+Cada comando registrado es **superficie de ataque**: uno que nadie llama es una
+puerta que nadie vigila. Por eso se quita, no se deja «por si acaso».
 
 Y los tres últimos, `--fase 7`: `el_freno_llega_hasta_la_pantalla` —que ahora
 lee los comandos de `control.rs` en vez de una lista a mano— y **`la vista previa

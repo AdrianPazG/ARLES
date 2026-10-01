@@ -12,6 +12,66 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 7.7 · El cierre de la Fase 7, y siete defectos con todo en verde
+
+La auditoría de cierre se hizo con las nueve fases del validador pasando y las
+187 pruebas del frontend en verde. Encontró siete cosas.
+
+#### Lo que cambia para quien usa ARLES
+
+**Ya se puede mandar un WhatsApp de prueba desde la aplicación.** El comando
+existía desde la W.8, probado de punta a punta contra el servidor de mentira, y
+**no tenía botón**. Las seis frases que devuelve tampoco estaban escritas: con
+el botón puesto se habría leído `whatsapp.prueba.aceptado` en pantalla.
+
+**«Detener» se puede leer.** Tenía **2.41:1** de contraste cuando el mínimo de
+AA es 4.5 — tinta oscura sobre rojo oscuro en el tema claro, en el botón más
+destructivo del producto y el único freno de una campaña en marcha. Ahora da
+**6.64:1**. El token correcto, `--arles-text-on-danger`, existía desde la Fase 2
+y no lo usaba nadie en `ABoton`; `AInsignia` sí, con un comentario que cuenta
+este mismo defecto arreglado en la insignia y no en el botón.
+
+**Las catorce pantallas tienen título.** Remitentes, Bajas y Derechos no tenían
+ningún `h1`: para un lector de pantalla, «ir al encabezado 1» no llevaba a
+ninguna parte, y a la vista empezaban con una tarjeta mientras las otras once se
+presentan con su nombre.
+
+#### Lo que cambia por dentro
+
+**Tres comandos registrados que nadie llamaba.** `enviar_whatsapp_de_prueba`
+(ahora con botón), `revisar_campana_de_whatsapp` (desregistrado: es la puerta de
+un flujo que no existe, porque el motor no recorre WhatsApp) y `contacto`
+(quitado: `listar_contactos` ya trae todos los canales). No es pulcritud —
+**cada comando registrado es superficie de ataque**.
+
+**`Variable::clave_i18n()` apuntaba a un texto inexistente**:
+`plantilla.variable.miEmpresa` contra `mi_empresa` en el catálogo. Ahora una
+prueba la deriva de `clave()` para que no puedan separarse.
+
+#### Las comprobaciones que decían cubrir una regla y cubrían una parte
+
+Las dos por una lista escrita a mano, y las dos reescritas para leer del código:
+
+- **`claves_de_error_sin_texto`** tenía una lista de prefijos sin `whatsapp` ni
+  `plantilla` —once claves sin vigilar— y comparaba **la hoja y no la ruta**, así
+  que un texto en la rama equivocada pasaba. Ahora los prefijos son los bloques
+  del propio catálogo y se resuelve la ruta entera.
+- **La sonda de accesibilidad** decía vigilar la jerarquía de encabezados y nunca
+  miraba por cuál empieza: `previo` arrancaba en 0, así que un `h2` inicial sin
+  `h1` no era un salto.
+
+**Nueva: `ningun_comando_se_queda_sin_quien_lo_llame`** (fase W), el tramo que
+ninguna de las tres comprobaciones del patrón miraba — **comando registrado →
+alguien que lo invoque**, que es el único que el usuario pisa.
+
+#### Y dos que sólo se vieron en la captura
+
+«Meta aceptó el mensaje» salía dos veces seguidas, y el botón de mandar la
+prueba se estiraba a todo el ancho. Arreglar el título costó **tres intentos**,
+las tres con la sonda en verde y la captura igual: `<style scoped>` añade el
+atributo `[data-v-…]` sólo al último selector, así que el peso no era el que
+parecía. **Medir no es mirar.**
+
 ### La revisión a ojo · lo que las sondas medían en verde y estaba mal
 
 Una auditoría de **mirar** las trece pantallas una tras otra en un navegador,

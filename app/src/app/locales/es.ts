@@ -2437,6 +2437,43 @@ export const es = {
 
     limiteDeMeta: 'Meta permite {cuantos} al día',
     limiteSinSaber: 'Meta no ha dicho cuántos permite al día',
+
+    // ── El envío de prueba (el hueco que cerró la 7.7) ────────────────────
+    //
+    // El comando existía desde la W.8, probado de punta a punta contra el
+    // servidor de mentira. **No tenía botón**, así que desde ARLES no se podía
+    // mandar un WhatsApp. El correo sí lo tenía desde la 5.5.
+    prueba: {
+      titulo: 'Mandar un WhatsApp de prueba',
+      porQue:
+        'Mándate un mensaje a tu propio teléfono antes de escribir a nadie. ' +
+        'Es la única forma de saber que el número, el token y la plantilla ' +
+        'funcionan juntos de verdad.',
+      para: 'Teléfono de destino',
+      paraAyuda:
+        'Con código de país, como +52 55 1234 5678. Mándatelo a ti mismo.',
+      plantilla: 'Plantilla aprobada',
+      plantillaAyuda:
+        'Meta no deja escribir texto libre para iniciar una conversación. ' +
+        'hello_world viene aprobada con el número de pruebas que da Meta.',
+      idioma: 'Idioma de la plantilla',
+      idiomaAyuda: 'Como lo tengas puesto en Meta: en_US, es_MX…',
+      mandar: 'Mandar la prueba',
+      mandando: 'Mandando…',
+      // §65: lo que ARLES sabe es que Meta se hizo cargo. Nada más.
+      aceptado: 'Meta aceptó el mensaje',
+      aceptadoDetalle:
+        'Quiere decir que salió de ARLES y Meta se hizo cargo. Mira tu ' +
+        'teléfono para confirmar que llegó: eso ARLES no lo puede saber.',
+      noSalio: 'La prueba no salió',
+
+      // Cuando el número todavía no puede enviar, no hay botón: hay una
+      // explicación. Un botón que solo sirve para dar un error no es un botón.
+      todaviaNo: 'Este número no puede enviar todavía',
+      todaviaNoDetalle:
+        'Primero confirma lo de arriba. Hasta entonces, Meta rechazaría el ' +
+        'mensaje y no serviría de prueba de nada.',
+    },
   },
 
   // ── Los dos modos del canal (L-9) ────────────────────────────────────
@@ -2451,6 +2488,51 @@ export const es = {
     modo: {
       seguimiento: 'Seguimiento — solo a quien ya escribió',
       prospeccionDirecta: 'Prospección directa — también a quien no lo pidió',
+    },
+
+    // ── Cómo salió un envío de prueba de WhatsApp ───────────────────────────
+    //
+    // Las devuelve `enviar_whatsapp_de_prueba` en su campo `clave`, y **no
+    // tenían texto**: el comando existía desde la W.8, nadie lo llamaba, y el
+    // día que alguien pusiera el botón habría visto «whatsapp.prueba.aceptado».
+    // Encontrado el 01/10/2026 (7.7). Es lo mismo que pasó en la Fase 6 con
+    // `plantilla.variable.*`.
+    prueba: {
+      // §65: Meta se hizo cargo. Que llegara al teléfono no lo sabe ARLES.
+      aceptado: 'Meta aceptó el mensaje.',
+      pasajero:
+        'Meta no pudo con el mensaje ahora mismo y no dijo por qué. ' +
+        'Vuelve a intentarlo en un minuto. No se dio de baja a nadie.',
+      demasiadoRapido:
+        'Meta pide esperar: se mandaron demasiados mensajes seguidos. ' +
+        'Espera unos minutos y repite la prueba.',
+      numeroNoExiste:
+        'Ese número no tiene WhatsApp, o no está bien escrito. Revísalo con ' +
+        'el código de país. No se dio de baja a nadie.',
+      tokenNoVale:
+        'Meta rechazó el token de este número. Genera uno nuevo en Meta y ' +
+        'vuelve a guardar el número. Lo demás no se ha tocado.',
+      // Esta sí da de baja, y la frase lo dice: es la única puerta honesta.
+      pidioLaBaja:
+        'Esa persona pidió no recibir mensajes, así que se añadió a la lista ' +
+        'de bajas y no se le volverá a escribir.',
+    },
+
+    // ── El estado de una plantilla en Meta ──────────────────────────────────
+    //
+    // Los devuelve `EstadoDeLaPlantilla::clave_i18n()` desde la W.1 y tampoco
+    // tenían texto. Importan más de lo que parece: **una plantilla que Meta
+    // pausa deja de enviar**, y sin esta frase la campaña fallaría sin que
+    // nadie supiera por qué. La pantalla que los enseña está pendiente, y así
+    // se dice en el documento de la fase.
+    plantilla: {
+      aprobada: 'Aprobada por Meta — se puede usar para escribir primero.',
+      enRevision: 'En revisión por Meta. Todavía no se puede usar.',
+      rechazada: 'Rechazada por Meta. Hay que corregirla y volver a enviarla.',
+      pausada:
+        'Pausada por Meta, normalmente porque la gente la marcó como no ' +
+        'deseada. No envía hasta que Meta la reactive.',
+      deshabilitada: 'Deshabilitada por Meta. Esta plantilla ya no sirve.',
     },
   },
 

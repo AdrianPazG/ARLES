@@ -995,6 +995,28 @@
           return Promise.resolve(ns);
         }
 
+        // El envío de prueba de WhatsApp (el botón que la 7.7 añadió).
+        //
+        // En la demostración **no sale ningún mensaje**: se contesta un
+        // desenlace, igual que hace el del correo. Quien revisa tiene que poder
+        // ver las dos caras, así que un número que acaba en 0 se rechaza — es
+        // la única forma de mirar a ojo el aviso de que no salió, que es el
+        // texto que más importa de los dos.
+        case 'enviar_whatsapp_de_prueba': {
+          var para = String(args.para || '').replace(/\D/g, '');
+          if (para.length < 10) {
+            return Promise.resolve({
+              aceptado: false,
+              clave: 'whatsapp.prueba.numeroNoExiste',
+            });
+          }
+          return Promise.resolve(
+            para.slice(-1) === '0'
+              ? { aceptado: false, clave: 'whatsapp.prueba.tokenNoVale' }
+              : { aceptado: true, clave: 'whatsapp.prueba.aceptado' },
+          );
+        }
+
         default:
           return Promise.reject({ clave: 'error.db.sqlite', detalle: 'desconocido: ' + cmd });
       }

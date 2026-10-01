@@ -248,6 +248,7 @@ async function probarGuardada(r: Remitente): Promise<void> {
       :titulo="t('remitentes.titulo')"
       :nota="nota"
       principal
+      nivel="h1"
     >
       <p class="remitentes__explicacion">
         {{ t('remitentes.explicacion') }}

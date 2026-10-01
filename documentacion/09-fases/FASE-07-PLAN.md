@@ -358,10 +358,17 @@ los que **se van a reintentar**. El resumen habría dicho que se perdieron
 mensajes que todavía estaban en camino, y alguien habría parado una campaña por
 un problema que no existía. Sólo cuentan los estados definitivos.
 
-### 7.7 · Cierre
+### 7.7 · Cierre  ✅ **cerrada el 01/10/2026**
 
 Auditoría de la fase, la revisión **a ojo** en Chromium que el A3 demostró que
 hace falta, documento de fase, informe para Dirección y el avance recalculado.
+
+**Encontró siete defectos con las nueve fases en verde**, y dos comprobaciones
+que decían cubrir una regla y cubrían una parte. Está contado entero en
+[`FASE-07-ACTIVIDAD.md`](FASE-07-ACTIVIDAD.md) §3. En una línea: el envío de
+prueba de WhatsApp no tenía botón ni textos, «Detener» tenía 2.41:1 de
+contraste, tres pantallas de catorce no tenían `h1`, y tres comandos
+registrados no los llamaba nadie.
 
 ---
 

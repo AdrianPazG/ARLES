@@ -37,7 +37,7 @@
  * preflight de correo.
  * ─────────────────────────────────────────────────────────────────────────
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { resolverError } from '@/app/errores'
@@ -126,6 +126,86 @@ function textoDeCalidad(n: Numero): string {
   return n.calidad === null
     ? t('numeroDeWhatsapp.calidad.sinConsultar')
     : t(`numeroDeWhatsapp.calidad.${n.calidad}`)
+}
+
+/**
+ * El envío de prueba, por número (el hueco que cerró la 7.7).
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * EL ESTADO VA POR NÚMERO Y NO EN UNA SOLA VARIABLE
+ *
+ * Hay tantas tarjetas como números dados de alta. Con un único `destino` y un
+ * único `resultado`, escribir en una tarjeta escribiría en todas y el resultado
+ * de una prueba aparecería bajo el número equivocado — que en esta pantalla
+ * significa creer que un número funciona cuando el que funciona es otro.
+ */
+/** Lo que se escribe para probar un número. */
+interface FormularioDePrueba {
+  para: string
+  plantilla: string
+  idioma: string
+}
+
+const resultado = ref<Record<string, { aceptado: boolean; clave: string }>>({})
+const probando = ref<string | null>(null)
+
+/**
+ * La plantilla con la que Meta deja escribir primero sin aprobar nada.
+ *
+ * Viene aprobada con el número de pruebas que Meta regala, y por eso el envío
+ * de prueba **no depende** del registro de plantillas aprobadas, que todavía no
+ * tiene pantalla.
+ */
+const PLANTILLA_DE_META = 'hello_world'
+const IDIOMA_DE_META = 'en_US'
+
+/**
+ * Cada número con su formulario de prueba al lado.
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * POR QUÉ UNA LISTA DE PARES Y NO TRES MAPAS POR IDENTIFICADOR
+ *
+ * Tres razones, y las tres salieron de intentarlo de la otra forma:
+ *
+ * 1. **El teléfono escrito no se pierde.** Confirmar coexistencia recarga la
+ *    lista de números; con el formulario fuera, lo escrito sobreviviría sólo por
+ *    casualidad. Aquí se conserva por identificador a propósito.
+ * 2. **El tipo sale bien.** Con `exactOptionalPropertyTypes` un acceso por
+ *    índice es `string | undefined`, que `AEntrada` no acepta. Un par lleva su
+ *    objeto concreto, y `f.para` es una cadena.
+ * 3. **Es por número.** Con un único `destino`, escribir en una tarjeta
+ *    escribiría en todas, y el resultado de una prueba aparecería bajo el número
+ *    equivocado — que aquí significa creer que funciona un número que no es.
+ *
+ * Se rehace con un `watch` y no en `onMounted` porque los números también
+ * aparecen al guardar uno nuevo, sin volver a montar nada.
+ */
+const tarjetas = ref<Array<{ n: Numero; f: FormularioDePrueba }>>([])
+
+watch(
+  () => store.numeros,
+  (ns) => {
+    tarjetas.value = ns.map((n) => ({
+      n,
+      f: tarjetas.value.find((t) => t.n.id === n.id)?.f ?? {
+        para: '',
+        plantilla: PLANTILLA_DE_META,
+        idioma: IDIOMA_DE_META,
+      },
+    }))
+  },
+  { immediate: true, deep: true },
+)
+
+async function probar(n: Numero, f: FormularioDePrueba): Promise<void> {
+  probando.value = n.id
+  // El resultado anterior se borra antes de pedir el nuevo: dejarlo en pantalla
+  // mientras se manda haría leer el desenlace de la prueba de antes como si
+  // fuera el de ésta.
+  delete resultado.value[n.id]
+  const r = await store.enviarPrueba(n.id, f.para, f.plantilla, f.idioma)
+  if (r) resultado.value[n.id] = r
+  probando.value = null
 }
 
 function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
@@ -258,7 +338,7 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
     </p>
 
     <AModulo
-      v-for="n in store.numeros"
+      v-for="{ n, f } in tarjetas"
       :key="n.id"
       :titulo="n.nombreVisible"
     >
@@ -346,6 +426,86 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
           {{ t('numeroDeWhatsapp.riesgo.aceptado', { cuando: n.riesgoAceptado }) }}
         </p>
       </template>
+
+      <!-- ── Mandar un WhatsApp de prueba ──────────────────────────────────
+           Sólo cuando el número ya puede enviar. Un botón que únicamente
+           sirve para dar un error no es un botón: es una trampa. Cuando no
+           puede, se explica (§95) en vez de ofrecerlo. -->
+      <section class="prueba">
+        <h2>{{ t('numeroDeWhatsapp.prueba.titulo') }}</h2>
+
+        <template v-if="n.puedeEnviar">
+          <p class="ayuda">
+            {{ t('numeroDeWhatsapp.prueba.porQue') }}
+          </p>
+
+          <div class="campos">
+            <AEntrada
+              v-model="f.para"
+              :etiqueta="t('numeroDeWhatsapp.prueba.para')"
+              :ayuda="t('numeroDeWhatsapp.prueba.paraAyuda')"
+            />
+            <AEntrada
+              v-model="f.plantilla"
+              :etiqueta="t('numeroDeWhatsapp.prueba.plantilla')"
+              :ayuda="t('numeroDeWhatsapp.prueba.plantillaAyuda')"
+            />
+            <AEntrada
+              v-model="f.idioma"
+              :etiqueta="t('numeroDeWhatsapp.prueba.idioma')"
+              :ayuda="t('numeroDeWhatsapp.prueba.idiomaAyuda')"
+            />
+          </div>
+
+          <ABoton
+            variante="secundario"
+            :deshabilitado="probando === n.id || f.para.trim().length === 0"
+            @click="probar(n, f)"
+          >
+            {{
+              probando === n.id
+                ? t('numeroDeWhatsapp.prueba.mandando')
+                : t('numeroDeWhatsapp.prueba.mandar')
+            }}
+          </ABoton>
+
+          <!-- Que Meta lo rechace no es un error del programa: es el resultado
+               que la prueba venía a averiguar, y se enseña como tal. -->
+          <AAviso
+            v-if="resultado[n.id]"
+            :tono="resultado[n.id]?.aceptado ? 'exito' : 'aviso'"
+          >
+            <strong>
+              {{
+                resultado[n.id]?.aceptado
+                  ? t('numeroDeWhatsapp.prueba.aceptado')
+                  : t('numeroDeWhatsapp.prueba.noSalio')
+              }}
+            </strong>
+            <!-- El texto de la clave sólo cuando NO se aceptó. Al aceptar,
+                 `whatsapp.prueba.aceptado` dice lo mismo que el titular y se
+                 leía dos veces seguidas: «Meta aceptó el mensaje» / «Meta
+                 aceptó el mensaje.». Se vio en la captura, no en las pruebas:
+                 las dos frases contienen lo que se buscaba. -->
+            <p v-if="!resultado[n.id]?.aceptado">
+              {{ t(resultado[n.id]?.clave ?? '') }}
+            </p>
+            <p v-else>
+              {{ t('numeroDeWhatsapp.prueba.aceptadoDetalle') }}
+            </p>
+          </AAviso>
+        </template>
+
+        <!-- `info` y no `aviso`: que falte una confirmación no es un problema,
+             es un paso pendiente. Pintarlo en ámbar haría buscar una avería. -->
+        <AAviso
+          v-else
+          tono="info"
+        >
+          <strong>{{ t('numeroDeWhatsapp.prueba.todaviaNo') }}</strong>
+          <p>{{ t('numeroDeWhatsapp.prueba.todaviaNoDetalle') }}</p>
+        </AAviso>
+      </section>
     </AModulo>
   </section>
 </template>
@@ -409,5 +569,26 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
 .nota {
   color: var(--arles-text-muted);
   font-variant-numeric: tabular-nums;
+}
+
+.prueba {
+  margin-top: var(--arles-space-5);
+  padding-top: var(--arles-space-4);
+  border-top: var(--arles-border-width) solid var(--arles-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-3);
+}
+
+.prueba h2 {
+  font-size: var(--arles-font-size-body);
+  font-weight: var(--arles-font-weight-semibold);
+}
+
+/* El botón no se estira: `.prueba` es una columna flex, y sin esto ocupaba
+   todo el ancho de la tarjeta, que lo hacía parecer una barra y no un botón.
+   Se vio en la captura. */
+.prueba > button {
+  align-self: flex-start;
 }
 </style>

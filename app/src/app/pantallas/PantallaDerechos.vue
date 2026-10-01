@@ -328,6 +328,7 @@ async function borrarDeVerdad(): Promise<void> {
     <AModulo
       :titulo="t('derechos.titulo')"
       principal
+      nivel="h1"
     >
       <p class="derechos__explicacion">
         {{ t('derechos.explicacion') }}
@@ -415,12 +416,15 @@ async function borrarDeVerdad(): Promise<void> {
         class="derechos__pendiente"
         aria-labelledby="titulo-pendiente"
       >
-        <h3
+        <!-- `h2` y no `h3`: es la subsección directa del módulo que hace de
+             título de la pantalla (7.7). El tamaño lo da `__subtitulo`, no la
+             etiqueta, así que no cambia nada de lo que se ve. -->
+        <h2
           id="titulo-pendiente"
           class="derechos__subtitulo"
         >
           {{ t('derechos.otrosTitulo') }}
-        </h3>
+        </h2>
         <dl class="derechos__lista">
           <div>
             <dt>{{ t('derechos.rectificacion') }}</dt>

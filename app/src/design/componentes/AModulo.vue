@@ -33,8 +33,25 @@ withDefaults(
     nota?: string
     /** Uno por pantalla: el que lleva la acción esperada. */
     principal?: boolean
+    /**
+     * El nivel del encabezado. `h2` salvo que este módulo **sea** el título de
+     * su pantalla.
+     *
+     * ── POR QUÉ HIZO FALTA ────────────────────────────────────────────────
+     *
+     * Tres pantallas de catorce —Remitentes, Bajas y Derechos— no tienen
+     * cabecera propia: son un módulo y ya. Como el módulo siempre pintaba un
+     * `h2`, esas tres **no tenían ningún `h1`**. Para quien usa un lector de
+     * pantalla, «ir al encabezado 1» no llevaba a ninguna parte.
+     *
+     * La sonda decía vigilar la jerarquía de encabezados y no lo veía: medía
+     * los saltos *entre* encabezados y nunca comprobaba por cuál empieza, así
+     * que un `h2` inicial sin `h1` pasaba en verde. Encontrado mirando, el
+     * 01/10/2026 en la 7.7.
+     */
+    nivel?: 'h1' | 'h2'
   }>(),
-  { principal: false },
+  { principal: false, nivel: 'h2' },
 )
 </script>
 
@@ -44,9 +61,13 @@ withDefaults(
     :class="{ principal }"
   >
     <header class="cabecera">
-      <h2 class="titulo">
+      <component
+        :is="nivel"
+        class="titulo"
+        :class="{ 'titulo--pagina': nivel === 'h1' }"
+      >
         {{ titulo }}
-      </h2>
+      </component>
       <p
         v-if="nota"
         class="nota"
@@ -112,9 +133,47 @@ withDefaults(
   font-weight: var(--arles-font-weight-semibold);
 }
 
+/* Cuando el módulo ES el título de su pantalla, se lee como el de las otras
+   once: mismo tamaño y mismo peso. Cambiar sólo la etiqueta y dejarlo pequeño
+   arreglaría la sonda sin arreglar lo que se ve, que es peor que no tocarlo.
+
+   ── EL SELECTOR LLEVA `.modulo` A PROPÓSITO ──
+
+   Escrito como `.titulo--pagina` a secas **no se aplicaba**: `.modulo.principal
+   .titulo` pesa (0,2,0) contra (0,1,0), y los tres módulos que llevan el título
+   de pantalla son justo los `principal`. La etiqueta cambiaba a `h1`, la sonda
+   se ponía verde y en pantalla se seguía viendo igual de pequeño — una
+   comprobación satisfecha sin arreglar el defecto. Se vio **mirando la captura**
+   después de que la sonda diera verde, que es exactamente la lección del A3. */
 .modulo.principal .titulo {
   font-size: var(--arles-font-size-h2);
   line-height: var(--arles-line-height-h2);
+}
+
+/* ── TRES INTENTOS HASTA QUE ESTE SELECTOR GANÓ, Y MERECE ESTAR ESCRITO ──
+
+   Hay que vencer a `.modulo.principal .titulo`, que es justo la que llevan los
+   tres módulos que hacen de título de pantalla.
+
+   1. `.titulo--pagina` · pierde por peso (0,1,0 contra 0,2,0).
+   2. `.modulo .titulo--pagina` puesto ANTES · pierde por orden… o eso parecía.
+   3. `.modulo .titulo--pagina` puesto DESPUÉS · **también perdía**, y aquí
+      estaba lo que no había mirado: `<style scoped>` añade el atributo
+      `[data-v-…]` **sólo al último selector**. Así que el de `principal` pesa
+      `.modulo.principal` + `.titulo[attr]` = cuatro, y el mío sólo tres. No era
+      cuestión de orden en ningún momento.
+
+   La forma de abajo lleva las dos clases juntas en el último selector: cuatro
+   también, y como va después, gana — sin atarse a `principal`, para que sirva
+   igual en un módulo que no lo sea.
+
+   Las tres veces la sonda dio verde con el `h1` ya puesto, y las tres veces la
+   captura seguía enseñando el título pequeño. Es el A3 otra vez: **medir no es
+   mirar**. */
+.modulo .titulo.titulo--pagina {
+  font-size: var(--arles-font-size-h1);
+  line-height: var(--arles-line-height-h1);
+  font-weight: var(--arles-font-weight-bold);
 }
 
 .nota {

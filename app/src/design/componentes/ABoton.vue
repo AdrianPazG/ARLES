@@ -180,9 +180,28 @@ withDefaults(
   color: var(--arles-text);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   LA TINTA DEL BOTÓN DE PELIGRO ES LA SUYA, NO LA DEL ACENTO
+
+   Decía `--arles-text-on-accent`, que es la tinta oscura del dorado. En el
+   tema oscuro no se notaba, porque el rojo también es claro y la tinta oscura
+   encaja. En el tema CLARO el rojo es `#B0281B` —oscuro— y la tinta seguía
+   siendo oscura: **2.41:1**, menos de la mitad del mínimo de AA.
+
+   Lo llevaban «Detener» y «Detener todos los envíos», que son el botón más
+   destructivo del producto y el único freno de una campaña en marcha. El
+   token correcto, `--arles-text-on-danger`, existía desde la Fase 2 con su
+   comentario —«en oscuro el rojo es claro; en claro es oscuro, la tinta se
+   invierte»— y **no lo usaba nadie aquí**. `AInsignia` sí lo usa, con un
+   comentario que cuenta este mismo defecto arreglado en la insignia y no en
+   el botón.
+
+   La sonda no lo cazaba antes porque hasta la 7.0 no hubo ningún botón de
+   peligro en una pantalla: la variante existía y nada la usaba. Medido el
+   01/10/2026 en la 7.7. */
 .v-peligro {
   background: var(--arles-danger);
-  color: var(--arles-text-on-accent);
+  color: var(--arles-text-on-danger);
 }
 
 /* Token, no `filter: brightness()`: un filtro no se puede verificar contra
@@ -232,7 +251,7 @@ withDefaults(
 
 .v-peligro[aria-busy='true']:disabled {
   background: var(--arles-danger);
-  color: var(--arles-text-on-accent);
+  color: var(--arles-text-on-danger);
 }
 
 .v-secundario[aria-busy='true']:disabled {
