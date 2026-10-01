@@ -1,6 +1,6 @@
 # ARLES RELAY
 
-**Software de ejecución y gestión controlada de campañas de correo electrónico.**
+**Software de ejecución y gestión controlada de campañas de correo y de WhatsApp.**
 
 Aplicación de escritorio para Windows y macOS · Versión objetivo **1.2.0**
 Desarrollado por **TELEMETRY INSIGHT**
@@ -63,18 +63,32 @@ python3 herramientas/avance/calcular.py --escribir
 
 ## Estado
 
+**Al 01/10/2026.** Cada fase cerrada tiene su documento técnico y su resumen
+para Dirección, sin tecnicismos.
+
 | Fase | | Validación |
 |---|---|---|
-| [00 · Discovery y auditoría](documentacion/09-fases/FASE-00-DISCOVERY.md) | ✅ cerrada | 4/4 |
-| [01 · Cimientos](documentacion/09-fases/FASE-01-CIMIENTOS.md) | ✅ cerrada y revisada | 32/32 |
-| ↳ [Resumen para Dirección](documentacion/09-fases/FASE-01-PARA-DIRECCION.md) | sin tecnicismos | — |
-| [02 · Design System](documentacion/09-fases/FASE-02-DESIGN-SYSTEM.md) | ✅ cerrada y revisada | 18/18 |
-| ↳ [Resumen para Dirección](documentacion/09-fases/FASE-02-PARA-DIRECCION.md) | sin tecnicismos | — |
-| 03 · Empresa y contactos | 🟨 entrega 3.1 cerrada | 31/31 |
-| ↳ Canales: esquema de contactos, consentimiento y etapas | 🟨 migraciones V3 y V4 | incluidas arriba |
+| [00 · Discovery y auditoría](documentacion/09-fases/FASE-00-DISCOVERY.md) | ✅ cerrada | 5/5 |
+| [01 · Cimientos](documentacion/09-fases/FASE-01-CIMIENTOS.md) · [↳ Dirección](documentacion/09-fases/FASE-01-PARA-DIRECCION.md) | ✅ cerrada y revisada | 48/48 |
+| [02 · Design System](documentacion/09-fases/FASE-02-DESIGN-SYSTEM.md) · [↳ Dirección](documentacion/09-fases/FASE-02-PARA-DIRECCION.md) | ✅ cerrada y revisada | 37/37 |
+| [03 · Empresa y contactos](documentacion/09-fases/FASE-03-EMPRESA-Y-CONTACTOS.md) · [↳ Dirección](documentacion/09-fases/FASE-03-PARA-DIRECCION.md) | ✅ cerrada | 83/83 |
+| [04 · Motor de ejecución](documentacion/09-fases/FASE-04-MOTOR-DE-EJECUCION.md) · [↳ Dirección](documentacion/09-fases/FASE-04-PARA-DIRECCION.md) | ✅ cerrada | 40/40 |
+| [05 · Proveedores de envío](documentacion/09-fases/FASE-05-PROVEEDORES-DE-ENVIO.md) · [↳ Dirección](documentacion/09-fases/FASE-05-PARA-DIRECCION.md) | 🟨 la parte de correo cerrada | 35/35 |
+| [06 · Campañas y mensajes](documentacion/09-fases/FASE-06-CAMPANAS-Y-MENSAJES.md) · [↳ Dirección](documentacion/09-fases/FASE-06-PARA-DIRECCION.md) | ✅ cerrada | 20/20 |
+| [Canal W · WhatsApp](documentacion/09-fases/FASE-W-CANAL-WHATSAPP.md) · [↳ Dirección](documentacion/09-fases/FASE-W-PARA-DIRECCION.md) | 🟨 manda mensajes de prueba, **no campañas** | 21/21 |
+| [07 · Actividad](documentacion/09-fases/FASE-07-ACTIVIDAD.md) · [↳ Dirección](documentacion/09-fases/FASE-07-PARA-DIRECCION.md) | 🟨 92 % · falta sólo SPF/DKIM/DMARC | 9/9 |
+| 08 · Respaldos y endurecimiento | ⬜ sin empezar | — |
+| 09 · Release v1.2.0 | ⬜ sin empezar | — |
+
+**298 comprobaciones, 0 fallos y 0 omitidas**, con las sondas abriendo un
+navegador de verdad. Una sonda que no se puede correr se marca **omitida**, que
+no es lo mismo que pasada, y así se dice.
 
 ```bash
-python3 herramientas/validar/validar.py     # valida todas las fases cerradas
+# Las nueve fases. Correr sólo la fase en curso no basta: en la 5.2 y la 5.3
+# se rompieron cuatro comprobaciones de las fases 2, 3 y 4 sin que nadie lo
+# viera.
+for f in 0 1 2 3 4 5 6 W 7; do python3 herramientas/validar/validar.py --fase $f; done
 ```
 
 👉 **[Empieza por la documentación](documentacion/00-INDICE.md)**
@@ -84,7 +98,7 @@ python3 herramientas/validar/validar.py     # valida todas las fases cerradas
 ## Ver ARLES funcionando, sin instalar nada
 
 **Hay un archivo que abre la aplicación entera en el navegador, con datos de
-ejemplo.** Un solo HTML de 718 kB, sin instalador, sin conexión y sin dejar nada
+ejemplo.** Un solo HTML de 798 kB, sin instalador, sin conexión y sin dejar nada
 en el equipo: se abre con doble clic y se puede mandar por correo a quien tenga
 que verlo.
 
@@ -93,10 +107,12 @@ que verlo.
 
 ### Qué se ve, y qué no
 
-**Se recorren las trece pantallas** con contactos, campañas, plantillas,
+**Se recorren las catorce pantallas** con contactos, campañas, plantillas,
 remitentes y un número de WhatsApp ya dados de alta. Se puede escribir una
 plantilla, navegar el asistente de nueve pasos, confirmar Coexistencia y ver las
-dos cifras de permiso antes de activar una campaña.
+dos cifras de permiso antes de activar una campaña — y desde la 7.7, ver
+Actividad con las cifras de cada campaña, el registro con sus filtros, y pulsar
+el freno.
 
 **No manda nada.** El motor que envía vive en Rust, detrás de la frontera de la
 aplicación de escritorio, y ahí no hay nadie al otro lado: lo que responde es un
@@ -192,8 +208,21 @@ Lo que se verá distinto en ella: **la tipografía**, porque va sin Mont. Los
 tamaños, los pesos y el ritmo sí son los definitivos — salen de los tokens. Un
 hallazgo del tipo «la letra no es la de la marca» en esa versión es esperado.
 
-Y aunque el instalador existiera hoy, **no habría mucho que hacer con él**: la
-aplicación todavía no envía correos ni carga contactos. El avance de arriba dice exactamente qué sí.
+**Qué se puede hacer ya con una versión de prueba** (actualizado el 01/10/2026 —
+este párrafo decía «la aplicación todavía no envía correos ni carga contactos», y
+llevaba meses sin ser cierto):
+
+- Configurar la empresa, **cargar contactos** desde CSV o XLSX con sus choques
+  revisados antes de importar, y gestionar bajas y derechos ARCO.
+- Dar de alta una cuenta de correo y **mandarse un correo de prueba de verdad**.
+- Escribir plantillas y firmas, crear una campaña con el asistente de nueve
+  pasos y **activarla**.
+- Verla enviar en Actividad, con sus cifras y **por qué no sale nada**, y
+  **pararla** en cualquier momento.
+- Dar de alta un número de WhatsApp y **mandarse un WhatsApp de prueba**.
+
+**Lo que todavía no:** una campaña entera por WhatsApp (el motor sólo recorre el
+correo), filtrar la audiencia, y editar una campaña ya creada.
 
 ---
 
@@ -229,14 +258,17 @@ Mailchimp · un CRM · un ERP · una plataforma omnicanal · una herramienta de 
 
 | | |
 |---|---|
+| [📍 Estado actual](documentacion/07-entrega/ESTADO_ACTUAL.md) | **Empieza aquí si retomas el trabajo**: qué hay construido, qué no hay que volver a discutir y qué sigue |
 | [📋 Índice completo](documentacion/00-INDICE.md) | Mapa de lectura y trazabilidad del brief |
-| [🔍 Auditoría de discovery](documentacion/02-auditoria/AUDITORIA_DISCOVERY.md) | El entregable A–U. **Empieza aquí** |
+| [🔍 Auditoría de discovery](documentacion/02-auditoria/AUDITORIA_DISCOVERY.md) | El entregable A–U, con lo que el repositorio de referencia no era |
 | [⚠️ Preguntas abiertas](documentacion/02-auditoria/PREGUNTAS_ABIERTAS.md) | Lo que bloquea el avance |
 | [🏗️ Arquitectura](documentacion/03-arquitectura/ARQUITECTURA.md) | Monolito modular en Rust + Tauri 2 |
 | [⚙️ Motor de ejecución](documentacion/03-arquitectura/MOTOR_DE_EJECUCION.md) | El corazón del producto |
 | [🔒 Modelo de amenazas](documentacion/04-seguridad/THREAT_MODEL.md) | STRIDE por dominio |
 | [🎨 Sistema de color](documentacion/05-diseno/COLOR_SYSTEM.md) | Paleta medida, contraste calculado |
-| [🗺️ Roadmap](documentacion/07-entrega/ROADMAP.md) | 10 fases con dependencias reales |
+| [🗺️ Roadmap](documentacion/07-entrega/ROADMAP.md) | Las fases con sus dependencias reales |
+| [🖥️ Mapa de pantallas](documentacion/05-diseno/MAPA-DE-PANTALLAS.md) | Qué archivo dibuja cada pantalla y qué comprobación salta si se rompe |
+| [🔌 Guía de conexión real](documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md) | Cómo hacer una demostración con correo y WhatsApp que llegan de verdad |
 
 ---
 
@@ -255,13 +287,18 @@ Mailchimp · un CRM · un ERP · una plataforma omnicanal · una herramienta de 
 
 ## En seguimiento
 
-No hay bloqueantes. Lo que sigue abierto, con su puerta:
+**Nada impide construir. Lo de arriba —«esperando a alguien de fuera»— es lo que
+impide *entregar* la v1.2.0**, y no es trabajo nuestro: por eso no resta
+porcentaje y va aparte.
 
-| # | Asunto | Puerta |
+Lo demás que sigue abierto, con quién lo cierra:
+
+| # | Asunto | Quién |
 |---|---|---|
-| 🟡 **P-01** | Licencia de Mont para incrustar la fuente en la aplicación distribuida | Antes de la demo (D-5) |
-| 🟡 **P-03** | Origen y consentimiento de los contactos | Fase 3 |
-| 🟡 **P-05** | Dominio y aviso de privacidad para la verificación de Google | Fase 5 |
+| 🟡 **P-03** | Origen y consentimiento de los contactos cargados | Dirección |
+| 🟡 **P-05** | Dominio y aviso de privacidad para la verificación de Google | Dirección · sólo hace falta el día que se use OAuth de Google (ADR-0003); con SMTP no |
+| 🟡 **P-17** | `consent_entry` es de sólo-añadir y guarda la dirección en claro, lo que roza el derecho de cancelación | Abogado · va dentro de P-09 |
+| 🟡 **D-WA** | ¿Se construye la campaña entera por WhatsApp, o la v1.2.0 ofrece sólo correo? | Dirección · planteado en [FASE-05-PARA-DIRECCION](documentacion/09-fases/FASE-05-PARA-DIRECCION.md) |
 
 Detalle en [PREGUNTAS_ABIERTAS](documentacion/02-auditoria/PREGUNTAS_ABIERTAS.md).
 
