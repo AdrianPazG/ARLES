@@ -1,7 +1,7 @@
 # Estado actual · dónde está ARLES y qué sigue
 
 **Proyecto:** ARLES RELAY I · v1.2.0
-**Última actualización:** 1 de octubre de 2026 (cierre de la 7.7)
+**Última actualización:** 5 de octubre de 2026 (plan de la Fase 8)
 **Para qué sirve este documento:** que quien retome el trabajo —otra sesión, otra persona, otro equipo— sepa en una lectura qué está construido, qué decisiones ya están tomadas, qué **no** hay que volver a discutir y qué es lo siguiente.
 
 > Se actualiza **al cerrar cada entrega**, no al empezarla. Un documento de estado que describe intenciones en vez de hechos es peor que no tenerlo: se lee como si fuera cierto.
@@ -33,7 +33,8 @@
 | **F5 · Proveedores de envío** | **🟡 70 %** | **La parte de correo cerrada (5.1 a 5.6). Falta WhatsApp. Ver §3** |
 | **F6 · Campañas y mensajes** | **✅ cerrada** | **Plantillas, saneado, versiones, campañas, preflight y el asistente de nueve pasos (6.1 a 6.7), con su auditoría. Ver §3 bis** |
 | **F7 · Actividad** | **🟡 92 %** | **El freno, el registro, las cifras, la pantalla de Actividad, el registro con filtros, el resumen exportable y la auditoría de cierre (7.0 a 7.4, 7.6 y 7.7). Falta sólo la 7.5 · SPF/DKIM/DMARC, movida al final por Dirección. Ver `09-fases/FASE-07-ACTIVIDAD.md`** |
-| F8 y F9 | ⬜ sin empezar | Respaldos y endurecimiento, release |
+| F8 · Respaldos y endurecimiento | 📋 planificada | Ocho entregas, tres decisiones que esperan a Dirección. Ver `09-fases/FASE-08-PLAN.md`. **Lo urgente: hoy, si se pierde la clave del llavero, los datos son ilegibles para siempre y no hay respaldo del que tirar** |
+| F9 · Release v1.2.0 | ⬜ sin empezar | Instaladores firmados, updater, despliegue interno |
 
 **Cifras del 01/10/2026:** 187 pruebas del frontend y las nueve fases del validador **con las sondas corriendo de verdad** — 298 comprobaciones, 0 fallos y **0 omitidas** (5·48·37·83·40·35·20·21·9). `fmt`, `clippy`, `eslint` y `vue-tsc` limpios.
 

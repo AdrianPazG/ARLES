@@ -142,6 +142,8 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Fase 07 · Actividad y entregabilidad · **plan**](09-fases/FASE-07-PLAN.md) | El plan: ocho entregas, las tres decisiones ya resueltas |
 | [Fase 07 · Actividad](09-fases/FASE-07-ACTIVIDAD.md) | 🟡 92 % · 9/9, 0 omitidas · con la auditoría de cierre y sus siete hallazgos |
 | [Fase 07 · resumen para Dirección](09-fases/FASE-07-PARA-DIRECCION.md) | Sin tecnicismos |
+| [Fase 08 · Respaldos y endurecimiento · **plan**](09-fases/FASE-08-PLAN.md) | 📋 planificada · ocho entregas y tres decisiones que esperan a Dirección |
+| [Fase 08 · resumen para Dirección](09-fases/FASE-08-PARA-DIRECCION.md) | Sin tecnicismos |
 
 ---
 

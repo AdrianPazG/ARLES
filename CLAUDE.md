@@ -349,6 +349,25 @@ puede verificar de verdad el día que se cierre R-24. No bloquea nada.
 puso sus tres comandos… y ninguna pantalla los llamaba. Está en Campañas (D-7B),
 y Actividad la enseña porque es la razón número uno por la que no sale nada.
 
+**Lo siguiente es la Fase 8 · Respaldos y endurecimiento**, planificada el
+05/10/2026 en
+[`FASE-08-PLAN.md`](documentacion/09-fases/FASE-08-PLAN.md): ocho entregas y tres
+decisiones que esperan a Dirección (D-8A cifrado del respaldo, D-8B qué se lleva,
+D-8C restaurar sobre datos existentes). **La 8.0 no depende de ninguna.**
+
+> **El agujero que ordena esa fase, y conviene saberlo antes de tocar nada.**
+> La base está cifrada con SQLCipher y la clave vive **sólo** en el llavero
+> (`db-master-key`). No hay segunda copia. Si se pierde esa entrada, `arles.db`
+> sigue en disco y es **ilegible para siempre**: hoy no hay respaldo del que
+> tirar. El ADR-0011 decide bien la mitad —no arrancar antes que degradar a
+> texto plano— y la otra mitad, qué hace el usuario después, no existe.
+>
+> Dos cosas más que la planificación midió: el paso de rendimiento del CI lleva
+> marcado «pendiente de la Fase 4» y **las trece cifras de
+> `PRESUPUESTO_RENDIMIENTO.md` nunca se han medido**; y **los derechos ARCO, que
+> el ROADMAP pone en la Fase 8, están construidos desde la 3.4** — se verifican
+> en la auditoría B, no se reconstruyen.
+
 
 **Para una demostración real** con correo y WhatsApp que llegan de verdad:
 `documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md`.
