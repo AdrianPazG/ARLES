@@ -4697,6 +4697,138 @@ def ninguna_tabla_se_queda_fuera_del_respaldo():
     )
 
 
+def _entradas_del_manifiesto():
+    """Las entradas del manifiesto como `(tabla, alcance, porque)`.
+
+    El alcance puede llevar datos dentro —`RecortadaEnElEsencial { fecha: … }`
+    desde la 8.2b—, así que el patrón admite la llave opcional. Sin ella, la
+    regex dejaba de casar en las dos tablas que se recortan y las comprobaciones
+    pasaban en verde **sin mirarlas**, que es el defecto que persiguen.
+    """
+    manifiesto = leer("crates/arles-core/src/respaldo.rs") or ""
+    return re.findall(
+        r'tabla:\s*"(\w+)",\s*(?://[^\n]*\n\s*)*'
+        r"alcance:\s*Alcance::(\w+)\s*(?:\{[^}]*\})?,\s*"
+        r'(?://[^\n]*\n\s*)*porque:\s*(.+?),?\n',
+        manifiesto,
+    )
+
+
+def el_manifiesto_se_lee_entero():
+    """**La comprobación de las comprobaciones.**
+
+    Las tres del manifiesto leen `respaldo.rs` con expresiones regulares. El día
+    que el patrón deje de casar —por una llave, un comentario en medio, un
+    campo nuevo— no fallan: **encuentran menos entradas y aprueban las que
+    encontraron**. Es el mismo defecto que en la 7.7 llevaba tiempo sin mirar el
+    paso de Contactos sin decirlo, y en la 8.2b volvió a pasar: la llave de
+    `RecortadaEnElEsencial { fecha: … }` dejó fuera dos tablas.
+
+    Así que se compara el número de entradas leídas contra las tablas que el
+    manifiesto declara con el patrón más simple que existe —`tabla: "…"`— y
+    contra el esquema. Si las tres cifras no coinciden, el patrón está roto.
+
+    Verificada el 05/10/2026 quitando el `(?:\\{[^}]*\\})?` del patrón: lee 27
+    de 29 y falla nombrando las dos que se recortan.
+    """
+    manifiesto = leer("crates/arles-core/src/respaldo.rs") or ""
+    declaradas = re.findall(r'tabla:\s*"(\w+)"', manifiesto)
+    entendidas = [t for t, _, _ in _entradas_del_manifiesto()]
+    perdidas = sorted(set(declaradas) - set(entendidas))
+
+    check(
+        8,
+        "el patrón lee el manifiesto entero",
+        not perdidas and len(declaradas) == len(entendidas),
+        el_manifiesto_se_lee_entero.__doc__,
+        detalle=(
+            f"declaradas: {len(declaradas)} · entendidas: {len(entendidas)}\n"
+            f"      el patrón no caza: {perdidas}"
+        ),
+    )
+
+
+def lo_que_se_recorta_dice_por_que_columna():
+    """**D-8B necesita saber por qué fecha se corta, y son dos distintas.**
+
+    `message_attempt` guarda `created_at`; `whatsapp_reply` guarda
+    `first_reply_at` y **no tiene `created_at`**. Dar por supuesto el nombre
+    habría hecho que el recorte de las respuestas fallara en el `WHERE`, delante
+    de quien pulsó exportar.
+
+    Por eso la columna viaja dentro de la variante del alcance —el compilador la
+    exige justo donde hace falta— y aquí se comprueba lo que el compilador no
+    puede: que sea una frase y no una cadena vacía. Que **exista en el esquema**
+    lo comprueba `toda_columna_de_corte_existe_de_verdad` en `arles-db`, contra
+    una base migrada de verdad en vez de contra una regex.
+    """
+    manifiesto = leer("crates/arles-core/src/respaldo.rs") or ""
+    cortes = re.findall(
+        r'tabla:\s*"(\w+)",\s*(?://[^\n]*\n\s*)*'
+        r'alcance:\s*Alcance::RecortadaEnElEsencial\s*\{\s*fecha:\s*"(\w*)"',
+        manifiesto,
+    )
+    sin_columna = sorted(t for t, c in cortes if not c)
+
+    check(
+        8,
+        "lo que se recorta dice por qué columna",
+        len(cortes) == 2 and not sin_columna,
+        lo_que_se_recorta_dice_por_que_columna.__doc__,
+        detalle=f"recortadas: {cortes} · sin columna: {sin_columna}",
+    )
+
+
+def el_respaldo_no_se_lee_en_memoria():
+    """**El exportador entrega las filas, no las devuelve. Y no pagina.**
+
+    Dos regresiones concretas, las dos de las que «arreglan» algo:
+
+    1. **Devolver las filas.** Un `-> Result<Vec<Fila>>` es lo cómodo y mete
+       medio millón de filas en memoria: justo lo que el presupuesto de 500 MB
+       no admite. Por eso hay un rasgo `Destino` con un método por fila.
+    2. **Paginar con `LIMIT … OFFSET n`.** Parece la forma de leer por tandas y
+       es cuadrática: SQLite no guarda un atajo a la fila n, así que recorre y
+       descarta n filas en cada tanda. Y entre dos tandas la tabla puede
+       cambiar, con lo que una fila se repite o se salta **sin que nada falle**.
+
+    Lo que esta comprobación mira es el código. Cuánta memoria gasta de verdad
+    se mide en la 8.5, con 500 000 filas sintéticas, y esto no lo sustituye: una
+    comprobación de texto no pesa un proceso.
+
+    Verificada el 05/10/2026 metiendo un `OFFSET` en la consulta del cuerpo:
+    falla nombrando la línea.
+    """
+    fuente = leer("crates/arles-db/src/respaldo.rs") or ""
+    assert fuente, "no existe crates/arles-db/src/respaldo.rs"
+
+    # Sin comentarios: las cabeceras de ese módulo explican por qué NO se usa
+    # `OFFSET`, y buscarlo en el texto entero se cazaría a sí misma — que es el
+    # defecto del 29/09/2026, una comprobación que se encontraba en un
+    # comentario y pasaba siempre.
+    codigo = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", fuente, flags=re.S))
+
+    pagina = [
+        l.strip() for l in codigo.splitlines() if re.search(r"\bOFFSET\b", l, re.I)
+    ]
+    devuelve = re.search(r"fn exportar[^\n]*->\s*Result<\s*Vec<", codigo)
+    hay_rasgo = re.search(r"pub trait Destino", codigo) and re.search(
+        r"fn fila\(", codigo
+    )
+
+    check(
+        8,
+        "el exportador entrega las filas y no pagina",
+        not pagina and not devuelve and hay_rasgo,
+        el_respaldo_no_se_lee_en_memoria.__doc__,
+        detalle=(
+            f"paginación con OFFSET: {pagina}\n"
+            f"      devuelve las filas: {bool(devuelve)}\n"
+            f"      rasgo Destino con un método por fila: {bool(hay_rasgo)}"
+        ),
+    )
+
+
 def toda_tabla_que_no_entra_dice_por_que():
     """Una exclusión sin motivo es un olvido con mejor presentación.
 
@@ -4707,11 +4839,7 @@ def toda_tabla_que_no_entra_dice_por_que():
     Verificada el 05/10/2026 vaciando el motivo de `ui_preference`: falla
     nombrándola.
     """
-    manifiesto = leer("crates/arles-core/src/respaldo.rs") or ""
-    entradas = re.findall(
-        r'tabla:\s*"(\w+)",\s*alcance:\s*Alcance::(\w+),\s*porque:\s*(.+?),?\n',
-        manifiesto,
-    )
+    entradas = _entradas_del_manifiesto()
     assert entradas, "no se leyó ninguna entrada del manifiesto"
 
     flojas = [t for t, _, p in entradas if len(p.strip().strip('"')) < 25]
@@ -4738,11 +4866,10 @@ def las_bajas_nunca_se_recortan():
     Verificada el 05/10/2026 bajando `suppression_entry` a `SoloCompleto`:
     falla con su nombre.
     """
-    manifiesto = leer("crates/arles-core/src/respaldo.rs") or ""
-    m = re.search(
-        r'tabla:\s*"suppression_entry",\s*alcance:\s*Alcance::(\w+)', manifiesto
+    alcance = next(
+        (a for t, a, _ in _entradas_del_manifiesto() if t == "suppression_entry"),
+        "(no declarada)",
     )
-    alcance = m.group(1) if m else "(no declarada)"
     check(
         8,
         "las bajas entran enteras en los dos respaldos",
@@ -4756,9 +4883,14 @@ def fase_8(rapido=False):
     print(f"{NEGRITA}Fase 8 · Respaldos y endurecimiento{FIN}")
 
     print(f"{GRIS}  el manifiesto del respaldo (8.0){FIN}")
+    el_manifiesto_se_lee_entero()
     ninguna_tabla_se_queda_fuera_del_respaldo()
     toda_tabla_que_no_entra_dice_por_que()
     las_bajas_nunca_se_recortan()
+
+    print(f"{GRIS}  leer la base por tandas (8.2b){FIN}")
+    lo_que_se_recorta_dice_por_que_columna()
+    el_respaldo_no_se_lee_en_memoria()
 
 
 def fase_7(rapido=False):

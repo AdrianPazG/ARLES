@@ -19,6 +19,7 @@
 //! creado→2026-10-05T14:03:00Z
 //! cifrado→no                          ← lo rellena la 8.2 (D-8A)
 //! filas→contact=120 suppression_entry=8
+//! columnas→contact=id,first_name,…    ← qué columna es cada campo, por tabla
 //!                                     ← una línea en blanco cierra la cabecera
 //! contact→01900…→Ana→Ruiz→\N
 //! contact→01900…→Beto→→Pérez
@@ -36,6 +37,25 @@
 //! **Por qué la suma va al final y no en la cabecera.** Para calcularla hay que
 //! haber escrito el cuerpo. Ponerla arriba obligaría a dos pasadas sobre medio
 //! millón de filas, o a construirlo todo en memoria — justo lo que se evita.
+//!
+//! **Por qué la cabecera declara las columnas de cada tabla, y es un arreglo de
+//! la 8.1.** La 8.1 dejó el cuerpo como `tabla→v1→v2→v3` y nada que dijera qué
+//! columna es cada valor. Así, un respaldo sólo se puede restaurar **por
+//! posición**: el primer campo va a la primera columna de la tabla, y se acabó.
+//!
+//! Eso funciona exactamente hasta la primera migración. El día que la V11 meta
+//! una columna en medio de `contact` —SQLite la pone al final, pero un
+//! `x_nueva` con copia y renombrado, que es el rodeo que esta base ya usa
+//! cuatro veces, la coloca donde quiera—, un respaldo de la V10 se restaura con
+//! **los campos corridos**: el apellido en la columna de la empresa, y cada
+//! fila insertada sin un solo error. Declarando los nombres, la 8.3 mapea por
+//! nombre y puede decir «este respaldo trae una columna que ya no existe» en
+//! vez de adivinar.
+//!
+//! **Se corrige en vez de subir la versión del formato** porque el formato 1 no
+//! se ha distribuido: no hay un solo archivo `.arles` escrito fuera de las
+//! pruebas. Guardar compatibilidad con un formato que nadie tiene sería cargar
+//! con un caso que no existe.
 //!
 //! **Por qué la cabecera declara las filas de cada tabla.** Para que el
 //! preflight de la restauración (8.3) pueda decir qué trae el respaldo **sin
@@ -167,7 +187,17 @@ pub struct Cabecera {
     pub creado_en: String,
     pub cifrado: Cifrado,
     /// Cuántas filas trae de cada tabla, en el orden en que se escriben.
+    ///
+    /// **El orden importa y no es decorativo:** es el orden en que la 8.3 tiene
+    /// que insertar, y lo fija `arles-db` resolviendo las claves ajenas. Un hijo
+    /// antes que su padre no se puede insertar.
     pub filas: Vec<(String, u64)>,
+    /// Qué columna es cada campo, por tabla y en el mismo orden que `filas`.
+    ///
+    /// Sin esto un respaldo sólo se puede restaurar por posición, y una columna
+    /// que se mueva corre todos los campos sin que nada falle. Ver la cabecera
+    /// del módulo.
+    pub columnas: Vec<(String, Vec<String>)>,
 }
 
 impl Cabecera {
@@ -186,6 +216,19 @@ impl Cabecera {
             .map_or(0, |(_, n)| *n)
     }
 
+    /// Qué columnas declara de una tabla, en el orden en que vienen los campos.
+    ///
+    /// Devuelve `None` —y no una lista vacía— si la tabla no está declarada:
+    /// una tabla sin columnas y una tabla que no viene en el respaldo son dos
+    /// cosas distintas, y confundirlas al restaurar insertaría filas vacías.
+    #[must_use]
+    pub fn columnas_de(&self, tabla: &str) -> Option<&[String]> {
+        self.columnas
+            .iter()
+            .find(|(t, _)| t == tabla)
+            .map(|(_, c)| c.as_slice())
+    }
+
     /// La cabecera como texto, **incluida la línea en blanco** que la cierra.
     #[must_use]
     pub fn redactar(&self) -> String {
@@ -193,6 +236,12 @@ impl Cabecera {
             .filas
             .iter()
             .map(|(t, n)| format!("{t}={n}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let columnas = self
+            .columnas
+            .iter()
+            .map(|(t, cs)| format!("{t}={}", cs.join(",")))
             .collect::<Vec<_>>()
             .join(" ");
         format!(
@@ -203,6 +252,7 @@ impl Cabecera {
              creado{SEP}{}\n\
              cifrado{SEP}{}\n\
              filas{SEP}{filas}\n\
+             columnas{SEP}{columnas}\n\
              \n",
             self.formato,
             self.esquema,
@@ -286,6 +336,39 @@ impl Cabecera {
             })
             .collect::<Result<Vec<_>, CoreError>>()?;
 
+        let columnas = buscar("columnas")?
+            .split_whitespace()
+            .map(|par| {
+                let (t, cs) = par.split_once('=').ok_or(CoreError::RespaldoCorrupto {
+                    motivo: "las columnas de una tabla no tienen la forma «tabla=a,b,c»",
+                })?;
+                let cs: Vec<String> = cs.split(',').map(str::to_owned).collect();
+                if cs.iter().any(String::is_empty) {
+                    return Err(CoreError::RespaldoCorrupto {
+                        motivo: "una tabla declara una columna sin nombre",
+                    });
+                }
+                Ok((t.to_owned(), cs))
+            })
+            .collect::<Result<Vec<_>, CoreError>>()?;
+
+        // ── LAS DOS LÍNEAS TIENEN QUE HABLAR DE LAS MISMAS TABLAS ──
+        //
+        // Si `filas` declara una tabla que `columnas` no, la 8.3 leería sus
+        // filas sin saber a qué columna va cada campo — y la única salida sería
+        // adivinar por posición, que es justo lo que declarar las columnas
+        // existe para evitar. Al revés es un archivo que promete una tabla y no
+        // trae ninguna fila de ella.
+        let mismas = filas.len() == columnas.len()
+            && filas
+                .iter()
+                .all(|(t, _)| columnas.iter().any(|(c, _)| c == t));
+        if !mismas {
+            return Err(CoreError::RespaldoCorrupto {
+                motivo: "el recuento de filas y la lista de columnas no hablan de las mismas tablas",
+            });
+        }
+
         Ok((
             Self {
                 formato,
@@ -294,6 +377,7 @@ impl Cabecera {
                 creado_en: buscar("creado")?,
                 cifrado: Cifrado::parse(&buscar("cifrado")?)?,
                 filas,
+                columnas,
             },
             consumidas,
         ))
@@ -494,6 +578,13 @@ mod tests {
                 ("contact".to_owned(), 2),
                 ("suppression_entry".to_owned(), 1),
             ],
+            columnas: vec![
+                (
+                    "contact".to_owned(),
+                    vec!["first_name".to_owned(), "last_name".to_owned()],
+                ),
+                ("suppression_entry".to_owned(), vec!["id".to_owned()]),
+            ],
         }
     }
 
@@ -667,6 +758,62 @@ mod tests {
     fn una_barra_que_no_escapa_nada_es_corrupcion() {
         assert!(desescapar("acaba en barra\\").is_err());
         assert!(desescapar("escape\\qinventado").is_err());
+    }
+
+    /// **Un respaldo que no dice qué columna es cada campo se rechaza.**
+    ///
+    /// Es el arreglo de la 8.1 hecho prueba. Sin los nombres, restaurar es
+    /// restaurar por posición: el día que una migración mueva una columna, los
+    /// campos se insertan corridos —el apellido donde va la empresa— y **ni una
+    /// fila falla**. Por eso la línea es obligatoria y las dos que hablan de
+    /// tablas tienen que coincidir.
+    ///
+    /// Verificada el 05/10/2026 de las dos formas: quitando la comprobación
+    /// cruzada, una cabecera que declara filas de `contact` y columnas de
+    /// `tag` pasa en verde.
+    #[test]
+    fn una_cabecera_sin_los_nombres_de_las_columnas_no_vale() {
+        // Falta la línea entera.
+        let sin_columnas = cabecera()
+            .redactar()
+            .lines()
+            .filter(|l| !l.starts_with("columnas\t"))
+            .map(|l| format!("{l}\n"))
+            .collect::<String>();
+        assert!(matches!(
+            Cabecera::leer(&sin_columnas),
+            Err(CoreError::RespaldoCorrupto { .. })
+        ));
+
+        // Están, pero no son las de las tablas que trae.
+        let mut descuadrada = cabecera();
+        descuadrada.columnas = vec![("tag".to_owned(), vec!["id".to_owned()])];
+        assert!(matches!(
+            Cabecera::leer(&descuadrada.redactar()),
+            Err(CoreError::RespaldoCorrupto { .. })
+        ));
+
+        // Y una columna sin nombre tampoco pasa: `contact=id,,name`.
+        let roto = cabecera().redactar().replace("first_name,", "first_name,,");
+        assert!(matches!(
+            Cabecera::leer(&roto),
+            Err(CoreError::RespaldoCorrupto { .. })
+        ));
+    }
+
+    /// Las columnas se leen por tabla, y una tabla ausente no es una vacía.
+    #[test]
+    fn las_columnas_se_consultan_por_tabla() {
+        let c = cabecera();
+        assert_eq!(
+            c.columnas_de("contact"),
+            Some(["first_name".to_owned(), "last_name".to_owned()].as_slice())
+        );
+        assert_eq!(
+            c.columnas_de("no_viene"),
+            None,
+            "una tabla que no está en el respaldo no puede parecer una tabla sin columnas"
+        );
     }
 
     /// El recuento de la cabecera sirve para el preflight sin leer el cuerpo.

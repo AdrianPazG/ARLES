@@ -54,8 +54,21 @@ pub enum Alcance {
     /// Entera en el completo; en el esencial, sólo los últimos doce meses.
     ///
     /// Para lo que crece sin techo y pierde valor con el tiempo sin perderlo
-    /// del todo. Hoy sólo el historial de envíos cae aquí.
-    RecortadaEnElEsencial,
+    /// del todo. Hoy sólo el historial de envíos y las respuestas caen aquí.
+    ///
+    /// **La variante lleva dentro la columna por la que se recorta**, y no es
+    /// adorno: recortar por fecha necesita saber qué fecha, y las dos tablas
+    /// que caen aquí la llaman distinto —`created_at` en el historial,
+    /// `first_reply_at` en las respuestas—. Puesta en un campo aparte se podría
+    /// dejar vacía, o rellenar en una tabla que no se recorta y creer que sí;
+    /// puesta dentro de la variante, el compilador la exige justo cuando hace
+    /// falta y la prohíbe donde no.
+    RecortadaEnElEsencial {
+        /// La columna de fecha por la que se corta. Que exista en el esquema lo
+        /// comprueba `toda_columna_de_corte_existe_de_verdad` en `arles-db`,
+        /// contra una base migrada de verdad y no contra esta lista.
+        fecha: &'static str,
+    },
 
     /// Sólo en el respaldo completo.
     ///
@@ -75,13 +88,25 @@ impl Alcance {
     /// ¿Esta tabla entra en el respaldo esencial?
     #[must_use]
     pub const fn entra_en_el_esencial(self) -> bool {
-        matches!(self, Self::SiempreEntera | Self::RecortadaEnElEsencial)
+        matches!(
+            self,
+            Self::SiempreEntera | Self::RecortadaEnElEsencial { .. }
+        )
     }
 
     /// ¿Entra en el completo?
     #[must_use]
     pub const fn entra_en_el_completo(self) -> bool {
         !matches!(self, Self::Nunca)
+    }
+
+    /// Por qué columna se recorta en el esencial, si se recorta.
+    #[must_use]
+    pub const fn columna_de_corte(self) -> Option<&'static str> {
+        match self {
+            Self::RecortadaEnElEsencial { fecha } => Some(fecha),
+            _ => None,
+        }
     }
 }
 
@@ -146,8 +171,19 @@ pub const MANIFIESTO: &[EnElRespaldo] = &[
     },
     EnElRespaldo {
         tabla: "import_batch",
-        alcance: Alcance::SoloCompleto,
-        porque: "De dónde salió cada contacto. Es trazabilidad, no dato operativo: sin ella los contactos siguen sirviendo.",
+        // ── RECLASIFICADA EN LA 8.2b, Y NO POR GUSTO ──
+        //
+        // Estaba como `SoloCompleto` con el motivo «es trazabilidad, no dato
+        // operativo: sin ella los contactos siguen sirviendo». Suena razonable
+        // y es falso: **`contact` tiene una clave ajena a esta tabla**. Un
+        // respaldo esencial con los contactos y sin sus lotes no se puede
+        // restaurar — cada fila de `contact` apunta a un padre que no está, y
+        // con `PRAGMA foreign_keys=ON` la inserción se rechaza.
+        //
+        // No lo habría encontrado una prueba del manifiesto: lo encontró medir
+        // el esquema. Ahora lo vigila `ningun_hijo_viaja_sin_su_padre`.
+        alcance: Alcance::SiempreEntera,
+        porque: "De dónde salió cada contacto. Entera en los dos porque `contact` tiene una clave ajena a esta tabla: sin ella los contactos no se pueden ni insertar. Y es una fila por archivo importado, así que no pesa.",
     },
     // ── Lo que la Fase 6 declaró fuera de alcance, y existe en el esquema ──
     EnElRespaldo {
@@ -214,7 +250,9 @@ pub const MANIFIESTO: &[EnElRespaldo] = &[
     // ── El historial de envíos: lo que crece sin techo ─────────────────────
     EnElRespaldo {
         tabla: "message_attempt",
-        alcance: Alcance::RecortadaEnElEsencial,
+        alcance: Alcance::RecortadaEnElEsencial {
+            fecha: "created_at",
+        },
         porque: "Un renglón por destinatario y envío, y no se borra jamás (D-7C). Entero en el completo; en el esencial, los últimos doce meses, porque es lo único que crece sin techo.",
     },
     EnElRespaldo {
@@ -250,7 +288,12 @@ pub const MANIFIESTO: &[EnElRespaldo] = &[
     },
     EnElRespaldo {
         tabla: "whatsapp_reply",
-        alcance: Alcance::RecortadaEnElEsencial,
+        // Y no `created_at`, que esta tabla **no tiene**: la fecha que guarda es
+        // cuándo llegó la primera respuesta de esa persona. Es el motivo de que
+        // la columna viaje dentro de la variante y no se dé por supuesta.
+        alcance: Alcance::RecortadaEnElEsencial {
+            fecha: "first_reply_at",
+        },
         porque: "Cuántas personas contestaron a cada campaña (D-7A, nunca qué dijeron). Crece con los envíos, así que sigue la misma regla que el historial.",
     },
     EnElRespaldo {
@@ -384,6 +427,51 @@ mod tests {
                 e.tabla,
                 e.porque
             );
+        }
+    }
+
+    /// **Lo que se recorta dice por qué columna, y lo que no, no la tiene.**
+    ///
+    /// El compilador ya obliga a poner la columna al elegir la variante. Lo que
+    /// esta prueba fija es lo otro: que la columna **diga algo** —una cadena
+    /// vacía compila— y que las dos tablas que se recortan no la llamen igual,
+    /// porque la tentación de dar por supuesto `created_at` es exactamente el
+    /// error que la variante con dato dentro impide.
+    ///
+    /// Verificada el 05/10/2026 poniendo `fecha: "created_at"` en
+    /// `whatsapp_reply` —que no tiene esa columna—: la prueba de `arles-db`
+    /// que compara contra el esquema falla nombrándola. Aquí falla la segunda
+    /// aserción.
+    #[test]
+    fn lo_que_se_recorta_dice_por_que_columna() {
+        let cortes: Vec<(&str, &str)> = MANIFIESTO
+            .iter()
+            .filter_map(|e| e.alcance.columna_de_corte().map(|c| (e.tabla, c)))
+            .collect();
+
+        assert_eq!(
+            cortes.len(),
+            2,
+            "cambió qué tablas se recortan: {cortes:?} — revisa D-8B antes de tocar esto"
+        );
+        for (tabla, columna) in &cortes {
+            assert!(
+                !columna.is_empty(),
+                "{tabla} se recorta y no dice por qué columna"
+            );
+        }
+        assert_ne!(
+            cortes.first().map(|c| c.1),
+            cortes.get(1).map(|c| c.1),
+            "si las dos se recortaran por la misma columna, la variante con dato \
+             dentro no haría falta — y el día que una la llame distinto, nadie lo vería"
+        );
+
+        // Y nada más la tiene: lo que entra entero no se recorta por nada.
+        for e in MANIFIESTO {
+            if !matches!(e.alcance, Alcance::RecortadaEnElEsencial { .. }) {
+                assert!(e.alcance.columna_de_corte().is_none(), "{}", e.tabla);
+            }
         }
     }
 

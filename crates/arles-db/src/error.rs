@@ -123,6 +123,20 @@ pub enum DbError {
     #[error("esa supresión la pidió la persona y no se levanta desde aquí")]
     SupresionNoSeLevanta { motivo: &'static str },
 
+    /// El esquema de esta instalación tiene algo que un respaldo no sabe
+    /// llevar, y por eso no se escribe ninguno.
+    ///
+    /// Son tres casos, y los tres son **un defecto nuestro**, no del usuario: un
+    /// dato binario en una tabla del respaldo —el formato es texto y guardarlo
+    /// en hexadecimal devolvería otro dato—, tablas que dependen unas de otras
+    /// en círculo —entonces no hay orden en que insertarlas— y un manifiesto
+    /// que clasifica una tabla que la base no tiene.
+    ///
+    /// **Se para en vez de exportar lo que se pueda.** Un respaldo incompleto
+    /// se descubre el día que hace falta, y ese día ya no hay de dónde sacarlo.
+    #[error("el esquema de esta base tiene algo que un respaldo no puede llevar: {motivo}")]
+    EsquemaNoSeDejaRespaldar { motivo: &'static str },
+
     #[error("error de SQLite: {0}")]
     Sqlite(#[from] rusqlite::Error),
 }
@@ -146,6 +160,7 @@ impl DbError {
             Self::VentanaInvalida(motivo) => motivo.clave_i18n(),
             Self::Nucleo(e) => e.clave_i18n(),
             Self::SupresionNoSeLevanta { .. } => "error.db.supresion_no_se_levanta",
+            Self::EsquemaNoSeDejaRespaldar { .. } => "error.db.esquema_no_se_deja_respaldar",
             Self::Sqlite(_) => "error.db.sqlite",
         }
     }

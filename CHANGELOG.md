@@ -12,6 +12,45 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.2b · Leer la base para un respaldo, sin cargarla en memoria
+
+#### Lo que cambia para quien usa ARLES
+
+Todavía nada: no hay botón. Lo que hay es la pieza que leerá la base cuando la
+8.2c escriba el archivo. **Y está dicho a propósito**, porque este proyecto ya
+ha dado por hecho trece veces que algo construido y probado se podía usar.
+
+#### Lo que cambia por dentro
+
+**`arles-db/src/respaldo.rs`** · `Db::exportar` recorre las tablas del alcance y
+le da cada fila a un rasgo `Destino`. Trece pruebas.
+
+- **Un cursor, no tandas.** La tanda obvia, `LIMIT 500 OFFSET n`, es cuadrática
+  —SQLite recorre y descarta n filas en cada una, unas 125 000 millones de filas
+  visitadas para leer 500 000— y además puede **repetir o saltarse una fila** si
+  la tabla cambia entre dos tandas. Las tandas quedan sólo para avisar del
+  avance, cada 2 000 filas.
+- **Una sola transacción de lectura** para todo el respaldo, o el recuento de la
+  cabecera y las filas del cuerpo serían de instantes distintos.
+- **El orden de las tablas se calcula** de `PRAGMA foreign_key_list`. El del
+  manifiesto dejaba tres hijos antes que sus padres y no se podía restaurar.
+
+#### Lo que estaba mal y se arregla
+
+**`import_batch` se quedaba fuera del respaldo esencial**, y `contact` tiene una
+clave ajena a ella: el esencial se llevaba los contactos y **no se podía
+restaurar**. Reclasificada, y vigilada por una comprobación que lee el esquema.
+
+**El formato `.arles` no decía qué columna es cada valor**, así que sólo se podía
+restaurar por posición: una migración que mueva una columna insertaría los campos
+corridos sin que una sola fila falle. La cabecera declara ahora las columnas de
+cada tabla. La versión del formato no sube: no hay ningún `.arles` escrito fuera
+de las pruebas.
+
+**La columna por la que se recorta ya no se da por supuesta.** `whatsapp_reply`
+no tiene `created_at` sino `first_reply_at`, así que la columna viaja dentro de
+la variante del alcance y el compilador la exige.
+
 ### 7.7 · El cierre de la Fase 7, y siete defectos con todo en verde
 
 La auditoría de cierre se hizo con las nueve fases del validador pasando y las

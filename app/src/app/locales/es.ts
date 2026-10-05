@@ -1351,6 +1351,15 @@ export const es = {
         como: 'Cierra ARLES y vuelve a abrirlo. Si persiste, restaura tu último respaldo.',
         salvo: 'Se hizo una copia de tu base de datos antes de intentarlo.',
       },
+      esquema_no_se_deja_respaldar: {
+        // No es culpa de quien lo pulsó, y el texto no finge que pueda
+        // arreglarlo: pasa cuando la estructura de la base tiene algo que el
+        // formato del respaldo no sabe llevar sin cambiarlo. Preferimos no
+        // escribir respaldo antes que escribir uno que no se pueda restaurar.
+        que: 'ARLES no pudo preparar el respaldo: la estructura de tu base tiene algo que este formato no sabe guardar sin alterarlo.',
+        como: 'Es un fallo nuestro, no de tus datos. Avisa a soporte con la versión de ARLES que tienes; mientras tanto, no borres nada.',
+        salvo: 'No se escribió ningún archivo y tus datos están intactos. Se paró antes de empezar, a propósito: un respaldo a medias se descubre el día que hace falta.',
+      },
       sqlite: {
         que: 'Ocurrió un error al acceder a los datos.',
         como: 'Cierra ARLES y vuelve a abrirlo.',

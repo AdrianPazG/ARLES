@@ -420,6 +420,59 @@ nuevas pasaron `cargo deny`: `advisories ok, licenses ok`.
 > **La contraseña del respaldo no se guarda en ningún sitio** — ni llavero, ni
 > base, ni vuelta por la frontera. Si se olvida, el respaldo no se abre.
 
+**Cerrada la 8.2b · leer la base por tandas** (`arles-db/src/respaldo.rs`):
+`Db::exportar` recorre las tablas del alcance y le da cada fila a un rasgo
+`Destino`. Trece pruebas, dos comprobaciones nuevas en `--fase 8`.
+
+> **«Por tandas» era la unidad equivocada, y la forma obvia es la mala.** La
+> tanda obvia es `LIMIT 500 OFFSET n`, y SQLite no guarda un atajo a la fila n:
+> medio millón en tandas de 500 visita unas **125 000 millones** de filas para
+> leer 500 000. Y entre dos tandas la tabla cambia —el motor escribe en su
+> hilo—, así que **una fila se repite o se salta sin que nada falle**. Lo que es
+> memoria acotada es un **cursor**; las tandas sólo sirven para avisar del
+> avance, cada 2 000 filas. Lo vigila `el_respaldo_no_se_lee_en_memoria`.
+>
+> **Todo el respaldo va en una transacción de lectura**, o el recuento de la
+> cabecera y las filas del cuerpo serían de instantes distintos y el preflight
+> de la 8.3 enseñaría una cifra que el archivo no cumple. A cambio, el motor no
+> escribe mientras se exporta: el cerrojo es uno solo.
+
+> **Dos defectos que encontró medir el esquema, y que ninguna prueba del
+> manifiesto podía cazar.** Son el patrón del §9 con otra cara: cada capa pasaba
+> lo suyo y el hueco vivía en medio.
+>
+> 1. **El orden del manifiesto no se puede restaurar.** Deja tres hijos antes
+>    que sus padres —`contact` antes de `import_batch`, `campaign_stage` y
+>    `message_attempt` antes de `email_account`—, y con `foreign_keys=ON` esos
+>    `INSERT` se rechazan. El orden del cuerpo **se calcula** de
+>    `PRAGMA foreign_key_list`, con el manifiesto como desempate para que dos
+>    exportaciones de la misma base den el mismo archivo.
+> 2. **`import_batch` estaba fuera del respaldo esencial** porque «es
+>    trazabilidad, no dato operativo». Falso: `contact` tiene una clave ajena a
+>    ella, así que el esencial traía los contactos y **no se podía restaurar**.
+>    Lo vigila `ningun_hijo_viaja_sin_su_padre`, que lee el esquema y comprueba
+>    los dos alcances — incluido el caso de un padre que sí viaja pero recortado.
+>
+> **Al clasificar una tabla, la pregunta no es sólo «¿hace falta?» sino «¿de
+> quién depende?».** Una tabla sin su padre no es un respaldo incompleto: es un
+> respaldo que no entra.
+
+> **Y un arreglo del formato de la 8.1**: el cuerpo no decía qué columna es cada
+> valor, así que sólo se podía restaurar **por posición**. Una migración que
+> mueva una columna insertaría los campos corridos —el apellido donde va la
+> empresa— sin que una sola fila falle. La cabecera declara ahora las columnas
+> de cada tabla; la versión del formato **no sube**, porque no hay un solo
+> `.arles` escrito fuera de las pruebas.
+>
+> **La columna por la que se recorta vive dentro de la variante**
+> —`RecortadaEnElEsencial { fecha }`—: `whatsapp_reply` no tiene `created_at`
+> sino `first_reply_at`, y darlo por supuesto habría hecho fallar el `WHERE`
+> delante de quien pulsó exportar.
+
+> **Hueco del §9 abierto a propósito.** `Db::exportar` está construido, probado
+> y **nadie lo llama**. Lo cierra la 8.2c con una comprobación escrita antes de
+> enchufarlo, para verla en rojo — no con buena intención.
+
 > **El agujero que ordena esa fase, y conviene saberlo antes de tocar nada.**
 > La base está cifrada con SQLCipher y la clave vive **sólo** en el llavero
 > (`db-master-key`). No hay segunda copia. Si se pierde esa entrada, `arles.db`

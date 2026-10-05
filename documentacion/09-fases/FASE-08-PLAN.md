@@ -451,18 +451,83 @@ descifra mal de la misma forma».
 por la frontera. Si se olvida, el respaldo no se abre — y construir una puerta
 de atrás sería construir justo lo que el cifrado existe para impedir.
 
-#### 8.2b y 8.2c · lo que queda
+#### 8.2b · Leer la base por tandas ✅ **cerrada el 05/10/2026**
 
-**Qué.** El comando que lee la base, arma la estructura y escribe el archivo.
+`arles-db/src/respaldo.rs`: `Db::exportar` lee todas las tablas del alcance y le
+va dando cada fila a un rasgo `Destino`, que en la 8.2c escribirá al archivo.
+Trece pruebas y dos comprobaciones nuevas en `--fase 8`.
+
+**«Por tandas» era la unidad equivocada, y conviene dejar dicho por qué**, porque
+la forma obvia es la mala. La tanda obvia es `LIMIT 500 OFFSET n`, y SQLite no
+guarda un atajo a la fila n: para servir `OFFSET 400000` recorre y descarta
+cuatrocientas mil filas. Medio millón en tandas de 500 son mil consultas que
+visitan unas **125 000 millones** de filas para leer 500 000. Y lo peor no es la
+lentitud: entre dos tandas la tabla puede cambiar —el motor escribe en su propio
+hilo—, con lo que **una fila se repite o se salta sin que nada falle**.
+
+Lo que sí es memoria acotada es un **cursor**: `SELECT … ORDER BY rowid` y las
+filas se consumen de una en una, con una en memoria. Las tandas sobreviven en su
+único sitio útil, **avisar del avance**: cada 2 000 filas, que con medio millón
+son 250 avisos en vez de 500 000 cruces de frontera.
+
+**Todo el respaldo va en una sola transacción de lectura.** Sin ella, el
+recuento de la cabecera y las filas del cuerpo serían de instantes distintos, y
+el preflight de la 8.3 enseñaría una cifra que el archivo no cumple. El coste es
+honesto: mientras se exporta, el motor no puede escribir, porque el cerrojo de la
+conexión es uno solo (ADR-0002). Exportar es una acción que alguien pulsa y
+espera mirando.
+
+**Dos defectos que encontró medir el esquema, y que ninguna prueba del
+manifiesto podía cazar:**
+
+1. **El orden del manifiesto no se puede restaurar.** Ordena las tablas «como el
+   esquema, agrupando lo que se lee junto», que es bueno para leerlo una persona
+   y deja tres hijos antes que sus padres: `contact` antes de `import_batch`,
+   `campaign_stage` y `message_attempt` antes de `email_account`. Con
+   `PRAGMA foreign_keys=ON` esos `INSERT` se rechazan. Ahora el orden del cuerpo
+   **se calcula** leyendo `PRAGMA foreign_key_list`, con el orden del manifiesto
+   como desempate para que dos exportaciones de la misma base den el mismo
+   archivo.
+2. **`import_batch` estaba como `SoloCompleto`** con el motivo «es trazabilidad,
+   no dato operativo: sin ella los contactos siguen sirviendo». Suena razonable
+   y es falso: `contact` tiene una clave ajena a ella, así que un respaldo
+   esencial traía los contactos y **no se podía restaurar**. Reclasificada a
+   `SiempreEntera` —es una fila por archivo importado, no pesa— y vigilada por
+   `ningun_hijo_viaja_sin_su_padre`, que lee el esquema y comprueba los dos
+   alcances, incluido el caso de un padre que sí viaja pero **recortado**.
+
+**Y un arreglo del formato de la 8.1.** El cuerpo era `tabla→v1→v2` sin nada que
+dijera qué columna es cada valor, así que un respaldo sólo se podía restaurar
+**por posición**. El día que una migración mueva una columna, los campos se
+insertan corridos —el apellido donde va la empresa— y ni una fila falla. La
+cabecera ahora declara las columnas de cada tabla, y la versión del formato
+**no sube** porque no hay un solo `.arles` escrito fuera de las pruebas.
+
+**La columna por la que se recorta vive dentro de la variante del alcance**
+—`RecortadaEnElEsencial { fecha }`—, y no en un campo aparte: las dos tablas que
+se recortan la llaman distinto, porque `whatsapp_reply` **no tiene `created_at`**
+sino `first_reply_at`. Dar por supuesto el nombre habría hecho fallar el `WHERE`
+delante de quien pulsó exportar.
+
+> **Hueco del §9 abierto a propósito, y quién lo cierra.** `Db::exportar` está
+> construido, probado y **nadie lo llama**: es exactamente el patrón que este
+> proyecto ya ha visto trece veces. Lo cierra la 8.2c, y con una comprobación,
+> no con buena intención: `el_exportador_tiene_quien_lo_llame` en `--fase 8`,
+> escrita **antes** de enchufarlo para verla en rojo.
+
+#### 8.2c · El comando, el diálogo y la pantalla
+
+**Qué.** Escribir el archivo: cabecera, cuerpo, suma y sobre cifrado.
 
 **Depende de D-8A** (cifrado) y **D-8B** (alcance).
 
 - Sigue **el patrón del informe ARCO**: el diálogo lo abre el núcleo, lo único
   que vuelve a la webview es el **nombre** del archivo (regla 4).
-- **Memoria acotada**: se escribe por tandas, como lee `arles-import`. Exportar
-  500 000 contactos no puede cargarlos todos en memoria.
 - **Avance visible**: con medio millón de filas, una barra parada veinte segundos
-  es indistinguible de un programa colgado. Cifras, no una rueda (§94).
+  es indistinguible de un programa colgado. Cifras, no una rueda (§94). El
+  exportador ya avisa cada 2 000 filas.
+- La contraseña se pide dos veces, con el aviso de que no se puede recuperar, y
+  el cifrado se puede desactivar a propósito (D-8A).
 - Queda en `audit_log`.
 
 **Hecho cuando:** se exporta una base poblada, el archivo se vuelve a leer, y la
@@ -674,11 +739,14 @@ es opcional.
 | **8.6** | Las cuatro auditorías (§140) | 8.5 | Fase 9 |
 | **8.7** | Cierre: documento, informe, avance y **mirar** | 8.6 | Fase 9 |
 
-**Cerradas la 8.0 y la 8.1** (05/10/2026). El manifiesto clasifica las 29 tablas
-con su motivo; el formato `.arles` se escribe y se vuelve a leer sin perder nada,
-con doce pruebas y tres errores tipados que distinguen «este archivo no es un
-respaldo», «lo hizo una versión más nueva» y «está roto» — porque lo que hay que
-hacer es distinto en cada caso.
+**Cerradas la 8.0, la 8.1, la 8.2a y la 8.2b** (05/10/2026). El manifiesto
+clasifica las 29 tablas con su motivo; el formato `.arles` se escribe y se vuelve
+a leer sin perder nada, con tres errores tipados que distinguen «este archivo no
+es un respaldo», «lo hizo una versión más nueva» y «está roto» — porque lo que
+hay que hacer es distinto en cada caso; el sobre va cifrado con Argon2id y
+XChaCha20-Poly1305 en trozos de 64 KiB; y la base se lee con un cursor, en una
+sola transacción, con el orden de inserción calculado del esquema.
 
-**Lo siguiente es la 8.2 · Exportar**, y tampoco espera a nadie: las cuatro
-decisiones están contestadas.
+**Lo siguiente es la 8.2c**, que escribe el archivo y pone el botón — y que es lo
+que cierra el hueco del §9 que la 8.2b deja abierto a propósito: hoy el
+exportador está probado y nadie lo llama.

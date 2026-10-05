@@ -32,6 +32,7 @@ pub mod plantillas_whatsapp;
 pub mod preferencias;
 pub mod presupuesto;
 pub mod prueba;
+pub mod respaldo;
 pub mod respuestas;
 pub mod revision;
 pub mod revision_whatsapp;
@@ -52,6 +53,10 @@ pub use error::DbError;
 pub use migraciones::ultima_version;
 pub use numero::{NumeroGuardado, NumeroNuevo};
 pub use preferencias::CLAVES_DE_INTERFAZ;
+pub use respaldo::{
+    ColumnasPorTabla, Destino, FILAS_POR_AVISO, Inventario, QueSeLleva, RecuentoPorTabla,
+    TablaDelRespaldo,
+};
 pub use revision::LoQueSabeLaBase;
 pub use supresion::{MAX_SUPRESIONES_POR_PAGINA, ResumenDeSupresion, SupresionGuardada};
 pub use ventanas::VentanaGuardada;
