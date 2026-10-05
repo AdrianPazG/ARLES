@@ -163,7 +163,7 @@ python3 herramientas/validar/validar.py --fase 6        # 0 a 6
 python3 herramientas/validar/validar.py --fase 6 --rapido   # omite las sondas
 
 # Y ANTES DE EMPUJAR, las siete. Cuesta un minuto:
-for f in 0 1 2 3 4 5 6; do python3 herramientas/validar/validar.py --fase $f --rapido; done
+for f in 0 1 2 3 4 5 6 W 7 8; do python3 herramientas/validar/validar.py --fase $f --rapido; done
 ```
 
 **Correr sólo la fase en curso no basta.** En la 5.2 y la 5.3 se verificó con
@@ -349,11 +349,31 @@ puede verificar de verdad el día que se cierre R-24. No bloquea nada.
 puso sus tres comandos… y ninguna pantalla los llamaba. Está en Campañas (D-7B),
 y Actividad la enseña porque es la razón número uno por la que no sale nada.
 
-**Lo siguiente es la Fase 8 · Respaldos y endurecimiento**, planificada el
-05/10/2026 en
-[`FASE-08-PLAN.md`](documentacion/09-fases/FASE-08-PLAN.md): ocho entregas y tres
-decisiones que esperan a Dirección (D-8A cifrado del respaldo, D-8B qué se lleva,
-D-8C restaurar sobre datos existentes). **La 8.0 no depende de ninguna.**
+**En marcha la Fase 8 · Respaldos y endurecimiento**, planificada el 05/10/2026
+en [`FASE-08-PLAN.md`](documentacion/09-fases/FASE-08-PLAN.md). **Dirección
+contestó las cuatro decisiones el mismo día:**
+
+- **D-8A** · el respaldo va **cifrado**, con opción explícita de desactivarlo.
+- **D-8B** · **dos alcances**, «Esencial» por defecto.
+- **D-8C** · restaurar **reemplaza, nunca mezcla** — y las bajas se **unen**.
+- **D-8D** · se puede **archivar** el historial a un disco externo y sólo
+  entonces borrarlo, con cuatro condiciones: nunca automático, el archivo
+  verificado antes del borrado, las bajas y el consentimiento fuera, y todo en
+  `audit_log`. Va en la **8.3 bis**, después de que restaurar funcione.
+
+**Cerrada la 8.0 · el manifiesto del respaldo** (`arles-core/src/respaldo.rs`):
+las **29 tablas** del esquema clasificadas en cuatro alcances, cada una con su
+motivo escrito. Tres comprobaciones nuevas en `--fase 8` y seis pruebas.
+
+> **Al añadir una tabla en una migración, hay que clasificarla en el
+> manifiesto.** No es burocracia: una tabla que no está en el respaldo se
+> exporta, se restaura, y **sus datos no están** — sin excepción, sin aviso y
+> sin ninguna prueba en rojo. Es el patrón del §9 en su forma más cara, porque
+> aquí lo que se pierde no es una función, son datos de personas.
+>
+> Lo caza `ninguna_tabla_se_queda_fuera_del_respaldo`, que lee **el esquema**
+> —descontando las cuatro tablas `_nueva` que las migraciones crean y renombran—
+> y no una lista a mano. Marcar una tabla como `Nunca` es válido; omitirla, no.
 
 > **El agujero que ordena esa fase, y conviene saberlo antes de tocar nada.**
 > La base está cifrada con SQLCipher y la clave vive **sólo** en el llavero

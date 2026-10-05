@@ -152,14 +152,23 @@ En este orden, porque es el orden en que importan:
 
 ---
 
-## 4 · Las tres decisiones que esperan a Dirección
+## 4 · Las tres decisiones — **contestadas el 05/10/2026**
 
-Ninguna impide empezar: la 8.0 y la 8.1 se construyen igual con cualquier
-respuesta. **D-8A sí bloquea la 8.2**, que es la tercera entrega.
+> **Dirección contestó las tres.** Lo que sigue conserva el razonamiento
+> completo porque explica *por qué* se construye así, que es lo que hace falta
+> dentro de seis meses. La respuesta va arriba de cada una.
+>
+> | | Decisión | Respuesta |
+> |---|---|---|
+> | **D-8A** | ¿El respaldo va cifrado? | ✅ **Sí, con opción explícita de desactivarlo** |
+> | **D-8B** | ¿Qué se lleva? | ✅ **Dos alcances, «Esencial» por defecto** |
+> | **D-8C** | ¿Restaurar sobre datos existentes? | ✅ **Reemplazar, nunca mezclar; bajas unidas** |
+>
+> Y una pregunta de Dirección que abre una decisión nueva: **D-8D**, en §4 bis.
 
 ---
 
-### D-8A · ¿El respaldo va cifrado?
+### D-8A · ¿El respaldo va cifrado?  ✅ **Sí, con opción de desactivarlo**
 
 **Problema.** La decisión vigente (T-6) es que el `.arles` de la v1.2.0 **no va
 cifrado**, con un aviso al usuario. Al mismo tiempo, los documentos dicen que ese
@@ -200,7 +209,7 @@ a ser obligatorio y no omitible — y se anota como riesgo aceptado con fecha.*
 
 ---
 
-### D-8B · ¿Qué se lleva el respaldo?
+### D-8B · ¿Qué se lleva el respaldo?  ✅ **Los dos alcances**
 
 **Problema.** `message_attempt` guarda **un renglón por destinatario y envío, y
 no se borra jamás** (D-7C). En una instalación de dos años con campañas
@@ -232,7 +241,7 @@ manifiesto de forma que añadir el segundo modo sea una línea.
 
 ---
 
-### D-8C · Restaurar sobre una base que ya tiene datos
+### D-8C · Restaurar sobre una base que ya tiene datos  ✅ **Reemplazar, bajas unidas**
 
 **Problema.** El caso normal de restaurar es un equipo nuevo y vacío. El caso que
 rompe cosas es restaurar sobre una instalación **que ya tiene datos**: ¿se
@@ -260,6 +269,98 @@ de verificar, y la flexibilidad aquí no vale lo que cuesta.
 
 ---
 
+## 4 bis · D-8D · ¿Se puede archivar el historial y borrarlo de la base?
+
+**La pregunta de Dirección, del 05/10/2026**, al contestar D-8B:
+
+> *«¿En esto no podríamos eliminar el registro después de cierto periodo de
+> tiempo, con la opción de guardar en una SSD o HDD, para evitar saturar el
+> espacio de registros?»*
+
+### Antes de nada: hay dos cosas distintas que se llaman «registro»
+
+Conviene separarlas porque una ya hace lo que se pide y la otra no puede.
+
+| | Qué es | Cuánto crece | Qué se hace hoy |
+|---|---|---|---|
+| **`activity_event`** · el registro de actividad | Por qué el motor hizo lo que hizo: «a las 10:04 se acabó el cupo» | Mucho, y envejece rápido | **Ya se recorta cada dos meses** (D-7C, 7.4), diciendo antes cuánto se va |
+| **`message_attempt`** · el historial de envíos | Un renglón por destinatario: a quién se escribió y cómo acabó | Un renglón por persona y envío, para siempre | **No se borra jamás** (D-7C) |
+
+Lo que satura es el segundo. Y es justo el que no se borra.
+
+### Problema
+
+`message_attempt` crece sin techo por diseño. En una instalación de dos años
+mandando a 50 000 contactos al mes son del orden de **un millón de renglones al
+año**, y no hay nada que los recorte.
+
+### Riesgo de borrarlos sin más
+
+**Es la prueba de a quién se le escribió.** Tres cosas dependen de ella:
+
+1. **Los derechos ARCO.** Una persona puede preguntar qué le mandamos. Si el
+   renglón no está, no hay con qué contestarle — y la obligación legal no
+   desaparece porque el dato se haya borrado para ahorrar espacio.
+2. **La idempotencia.** `UNIQUE(campaign_id, contact_id)` es lo que impide que
+   alguien reciba dos veces el mismo correo. Borrar el renglón quita esa
+   garantía para esa campaña.
+3. **El resumen exportable** (7.6) y las cifras de Actividad se calculan de ahí.
+
+### Impacto
+
+El primero es el caro: dejar al cliente sin con qué responder a una autoridad.
+Los otros dos son recuperables; ése no.
+
+### Alternativa — **lo que Dirección propone, y tiene nombre: archivar**
+
+No es borrar: es **mover**. Sacar los renglones viejos a un archivo que el
+usuario guarda donde quiera —esa SSD o ese disco externo— y sólo entonces
+quitarlos de la base. El dato sigue existiendo; cambia de sitio.
+
+Y encima **la pieza ya está construida**: un archivo de archivo es un respaldo
+con un alcance distinto. El formato de la 8.1 y el exportador de la 8.2 valen
+tal cual.
+
+### Trade-off, dicho sin adornos
+
+El archivo pasa a ser **responsabilidad del usuario**. Si lo pierde, perdió el
+historial — y con él la capacidad de contestar un ARCO de ese periodo. Hoy ese
+riesgo no existe porque el dato nunca sale de la base.
+
+Se cambia **espacio en disco** por **una obligación de custodia**. Y la ley no
+acepta «lo tenía en un disco que se rompió» como respuesta.
+
+### Recomendación
+
+**Sí, pero con cuatro condiciones que no son negociables:**
+
+1. **Nunca automático.** Lo pulsa una persona, sabiendo qué hace. Un proceso que
+   borra historial solo es un proceso que un día borra el que hacía falta.
+2. **El archivo primero, el borrado después** — y sólo si el archivo se escribió
+   entero y se volvió a leer para comprobarlo. Si falla cualquier cosa, no se
+   borra nada.
+3. **Las bajas y el consentimiento nunca entran en esto.** Son de
+   `suppression_entry` y `consent_entry`, no del historial, y no se archivan ni
+   se recortan jamás.
+4. **Queda en `audit_log`**: qué periodo se archivó, cuántos renglones y cuándo.
+   Si un día hay que explicar por qué falta un año, que esté escrito.
+
+Y una quinta que es de producto: **la pantalla dice, antes de tocar nada**, qué
+periodo se va, cuántos renglones son y la frase que importa — *«a partir de
+ahora, para responder una solicitud de datos de ese periodo vas a necesitar este
+archivo»*. Mismo patrón que el recorte bimestral de la 7.4.
+
+### Cuándo
+
+**No en la 8.0 ni en la 8.2.** Va **después de la 8.3**, cuando exportar y
+restaurar ya funcionen y estén probados: archivar es exportar con otro alcance
+más borrar, y construir el borrado antes de que el exportar esté verificado es
+construir la parte destructiva primero.
+
+Queda anotado como **entrega 8.3 bis**, y no mueve el resto del plan.
+
+---
+
 ## 5 · Las entregas, en orden
 
 El orden no es arbitrario: cada una desbloquea la siguiente, y las dos de
@@ -267,7 +368,7 @@ auditoría van al final porque **auditan lo que las anteriores construyeron**.
 
 ---
 
-### 8.0 · El manifiesto del respaldo, y la comprobación que impide olvidar una tabla
+### 8.0 · El manifiesto del respaldo, y la comprobación que impide olvidar una tabla  ✅ **cerrada el 05/10/2026**
 
 **Qué.** Una declaración, en `arles-core`, de qué tablas entran en un respaldo y
 en qué modo (completo / esencial / nunca). Más la comprobación que la vigila.
@@ -529,13 +630,16 @@ es opcional.
 
 | | Entrega | Depende de | Bloquea |
 |---|---|---|---|
-| **8.0** | El manifiesto, y la comprobación que impide olvidar una tabla | — | todo lo demás |
+| **8.0** ✅ | El manifiesto, y la comprobación que impide olvidar una tabla | — | todo lo demás |
 | **8.1** | El formato `.arles` en el núcleo | 8.0 | 8.2, 8.3 |
-| **8.2** | Exportar | 8.1 · **D-8A**, **D-8B** | 8.3 |
-| **8.3** | Restaurar, con su preflight | 8.2 · **D-8C** | 8.4 |
+| **8.2** | Exportar | 8.1 · **D-8A** ✅, **D-8B** ✅ | 8.3 |
+| **8.3** | Restaurar, con su preflight | 8.2 · **D-8C** ✅ | 8.4 |
+| **8.3 bis** | Archivar el historial a un disco externo, y sólo entonces borrarlo | 8.3 · **D-8D** ✅ | — |
 | **8.4** | El llavero perdido | 8.3 | — |
 | **8.5** | 500 k sintéticos y trece cifras medidas | — *(se puede adelantar)* | 8.6 C |
 | **8.6** | Las cuatro auditorías (§140) | 8.5 | Fase 9 |
 | **8.7** | Cierre: documento, informe, avance y **mirar** | 8.6 | Fase 9 |
 
-**Se puede empezar hoy por la 8.0**, que no depende de ninguna decisión.
+**La 8.0 está cerrada** (05/10/2026): 29 tablas clasificadas con su motivo, tres
+comprobaciones nuevas en `--fase 8` y seis pruebas en el núcleo. Las cuatro
+decisiones están contestadas, así que **lo siguiente, la 8.1, no espera a nadie**.

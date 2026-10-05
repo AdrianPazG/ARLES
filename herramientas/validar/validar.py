@@ -4626,6 +4626,141 @@ def el_resumen_no_puede_llevar_direcciones():
     )
 
 
+def tablas_del_esquema_final():
+    """Las tablas que existen **después** de correr todas las migraciones.
+
+    No vale quedarse con todos los `CREATE TABLE`: la V3, la V4 y la V9 usan el
+    rodeo que SQLite obliga a hacer para cambiar una restricción —crear
+    `x_nueva`, copiar, `DROP TABLE x`, renombrar—, así que hay cuatro nombres
+    que se crean y **dejan de existir en la misma migración**.
+
+    Contándolos, el manifiesto del respaldo tendría que clasificar cuatro tablas
+    que no existen, y quien lo leyera buscaría en vano `message_attempt_nueva`
+    en el esquema.
+    """
+    import glob
+
+    creadas, renombradas = set(), set()
+    for sql in sorted(glob.glob(os.path.join(RAIZ, "crates/arles-db/migrations", "*.sql"))):
+        with open(sql, encoding="utf-8") as f:
+            texto = f.read()
+        creadas |= set(re.findall(r"CREATE TABLE (?:IF NOT EXISTS )?(\w+)", texto))
+        renombradas |= set(re.findall(r"ALTER TABLE (\w+) RENAME TO", texto))
+    return creadas - renombradas
+
+
+def ninguna_tabla_se_queda_fuera_del_respaldo():
+    """**La forma más cara del patrón del §9: datos que desaparecen sin error.**
+
+    Un respaldo se escribe una vez y se mantiene durante años. El día que
+    alguien añada una tabla en la V11 y no la meta en el exportador, **nada
+    falla**: se exporta, se restaura, y los datos de esa tabla no están. No hay
+    excepción, ni aviso, ni una prueba en rojo. Lo descubre el usuario meses
+    después, cuando ya no hay de dónde sacarlos.
+
+    Es el mismo hueco que `ninguna_tabla_se_queda_sin_escritor` caza en la otra
+    dirección —una tabla que nadie rellena— y se escribe igual: leyendo **el
+    esquema**, no una lista a mano. Una lista a mano envejece, y envejecer en
+    silencio es exactamente el problema.
+
+    Clasificar una tabla como `Nunca` es una respuesta válida —`ui_preference`
+    es de este equipo, no de estos datos— pero hay que **decirlo y por qué**. Lo
+    que no se puede es omitirla: el olvido no tiene dónde esconderse.
+
+    Esta comprobación se escribió **antes** que el manifiesto, y se vio fallar
+    nombrando las 29 tablas sin clasificar (§2).
+    """
+    manifiesto = leer("crates/arles-core/src/respaldo.rs") or ""
+
+    # Se leen los nombres tal y como el manifiesto los declara. Si el patrón
+    # deja de casar, la aserción lo dice en vez de pasar en verde con cero.
+    declaradas = set(re.findall(r'tabla:\s*"(\w+)"', manifiesto))
+    assert manifiesto, "no existe crates/arles-core/src/respaldo.rs"
+    assert declaradas, "el manifiesto no declara ninguna tabla: el patrón dejó de casar"
+
+    # Las del propio motor de migraciones no son datos de nadie.
+    DE_SISTEMA = {"refinery_schema_history", "schema_version", "sqlite_sequence"}
+    reales = tablas_del_esquema_final() - DE_SISTEMA
+
+    sin_clasificar = sorted(reales - declaradas)
+    inventadas = sorted(declaradas - reales)
+
+    check(
+        8,
+        "ninguna tabla se queda fuera del respaldo",
+        not sin_clasificar and not inventadas,
+        ninguna_tabla_se_queda_fuera_del_respaldo.__doc__,
+        detalle=(
+            f"en el esquema y sin clasificar: {sin_clasificar}\n"
+            f"      clasificadas y sin existir en el esquema: {inventadas}"
+        ),
+    )
+
+
+def toda_tabla_que_no_entra_dice_por_que():
+    """Una exclusión sin motivo es un olvido con mejor presentación.
+
+    El campo existe en el tipo, así que el compilador obliga a rellenarlo — pero
+    nada impide escribir `""` o `"pendiente"`. Aquí se exige que el motivo sea
+    una frase, no un hueco, y que las excluidas lo lleven de verdad.
+
+    Verificada el 05/10/2026 vaciando el motivo de `ui_preference`: falla
+    nombrándola.
+    """
+    manifiesto = leer("crates/arles-core/src/respaldo.rs") or ""
+    entradas = re.findall(
+        r'tabla:\s*"(\w+)",\s*alcance:\s*Alcance::(\w+),\s*porque:\s*(.+?),?\n',
+        manifiesto,
+    )
+    assert entradas, "no se leyó ninguna entrada del manifiesto"
+
+    flojas = [t for t, _, p in entradas if len(p.strip().strip('"')) < 25]
+    check(
+        8,
+        "toda tabla excluida dice por qué",
+        not flojas,
+        toda_tabla_que_no_entra_dice_por_que.__doc__,
+        detalle=f"sin motivo escrito: {sorted(flojas)}",
+    )
+
+
+def las_bajas_nunca_se_recortan():
+    """**D-8B, hecha comprobación.**
+
+    La lista de supresión es el control anti-abuso del producto: perder una
+    baja significa volver a escribirle a quien pidió que no. Por eso entra
+    **entera en los dos alcances** y no se recorta por fecha ni se queda fuera
+    del esencial.
+
+    Es una regla de negocio, no de formato, así que se vigila aparte: una tabla
+    mal clasificada pasaría las otras dos comprobaciones sin protestar.
+
+    Verificada el 05/10/2026 bajando `suppression_entry` a `SoloCompleto`:
+    falla con su nombre.
+    """
+    manifiesto = leer("crates/arles-core/src/respaldo.rs") or ""
+    m = re.search(
+        r'tabla:\s*"suppression_entry",\s*alcance:\s*Alcance::(\w+)', manifiesto
+    )
+    alcance = m.group(1) if m else "(no declarada)"
+    check(
+        8,
+        "las bajas entran enteras en los dos respaldos",
+        alcance == "SiempreEntera",
+        las_bajas_nunca_se_recortan.__doc__,
+        detalle=f"suppression_entry está como: {alcance}",
+    )
+
+
+def fase_8(rapido=False):
+    print(f"{NEGRITA}Fase 8 · Respaldos y endurecimiento{FIN}")
+
+    print(f"{GRIS}  el manifiesto del respaldo (8.0){FIN}")
+    ninguna_tabla_se_queda_fuera_del_respaldo()
+    toda_tabla_que_no_entra_dice_por_que()
+    las_bajas_nunca_se_recortan()
+
+
 def fase_7(rapido=False):
     print(f"{NEGRITA}Fase 7 · Actividad y entregabilidad{FIN}")
 
@@ -4655,7 +4790,7 @@ def fase_7(rapido=False):
 # aparte. Va con clave "W" para que `--fase W` funcione y para que el recorrido
 # completo la incluya sin renumerar nada.
 FASES = {0: fase_0, 1: fase_1, 2: fase_2, 3: fase_3, 4: fase_4, 5: fase_5,
-         6: fase_6, "W": fase_w, 7: fase_7}
+         6: fase_6, "W": fase_w, 7: fase_7, 8: fase_8}
 
 
 def main():
@@ -4666,7 +4801,7 @@ def main():
         "--fase",
         type=lambda v: v.upper() if v.upper() in ("W",) else int(v),
         choices=list(FASES),
-        metavar="{0,1,2,3,4,5,6,W,7}",
+        metavar="{0,1,2,3,4,5,6,W,7,8}",
         help="valida solo esa fase",
     )
     p.add_argument("--rapido", action="store_true", help="omite lo que tarda")
