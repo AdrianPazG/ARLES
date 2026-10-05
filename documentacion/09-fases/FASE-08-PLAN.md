@@ -394,7 +394,7 @@ falla al añadir una tabla sin clasificar, y se ha visto fallar.
 
 ---
 
-### 8.1 · El formato `.arles`, en el núcleo
+### 8.1 · El formato `.arles`, en el núcleo  ✅ **cerrada el 05/10/2026**
 
 **Qué.** La estructura del respaldo y su serialización. **Cero I/O**: entra una
 estructura, sale un texto; entra un texto, sale una estructura o un error
@@ -631,7 +631,7 @@ es opcional.
 | | Entrega | Depende de | Bloquea |
 |---|---|---|---|
 | **8.0** ✅ | El manifiesto, y la comprobación que impide olvidar una tabla | — | todo lo demás |
-| **8.1** | El formato `.arles` en el núcleo | 8.0 | 8.2, 8.3 |
+| **8.1** ✅ | El formato `.arles` en el núcleo | 8.0 | 8.2, 8.3 |
 | **8.2** | Exportar | 8.1 · **D-8A** ✅, **D-8B** ✅ | 8.3 |
 | **8.3** | Restaurar, con su preflight | 8.2 · **D-8C** ✅ | 8.4 |
 | **8.3 bis** | Archivar el historial a un disco externo, y sólo entonces borrarlo | 8.3 · **D-8D** ✅ | — |
@@ -640,6 +640,11 @@ es opcional.
 | **8.6** | Las cuatro auditorías (§140) | 8.5 | Fase 9 |
 | **8.7** | Cierre: documento, informe, avance y **mirar** | 8.6 | Fase 9 |
 
-**La 8.0 está cerrada** (05/10/2026): 29 tablas clasificadas con su motivo, tres
-comprobaciones nuevas en `--fase 8` y seis pruebas en el núcleo. Las cuatro
-decisiones están contestadas, así que **lo siguiente, la 8.1, no espera a nadie**.
+**Cerradas la 8.0 y la 8.1** (05/10/2026). El manifiesto clasifica las 29 tablas
+con su motivo; el formato `.arles` se escribe y se vuelve a leer sin perder nada,
+con doce pruebas y tres errores tipados que distinguen «este archivo no es un
+respaldo», «lo hizo una versión más nueva» y «está roto» — porque lo que hay que
+hacer es distinto en cada caso.
+
+**Lo siguiente es la 8.2 · Exportar**, y tampoco espera a nadie: las cuatro
+decisiones están contestadas.

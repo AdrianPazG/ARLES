@@ -27,6 +27,7 @@ pub mod email;
 pub mod empresa;
 pub mod error;
 pub mod etapa;
+pub mod formato_de_respaldo;
 pub mod ids;
 pub mod importacion;
 pub mod onboarding;

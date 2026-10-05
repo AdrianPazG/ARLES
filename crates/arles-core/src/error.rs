@@ -112,6 +112,32 @@ pub enum CoreError {
     #[error("el alcance de la supresión no coincide con las direcciones dadas")]
     AlcanceNoCoincideConLosCanales,
 
+    /// El archivo que se eligió no es un respaldo de ARLES (8.1).
+    ///
+    /// Se distingue de un respaldo roto **a propósito**: los dos impiden
+    /// restaurar, pero lo que hay que hacer es distinto. Aquí se elige otro
+    /// archivo; allí se busca otra copia. Un único error para los dos casos
+    /// mandaría a media gente a buscar donde no hay nada.
+    #[error("el archivo elegido no es un respaldo de ARLES")]
+    NoEsUnRespaldo,
+
+    /// El respaldo lo hizo una versión de ARLES más nueva que ésta.
+    ///
+    /// **No se intenta leer igualmente.** Un formato posterior puede traer
+    /// tablas o columnas que esta versión no conoce, y leerlo «lo que se pueda»
+    /// restauraría una base incompleta sin que nada lo dijera — que es
+    /// exactamente el fallo que toda la Fase 8 existe para evitar.
+    #[error("el respaldo es del formato {formato} y esta versión lee hasta el {admitido}")]
+    RespaldoDeVersionFutura { formato: u32, admitido: u32 },
+
+    /// El respaldo está incompleto o alterado.
+    ///
+    /// Lo caza la suma de verificación o una línea que no se puede leer. En los
+    /// dos casos **no se restaura nada**: una restauración a medias deja la base
+    /// en un estado que nadie ha pensado.
+    #[error("el respaldo está incompleto o alterado: {motivo}")]
+    RespaldoCorrupto { motivo: &'static str },
+
     #[error(transparent)]
     Transicion(#[from] crate::attempt::TransitionError),
 }
@@ -138,6 +164,9 @@ impl CoreError {
             Self::EstadoDeCampanaDesconocido => "error.estado_de_campana_desconocido",
             Self::SupresionSinCanales => "error.supresion_sin_canales",
             Self::AlcanceNoCoincideConLosCanales => "error.alcance_no_coincide",
+            Self::NoEsUnRespaldo => "error.no_es_un_respaldo",
+            Self::RespaldoDeVersionFutura { .. } => "error.respaldo_de_version_futura",
+            Self::RespaldoCorrupto { .. } => "error.respaldo_corrupto",
             Self::Transicion(_) => "error.transicion_invalida",
         }
     }
@@ -158,6 +187,12 @@ mod tests {
             CoreError::EstadoDePlantillaDesconocido,
             CoreError::PlantillaNoAprobada,
             CoreError::IdInvalido { tipo: "ContactId" },
+            CoreError::NoEsUnRespaldo,
+            CoreError::RespaldoDeVersionFutura {
+                formato: 2,
+                admitido: 1,
+            },
+            CoreError::RespaldoCorrupto { motivo: "prueba" },
             CoreError::Transicion(
                 AttemptState::Sent
                     .transicionar(AttemptState::Queued)

@@ -1221,6 +1221,28 @@ export const es = {
       como: 'Vuelve a intentarlo eligiendo «todos los canales» o uno solo.',
       salvo: 'No se dio de baja a nadie. ARLES no amplía una baja por su cuenta.',
     },
+
+    // ── Los tres de leer un respaldo (8.1) ────────────────────────────────
+    //
+    // Son tres y no uno a propósito: los tres impiden restaurar, pero lo que
+    // hay que hacer es distinto en cada caso. Un único «no se pudo leer el
+    // respaldo» mandaría a buscar otra copia a quien sólo tiene que actualizar
+    // ARLES, y a actualizar a quien eligió el archivo equivocado.
+    no_es_un_respaldo: {
+      que: 'El archivo que elegiste no es un respaldo de ARLES.',
+      como: 'Busca el archivo que termina en .arles. Si no lo encuentras, mira en la carpeta donde guardaste el último respaldo.',
+      salvo: 'No se tocó nada. Tus datos siguen como estaban.',
+    },
+    respaldo_de_version_futura: {
+      que: 'Este respaldo lo hizo una versión de ARLES más nueva que la que tienes.',
+      como: 'Actualiza ARLES a la última versión y vuelve a intentarlo.',
+      salvo: 'No se tocó nada. ARLES prefiere no leerlo antes que restaurarlo a medias sin avisarte.',
+    },
+    respaldo_corrupto: {
+      que: 'El respaldo está incompleto o se modificó después de crearse.',
+      como: 'Usa otra copia del respaldo. Si lo mandaste por correo o lo bajaste de la nube, vuelve a descargarlo: lo más común es que se cortara al copiarlo.',
+      salvo: 'No se restauró nada. Tus datos actuales siguen intactos.',
+    },
     origen_desconocido: {
       que: 'El origen declarado de esa importación no es uno de los que ARLES reconoce.',
       como:

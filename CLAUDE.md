@@ -375,6 +375,29 @@ motivo escrito. Tres comprobaciones nuevas en `--fase 8` y seis pruebas.
 > —descontando las cuatro tablas `_nueva` que las migraciones crean y renombran—
 > y no una lista a mano. Marcar una tabla como `Nunca` es válido; omitirla, no.
 
+**Cerrada la 8.1 · el formato `.arles`** (`arles-core/src/formato_de_respaldo.rs`),
+con cero I/O: una línea por fila, cabecera con la versión **del formato** —no la
+de ARLES—, la del esquema, el alcance y el recuento por tabla, y la suma sha256
+al final. Doce pruebas.
+
+> **Cuatro decisiones del formato que no son estéticas:**
+>
+> 1. **Se escapan `\`, tabulador, salto y retorno.** Una plantilla lleva saltos
+>    de línea **siempre** y un nombre pegado de un Excel puede llevar
+>    tabuladores: sin escaparlos la fila se parte al restaurar y el contacto sale
+>    con los datos corridos, sin un solo error.
+> 2. **Vacío y nulo son dos cosas.** `""` es un apellido que alguien borró; `\N`
+>    es uno que no se sabe. Confundirlos cambia el dato en silencio.
+> 3. **Un respaldo de un formato posterior se rechaza, no se intenta.** Leerlo
+>    «lo que se pueda» restauraría una base incompleta sin decirlo.
+> 4. **La suma va al final**, porque calcularla exige haber escrito el cuerpo, y
+>    ponerla arriba obligaría a dos pasadas sobre medio millón de filas.
+>
+> Tres errores nuevos en `CoreError` —`NoEsUnRespaldo`,
+> `RespaldoDeVersionFutura`, `RespaldoCorrupto`— y son **tres y no uno** a
+> propósito: los tres impiden restaurar, pero uno manda a elegir otro archivo,
+> otro a actualizar ARLES y el tercero a buscar otra copia.
+
 > **El agujero que ordena esa fase, y conviene saberlo antes de tocar nada.**
 > La base está cifrada con SQLCipher y la clave vive **sólo** en el llavero
 > (`db-master-key`). No hay segunda copia. Si se pierde esa entrada, `arles.db`
