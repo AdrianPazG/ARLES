@@ -419,6 +419,40 @@ también.
 
 ### 8.2 · Exportar
 
+> **Partida en tres el 05/10/2026**, por tamaño. Cifrar, leer la base por tandas
+> y construir el comando con su pantalla son tres cosas distintas, y juntarlas
+> significa empujar un bloque que no se puede revisar. Es la misma partición que
+> la 5.3 y la 6.8.
+>
+> - **8.2a · El sobre cifrado** ✅ **cerrada el 05/10/2026**
+> - **8.2b · Leer la base por tandas**
+> - **8.2c · El comando, el diálogo y la pantalla**
+
+#### 8.2a · El sobre cifrado (D-8A)
+
+Argon2id para derivar la clave de la contraseña y XChaCha20-Poly1305 para
+cifrar, **en trozos de 64 KiB** con la construcción STREAM. Las dos
+dependencias pasaron `cargo deny check licenses advisories`: `advisories ok,
+licenses ok`.
+
+**Por trozos y no de una vez**, porque cifrar el cuerpo entero obliga a tenerlo
+en memoria dos veces —el texto y su versión cifrada— y el presupuesto fija
+500 MB de techo. Y porque el troceado cierra dos agujeros que el cifrado de un
+solo bloque deja abiertos: **reordenar trozos** y **cortar el final**, que daría
+un respaldo más corto y perfectamente válido.
+
+**La sal y el nonce entran como parámetros**, no se generan dentro: así el
+núcleo sigue sin pedir entropía al sistema —cero I/O— y el cifrado se puede
+probar con vectores fijos. Una función que genera su propia aleatoriedad sólo se
+puede probar cifrando y descifrando, que no distingue «cifra bien» de «cifra y
+descifra mal de la misma forma».
+
+**La contraseña entra y no sale.** No va al llavero, no va a la base y no vuelve
+por la frontera. Si se olvida, el respaldo no se abre — y construir una puerta
+de atrás sería construir justo lo que el cifrado existe para impedir.
+
+#### 8.2b y 8.2c · lo que queda
+
 **Qué.** El comando que lee la base, arma la estructura y escribe el archivo.
 
 **Depende de D-8A** (cifrado) y **D-8B** (alcance).

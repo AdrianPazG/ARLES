@@ -19,6 +19,7 @@ pub mod attempt;
 pub mod campana;
 pub mod canal;
 pub mod cancelacion;
+pub mod cifrado_de_respaldo;
 pub mod contacto;
 pub mod correo;
 pub mod disyuntor;

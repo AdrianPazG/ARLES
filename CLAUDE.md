@@ -398,6 +398,28 @@ al final. Doce pruebas.
 > propósito: los tres impiden restaurar, pero uno manda a elegir otro archivo,
 > otro a actualizar ARLES y el tercero a buscar otra copia.
 
+**Cerrada la 8.2a · el sobre cifrado** (`arles-core/src/cifrado_de_respaldo.rs`).
+Argon2id + XChaCha20-Poly1305 **en trozos de 64 KiB**. Las dos dependencias
+nuevas pasaron `cargo deny`: `advisories ok, licenses ok`.
+
+> **Tres cosas de este módulo que no se tocan sin entender por qué:**
+>
+> 1. **Se cifra por trozos**, no el cuerpo entero. De una vez obliga a tenerlo
+>    en memoria dos veces —texto y cifrado—, y el techo del presupuesto son
+>    500 MB. Además el troceado cierra dos agujeros: **reordenar trozos** y
+>    **cortar el final**, que daría un respaldo más corto y perfectamente válido.
+>    El último trozo va marcado como último; quitarlo hace que falle.
+> 2. **La sal y el nonce entran como parámetros.** El núcleo no pide entropía al
+>    sistema (cero I/O) y el cifrado se prueba con vectores fijos. Una función
+>    que genera su propia aleatoriedad sólo se puede probar cifrando y
+>    descifrando, que no distingue «cifra bien» de «cifra y descifra mal igual».
+> 3. **Contraseña equivocada y archivo manipulado dan el MISMO error**, y es
+>    correcto: el cifrado autenticado no los distingue. Fingir que sí sería
+>    inventarse un diagnóstico.
+>
+> **La contraseña del respaldo no se guarda en ningún sitio** — ni llavero, ni
+> base, ni vuelta por la frontera. Si se olvida, el respaldo no se abre.
+
 > **El agujero que ordena esa fase, y conviene saberlo antes de tocar nada.**
 > La base está cifrada con SQLCipher y la clave vive **sólo** en el llavero
 > (`db-master-key`). No hay segunda copia. Si se pierde esa entrada, `arles.db`
