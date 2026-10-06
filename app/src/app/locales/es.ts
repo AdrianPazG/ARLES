@@ -324,6 +324,7 @@ export const es = {
       plantillas: 'Plantillas y firmas',
       registro: 'Registro',
       respaldos: 'Respaldos',
+      restaurar: 'Restaurar',
     },
   },
 
@@ -482,6 +483,91 @@ export const es = {
   // la persona tiene que saber en cuál está. El de «sin cifrar» dice qué
   // significa de verdad —un archivo con todos los contactos que cualquiera
   // abre—, porque D-8A lo permite a propósito y no en silencio.
+  // ── RESTAURAR (8.3c) ──────────────────────────────────────────────────
+  //
+  // La acción más destructiva de ARLES y la única sin deshacer. Los textos
+  // dicen cifras y no adjetivos (§94), y el que más importa es el de lo que
+  // **no vuelve**: es lo único de esta pantalla que no se puede recuperar.
+  restaurar: {
+    titulo: 'Restaurar',
+    entradilla:
+      'Restaurar reemplaza lo que hay ahora con lo que guarda el respaldo. No se puede deshacer, así que ARLES te dice antes, con cifras, qué va a pasar.',
+    elegir: 'El archivo',
+    elegirAyuda: 'Elige un respaldo de ARLES. Al abrirlo no se cambia nada: sólo se lee para contarte qué trae.',
+    elegirArchivo: 'Elegir un respaldo…',
+
+    queVaAPasar: 'Qué va a pasar',
+    archivo: 'Archivo',
+    hechoEl: 'Hecho el',
+    alcance: 'Alcance',
+    trae: 'Trae',
+    traeFilas: '{filas} filas',
+    verElDetalle: 'Ver tabla por tabla',
+    deAA: '{ahora} → {despues}',
+
+    // Lo que no vuelve. Es el hallazgo de la 8.3a y va antes que nada más.
+    noVuelve: {
+      titulo: 'Esto se perderá y no vuelve',
+      cuerpo:
+        'Restaurar se lleva {filas} registros que este respaldo no trae de vuelta. No es un fallo: el respaldo «Lo esencial» no los guarda. Si los necesitas, haz antes un respaldo «Todo» de lo que tienes ahora.',
+    },
+
+    // Las bajas: la promesa que no se negocia. Se dice el mínimo y por qué.
+    bajas: {
+      titulo: 'Las bajas no se pierden',
+      cuerpo:
+        'Ahora tienes {ahora} personas que pidieron no recibir, y el respaldo trae {enElRespaldo}. Las dos listas se juntan: al terminar tendrás al menos {alMenos}. Nunca menos.',
+    },
+
+    cuentas: {
+      titulo: 'Habrá que reconectar tus cuentas',
+      // Pluralizado como en Remitentes (5.3c). «2 cuenta(s)» es castellano de
+      // manual técnico, y esta pantalla la lee alguien que acaba de perder su
+      // equipo: no es el momento de hacerle descifrar un paréntesis.
+      cuerpo:
+        'El respaldo no guarda contraseñas, así que {cuentas} cuenta volverá pidiendo que la reconectes. Tus campañas no saldrán hasta que lo hagas. | ' +
+        'El respaldo no guarda contraseñas, así que {cuentas} cuentas volverán pidiendo que las reconectes. Tus campañas no saldrán hasta que lo hagas.',
+    },
+
+    otroEsquema: {
+      titulo: 'Este respaldo no se puede restaurar aquí',
+      cuerpo:
+        'Lo hizo una versión de ARLES con otra estructura de datos ({delRespaldo}, y esta base usa {deLaBase}). Restaurarlo a medias dejaría tu base incompleta sin avisar, así que ARLES prefiere no tocar nada.',
+    },
+
+    contrasena: 'Contraseña del respaldo',
+    contrasenaAyuda: 'Este respaldo va cifrado. Sin su contraseña no se puede abrir, y ARLES no la tiene guardada en ninguna parte.',
+
+    hazlo: 'Restaurar y reemplazar',
+    // ── POR QUÉ ESTE TEXTO EXISTE ──
+    //
+    // Sin él, el botón se queda apagado y nada dice que es por la contraseña
+    // vacía. Es el mismo defecto que la 8.2c encontró mirando —«Repite la
+    // contraseña» bloqueado sin explicación—, y aquí es peor: quien llega a
+    // esta pantalla acaba de perder algo y un botón que no responde se lee
+    // como que ARLES tampoco funciona (§95).
+    faltaLaContrasena: 'Escribe la contraseña del respaldo para poder restaurarlo.',
+    mejorNo: 'Mejor no',
+
+    hecho: {
+      titulo: 'Restaurado',
+      cuerpo:
+        'Volvieron {filas} filas. Tu lista de bajas quedó en {bajas} personas, de las cuales {salvadas} sólo estaban aquí y se conservaron.',
+      cuentas:
+        'Reconecta tu cuenta en Remitentes antes de lanzar nada. | ' +
+        'Reconecta tus {cuentas} cuentas en Remitentes antes de lanzar nada.',
+    },
+
+    // Los nombres de tabla en español, para que el aviso de arriba no diga
+    // «activity_event» a quien no ha visto una base de datos en su vida.
+    tabla: {
+      activity_event: 'El registro de actividad',
+      whatsapp_quality_event: 'El historial de calidad de tu número de WhatsApp',
+      rate_budget: 'El cupo gastado de esta hora',
+      engine_control: 'El estado del motor de este equipo',
+    },
+  },
+
   respaldo: {
     entradilla:
       'Un respaldo es la única forma de volver si se pierde este equipo o la ' +
@@ -1494,6 +1580,14 @@ export const es = {
       },
     },
     app: {
+      respaldo_sin_revisar: {
+        // Pasa si la webview llama a restaurar sin haber revisado: es un
+        // defecto nuestro, no del usuario. El texto no le echa la culpa y, lo
+        // más importante, dice que no se tocó nada.
+        que: 'ARLES no sabe qué respaldo querías restaurar.',
+        como: 'Vuelve a elegir el archivo con «Elegir un respaldo…» y revisa lo que trae antes de restaurarlo.',
+        salvo: 'No se cambió nada en tus datos.',
+      },
       cuenta_de_correo_invalida: {
         que: 'Los datos de la cuenta de correo tienen algún problema.',
         como: 'Revisa los campos marcados en rojo y vuelve a intentarlo.',

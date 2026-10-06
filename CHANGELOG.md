@@ -12,6 +12,50 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.3c · ARLES restaura un respaldo
+
+#### Lo que cambia para quien usa ARLES
+
+**Ya se puede restaurar**, en Ajustes › Restaurar. Y no hay un botón: hay dos
+pasos, porque reemplazar toda tu base no se deshace.
+
+Primero eliges el archivo y ARLES **sólo lo lee**, sin tocar nada. Te dice de
+cuándo es, cuántas filas trae, y tres cosas que importan:
+
+- **Qué se perderá y no vuelve.** Un respaldo «Lo esencial» no guarda el
+  registro de actividad ni el historial de calidad de tu número de WhatsApp, y
+  al restaurar se van. ARLES te dice cuántos registros son, antes de nada.
+- **Que tus bajas no se pierden.** Las dos listas se juntan; al terminar tendrás
+  al menos las que ya tenías. Nunca menos.
+- **Cuántas cuentas habrá que reconectar**, porque el respaldo no guarda
+  contraseñas.
+
+Sólo después aparece el botón de restaurar. Si el respaldo va cifrado, te pide
+su contraseña — y te dice que la escribas, en vez de dejar el botón apagado sin
+explicación.
+
+**Si algo falla, no pasa nada.** Un archivo alterado, cortado, o con la
+contraseña equivocada no restaura nada: tu base queda exactamente como estaba.
+
+#### Lo que cambia por dentro
+
+- `arles-app/src/restauracion.rs` · los dos comandos y el lector del archivo,
+  que saca filas sin tener el respaldo entero en memoria.
+- La ruta del archivo **no cruza la frontera**: vive en el estado entre los dos
+  pasos, lo que además impide restaurar un archivo distinto del que se revisó.
+- La suma de verificación se comprueba **dentro** de la transacción, así que un
+  archivo manipulado revienta antes de confirmar.
+- Una prueba hace el viaje entero: base poblada → archivo → **otra base** → los
+  mismos contactos, con y sin contraseña.
+
+#### Lo que estaba mal y se arregla
+
+**Tres defectos de pantalla que sólo se vieron mirando**: un botón que se
+estiraba al ancho del bloque, otro apagado sin decir por qué, y «2 cuenta(s)»
+con el paréntesis.
+
+**Y una dependencia con un aviso de seguridad** (`source-map-js`), al día.
+
 ### 8.3b · Reemplazar la base con un respaldo
 
 #### Lo que cambia para quien usa ARLES

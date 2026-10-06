@@ -4877,6 +4877,70 @@ def el_exportador_tiene_quien_lo_llame():
     )
 
 
+def el_restaurador_tiene_quien_lo_llame():
+    """**El mismo hueco del §9, en la pieza que más cara cuesta.**
+
+    La 8.3b dejó `Db::restaurar` construido, con ocho pruebas, y **nadie lo
+    llamaba** — igual que la 8.2b con `Db::exportar`, igual que el adaptador de
+    WhatsApp, igual que el editor de plantillas. Catorce veces ya.
+
+    Aquí el hueco es peor que en los otros trece casos: un respaldo que no se
+    puede restaurar **no es un respaldo**. Escribirlo cada semana durante un año
+    y descubrir el día del incendio que no hay botón es el fallo completo de la
+    fase, con todas sus pruebas en verde.
+
+    Así que esta comprobación se escribió **antes** de enchufar nada, y se vio
+    fallar nombrando los tres tramos el 06/10/2026.
+
+    Mira el cable entero, que es lo que ninguna prueba puede mirar:
+
+        arles-db::restaurar → arles-app → generate_handler! → app/src
+
+    Y vigila además que **el preflight se enseñe antes**: restaurar sin decir
+    qué se va a perder es justo lo que D-8C y la 8.3a existen para impedir.
+    """
+    faltan = []
+
+    app = ""
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "crates", "arles-app", "src")):
+        for f in ficheros:
+            if f.endswith(".rs"):
+                with open(os.path.join(carpeta, f), encoding="utf-8") as fh:
+                    app += fh.read()
+    assert app, "no se leyó el código de arles-app"
+
+    if ".restaurar(" not in app:
+        faltan.append("arles_db::Db::restaurar — nadie en arles-app lo llama")
+    if ".que_pasaria_al_restaurar(" not in app:
+        faltan.append(
+            "arles_db::Db::que_pasaria_al_restaurar — el preflight de la 8.3a no se usa"
+        )
+
+    lib = leer("crates", "arles-app", "src", "lib.rs") or ""
+    for comando in ("revisar_respaldo", "restaurar_respaldo"):
+        if comando not in lib:
+            faltan.append(f"{comando} — no está en generate_handler!")
+
+    # Y alguien en la interfaz que lo pulse.
+    frontend = ""
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "app", "src")):
+        for f in ficheros:
+            if f.endswith((".ts", ".vue")):
+                with open(os.path.join(carpeta, f), encoding="utf-8") as fh:
+                    frontend += fh.read()
+    for comando in ("revisar_respaldo", "restaurar_respaldo"):
+        if comando not in frontend:
+            faltan.append(f"{comando} — ninguna pantalla lo llama")
+
+    check(
+        8,
+        "el restaurador tiene quien lo llame",
+        not faltan,
+        el_restaurador_tiene_quien_lo_llame.__doc__,
+        detalle="\n      ".join(faltan),
+    )
+
+
 def el_preflight_dice_lo_que_no_vuelve():
     """**Restaurar se lleva cosas por cascada, y hay que decirlas.**
 
@@ -4994,6 +5058,9 @@ def fase_8(rapido=False):
 
     print(f"{GRIS}  leer un respaldo de vuelta (8.3a){FIN}")
     el_preflight_dice_lo_que_no_vuelve()
+
+    print(f"{GRIS}  restaurar de verdad (8.3b y 8.3c){FIN}")
+    el_restaurador_tiene_quien_lo_llame()
 
 
 def fase_7(rapido=False):

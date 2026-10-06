@@ -49,6 +49,7 @@ const CLAVES_DEL_NUCLEO = [
   // defecto nuestro, no del usuario, y por eso el texto no le pide arreglarlo.
   'error.db.esquema_no_se_deja_respaldar',
   'error.db.respaldo_no_encaja',
+  'error.app.respaldo_sin_revisar',
   // arles-app
   'error.app.llavero_no_disponible',
   'error.app.clave_maestra_perdida',

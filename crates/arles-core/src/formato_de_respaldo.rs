@@ -595,6 +595,19 @@ pub fn leer_cierre(texto: &str) -> Result<String, CoreError> {
         })
 }
 
+/// La suma declarada, si **esta** línea es la de cierre.
+///
+/// Existe aparte de [`leer_cierre`] porque quien restaura va leyendo línea a
+/// línea y no tiene el texto entero: tenerlo sería la base en memoria, que es
+/// justo lo que la 8.2b, la 8.2c y la 8.3a evitan cada una por su lado.
+#[must_use]
+pub fn leer_cierre_de_linea(linea: &str) -> Option<String> {
+    linea
+        .strip_prefix("suma\t")
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+}
+
 /// Comprueba que lo leído cuadra con lo que el archivo declara.
 ///
 /// # Errores

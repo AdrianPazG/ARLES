@@ -113,6 +113,15 @@ pub enum AppError {
     #[error("no se pudo abrir el archivo elegido")]
     ArchivoNoSePudoLeer,
 
+    /// Se pidió restaurar sin haber revisado ningún respaldo antes.
+    ///
+    /// **No se arregla abriendo un diálogo aquí.** Restaurar sin haber enseñado
+    /// qué trae el archivo y qué se pierde es exactamente lo que D-8C y el
+    /// preflight de la 8.3a existen para impedir: quien reemplaza su base
+    /// entera tiene derecho a ver las cifras antes, no después.
+    #[error("hay que revisar un respaldo antes de restaurarlo")]
+    RespaldoSinRevisar,
+
     /// La cuenta de correo existe pero no puede enviar ahora mismo.
     ///
     /// Va aparte de [`Self::CuentaDeCorreoInvalida`] porque son dos momentos
@@ -138,6 +147,7 @@ impl AppError {
     pub fn clave_i18n(&self) -> &'static str {
         match self {
             Self::LlaveroNoDisponible(_) => "error.app.llavero_no_disponible",
+            Self::RespaldoSinRevisar => "error.app.respaldo_sin_revisar",
             Self::ClaveMaestraPerdida => "error.app.clave_maestra_perdida",
             Self::DirectorioDeDatos => "error.app.directorio_de_datos",
             Self::NombreNoCoincide => "error.app.nombre_no_coincide",

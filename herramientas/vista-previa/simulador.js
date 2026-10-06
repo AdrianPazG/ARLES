@@ -1054,6 +1054,58 @@
         case 'exportar_respaldo':
           return Promise.resolve(null);
 
+        // ── RESTAURAR (8.3c) ────────────────────────────────────────────
+        //
+        // `revisar_respaldo` SÍ contesta con cifras, y no es una excepción a
+        // la regla de este archivo: revisar es una **lectura**, como la lista
+        // de contactos o las cifras de una campaña, y fabricar lecturas es
+        // justo para lo que existe el decorado. Lo que no se puede fabricar es
+        // el éxito de una escritura.
+        //
+        // Los números están elegidos para que la pantalla se vea como se verá
+        // de verdad en el caso que importa: un respaldo «esencial» que **se
+        // lleva por delante el registro de actividad** y no lo devuelve. Si
+        // aquí saliera un preflight sin pérdidas, Dirección revisaría una
+        // pantalla que nunca enseña su aviso más importante.
+        case 'revisar_respaldo':
+          return Promise.resolve({
+            nombreDelArchivo: 'arles-20260921-esencial.arles',
+            creadoEn: '2026-09-21T09:30:00Z',
+            alcance: 'esencial',
+            esquemaDelRespaldo: 'V10',
+            esquemaDeLaBase: 'V10',
+            llevaContrasena: true,
+            sePuedeRestaurar: true,
+            tablas: [
+              { tabla: 'company', ahora: 1, enElRespaldo: 1 },
+              { tabla: 'contact', ahora: (e.contactos || []).length || 1342, enElRespaldo: 1289 },
+              { tabla: 'suppression_entry', ahora: 37, enElRespaldo: 31 },
+              { tabla: 'campaign', ahora: (e.campanas || []).length || 3, enElRespaldo: 3 },
+              { tabla: 'template', ahora: 4, enElRespaldo: 4 },
+              { tabla: 'message_attempt', ahora: 48207, enElRespaldo: 12483 },
+            ],
+            totalDeFilas: 16294,
+            noVuelven: [
+              { tabla: 'activity_event', filas: 6104, esDeEsteEquipo: false },
+              { tabla: 'whatsapp_quality_event', filas: 42, esDeEsteEquipo: false },
+              { tabla: 'rate_budget', filas: 2, esDeEsteEquipo: true },
+              { tabla: 'engine_control', filas: 1, esDeEsteEquipo: true },
+            ],
+            filasQueNoVuelven: 6146,
+            bajasAhora: 37,
+            bajasEnElRespaldo: 31,
+            bajasAlMenos: 37,
+            cuentasAReconectar: 2,
+          });
+
+        // **No finge haber restaurado.** Y el error que devuelve es verdad,
+        // no una excusa cómoda: en la vista previa no hay ningún archivo en
+        // disco que abrir. Contestar «restaurado» enseñaría el éxito de la
+        // acción más destructiva del producto sin que hubiera pasado nada —
+        // que es exactamente lo que este archivo existe para no hacer.
+        case 'restaurar_respaldo':
+          return Promise.reject({ clave: 'error.app.archivo_no_se_pudo_leer', detalle: '' });
+
         default:
           return Promise.reject({ clave: 'error.db.sqlite', detalle: 'desconocido: ' + cmd });
       }

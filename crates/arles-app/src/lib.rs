@@ -17,6 +17,7 @@ pub mod llavero;
 pub mod motor;
 pub mod registro;
 pub mod respaldo;
+pub mod restauracion;
 pub mod rutas;
 pub mod whatsapp;
 
@@ -129,6 +130,8 @@ pub fn run() {
             // registro (7.4) y del derecho de cancelación (3.4).
             respaldo::que_llevaria_el_respaldo,
             respaldo::exportar_respaldo,
+            restauracion::revisar_respaldo,
+            restauracion::restaurar_respaldo,
         ])
         .run(tauri::generate_context!());
 

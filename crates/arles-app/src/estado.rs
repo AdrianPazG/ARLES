@@ -58,6 +58,25 @@ pub struct EstadoApp {
     /// todas sería una fuga de memoria con nombre propio.
     /// ─────────────────────────────────────────────────────────────────────
     importacion: Mutex<Option<arles_import::TablaLeida>>,
+
+    /// El respaldo que se está revisando, entre que se elige y se confirma.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ LA RUTA VIVE AQUÍ Y NO VA Y VUELVE POR LA FRONTERA
+    ///
+    /// Restaurar son dos pasos: revisar —que dice qué trae el respaldo y qué se
+    /// perdería— y confirmar. Entre los dos el usuario está leyendo cifras, y
+    /// eso puede durar un minuto.
+    ///
+    /// Devolverle la ruta a la webview para que la mande de vuelta rompería la
+    /// **regla 4 de la frontera**: ninguna ruta del sistema de archivos la
+    /// cruza. Y además dejaría que la webview pidiera restaurar **otro**
+    /// archivo distinto del que se revisó, que es la misma ventana que la
+    /// importación cerró en la Fase 3.
+    ///
+    /// Se guarda una sola: revisar un respaldo descarta el anterior.
+    /// ─────────────────────────────────────────────────────────────────────
+    respaldo_elegido: Mutex<Option<std::path::PathBuf>>,
 }
 
 impl EstadoApp {
@@ -117,6 +136,7 @@ impl EstadoApp {
             db,
             motor,
             importacion: Mutex::new(None),
+            respaldo_elegido: Mutex::new(None),
         })
     }
 
@@ -164,6 +184,36 @@ impl EstadoApp {
     ///
     /// Se llama al confirmar y al cancelar. Sin esto, medio millón de filas se
     /// quedarían en memoria hasta cerrar ARLES.
+    /// Guarda el respaldo que se acaba de elegir, descartando el anterior.
+    pub(crate) fn guardar_respaldo_elegido(&self, ruta: std::path::PathBuf) {
+        let mut hueco = self
+            .respaldo_elegido
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *hueco = Some(ruta);
+    }
+
+    /// La ruta del respaldo en revisión, si hay una.
+    pub(crate) fn respaldo_elegido(&self) -> Option<std::path::PathBuf> {
+        self.respaldo_elegido
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    /// Olvida el respaldo elegido.
+    ///
+    /// Se llama al terminar de restaurar, bien o mal: dejar la ruta puesta
+    /// permitiría restaurar dos veces seguidas sin volver a revisar, y la
+    /// segunda vez el preflight que el usuario leyó ya no describiría la base.
+    pub(crate) fn soltar_respaldo_elegido(&self) {
+        let mut hueco = self
+            .respaldo_elegido
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *hueco = None;
+    }
+
     pub(crate) fn soltar_importacion(&self) {
         let mut hueco = self
             .importacion

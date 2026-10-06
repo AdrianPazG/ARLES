@@ -133,7 +133,7 @@ fn corte_del_esencial() -> String {
         .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_owned())
 }
 
-fn ahora_utc() -> String {
+pub(crate) fn ahora_utc() -> String {
     use time::OffsetDateTime;
     use time::format_description::well_known::Rfc3339;
 
@@ -304,7 +304,7 @@ pub fn exportar_respaldo(
 ///
 /// Sin cifrar se podría escribir directo, pero el camino es el mismo a propósito:
 /// dos caminos distintos para el mismo archivo son dos sitios donde equivocarse.
-struct ElArchivo {
+pub(crate) struct ElArchivo {
     fichero: std::io::BufWriter<std::fs::File>,
     suma: SumaEnCurso,
     sobre: Option<arles_core::cifrado_de_respaldo::SobreEnCurso>,
@@ -329,7 +329,7 @@ struct ElArchivo {
 }
 
 impl ElArchivo {
-    fn nuevo(
+    pub(crate) fn nuevo(
         ruta: &std::path::Path,
         alcance: &str,
         contrasena: Option<&str>,
@@ -382,7 +382,7 @@ impl ElArchivo {
     }
 
     /// Cierra el cuerpo con su suma y el sobre con su último trozo.
-    fn cerrar(mut self) -> Result<u64, ErrorIpc> {
+    pub(crate) fn cerrar(mut self) -> Result<u64, ErrorIpc> {
         let cierre = formato::redactar_cierre(&self.suma.clone().terminar());
         self.sellar(cierre.as_bytes())
             .map_err(crate::AppError::Db)?;
@@ -480,7 +480,7 @@ impl Destino for ElArchivo {
 }
 
 /// Hexadecimal a un arreglo de tamaño fijo.
-fn de_hex_fijo<const N: usize>(texto: &str) -> Result<[u8; N], arles_db::DbError> {
+pub(crate) fn de_hex_fijo<const N: usize>(texto: &str) -> Result<[u8; N], arles_db::DbError> {
     let bytes =
         arles_core::cifrado_de_respaldo::de_hex(texto, N).map_err(arles_db::DbError::Nucleo)?;
     bytes

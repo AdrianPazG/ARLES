@@ -577,9 +577,42 @@ pruebas. **Sigue sin haber botón**: los comandos y la pantalla son la 8.3c.
 > falta correr las migraciones sobre el propio respaldo, que es otra entrega.
 > Entre eso y restaurar «lo que encaje», se para.
 
-> **Lo que todavía NO hace:** **no hay botón que restaure**. La base sabe
-> hacerlo, probado; nadie lo llama. Es el patrón del §9 otra vez, abierto a
-> propósito y con fecha: la 8.3c.
+**Cerrada la 8.3c · los comandos y la pantalla** (`arles-app/src/restauracion.rs`
+y `/ajustes/restaurar`). **ARLES restaura un respaldo entero.** Seis pruebas, y
+`el_restaurador_tiene_quien_lo_llame` escrita **antes** y vista en rojo nombrando
+los seis tramos.
+
+> **Dos comandos, y el orden no se puede saltar.** `revisar_respaldo` lee sólo
+> la cabecera y dice qué trae y qué se pierde; `restaurar_respaldo` usa la ruta
+> que el primero guardó en `EstadoApp`. La ruta no cruza la frontera (regla 4),
+> y eso además impide que la webview pida restaurar **otro** archivo distinto
+> del que se revisó.
+
+> **La suma se comprueba DENTRO de la transacción**, al llegar a la línea de
+> cierre. Un archivo alterado o cortado revienta antes del `COMMIT`. Al revés
+> dejaría la base reemplazada con datos de un archivo que no salió de aquí, y un
+> aviso después.
+
+> **La prueba que la fase existía para tener**: base poblada → archivo → **otra
+> base** → los mismos contactos, con y sin contraseña. Ninguna entrega anterior
+> podía escribirla: la 8.2c comprobaba que el archivo se relee, la 8.3b que la
+> base se reemplaza, y **nadie** que lo que sale de una entre en la otra.
+
+> **Tres defectos que encontró mirar la demostración**, con las diez fases en
+> verde: el botón de elegir medía 540 px y los de abajo 200 y 96; «Restaurar y
+> reemplazar» salía apagado **sin decir que faltaba la contraseña** (§95, y el
+> mismo defecto que la 8.2c con «Repite la contraseña»); y «2 cuenta(s)» con el
+> paréntesis, ahora pluralizado como Remitentes.
+>
+> Y uno que cazó el validador: **tres tokens de diseño inventados** —
+> `--arles-text-primary`, `--arles-text-secondary`, `--arles-border-subtle`.
+> **Tercera vez en esta fase.** Los de verdad son `--arles-text`,
+> `--arles-text-muted` y `--arles-border`.
+
+> **Lo que todavía NO hace:** archivar el historial a un disco externo (D-8D,
+> la 8.3 bis), y **restaurar un respaldo de un esquema anterior** — hoy se
+> rechaza con un error claro, y arreglarlo exigiría correr las migraciones sobre
+> el propio respaldo.
 
 > **El agujero que ordena esa fase, y conviene saberlo antes de tocar nada.**
 > La base está cifrada con SQLCipher y la clave vive **sólo** en el llavero

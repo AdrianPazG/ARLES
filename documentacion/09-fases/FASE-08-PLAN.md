@@ -703,7 +703,54 @@ respaldo, que es otra entrega. Entre eso y restaurar «lo que encaje», se para:
 media base restaurada arranca, parece funcionar, y lo que falta se descubre
 semanas después.
 
-#### 8.3c · Los comandos y la pantalla de restaurar
+#### 8.3c · Los comandos y la pantalla ✅ **cerrada el 06/10/2026**
+
+`arles-app/src/restauracion.rs` y `/ajustes/restaurar`. **ARLES restaura un
+respaldo entero.** Seis pruebas, y la comprobación
+`el_restaurador_tiene_quien_lo_llame` escrita antes y vista en rojo nombrando
+los seis tramos.
+
+**Dos comandos, y el orden no se puede saltar.** `revisar_respaldo` lee sólo la
+cabecera y dice qué trae y qué se pierde; `restaurar_respaldo` usa la ruta que
+el primero guardó en `EstadoApp`. La ruta no cruza la frontera (regla 4), y eso
+además impide que la webview pida restaurar **otro** archivo distinto del que se
+revisó — la misma ventana que la importación cerró en la Fase 3.
+
+**La suma se comprueba dentro de la transacción**, al llegar a la línea de
+cierre, no después. Un archivo alterado o cortado revienta antes del `COMMIT`.
+Al revés dejaría la base reemplazada con datos de un archivo que no es el que
+salió de aquí, y un aviso después.
+
+**La prueba que la fase existía para tener**: base poblada → archivo → **otra
+base** → los mismos contactos, con y sin contraseña. Ninguna entrega anterior
+podía escribirla: la 8.2c comprobaba que el archivo se relee, la 8.3b que la
+base se reemplaza, y nadie que lo que sale de una entre de verdad en la otra.
+
+**Tres defectos que encontró mirar la demostración**, con las diez fases en
+verde:
+
+- **El botón de elegir medía 540 px** y los de abajo 200 y 96: era el único hijo
+  de una columna flexible y se estiraba. No lo caza ninguna sonda y se ve a un
+  metro.
+- **«Restaurar y reemplazar» apagado sin decir por qué.** Falta la contraseña, y
+  un botón que no responde en esta pantalla concreta —a la que se llega después
+  de perder algo— se lee como que ARLES tampoco funciona (§95). Es el mismo
+  defecto que la 8.2c encontró con «Repite la contraseña».
+- **«2 cuenta(s)»**, con el paréntesis. Pluralizado como Remitentes desde la
+  5.3c.
+
+Y uno que cazó el validador: **tres tokens de diseño inventados**
+(`--arles-text-primary`, `--arles-text-secondary`, `--arles-border-subtle`).
+Tercera vez en la fase. Los de verdad son `--arles-text`, `--arles-text-muted` y
+`--arles-border`.
+
+**La vista previa contesta `revisar_respaldo` con cifras y rechaza
+`restaurar_respaldo`.** Revisar es una lectura, y fabricar lecturas es para lo
+que existe el decorado; fingir el éxito de la acción más destructiva del
+producto, no. El error que devuelve —«no se pudo abrir el archivo»— es verdad
+allí: no hay ningún archivo en disco.
+
+#### 8.3 bis · Archivar el historial (D-8D)
 
 **Qué.** Leer un `.arles`, decir **qué va a pasar**, y sólo entonces hacerlo.
 

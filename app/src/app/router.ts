@@ -246,6 +246,16 @@ const rutas: RouteRecordRaw[] = [
     component: () => import('@/app/pantallas/PantallaRespaldos.vue'),
     meta: { seccion: 'ajustes', subseccion: 'respaldos', orden: 1 },
   },
+  {
+    // Restaurar vive al lado de Respaldos y no dentro: son dos acciones
+    // opuestas, y la segunda no se puede deshacer. Compartir pantalla con el
+    // botón de crear un respaldo pondría «Crear» y «Reemplazar toda la base» a
+    // dos centímetros el uno del otro.
+    path: '/ajustes/restaurar',
+    name: 'restaurar',
+    component: () => import('@/app/pantallas/PantallaRestaurar.vue'),
+    meta: { seccion: 'ajustes', subseccion: 'restaurar', orden: 2 },
+  },
   // ── YA NO HAY ANDAMIO ─────────────────────────────────────────────────
   //
   // Hasta la 7.3, las secciones sin pantalla se registraban en bloque contra
