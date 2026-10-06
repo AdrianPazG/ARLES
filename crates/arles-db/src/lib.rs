@@ -13,6 +13,7 @@
 
 pub mod actividad;
 pub mod alta_de_campana;
+pub mod archivo;
 pub mod arco;
 pub mod campanas;
 pub mod cancelacion;

@@ -93,6 +93,22 @@ pub enum QueSeLleva<'a> {
     Todo,
     /// Lo esencial, con el historial desde esta fecha ISO-8601 inclusive.
     LoEsencialDesde(&'a str),
+    /// **Sólo el historial anterior a esta fecha**, para archivarlo (D-8D).
+    ///
+    /// No es un respaldo: lleva las tablas de
+    /// [`arles_core::respaldo::EN_EL_ARCHIVO`] y nada más, y lo que escribe va
+    /// con otra marca para que el restaurador no lo acepte.
+    ///
+    /// **La fecha es exclusiva**: entra lo anterior, no lo de ese día. Y lo que
+    /// se queda en la base al borrar es exactamente el resto, `>= hasta`.
+    ///
+    /// Las dos condiciones tienen que **partir la tabla sin solaparse y sin
+    /// dejar hueco**: una fila en las dos se duplicaría, y una fila en ninguna
+    /// se perdería al borrar sin estar en el archivo. Es un `<` contra un `>=`
+    /// escritos en dos funciones distintas, y cambiar uno a `<=` no hace fallar
+    /// nada: pierde o duplica exactamente un día. Lo vigila
+    /// `el_corte_parte_el_historial_sin_solaparse_ni_dejar_hueco`.
+    ElHistorialAnteriorA(&'a str),
 }
 
 /// Cuántas filas trae cada tabla, en el orden del cuerpo.
@@ -257,14 +273,7 @@ impl Db {
 ///
 /// [`DbError::Sqlite`] o [`DbError::EsquemaNoSeDejaRespaldar`] si hay un ciclo.
 pub(crate) fn inventario_en(conn: &Connection, que: QueSeLleva<'_>) -> Result<Inventario, DbError> {
-    let incluidas: Vec<&'static str> = MANIFIESTO
-        .iter()
-        .filter(|e| match que {
-            QueSeLleva::Todo => e.alcance.entra_en_el_completo(),
-            QueSeLleva::LoEsencialDesde(_) => e.alcance.entra_en_el_esencial(),
-        })
-        .map(|e| e.tabla)
-        .collect();
+    let incluidas = tablas_incluidas(que);
 
     let mut tablas = Vec::with_capacity(incluidas.len());
     for tabla in orden_de_insercion(conn, &incluidas)? {
@@ -281,16 +290,75 @@ pub(crate) fn inventario_en(conn: &Connection, que: QueSeLleva<'_>) -> Result<In
     })
 }
 
-/// La condición de recorte de una tabla, si la hay: `(columna, desde)`.
-fn corte_de<'a>(tabla: &str, que: QueSeLleva<'a>) -> Option<(&'static str, &'a str)> {
-    let QueSeLleva::LoEsencialDesde(desde) = que else {
-        return None;
+/// Qué tablas se lleva este alcance, **en el orden del manifiesto**.
+///
+/// ── POR QUÉ ESTO ES UNA FUNCIÓN Y NO UN `filter` EN CADA SITIO ──
+///
+/// Llegó a estar escrito tres veces: en el inventario del exportador, en el
+/// preflight de la restauración y en la prueba
+/// `ningun_hijo_viaja_sin_su_padre`. Tres copias del mismo `match` son tres
+/// sitios donde añadir un alcance y olvidar uno — y el que se olvida no falla:
+/// cae en la rama de otro y se lleva las tablas equivocadas. La prueba es el
+/// caso peor, porque entonces **vigila un alcance que no es el que corre**.
+///
+/// Se recorre `MANIFIESTO` y no la lista del archivo para que el orden sea el
+/// que una persona escribió —que es el desempate del orden topológico— y para
+/// que una tabla del archivo sin clasificar no pueda salir por aquí.
+#[must_use]
+pub fn tablas_incluidas(que: QueSeLleva<'_>) -> Vec<&'static str> {
+    MANIFIESTO
+        .iter()
+        .filter(|e| match que {
+            QueSeLleva::Todo => e.alcance.entra_en_el_completo(),
+            QueSeLleva::LoEsencialDesde(_) => e.alcance.entra_en_el_esencial(),
+            QueSeLleva::ElHistorialAnteriorA(_) => arles_core::respaldo::se_archiva(e.tabla),
+        })
+        .map(|e| e.tabla)
+        .collect()
+}
+
+/// Por qué columna y en qué dirección se recorta una tabla.
+///
+/// El operador va dentro y no se da por supuesto: hasta la 8.3 bis era un `>=`
+/// escrito a mano en dos consultas, y el archivado necesita el contrario. Dos
+/// sitios con el mismo operador escrito dos veces es un sitio donde cambiar uno
+/// y no el otro no hace fallar nada — el recuento de la cabecera diría una cosa
+/// y el cuerpo traería otra.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Corte<'a> {
+    pub columna: &'static str,
+    /// `">="` para lo que se queda desde una fecha; `"<"` para lo que se
+    /// archiva por ser anterior a ella.
+    pub operador: &'static str,
+    pub fecha: &'a str,
+}
+
+/// La condición de recorte de una tabla, si la hay.
+///
+/// La columna sale del **manifiesto** en los dos casos, no de un nombre escrito
+/// aquí: es la misma `RecortadaEnElEsencial { fecha }` que la 8.2b puso dentro
+/// de la variante. Lo único que cambia entre respaldar y archivar es la
+/// dirección del corte.
+///
+/// Y de ahí sale gratis lo que el archivado necesita: `campaign` no declara
+/// columna de corte —no tiene fecha de envío—, así que viaja **entera**. Una
+/// campaña recortada por su propia fecha dejaría intentos sin la campaña a la
+/// que pertenecen, que es justo lo que el archivo existe para poder decir.
+fn corte_de<'a>(tabla: &str, que: QueSeLleva<'a>) -> Option<Corte<'a>> {
+    let (operador, fecha) = match que {
+        QueSeLleva::Todo => return None,
+        QueSeLleva::LoEsencialDesde(desde) => (">=", desde),
+        QueSeLleva::ElHistorialAnteriorA(hasta) => ("<", hasta),
     };
     MANIFIESTO
         .iter()
         .find(|e| e.tabla == tabla)
         .and_then(|e| e.alcance.columna_de_corte())
-        .map(|columna| (columna, desde))
+        .map(|columna| Corte {
+            columna,
+            operador,
+            fecha,
+        })
 }
 
 /// Hasta qué migración llegó esta base, en la forma `V11`.
@@ -338,18 +406,17 @@ fn columnas_de(conn: &Connection, tabla: &str) -> Result<Vec<String>, DbError> {
 }
 
 /// Cuántas filas se van a escribir de esta tabla.
-fn cuantas_filas(
-    conn: &Connection,
-    tabla: &str,
-    corte: Option<(&str, &str)>,
-) -> Result<u64, DbError> {
+fn cuantas_filas(conn: &Connection, tabla: &str, corte: Option<Corte<'_>>) -> Result<u64, DbError> {
     let n: i64 = match corte {
         None => conn.query_row(&format!("SELECT count(*) FROM \"{tabla}\""), [], |f| {
             f.get(0)
         })?,
-        Some((columna, desde)) => conn.query_row(
-            &format!("SELECT count(*) FROM \"{tabla}\" WHERE \"{columna}\" >= ?1"),
-            [desde],
+        Some(c) => conn.query_row(
+            &format!(
+                "SELECT count(*) FROM \"{tabla}\" WHERE \"{}\" {} ?1",
+                c.columna, c.operador
+            ),
+            [c.fecha],
             |f| f.get(0),
         )?,
     };
@@ -457,12 +524,12 @@ fn volcar_tabla<D: Destino>(
             format!("SELECT {columnas} FROM \"{}\" ORDER BY rowid", t.tabla),
             None,
         ),
-        Some((columna, desde)) => (
+        Some(c) => (
             format!(
-                "SELECT {columnas} FROM \"{}\" WHERE \"{columna}\" >= ?1 ORDER BY rowid",
-                t.tabla
+                "SELECT {columnas} FROM \"{}\" WHERE \"{}\" {} ?1 ORDER BY rowid",
+                t.tabla, c.columna, c.operador
             ),
-            Some(desde),
+            Some(c.fecha),
         ),
     };
 
@@ -621,14 +688,10 @@ mod tests {
                 ("esencial", QueSeLleva::LoEsencialDesde("2020-01-01T00:00:00Z")),
                 ("completo", QueSeLleva::Todo),
             ] {
-                let incluidas: Vec<&str> = MANIFIESTO
-                    .iter()
-                    .filter(|e| match que {
-                        QueSeLleva::Todo => e.alcance.entra_en_el_completo(),
-                        QueSeLleva::LoEsencialDesde(_) => e.alcance.entra_en_el_esencial(),
-                    })
-                    .map(|e| e.tabla)
-                    .collect();
+                // Por la misma función que corre de verdad, y no por un
+                // `filter` copiado: así un alcance nuevo lo vigila esta prueba
+                // sin que nadie se acuerde de añadirlo aquí.
+                let incluidas = tablas_incluidas(que);
 
                 for hija in &incluidas {
                     for padre in padres_de(conn, hija).expect("padres") {

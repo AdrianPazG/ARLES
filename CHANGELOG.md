@@ -12,6 +12,63 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.3 bis a · Archivar el historial: el núcleo y la base (D-8D)
+
+#### Lo que cambia para quien usa ARLES
+
+Nada todavía: **no hay botón**. Lo que hay es la mitad de dentro de lo que
+pediste el 05/10/2026 —poder sacar los envíos viejos a una SSD y quitarlos de la
+base—. El botón y la pantalla son el tramo siguiente.
+
+Lo que ya funciona por dentro: ARLES sabe decir, **antes de tocar nada**, cuántos
+envíos se irían, de qué fecha a qué fecha, cuántos se quedarían, y —esto es lo
+importante— **qué más se perdería que el archivo no guarda**.
+
+#### Lo que cambia por dentro
+
+- `crates/arles-core/src/respaldo.rs` · `EN_EL_ARCHIVO`: el archivo lleva
+  **dos tablas**, el historial de envíos y las campañas. Las campañas van porque
+  un envío sin su campaña es ilegible dentro de tres años.
+- `crates/arles-core/src/formato_de_respaldo.rs` · un **tercer alcance** con su
+  propia marca en la primera línea del archivo.
+- `crates/arles-db/src/archivo.rs` · el preflight y el borrado. Ocho pruebas.
+- Tres comprobaciones nuevas en `--fase 8`, escritas **antes** y vistas en rojo.
+
+#### Las dos cosas que aquí no se pueden hacer mal
+
+**1 · Un archivo de historial no se puede restaurar.** Si se pudiera, sería la
+pérdida más grave de toda la fase: restaurar reemplaza y nunca mezcla (tu
+decisión D-8C), así que meter un archivo que sólo trae un año de envíos
+**vaciaría la base entera** — contactos, bajas y campañas incluidos. Y nada
+protestaría, porque reemplazar es exactamente lo que se le pidió.
+
+Se cierra con **dos puertas**: el archivo lleva otra marca en su primera línea, y
+el restaurador pregunta además por el alcance declarado. La marca sola no basta
+porque una cabecera se puede editar a mano.
+
+**2 · Borrar envíos se lleva también sucesos del registro de actividad**, porque
+cuelgan de ellos en la base. El archivo **no** los guarda. Así que el preflight
+los cuenta y lo dice antes de que haya nada que confirmar — y la cuenta se lee de
+la estructura de la base, no de una lista escrita a mano.
+
+Y el borrado **se niega** si el historial cambió entre escribir el archivo y
+confirmar: el motor envía en su propio hilo, así que puede haber entrado un envío
+que el archivo no lleva.
+
+#### Lo que estaba mal y se arregla
+
+**Tres de mis propias comprobaciones estaban mal, y las tres las encontró
+romperlas a propósito en vez de darlas por buenas:**
+
+1. Una buscaba el nombre de un error **que yo había inventado al escribir la
+   comprobación** y que no existe en el código: salía en rojo sobre código
+   correcto.
+2. Otra buscaba una palabra en el archivo entero y **se cazaba en un comentario**
+   que la nombraba al explicarla: al romper el código de verdad, seguía en verde.
+   Tercera vez que este patrón aparece en el proyecto.
+3. La tercera decía vigilar las dos puertas del restaurador y **vigilaba una**.
+   Su propio comentario afirmaba estar verificada quitando la otra. Era falso.
+
 ### 8.6 · La migración V11: los dos presupuestos que no se cumplían, cumplidos
 
 #### Lo que cambia para quien usa ARLES

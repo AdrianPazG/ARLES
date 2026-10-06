@@ -1553,6 +1553,24 @@ export const es = {
         como: 'Comprueba que el archivo sea de esta misma versión. Si lo hiciste con una versión más nueva, actualiza ARLES antes de restaurarlo.',
         salvo: 'Tus datos están intactos: no se borró ni se cambió una sola fila.',
       },
+      eso_es_un_archivo_de_historial: {
+        // Error aparte de `respaldo_no_encaja` a propósito, porque mandan a
+        // hacer cosas distintas: aquel dice «busca otra copia», éste dice «el
+        // archivo está bien, lo que pasa es que no sirve para esto». Decirle a
+        // alguien que busque otra copia ante este error sería mandarlo a
+        // repetir el intento.
+        que: 'El archivo que elegiste es un archivo de historial, no un respaldo.',
+        como: 'Un archivo de historial guarda envíos viejos para consultarlos; no sirve para recuperar ARLES. Elige un archivo de respaldo.',
+        salvo: 'No se restauró nada: tus datos están intactos.',
+      },
+      el_historial_cambio: {
+        // Pasa cuando el motor envió algo entre escribir el archivo y
+        // confirmar el borrado. No es un fallo: es la protección funcionando,
+        // y el texto lo dice así para que nadie lo lea como una avería.
+        que: 'El historial cambió desde que se escribió el archivo, así que no se borró nada.',
+        como: 'Vuelve a archivar para que el archivo incluya también lo que entró mientras tanto.',
+        salvo: 'No se borró ni un envío. El archivo que escribiste sigue siendo válido para lo que llevaba dentro.',
+      },
       esquema_no_se_deja_respaldar: {
         // No es culpa de quien lo pulsó, y el texto no finge que pueda
         // arreglarlo: pasa cuando la estructura de la base tiene algo que el

@@ -89,6 +89,25 @@ pub const VERSION_DEL_FORMATO: u32 = 1;
 /// para que un archivo truncado al principio no se confunda con uno corrupto.
 pub const MARCA: &str = "ARLES-RESPALDO";
 
+/// La primera línea de un **archivo de historial** (D-8D, entrega 8.3 bis).
+///
+/// ── POR QUÉ NO ES LA MISMA MARCA, Y NO ES UN DETALLE ──
+///
+/// Un archivo de historial trae un año de envíos y **nada más**: ni contactos,
+/// ni bajas, ni campañas vivas. Dárselo al restaurador, que reemplaza y nunca
+/// mezcla (D-8C), **vaciaría la base entera** para dejar dentro sólo esos
+/// envíos. No es un riesgo teórico: es exactamente lo que el restaurador hace
+/// con cualquier archivo que acepte.
+///
+/// Con una marca propia, el restaurador contesta «esto no es un respaldo» en la
+/// **primera línea**, antes de leer un campo, y el archivador contesta lo mismo
+/// si alguien le da un respaldo. Las dos puertas cierran con la misma llave y
+/// ninguna de las dos depende de que el usuario se acuerde.
+///
+/// Lleva la palabra `HISTORIAL` dentro a propósito: quien abra el archivo con
+/// un editor de texto tiene que ver qué es en la primera línea.
+pub const MARCA_ARCHIVO: &str = "ARLES-ARCHIVO-HISTORIAL";
+
 /// El separador. Un tabulador, y por eso hay que escaparlo en los valores.
 const SEP: char = '\t';
 
@@ -100,23 +119,79 @@ const SEP: char = '\t';
 /// datos sin que nada fallara.
 const NULO: &str = "\\N";
 
-/// Cuánto de la base se lleva este respaldo (D-8B).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Cuánto de la base se lleva este archivo (D-8B, y D-8D para el tercero).
+///
+/// ── POR QUÉ ESTE TIPO DEJÓ DE SER `Copy` EN LA 8.3 bis ──
+///
+/// Porque `Historial` lleva dentro **hasta cuándo** archivó, y eso es un dato
+/// de ejecución: una fecha que se calcula al pulsar el botón, no una constante.
+/// Se podría haber dejado `Copy` poniendo la fecha en un campo aparte de la
+/// cabecera, y entonces existiría el estado imposible: un alcance de historial
+/// **sin periodo**, o un periodo colgado de un respaldo esencial que no archiva
+/// nada. Es la misma razón por la que `RecortadaEnElEsencial` lleva su columna
+/// dentro (ver `respaldo.rs`): el compilador exige el dato justo donde
+/// significa algo y lo prohíbe donde no.
+///
+/// El precio es un `.clone()` en los pocos sitios que lo copiaban. El precio de
+/// la otra forma es una pérdida de datos silenciosa.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Alcance {
     /// Lo que no se puede volver a conseguir, con el historial recortado.
     /// **Es el que viene elegido.**
     Esencial,
     /// Todo. Para cambiar de equipo.
     Completo,
+    /// **No es un respaldo**: es el historial de envíos anterior a esta fecha,
+    /// sacado de la base para guardarlo en un disco externo (D-8D).
+    ///
+    /// Va con [`MARCA_ARCHIVO`], no con [`MARCA`], y el restaurador lo rechaza.
+    Historial {
+        /// Fecha ISO-8601 **exclusiva**: entra lo anterior, no lo de ese día.
+        ///
+        /// Exclusiva y no inclusiva porque el corte se enseña como «hasta el 1
+        /// de enero» y lo que la gente entiende por eso es que el 1 de enero se
+        /// queda. Un corte inclusivo se llevaría un día que nadie contó.
+        hasta: String,
+    },
 }
 
 impl Alcance {
+    /// Cómo se escribe en la cabecera.
+    ///
+    /// El historial lleva su fecha pegada —`historial-hasta:2026-01-01`— y no
+    /// en una línea aparte: así [`Self::parse`] puede devolver el alcance
+    /// **entero** o un error, sin un estado intermedio en que el alcance ya
+    /// esté leído y la fecha todavía no.
     #[must_use]
-    pub const fn as_str(self) -> &'static str {
+    pub fn as_str(&self) -> String {
         match self {
-            Self::Esencial => "esencial",
-            Self::Completo => "completo",
+            Self::Esencial => "esencial".to_owned(),
+            Self::Completo => "completo".to_owned(),
+            Self::Historial { hasta } => format!("historial-hasta:{hasta}"),
         }
+    }
+
+    /// La marca que le toca a este alcance en la primera línea.
+    ///
+    /// **Sale del alcance y no se elige**, para que no exista un archivo de
+    /// historial con la marca de un respaldo ni al revés: quien escribe no
+    /// tiene dónde equivocarse.
+    #[must_use]
+    pub fn marca(&self) -> &'static str {
+        match self {
+            Self::Esencial | Self::Completo => MARCA,
+            Self::Historial { .. } => MARCA_ARCHIVO,
+        }
+    }
+
+    /// ¿Esto se puede dar al restaurador?
+    ///
+    /// Un archivo de historial **no**: reemplazaría la base entera por un año
+    /// de envíos. Quien restaura pregunta esto, no la marca, porque una cabecera
+    /// se puede armar a mano y la marca la pone el escritor.
+    #[must_use]
+    pub fn se_puede_restaurar(&self) -> bool {
+        !matches!(self, Self::Historial { .. })
     }
 
     /// # Errores
@@ -128,9 +203,16 @@ impl Alcance {
         match s {
             "esencial" => Ok(Self::Esencial),
             "completo" => Ok(Self::Completo),
-            _ => Err(CoreError::RespaldoCorrupto {
-                motivo: "el alcance declarado no es «esencial» ni «completo»",
-            }),
+            _ => s
+                .strip_prefix("historial-hasta:")
+                .filter(|h| !h.is_empty())
+                .map(|hasta| Self::Historial {
+                    hasta: hasta.to_owned(),
+                })
+                .ok_or(CoreError::RespaldoCorrupto {
+                    motivo:
+                        "el alcance declarado no es «esencial», «completo» ni un historial con su fecha",
+                }),
         }
     }
 }
@@ -267,7 +349,7 @@ impl Cabecera {
             }
         };
         format!(
-            "{MARCA}\n\
+            "{}\n\
              formato{SEP}{}\n\
              esquema{SEP}{}\n\
              alcance{SEP}{}\n\
@@ -277,6 +359,9 @@ impl Cabecera {
              filas{SEP}{filas}\n\
              columnas{SEP}{columnas}\n\
              \n",
+            // La marca sale del alcance (ver `Alcance::marca`): no hay forma de
+            // escribir un archivo de historial con la marca de un respaldo.
+            self.alcance.marca(),
             self.formato,
             self.esquema,
             self.alcance.as_str(),
@@ -296,13 +381,20 @@ impl Cabecera {
     ///   «elegí el archivo equivocado», y tiene su propio mensaje.
     /// - [`CoreError::RespaldoDeVersionFutura`] si el formato es posterior al
     ///   que esta versión sabe leer. **No se intenta igualmente.**
-    /// - [`CoreError::RespaldoCorrupto`] si falta un campo o no se entiende.
+    /// - [`CoreError::RespaldoCorrupto`] si falta un campo o no se entiende, o
+    ///   si la marca y el alcance no son de lo mismo.
     pub fn leer(texto: &str) -> Result<(Self, usize), CoreError> {
         let mut lineas = texto.lines();
 
-        if lineas.next() != Some(MARCA) {
-            return Err(CoreError::NoEsUnRespaldo);
-        }
+        // Las dos marcas se aceptan aquí, y al final se comprueba que la marca
+        // leída sea la que le toca al alcance declarado. Rechazar la del
+        // archivo en este punto daría «no es un respaldo» a un archivo que SÍ
+        // es de ARLES, y quien lo eligió se quedaría buscando qué hizo mal; lo
+        // que hay que decirle es que ése no se restaura.
+        let marca = match lineas.next() {
+            Some(l) if l == MARCA || l == MARCA_ARCHIVO => l,
+            _ => return Err(CoreError::NoEsUnRespaldo),
+        };
 
         let mut campos: Vec<(String, String)> = Vec::new();
         let mut consumidas = 1usize;
@@ -392,11 +484,25 @@ impl Cabecera {
             });
         }
 
+        let alcance = Alcance::parse(&buscar("alcance")?)?;
+
+        // ── LA MARCA Y EL ALCANCE TIENEN QUE SER DE LO MISMO ──
+        //
+        // Las dos dicen qué es el archivo, y si no coinciden no hay forma de
+        // saber cuál miente. Un respaldo con la marca del archivo no se
+        // restauraría; un archivo con la marca del respaldo SÍ, y se llevaría la
+        // base por delante. Entre creer a una u otra, se para.
+        if marca != alcance.marca() {
+            return Err(CoreError::RespaldoCorrupto {
+                motivo: "la primera línea y el alcance declarado no dicen lo mismo: uno dice respaldo y el otro archivo de historial",
+            });
+        }
+
         Ok((
             Self {
                 formato,
                 esquema: buscar("esquema")?,
-                alcance: Alcance::parse(&buscar("alcance")?)?,
+                alcance,
                 creado_en: buscar("creado")?,
                 cifrado: leer_cifrado(&buscar("cifrado")?, &buscar)?,
                 filas,
@@ -738,6 +844,84 @@ mod tests {
                 admitido: 1
             })
         ));
+    }
+
+    /// **Un archivo de historial sale con su propia marca, y vuelve entero.**
+    ///
+    /// La marca no se elige: sale del alcance. Si se pudiera elegir, existiría
+    /// un archivo de historial con la marca de un respaldo — y el restaurador
+    /// lo aceptaría y vaciaría la base.
+    ///
+    /// Verificada el 06/10/2026 haciendo que `marca()` devuelva siempre
+    /// `MARCA`: falla en la primera comparación.
+    #[test]
+    fn un_archivo_de_historial_lleva_su_marca_y_su_fecha() {
+        let c = Cabecera {
+            alcance: Alcance::Historial {
+                hasta: "2026-01-01T00:00:00Z".to_owned(),
+            },
+            ..cabecera()
+        };
+        let texto = c.redactar();
+
+        assert!(
+            texto.starts_with(MARCA_ARCHIVO),
+            "un archivo de historial no puede empezar por la marca de un respaldo: {}",
+            texto.lines().next().unwrap_or("")
+        );
+        assert!(!texto.starts_with(MARCA));
+
+        let (vuelta, _) = Cabecera::leer(&texto).expect("se relee");
+        assert_eq!(vuelta.alcance, c.alcance, "la fecha del corte se perdió");
+        assert!(!vuelta.alcance.se_puede_restaurar());
+    }
+
+    /// **La marca y el alcance tienen que decir lo mismo.**
+    ///
+    /// Es el caso peligroso: un archivo de historial al que alguien le cambia
+    /// la primera línea por la del respaldo. Si se creyera a la marca, el
+    /// restaurador vaciaría la base para dejar dentro un año de envíos.
+    ///
+    /// Verificada el 06/10/2026 quitando la comparación: la cabecera trucada
+    /// se lee sin protestar y la prueba falla.
+    #[test]
+    fn una_marca_que_no_cuadra_con_el_alcance_se_rechaza() {
+        let historial = Cabecera {
+            alcance: Alcance::Historial {
+                hasta: "2026-01-01T00:00:00Z".to_owned(),
+            },
+            ..cabecera()
+        }
+        .redactar();
+
+        // Un archivo de historial disfrazado de respaldo.
+        let trucado = historial.replacen(MARCA_ARCHIVO, MARCA, 1);
+        assert!(
+            matches!(
+                Cabecera::leer(&trucado),
+                Err(CoreError::RespaldoCorrupto { .. })
+            ),
+            "un archivo de historial con la marca de un respaldo se restauraría"
+        );
+
+        // Y al revés: un respaldo disfrazado de archivo.
+        let al_reves = cabecera().redactar().replacen(MARCA, MARCA_ARCHIVO, 1);
+        assert!(matches!(
+            Cabecera::leer(&al_reves),
+            Err(CoreError::RespaldoCorrupto { .. })
+        ));
+    }
+
+    /// Un historial sin fecha no es un alcance: no se lee como uno a secas.
+    ///
+    /// Sin esto, `historial-hasta:` con la fecha borrada por un disco malo
+    /// daría un corte vacío, y una comparación contra la cadena vacía se lleva
+    /// **todo** el historial.
+    #[test]
+    fn un_historial_sin_fecha_no_se_lee() {
+        assert!(Alcance::parse("historial-hasta:").is_err());
+        assert!(Alcance::parse("historial").is_err());
+        assert!(Alcance::parse("historial-hasta:2026-01-01T00:00:00Z").is_ok());
     }
 
     /// Un alcance que no existe no cae en «esencial».

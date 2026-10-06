@@ -5240,6 +5240,227 @@ def las_bajas_nunca_se_recortan():
     )
 
 
+def _tablas_del_archivo():
+    """Las tablas que `EN_EL_ARCHIVO` declara, leídas del núcleo.
+
+    Devuelve `None` si la constante no existe o el patrón no casa, que es lo que
+    distingue «no hay archivado» de «el archivado no lleva nada» — y es la
+    trampa de `el_manifiesto_se_lee_entero`: una regex que deja de casar no
+    falla, aprueba una lista vacía.
+    """
+    fuente = leer("crates/arles-core/src/respaldo.rs") or ""
+    m = re.search(r"EN_EL_ARCHIVO:\s*&\[&str\]\s*=\s*&\[(.*?)\];", fuente, re.S)
+    if not m:
+        return None
+    # Se quitan los comentarios antes de buscar nombres: un `// message_attempt`
+    # explicativo dentro de la lista contaría como una tabla declarada. Es el
+    # defecto que la 8.5 encontró dos veces (una comprobación que se caza a sí
+    # misma en un comentario).
+    sin_comentarios = re.sub(r"//[^\n]*", "", m.group(1))
+    return re.findall(r'"(\w+)"', sin_comentarios)
+
+
+def las_bajas_y_el_consentimiento_nunca_se_archivan():
+    """**La tercera condición de D-8D, hecha comprobación.**
+
+    Archivar es mover datos a un disco que deja de ser responsabilidad de ARLES.
+    Dirección puso cuatro condiciones el 05/10/2026, y la tercera es que **las
+    bajas y el consentimiento no entran nunca**: son de `suppression_entry` y
+    `consent_entry`, no del historial, y no se archivan ni se recortan jamás.
+
+    Es la misma regla que `las_bajas_nunca_se_recortan` vigila en los respaldos,
+    y hace falta por separado porque el archivado tiene **su propia lista de
+    tablas**: una baja que entrara ahí se iría de la base al borrar, y volver a
+    escribirle a quien pidió que no es lo peor que este producto puede hacer.
+
+    También exige que cada tabla declarada exista en el manifiesto y no esté como
+    `Nunca`: archivar una tabla que ningún respaldo se lleva sacaría datos de la
+    base sin que ninguna copia los tenga.
+
+    Verificada el 06/10/2026 añadiendo `"suppression_entry"` a `EN_EL_ARCHIVO`:
+    falla nombrándola.
+    """
+    tablas = _tablas_del_archivo()
+    if tablas is None:
+        check(
+            8,
+            "las bajas y el consentimiento nunca se archivan",
+            False,
+            las_bajas_y_el_consentimiento_nunca_se_archivan.__doc__,
+            detalle="no se encuentra EN_EL_ARCHIVO en arles-core/src/respaldo.rs",
+        )
+        return
+
+    prohibidas = sorted(set(tablas) & {"suppression_entry", "consent_entry"})
+    del_manifiesto = {t: a for t, a, _ in _entradas_del_manifiesto()}
+    sin_clasificar = sorted(t for t in tablas if t not in del_manifiesto)
+    marcadas_nunca = sorted(t for t in tablas if del_manifiesto.get(t) == "Nunca")
+
+    problemas = []
+    if prohibidas:
+        problemas.append(f"se archivan y no deben: {', '.join(prohibidas)}")
+    if sin_clasificar:
+        problemas.append(f"no están en el manifiesto: {', '.join(sin_clasificar)}")
+    if marcadas_nunca:
+        problemas.append(f"están como Nunca: {', '.join(marcadas_nunca)}")
+
+    check(
+        8,
+        "las bajas y el consentimiento nunca se archivan",
+        not problemas and bool(tablas),
+        las_bajas_y_el_consentimiento_nunca_se_archivan.__doc__,
+        detalle="; ".join(problemas) or f"el archivo lleva: {', '.join(tablas)}",
+    )
+
+
+def un_archivo_de_historial_no_se_restaura():
+    """**El archivo y el respaldo no se pueden confundir, y la confusión sería
+    destructiva.**
+
+    Un archivo de historial trae un año de envíos y nada más. Restaurarlo con
+    D-8C —reemplazar, nunca mezclar— **vaciaría la base entera** para dejar
+    dentro sólo esos envíos: los contactos, las bajas y las campañas se irían.
+    No es un riesgo teórico; es lo que el restaurador hace con cualquier archivo
+    que acepte.
+
+    Por eso se vigilan las dos direcciones:
+
+    1. El archivo lleva **su propia marca** en la primera línea, distinta a la
+       del respaldo, así que el restaurador lo rechaza antes de leer una fila.
+    2. `Db::restaurar` **nombra el alcance de historial** y lo rechaza con su
+       error, en vez de dejarlo caer en un `_ =>` que mañana haría otra cosa.
+
+    La marca sola no basta: el día que alguien arme una cabecera a mano —como
+    hace el modo de recuperación— la marca la pone el escritor y el alcance la
+    cabecera.
+
+    ── LAS DOS PUERTAS SE VIGILAN POR SEPARADO, Y ES UN ARREGLO DEL §2 ──
+
+    La primera versión de esta comprobación buscaba `Alcance::Historial` en todo
+    `restauracion.rs`, y su comentario decía estar verificada quitando la rama
+    de `Db::restaurar`. **Era falso.** Al quitarla, el `match` del preflight
+    seguía nombrándola y la comprobación pasaba en verde: vigilaba una puerta de
+    dos y afirmaba vigilar las dos. Lo cazó hacer la ruptura de verdad, el
+    06/10/2026, en vez de darla por hecha — que es exactamente para lo que
+    existe el §2.
+
+    Ahora se busca cada puerta por lo que la distingue: el `match` del preflight
+    por la variante, y el restaurador por la llamada a `se_puede_restaurar`.
+
+    Verificada el 06/10/2026 quitando cada una por separado: falla nombrando la
+    que falta.
+    """
+    formato = leer("crates/arles-core/src/formato_de_respaldo.rs") or ""
+    restaurar = leer("crates/arles-db/src/restauracion.rs") or ""
+    # Sin comentarios, por lo mismo que `el_archivado_cuenta_lo_que_arrastra`:
+    # las dos puertas están explicadas en comentarios que las nombran.
+    restaurar = re.sub(r"//[^\n]*", "", restaurar)
+
+    marca_archivo = re.search(r'MARCA_ARCHIVO:\s*&str\s*=\s*"([^"]+)"', formato)
+    marca = re.search(r'^pub const MARCA:\s*&str\s*=\s*"([^"]+)"', formato, re.M)
+
+    problemas = []
+    if not marca_archivo:
+        problemas.append("el formato no declara MARCA_ARCHIVO")
+    elif not marca or marca_archivo.group(1) == marca.group(1):
+        problemas.append("MARCA_ARCHIVO no es distinta de MARCA")
+    # Puerta 1 · el preflight nombra la variante en su `match`.
+    if not re.search(r"Alcance::Historial\s*\{[^}]*\}\s*=>", restaurar):
+        problemas.append("el preflight no nombra Alcance::Historial para rechazarlo")
+    # Puerta 2 · el restaurador pregunta antes de tocar la base.
+    if "se_puede_restaurar()" not in restaurar:
+        problemas.append("Db::restaurar no pregunta si el alcance se puede restaurar")
+
+    check(
+        8,
+        "un archivo de historial no se puede restaurar",
+        not problemas,
+        un_archivo_de_historial_no_se_restaura.__doc__,
+        detalle="; ".join(problemas) or "marca propia y rechazo explícito",
+    )
+
+
+def el_archivado_cuenta_lo_que_arrastra():
+    """**Borrar historial arrastra el registro de actividad, y hay que decirlo
+    antes.**
+
+    `activity_event.message_attempt_id` tiene clave ajena a `message_attempt`
+    con `ON DELETE CASCADE`. Así que borrar un año de envíos **se lleva también**
+    los sucesos del registro que apuntaban a ellos — sin aviso, sin error, y sin
+    que el archivo los lleve, porque `activity_event` no entra en el archivado.
+
+    Es exactamente el fallo de la Fase 1 (F1) y el de D-8C en la 8.3a, por
+    tercera vez: la cascada protege de otra cosa y no se toca; lo que no puede
+    pasar es que nadie la cuente. El preflight la calcula **del esquema**, con
+    `PRAGMA foreign_key_list`, y no de una lista a mano que envejecería en
+    silencio el día que otra tabla cuelgue del historial.
+
+    Y exige la segunda condición de D-8D: el borrado recibe **cuántas filas se
+    archivaron** y se niega si la base ya no tiene esas. Entre archivar y borrar
+    el motor sigue escribiendo en su hilo.
+
+    Verificada el 06/10/2026 sustituyendo el `PRAGMA` por la lista
+    `["activity_event"]`: falla.
+
+    ── Y UN DEFECTO DE ESTA COMPROBACIÓN, DEL 06/10/2026 ──
+
+    La primera versión buscaba el nombre del error con una lista de tres
+    nombres **inventados al escribir la comprobación** —`HistorialCambiado`,
+    `FilasQueNoCuadran`, `NoCuadra`— y el del código es `ElHistorialCambio`. No
+    casaba ninguno: salía en rojo sobre un código correcto, que es el gemelo del
+    defecto de la 8.5 (la comprobación que se cazaba a sí misma en un
+    comentario). Ahora lee **la forma del código**: que el borrado reciba cuántas
+    filas se archivaron y que haya un `return Err` con ese dato delante.
+
+    ── Y UN SEGUNDO DEFECTO, DE LA MISMA TARDE ──
+
+    Buscar `foreign_key_list` en el archivo entero **se cazaba en la cabecera
+    del módulo**, que lo nombra al explicar por qué la cascada se lee del
+    esquema. Al cambiar el `PRAGMA` de verdad por otro, la comprobación seguía
+    en verde. **Tercera vez** que este patrón aparece en el proyecto (5.3 y 8.5
+    las otras dos), y la lección se repite: una comprobación que busca una
+    palabra en un archivo con comentarios busca en los comentarios. Se quitan
+    antes de mirar.
+    """
+    fuente = leer("crates/arles-db/src/archivo.rs")
+    if fuente is not None:
+        # Sin los comentarios, por lo de arriba. `//!` y `///` incluidos.
+        fuente = re.sub(r"//[^\n]*", "", fuente)
+    if fuente is None:
+        check(
+            8,
+            "el archivado cuenta lo que la cascada se lleva",
+            False,
+            el_archivado_cuenta_lo_que_arrastra.__doc__,
+            detalle="no existe crates/arles-db/src/archivo.rs",
+        )
+        return
+
+    problemas = []
+    if "foreign_key_list" not in fuente:
+        problemas.append("la cascada no se calcula del esquema")
+    if not re.search(r"fn\s+que_pasaria_al_archivar", fuente):
+        problemas.append("no hay preflight que_pasaria_al_archivar")
+    # El borrado tiene que recibir el recuento del archivo y negarse con él.
+    borrado = re.search(
+        r"fn\s+borrar_el_historial_archivado\s*\((.*?)\)\s*->", fuente, re.S
+    )
+    if not borrado:
+        problemas.append("no hay borrar_el_historial_archivado")
+    elif "archivadas" not in borrado.group(1):
+        problemas.append("el borrado no recibe cuántas filas se archivaron")
+    elif not re.search(r"archivadas[^\n]*\n[^\n]*return Err\(", fuente):
+        problemas.append("el borrado no se niega si el recuento no cuadra")
+
+    check(
+        8,
+        "el archivado cuenta lo que la cascada se lleva",
+        not problemas,
+        el_archivado_cuenta_lo_que_arrastra.__doc__,
+        detalle="; ".join(problemas) or "cascada del esquema y recuento exigido",
+    )
+
+
 def fase_8(rapido=False):
     print(f"{NEGRITA}Fase 8 · Respaldos y endurecimiento{FIN}")
 
@@ -5267,6 +5488,11 @@ def fase_8(rapido=False):
 
     print(f"{GRIS}  el banco de pruebas (8.5){FIN}")
     el_banco_no_viaja_en_el_instalador()
+
+    print(f"{GRIS}  archivar el historial (8.3 bis){FIN}")
+    las_bajas_y_el_consentimiento_nunca_se_archivan()
+    un_archivo_de_historial_no_se_restaura()
+    el_archivado_cuenta_lo_que_arrastra()
 
     print(f"{GRIS}  los índices y su vigilancia (8.6){FIN}")
     cambiar_una_migracion_recompila()

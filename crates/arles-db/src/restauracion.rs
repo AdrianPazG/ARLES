@@ -137,7 +137,7 @@ impl Db {
             // instante, o la suma no cuadra con los sumandos.
             let tx = conn.unchecked_transaction()?;
 
-            let que = match alcance {
+            let que = match &alcance {
                 Alcance::Completo => crate::respaldo::QueSeLleva::Todo,
                 // La fecha da igual aquí: lo que se mide es qué tablas se
                 // reemplazan, no cuántas filas trae cada una — eso lo dice la
@@ -145,17 +145,16 @@ impl Db {
                 Alcance::Esencial => {
                     crate::respaldo::QueSeLleva::LoEsencialDesde("0000-01-01T00:00:00Z")
                 }
+                // ── SE PARA AQUÍ, EN EL PREFLIGHT, Y NO AL RESTAURAR ──
+                //
+                // Un archivo de historial trae un año de envíos y nada más.
+                // Reemplazar con él (D-8C) vaciaría la base entera. Decirlo en
+                // el preflight es decirlo **antes de que haya un botón que
+                // confirmar**; dejarlo para el final sería enseñar una pantalla
+                // con «se perderán 12 500 contactos» como si fuera una opción.
+                Alcance::Historial { .. } => return Err(DbError::EsoEsUnArchivoDeHistorial),
             };
-            let incluidas: Vec<&'static str> = MANIFIESTO
-                .iter()
-                .filter(|e| match que {
-                    crate::respaldo::QueSeLleva::Todo => e.alcance.entra_en_el_completo(),
-                    crate::respaldo::QueSeLleva::LoEsencialDesde(_) => {
-                        e.alcance.entra_en_el_esencial()
-                    }
-                })
-                .map(|e| e.tabla)
-                .collect();
+            let incluidas = crate::respaldo::tablas_incluidas(que);
             let orden = crate::respaldo::orden_de_insercion(&tx, &incluidas)?;
 
             let mut tablas = Vec::with_capacity(orden.len());
@@ -665,6 +664,17 @@ impl Db {
         actor: &str,
         cuando: &str,
     ) -> Result<LoQuePaso, DbError> {
+        // ── LA SEGUNDA PUERTA, Y NO SOBRA ──
+        //
+        // El preflight ya rechaza un archivo de historial, y la marca de la
+        // primera línea también. Esto se comprueba igual porque `restaurar` es
+        // una función pública de la base: quien la llame mañana puede no haber
+        // pasado por el preflight, y la pérdida aquí no se deshace. Dos puertas
+        // para lo irreversible — la misma regla que el llavero (8.4).
+        if !alcance.se_puede_restaurar() {
+            return Err(DbError::EsoEsUnArchivoDeHistorial);
+        }
+
         self.con_dominio(|conn| {
             let esquema = crate::respaldo::version_del_esquema(conn)?;
             if esquema != esquema_del_respaldo {
@@ -689,9 +699,14 @@ impl Db {
 
             let incluidas: Vec<&'static str> = MANIFIESTO
                 .iter()
-                .filter(|e| match alcance {
+                .filter(|e| match &alcance {
                     Alcance::Completo => e.alcance.entra_en_el_completo(),
                     Alcance::Esencial => e.alcance.entra_en_el_esencial(),
+                    // Inalcanzable: la comprobación de arriba ya salió. Se
+                    // escribe igual porque un `_ =>` aquí dejaría que un
+                    // alcance futuro cayera en «no se lleva nada» —y un
+                    // reemplazo que no trae nada es una base vacía—.
+                    Alcance::Historial { .. } => false,
                 })
                 .map(|e| e.tabla)
                 .collect();
@@ -1352,6 +1367,63 @@ mod tests_de_restaurar {
         assert_eq!(
             estado, "needs_reauth",
             "la cuenta volvió como «{estado}»: el motor la daría por buena sin contraseña"
+        );
+    }
+
+    /// **Un archivo de historial no se restaura, y se para en las dos puertas.**
+    ///
+    /// Es la pérdida peor que esta fase puede provocar: reemplazar con un
+    /// archivo que sólo trae un año de envíos vaciaría la base entera — los
+    /// contactos, las bajas y las campañas se irían, y D-8C dice que reemplazar
+    /// es lo correcto, así que nada protestaría.
+    ///
+    /// Se comprueban las dos puertas porque las dos pueden quedar solas: el
+    /// preflight, que es por donde pasa la pantalla, y `restaurar`, que es una
+    /// función pública que alguien puede llamar mañana sin pasar por él.
+    ///
+    /// Verificada el 06/10/2026 quitando la comprobación de `restaurar`: la
+    /// base se vacía y la prueba falla al contar los contactos.
+    #[test]
+    fn un_archivo_de_historial_no_se_restaura() {
+        let (_d, db) = base();
+        sembrar(&db);
+        let archivo = Alcance::Historial {
+            hasta: "2026-01-01T00:00:00Z".to_owned(),
+        };
+
+        // Puerta 1 · el preflight, antes de que haya nada que confirmar.
+        let r = db.que_pasaria_al_restaurar(archivo.clone(), &[]);
+        assert!(
+            matches!(r, Err(DbError::EsoEsUnArchivoDeHistorial)),
+            "{r:?}"
+        );
+
+        // Puerta 2 · el restaurador, aunque nadie haya pasado por el preflight.
+        let antes = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row("SELECT count(*) FROM company", [], |f| f.get::<_, i64>(0))
+            })
+            .expect("cuenta");
+        let mut origen = Filas::de(vec![empresa("E9")]);
+        let r = db.restaurar(
+            &mut origen,
+            &esquema_actual(),
+            &columnas(&[("company", COLS_EMPRESA)]),
+            archivo,
+            "dirección",
+            "2026-04-03T10:00:00Z",
+        );
+        assert!(
+            matches!(r, Err(DbError::EsoEsUnArchivoDeHistorial)),
+            "{r:?}"
+        );
+        assert_eq!(
+            db.ejecutar_en_pruebas(|c| {
+                c.query_row("SELECT count(*) FROM company", [], |f| f.get::<_, i64>(0))
+            })
+            .expect("cuenta"),
+            antes,
+            "la base se tocó: un archivo de historial se llevó la empresa por delante"
         );
     }
 

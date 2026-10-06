@@ -137,12 +137,12 @@ pub fn revisar_respaldo(
 
     let (cabecera, _) = leer_la_cabecera(&ruta)?;
 
-    let alcance = cabecera.alcance;
+    let alcance = cabecera.alcance.clone();
     let filas: Vec<(String, u64)> = cabecera.filas.clone();
 
     let pasaria = estado
         .db()
-        .que_pasaria_al_restaurar(alcance, &filas)
+        .que_pasaria_al_restaurar(alcance.clone(), &filas)
         .map_err(crate::AppError::Db)?;
 
     // Se guarda **después** de poder leer la cabecera: dejar puesta la ruta de
@@ -156,7 +156,7 @@ pub fn revisar_respaldo(
             .unwrap_or("")
             .to_owned(),
         creado_en: cabecera.creado_en.clone(),
-        alcance: alcance.as_str().to_owned(),
+        alcance: alcance.as_str(),
         esquema_del_respaldo: cabecera.esquema.clone(),
         esquema_de_la_base: pasaria.esquema_de_la_base.clone(),
         lleva_contrasena: cabecera.cifrado.lleva_contrasena(),
@@ -540,7 +540,7 @@ mod tests {
                     &mut lector,
                     &cabecera.esquema,
                     &cabecera.columnas,
-                    cabecera.alcance,
+                    cabecera.alcance.clone(),
                     "dirección",
                     "2026-10-06T13:00:00Z",
                 )

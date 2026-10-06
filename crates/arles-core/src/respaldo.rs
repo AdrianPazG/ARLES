@@ -303,6 +303,61 @@ pub const MANIFIESTO: &[EnElRespaldo] = &[
     },
 ];
 
+/// Las tablas que se lleva un **archivo de historial** (D-8D, entrega 8.3 bis).
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ES UNA LISTA APARTE Y NO UN QUINTO `Alcance`
+///
+/// `Alcance` clasifica cada tabla para los **dos respaldos**: dice cuánto de
+/// ella se lleva una copia de seguridad. El archivado es otra pregunta —qué se
+/// saca de la base para borrarlo después— y meter la respuesta en el mismo enum
+/// obligaría a reclasificar las 29 tablas por algo que sólo le pasa a una.
+///
+/// Más importante: **archivar es destructivo y respaldar no.** Una lista corta
+/// y explícita, que alguien tiene que ampliar a mano para que una tabla se
+/// archive, es lo contrario de una clasificación donde un valor por omisión
+/// pudiera empezar a borrar datos.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LAS DOS TABLAS, Y POR QUÉ SON ÉSTAS
+///
+/// - **`message_attempt`** es lo que D-8D vino a resolver: un renglón por
+///   persona y envío, que **no se borra jamás** (D-7C), y es lo único del
+///   esquema que crece sin techo. En dos años a 50 000 contactos al mes son del
+///   orden de un millón de renglones.
+///
+/// - **`campaign`** viaja con él porque un intento sin su campaña es
+///   ilegible: queda la dirección y el desenlace, y no a qué envío pertenecía.
+///   Hoy la campaña está en la base —borrarla arrastra sus intentos en
+///   cascada—, pero el archivo tiene que servir **dentro de tres años**, cuando
+///   esa campaña puede haberse borrado. Son decenas de filas: no cuestan nada
+///   y sin ellas el archivo no contesta un ARCO.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LO QUE NO ENTRA, Y ES LA TERCERA CONDICIÓN DE D-8D
+///
+/// **`suppression_entry` y `consent_entry` no se archivan nunca.** No son
+/// historial: son la lista de quién pidió no recibir y la prueba del permiso de
+/// cada persona. Archivarlas las sacaría de la base al borrar, y volver a
+/// escribirle a quien pidió que no es lo peor que ARLES puede hacer. Lo vigila
+/// `las_bajas_y_el_consentimiento_nunca_se_archivan` en el validador, aparte de
+/// la de los respaldos, porque el archivado tiene su propia lista.
+///
+/// **`activity_event` tampoco**, y ése es el que hay que mirar con cuidado: no
+/// entra en el archivo **y sin embargo el borrado se lo lleva**, porque
+/// `activity_event.message_attempt_id` cuelga del historial con
+/// `ON DELETE CASCADE`. No se arregla aquí —la cascada protege de otra cosa—
+/// sino diciéndolo: el preflight de `arles-db` cuenta cuántos sucesos se van,
+/// leyendo la cascada del esquema. Es el fallo de la Fase 1 (F1) por tercera
+/// vez, y la única defensa que ha funcionado es contarlo antes.
+pub const EN_EL_ARCHIVO: &[&str] = &["campaign", "message_attempt"];
+
+/// ¿Esta tabla se lleva un archivo de historial?
+#[must_use]
+pub fn se_archiva(tabla: &str) -> bool {
+    EN_EL_ARCHIVO.contains(&tabla)
+}
+
 /// El sitio de una tabla en el respaldo, si está declarada.
 #[must_use]
 pub fn alcance_de(tabla: &str) -> Option<Alcance> {

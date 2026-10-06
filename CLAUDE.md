@@ -755,6 +755,99 @@ nuevas, y la fase 8 en 12/12.
 > las pruebas, así que el coste real es cero; dentro de un mes de uso no lo
 > sería.
 
+**Cerrada la 8.3 bis a · archivar el historial, por dentro** (D-8D):
+`EN_EL_ARCHIVO` en el núcleo, el tercer alcance del formato con su propia marca,
+y `arles-db/src/archivo.rs` con el preflight y el borrado. Ocho pruebas y tres
+comprobaciones nuevas en `--fase 8`, escritas antes y vistas en rojo.
+**Todavía no hay botón**: la pantalla y los comandos son la 8.3 bis b.
+
+> **El archivo lleva DOS tablas: el historial y las campañas.** La segunda no es
+> relleno: un intento sin su campaña queda como una dirección y un desenlace,
+> sin a qué envío pertenecía. Hoy la campaña está en la base, pero el archivo
+> tiene que servir **dentro de tres años**, y entonces puede no estar. Son
+> decenas de filas y sin ellas el archivo no contesta un ARCO, que es lo único
+> para lo que existe.
+
+> **Un archivo de historial no se puede restaurar, y es la pérdida más grave que
+> esta fase podía dejar abierta.** Restaurar reemplaza y nunca mezcla (D-8C), así
+> que darle un archivo con un año de envíos **vaciaría la base entera** —
+> contactos, bajas y campañas— y **nada protestaría**, porque reemplazar es lo
+> que se le pidió.
+>
+> Se cierra con **dos puertas**: `MARCA_ARCHIVO` en la primera línea, y
+> `Alcance::se_puede_restaurar()` que el restaurador pregunta aparte. La marca
+> sola no basta: una cabecera se puede armar a mano, y entonces la marca la pone
+> quien escribe. Y la cabecera **exige que las dos digan lo mismo**: un archivo
+> de historial con la marca de un respaldo se rechaza en vez de creerle a una de
+> las dos.
+
+> **El tercer alcance le quitó el `Copy` al tipo**, y es a propósito.
+> `Historial { hasta }` lleva la fecha dentro porque es un dato de ejecución. La
+> otra forma —la fecha en un campo aparte de la cabecera— habría dejado `Copy` y
+> habría creado el estado imposible: un alcance de historial **sin periodo**. Es
+> la misma razón que `RecortadaEnElEsencial { fecha }` en la 8.2b. El precio fue
+> cuatro `.clone()`; el de la otra forma, una pérdida silenciosa.
+>
+> **Y añadir la variante hizo que el compilador exigiera decidir** en los dos
+> sitios del restaurador, que es exactamente donde la decisión importaba. Un
+> `_ =>` ahí habría dejado el archivo caer en «no se lleva nada», y un reemplazo
+> que no trae nada es una base vacía.
+
+> **Borrar el historial arrastra el registro de actividad, y el archivo no lo
+> lleva.** `activity_event.message_attempt_id` cuelga de `message_attempt` con
+> `ON DELETE CASCADE`, y `activity_event` no entra en el archivado porque ya se
+> recorta cada dos meses (7.4). Así que **eso sí es una pérdida**, y el preflight
+> la cuenta antes de que nadie confirme. Es el fallo de la Fase 1 (F1) por
+> **tercera vez**, y la única defensa que ha funcionado las tres es la misma:
+> leer la cascada del esquema y contarla, no tocarla.
+>
+> `la_cascada_calculada_es_la_que_borra_sqlite` borra de verdad dentro de una
+> transacción que se deshace y compara. Y compara **la cifra**, no sólo los
+> nombres: una lista a mano con el número mal pasaría una comparación de nombres.
+
+> **El borrado se niega si el historial cambió.** Recibe cuántas filas escribió
+> el archivo y falla si la base ya no tiene exactamente ésas. El motor envía en
+> su propio hilo (§51): entre escribir el archivo y confirmar puede haber entrado
+> un intento con fecha anterior al corte. Borrar «lo que haya» se llevaría una
+> fila que el archivo no tiene, y **el recuento final cuadraría consigo mismo**.
+
+> **El corte parte el historial sin solaparse y sin dejar hueco.** El archivo se
+> lleva `< hasta` y la base se queda `>= hasta`, escritos en dos funciones
+> distintas. Cambiar uno a `<=` no hace fallar nada: pierde o duplica
+> exactamente un día. Lo vigila una prueba con un envío **en el instante exacto
+> del corte**, que es el único que distingue las dos fronteras.
+
+> **El filtro de «qué tablas se lleva este alcance» estaba escrito tres veces** —
+> exportador, preflight y la prueba `ningun_hijo_viaja_sin_su_padre`—. Ahora es
+> `tablas_incluidas()`. Tres copias del mismo `match` son tres sitios donde
+> añadir un alcance y olvidar uno; y el peor de los tres es la prueba, porque
+> entonces **vigila un alcance que no es el que corre**.
+
+> **Tres de las comprobaciones nuevas estaban mal, y las tres lo encontró
+> romperlas de verdad** en vez de darlas por buenas. Es el §2 aplicado a sí
+> mismo, y el resultado del día:
+>
+> 1. Una buscaba el nombre de un error **inventado al escribir la
+>    comprobación** —`HistorialCambiado`— cuando el del código es
+>    `ElHistorialCambio`: en rojo sobre código correcto.
+> 2. Otra buscaba `foreign_key_list` en el archivo entero y **se cazaba en la
+>    cabecera del módulo**, que lo nombra al explicar por qué la cascada se lee
+>    del esquema. Al cambiar el `PRAGMA` de verdad, seguía en verde. **Tercera
+>    vez** (5.3 y 8.5 las otras). Se quitan los comentarios antes de mirar.
+> 3. La tercera decía vigilar las dos puertas del restaurador y vigilaba **una**,
+>    y su comentario afirmaba estar verificada quitando la otra. Era falso: al
+>    quitarla, el `match` del preflight seguía nombrando la variante. Ahora cada
+>    puerta se busca por lo que la distingue.
+>
+> **Una afirmación de verificación es una afirmación como cualquier otra**, y en
+> este proyecto llevan tres entregas siendo las que más veces resultan falsas.
+
+> **Y un error mío de herramienta, que costó trabajo rehecho:** un
+> `git checkout` dentro de un bucle de rupturas revirtió `formato_de_respaldo.rs`
+> **entero** —no sólo la ruptura—, y se llevó el alcance nuevo y sus tres
+> pruebas. Para restaurar una ruptura se usa una copia del archivo hecha antes,
+> nunca `git checkout` sobre un archivo con trabajo sin confirmar.
+
 **Para una demostración real** con correo y WhatsApp que llegan de verdad:
 `documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md`.
 

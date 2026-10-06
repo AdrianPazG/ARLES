@@ -150,6 +150,36 @@ pub enum DbError {
     #[error("este respaldo no encaja con esta versión de ARLES: {motivo}")]
     RespaldoNoEncaja { motivo: String },
 
+    /// El archivo elegido es un **archivo de historial**, no un respaldo, y por
+    /// eso no se restaura (D-8D, entrega 8.3 bis).
+    ///
+    /// ── POR QUÉ ES UN ERROR APARTE Y NO UN `RespaldoNoEncaja` ──
+    ///
+    /// Los dos impiden restaurar, pero mandan a hacer cosas distintas, que es
+    /// el mismo motivo por el que la 8.1 partió su error en tres. «No encaja»
+    /// dice *busca otra copia o actualiza ARLES*. Esto dice *el archivo está
+    /// bien y es de ARLES; lo que pasa es que un archivo de historial no sirve
+    /// para recuperar la base, sirve para consultar envíos viejos*.
+    ///
+    /// Y lo que está en juego si se confundieran: restaurar un archivo de
+    /// historial reemplazaría la base entera por un año de envíos — los
+    /// contactos, las bajas y las campañas se irían. Mandar a alguien a
+    /// «probar otra copia» ante este error sería mandarlo a repetir el intento.
+    #[error("esto es un archivo de historial, no un respaldo: no se puede restaurar")]
+    EsoEsUnArchivoDeHistorial,
+
+    /// El historial de la base cambió entre archivarlo y borrarlo, así que
+    /// **no se borra nada** (segunda condición de D-8D).
+    ///
+    /// El motor escribe en su propio hilo (§51): entre que se escribió el
+    /// archivo y que alguien confirmó el borrado pueden haber entrado intentos
+    /// nuevos con fecha anterior al corte —un envío que se quedó en cola—.
+    /// Borrar «lo que haya ahora» se llevaría filas que el archivo no tiene.
+    #[error(
+        "el historial cambió desde que se escribió el archivo: había {archivadas} filas y ahora hay {ahora}"
+    )]
+    ElHistorialCambio { archivadas: u64, ahora: u64 },
+
     #[error("error de SQLite: {0}")]
     Sqlite(#[from] rusqlite::Error),
 }
@@ -175,6 +205,8 @@ impl DbError {
             Self::SupresionNoSeLevanta { .. } => "error.db.supresion_no_se_levanta",
             Self::EsquemaNoSeDejaRespaldar { .. } => "error.db.esquema_no_se_deja_respaldar",
             Self::RespaldoNoEncaja { .. } => "error.db.respaldo_no_encaja",
+            Self::EsoEsUnArchivoDeHistorial => "error.db.eso_es_un_archivo_de_historial",
+            Self::ElHistorialCambio { .. } => "error.db.el_historial_cambio",
             Self::Sqlite(_) => "error.db.sqlite",
         }
     }

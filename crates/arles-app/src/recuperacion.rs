@@ -154,7 +154,7 @@ pub fn revisar_respaldo_para_recuperar(
             .unwrap_or("")
             .to_owned(),
         creado_en: cabecera.creado_en.clone(),
-        alcance: cabecera.alcance.as_str().to_owned(),
+        alcance: cabecera.alcance.as_str(),
         esquema_del_respaldo: cabecera.esquema.clone(),
         esquema_de_la_base,
         lleva_contrasena: cabecera.cifrado.lleva_contrasena(),

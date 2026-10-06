@@ -49,6 +49,11 @@ const CLAVES_DEL_NUCLEO = [
   // defecto nuestro, no del usuario, y por eso el texto no le pide arreglarlo.
   'error.db.esquema_no_se_deja_respaldar',
   'error.db.respaldo_no_encaja',
+  // Entrega 8.3 bis · archivar el historial (D-8D). Son dos y no uno porque
+  // mandan a hacer cosas distintas: uno a elegir otro archivo, el otro a
+  // volver a archivar.
+  'error.db.eso_es_un_archivo_de_historial',
+  'error.db.el_historial_cambio',
   'error.app.respaldo_sin_revisar',
   // arles-app
   'error.app.llavero_no_disponible',
