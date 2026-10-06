@@ -12,6 +12,43 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.3b · Reemplazar la base con un respaldo
+
+#### Lo que cambia para quien usa ARLES
+
+Todavía nada visible: **no hay botón que restaure**. Lo que hay es la pieza que
+reemplaza la base, probada.
+
+**Tus bajas no se pierden nunca.** Al restaurar, la lista de quien pidió no
+recibir se **une** con la del respaldo: lo que había aquí sigue aquí, y lo que
+trae el respaldo se suma. Si alguien está en las dos, queda una sola vez.
+
+**Tus cuentas vuelven pidiendo reconectarse.** El respaldo no lleva contraseñas,
+así que ARLES no finge que siguen conectadas: aparecen con su botón de
+reconectar, como ya sabías.
+
+**Si algo falla a mitad, no pasa nada.** Una restauración interrumpida deja la
+base exactamente como estaba. Está probado cortándola a propósito.
+
+#### Lo que estaba mal y se arregla
+
+**Una baja cuelga de su empresa, y eso casi hace imposible restaurar.** Lo
+encontró la prueba: si el respaldo viene de otra empresa, las bajas de esta base
+quedaban colgando de una empresa que ya no existe y la restauración entera se
+deshacía. Ahora se reapuntan a la empresa que quedó — que en un producto de una
+sola empresa es la misma—, y el error cae siempre del lado de suprimir de más,
+nunca de menos.
+
+#### Lo que cambia por dentro
+
+- `Db::restaurar` · una transacción, vaciado hijos antes que padres, inserción
+  **por nombre de columna** y nunca por posición.
+- La unión de bajas se resuelve en SQL con una tabla temporal, no en memoria, y
+  reinserta con identificadores nuevos para que un choque de claves no se trague
+  una baja en silencio.
+- Un respaldo de otro esquema se rechaza. Es una limitación real: un respaldo
+  tomado antes de una migración futura no se podrá restaurar.
+
 ### 8.3a · Leer un respaldo de vuelta, y lo que una restauración se lleva
 
 #### Lo que cambia para quien usa ARLES

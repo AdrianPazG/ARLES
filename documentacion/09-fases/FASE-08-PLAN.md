@@ -644,7 +644,66 @@ cabecera** a propósito: con 2 GB, leerlo dos veces para enseñar un aviso es
 medio minuto de espera antes de una pantalla. Lo que importa de ese número es
 que **nunca baja**, y eso sí se garantiza.
 
-#### 8.3b · Reemplazar, con la unión de bajas y la pantalla
+#### 8.3b · Reemplazar, con la unión de bajas ✅ **cerrada el 06/10/2026**
+
+`Db::restaurar` en `arles-db/src/restauracion.rs`. Ocho pruebas. **Sigue sin
+haber botón**: los comandos y la pantalla son la 8.3c.
+
+**Entero o nada**, y se prueba **provocando el fallo**: el origen revienta en la
+tercera fila, con la base ya vaciada y dos filas metidas. Sin la transacción ahí
+se quedaría — vacía y a medias. La prueba compara la huella de todas las tablas
+antes y después.
+
+**Las bajas se unen en SQL, no en memoria.** Una tabla temporal guarda las de
+esta base dentro de la misma transacción y al final vuelven con `INSERT OR
+IGNORE`. Leerlas a un `Vec` sería meter la lista entera en RAM justo en la fase
+que evita eso en todo lo demás.
+
+**Y vuelven con un identificador nuevo**, que es un detalle que cuesta una baja
+si se hace mal. Lo que hace única a una baja es (empresa, canal, dirección), no
+su `id`; dos bases generan identificadores aparte y pueden coincidir.
+Reinsertando con el `id` original, el choque sería contra la **clave primaria**
+y el `OR IGNORE` se tragaría la baja **en silencio**. Con `id` nuevo, el
+`OR IGNORE` sólo salta por el índice único: la misma persona en las dos listas,
+que es el caso que sí se quiere ignorar.
+
+> **Una baja cuelga de su empresa, y eso casi rompe D-8C.**
+>
+> Lo encontró la prueba, no el diseño: `suppression_entry` tiene clave ajena a
+> `company`, y `company` también se reemplaza. Si el respaldo trae otro
+> identificador de empresa, las bajas de aquí vuelven apuntando a una empresa
+> que ya no existe, SQLite las rechaza y **la restauración entera se deshace**.
+>
+> De las tres salidas, dos son inaceptables: descartar las bajas huérfanas
+> **pierde bajas**, que es lo único que esta fase existe para impedir; y dejar
+> que falle convierte D-8C en «no se puede restaurar».
+>
+> Así que las bajas que sobreviven se **reapuntan** a la empresa que quedó.
+> ARLES es de una sola empresa, de modo que en el caso real es la misma
+> organización; y en el caso raro —restaurar el respaldo de otra— el error cae
+> del lado seguro: **de más, nunca de menos**. Suprimir de más significa no
+> escribirle a alguien; de menos, escribirle a quien pidió que no.
+>
+> **Y si el respaldo no trae ninguna empresa, se para en vez de restaurar**: sin
+> empresa no hay dónde colgarlas, y perderlas no es una opción.
+
+**Las cuentas vuelven en `needs_reauth`**, nunca en `connected`: el respaldo no
+lleva credenciales (§75), y una cuenta dada por buena sin contraseña haría que
+el motor fallara contacto a contacto gastando el cupo del día.
+
+**Las filas entran por nombre de columna**, nunca por posición, y una columna que
+esta base no tiene **para la restauración** en vez de insertar las que encajen:
+los campos que faltaran se quedarían en su valor por defecto, que para un
+apellido es nulo y para una fecha es basura.
+
+**Un respaldo de otro esquema se rechaza.** Es una limitación real y conviene no
+esconderla: hoy, un respaldo tomado antes de una migración futura **no se podrá
+restaurar**. Restaurarlo exigiría correr las migraciones sobre el propio
+respaldo, que es otra entrega. Entre eso y restaurar «lo que encaje», se para:
+media base restaurada arranca, parece funcionar, y lo que falta se descubre
+semanas después.
+
+#### 8.3c · Los comandos y la pantalla de restaurar
 
 **Qué.** Leer un `.arles`, decir **qué va a pasar**, y sólo entonces hacerlo.
 

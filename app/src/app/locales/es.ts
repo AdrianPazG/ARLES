@@ -1405,6 +1405,14 @@ export const es = {
         como: 'Cierra ARLES y vuelve a abrirlo. Si persiste, restaura tu último respaldo.',
         salvo: 'Se hizo una copia de tu base de datos antes de intentarlo.',
       },
+      respaldo_no_encaja: {
+        // §95: qué pasó, cómo arreglarlo y qué está a salvo. Lo tercero es lo
+        // que importa aquí: quien ve este error acaba de intentar reemplazar
+        // toda su base, y lo primero que necesita saber es que no se tocó.
+        que: 'Este respaldo no encaja con esta versión de ARLES, así que no se restauró nada.',
+        como: 'Comprueba que el archivo sea de esta misma versión. Si lo hiciste con una versión más nueva, actualiza ARLES antes de restaurarlo.',
+        salvo: 'Tus datos están intactos: no se borró ni se cambió una sola fila.',
+      },
       esquema_no_se_deja_respaldar: {
         // No es culpa de quien lo pulsó, y el texto no finge que pueda
         // arreglarlo: pasa cuando la estructura de la base tiene algo que el

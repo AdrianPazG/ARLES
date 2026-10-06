@@ -291,7 +291,7 @@ mod tests {
     use super::*;
     use crate::conexion::ClaveMaestra;
 
-    fn base() -> (tempfile::TempDir, Db) {
+    pub(super) fn base() -> (tempfile::TempDir, Db) {
         let dir = tempfile::tempdir().expect("temporal");
         let clave = ClaveMaestra::generar().expect("genera");
         let db = Db::abrir(&dir.path().join("arles.db"), &clave).expect("abre");
@@ -299,7 +299,7 @@ mod tests {
     }
 
     /// Siembra lo justo para que haya algo que perder en cada tabla que importa.
-    fn sembrar(db: &Db) {
+    pub(super) fn sembrar(db: &Db) {
         db.ejecutar_en_pruebas(|c| {
             c.execute_batch(
                 "INSERT INTO company (id, commercial_name, country, timezone, corporate_email, created_at, updated_at)
@@ -581,5 +581,856 @@ mod tests {
             )
             .expect("preflight");
         assert_eq!(r.cuentas_a_reconectar, 3);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RESTAURAR  ·  entrega 8.3b
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// De dónde salen las filas que se restauran.
+///
+/// Es un rasgo y no un `Vec`, simétrico a [`crate::respaldo::Destino`] y por el
+/// mismo motivo: un `Vec` con medio millón de filas es la base entera en
+/// memoria, que es lo que las 8.2b y 8.3a se tomaron el trabajo de evitar.
+/// Una fila del respaldo: de qué tabla es, y sus valores en el orden que la
+/// cabecera declaró para esa tabla.
+pub type FilaDelRespaldo = (String, Vec<Option<String>>);
+
+pub trait Origen {
+    /// La siguiente fila del respaldo, o `None` cuando se acabó.
+    ///
+    /// # Errores
+    ///
+    /// Lo que falle al leer o al descifrar.
+    fn siguiente(&mut self) -> Result<Option<FilaDelRespaldo>, DbError>;
+}
+
+/// Lo que pasó al restaurar. Con cifras, para poder decirlo (§94).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LoQuePaso {
+    pub filas: u64,
+    pub bajas_antes: u64,
+    pub bajas_despues: u64,
+    /// Cuántas bajas de esta base **no venían** en el respaldo y se
+    /// conservaron. Es la unión de D-8C hecha cifra.
+    pub bajas_que_se_salvaron: u64,
+    pub cuentas_a_reconectar: u64,
+}
+
+impl Db {
+    /// Reemplaza la base con el contenido del respaldo. **Entero o nada.**
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// LAS BAJAS SE UNEN, Y ÉSA ES LA REGLA QUE NO SE NEGOCIA
+    ///
+    /// `suppression_entry` se reemplaza como las demás, así que las bajas de
+    /// **esta** base se borrarían. D-8C dice que se unen, y perder una baja
+    /// significa volver a escribirle a quien pidió que no.
+    ///
+    /// Se resuelve **en SQL y no en memoria**: una tabla temporal guarda las
+    /// bajas de ahora dentro de la misma transacción, y al final vuelven con
+    /// `INSERT OR IGNORE`. Leerlas a un `Vec` sería meter la lista entera en
+    /// RAM justo en la entrega que evita eso en todas las demás.
+    ///
+    /// **Y vuelven con un identificador nuevo.** Lo que hace única a una baja
+    /// es (empresa, canal, dirección), no su `id`. Si una baja del respaldo
+    /// trajera por casualidad el mismo `id` que una de aquí —dos bases
+    /// distintas, dos identificadores generados aparte—, reinsertarla con el
+    /// suyo chocaría contra la clave primaria y el `OR IGNORE` **se la
+    /// tragaría en silencio**: una baja perdida, sin un solo error. Con un `id`
+    /// nuevo, el `OR IGNORE` sólo puede saltar por el índice único, que es el
+    /// caso que sí queremos ignorar: la misma persona en las dos listas.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// LAS CUENTAS VUELVEN SIN CREDENCIALES
+    ///
+    /// El respaldo no las lleva (§75), así que todas entran en `needs_reauth`:
+    /// el estado que ya existe desde la V7 y que la pantalla de Remitentes
+    /// sabe enseñar con su botón. Dejarlas en `connected` sin contraseña haría
+    /// que el motor las tomara por buenas y fallara contacto a contacto.
+    ///
+    /// # Errores
+    ///
+    /// - [`DbError::RespaldoNoEncaja`] si el respaldo es de otro esquema, o
+    ///   declara una tabla o columna que esta base no tiene.
+    /// - [`DbError::Sqlite`] si algo falla al escribir. **La transacción se
+    ///   deshace entera**: la base queda como estaba.
+    pub fn restaurar<O: Origen>(
+        &self,
+        origen: &mut O,
+        esquema_del_respaldo: &str,
+        columnas: &crate::respaldo::ColumnasPorTabla,
+        alcance: Alcance,
+        actor: &str,
+        cuando: &str,
+    ) -> Result<LoQuePaso, DbError> {
+        self.con_dominio(|conn| {
+            let esquema = crate::respaldo::version_del_esquema(conn)?;
+            if esquema != esquema_del_respaldo {
+                // ── POR QUÉ SE PARA EN VEZ DE INTENTARLO ──
+                //
+                // Un respaldo de un esquema anterior necesitaría que las
+                // migraciones corrieran sobre él, y eso es otra entrega. Entre
+                // pararse y restaurar «lo que encaje», se para: media base
+                // restaurada arranca, parece funcionar, y lo que falta se
+                // descubre semanas después.
+                return Err(DbError::RespaldoNoEncaja {
+                    motivo: format!(
+                        "el respaldo es del esquema {esquema_del_respaldo} y esta base va por el {esquema}"
+                    ),
+                });
+            }
+
+            let tx = conn.unchecked_transaction()?;
+            // Con las claves ajenas encendidas: un respaldo manipulado que
+            // traiga un hijo sin su padre tiene que fallar, no entrar a medias.
+            tx.execute_batch("PRAGMA foreign_keys=ON")?;
+
+            let incluidas: Vec<&'static str> = MANIFIESTO
+                .iter()
+                .filter(|e| match alcance {
+                    Alcance::Completo => e.alcance.entra_en_el_completo(),
+                    Alcance::Esencial => e.alcance.entra_en_el_esencial(),
+                })
+                .map(|e| e.tabla)
+                .collect();
+            let orden = crate::respaldo::orden_de_insercion(&tx, &incluidas)?;
+
+            // ── 1 · Las bajas de ahora, a salvo, antes de borrar nada ──
+            let bajas_antes = cuantas(&tx, "suppression_entry")?;
+            tx.execute_batch(
+                "CREATE TEMP TABLE bajas_que_se_quedan AS SELECT * FROM suppression_entry",
+            )?;
+
+            // ── 2 · Vaciar, hijos antes que padres ──
+            for tabla in orden.iter().rev() {
+                tx.execute(&format!("DELETE FROM \"{tabla}\""), [])?;
+            }
+
+            // ── 3 · Meter lo del respaldo, por NOMBRE de columna ──
+            //
+            // Nunca por posición: una migración que mueva una columna metería
+            // el apellido donde va la empresa sin que una sola fila falle. Es
+            // el arreglo que la 8.2b le hizo al formato de la 8.1.
+            let mut filas = 0_u64;
+            let mut bajas_del_respaldo = 0_u64;
+            let mut sentencias: BTreeMap<String, String> = BTreeMap::new();
+            while let Some((tabla, valores)) = origen.siguiente()? {
+                let cols = columnas
+                    .iter()
+                    .find(|(t, _)| *t == tabla)
+                    .map(|(_, c)| c)
+                    .ok_or_else(|| DbError::RespaldoNoEncaja {
+                        motivo: format!("el respaldo trae filas de «{tabla}» sin declarar sus columnas"),
+                    })?;
+                if cols.len() != valores.len() {
+                    return Err(DbError::RespaldoNoEncaja {
+                        motivo: format!(
+                            "una fila de «{tabla}» trae {} valores y la cabecera declara {} columnas",
+                            valores.len(),
+                            cols.len()
+                        ),
+                    });
+                }
+                let sql = match sentencias.get(&tabla) {
+                    Some(s) => s.clone(),
+                    None => {
+                        comprobar_que_encajan(&tx, &tabla, cols)?;
+                        let nombres = cols
+                            .iter()
+                            .map(|c| format!("\"{c}\""))
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        let huecos = vec!["?"; cols.len()].join(", ");
+                        let s = format!("INSERT INTO \"{tabla}\" ({nombres}) VALUES ({huecos})");
+                        sentencias.insert(tabla.clone(), s.clone());
+                        s
+                    }
+                };
+                tx.execute(&sql, rusqlite::params_from_iter(valores.iter()))?;
+                filas += 1;
+                if tabla == "suppression_entry" {
+                    bajas_del_respaldo += 1;
+                }
+            }
+
+            // ── 4 · Las bajas vuelven, unidas ──
+            //
+            // ── UNA BAJA CUELGA DE SU EMPRESA, Y ESO COMPLICA LA UNIÓN ──
+            //
+            // Lo encontró la prueba el 06/10/2026: `suppression_entry` tiene
+            // una clave ajena a `company`, y `company` también se reemplaza. Si
+            // el respaldo trae otro identificador de empresa, las bajas de aquí
+            // vuelven apuntando a una empresa que **ya no existe** y SQLite las
+            // rechaza. La restauración entera se deshace y nadie puede
+            // restaurar nada.
+            //
+            // De las tres salidas, dos son inaceptables:
+            //
+            // - Descartar las bajas huérfanas **pierde bajas**, que es la única
+            //   cosa que esta fase existe para impedir.
+            // - Dejar que falle convierte D-8C en «no se puede restaurar».
+            //
+            // Así que las bajas que sobreviven se **reapuntan** a la empresa que
+            // quedó. ARLES es de una sola empresa —hay una fila en `company`—,
+            // de modo que en el caso real es la misma organización. Y en el caso
+            // raro —restaurar el respaldo de otra— el error cae del lado seguro:
+            // de más, nunca de menos. Suprimir a alguien de más significa no
+            // escribirle; de menos significa escribirle a quien pidió que no.
+            let cols_de_baja = columnas_de(&tx, "suppression_entry")?;
+            let empresa_que_queda: Option<String> = tx
+                .query_row("SELECT id FROM company LIMIT 1", [], |f| f.get(0))
+                .ok();
+            if bajas_antes > 0 && empresa_que_queda.is_none() {
+                // Sin empresa no hay dónde colgarlas, y perderlas no es una
+                // opción: se para antes de hacerlo.
+                return Err(DbError::RespaldoNoEncaja {
+                    motivo: format!(
+                        "este respaldo no trae ninguna empresa, y esta base tiene {bajas_antes} bajas que se perderían"
+                    ),
+                });
+            }
+            let seleccion = cols_de_baja
+                .iter()
+                .filter(|c| *c != "id")
+                .map(|c| {
+                    if c == "company_id" {
+                        "?1".to_owned()
+                    } else {
+                        format!("\"{c}\"")
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            let sin_id = cols_de_baja
+                .iter()
+                .filter(|c| *c != "id")
+                .map(|c| format!("\"{c}\""))
+                .collect::<Vec<_>>()
+                .join(", ");
+            tx.execute(
+                &format!(
+                    "INSERT OR IGNORE INTO suppression_entry (id, {sin_id})
+                       SELECT lower(hex(randomblob(16))), {seleccion} FROM bajas_que_se_quedan"
+                ),
+                rusqlite::params![empresa_que_queda],
+            )?;
+            let bajas_despues = cuantas(&tx, "suppression_entry")?;
+            tx.execute_batch("DROP TABLE bajas_que_se_quedan")?;
+
+            // ── 5 · Las cuentas, a reconectar ──
+            let mut cuentas_a_reconectar = 0_u64;
+            for tabla in ["email_account", "whatsapp_account"] {
+                if orden.contains(&tabla) {
+                    cuentas_a_reconectar += u64::from(
+                        tx.execute(
+                            &format!("UPDATE \"{tabla}\" SET status = 'needs_reauth'"),
+                            [],
+                        )?
+                        .try_into()
+                        .unwrap_or(u32::MAX),
+                    );
+                }
+            }
+
+            // ── 6 · Y queda escrito ──
+            //
+            // `audit_log` no cuelga de `company`, así que la cascada no se lo
+            // lleva y esta anotación sobrevive a su propia restauración. En el
+            // alcance completo el respaldo lo reemplaza, y esta fila se escribe
+            // después: la última línea de la bitácora dice de dónde salió todo
+            // lo anterior.
+            let empresa: Option<String> = tx
+                .query_row("SELECT id FROM company LIMIT 1", [], |f| f.get(0))
+                .ok();
+            tx.execute(
+                "INSERT INTO audit_log (id, company_id, actor, action, entity_kind, details, created_at)
+                   VALUES (lower(hex(randomblob(16))), ?1, ?2, 'respaldo.restaurado', 'respaldo', ?3, ?4)",
+                rusqlite::params![
+                    empresa.unwrap_or_else(|| "desconocida".to_owned()),
+                    actor,
+                    // Sin la ruta del archivo: diría de qué equipo salió.
+                    format!(
+                        "alcance={} filas={filas} bajas_antes={bajas_antes} bajas_despues={bajas_despues} cuentas={cuentas_a_reconectar}",
+                        alcance.as_str()
+                    ),
+                    cuando,
+                ],
+            )?;
+
+            tx.commit()?;
+            Ok(LoQuePaso {
+                filas,
+                bajas_antes,
+                bajas_despues,
+                // Las que quedaron menos las que trajo el respaldo: las que
+                // sólo existían aquí y la unión conservó.
+                bajas_que_se_salvaron: bajas_despues.saturating_sub(bajas_del_respaldo),
+                cuentas_a_reconectar,
+            })
+        })
+    }
+}
+
+/// Las columnas que la base tiene para esta tabla, en su orden.
+fn columnas_de(conn: &Connection, tabla: &str) -> Result<Vec<String>, DbError> {
+    let mut s = conn.prepare(&format!("PRAGMA table_info(\"{tabla}\")"))?;
+    let cols = s
+        .query_map([], |f| f.get::<_, String>("name"))?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(cols)
+}
+
+/// Comprueba que las columnas que el respaldo declara existen aquí.
+///
+/// Si no, se para: insertar las que encajen dejaría los campos que faltan en su
+/// valor por defecto, que para un apellido es nulo y para una fecha es basura.
+fn comprobar_que_encajan(
+    conn: &Connection,
+    tabla: &str,
+    declaradas: &[String],
+) -> Result<(), DbError> {
+    let aqui: BTreeSet<String> = columnas_de(conn, tabla)?.into_iter().collect();
+    if aqui.is_empty() {
+        return Err(DbError::RespaldoNoEncaja {
+            motivo: format!("el respaldo trae la tabla «{tabla}», que esta base no tiene"),
+        });
+    }
+    if let Some(falta) = declaradas.iter().find(|c| !aqui.contains(*c)) {
+        return Err(DbError::RespaldoNoEncaja {
+            motivo: format!(
+                "el respaldo trae la columna «{tabla}.{falta}», que esta base no tiene"
+            ),
+        });
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests_de_restaurar {
+    use super::tests::{base, sembrar};
+    use super::*;
+
+    /// Un origen de mentira: las filas que se le den, en ese orden.
+    struct Filas {
+        pendientes: std::collections::VecDeque<FilaDelRespaldo>,
+        /// Si está puesto, falla al llegar a esa fila. Es lo que permite
+        /// provocar el corte a mitad en vez de suponerlo.
+        falla_en: Option<usize>,
+        entregadas: usize,
+    }
+
+    impl Filas {
+        fn de(v: Vec<(&str, Vec<Option<&str>>)>) -> Self {
+            Self {
+                pendientes: v
+                    .into_iter()
+                    .map(|(t, c)| {
+                        (
+                            t.to_owned(),
+                            c.into_iter().map(|x| x.map(str::to_owned)).collect(),
+                        )
+                    })
+                    .collect(),
+                falla_en: None,
+                entregadas: 0,
+            }
+        }
+        fn que_falla_en(mut self, n: usize) -> Self {
+            self.falla_en = Some(n);
+            self
+        }
+    }
+
+    impl Origen for Filas {
+        fn siguiente(&mut self) -> Result<Option<FilaDelRespaldo>, DbError> {
+            if self.falla_en == Some(self.entregadas) {
+                // Un archivo cortado, un disco que se desconecta, una
+                // contraseña que deja de abrir a mitad del cuerpo.
+                return Err(DbError::RespaldoNoEncaja {
+                    motivo: "se cortó la lectura del respaldo".to_owned(),
+                });
+            }
+            self.entregadas += 1;
+            Ok(self.pendientes.pop_front())
+        }
+    }
+
+    fn columnas(v: &[(&str, &[&str])]) -> crate::respaldo::ColumnasPorTabla {
+        v.iter()
+            .map(|(t, c)| {
+                (
+                    (*t).to_owned(),
+                    c.iter().map(|x| (*x).to_owned()).collect::<Vec<_>>(),
+                )
+            })
+            .collect()
+    }
+
+    const COLS_EMPRESA: &[&str] = &[
+        "id",
+        "commercial_name",
+        "country",
+        "timezone",
+        "corporate_email",
+        "created_at",
+        "updated_at",
+    ];
+    const COLS_BAJA: &[&str] = &[
+        "id",
+        "company_id",
+        "channel",
+        "address_normalized",
+        "scope",
+        "reason",
+        "origin",
+        "created_at",
+    ];
+
+    fn empresa(id: &str) -> (&'static str, Vec<Option<&'static str>>) {
+        // Las cadenas son `'static` para no complicar el molde; el id va fijo.
+        assert_eq!(id, "E9", "este molde sólo sirve para la empresa E9");
+        (
+            "company",
+            vec![
+                Some("E9"),
+                Some("Otra Empresa"),
+                Some("MX"),
+                Some("America/Mexico_City"),
+                Some("otra@empresa.mx"),
+                Some("2026-04-01T00:00:00Z"),
+                Some("2026-04-01T00:00:00Z"),
+            ],
+        )
+    }
+
+    fn todas_las_columnas(db: &Db, tablas: &[&str]) -> crate::respaldo::ColumnasPorTabla {
+        db.ejecutar_en_pruebas(|c| {
+            Ok(tablas
+                .iter()
+                .map(|t| ((*t).to_owned(), columnas_de(c, t).expect("columnas")))
+                .collect())
+        })
+        .expect("columnas")
+    }
+
+    /// **Las bajas de esta base sobreviven a la restauración.**
+    ///
+    /// Es la regla que no se negocia de la fase: `suppression_entry` se
+    /// reemplaza como las demás, así que sin la unión las bajas de aquí se
+    /// borrarían — y perder una baja significa volver a escribirle a quien
+    /// pidió que no.
+    ///
+    /// Verificada el 06/10/2026 quitando el `INSERT OR IGNORE` del final: la
+    /// baja de esta base desaparece y la prueba la nombra.
+    #[test]
+    fn las_bajas_de_aqui_sobreviven() {
+        let (_d, db) = base();
+        sembrar(&db); // deja 'quien@no.quiere' en la empresa E1
+
+        let cols = columnas(&[("company", COLS_EMPRESA), ("suppression_entry", COLS_BAJA)]);
+        let mut origen = Filas::de(vec![
+            empresa("E9"),
+            (
+                "suppression_entry",
+                vec![
+                    Some("S9"),
+                    Some("E9"),
+                    Some("email"),
+                    Some("otra@no.quiere"),
+                    Some("global"),
+                    Some("unsubscribe"),
+                    Some("user"),
+                    Some("2026-04-02T00:00:00Z"),
+                ],
+            ),
+        ]);
+
+        let r = db
+            .restaurar(
+                &mut origen,
+                "V10",
+                &cols,
+                Alcance::Esencial,
+                "dirección",
+                "2026-04-03T10:00:00Z",
+            )
+            .expect("restaura");
+
+        assert_eq!(r.bajas_antes, 1);
+        assert_eq!(r.bajas_despues, 2, "la baja de aquí y la del respaldo");
+        assert_eq!(r.bajas_que_se_salvaron, 1);
+
+        let direcciones: Vec<String> = db
+            .ejecutar_en_pruebas(|c| {
+                let mut s =
+                    c.prepare("SELECT address_normalized FROM suppression_entry ORDER BY 1")?;
+                s.query_map([], |f| f.get(0))?
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .expect("lee");
+        assert!(
+            direcciones.contains(&"quien@no.quiere".to_owned()),
+            "se perdió una baja de esta base: {direcciones:?}"
+        );
+        assert!(direcciones.contains(&"otra@no.quiere".to_owned()));
+    }
+
+    /// **Una baja con el mismo identificador no se traga a la de aquí.**
+    ///
+    /// Lo que hace única a una baja es (empresa, canal, dirección), no su `id`.
+    /// Dos bases distintas generan identificadores aparte, así que pueden
+    /// coincidir. Si la baja de aquí volviera con su `id` original, chocaría
+    /// contra la clave primaria de la del respaldo y el `OR IGNORE` **se la
+    /// tragaría en silencio**: una baja perdida, sin un solo error.
+    ///
+    /// Verificada el 06/10/2026 reinsertando con el `id` original en vez de uno
+    /// nuevo: la baja de esta base desaparece y la prueba falla.
+    #[test]
+    fn una_baja_con_el_mismo_id_no_se_come_a_la_de_aqui() {
+        let (_d, db) = base();
+        sembrar(&db);
+        // La baja de aquí se llama S1 (ver `sembrar`). El respaldo trae OTRA
+        // dirección con ESE MISMO id.
+        let cols = columnas(&[("company", COLS_EMPRESA), ("suppression_entry", COLS_BAJA)]);
+        let mut origen = Filas::de(vec![
+            empresa("E9"),
+            (
+                "suppression_entry",
+                vec![
+                    Some("S1"),
+                    Some("E9"),
+                    Some("email"),
+                    Some("distinta@no.quiere"),
+                    Some("global"),
+                    Some("unsubscribe"),
+                    Some("user"),
+                    Some("2026-04-02T00:00:00Z"),
+                ],
+            ),
+        ]);
+
+        let r = db
+            .restaurar(
+                &mut origen,
+                "V10",
+                &cols,
+                Alcance::Esencial,
+                "dirección",
+                "2026-04-03T10:00:00Z",
+            )
+            .expect("restaura");
+        assert_eq!(
+            r.bajas_despues, 2,
+            "un id repetido se comió una baja: quedaron {} de 2",
+            r.bajas_despues
+        );
+    }
+
+    /// **La misma persona en las dos listas no se duplica.**
+    ///
+    /// La otra mitad de la unión: `OR IGNORE` tiene que seguir saltando por el
+    /// índice único.
+    #[test]
+    fn la_misma_baja_en_las_dos_listas_no_se_duplica() {
+        let (_d, db) = base();
+        sembrar(&db);
+        let cols = columnas(&[("company", COLS_EMPRESA), ("suppression_entry", COLS_BAJA)]);
+        // Mismo canal y misma dirección que la de aquí, pero en la empresa que
+        // trae el respaldo — que es la misma fila de company reemplazada.
+        let mut origen = Filas::de(vec![
+            (
+                "company",
+                vec![
+                    Some("E1"),
+                    Some("Telemetry"),
+                    Some("MX"),
+                    Some("America/Mexico_City"),
+                    Some("hola@telemetry.mx"),
+                    Some("2026-01-01T00:00:00Z"),
+                    Some("2026-01-01T00:00:00Z"),
+                ],
+            ),
+            (
+                "suppression_entry",
+                vec![
+                    Some("OTRO"),
+                    Some("E1"),
+                    Some("email"),
+                    Some("quien@no.quiere"),
+                    Some("global"),
+                    Some("unsubscribe"),
+                    Some("user"),
+                    Some("2026-04-02T00:00:00Z"),
+                ],
+            ),
+        ]);
+        let r = db
+            .restaurar(
+                &mut origen,
+                "V10",
+                &cols,
+                Alcance::Esencial,
+                "dirección",
+                "2026-04-03T10:00:00Z",
+            )
+            .expect("restaura");
+        assert_eq!(r.bajas_despues, 1, "la misma persona quedó dos veces");
+        assert_eq!(r.bajas_que_se_salvaron, 0);
+    }
+
+    /// **Una restauración cortada a mitad deja la base como estaba.**
+    ///
+    /// «Entero o nada» de D-8C. **Se provoca el fallo**, no se supone: el
+    /// origen revienta en la tercera fila, con la base ya vaciada y dos filas
+    /// metidas. Sin la transacción, ahí se quedaría — vacía y a medias.
+    ///
+    /// Verificada el 06/10/2026 cambiando el `?` del bucle por un `break`: la
+    /// restauración «termina bien» con la base medio llena y la prueba falla al
+    /// comparar la huella.
+    #[test]
+    fn una_restauracion_cortada_no_deja_rastro() {
+        let (_d, db) = base();
+        sembrar(&db);
+
+        let huella = |db: &Db| -> Vec<(String, i64)> {
+            db.ejecutar_en_pruebas(|c| {
+                let mut s =
+                    c.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")?;
+                let tablas = s
+                    .query_map([], |f| f.get::<_, String>(0))?
+                    .collect::<Result<Vec<_>, _>>()?;
+                let mut salida: Vec<(String, i64)> = Vec::new();
+                for t in tablas {
+                    let n: i64 =
+                        c.query_row(&format!("SELECT count(*) FROM \"{t}\""), [], |f| f.get(0))?;
+                    salida.push((t, n));
+                }
+                Ok(salida)
+            })
+            .expect("huella")
+        };
+
+        let antes = huella(&db);
+        let cols = columnas(&[("company", COLS_EMPRESA), ("suppression_entry", COLS_BAJA)]);
+        let mut origen = Filas::de(vec![
+            empresa("E9"),
+            (
+                "suppression_entry",
+                vec![
+                    Some("S9"),
+                    Some("E9"),
+                    Some("email"),
+                    Some("otra@no.quiere"),
+                    Some("global"),
+                    Some("unsubscribe"),
+                    Some("user"),
+                    Some("2026-04-02T00:00:00Z"),
+                ],
+            ),
+            empresa("E9"),
+        ])
+        .que_falla_en(2);
+
+        let r = db.restaurar(
+            &mut origen,
+            "V10",
+            &cols,
+            Alcance::Esencial,
+            "dirección",
+            "2026-04-03T10:00:00Z",
+        );
+        assert!(r.is_err(), "una restauración cortada terminó bien");
+        assert_eq!(
+            antes,
+            huella(&db),
+            "la base no volvió a como estaba tras un corte a mitad"
+        );
+    }
+
+    /// **Las cuentas vuelven pidiendo reconectarse, nunca como conectadas.**
+    ///
+    /// El respaldo no lleva credenciales (§75). Una cuenta restaurada en
+    /// `connected` sin contraseña haría que el motor la tomara por buena y
+    /// fallara contacto a contacto, gastando el cupo del día.
+    ///
+    /// Verificada el 06/10/2026 quitando el `UPDATE`: la cuenta vuelve como
+    /// `connected` y la prueba la nombra.
+    #[test]
+    fn las_cuentas_vuelven_pidiendo_reconectarse() {
+        let (_d, db) = base();
+        sembrar(&db);
+        let cols = todas_las_columnas(&db, &["company", "email_account"]);
+        let valores_cuenta: Vec<Option<&str>> = cols
+            .iter()
+            .find(|(t, _)| t == "email_account")
+            .expect("email_account")
+            .1
+            .iter()
+            .map(|c| match c.as_str() {
+                "id" => Some("C9"),
+                "company_id" => Some("E9"),
+                // Viene como conectada a propósito: es lo que haría un respaldo
+                // tomado con la cuenta funcionando, y lo que la restauración
+                // tiene que cambiar.
+                "status" => Some("connected"),
+                "created_at" | "updated_at" => Some("2026-04-01T00:00:00Z"),
+                "display_name" => Some("Telemetry"),
+                "email_address" => Some("hola@telemetry.mx"),
+                "provider_kind" => Some("smtp"),
+                "credential_ref" => Some("llavero:C9"),
+                "daily_limit" => Some("500"),
+                "hourly_limit" => Some("50"),
+                "consecutive_failures" => Some("0"),
+                "smtp_host" => Some("smtp.telemetry.mx"),
+                "smtp_port" => Some("587"),
+                "smtp_security" => Some("starttls"),
+                "smtp_username" => Some("hola@telemetry.mx"),
+                _ => None,
+            })
+            .collect();
+
+        // La empresa, con TODAS las columnas que la cabecera declara: el molde
+        // corto de arriba sirve para un respaldo de siete columnas, no para
+        // éste.
+        let valores_empresa: Vec<Option<&str>> = cols
+            .iter()
+            .find(|(t, _)| t == "company")
+            .expect("company")
+            .1
+            .iter()
+            .map(|c| match c.as_str() {
+                "id" => Some("E9"),
+                "commercial_name" => Some("Otra Empresa"),
+                "country" => Some("MX"),
+                "timezone" => Some("America/Mexico_City"),
+                "corporate_email" => Some("otra@empresa.mx"),
+                "created_at" | "updated_at" => Some("2026-04-01T00:00:00Z"),
+                _ => None,
+            })
+            .collect();
+
+        let mut origen = Filas::de(vec![
+            ("company", valores_empresa),
+            ("email_account", valores_cuenta),
+        ]);
+        let r = db
+            .restaurar(
+                &mut origen,
+                "V10",
+                &cols,
+                Alcance::Esencial,
+                "dirección",
+                "2026-04-03T10:00:00Z",
+            )
+            .expect("restaura");
+        assert_eq!(r.cuentas_a_reconectar, 1);
+
+        let estado: String = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row("SELECT status FROM email_account WHERE id='C9'", [], |f| {
+                    f.get(0)
+                })
+            })
+            .expect("lee");
+        let estado: String = estado;
+        assert_eq!(
+            estado, "needs_reauth",
+            "la cuenta volvió como «{estado}»: el motor la daría por buena sin contraseña"
+        );
+    }
+
+    /// **Un respaldo de otro esquema no se restaura a medias: no se restaura.**
+    #[test]
+    fn un_respaldo_de_otro_esquema_se_rechaza() {
+        let (_d, db) = base();
+        sembrar(&db);
+        let cols = columnas(&[("company", COLS_EMPRESA)]);
+        let mut origen = Filas::de(vec![empresa("E9")]);
+        let r = db.restaurar(
+            &mut origen,
+            "V9",
+            &cols,
+            Alcance::Esencial,
+            "dirección",
+            "2026-04-03T10:00:00Z",
+        );
+        assert!(matches!(r, Err(DbError::RespaldoNoEncaja { .. })), "{r:?}");
+        // Y no tocó nada.
+        assert_eq!(
+            db.ejecutar_en_pruebas(
+                |c| c.query_row("SELECT count(*) FROM company", [], |f| f.get::<_, i64>(0))
+            )
+            .expect("cuenta"),
+            1
+        );
+    }
+
+    /// **Una columna que esta base no tiene para la restauración**, en vez de
+    /// insertar las que encajen.
+    ///
+    /// Insertar «lo que encaje» dejaría los campos que faltan en su valor por
+    /// defecto: nulo para un apellido, basura para una fecha.
+    #[test]
+    fn una_columna_que_no_existe_para_la_restauracion() {
+        let (_d, db) = base();
+        let cols = columnas(&[("company", &["id", "commercial_name", "color_favorito"])]);
+        let mut origen = Filas::de(vec![(
+            "company",
+            vec![Some("E9"), Some("Otra"), Some("azul")],
+        )]);
+        let r = db.restaurar(
+            &mut origen,
+            "V10",
+            &cols,
+            Alcance::Esencial,
+            "dirección",
+            "2026-04-03T10:00:00Z",
+        );
+        match r {
+            Err(DbError::RespaldoNoEncaja { motivo }) => {
+                assert!(motivo.contains("color_favorito"), "{motivo}");
+            }
+            otro => panic!("se restauró con una columna inventada: {otro:?}"),
+        }
+    }
+
+    /// Queda escrito en la bitácora, **sin la ruta del archivo**.
+    ///
+    /// La ruta diría de qué equipo y de qué carpeta salió el respaldo, que es
+    /// justo lo que la regla 4 de la frontera evita en toda la aplicación.
+    #[test]
+    fn la_restauracion_queda_en_la_bitacora_sin_la_ruta() {
+        let (_d, db) = base();
+        sembrar(&db);
+        let cols = columnas(&[("company", COLS_EMPRESA)]);
+        let mut origen = Filas::de(vec![empresa("E9")]);
+        db.restaurar(
+            &mut origen,
+            "V10",
+            &cols,
+            Alcance::Esencial,
+            "dirección",
+            "2026-04-03T10:00:00Z",
+        )
+        .expect("restaura");
+
+        let (accion, detalles): (String, String) = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row(
+                    "SELECT action, details FROM audit_log ORDER BY created_at DESC LIMIT 1",
+                    [],
+                    |f| Ok((f.get(0)?, f.get(1)?)),
+                )
+            })
+            .expect("bitácora");
+        assert_eq!(accion, "respaldo.restaurado");
+        assert!(detalles.contains("alcance=esencial"), "{detalles}");
+        assert!(detalles.contains("filas=1"), "{detalles}");
+        assert!(
+            !detalles.contains('/') && !detalles.contains('\\'),
+            "la bitácora lleva una ruta: {detalles}"
+        );
     }
 }

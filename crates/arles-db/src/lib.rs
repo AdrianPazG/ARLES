@@ -58,7 +58,9 @@ pub use respaldo::{
     ColumnasPorTabla, Destino, FILAS_POR_AVISO, Inventario, QueSeLleva, RecuentoPorTabla,
     TablaDelRespaldo,
 };
-pub use restauracion::{ComparacionDeTabla, LoQuePasaria, SeVaPorCascada};
+pub use restauracion::{
+    ComparacionDeTabla, FilaDelRespaldo, LoQuePasaria, LoQuePaso, Origen, SeVaPorCascada,
+};
 pub use revision::LoQueSabeLaBase;
 pub use supresion::{MAX_SUPRESIONES_POR_PAGINA, ResumenDeSupresion, SupresionGuardada};
 pub use ventanas::VentanaGuardada;

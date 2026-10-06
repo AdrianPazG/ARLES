@@ -48,6 +48,7 @@ const CLAVES_DEL_NUCLEO = [
   // Entrega 8.2b · el esquema tiene algo que un respaldo no sabe llevar. Es un
   // defecto nuestro, no del usuario, y por eso el texto no le pide arreglarlo.
   'error.db.esquema_no_se_deja_respaldar',
+  'error.db.respaldo_no_encaja',
   // arles-app
   'error.app.llavero_no_disponible',
   'error.app.clave_maestra_perdida',

@@ -546,9 +546,40 @@ pruebas. **Todavía no se restaura nada**: eso es la 8.3b.
 > leer el cuerpo entero; el preflight lee sólo la cabecera a propósito. Lo que
 > importa es que ese número **nunca baja**.
 
-> **Lo que todavía NO hace:** **no se puede restaurar**. Se escribe un respaldo,
-> se puede abrir y se puede decir qué pasaría — y no hay botón que lo haga.
-> Eso es la 8.3b.
+**Cerrada la 8.3b · reemplazar, con la unión de bajas** (`Db::restaurar`). Ocho
+pruebas. **Sigue sin haber botón**: los comandos y la pantalla son la 8.3c.
+
+> **Entero o nada, probado provocando el fallo**: el origen revienta en la
+> tercera fila, con la base ya vaciada y dos filas metidas, y la prueba compara
+> la huella de todas las tablas antes y después.
+
+> **Las bajas se unen en SQL, no en memoria** —una tabla temporal dentro de la
+> misma transacción—, y vuelven con un **identificador nuevo**. Lo que hace
+> única a una baja es (empresa, canal, dirección), no su `id`: reinsertando con
+> el original, el choque sería contra la clave primaria y el `OR IGNORE` se
+> **tragaría la baja en silencio**.
+
+> **Una baja cuelga de su empresa, y eso casi rompe D-8C.** Lo encontró la
+> prueba, no el diseño: `suppression_entry` tiene clave ajena a `company`, que
+> también se reemplaza. Si el respaldo trae otra empresa, las bajas de aquí
+> apuntan a una que ya no existe y **la restauración entera se deshace**.
+> Descartarlas pierde bajas; dejar que falle convierte D-8C en «no se puede
+> restaurar». Así que se **reapuntan** a la empresa que quedó: ARLES es de una
+> sola empresa, y en el caso raro el error cae del lado seguro —de más, nunca de
+> menos—. Si el respaldo no trae ninguna empresa, **se para**.
+
+> **Las cuentas vuelven en `needs_reauth`**, y las filas entran **por nombre de
+> columna**; una columna que esta base no tiene para la restauración en vez de
+> insertar las que encajen.
+
+> **Un respaldo de otro esquema se rechaza, y es una limitación real.** Hoy, un
+> respaldo tomado antes de una migración futura **no se podrá restaurar**: haría
+> falta correr las migraciones sobre el propio respaldo, que es otra entrega.
+> Entre eso y restaurar «lo que encaje», se para.
+
+> **Lo que todavía NO hace:** **no hay botón que restaure**. La base sabe
+> hacerlo, probado; nadie lo llama. Es el patrón del §9 otra vez, abierto a
+> propósito y con fecha: la 8.3c.
 
 > **El agujero que ordena esa fase, y conviene saberlo antes de tocar nada.**
 > La base está cifrada con SQLCipher y la clave vive **sólo** en el llavero

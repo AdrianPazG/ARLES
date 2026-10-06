@@ -137,6 +137,19 @@ pub enum DbError {
     #[error("el esquema de esta base tiene algo que un respaldo no puede llevar: {motivo}")]
     EsquemaNoSeDejaRespaldar { motivo: &'static str },
 
+    /// El respaldo no encaja con el esquema de esta base, así que **no se
+    /// restaura**.
+    ///
+    /// Pasa cuando el respaldo es de otra versión del esquema, cuando declara
+    /// una tabla o una columna que esta base no tiene, o cuando la cabecera
+    /// promete unas filas y el cuerpo trae otras.
+    ///
+    /// **Se para en vez de restaurar lo que encaje.** Media base restaurada es
+    /// peor que ninguna: la aplicación arranca, parece funcionar, y lo que
+    /// falta se descubre semanas después sin saber desde cuándo.
+    #[error("este respaldo no encaja con esta versión de ARLES: {motivo}")]
+    RespaldoNoEncaja { motivo: String },
+
     #[error("error de SQLite: {0}")]
     Sqlite(#[from] rusqlite::Error),
 }
@@ -161,6 +174,7 @@ impl DbError {
             Self::Nucleo(e) => e.clave_i18n(),
             Self::SupresionNoSeLevanta { .. } => "error.db.supresion_no_se_levanta",
             Self::EsquemaNoSeDejaRespaldar { .. } => "error.db.esquema_no_se_deja_respaldar",
+            Self::RespaldoNoEncaja { .. } => "error.db.respaldo_no_encaja",
             Self::Sqlite(_) => "error.db.sqlite",
         }
     }
