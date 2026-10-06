@@ -4877,6 +4877,55 @@ def el_exportador_tiene_quien_lo_llame():
     )
 
 
+def el_preflight_dice_lo_que_no_vuelve():
+    """**Restaurar se lleva cosas por cascada, y hay que decirlas.**
+
+    D-8C dice «reemplazar, nunca mezclar», y suena a que cada tabla del respaldo
+    sustituye a la suya y lo demás se queda igual. Medido el 06/10/2026 sobre el
+    esquema V10, **no es lo que pasa**: `company` se reemplaza en los dos
+    alcances y casi todo cuelga de ella con `ON DELETE CASCADE`, así que
+    restaurar un respaldo esencial se lleva también `activity_event` y
+    `whatsapp_quality_event` — que son `SoloCompleto` y **no vuelven**.
+
+    Es el mismo fallo que en la Fase 1 costó la audiencia congelada y el
+    registro de envíos (F1). La diferencia es que ahora se dice antes, con
+    cifras, como el recorte del registro de la 7.4.
+
+    Lo que esta comprobación vigila es que el cálculo siga leyendo **el
+    esquema** —`PRAGMA foreign_key_list`— y no una lista a mano, que es lo que
+    envejece en silencio. La exactitud del cálculo la comprueba
+    `la_cascada_calculada_es_la_que_ejecuta_sqlite` en `arles-db`, borrando de
+    verdad dentro de una transacción que se deshace.
+
+    Verificada el 06/10/2026 sustituyendo el cierre por una lista fija: falla
+    nombrando la lista.
+    """
+    fuente = leer("crates/arles-db/src/restauracion.rs") or ""
+    assert fuente, "no existe crates/arles-db/src/restauracion.rs"
+
+    codigo = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", fuente, flags=re.S))
+
+    lee_el_esquema = "foreign_key_list" in codigo and "sqlite_master" in codigo
+    # Una lista a mano de tablas arrastradas sería un arreglo de literales.
+    a_mano = re.findall(
+        r'(?:&?\[)\s*"(?:activity_event|whatsapp_quality_event|rate_budget|engine_control)"',
+        codigo,
+    )
+    dice_el_minimo = "bajas_al_menos" in codigo and ".max(" in codigo
+
+    check(
+        8,
+        "el preflight dice lo que no vuelve, leyendo el esquema",
+        lee_el_esquema and not a_mano and dice_el_minimo,
+        el_preflight_dice_lo_que_no_vuelve.__doc__,
+        detalle=(
+            f"lee las claves ajenas del esquema: {lee_el_esquema}\n"
+            f"      lista de tablas escrita a mano: {a_mano}\n"
+            f"      las bajas prometen un mínimo que no baja: {dice_el_minimo}"
+        ),
+    )
+
+
 def toda_tabla_que_no_entra_dice_por_que():
     """Una exclusión sin motivo es un olvido con mejor presentación.
 
@@ -4942,6 +4991,9 @@ def fase_8(rapido=False):
 
     print(f"{GRIS}  el comando y la pantalla (8.2c){FIN}")
     el_exportador_tiene_quien_lo_llame()
+
+    print(f"{GRIS}  leer un respaldo de vuelta (8.3a){FIN}")
+    el_preflight_dice_lo_que_no_vuelve()
 
 
 def fase_7(rapido=False):

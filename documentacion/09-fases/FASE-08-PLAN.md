@@ -594,6 +594,58 @@ memoria del proceso se mide y se queda bajo el techo.
 
 ### 8.3 · Restaurar, con su preflight
 
+> **Partida en dos el 06/10/2026**, por el mismo motivo que la 8.2: leer el
+> archivo y reemplazar la base son dos cosas distintas, y la segunda no se puede
+> revisar si la primera viene en el mismo bloque.
+>
+> - **8.3a · Leer un `.arles` de vuelta** ✅ **cerrada el 06/10/2026**
+> - **8.3b · Reemplazar, con la unión de bajas y la pantalla**
+
+#### 8.3a · Leer un `.arles` de vuelta ✅ **cerrada el 06/10/2026**
+
+El sobre que se abre a trozos (`SobreQueSeAbre`) y el preflight que dice qué
+pasaría (`arles-db/src/restauracion.rs`). Diez pruebas; no se restaura nada.
+
+**El descifrado a trozos es la misma junta que ya falló una vez.** `descifrar`
+recibía el cuerpo entero, igual que `cifrar` antes de la 8.2c: restaurar medio
+millón de filas con esa función tendría el archivo **y su versión en claro** en
+memoria a la vez. Se escribió ahora y no cuando apareciera, porque ya se sabía
+dónde estaba.
+
+**Y lo que encontró medir el esquema, que ordena la 8.3b.** D-8C dice
+«reemplazar, nunca mezclar», y suena a que cada tabla del respaldo sustituye a
+la suya y lo demás se queda igual. Medido el 06/10/2026 sobre el V10, **no es lo
+que pasa**: `company` se reemplaza en los dos alcances y casi todo cuelga de
+ella con `ON DELETE CASCADE`. Restaurar un respaldo **esencial** se lleva por
+delante, sin que nada lo diga:
+
+| Tabla | Qué es | ¿Vuelve? |
+|---|---|---|
+| `activity_event` | El registro de actividad (7.1) | **No**: es `SoloCompleto` |
+| `whatsapp_quality_event` | El histórico de calidad de Meta | **No**: es `SoloCompleto` |
+| `rate_budget` | El cupo gastado de esta hora | No, y está bien: es `Nunca` |
+| `engine_control` | La parada de emergencia de este equipo | No, y está bien: es `Nunca` |
+
+Es el mismo fallo que en la Fase 1 costó la audiencia congelada y el registro de
+envíos (F1). **No se arregla cambiando el esquema** —las cascadas están bien
+puestas, protegen de otra cosa— ni escondiéndolo: el preflight lo cuenta y lo
+dice antes de que nadie confirme, y distingue lo que son datos de lo que es
+estado de este equipo, para que nadie lea cuatro pérdidas donde hay dos.
+
+**La cascada se calcula del esquema**, no de una lista a mano, igual que el
+orden de inserción de la 8.2b. Y no se da por buena: `la_cascada_calculada_es_la_que_ejecuta_sqlite`
+**borra de verdad** dentro de una transacción que se deshace y compara lo que
+desapareció contra lo que el cálculo dijo. Un cálculo corto callaría una
+pérdida; uno largo asustaría con una que no ocurre.
+
+**Las bajas prometen un mínimo, no una cifra exacta.** La unión exacta exige
+leer el cuerpo entero y comparar canal por canal, y el preflight lee **sólo la
+cabecera** a propósito: con 2 GB, leerlo dos veces para enseñar un aviso es
+medio minuto de espera antes de una pantalla. Lo que importa de ese número es
+que **nunca baja**, y eso sí se garantiza.
+
+#### 8.3b · Reemplazar, con la unión de bajas y la pantalla
+
 **Qué.** Leer un `.arles`, decir **qué va a pasar**, y sólo entonces hacerlo.
 
 **Depende de D-8C.**

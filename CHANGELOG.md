@@ -12,6 +12,38 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.3a · Leer un respaldo de vuelta, y lo que una restauración se lleva
+
+#### Lo que cambia para quien usa ARLES
+
+Todavía nada: restaurar es lo siguiente. Lo que hay es la pieza que lee el
+archivo y la que dice, con cifras, qué pasaría si se restaurara.
+
+#### Lo que estaba mal y se arregla
+
+**Restaurar un respaldo esencial se llevaba el registro de actividad por
+delante, sin avisar.** Casi todo el esquema cuelga de la empresa con borrado en
+cascada, así que reemplazarla arrastra también lo que el respaldo no trae — y el
+registro de actividad y el histórico de calidad de Meta **no vuelven**. Es el
+mismo fallo que en la Fase 1 costó la audiencia congelada. Ahora el preflight lo
+cuenta antes de que nadie confirme, y separa lo que son datos de lo que es
+estado de este equipo (el cupo gastado, la parada de emergencia), que perder sí
+es correcto.
+
+**`descifrar` pedía el cuerpo entero en memoria**, la misma junta que la 8.2c
+encontró al escribir. Restaurar medio millón de filas habría tenido el archivo y
+su versión en claro a la vez.
+
+#### Lo que cambia por dentro
+
+- `arles-core` · `SobreQueSeAbre`, el descifrado a trozos, simétrico al de la
+  8.2c y verificado en los tamaños frontera.
+- `arles-db/src/restauracion.rs` · el preflight. La cascada se calcula leyendo
+  `PRAGMA foreign_key_list`, y una prueba la comprueba **borrando de verdad**
+  dentro de una transacción que se deshace.
+- Las bajas prometen un mínimo que nunca baja, no una cifra exacta: la unión
+  exacta exigiría leer el archivo entero, y el preflight lee sólo la cabecera.
+
 ### 8.2c · ARLES escribe un respaldo
 
 #### Lo que cambia para quien usa ARLES

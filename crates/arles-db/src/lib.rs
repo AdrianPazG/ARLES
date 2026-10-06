@@ -34,6 +34,7 @@ pub mod presupuesto;
 pub mod prueba;
 pub mod respaldo;
 pub mod respuestas;
+pub mod restauracion;
 pub mod revision;
 pub mod revision_whatsapp;
 pub mod supresion;
@@ -57,6 +58,7 @@ pub use respaldo::{
     ColumnasPorTabla, Destino, FILAS_POR_AVISO, Inventario, QueSeLleva, RecuentoPorTabla,
     TablaDelRespaldo,
 };
+pub use restauracion::{ComparacionDeTabla, LoQuePasaria, SeVaPorCascada};
 pub use revision::LoQueSabeLaBase;
 pub use supresion::{MAX_SUPRESIONES_POR_PAGINA, ResumenDeSupresion, SupresionGuardada};
 pub use ventanas::VentanaGuardada;

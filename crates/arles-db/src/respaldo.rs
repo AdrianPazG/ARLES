@@ -300,7 +300,7 @@ fn corte_de<'a>(tabla: &str, que: QueSeLleva<'a>) -> Option<(&'static str, &'a s
 /// [`DbError::Sqlite`] si la tabla de `refinery` no se puede leer. **Y no se
 /// aproxima a «desconocido»**: un respaldo sin versión de esquema no se puede
 /// restaurar con criterio, así que es mejor no escribirlo.
-fn version_del_esquema(conn: &Connection) -> Result<String, DbError> {
+pub(crate) fn version_del_esquema(conn: &Connection) -> Result<String, DbError> {
     let n: Option<i32> = conn.query_row(
         "SELECT max(version) FROM refinery_schema_history",
         [],

@@ -514,8 +514,41 @@ cerró `el_exportador_tiene_quien_lo_llame`, escrita **antes** y vista en rojo.
 >   navegador resuelve un `var()` inexistente **a nada, sin error**, así que la
 >   lista se habría visto bien. Es el caso de los seis tokens de la 5.2.
 
-> **Lo que todavía NO hace:** **no se puede restaurar**. Se escribe un respaldo
-> y no hay forma de leerlo de vuelta, que es para lo que existe. Eso es la 8.3.
+**Cerrada la 8.3a · leer un `.arles` de vuelta**: el sobre que se abre a trozos
+(`SobreQueSeAbre`) y el preflight (`arles-db/src/restauracion.rs`). Diez
+pruebas. **Todavía no se restaura nada**: eso es la 8.3b.
+
+> **El descifrado a trozos es la misma junta que ya falló una vez.** `descifrar`
+> recibía el cuerpo entero, igual que `cifrar` antes de la 8.2c: restaurar medio
+> millón de filas tendría el archivo **y su versión en claro** en memoria a la
+> vez. Se escribió antes de que apareciera el problema, porque ya se sabía dónde
+> estaba.
+
+> **D-8C no significa lo que parece, y lo descubrió medir el esquema.**
+> «Reemplazar, nunca mezclar» suena a que cada tabla del respaldo sustituye a la
+> suya y lo demás se queda igual. **No es lo que pasa**: `company` se reemplaza
+> en los dos alcances y casi todo cuelga de ella con `ON DELETE CASCADE`.
+> Restaurar un **esencial** se lleva por delante `activity_event` y
+> `whatsapp_quality_event` —que son `SoloCompleto` y **no vuelven**—, más
+> `rate_budget` y `engine_control`, que son de este equipo y está bien perder.
+>
+> Es el fallo que en la Fase 1 costó la audiencia congelada y el registro de
+> envíos (F1). No se arregla tocando el esquema —las cascadas protegen de otra
+> cosa— ni escondiéndolo: **el preflight lo cuenta y lo dice** antes de que
+> nadie confirme, y separa lo que son datos de lo que es estado del equipo.
+>
+> La cascada **se calcula del esquema** y no se da por buena:
+> `la_cascada_calculada_es_la_que_ejecuta_sqlite` borra de verdad dentro de una
+> transacción que se deshace y compara. Un cálculo corto callaría una pérdida;
+> uno largo asustaría con una que no ocurre.
+>
+> **Las bajas prometen un mínimo, no una cifra exacta.** La unión exacta exige
+> leer el cuerpo entero; el preflight lee sólo la cabecera a propósito. Lo que
+> importa es que ese número **nunca baja**.
+
+> **Lo que todavía NO hace:** **no se puede restaurar**. Se escribe un respaldo,
+> se puede abrir y se puede decir qué pasaría — y no hay botón que lo haga.
+> Eso es la 8.3b.
 
 > **El agujero que ordena esa fase, y conviene saberlo antes de tocar nada.**
 > La base está cifrada con SQLCipher y la clave vive **sólo** en el llavero

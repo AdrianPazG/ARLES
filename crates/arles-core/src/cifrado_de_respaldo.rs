@@ -300,6 +300,144 @@ impl SobreEnCurso {
     }
 }
 
+/// Lo que ocupa un trozo ya cifrado: el contenido más su etiqueta.
+const TROZO_CIFRADO: usize = TROZO + 16;
+
+/// El sobre, pero **abierto a medida que se lee**.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ HACE FALTA, Y ES LA MISMA JUNTA QUE YA FALLÓ UNA VEZ
+///
+/// [`descifrar`] recibe el cuerpo entero en un `&[u8]`, igual que [`cifrar`] lo
+/// recibía antes de la 8.2c. Restaurar un respaldo de medio millón de filas con
+/// esa función obliga a tener el archivo entero en memoria **y además su
+/// versión en claro**: las dos copias a la vez, que es justo el techo de 500 MB
+/// que el presupuesto no admite.
+///
+/// Es el mismo agujero que la 8.2c encontró al escribir, visto desde el otro
+/// lado. Se escribe ahora y no cuando aparezca, porque ya se sabe dónde está.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LEE LO MISMO QUE `descifrar`, Y POR LA MISMA RAZÓN QUE AL REVÉS
+///
+/// El último trozo se abre con `decrypt_last`, así que hay que **retener un
+/// trozo cifrado completo** hasta saber si viene otro detrás. Soltarlo en
+/// cuanto se llena haría que un cuerpo de un múltiplo exacto del trozo
+/// terminara pidiendo un trozo final que no existe, y el archivo —escrito
+/// correctamente— se leería como corrupto.
+pub struct SobreQueSeAbre {
+    sobre: Option<Abridor>,
+    /// Lo cifrado que todavía no se ha abierto. Nunca pasa de `2 * TROZO`.
+    pendiente: Vec<u8>,
+    /// `true` en cuanto entra un solo byte. Distingue «archivo vacío» de
+    /// «archivo con un trozo final vacío», que son dos cosas.
+    algo_entro: bool,
+}
+
+impl std::fmt::Debug for SobreQueSeAbre {
+    /// No enseña lo pendiente: por ahí pasan contactos. Igual que
+    /// [`SobreEnCurso`] y `SumaEnCurso`.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(if self.sobre.is_some() {
+            "SobreQueSeAbre(abierto)"
+        } else {
+            "SobreQueSeAbre(cerrado)"
+        })
+    }
+}
+
+type Abridor = chacha20poly1305::aead::stream::DecryptorBE32<chacha20poly1305::XChaCha20Poly1305>;
+
+impl SobreQueSeAbre {
+    /// Prepara la lectura con la contraseña, la sal y el nonce de la cabecera.
+    ///
+    /// # Errores
+    ///
+    /// [`CoreError::RespaldoCorrupto`] si la derivación falla, que en la
+    /// práctica sólo ocurre si no hay memoria para Argon2id.
+    pub fn nuevo(
+        contrasena: &str,
+        sal: &[u8; BYTES_DE_SAL],
+        nonce: &[u8; BYTES_DE_NONCE],
+    ) -> Result<Self, CoreError> {
+        use chacha20poly1305::aead::stream::DecryptorBE32;
+        use chacha20poly1305::{KeyInit, XChaCha20Poly1305};
+        use zeroize::Zeroize;
+
+        let mut clave = derivar(contrasena, sal)?;
+        let descifrador = XChaCha20Poly1305::new(clave.as_slice().into());
+        clave.zeroize();
+
+        Ok(Self {
+            sobre: Some(DecryptorBE32::from_aead(
+                descifrador,
+                nonce.as_slice().into(),
+            )),
+            pendiente: Vec::with_capacity(TROZO_CIFRADO * 2),
+            algo_entro: false,
+        })
+    }
+
+    /// Añade bytes cifrados y deja en `salida` el texto claro que ya se puede
+    /// usar.
+    ///
+    /// # Errores
+    ///
+    /// [`CoreError::RespaldoCorrupto`] si la contraseña no abre el respaldo, si
+    /// el archivo está alterado, o si se llama sobre un sobre ya cerrado.
+    pub fn añadir(&mut self, cifrado: &[u8], salida: &mut Vec<u8>) -> Result<(), CoreError> {
+        if !cifrado.is_empty() {
+            self.algo_entro = true;
+        }
+        self.pendiente.extend_from_slice(cifrado);
+        while self.pendiente.len() > TROZO_CIFRADO {
+            let resto = self.pendiente.split_off(TROZO_CIFRADO);
+            let trozo = std::mem::replace(&mut self.pendiente, resto);
+            let sobre = self.sobre.as_mut().ok_or_else(no_abre)?;
+            let claro = sobre
+                .decrypt_next(trozo.as_slice())
+                .map_err(|_| no_abre())?;
+            salida.extend_from_slice(&claro);
+        }
+        Ok(())
+    }
+
+    /// Cierra la lectura: abre el último trozo y comprueba que **era** el
+    /// último.
+    ///
+    /// Aquí es donde falla un archivo al que le han cortado el final — que
+    /// sería un respaldo más corto y perfectamente válido sin esta marca.
+    ///
+    /// # Errores
+    ///
+    /// [`CoreError::RespaldoCorrupto`] si la contraseña no abre el respaldo, si
+    /// está alterado, o si está cortado.
+    pub fn terminar(mut self, salida: &mut Vec<u8>) -> Result<(), CoreError> {
+        if !self.algo_entro {
+            // Ni un byte: no es un cuerpo cifrado vacío, es que no hay cuerpo.
+            return Err(no_abre());
+        }
+        let sobre = self.sobre.take().ok_or_else(no_abre)?;
+        let claro = sobre
+            .decrypt_last(self.pendiente.as_slice())
+            .map_err(|_| no_abre())?;
+        salida.extend_from_slice(&claro);
+        Ok(())
+    }
+}
+
+/// El único diagnóstico honesto cuando el cifrado autenticado dice que no.
+///
+/// Contraseña equivocada, archivo manipulado y archivo cortado dan **el mismo
+/// error**, y es correcto: el cifrado no los distingue. Fingir que sí sería
+/// inventarse un diagnóstico. Lo que sí hace la pantalla es sugerir primero lo
+/// probable —la contraseña— sin afirmarlo.
+fn no_abre() -> CoreError {
+    CoreError::RespaldoCorrupto {
+        motivo: "la contraseña no abre este respaldo, o el archivo está alterado o incompleto",
+    }
+}
+
 /// Descifra el cuerpo de un respaldo.
 ///
 /// # Errores
@@ -322,19 +460,12 @@ pub fn descifrar(
     use chacha20poly1305::{KeyInit, XChaCha20Poly1305};
     use zeroize::Zeroize;
 
-    /// Lo que ocupa un trozo ya cifrado: el contenido más su etiqueta.
-    const TROZO_CIFRADO: usize = TROZO + 16;
-
     let mut clave = derivar(contrasena, sal)?;
     let descifrador = XChaCha20Poly1305::new(clave.as_slice().into());
     clave.zeroize();
 
     let mut sobre = DecryptorBE32::from_aead(descifrador, nonce.as_slice().into());
     let mut salida = Vec::with_capacity(cifrado.len());
-
-    let no_abre = || CoreError::RespaldoCorrupto {
-        motivo: "la contraseña no abre este respaldo, o el archivo está alterado o incompleto",
-    };
 
     let mut trozos = cifrado.chunks(TROZO_CIFRADO).peekable();
     if trozos.peek().is_none() {
@@ -612,5 +743,95 @@ mod tests {
         sobre.terminar(&mut salida).expect("cierra");
         // `sobre` ya no existe aquí: lo movió `terminar`.
         assert!(!salida.is_empty());
+    }
+
+    /// **Abrir a trozos da lo mismo que abrir de una vez, y en los dos
+    /// sentidos.**
+    ///
+    /// Es la vuelta de `el_sobre_a_trozos_escribe_lo_mismo_que_de_una_vez`, y
+    /// hace falta por el mismo motivo: restaurar medio millón de filas con
+    /// `descifrar` tendría el archivo entero en memoria **y además su versión
+    /// en claro**. Las dos copias a la vez se pasan del techo de 500 MB.
+    ///
+    /// Los tamaños son los que distinguen las dos formas de marcar el último
+    /// trozo: cero, uno, justo un trozo y múltiplos exactos.
+    ///
+    /// Verificada el 06/10/2026 soltando el trozo en cuanto se llena —`>=` en
+    /// vez de `>`—: con 64 KiB justos y con 128 KiB el archivo, escrito
+    /// correctamente, se lee como corrupto y la prueba falla nombrando el
+    /// tamaño.
+    #[test]
+    fn el_sobre_a_trozos_lee_lo_mismo_que_de_una_vez() {
+        for n in [
+            0,
+            1,
+            100,
+            TROZO - 1,
+            TROZO,
+            TROZO + 1,
+            TROZO * 2,
+            TROZO * 3 + 7,
+        ] {
+            let claro: Vec<u8> = (0..n).map(|i| (i % 251) as u8).collect();
+            let cifrado = cifrar("contraseña", &SAL, &NONCE, &claro).expect("cifra");
+
+            // Se va dando en pedazos de un tamaño que NO es el del trozo: así
+            // es como llegará de un archivo leído con un búfer cualquiera.
+            let mut sobre = SobreQueSeAbre::nuevo("contraseña", &SAL, &NONCE).expect("abre");
+            let mut a_trozos = Vec::new();
+            for pedazo in cifrado.chunks(9_973.min(cifrado.len().max(1))) {
+                sobre.añadir(pedazo, &mut a_trozos).expect("añade");
+            }
+            sobre.terminar(&mut a_trozos).expect("cierra");
+
+            assert_eq!(a_trozos, claro, "con {n} bytes de claro no vuelve lo mismo");
+        }
+    }
+
+    /// **Cortar el final se caza también leyendo a trozos.**
+    ///
+    /// Es la garantía que justifica el troceado del cifrado, y tenía que
+    /// comprobarse en los dos caminos: un lector que se la saltara dejaría
+    /// restaurar un respaldo más corto y perfectamente válido — menos
+    /// contactos, sin un solo error.
+    ///
+    /// Verificada el 06/10/2026 quitando el `terminar` y dando el último trozo
+    /// por bueno: el respaldo cortado se lee sin protestar.
+    #[test]
+    fn un_cuerpo_cortado_no_se_abre_a_trozos() {
+        let claro: Vec<u8> = (0..TROZO * 2 + 500).map(|i| (i % 251) as u8).collect();
+        let cifrado = cifrar("contraseña", &SAL, &NONCE, &claro).expect("cifra");
+
+        let cortado = cifrado
+            .get(..cifrado.len() - 600)
+            .expect("hay de sobra que cortar");
+        let mut sobre = SobreQueSeAbre::nuevo("contraseña", &SAL, &NONCE).expect("abre");
+        let mut salida = Vec::new();
+        // Puede fallar al añadir o al cerrar; lo que no puede es pasar.
+        let resultado = sobre
+            .añadir(cortado, &mut salida)
+            .and_then(|()| sobre.terminar(&mut salida));
+        assert!(resultado.is_err(), "un respaldo cortado se leyó entero");
+    }
+
+    /// Un archivo vacío no es un cuerpo vacío, y no se abre.
+    #[test]
+    fn un_cuerpo_que_no_existe_no_se_abre() {
+        let sobre = SobreQueSeAbre::nuevo("contraseña", &SAL, &NONCE).expect("abre");
+        let mut salida = Vec::new();
+        assert!(sobre.terminar(&mut salida).is_err());
+    }
+
+    /// Y con otra contraseña tampoco, leyendo a trozos.
+    #[test]
+    fn otra_contrasena_no_abre_a_trozos() {
+        let cifrado = cifrar("contraseña", &SAL, &NONCE, b"Ana Ruiz").expect("cifra");
+        let mut sobre = SobreQueSeAbre::nuevo("otra cualquiera", &SAL, &NONCE).expect("abre");
+        let mut salida = Vec::new();
+        let r = sobre
+            .añadir(&cifrado, &mut salida)
+            .and_then(|()| sobre.terminar(&mut salida));
+        assert!(r.is_err());
+        assert!(salida.is_empty(), "no puede salir nada en claro");
     }
 }
