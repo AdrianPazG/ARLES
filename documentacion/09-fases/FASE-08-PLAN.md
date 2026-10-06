@@ -776,7 +776,58 @@ Lo último se prueba **provocando el fallo**, no suponiéndolo.
 
 ---
 
-### 8.4 · El llavero perdido: el camino que nadie ha recorrido
+### 8.4 · El llavero perdido: el camino que nadie ha recorrido ✅ **cerrada el 06/10/2026**
+
+`arles-app/src/recuperacion.rs` y `/recuperar`. Cinco pruebas, y
+`la_clave_perdida_tiene_salida` escrita antes y vista en rojo nombrando los
+seis tramos.
+
+**El consejo que el producto no podía cumplir.** Desde la Fase 1, perder la
+entrada del llavero producía un mensaje correcto con las tres partes del §95, y
+la de «cómo se arregla» decía *«Restaura tu último respaldo .arles»* — y no
+había forma de hacerlo: `run()` llamaba a `exit(1)` antes de abrir ninguna
+ventana. No es que faltara un botón: el producto **daba una instrucción que él
+mismo impedía seguir**, el día en que alguien ya ha perdido algo.
+
+**Las dos cosas que aquí no se pueden hacer mal:**
+
+1. **No se crea una clave nueva al arrancar.** Es el hallazgo F2 de la Fase 1.
+   El llavero puede estar vacío por motivos pasajeros —un Keychain bloqueado, un
+   perfil que no ha montado—, y una clave nueva dejaría la base existente
+   ilegible **para siempre**. La clave nueva sólo nace cuando alguien elige un
+   respaldo y confirma.
+2. **La base ilegible no se borra: se aparta** con fecha en el nombre. Un
+   llavero puede volver, y el día que vuelva esos datos valen más que el
+   respaldo porque son los de hoy. Recuperar dos veces el mismo día tampoco pisa
+   la copia de la primera.
+
+**El modo de recuperación registra tres comandos y ninguno más.** Ninguno de los
+normales puede funcionar sin base, y un comando registrado que siempre falla es
+una puerta que nadie vigila. La pantalla tampoco lleva barra lateral: sin base
+no hay secciones a las que ir, y enseñarlas sería ofrecer seis puertas pintadas.
+
+**Si no hay respaldo, se dice con esas palabras**: no hay forma de recuperar
+esos datos, ni desde ARLES ni de ninguna otra manera, porque el cifrado no tiene
+puerta de atrás. Dejar lugar a la duda haría buscar durante horas una salida que
+no existe.
+
+> **Límite declarado.** El contenedor de integración no tiene llavero —ni D-Bus—,
+> así que la prueba del arranque **declara su rama y se omite aquí**. Lo que sí
+> corre entero es la mecánica de la recuperación, escrita a propósito sin
+> depender del llavero: con él, en este contenedor, habría pasado en verde sin
+> ejercitar una línea. En Windows y macOS se prueba el día que se cierre **R-07**.
+
+**Un defecto que encontró mirar la demostración**, y era el peor posible en esta
+pantalla: decía **«no se ha perdido nada»** con 48 MB de base en disco, porque
+nadie llamaba a `cargar()`. El patrón del §9 otra vez, y aquí la consecuencia no
+es una función que falta: es alguien que borra el archivo porque le dijimos que
+estaba vacío. También le faltaba la marca — es la única pantalla sin barra
+lateral, y sin ella una ventana suelta con un aviso rojo no dice de qué programa
+es.
+
+---
+
+#### 8.4 · lo que pedía el plan
 
 **Qué.** La otra mitad del ADR-0011.
 

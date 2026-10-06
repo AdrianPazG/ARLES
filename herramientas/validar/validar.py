@@ -4941,6 +4941,92 @@ def el_restaurador_tiene_quien_lo_llame():
     )
 
 
+def la_clave_perdida_tiene_salida():
+    """**El consejo que el producto no puede cumplir.**
+
+    Desde la Fase 1, perder la entrada del llavero produce un mensaje correcto
+    con las tres partes del §95 — y la parte de «cómo se arregla» dice
+    *«Restaura tu último respaldo .arles»*. **Y no había forma de hacerlo**: la
+    aplicación se detenía con `std::process::exit(1)` antes de abrir ninguna
+    ventana.
+
+    Es el patrón del §9 en su forma más cruel: no es que falte un botón, es que
+    el producto **da una instrucción que él mismo impide seguir**, y justo el
+    día en que alguien ya ha perdido algo.
+
+    Esta comprobación se escribió **antes** de construir la salida, y se vio
+    fallar nombrando los cuatro tramos el 06/10/2026.
+
+    Vigila además las dos cosas que no se pueden hacer mal aquí:
+
+    - **No se crea una clave nueva al arrancar.** Sería lo cómodo y es el
+      hallazgo F2 de la Fase 1: la base existente quedaría irrecuperable para
+      siempre y nadie se enteraría. La clave nueva sólo se crea cuando alguien
+      lo pide con todas las letras.
+    - **La base ilegible no se borra.** Se aparta con otro nombre. Un llavero
+      puede volver —un Keychain restaurado, un perfil que se recupera—, y el
+      día que vuelva esos datos valen más que el respaldo.
+    """
+    faltan = []
+
+    app = ""
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "crates", "arles-app", "src")):
+        for f in ficheros:
+            if f.endswith(".rs"):
+                with open(os.path.join(carpeta, f), encoding="utf-8") as fh:
+                    app += fh.read()
+    assert app, "no se leyó el código de arles-app"
+    codigo = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", app, flags=re.S))
+
+    # 1 · Que exista el modo, y que el arranque no se limite a morirse.
+    if "recuperacion" not in codigo:
+        faltan.append("no hay modo de recuperación en arles-app")
+    if "ClaveMaestraPerdida" in codigo and "modo_recuperacion" not in codigo:
+        faltan.append(
+            "ClaveMaestraPerdida sigue sin llevar a ninguna parte: falta `modo_recuperacion`"
+        )
+
+    # 2 · Los comandos de la salida, registrados en la frontera.
+    #
+    # Se buscan en TODOS los `generate_handler!` del crate y no sólo en el de
+    # `lib.rs`: el modo de recuperación registra los suyos aparte a propósito
+    # —ninguno de los normales puede funcionar sin base—, y una comprobación
+    # que mire sólo un archivo daría por ausente un comando que sí está.
+    # Escrita primero mirando `lib.rs`, y corregida el 06/10/2026 al verla
+    # señalar dos comandos que estaban registrados donde tocaba.
+    registrados = "\n".join(
+        re.findall(r"generate_handler!\s*\[(.*?)\]", app, flags=re.S)
+    )
+    for comando in ("revisar_respaldo_para_recuperar", "recuperar_desde_respaldo"):
+        if comando not in registrados:
+            faltan.append(f"{comando} — no está en ningún generate_handler!")
+
+    # 3 · Y alguien que los pulse.
+    frontend = ""
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "app", "src")):
+        for f in ficheros:
+            if f.endswith((".ts", ".vue")):
+                with open(os.path.join(carpeta, f), encoding="utf-8") as fh:
+                    frontend += fh.read()
+    for comando in ("revisar_respaldo_para_recuperar", "recuperar_desde_respaldo"):
+        if comando not in frontend:
+            faltan.append(f"{comando} — ninguna pantalla lo llama")
+
+    # 4 · La base ilegible se aparta, no se borra.
+    if "apartar" not in codigo:
+        faltan.append("nada aparta la base ilegible: ¿se está borrando?")
+    if re.search(r"remove_file\s*\(\s*&?base", codigo):
+        faltan.append("se borra la base ilegible — tiene que apartarse, no borrarse")
+
+    check(
+        8,
+        "la clave perdida tiene salida, y no se lleva nada por delante",
+        not faltan,
+        la_clave_perdida_tiene_salida.__doc__,
+        detalle="\n      ".join(faltan),
+    )
+
+
 def el_preflight_dice_lo_que_no_vuelve():
     """**Restaurar se lleva cosas por cascada, y hay que decirlas.**
 
@@ -5061,6 +5147,9 @@ def fase_8(rapido=False):
 
     print(f"{GRIS}  restaurar de verdad (8.3b y 8.3c){FIN}")
     el_restaurador_tiene_quien_lo_llame()
+
+    print(f"{GRIS}  el llavero perdido (8.4){FIN}")
+    la_clave_perdida_tiene_salida()
 
 
 def fase_7(rapido=False):

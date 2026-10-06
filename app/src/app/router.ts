@@ -256,6 +256,17 @@ const rutas: RouteRecordRaw[] = [
     component: () => import('@/app/pantallas/PantallaRestaurar.vue'),
     meta: { seccion: 'ajustes', subseccion: 'restaurar', orden: 2 },
   },
+  {
+    // ── SIN SECCIÓN, Y ES LO QUE LA SACA DEL ARMAZÓN ────────────────────
+    //
+    // En el modo de recuperación no hay base abierta: ni contactos, ni
+    // campañas, ni ajustes. Enseñar la barra lateral sería ofrecer seis
+    // puertas pintadas a quien acaba de perder el acceso a sus datos.
+    path: '/recuperar',
+    name: 'recuperar',
+    component: () => import('@/app/pantallas/PantallaRecuperar.vue'),
+    meta: { sinArmazon: true },
+  },
   // ── YA NO HAY ANDAMIO ─────────────────────────────────────────────────
   //
   // Hasta la 7.3, las secciones sin pantalla se registraban en bloque contra

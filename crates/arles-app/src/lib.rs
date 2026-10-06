@@ -15,6 +15,7 @@ pub mod estado;
 pub mod fabrica;
 pub mod llavero;
 pub mod motor;
+pub mod recuperacion;
 pub mod registro;
 pub mod respaldo;
 pub mod restauracion;
@@ -38,6 +39,31 @@ pub use llavero::Llavero;
 pub fn run() {
     let estado = match EstadoApp::arrancar() {
         Ok(e) => e,
+
+        // ── LA CLAVE PERDIDA TIENE SALIDA DESDE LA 8.4 ────────────────────
+        //
+        // Hasta entonces, aquí se enseñaba un mensaje que decía «restaura tu
+        // último respaldo» y se llamaba a `exit(1)`: una instrucción que el
+        // producto impedía seguir, el día en que alguien ya ha perdido algo.
+        //
+        // Ahora arranca en modo de recuperación. **No se crea ninguna clave
+        // aquí** —eso es el hallazgo F2 de la Fase 1—: la clave nueva sólo
+        // aparece cuando alguien elige un respaldo y confirma.
+        Err(AppError::ClaveMaestraPerdida) => {
+            match (rutas::Rutas::resolver(), llavero::Llavero::del_sistema()) {
+                (Ok(rutas), llavero) => {
+                    recuperacion::modo_recuperacion(rutas, llavero);
+                    return;
+                }
+                // Si ni siquiera hay carpeta de datos, no hay recuperación
+                // posible y se dice lo de siempre.
+                (Err(e), _) => {
+                    mostrar_fallo_de_arranque(&e);
+                    std::process::exit(1);
+                }
+            }
+        }
+
         Err(e) => {
             mostrar_fallo_de_arranque(&e);
             std::process::exit(1);

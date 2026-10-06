@@ -243,7 +243,7 @@ pub fn restaurar_respaldo(
 ///
 /// Se lee un trozo y no el archivo entero: con 2 GB, leerlo para enseñar un
 /// aviso son treinta segundos mirando una pantalla quieta.
-fn leer_la_cabecera(ruta: &std::path::Path) -> Result<(Cabecera, usize), ErrorIpc> {
+pub(crate) fn leer_la_cabecera(ruta: &std::path::Path) -> Result<(Cabecera, usize), ErrorIpc> {
     let mut f = std::fs::File::open(ruta)
         .map_err(|_| ErrorIpc::from(crate::AppError::ArchivoNoSePudoLeer))?;
     let mut principio = vec![0_u8; LECTURA];
@@ -276,7 +276,7 @@ fn leer_la_cabecera(ruta: &std::path::Path) -> Result<(Cabecera, usize), ErrorIp
 /// Descifrar a un `String` y recorrerlo sería la base entera en RAM, que es lo
 /// que las 8.2b, 8.2c y 8.3a se tomaron el trabajo de evitar cada una por su
 /// lado. Aquí se guarda **sólo lo que falta para completar la línea en curso**.
-struct LeeElArchivo {
+pub(crate) struct LeeElArchivo {
     fichero: std::fs::File,
     sobre: Option<SobreQueSeAbre>,
     /// Texto claro leído y todavía no entregado como filas.
@@ -289,7 +289,7 @@ struct LeeElArchivo {
 }
 
 impl LeeElArchivo {
-    fn nuevo(
+    pub(crate) fn nuevo(
         ruta: &std::path::Path,
         cabecera: &Cabecera,
         salta: usize,

@@ -12,6 +12,48 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.4 · Si se pierde la llave, ahora hay salida
+
+#### Lo que cambia para quien usa ARLES
+
+Si algún día abres ARLES y la llave que cifra tus datos ya no está en este
+equipo —pasa al reinstalar el sistema, al cambiar de máquina o al restaurar un
+perfil—, **ARLES ya no se cierra sin más**. Abre una pantalla que te dice tres
+cosas:
+
+- **Qué pasó**, sin tecnicismos y sin culpar a nadie.
+- **Que tus datos no se han borrado.** El archivo sigue ahí y se te dice cuánto
+  ocupa. Lo que falta es la llave, no la información.
+- **Cómo seguir**: restaurar un respaldo, desde ahí mismo.
+
+**Y si no tienes un respaldo, te lo decimos con esas palabras**: no hay forma de
+recuperar esos datos, ni desde ARLES ni de ninguna otra manera, porque el
+cifrado que los protege no tiene puerta de atrás — que es justo lo que impide
+que cualquiera que se lleve tu equipo los lea. Hacerte buscar durante horas una
+salida que no existe sería peor.
+
+**Tu base vieja nunca se borra.** Al recuperar se guarda a un lado con otro
+nombre, y se te dice cuál. Si la llave aparece algún día, ese archivo es lo
+único que la aprovecha.
+
+#### Lo que estaba mal y se arregla
+
+**El mensaje te decía «restaura tu último respaldo» y no había forma de
+hacerlo**: la aplicación se cerraba antes de abrir ninguna ventana. Era una
+instrucción que el propio producto impedía seguir.
+
+**La pantalla decía «no se ha perdido nada» con la base entera en disco.** Un
+defecto que sólo se vio mirando la demostración, y el peor posible aquí: alguien
+podría haber borrado el archivo creyendo que estaba vacío.
+
+#### Lo que cambia por dentro
+
+- Un modo de recuperación con **tres comandos y ninguno más**: ninguno de los
+  normales puede funcionar sin base.
+- **No se crea una llave nueva al arrancar**, nunca. Sólo cuando alguien elige
+  un respaldo y confirma.
+- Probado en Linux. En Windows y macOS se prueba al cerrar R-07, y se dice así.
+
 ### 8.3c · ARLES restaura un respaldo
 
 #### Lo que cambia para quien usa ARLES

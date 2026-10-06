@@ -488,6 +488,60 @@ export const es = {
   // La acción más destructiva de ARLES y la única sin deshacer. Los textos
   // dicen cifras y no adjetivos (§94), y el que más importa es el de lo que
   // **no vuelve**: es lo único de esta pantalla que no se puede recuperar.
+  // ── RECUPERAR (8.4) ───────────────────────────────────────────────────
+  //
+  // Los textos de la peor pantalla del producto: la que alguien ve el día que
+  // perdió el acceso a sus datos. Tres reglas al escribirlos:
+  //
+  // 1. Decir qué está a salvo ANTES que nada (§95). Lo primero que necesita
+  //    saber quien llega aquí es que sus datos no se han borrado.
+  // 2. No culpar a nadie. No fue un error suyo y no sirve de nada insinuarlo.
+  // 3. Si no hay salida, decirlo con esas palabras. Un botón que no puede
+  //    funcionar hace perder media hora a quien ya está teniendo un mal día.
+  recuperar: {
+    titulo: 'No se pudo abrir tu base de datos',
+    quePaso: {
+      titulo: 'Qué pasó',
+      cuerpo:
+        'ARLES guarda tus datos cifrados, y la llave que los abre vivía en el almacén de contraseñas de este equipo. Esa llave ya no está. Puede pasar al reinstalar el sistema, al cambiar de equipo o al restaurar un perfil de usuario.',
+      // La parte que más importa, y por eso lleva una cifra comprobable y no
+      // una promesa: el archivo sigue ahí y ocupa lo que ocupa.
+      aSalvo:
+        'Tus datos NO se han borrado: {archivo} sigue en este equipo y ocupa {tamano}. Lo que falta es la llave, no la información.',
+      sinBase:
+        'No hay ninguna base de datos en este equipo, así que no se ha perdido nada: ARLES simplemente no había guardado todavía.',
+    },
+    salida: {
+      titulo: 'Cómo seguir',
+      cuerpo:
+        'La única forma de volver es restaurar un respaldo .arles. ARLES empezará una base nueva con lo que guarde ese archivo.',
+    },
+    sinRespaldo: {
+      titulo: 'Si no tienes un respaldo',
+      // Se dice con todas las letras. Dejar lugar a la duda haría buscar
+      // durante horas una salida que no existe.
+      cuerpo:
+        'Entonces no hay forma de recuperar estos datos, ni desde ARLES ni de ninguna otra manera. El cifrado que los protege no tiene puerta de atrás, y eso es lo que impide que cualquiera que se lleve tu equipo los lea. No borres el archivo: si la llave aparece más adelante, volverá a abrirse.',
+    },
+    elegirArchivo: 'Elegir un respaldo…',
+    trae: {
+      titulo: 'Qué trae el respaldo',
+    },
+    loQueVaAPasar: {
+      titulo: 'Lo que va a pasar',
+      cuerpo:
+        'Tu base actual se guardará a un lado con otro nombre —no se borra—, ARLES creará una llave nueva y volcará dentro lo que trae el respaldo. Si tu llave vieja aparece algún día, ese archivo seguirá ahí.',
+    },
+    hazlo: 'Empezar de nuevo con este respaldo',
+    hecho: {
+      titulo: 'Listo',
+      cuerpo: 'Volvieron {filas} filas, con {bajas} personas en tu lista de bajas.',
+      apartada:
+        'Tu base anterior se guardó como {archivo}. No la borres: si la llave vieja aparece, es lo único que la abre.',
+      ahora: 'Cierra ARLES y vuelve a abrirlo para entrar con normalidad.',
+    },
+  },
+
   restaurar: {
     titulo: 'Restaurar',
     entradilla:

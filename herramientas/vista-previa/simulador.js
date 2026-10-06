@@ -1106,6 +1106,48 @@
         case 'restaurar_respaldo':
           return Promise.reject({ clave: 'error.app.archivo_no_se_pudo_leer', detalle: '' });
 
+        // ── RECUPERAR, EL LLAVERO PERDIDO (8.4) ──────────────────────────
+        //
+        // La vista previa puede enseñar esta pantalla porque es la que menos
+        // se puede revisar de otra forma: en la aplicación de verdad sólo
+        // aparece el día que alguien pierde su llavero, y no es un día para
+        // descubrir que el texto está mal.
+        //
+        // Las cifras describen el caso real: una base que SIGUE EN DISCO y no
+        // se puede leer. Decir 0 bytes contaría otra historia —«no había
+        // nada»— y es justo la que no hay que contar.
+        case 'que_paso_con_la_clave':
+          return Promise.resolve({
+            bytesDeLaBase: 48 * 1024 * 1024,
+            nombreDeLaBase: 'arles.db',
+          });
+
+        case 'revisar_respaldo_para_recuperar':
+          return Promise.resolve({
+            nombreDelArchivo: 'arles-20260921-completo.arles',
+            creadoEn: '2026-09-21T09:30:00Z',
+            alcance: 'completo',
+            esquemaDelRespaldo: 'V10',
+            esquemaDeLaBase: 'V10',
+            llevaContrasena: true,
+            sePuedeRestaurar: true,
+            // Sin base legible no hay con qué comparar, y el núcleo tampoco lo
+            // inventa: aquí van vacías por lo mismo.
+            tablas: [],
+            totalDeFilas: 64501,
+            noVuelven: [],
+            filasQueNoVuelven: 0,
+            bajasAhora: 0,
+            bajasEnElRespaldo: 37,
+            bajasAlMenos: 37,
+            cuentasAReconectar: 2,
+          });
+
+        // No finge haber recuperado nada, por lo mismo que `restaurar_respaldo`:
+        // aquí no hay archivo en disco que abrir, ni llavero que escribir.
+        case 'recuperar_desde_respaldo':
+          return Promise.reject({ clave: 'error.app.archivo_no_se_pudo_leer', detalle: '' });
+
         default:
           return Promise.reject({ clave: 'error.db.sqlite', detalle: 'desconocido: ' + cmd });
       }

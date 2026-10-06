@@ -44,6 +44,18 @@ interface ConTauri {
 }
 
 /** ¿Hay un núcleo al otro lado? */
+/**
+ * `true` si ARLES arrancó **sin poder abrir su base** (8.4).
+ *
+ * La marca la pone el núcleo antes de que cargue la interfaz. Se lee en vez de
+ * preguntarse con un comando porque en el modo de recuperación sólo existen
+ * tres, y preguntar por uno que no está deja un error en la consola del
+ * arranque normal — y hay sondas que exigen la consola limpia.
+ */
+export function enRecuperacion(): boolean {
+  return (window as unknown as Record<string, unknown>).__ARLES_RECUPERACION__ === true
+}
+
 export function hayNucleo(): boolean {
   return '__TAURI_INTERNALS__' in (window as unknown as ConTauri)
 }

@@ -36,6 +36,15 @@ const { t } = useI18n()
  * `/inicio/configuracion`, porque son rutas hermanas y no madre e hija — y por
  * eso la barra se quedaba apagada entera en tres pantallas.
  */
+/**
+ * `true` en las pantallas que se dibujan solas, sin barra ni migas.
+ *
+ * Hoy es una: la de recuperación (8.4). Se lee de `meta` y no de una lista de
+ * rutas escrita aquí, por lo mismo que todo lo demás en este proyecto: una
+ * lista a mano envejece con la ruta siguiente, y en silencio.
+ */
+const sinArmazon = computed(() => ruta.meta['sinArmazon'] === true)
+
 const seccionActual = computed(() => {
   const s = ruta.meta['seccion']
   return esSeccion(s) ? s : undefined
@@ -249,7 +258,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <!-- ── EL MODO DE RECUPERACIÓN NO LLEVA ARMAZÓN (8.4) ──────────────────
+       Sin base abierta no hay secciones a las que ir. Enseñar la barra
+       lateral con sus seis iconos sería ofrecer seis puertas pintadas a
+       alguien que acaba de perder el acceso a sus datos. -->
+  <RouterView v-if="sinArmazon" />
+
   <div
+    v-else
     class="marco"
     :class="{ plegado: interfaz.plegada }"
   >

@@ -614,14 +614,44 @@ los seis tramos.
 > rechaza con un error claro, y arreglarlo exigiría correr las migraciones sobre
 > el propio respaldo.
 
-> **El agujero que ordena esa fase, y conviene saberlo antes de tocar nada.**
-> La base está cifrada con SQLCipher y la clave vive **sólo** en el llavero
-> (`db-master-key`). No hay segunda copia. Si se pierde esa entrada, `arles.db`
-> sigue en disco y es **ilegible para siempre**: hoy no hay respaldo del que
-> tirar. El ADR-0011 decide bien la mitad —no arrancar antes que degradar a
-> texto plano— y la otra mitad, qué hace el usuario después, no existe.
+**Cerrada la 8.4 · el llavero perdido** (`arles-app/src/recuperacion.rs` y
+`/recuperar`). Cinco pruebas, y `la_clave_perdida_tiene_salida` escrita **antes**
+y vista en rojo nombrando los seis tramos.
+
+> **El consejo que el producto no podía cumplir.** Desde la Fase 1, perder la
+> entrada del llavero daba un mensaje correcto con las tres partes del §95, y la
+> de «cómo se arregla» decía *«Restaura tu último respaldo»* — y `run()` llamaba
+> a `exit(1)` antes de abrir ninguna ventana. No faltaba un botón: el producto
+> **daba una instrucción que él mismo impedía seguir**.
+
+> **Las dos cosas que aquí no se pueden hacer mal:**
 >
-> Dos cosas más que la planificación midió: el paso de rendimiento del CI lleva
+> 1. **No se crea una clave nueva al arrancar** (F2 de la Fase 1). El llavero
+>    puede estar vacío por motivos pasajeros, y una clave nueva dejaría la base
+>    ilegible **para siempre**. Sólo nace cuando alguien elige un respaldo y
+>    confirma.
+> 2. **La base ilegible se aparta, no se borra.** Un llavero puede volver, y ese
+>    día esos datos valen más que el respaldo. Recuperar dos veces el mismo día
+>    tampoco pisa la copia de la primera.
+
+> **El modo registra tres comandos y ninguno más**, y la pantalla no lleva barra
+> lateral: sin base no hay secciones a las que ir. **Si no hay respaldo se dice
+> con esas palabras** — no hay salida, el cifrado no tiene puerta de atrás—,
+> porque dejar lugar a la duda haría buscar durante horas algo que no existe.
+
+> **Límite declarado.** Este contenedor no tiene llavero ni D-Bus, así que la
+> prueba del arranque **declara su rama y se omite aquí**. Lo que sí corre
+> entero es la mecánica de la recuperación, escrita a propósito **sin** depender
+> del llavero: con él habría pasado en verde sin ejercitar una línea. En Windows
+> y macOS se prueba al cerrar **R-07**.
+
+> **Y el defecto que encontró mirar la demostración**, el peor posible en esta
+> pantalla: decía **«no se ha perdido nada»** con 48 MB de base en disco, porque
+> nadie llamaba a `cargar()`. El §9 otra vez, y aquí la consecuencia no es una
+> función que falta: es alguien que borra el archivo porque le dijimos que
+> estaba vacío.
+>
+> Dos cosas que la planificación midió y **siguen pendientes**: el paso de rendimiento del CI lleva
 > marcado «pendiente de la Fase 4» y **las trece cifras de
 > `PRESUPUESTO_RENDIMIENTO.md` nunca se han medido**; y **los derechos ARCO, que
 > el ROADMAP pone en la Fase 8, están construidos desde la 3.4** — se verifican
