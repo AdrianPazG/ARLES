@@ -44,6 +44,11 @@ keyring = { version = "3", features = [
     "sync-secret-service",
 ] }
 directories = "6"
+# La sal y el nonce de cada respaldo (8.2c). Ya estaba en el árbol por
+# `arles-db`, que genera la clave maestra con él, así que `cargo deny` lo tenía
+# auditado: aquí sólo pasa a ser dependencia directa. El núcleo NO la pide —
+# cero I/O—, y por eso la entropía se genera en esta capa.
+getrandom = "0.3"
 
 [dev-dependencies]
 tempfile = "3"

@@ -84,3 +84,36 @@ export async function invocar<T>(
   const { invoke } = await import('@tauri-apps/api/core')
   return invoke<T>(comando, argumentos)
 }
+
+/**
+ * Escucha un evento del núcleo y devuelve cómo dejar de escucharlo.
+ *
+ * Hace falta para el avance del respaldo (8.2c): con medio millón de filas,
+ * exportar tarda, y una barra parada veinte segundos es indistinguible de un
+ * programa colgado. Un valor devuelto al final no sirve — llega cuando ya no
+ * hace falta—, así que el núcleo emite cifras mientras escribe.
+ *
+ * **Quien llama tiene que llamar a lo que devuelve.** Un oyente que no se
+ * quita sigue vivo al salir de la pantalla, y la segunda visita deja dos
+ * sumando sobre el mismo contador.
+ *
+ * En la vista previa no llega ningún evento, y es correcto: ahí no hay núcleo
+ * que los emita. La pantalla tiene que verse bien sin ellos, que es la misma
+ * regla que `hayNucleo()` para todo lo demás.
+ */
+export async function escuchar<T>(
+  evento: string,
+  alLlegar: (dato: T) => void,
+): Promise<() => void> {
+  if (!hayNucleo()) return () => {}
+  try {
+    const { listen } = await import('@tauri-apps/api/event')
+    const quitar = await listen<T>(evento, (e) => alLlegar(e.payload))
+    return () => {
+      void quitar()
+    }
+  } catch {
+    // Que no se pueda escuchar el avance no es motivo para no exportar.
+    return () => {}
+  }
+}

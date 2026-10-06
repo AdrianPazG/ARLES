@@ -16,6 +16,7 @@ pub mod fabrica;
 pub mod llavero;
 pub mod motor;
 pub mod registro;
+pub mod respaldo;
 pub mod rutas;
 pub mod whatsapp;
 
@@ -123,6 +124,11 @@ pub fn run() {
             registro::recortar_registro,
             // El resumen exportable (7.6).
             registro::exportar_resumen,
+            // El respaldo (8.2c). Primero se dice con cifras qué se va a
+            // llevar, y después se escribe: es el patrón del recorte del
+            // registro (7.4) y del derecho de cancelación (3.4).
+            respaldo::que_llevaria_el_respaldo,
+            respaldo::exportar_respaldo,
         ])
         .run(tauri::generate_context!());
 

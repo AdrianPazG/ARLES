@@ -12,6 +12,47 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.2c · ARLES escribe un respaldo
+
+#### Lo que cambia para quien usa ARLES
+
+**Ya se puede crear un respaldo**, en Ajustes › Respaldos. Antes de escribir
+nada dice con cifras qué se va a llevar —«Se llevaría 12,536 filas de 6
+tablas»—, porque elegir entre «Lo esencial» y «Todo» sin ver la diferencia es
+elegir a ciegas.
+
+**Se puede poner contraseña, y se puede no ponerla.** Con contraseña, el archivo
+no lo abre nadie más; sin ella, el aviso dice qué significa: dentro van los datos
+de todos tus contactos y de quién pidió no recibir. **ARLES no guarda esa
+contraseña en ninguna parte.** Si se olvida, el respaldo no se abre, y no hay
+forma de recuperarlo.
+
+**Todavía no se puede restaurar.** Eso es lo siguiente.
+
+#### Lo que cambia por dentro
+
+- `arles-app/src/respaldo.rs` · dos comandos (`que_llevaria_el_respaldo` y
+  `exportar_respaldo`), el escritor del archivo y la bitácora. Seis pruebas,
+  entre ellas el camino entero: base poblada → archivo → descifrar → comparar.
+- **Cabecera en claro, cuerpo cifrado.** La 8.3 tiene que poder decir «esto va
+  con contraseña» antes de pedirla.
+- La ruta del archivo **no cruza la frontera**: sólo vuelve el nombre (regla 4).
+  La bitácora anota el alcance, si iba cifrado y cuántas filas — nunca dónde.
+
+#### Lo que estaba mal y se arregla
+
+**El formato de la 8.1 no tenía dónde poner la sal ni el nonce**, y sin ellos un
+respaldo cifrado no se abre nunca. Ahora viajan dentro de la variante del
+cifrado, así que no existe el estado imposible.
+
+**`cifrar` pedía el cuerpo entero en memoria**, deshaciendo el cursor de la 8.2b
+justo en la junta de las dos piezas. Lo cierra `SobreEnCurso`, que sella a
+medida que se escribe y da el mismo archivo byte a byte.
+
+**Tres defectos de pantalla**: las cifras sin separador de miles, un campo
+bloqueado que no decía por qué, y un token de diseño inventado que el navegador
+resuelve a nada sin error.
+
 ### 8.2b · Leer la base para un respaldo, sin cargarla en memoria
 
 #### Lo que cambia para quien usa ARLES

@@ -4829,6 +4829,54 @@ def el_respaldo_no_se_lee_en_memoria():
     )
 
 
+def el_exportador_tiene_quien_lo_llame():
+    """**El patrón del §9, vigilado antes de abrir el hueco y no después.**
+
+    La 8.2b dejó `Db::exportar` construido, con trece pruebas, y **nadie lo
+    llamaba**. Es exactamente lo que ha pasado trece veces en este proyecto:
+    una pieza correcta, probada, que ningún otro módulo usa. Una prueba
+    comprueba que la pieza funciona, no que alguien la llame.
+
+    Así que esta comprobación se escribió **antes** de enchufarlo, y se vio
+    fallar nombrando `Db::exportar` el 05/10/2026 — con las diez fases en verde
+    y el exportador entero ya empujado.
+
+    Mira el cable completo, que es lo que no miraba ninguna de las tres
+    comprobaciones que ya perseguían este patrón:
+
+        arles-db::exportar → arles-app → generate_handler! → app/src
+
+    El último tramo —comando registrado y alguien que lo llame— ya lo vigila
+    `ningun_comando_se_queda_sin_quien_lo_llame` en la fase W. Aquí falta el
+    primero.
+    """
+    faltan = []
+
+    app = ""
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "crates", "arles-app", "src")):
+        for f in ficheros:
+            if f.endswith(".rs"):
+                with open(os.path.join(carpeta, f), encoding="utf-8") as fh:
+                    app += fh.read()
+    assert app, "no se leyó el código de arles-app"
+
+    if ".exportar(" not in app:
+        faltan.append("arles_db::Db::exportar — nadie en arles-app lo llama")
+
+    # Y el comando tiene que estar registrado, o no hay frontera que cruzar.
+    lib = leer("crates", "arles-app", "src", "lib.rs") or ""
+    if "exportar_respaldo" not in lib:
+        faltan.append("exportar_respaldo — no está en generate_handler!")
+
+    check(
+        8,
+        "el exportador tiene quien lo llame",
+        not faltan,
+        el_exportador_tiene_quien_lo_llame.__doc__,
+        detalle="\n      ".join(faltan),
+    )
+
+
 def toda_tabla_que_no_entra_dice_por_que():
     """Una exclusión sin motivo es un olvido con mejor presentación.
 
@@ -4891,6 +4939,9 @@ def fase_8(rapido=False):
     print(f"{GRIS}  leer la base por tandas (8.2b){FIN}")
     lo_que_se_recorta_dice_por_que_columna()
     el_respaldo_no_se_lee_en_memoria()
+
+    print(f"{GRIS}  el comando y la pantalla (8.2c){FIN}")
+    el_exportador_tiene_quien_lo_llame()
 
 
 def fase_7(rapido=False):

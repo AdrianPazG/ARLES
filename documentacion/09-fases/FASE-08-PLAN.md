@@ -515,7 +515,64 @@ delante de quien pulsó exportar.
 > no con buena intención: `el_exportador_tiene_quien_lo_llame` en `--fase 8`,
 > escrita **antes** de enchufarlo para verla en rojo.
 
-#### 8.2c · El comando, el diálogo y la pantalla
+#### 8.2c · El comando, el diálogo y la pantalla ✅ **cerrada el 06/10/2026**
+
+`arles-app/src/respaldo.rs` y `/ajustes/respaldos`. **ARLES escribe un respaldo
+entero**, cifrado o no, y la comprobación que la 8.2b dejó en rojo pasa a verde.
+
+**La forma del archivo: cabecera en claro, cuerpo cifrado.** No es un descuido —
+es lo que permite que la restauración (8.3) diga «este respaldo va con
+contraseña, y es de hace cuatro meses» **antes** de pedirla. Cifrar la cabecera
+obligaría a pedir la contraseña para averiguar si hace falta una contraseña. Y
+no filtra nada: versión del esquema, recuento por tabla y nombres de columna.
+Ni un dato de una persona, ni una ruta, ni el nombre del equipo.
+
+**Dos arreglos más del formato de la 8.1**, los dos del mismo tipo que el de la
+8.2b — cosas que la 8.1 no podía ver porque el cifrado todavía no existía:
+
+1. **La sal y el nonce no tenían dónde ir.** La clave se deriva de la contraseña
+   **y de la sal**, y la sal es distinta en cada respaldo a propósito. Sin ellas
+   en el archivo, un respaldo cifrado **no se puede abrir nunca**. Ahora viajan
+   dentro de la variante `Cifrado::Argon2idXChaCha20 { sal, nonce }`, para que no
+   exista el estado imposible: sin cifrar no puede llevar sal, y cifrado no puede
+   no llevarla. No son secretos — lo que protege el respaldo es la contraseña,
+   que no está en el archivo.
+2. **`cifrar` recibía el cuerpo entero en memoria.** La 8.2b se tomó el trabajo
+   de leer la base con un cursor para no tenerla en RAM… y cifrarla con esa
+   función la habría juntado otra vez. Es el patrón del §9 en su forma más
+   silenciosa: **las dos piezas correctas y el agujero en la junta**. Lo cierra
+   `SobreEnCurso`, que sella a medida que se escribe y produce **el mismo
+   archivo byte a byte** que `cifrar` — lo fija una prueba en los tamaños
+   frontera, porque sellar el trozo en cuanto se llena daría otro formato.
+
+**Dos comandos, no uno.** `que_llevaria_el_respaldo` dice con cifras qué se va a
+llevar sin escribir nada; `exportar_respaldo` escribe. Es el patrón del recorte
+del registro (7.4) y del derecho de cancelación (3.4), y aquí importa por un
+motivo propio: «Lo esencial» y «Todo» son dos palabras, «12 536 filas» y
+«48 207 filas» son una decisión (§94).
+
+**La pantalla cuelga de Ajustes** (`/ajustes/respaldos`), que es lo que la
+cabecera de `PantallaAjustes` ya decía que pertenece ahí: «tema, densidad,
+versión, **respaldos**».
+
+**Lo que encontró abrir la demostración y mirar**, con las diez fases en verde:
+
+- **«12536 filas»**, sin separador de miles, cuando Actividad y el registro
+  escriben `12,536` desde la 7.2. Ninguna comprobación lo caza: es un número
+  correcto.
+- **«Repite la contraseña» bloqueado sin decir por qué.** Bloquearlo no es
+  cosmética: si sólo se escribiera ahí, el respaldo saldría **sin cifrar**
+  mientras alguien cree haberle puesto clave. Pero un campo que no responde y no
+  se explica se lee como una avería (§95).
+
+Y una tercera que cazó el validador: **`--arles-font-family-mono` no existe**.
+El navegador resuelve un `var()` inexistente a nada, sin error, así que la lista
+se habría visto bien. Es el caso de los seis tokens inventados de la 5.2.
+
+**Hecho:** se exporta una base poblada, el archivo se vuelve a leer, se descifra
+y cuadra. Falta medir la memoria del proceso con 500 000 filas, que es la 8.5.
+
+#### 8.2c · lo que se escribió
 
 **Qué.** Escribir el archivo: cabecera, cuerpo, suma y sobre cifrado.
 
@@ -747,6 +804,10 @@ hay que hacer es distinto en cada caso; el sobre va cifrado con Argon2id y
 XChaCha20-Poly1305 en trozos de 64 KiB; y la base se lee con un cursor, en una
 sola transacción, con el orden de inserción calculado del esquema.
 
-**Lo siguiente es la 8.2c**, que escribe el archivo y pone el botón — y que es lo
-que cierra el hueco del §9 que la 8.2b deja abierto a propósito: hoy el
-exportador está probado y nadie lo llama.
+**Cerrada también la 8.2c** (06/10/2026): **ARLES escribe un respaldo entero**,
+cifrado o no, desde `/ajustes/respaldos`. El hueco del §9 que la 8.2b dejó
+abierto a propósito está cerrado, y lo vigila `el_exportador_tiene_quien_lo_llame`.
+
+**Lo siguiente es la 8.3 · Restaurar, con su preflight** (D-8C). Lo que hay
+ahora es la mitad de la fase: se puede escribir un respaldo y **todavía no se
+puede leer de vuelta**, que es para lo que existe.

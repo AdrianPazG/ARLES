@@ -61,6 +61,9 @@ const CLAVES_DEL_NUCLEO = [
   'error.app.empresa_no_configurada',
   'error.app.sin_importacion_en_curso',
   'error.app.archivo_no_se_pudo_leer',
+  // Entrega 8.2c · la webview pidió un alcance de respaldo que no existe. Es
+  // un defecto nuestro: la pantalla sólo ofrece los dos de D-8B.
+  'error.app.alcance_de_respaldo_desconocido',
   // arles-import
   'error.import.formato_desconocido',
   'error.import.demasiado_grande',

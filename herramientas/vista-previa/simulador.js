@@ -1017,6 +1017,43 @@
           );
         }
 
+        // ── El respaldo (8.2c) ────────────────────────────────────────────
+        //
+        // El preflight sí se contesta con cifras: es lo que hay que poder mirar
+        // a ojo, porque elegir entre «Lo esencial» y «Todo» sin ver la
+        // diferencia es elegir a ciegas (§94).
+        case 'que_llevaria_el_respaldo': {
+          var todo = args.alcance === 'completo';
+          var tablas = [
+            { tabla: 'contact', filas: (e.contactos || []).length || 1342 },
+            { tabla: 'contact_channel', filas: ((e.contactos || []).length || 1342) * 2 },
+            { tabla: 'suppression_entry', filas: 37 },
+            { tabla: 'campaign', filas: (e.campanas || []).length || 3 },
+            { tabla: 'template', filas: 4 },
+            { tabla: 'message_attempt', filas: todo ? 48207 : 12483 },
+          ];
+          if (todo) {
+            tablas.push({ tabla: 'audit_log', filas: 915 });
+            tablas.push({ tabla: 'activity_event', filas: 6104 });
+          }
+          var total = 0;
+          for (var i = 0; i < tablas.length; i += 1) { total += tablas[i].filas; }
+          return Promise.resolve({
+            esquema: 'V10',
+            tablas: tablas,
+            total: total,
+            mesesEnElEsencial: 12,
+          });
+        }
+
+        // **Devuelve `null`, que significa «cerró el diálogo sin elegir
+        // sitio».** Y es la única respuesta honesta: aquí no hay disco donde
+        // escribir ni diálogo del sistema que abrir, y contestar «respaldo
+        // creado» enseñaría un éxito de algo que no ocurrió — que es
+        // exactamente lo que este archivo dice que no es.
+        case 'exportar_respaldo':
+          return Promise.resolve(null);
+
         default:
           return Promise.reject({ clave: 'error.db.sqlite', detalle: 'desconocido: ' + cmd });
       }

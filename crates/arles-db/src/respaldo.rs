@@ -217,6 +217,40 @@ impl Db {
     }
 }
 
+impl Db {
+    /// Deja constancia en `audit_log` de que se escribió un respaldo.
+    ///
+    /// **Se llama después de escribir el archivo, no antes.** Anotar un
+    /// respaldo que no llegó a existir convertiría la bitácora en una lista de
+    /// intenciones — es la misma regla que el informe de acceso (3.4).
+    ///
+    /// Lo que se anota es el alcance, si iba cifrado y cuántas filas llevaba.
+    /// **No el nombre del archivo ni su carpeta**: una ruta en la bitácora
+    /// contaría de qué máquina salió y a dónde fue, que es la regla 4 de la
+    /// frontera aplicada al disco. Si alguien pregunta «¿dónde está mi
+    /// respaldo?», la respuesta no puede salir de aquí, y es correcto.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la escritura falla.
+    pub fn registrar_respaldo(
+        &self,
+        empresa: &str,
+        alcance: &str,
+        cifrado: bool,
+        filas: u64,
+    ) -> Result<(), DbError> {
+        let resumen = format!(
+            "{alcance}/{}/{filas}",
+            if cifrado { "cifrado" } else { "sin-cifrar" }
+        );
+        self.con_dominio(|conn| {
+            crate::empresa::auditar(conn, empresa, "exportar_respaldo", "respaldo", &resumen)?;
+            Ok(())
+        })
+    }
+}
+
 /// Qué trae el respaldo, con el orden del cuerpo ya resuelto.
 ///
 /// # Errores

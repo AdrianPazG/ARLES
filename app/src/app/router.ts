@@ -236,6 +236,16 @@ const rutas: RouteRecordRaw[] = [
     component: () => import('@/app/pantallas/PantallaAjustes.vue'),
     meta: { seccion: 'ajustes' },
   },
+  {
+    // Cuelga de Ajustes y no es una séptima sección (P-13). La cabecera de
+    // `PantallaAjustes` ya decía qué pertenece ahí —«tema, densidad, versión,
+    // respaldos»—: un respaldo es una propiedad de la herramienta, no del
+    // negocio, porque no decide a quién se le escribe ni a qué hora.
+    path: '/ajustes/respaldos',
+    name: 'respaldos',
+    component: () => import('@/app/pantallas/PantallaRespaldos.vue'),
+    meta: { seccion: 'ajustes', subseccion: 'respaldos', orden: 1 },
+  },
   // ── YA NO HAY ANDAMIO ─────────────────────────────────────────────────
   //
   // Hasta la 7.3, las secciones sin pantalla se registraban en bloque contra

@@ -167,6 +167,139 @@ pub fn cifrar(
     Ok(salida)
 }
 
+/// El mismo sobre, pero cerrado **a medida que se escribe**.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ HACE FALTA, Y POR QUÉ `cifrar` NO BASTABA
+///
+/// [`cifrar`] recibe el cuerpo entero en un `&[u8]`. Eso lo deja inútil para lo
+/// único que importa: un respaldo de medio millón de filas. La 8.2b se tomó el
+/// trabajo de leer la base con un cursor, fila a fila, para no tenerla en
+/// memoria… y escribir el archivo con [`cifrar`] obligaría a juntar todo el
+/// cuerpo antes de cifrarlo, deshaciendo exactamente eso.
+///
+/// Es el patrón del §9 en su forma más silenciosa: **las dos piezas correctas,
+/// cada una con sus pruebas, y el agujero justo en la junta.** Ninguna prueba
+/// de `cifrar` podía cazarlo, porque `cifrar` cumple lo que promete; ninguna de
+/// la 8.2b tampoco, porque leer sí es acotado. El límite de memoria sólo se
+/// rompe al juntarlas.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// ESCRIBE LO MISMO, BYTE A BYTE, QUE `cifrar`
+///
+/// Y no es casualidad: un trozo se marca como **último** sólo cuando se cierra
+/// el sobre, así que hay que retener siempre un trozo lleno hasta saber si
+/// viene más. Lo obvio —cifrar y soltar en cuanto hay 64 KiB— produciría un
+/// archivo distinto cuando el cuerpo mide un múltiplo exacto del trozo: todos
+/// los trozos marcados como «siguiente» y un trozo final vacío al que
+/// [`descifrar`] no le pondría objeción, pero que sería **otro formato**.
+///
+/// Lo fija `el_sobre_a_trozos_escribe_lo_mismo_que_de_una_vez`, que compara los
+/// dos caminos en los tamaños frontera.
+pub struct SobreEnCurso {
+    sobre: Option<Sellador>,
+    /// Lo que todavía no se ha cifrado. **Nunca pasa de `2 * TROZO`.**
+    pendiente: Vec<u8>,
+}
+
+impl std::fmt::Debug for SobreEnCurso {
+    /// **No enseña lo pendiente, y es a propósito.**
+    ///
+    /// Lo que hay en `pendiente` es texto claro del respaldo: contactos,
+    /// plantillas, direcciones. Una traza de depuración que lo imprimiera
+    /// sacaría datos personales a una bitácora — el mismo motivo por el que
+    /// `SumaEnCurso` tampoco imprime su estado.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(if self.sobre.is_some() {
+            "SobreEnCurso(abierto)"
+        } else {
+            "SobreEnCurso(cerrado)"
+        })
+    }
+}
+
+type Sellador = chacha20poly1305::aead::stream::EncryptorBE32<chacha20poly1305::XChaCha20Poly1305>;
+
+impl SobreEnCurso {
+    /// Abre el sobre.
+    ///
+    /// `sal` y `nonce` los genera quien llama, igual que en [`cifrar`] y por el
+    /// mismo motivo: aquí no se pide entropía al sistema.
+    ///
+    /// # Errores
+    ///
+    /// [`CoreError::RespaldoCorrupto`] si la derivación falla, que en la
+    /// práctica sólo ocurre si no hay memoria para Argon2id.
+    pub fn nuevo(
+        contrasena: &str,
+        sal: &[u8; BYTES_DE_SAL],
+        nonce: &[u8; BYTES_DE_NONCE],
+    ) -> Result<Self, CoreError> {
+        use chacha20poly1305::aead::stream::EncryptorBE32;
+        use chacha20poly1305::{KeyInit, XChaCha20Poly1305};
+        use zeroize::Zeroize;
+
+        let mut clave = derivar(contrasena, sal)?;
+        let cifrador = XChaCha20Poly1305::new(clave.as_slice().into());
+        clave.zeroize();
+
+        Ok(Self {
+            sobre: Some(EncryptorBE32::from_aead(cifrador, nonce.as_slice().into())),
+            pendiente: Vec::with_capacity(TROZO * 2),
+        })
+    }
+
+    /// Añade texto claro y deja en `salida` lo que ya se puede escribir.
+    ///
+    /// Puede no dejar nada: hasta que no hay **más** de un trozo acumulado no se
+    /// sella ninguno, porque todavía podría ser el último.
+    ///
+    /// # Errores
+    ///
+    /// [`CoreError::RespaldoCorrupto`] si el cifrado falla, o si se llama
+    /// después de [`Self::terminar`] — que no debería poder pasar, porque
+    /// `terminar` consume el sobre.
+    pub fn añadir(&mut self, claro: &[u8], salida: &mut Vec<u8>) -> Result<(), CoreError> {
+        self.pendiente.extend_from_slice(claro);
+        while self.pendiente.len() > TROZO {
+            let resto = self.pendiente.split_off(TROZO);
+            let trozo = std::mem::replace(&mut self.pendiente, resto);
+            let sobre = self.sobre.as_mut().ok_or(CoreError::RespaldoCorrupto {
+                motivo: "se intentó cifrar en un sobre ya cerrado",
+            })?;
+            let cifrado =
+                sobre
+                    .encrypt_next(trozo.as_slice())
+                    .map_err(|_| CoreError::RespaldoCorrupto {
+                        motivo: "no se pudo cifrar un trozo del respaldo",
+                    })?;
+            salida.extend_from_slice(&cifrado);
+        }
+        Ok(())
+    }
+
+    /// Cierra el sobre: cifra lo que quede y lo marca como último trozo.
+    ///
+    /// **Un cuerpo vacío también tiene su trozo final.** Sin él, un archivo de
+    /// cero trozos y uno truncado a cero serían indistinguibles.
+    ///
+    /// # Errores
+    ///
+    /// [`CoreError::RespaldoCorrupto`] si el cifrado falla.
+    pub fn terminar(mut self, salida: &mut Vec<u8>) -> Result<(), CoreError> {
+        let sobre = self.sobre.take().ok_or(CoreError::RespaldoCorrupto {
+            motivo: "se intentó cerrar un sobre ya cerrado",
+        })?;
+        let ultimo = sobre.encrypt_last(self.pendiente.as_slice()).map_err(|_| {
+            CoreError::RespaldoCorrupto {
+                motivo: "no se pudo cifrar el último trozo del respaldo",
+            }
+        })?;
+        salida.extend_from_slice(&ultimo);
+        Ok(())
+    }
+}
+
 /// Descifra el cuerpo de un respaldo.
 ///
 /// # Errores
@@ -413,5 +546,71 @@ mod tests {
 
         let c = derivar("contraseña", &[1u8; BYTES_DE_SAL]).expect("deriva");
         assert_ne!(a, c, "la sal tiene que cambiar la clave");
+    }
+
+    /// **El sobre a trozos escribe lo mismo, byte a byte, que de una vez.**
+    ///
+    /// Es la garantía que permite escribir un respaldo de 500 MB sin juntarlo
+    /// en memoria: si los dos caminos no dieran el mismo archivo, habría dos
+    /// formatos y sólo uno probado contra `descifrar`.
+    ///
+    /// Los tamaños no son al azar: **cero, justo un trozo y un múltiplo
+    /// exacto** son los que distinguen las dos formas de marcar el último
+    /// trozo. Con 100 bytes pasa cualquier implementación.
+    ///
+    /// Verificada el 05/10/2026 sellando el trozo en cuanto se llena —`>=` en
+    /// vez de `>`—: con 64 KiB justos y con 128 KiB los dos caminos dan
+    /// archivos distintos y la prueba falla nombrando el tamaño.
+    #[test]
+    fn el_sobre_a_trozos_escribe_lo_mismo_que_de_una_vez() {
+        for n in [
+            0,
+            1,
+            100,
+            TROZO - 1,
+            TROZO,
+            TROZO + 1,
+            TROZO * 2,
+            TROZO * 3 + 7,
+        ] {
+            let claro: Vec<u8> = (0..n).map(|i| (i % 251) as u8).collect();
+            let de_una_vez = cifrar("contraseña", &SAL, &NONCE, &claro).expect("cifra");
+
+            // Y se va dando en pedazos de un tamaño que NO es el del trozo, que
+            // es como llegará de verdad: una fila de un contacto no mide 64 KiB.
+            let mut sobre = SobreEnCurso::nuevo("contraseña", &SAL, &NONCE).expect("abre");
+            let mut a_trozos = Vec::new();
+            for pedazo in claro.chunks(7_000.min(claro.len().max(1))) {
+                sobre.añadir(pedazo, &mut a_trozos).expect("añade");
+            }
+            sobre.terminar(&mut a_trozos).expect("cierra");
+
+            assert_eq!(
+                de_una_vez, a_trozos,
+                "con {n} bytes los dos caminos dan archivos distintos"
+            );
+
+            // Y lo que sale se abre, que es lo que importa al final.
+            assert_eq!(
+                descifrar("contraseña", &SAL, &NONCE, &a_trozos).expect("descifra"),
+                claro
+            );
+        }
+    }
+
+    /// Cerrar el sobre no se puede hacer dos veces, y el tipo lo impide.
+    ///
+    /// `terminar` consume el sobre, así que un segundo cierre **no compila**.
+    /// La prueba deja constancia de que es a propósito y no una casualidad del
+    /// tipo: un sobre que se pudiera cerrar dos veces escribiría dos trozos
+    /// finales, y el segundo no se podría descifrar.
+    #[test]
+    fn el_sobre_cerrado_no_se_puede_volver_a_usar() {
+        let mut sobre = SobreEnCurso::nuevo("contraseña", &SAL, &NONCE).expect("abre");
+        let mut salida = Vec::new();
+        sobre.añadir(b"hola", &mut salida).expect("añade");
+        sobre.terminar(&mut salida).expect("cierra");
+        // `sobre` ya no existe aquí: lo movió `terminar`.
+        assert!(!salida.is_empty());
     }
 }

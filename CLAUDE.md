@@ -469,9 +469,53 @@ nuevas pasaron `cargo deny`: `advisories ok, licenses ok`.
 > sino `first_reply_at`, y darlo por supuesto habría hecho fallar el `WHERE`
 > delante de quien pulsó exportar.
 
-> **Hueco del §9 abierto a propósito.** `Db::exportar` está construido, probado
-> y **nadie lo llama**. Lo cierra la 8.2c con una comprobación escrita antes de
-> enchufarlo, para verla en rojo — no con buena intención.
+**Cerrada la 8.2c · el comando, el diálogo y la pantalla**
+(`arles-app/src/respaldo.rs` y `/ajustes/respaldos`). **ARLES escribe un
+respaldo entero**, cifrado o no. El hueco del §9 que la 8.2b dejó abierto lo
+cerró `el_exportador_tiene_quien_lo_llame`, escrita **antes** y vista en rojo.
+
+> **La cabecera va en claro y el cuerpo cifrado.** Es lo que permite que la 8.3
+> diga «este respaldo va con contraseña, y es de hace cuatro meses» antes de
+> pedirla: cifrarla obligaría a pedir la contraseña para saber si hace falta una
+> contraseña. Y no filtra nada — versión del esquema, recuento por tabla y
+> nombres de columna; ni un dato de una persona, ni una ruta.
+>
+> **La suma va dentro del sobre y cubre la cabecera Y el cuerpo en claro**, que
+> es lo que hay que poder comprobar al restaurar.
+
+> **Dos arreglos más del formato de la 8.1**, del mismo tipo que el de la 8.2b:
+> cosas que la 8.1 no podía ver porque el cifrado no existía todavía.
+>
+> 1. **La sal y el nonce no tenían dónde ir.** La clave sale de la contraseña
+>    **y de la sal**, así que sin ellas en el archivo un respaldo cifrado **no
+>    se abre nunca**. Van dentro de la variante
+>    `Cifrado::Argon2idXChaCha20 { sal, nonce }` para que no exista el estado
+>    imposible. No son secretos: lo que protege es la contraseña, que no está
+>    en el archivo.
+> 2. **`cifrar` recibía el cuerpo entero en memoria**, deshaciendo el cursor de
+>    la 8.2b. Es el §9 en su forma más silenciosa: **las dos piezas correctas y
+>    el agujero en la junta**, que ninguna prueba de una u otra podía cazar. Lo
+>    cierra `SobreEnCurso`, y produce **el mismo archivo byte a byte** que
+>    `cifrar` — hay que retener un trozo lleno hasta saber si viene más, porque
+>    el último se marca como último; sellarlo en cuanto se llena daría otro
+>    formato con los múltiplos exactos de 64 KiB.
+
+> **Tres defectos que encontró mirar la demostración**, con las diez fases en
+> verde:
+>
+> - **«12536 filas»** sin separador, cuando Actividad y el registro escriben
+>   `toLocaleString('es-MX')` desde la 7.2. Ninguna comprobación lo caza: es un
+>   número correcto.
+> - **«Repite la contraseña» bloqueado sin decir por qué.** Bloquearlo no es
+>   cosmética — si sólo se escribiera ahí, el respaldo saldría **sin cifrar**
+>   mientras alguien cree haberle puesto clave—, pero un campo que no responde
+>   y no se explica se lee como una avería (§95).
+> - **`--arles-font-family-mono` no existe.** Ésta sí la cazó el validador: el
+>   navegador resuelve un `var()` inexistente **a nada, sin error**, así que la
+>   lista se habría visto bien. Es el caso de los seis tokens de la 5.2.
+
+> **Lo que todavía NO hace:** **no se puede restaurar**. Se escribe un respaldo
+> y no hay forma de leerlo de vuelta, que es para lo que existe. Eso es la 8.3.
 
 > **El agujero que ordena esa fase, y conviene saberlo antes de tocar nada.**
 > La base está cifrada con SQLCipher y la clave vive **sólo** en el llavero

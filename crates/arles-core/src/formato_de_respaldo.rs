@@ -137,40 +137,54 @@ impl Alcance {
 
 /// Cómo está protegido el cuerpo del respaldo (D-8A).
 ///
-/// La variante existe desde el formato 1 aunque el cifrado lo construya la 8.2:
-/// un campo añadido después obligaría a subir la versión del formato, y los
-/// respaldos ya escritos no tendrían dónde decir que no van cifrados.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// ─────────────────────────────────────────────────────────────────────────
+/// LA SAL Y EL NONCE VAN DENTRO DE LA VARIANTE, Y ES UN ARREGLO DE LA 8.1
+///
+/// La 8.1 escribió «cifrado: no» como un campo y **nunca se preguntó dónde va
+/// la sal**, porque el cifrado todavía no existía. Pero sin la sal y el nonce
+/// en el archivo, un respaldo cifrado **no se puede abrir nunca**: la clave se
+/// deriva de la contraseña *y de la sal*, y la sal es distinta en cada respaldo
+/// a propósito — si no, dos respaldos de la misma base con la misma contraseña
+/// saldrían idénticos byte a byte.
+///
+/// Van dentro de la variante y no en dos campos aparte para que no exista el
+/// estado imposible: un respaldo sin cifrar **no puede** llevar sal, y uno
+/// cifrado **no puede** no llevarla. Con dos campos `Option` las dos cosas
+/// compilarían, y la segunda produciría un archivo que nadie puede abrir.
+///
+/// No son secretos: la sal y el nonce se publican a propósito en todo formato
+/// cifrado que existe. Lo que protege el respaldo es la contraseña, que **no
+/// está en el archivo** y no se guarda en ningún sitio.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Cifrado {
     /// Sin contraseña. Dirección lo permite **sólo a propósito**, con el aviso
     /// delante (D-8A).
     No,
-    /// Contraseña del usuario, derivada con Argon2id. Lo rellena la 8.2.
-    Argon2idXChaCha20,
+    /// Contraseña del usuario, derivada con Argon2id.
+    Argon2idXChaCha20 {
+        /// La sal de Argon2id, en hexadecimal.
+        sal: String,
+        /// El nonce de XChaCha20, en hexadecimal.
+        nonce: String,
+    },
 }
+
+/// El nombre del algoritmo en el archivo.
+const ARGON2ID_XCHACHA20: &str = "argon2id-xchacha20poly1305";
 
 impl Cifrado {
     #[must_use]
-    pub const fn as_str(self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             Self::No => "no",
-            Self::Argon2idXChaCha20 => "argon2id-xchacha20poly1305",
+            Self::Argon2idXChaCha20 { .. } => ARGON2ID_XCHACHA20,
         }
     }
 
-    /// # Errores
-    ///
-    /// [`CoreError::RespaldoCorrupto`] si no se reconoce. **No se asume «no»**:
-    /// tratar un cuerpo cifrado como texto plano produciría basura que luego
-    /// habría que distinguir de un archivo roto.
-    pub fn parse(s: &str) -> Result<Self, CoreError> {
-        match s {
-            "no" => Ok(Self::No),
-            "argon2id-xchacha20poly1305" => Ok(Self::Argon2idXChaCha20),
-            _ => Err(CoreError::RespaldoCorrupto {
-                motivo: "el respaldo dice ir protegido de una forma que esta versión no conoce",
-            }),
-        }
+    /// ¿Hay que pedir una contraseña para abrirlo?
+    #[must_use]
+    pub fn lleva_contrasena(&self) -> bool {
+        !matches!(self, Self::No)
     }
 }
 
@@ -244,6 +258,14 @@ impl Cabecera {
             .map(|(t, cs)| format!("{t}={}", cs.join(",")))
             .collect::<Vec<_>>()
             .join(" ");
+        // La sal y el nonce sólo existen si el cuerpo va cifrado, y van después
+        // de `cifrado` para que se lean juntos al abrir el archivo con un editor.
+        let proteccion = match &self.cifrado {
+            Cifrado::No => String::new(),
+            Cifrado::Argon2idXChaCha20 { sal, nonce } => {
+                format!("sal{SEP}{sal}\nnonce{SEP}{nonce}\n")
+            }
+        };
         format!(
             "{MARCA}\n\
              formato{SEP}{}\n\
@@ -251,6 +273,7 @@ impl Cabecera {
              alcance{SEP}{}\n\
              creado{SEP}{}\n\
              cifrado{SEP}{}\n\
+             {proteccion}\
              filas{SEP}{filas}\n\
              columnas{SEP}{columnas}\n\
              \n",
@@ -375,12 +398,36 @@ impl Cabecera {
                 esquema: buscar("esquema")?,
                 alcance: Alcance::parse(&buscar("alcance")?)?,
                 creado_en: buscar("creado")?,
-                cifrado: Cifrado::parse(&buscar("cifrado")?)?,
+                cifrado: leer_cifrado(&buscar("cifrado")?, &buscar)?,
                 filas,
                 columnas,
             },
             consumidas,
         ))
+    }
+}
+
+/// Reconstruye cómo va protegido el cuerpo, con sus parámetros.
+///
+/// # Errores
+///
+/// [`CoreError::RespaldoCorrupto`] si el algoritmo no se reconoce —**no se
+/// asume «no»**: tratar un cuerpo cifrado como texto plano produciría basura
+/// que luego habría que distinguir de un archivo roto— o si dice ir cifrado y
+/// no trae la sal o el nonce, que es un archivo que nadie podría abrir.
+fn leer_cifrado(
+    algoritmo: &str,
+    buscar: &impl Fn(&str) -> Result<String, CoreError>,
+) -> Result<Cifrado, CoreError> {
+    match algoritmo {
+        "no" => Ok(Cifrado::No),
+        ARGON2ID_XCHACHA20 => Ok(Cifrado::Argon2idXChaCha20 {
+            sal: buscar("sal")?,
+            nonce: buscar("nonce")?,
+        }),
+        _ => Err(CoreError::RespaldoCorrupto {
+            motivo: "el respaldo dice ir protegido de una forma que esta versión no conoce",
+        }),
     }
 }
 
@@ -687,7 +734,15 @@ mod tests {
     #[test]
     fn un_alcance_desconocido_no_se_aproxima() {
         assert!(Alcance::parse("casi-todo").is_err());
-        assert!(Cifrado::parse("rot13").is_err());
+
+        // Y un algoritmo de cifrado que no conocemos tampoco se lee como «no».
+        let roto = cabecera()
+            .redactar()
+            .replace("cifrado\tno", "cifrado\trot13");
+        assert!(matches!(
+            Cabecera::leer(&roto),
+            Err(CoreError::RespaldoCorrupto { .. })
+        ));
     }
 
     /// **Un archivo cortado se detecta por el final que falta.**
@@ -875,5 +930,50 @@ mod tests {
         let mut recalculada = SumaEnCurso::new();
         recalculada.añadir(sin_cierre);
         comprobar_suma(&recalculada.terminar(), &declarada).expect("la suma cuadra");
+    }
+
+    /// **Un respaldo cifrado que no trae la sal no se puede abrir, y se dice.**
+    ///
+    /// La clave sale de la contraseña **y de la sal**. Sin ella no hay forma de
+    /// derivarla, así que un archivo así es ilegible para siempre — y el
+    /// arreglo de la 8.1 fue justo meter las dos dentro de la variante para que
+    /// no se pueda escribir uno.
+    ///
+    /// Lo que esta prueba cubre es el otro lado: un archivo **que ya existe** y
+    /// al que alguien le borró la línea. Se rechaza al leer la cabecera, no al
+    /// intentar descifrar y fallar con «la contraseña no abre este respaldo»,
+    /// que mandaría a probar contraseñas durante media hora.
+    ///
+    /// Verificada el 05/10/2026 devolviendo `sal: String::new()` cuando falta:
+    /// la cabecera se lee en verde y el fallo se traslada al descifrado.
+    #[test]
+    fn un_respaldo_cifrado_sin_su_sal_se_rechaza_al_leer_la_cabecera() {
+        let mut c = cabecera();
+        c.cifrado = Cifrado::Argon2idXChaCha20 {
+            sal: "0a".repeat(16),
+            nonce: "0b".repeat(19),
+        };
+        let texto = c.redactar();
+
+        // Primero: completo, se lee igual que se escribió.
+        let (leida, _) = Cabecera::leer(&texto).expect("se lee");
+        assert_eq!(leida, c);
+        assert!(leida.cifrado.lleva_contrasena());
+
+        // Y ahora sin cada una de las dos líneas.
+        for linea in ["sal\t", "nonce\t"] {
+            let mutilado = texto
+                .lines()
+                .filter(|l| !l.starts_with(linea))
+                .map(|l| format!("{l}\n"))
+                .collect::<String>();
+            assert!(
+                matches!(
+                    Cabecera::leer(&mutilado),
+                    Err(CoreError::RespaldoCorrupto { .. })
+                ),
+                "sin la línea «{linea}» la cabecera tenía que rechazarse"
+            );
+        }
     }
 }

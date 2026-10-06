@@ -323,6 +323,7 @@ export const es = {
       whatsapp: 'WhatsApp',
       plantillas: 'Plantillas y firmas',
       registro: 'Registro',
+      respaldos: 'Respaldos',
     },
   },
 
@@ -473,6 +474,59 @@ export const es = {
     // lo mandó quitar el 21/09/2026, y con razón — en cuanto la barra lateral
     // enseña «Inicio › Configuración», el puente dejó de ser un camino y pasó
     // a ser Ajustes volviendo a hablar del negocio.
+  },
+
+  // ── Respaldos (8.2c) ──────────────────────────────────────────────────
+  //
+  // Dos avisos y no uno: cifrado y sin cifrar son dos situaciones distintas, y
+  // la persona tiene que saber en cuál está. El de «sin cifrar» dice qué
+  // significa de verdad —un archivo con todos los contactos que cualquiera
+  // abre—, porque D-8A lo permite a propósito y no en silencio.
+  respaldo: {
+    entradilla:
+      'Un respaldo es la única forma de volver si se pierde este equipo o la ' +
+      'credencial que abre tu base. ARLES no lo hace solo: lo pides tú y ' +
+      'eliges dónde se guarda.',
+    queSeLleva: 'Qué se lleva',
+    alcance: {
+      campo: 'Alcance',
+      ayuda:
+        'Lo esencial guarda tus contactos, su permiso, las bajas, las ' +
+        'campañas y los últimos {meses} meses de envíos. Todo guarda además ' +
+        'el historial completo y la bitácora.',
+      esencial: 'Lo esencial',
+      completo: 'Todo',
+    },
+    contando: 'Contando qué hay que llevarse…',
+    sinNucleo: 'Abre ARLES en tu equipo para ver qué llevaría tu respaldo.',
+    seLlevaria: 'Se llevaría {filas} filas de {tablas} tablas.',
+    verElDetalle: 'Ver tabla por tabla',
+    proteccion: 'Protección',
+    contrasena: 'Contraseña del respaldo',
+    contrasenaAyuda: 'Déjala en blanco si no quieres cifrarlo.',
+    repetida: 'Repite la contraseña',
+    // El campo está bloqueado mientras no haya contraseña arriba, y eso tiene
+    // que decirse: un campo gris que no responde, sin explicación, se lee como
+    // una avería. Bloquearlo no es cosmética — si sólo se escribiera aquí, el
+    // respaldo saldría SIN CIFRAR mientras alguien cree haberle puesto clave.
+    repetidaBloqueada: 'Escribe primero la contraseña de arriba.',
+    noCuadran: 'Las dos contraseñas no son iguales.',
+    avisoCifrado: 'Apúntala donde no se pueda perder',
+    avisoCifradoDetalle:
+      'ARLES no guarda esta contraseña en ninguna parte: ni en tu equipo, ni ' +
+      'en la base, ni en el archivo. Si se te olvida, este respaldo no se ' +
+      'podrá abrir nunca, y no hay forma de recuperarlo.',
+    avisoSinCifrar: 'Sin contraseña, el archivo lo abre cualquiera',
+    avisoSinCifrarDetalle:
+      'Dentro van los datos de todos tus contactos y de quién pidió no ' +
+      'recibir. Un respaldo así no debería terminar en un correo, en una ' +
+      'carpeta compartida ni en una memoria USB que se pueda perder.',
+    crear: 'Crear el respaldo',
+    escribiendo: 'Escribiendo…',
+    arrancando: 'Preparando {filas} filas…',
+    avance: 'Escritas {filas} de {total}.',
+    hecho: 'Respaldo creado',
+    hechoDetalle: 'Se guardó {archivo} con {filas} filas dentro.',
   },
 
   empresa: {
@@ -1530,6 +1584,14 @@ export const es = {
         como: 'Vuelve a elegirlo y a revisar el resumen antes de confirmar.',
         salvo:
           'No se importó nada. Tus contactos están exactamente como estaban.',
+      },
+      alcance_de_respaldo_desconocido: {
+        // No es culpa de quien lo pulsó: la pantalla sólo ofrece los dos
+        // alcances de D-8B. Si llega otro, el defecto es nuestro, y por eso el
+        // texto no le pide revisar nada suyo.
+        que: 'ARLES no entendió qué respaldo le pediste.',
+        como: 'Vuelve a elegir entre «Lo esencial» y «Todo». Si sigue pasando, avisa a soporte.',
+        salvo: 'No se escribió ningún archivo y tus datos están intactos.',
       },
       archivo_no_se_pudo_leer: {
         que: 'No se pudo abrir el archivo que elegiste.',

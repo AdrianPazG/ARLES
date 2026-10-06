@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import App from '@/app/App.vue'
 import { i18n } from '@/app/i18n'
-import { router, subseccionesDe } from '@/app/router'
+import { SECCIONES, router, subseccionesDe } from '@/app/router'
 
 /**
  * La barra lateral dice dónde estás · O-3, 21/09/2026
@@ -207,13 +207,22 @@ describe('las subsecciones salen de las rutas, no de una lista aparte', () => {
     ])
   })
 
-  /** Una sección sin hijas devuelve una lista vacía, no `undefined`. */
-  it('una sección sin subsecciones devuelve una lista vacía', () => {
-    // `remitentes` era el segundo ejemplo hasta el 29/09/2026, cuando WhatsApp
-    // entró como subsección suya (entrega W.6). La garantía no cambia —una
-    // sección sin subsecciones da lista vacía—, pero el ejemplo sí tenía que
-    // cambiar: dejarlo habría obligado a elegir entre la prueba y la ruta.
-    expect(subseccionesDe('ajustes')).toEqual([])
+  /** Nunca devuelve `undefined`, tenga hijas o no. */
+  it('toda sección devuelve un arreglo, con hijas o sin ellas', () => {
+    // ── LA PRUEBA SE QUEDÓ SIN EJEMPLO, DOS VECES ──
+    //
+    // `remitentes` era el ejemplo hasta el 29/09/2026, cuando WhatsApp entró
+    // como subsección suya (W.6). Pasó a ser `ajustes`, y en la 8.2c entró
+    // Respaldos: **ya no queda ninguna sección sin hijas**.
+    //
+    // Buscar un tercer ejemplo sería aplazar el problema a la próxima
+    // subsección. La garantía que importaba nunca fue «hay una sección sin
+    // hijas» —eso es una casualidad del producto de hoy— sino que la función
+    // devuelve un arreglo y no `undefined`, que es lo que haría que la barra
+    // lateral reventara al recorrerlo. Eso se comprueba en las seis.
+    for (const seccion of SECCIONES) {
+      expect(Array.isArray(subseccionesDe(seccion))).toBe(true)
+    }
   })
 
   /** Toda subsección tiene texto: §139, claves de i18n con traducción. */

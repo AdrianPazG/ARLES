@@ -101,6 +101,7 @@ dependencies = [
  "arles-motor",
  "arles-whatsapp",
  "directories",
+ "getrandom 0.3.4",
  "keyring",
  "rusqlite",
  "serde",

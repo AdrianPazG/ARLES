@@ -100,6 +100,15 @@ pub enum AppError {
     #[error("no hay ninguna importación en curso")]
     SinImportacionEnCurso,
 
+    /// La webview pidió un respaldo de un alcance que no existe.
+    ///
+    /// Sólo hay dos —«esencial» y «completo» (D-8B)— y la pantalla sólo ofrece
+    /// esos dos, así que esto es un defecto nuestro y no del usuario. **No se
+    /// aproxima a «esencial»**: escribir un respaldo más pequeño del que alguien
+    /// pidió es perder datos sin decirlo.
+    #[error("ese alcance de respaldo no existe")]
+    AlcanceDeRespaldoDesconocido,
+
     /// El archivo se eligió pero no se pudo abrir.
     #[error("no se pudo abrir el archivo elegido")]
     ArchivoNoSePudoLeer,
@@ -140,6 +149,7 @@ impl AppError {
             Self::EmpresaNoConfigurada => "error.app.empresa_no_configurada",
             Self::SinImportacionEnCurso => "error.app.sin_importacion_en_curso",
             Self::ArchivoNoSePudoLeer => "error.app.archivo_no_se_pudo_leer",
+            Self::AlcanceDeRespaldoDesconocido => "error.app.alcance_de_respaldo_desconocido",
             Self::CuentaNoSirve(e) => e.clave_i18n(),
             Self::Lectura(e) => e.clave_i18n(),
             Self::Db(e) => e.clave_i18n(),
