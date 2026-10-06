@@ -848,6 +848,62 @@ comprobaciones nuevas en `--fase 8`, escritas antes y vistas en rojo.
 > pruebas. Para restaurar una ruptura se usa una copia del archivo hecha antes,
 > nunca `git checkout` sobre un archivo con trabajo sin confirmar.
 
+**Cerrada la 8.3 bis b · el botón de archivar** (`arles-app/src/archivo.rs` y
+`/ajustes/archivar`). **ARLES archiva el historial entero**: lo escribe, lo
+vuelve a leer, lo verifica y sólo entonces borra. Seis pruebas, y
+`el_archivado_tiene_quien_lo_llame` escrita **antes** y vista en rojo nombrando
+los siete tramos.
+
+> **La relectura usa el lector de la restauración, no uno escrito para esto.**
+> Lo que hay que poder afirmar no es «el archivo se escribió», es «el archivo se
+> podrá abrir el día que haga falta» — y ese día lo abrirá `LeeElArchivo`. Da
+> tres cosas de una pasada: la cabecera se entiende, cada fila se vuelve a
+> partir en sus campos —ahí se cazaría un escapado mal hecho en un nombre con
+> tabuladores— y la suma cuadra. Las filas se cuentan y se tiran: medio millón
+> se recorre sin tenerlo en memoria.
+
+> **Se comprueban las filas totales, no sólo las del historial.** Comparar sólo
+> los envíos dejaría pasar un archivo **sin las campañas**: con su suma
+> correcta, y sin con qué contestar un ARCO.
+
+> **El archivo va sin contraseña, y es una decisión, no un olvido.** Un respaldo
+> se restaura dentro de ARLES, que puede pedirla. Un archivo de historial se
+> abre años después, puede que en otro equipo, para contestar una solicitud de
+> datos. La contraseña del respaldo no se guarda en ningún sitio (8.2a): aquí,
+> una que nadie recuerde dejaría el archivo igual que no tenerlo — y el
+> historial se habría borrado para nada. Cifrarlo con la clave del equipo
+> tampoco vale: vive en el llavero de **este** equipo, y el archivo tiene que
+> sobrevivir a que este equipo no exista. La pantalla lo dice con esas palabras.
+
+> **No se escribe un archivo vacío.** Si no hay nada anterior al corte se para
+> con su error: un `.arles` de cero filas en un disco externo es una copia de
+> seguridad que alguien contará como copia, y el día que la busque no habrá nada
+> — y el archivo existiendo es lo que le habrá impedido darse cuenta antes.
+
+> **El mínimo del corte es un año y la frontera no se fía de la pantalla.** Un
+> `meses` menor se **sube** al mínimo en vez de obedecerse. Doce porque es el
+> periodo que se consulta y el que el respaldo esencial guarda: archivar lo que
+> el esencial sí se lleva dejaría el historial reciente fuera de la base y
+> dentro de dos archivos distintos.
+
+> **Tres cosas que encontró mirar la pantalla**, con todo en verde:
+>
+> - **No decía «no se puede deshacer»** en ninguna parte. Los tres avisos decían
+>   qué se pierde, de quién pasa a ser el archivo y en qué orden se hace; la
+>   frase llana faltaba. Restaurar, que hace lo mismo de grave, sí la dice en su
+>   entradilla.
+> - **No había forma de arrepentirse**: debajo de las cifras sólo estaba el
+>   botón rojo. Restaurar tiene su «Mejor no» al lado.
+> - **«Con sus campañas · 3 campañas»**: la misma palabra dos veces en la fila.
+
+> **Y el cuarto defecto de una comprobación propia en el mismo día.** La del
+> **orden** —verificar antes de borrar— lo medía comparando dónde aparece cada
+> nombre **en el archivo**, y salió en rojo sobre código correcto: la relectura
+> vive en una función escrita después aunque se ejecute antes. **El orden del
+> archivo no es el orden de ejecución.** Ahora se mide dentro del cuerpo de
+> `archivar_historial`, que es donde esa pregunta tiene respuesta. Verificada
+> rompiéndola en los dos sentidos: borrar sin verificar, y verificar después.
+
 **Para una demostración real** con correo y WhatsApp que llegan de verdad:
 `documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md`.
 

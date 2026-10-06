@@ -1072,8 +1072,8 @@
             nombreDelArchivo: 'arles-20260921-esencial.arles',
             creadoEn: '2026-09-21T09:30:00Z',
             alcance: 'esencial',
-            esquemaDelRespaldo: 'V10',
-            esquemaDeLaBase: 'V10',
+            esquemaDelRespaldo: 'V11',
+            esquemaDeLaBase: 'V11',
             llevaContrasena: true,
             sePuedeRestaurar: true,
             tablas: [
@@ -1106,6 +1106,33 @@
         case 'restaurar_respaldo':
           return Promise.reject({ clave: 'error.app.archivo_no_se_pudo_leer', detalle: '' });
 
+        // ── ARCHIVAR EL HISTORIAL (8.3 bis b, D-8D) ──────────────────────
+        //
+        // `revisar_archivado` es una lectura, así que se fabrica, con los
+        // números elegidos para que la pantalla enseñe **su aviso más
+        // importante**: que borrar envíos se lleva apuntes del registro de
+        // actividad que el archivo no guarda. Un preflight sin arrastre aquí
+        // dejaría ese aviso sin revisar, que es el mismo motivo por el que
+        // `revisar_respaldo` trae pérdidas.
+        case 'revisar_archivado':
+          return Promise.resolve({
+            corte: '2025-10-06T00:00:00Z',
+            enviosQueSeArchivan: 35724,
+            enviosQueSeQuedan: 12483,
+            primero: '2024-02-14T08:12:00Z',
+            ultimo: '2025-10-05T18:44:00Z',
+            campanas: (e.campanas || []).length || 3,
+            arrastradas: [{ tabla: 'activity_event', filas: 41088 }],
+            totalArrastrado: 41088,
+          });
+
+        // **No finge haber archivado**, y aquí la razón es más fuerte que en
+        // el respaldo: contestar «hecho» enseñaría el éxito de un borrado de
+        // historial que no ha ocurrido. El error es verdad — en la vista
+        // previa no hay disco donde escribir el archivo.
+        case 'archivar_historial':
+          return Promise.reject({ clave: 'error.app.archivo_no_se_pudo_leer', detalle: '' });
+
         // ── RECUPERAR, EL LLAVERO PERDIDO (8.4) ──────────────────────────
         //
         // La vista previa puede enseñar esta pantalla porque es la que menos
@@ -1127,8 +1154,8 @@
             nombreDelArchivo: 'arles-20260921-completo.arles',
             creadoEn: '2026-09-21T09:30:00Z',
             alcance: 'completo',
-            esquemaDelRespaldo: 'V10',
-            esquemaDeLaBase: 'V10',
+            esquemaDelRespaldo: 'V11',
+            esquemaDeLaBase: 'V11',
             llevaContrasena: true,
             sePuedeRestaurar: true,
             // Sin base legible no hay con qué comparar, y el núcleo tampoco lo

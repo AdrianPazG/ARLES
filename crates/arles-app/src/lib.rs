@@ -6,6 +6,7 @@
 // §138: sin `unwrap()` ni `panic!()` indiscriminados en producción.
 #![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 
+pub mod archivo;
 pub mod campanas;
 mod cifras;
 pub mod comandos;
@@ -158,6 +159,12 @@ pub fn run() {
             respaldo::exportar_respaldo,
             restauracion::revisar_respaldo,
             restauracion::restaurar_respaldo,
+            // Archivar el historial (8.3 bis b, D-8D). El mismo orden, y aquí
+            // no es una costumbre: el segundo **borra**, y lo único que
+            // separa archivar de borrar es haber escrito y releído el archivo
+            // antes.
+            archivo::revisar_archivado,
+            archivo::archivar_historial,
         ])
         .run(tauri::generate_context!());
 

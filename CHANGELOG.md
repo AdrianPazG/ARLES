@@ -12,6 +12,69 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.3 bis b · El botón de archivar: ARLES archiva el historial de verdad
+
+#### Lo que cambia para quien usa ARLES
+
+**Ya se puede archivar.** Está en Ajustes → Archivar historial, y hace lo que
+pediste el 05/10/2026: saca los envíos viejos a un archivo que tú guardas donde
+quieras, y sólo entonces los quita de ARLES.
+
+Antes de tocar nada te dice, con cifras:
+
+- Cuántos envíos se van, y **de qué fecha a qué fecha de verdad** — no la fecha
+  de corte que pediste, que no dice nada sola.
+- Cuántos se quedan aquí.
+- **Qué se pierde que el archivo no guarda.** Al quitar esos envíos se van
+  también los apuntes del registro de actividad que los explican, porque en la
+  base cuelgan de ellos. Eso no se recupera de ningún sitio, y lo dice con su
+  cifra antes de que haya nada que confirmar.
+- Que **a partir de ahí el archivo es tuyo**: si alguien te pide qué le
+  mandaste en ese periodo, vas a necesitarlo. ARLES ya no lo tendrá.
+
+**El mínimo que puedes dejar en ARLES es un año**, y la pantalla no ofrece
+menos. El historial del último año es el que se consulta, y es el mismo que tu
+respaldo esencial guarda.
+
+#### El orden, que es lo que hace que esto sea archivar y no borrar
+
+1. Escribe el archivo donde elijas.
+2. **Lo vuelve a leer entero** y comprueba que está completo y sin alterar.
+3. Sólo si eso sale bien, borra.
+4. Y queda escrito en la bitácora: qué periodo, cuántos renglones, cuándo.
+
+Si algo falla en cualquier punto, **no se borra nada**. Un disco externo que se
+llena o se desconecta a mitad deja el archivo incompleto y el historial intacto.
+
+#### Lo que cambia por dentro
+
+- `crates/arles-app/src/archivo.rs` · dos comandos y la relectura, que usa **el
+  mismo lector que la restauración**: lo que se comprueba es que el archivo se
+  pueda abrir el día que haga falta, y ese día lo abrirá ése. Seis pruebas.
+- `app/src/app/pantallas/PantallaArchivar.vue` y su store.
+- Una comprobación nueva en `--fase 8`, escrita **antes** y vista en rojo
+  nombrando los siete tramos.
+
+#### Lo que encontró mirar la pantalla, con todo en verde
+
+Tres cosas que ninguna comprobación caza:
+
+1. **No decía «no se puede deshacer»** en ninguna parte. Los tres avisos decían
+   qué se pierde, de quién pasa a ser el archivo y en qué orden se hace. La
+   frase llana faltaba — y Restaurar, que hace lo mismo de grave, sí la dice.
+2. **No había forma de arrepentirse.** Debajo de las cifras sólo estaba el
+   botón rojo. Ahora hay un «Mejor no» al lado, como en Restaurar.
+3. **«Con sus campañas · 3 campañas»**: la misma palabra dos veces en la misma
+   fila.
+
+#### Y un defecto de mi propia comprobación, el cuarto del día
+
+La comprobación del **orden** —verificar antes de borrar— lo medía comparando
+dónde aparece cada nombre **en el archivo**, y salió en rojo sobre código
+correcto: la relectura vive en una función escrita después aunque se ejecute
+antes. El orden del archivo no es el orden de ejecución. Ahora se mide dentro
+del cuerpo de la función, que es donde esa pregunta tiene respuesta.
+
 ### 8.3 bis a · Archivar el historial: el núcleo y la base (D-8D)
 
 #### Lo que cambia para quien usa ARLES

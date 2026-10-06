@@ -257,6 +257,16 @@ const rutas: RouteRecordRaw[] = [
     meta: { seccion: 'ajustes', subseccion: 'restaurar', orden: 2 },
   },
   {
+    // Archivar va la tercera y no junto a Respaldos, por lo mismo que
+    // Restaurar: borra. Y va **después** de Restaurar a propósito — quien
+    // llega a Ajustes buscando «recuperar mis datos» tiene que encontrar
+    // Restaurar antes de encontrar algo que quita historial.
+    path: '/ajustes/archivar',
+    name: 'archivar',
+    component: () => import('@/app/pantallas/PantallaArchivar.vue'),
+    meta: { seccion: 'ajustes', subseccion: 'archivar', orden: 3 },
+  },
+  {
     // ── SIN SECCIÓN, Y ES LO QUE LA SACA DEL ARMAZÓN ────────────────────
     //
     // En el modo de recuperación no hay base abierta: ni contactos, ni

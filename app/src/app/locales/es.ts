@@ -325,6 +325,7 @@ export const es = {
       registro: 'Registro',
       respaldos: 'Respaldos',
       restaurar: 'Restaurar',
+      archivar: 'Archivar historial',
     },
   },
 
@@ -619,6 +620,94 @@ export const es = {
       whatsapp_quality_event: 'El historial de calidad de tu número de WhatsApp',
       rate_budget: 'El cupo gastado de esta hora',
       engine_control: 'El estado del motor de este equipo',
+    },
+  },
+
+  // ── ARCHIVAR EL HISTORIAL (8.3 bis b, D-8D) ──────────────────────────────
+  //
+  // El tono de estos textos no es el del resto de Ajustes a propósito. Las
+  // demás pantallas de ahí configuran la herramienta; ésta **saca datos de
+  // personas de la base** y los pone en un disco que ARLES no vuelve a ver.
+  // Así que se dice lo que pasa, con cifras, y lo que deja de ser nuestro.
+  archivar: {
+    titulo: 'Archivar historial',
+    // ── «NO SE PUEDE DESHACER» VA EN LA ENTRADILLA, COMO EN RESTAURAR ──
+    //
+    // Faltaba. Lo encontró mirar la pantalla el 06/10/2026: los tres avisos
+    // decían qué se pierde, de quién pasa a ser el archivo y en qué orden se
+    // hace — y ninguno decía la frase llana. Restaurar sí la dice en su
+    // entradilla, y hace lo mismo: una acción sin vuelta atrás.
+    entradilla:
+      'El historial de envíos no se borra nunca: crece un renglón por cada ' +
+      'persona a la que le escribes. Archivarlo lo saca a un archivo que tú ' +
+      'guardas donde quieras y sólo entonces lo quita de aquí. No se puede ' +
+      'deshacer, así que ARLES te dice antes, con cifras, qué va a pasar.',
+    periodo: 'Cuánto se queda',
+    dejarEnLaBase: 'Historial que se queda en ARLES',
+    dejarEnLaBaseAyuda:
+      'Lo anterior a eso es lo que se archiva. El mínimo es un año porque es ' +
+      'el periodo que se consulta, y el que tu respaldo esencial también guarda.',
+    meses: '{meses} mes | {meses} meses',
+    verQuePasaria: 'Ver qué pasaría',
+    queVaAPasar: 'Qué va a pasar',
+
+    nada: {
+      titulo: 'No hay nada que archivar',
+      cuerpo:
+        'No hay ningún envío anterior a esa fecha. Los {envios} que tienes son ' +
+        'más recientes, así que se quedan donde están.',
+    },
+
+    seVan: 'Se archivan',
+    seVanEnvios: '{envios} envíos',
+    deCuando: 'Del periodo',
+    deAA: 'del {desde} al {hasta}',
+    seQuedan: 'Se quedan aquí',
+    seQuedanEnvios: '{envios} envíos',
+    // La etiqueta decía «Con sus campañas» y el valor «3 campañas»: la misma
+    // palabra dos veces en la misma fila. Las otras tres filas preguntan y el
+    // valor contesta con su unidad; ésta se repetía.
+    campanas: 'El archivo lleva además',
+    campanasQueViajan: '{campanas} campaña | {campanas} campañas',
+
+    arrastra: {
+      titulo: 'Esto se pierde y el archivo no lo guarda',
+      cuerpo:
+        'Al quitar esos envíos se van también {filas} apuntes del registro de ' +
+        'actividad, porque explican esos mismos envíos. No viajan en el ' +
+        'archivo: el registro de actividad ya se recorta cada dos meses por su ' +
+        'cuenta, así que esto no se puede recuperar de ningún sitio.',
+    },
+
+    custodia: {
+      titulo: 'A partir de ahora, ese archivo es tuyo',
+      cuerpo:
+        'Si una persona te pide qué le mandaste en ese periodo, vas a ' +
+        'necesitar este archivo para contestarle. ARLES ya no lo tendrá. ' +
+        'Guárdalo donde guardarías una carpeta de expedientes, y en más de un sitio.',
+      enClaro:
+        'El archivo va sin contraseña, a propósito: se abre años después y una ' +
+        'clave que nadie recuerde lo dejaría igual que no tenerlo.',
+    },
+
+    comoLoHace: {
+      titulo: 'En qué orden lo hace',
+      cuerpo:
+        'Primero escribe el archivo. Después lo vuelve a leer entero para ' +
+        'comprobar que está completo. Sólo si eso sale bien borra el historial ' +
+        'de la base. Si algo falla en medio, no se borra nada.',
+    },
+
+    hazlo: 'Archivar y quitar de ARLES',
+    mejorNo: 'Mejor no',
+
+    hecho: {
+      titulo: 'Historial archivado',
+      cuerpo:
+        'Se escribió {archivo} ({megas} MB) con {archivados} envíos, se ' +
+        'comprobó que estaba completo, y se quitaron {borrados} de ARLES.',
+      guardalo:
+        'Guarda ese archivo ahora, antes de cerrar. Es la única copia de ese periodo.',
     },
   },
 
@@ -1659,6 +1748,14 @@ export const es = {
         que: 'ARLES no sabe qué respaldo querías restaurar.',
         como: 'Vuelve a elegir el archivo con «Elegir un respaldo…» y revisa lo que trae antes de restaurarlo.',
         salvo: 'No se cambió nada en tus datos.',
+      },
+      nada_que_archivar: {
+        // No es un fallo: es que no hay historial de ese periodo. Lo que sí
+        // importa es decir por qué ARLES no escribe el archivo igualmente —
+        // un archivo vacío en un disco es una copia que alguien contará.
+        que: 'No hay ningún envío anterior a esa fecha.',
+        como: 'Elige dejar menos historial en ARLES, o espera a tener envíos más antiguos.',
+        salvo: 'No se escribió ningún archivo y no se borró nada. ARLES no crea un archivo vacío a propósito: en un disco parecería una copia que no tiene nada dentro.',
       },
       cuenta_de_correo_invalida: {
         que: 'Los datos de la cuenta de correo tienen algún problema.',

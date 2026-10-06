@@ -55,6 +55,9 @@ const CLAVES_DEL_NUCLEO = [
   'error.db.eso_es_un_archivo_de_historial',
   'error.db.el_historial_cambio',
   'error.app.respaldo_sin_revisar',
+  // Entrega 8.3 bis b · no hay historial de ese periodo, así que no se
+  // escribe un archivo vacío.
+  'error.app.nada_que_archivar',
   // arles-app
   'error.app.llavero_no_disponible',
   'error.app.clave_maestra_perdida',

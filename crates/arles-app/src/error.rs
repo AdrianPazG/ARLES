@@ -122,6 +122,15 @@ pub enum AppError {
     #[error("hay que revisar un respaldo antes de restaurarlo")]
     RespaldoSinRevisar,
 
+    /// No hay ningún envío anterior al corte, así que no hay nada que archivar.
+    ///
+    /// **No se escribe un archivo vacío**, y no es una comodidad: un `.arles`
+    /// de cero filas en un disco externo es una copia de seguridad que alguien
+    /// contará como copia. El día que la busque no habrá nada dentro, y el
+    /// archivo existiendo es lo que le habrá impedido darse cuenta antes.
+    #[error("no hay ningún envío anterior a esa fecha, así que no hay nada que archivar")]
+    NadaQueArchivar,
+
     /// La cuenta de correo existe pero no puede enviar ahora mismo.
     ///
     /// Va aparte de [`Self::CuentaDeCorreoInvalida`] porque son dos momentos
@@ -148,6 +157,7 @@ impl AppError {
         match self {
             Self::LlaveroNoDisponible(_) => "error.app.llavero_no_disponible",
             Self::RespaldoSinRevisar => "error.app.respaldo_sin_revisar",
+            Self::NadaQueArchivar => "error.app.nada_que_archivar",
             Self::ClaveMaestraPerdida => "error.app.clave_maestra_perdida",
             Self::DirectorioDeDatos => "error.app.directorio_de_datos",
             Self::NombreNoCoincide => "error.app.nombre_no_coincide",

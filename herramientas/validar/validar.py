@@ -4945,6 +4945,130 @@ def el_restaurador_tiene_quien_lo_llame():
     )
 
 
+def el_archivado_tiene_quien_lo_llame():
+    """**El §9 en la pieza destructiva, que es donde más duele.**
+
+    La 8.3 bis a dejó `que_pasaria_al_archivar` y
+    `borrar_el_historial_archivado` construidos, con ocho pruebas, y **nadie los
+    llamaba**. Es la decimoquinta vez que este patrón aparece en el proyecto.
+
+    Pero aquí hay una vuelta que no tenían los catorce anteriores: una de las
+    dos piezas **borra datos**. Que falte el botón no es sólo una función que no
+    existe — es que D-8D, la decisión que Dirección tomó para no saturar el
+    disco, no sirve de nada, y el historial sigue creciendo sin techo mientras
+    todo está en verde.
+
+    Y al revés: enchufar **sólo el borrado** sin el archivo sería peor que no
+    tener nada. Así que esta comprobación vigila **las cinco cosas en orden**,
+    no sólo que existan:
+
+        preflight → escritura del archivo → RELECTURA que lo verifica
+        → borrado → bitácora
+
+    La relectura es la segunda condición de D-8D y la que no se puede dar por
+    hecha: escribir un archivo y borrar sin volver a abrirlo es exactamente el
+    caso que convierte «archivar» en «borrar».
+
+    Escrita **antes** de enchufar nada y vista fallar nombrando los siete
+    tramos el 06/10/2026.
+
+    ── Y UN DEFECTO DE ESTA COMPROBACIÓN, EL CUARTO DEL DÍA ──
+
+    La primera versión medía el orden comparando **dónde aparece cada nombre en
+    el archivo**, y salió en rojo sobre código correcto: la relectura vive en
+    `comprobar_el_archivo`, escrita después de `archivar_historial` en el texto
+    aunque se ejecute antes. **El orden del archivo no es el orden de
+    ejecución.** Ahora se mide dentro del cuerpo de la función, que es donde esa
+    pregunta tiene respuesta.
+    """
+    faltan = []
+
+    app = ""
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "crates", "arles-app", "src")):
+        for f in ficheros:
+            if f.endswith(".rs"):
+                with open(os.path.join(carpeta, f), encoding="utf-8") as fh:
+                    app += fh.read()
+    assert app, "no se leyó el código de arles-app"
+    # Sin comentarios: los tramos se explican en comentarios que los nombran, y
+    # buscarlos en el archivo entero se cazaría ahí. Mismo defecto que arriba.
+    app_sin_comentarios = re.sub(r"//[^\n]*", "", app)
+
+    if ".que_pasaria_al_archivar(" not in app_sin_comentarios:
+        faltan.append("Db::que_pasaria_al_archivar — nadie en arles-app lo llama")
+    if ".borrar_el_historial_archivado(" not in app_sin_comentarios:
+        faltan.append("Db::borrar_el_historial_archivado — nadie en arles-app lo llama")
+    if "ElHistorialAnteriorA" not in app_sin_comentarios:
+        faltan.append(
+            "QueSeLleva::ElHistorialAnteriorA — nadie escribe el archivo, así que "
+            "el borrado no tendría de dónde venir"
+        )
+
+    # ── LA RELECTURA, QUE ES LA CONDICIÓN 2 DE D-8D ──
+    #
+    # El archivo se vuelve a abrir con el mismo lector que usa la restauración,
+    # que es quien comprueba la suma. Si esto falta, se borra sin verificar.
+    archivo_de_la_app = leer("crates", "arles-app", "src", "archivo.rs")
+    if archivo_de_la_app is None:
+        faltan.append("no existe crates/arles-app/src/archivo.rs")
+    else:
+        sin_comentarios = re.sub(r"//[^\n]*", "", archivo_de_la_app)
+        if "LeeElArchivo" not in sin_comentarios:
+            faltan.append(
+                "el archivo no se vuelve a leer antes de borrar (condición 2 de D-8D)"
+            )
+        # ── EL ORDEN, MEDIDO DENTRO DE LA FUNCIÓN Y NO EN EL ARCHIVO ──
+        #
+        # La primera versión comparaba dónde aparece cada nombre en el archivo
+        # entero, y salió en **rojo sobre código correcto**: la relectura vive
+        # en `comprobar_el_archivo`, que está escrita DESPUÉS de
+        # `archivar_historial` en el texto aunque se ejecute antes. El orden
+        # del archivo no es el orden de ejecución.
+        #
+        # Lo que sí se puede leer es el cuerpo de `archivar_historial`: dentro
+        # de él, la llamada que verifica tiene que estar antes de la que borra.
+        cuerpo = re.search(
+            r"pub fn archivar_historial\b.*?\n\}", sin_comentarios, re.S
+        )
+        if not cuerpo:
+            faltan.append("no se encuentra el cuerpo de archivar_historial")
+        else:
+            texto = cuerpo.group(0)
+            pos_verifica = texto.find("comprobar_el_archivo")
+            pos_borra = texto.find("borrar_el_historial_archivado")
+            if pos_verifica == -1:
+                faltan.append("archivar_historial no verifica el archivo que escribió")
+            elif pos_borra == -1:
+                faltan.append("archivar_historial no borra: no archiva, sólo escribe")
+            elif pos_verifica > pos_borra:
+                faltan.append(
+                    "se borra antes de verificar el archivo: el orden de D-8D es al revés"
+                )
+
+    lib = leer("crates", "arles-app", "src", "lib.rs") or ""
+    for comando in ("revisar_archivado", "archivar_historial"):
+        if comando not in lib:
+            faltan.append(f"{comando} — no está en generate_handler!")
+
+    frontend = ""
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "app", "src")):
+        for f in ficheros:
+            if f.endswith((".ts", ".vue")):
+                with open(os.path.join(carpeta, f), encoding="utf-8") as fh:
+                    frontend += fh.read()
+    for comando in ("revisar_archivado", "archivar_historial"):
+        if comando not in frontend:
+            faltan.append(f"{comando} — ninguna pantalla lo llama")
+
+    check(
+        8,
+        "el archivado tiene quien lo llame, y en su orden",
+        not faltan,
+        el_archivado_tiene_quien_lo_llame.__doc__,
+        detalle="\n      ".join(faltan),
+    )
+
+
 def cambiar_una_migracion_recompila():
     """**Sin esto, editar una migración no prueba nada.**
 
@@ -5493,6 +5617,7 @@ def fase_8(rapido=False):
     las_bajas_y_el_consentimiento_nunca_se_archivan()
     un_archivo_de_historial_no_se_restaura()
     el_archivado_cuenta_lo_que_arrastra()
+    el_archivado_tiene_quien_lo_llame()
 
     print(f"{GRIS}  los índices y su vigilancia (8.6){FIN}")
     cambiar_una_migracion_recompila()
