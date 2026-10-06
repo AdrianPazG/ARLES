@@ -19,23 +19,48 @@
 referencia del §2**, así que las cifras sirven para comparar entre sí y para
 detectar lo que está mal por un orden de magnitud — no para certificar.
 
-| Operación | Presupuesto | Medido | Veredicto |
-|---|---|---|---|
-| Importar 500 000 filas | < 5 min | **51.7 s** (455 864 escritas, 19 447 choques, 24 689 inválidas) | ✅ cumple |
-| Memoria durante importación de 500 000 | < 500 MB | **497 MB** | ⚠️ cumple por 3 MB |
-| Búsqueda por correo | < 100 ms | **331 ms** | ❌ **no cumple** |
-| Abrir tabla de contactos: la consulta | < 500 ms | **1 424 ms** | ❌ **no cumple** |
-| Simulación de campaña | < 200 ms | **5.9 ms** | ✅ cumple |
-| Arranque en frío | < 2 s | — | ⬜ sin medir (R-07) |
-| Desplazamiento en tabla virtualizada | 60 fps | — | ⬜ sin medir (R-07) |
-| Filtro sobre 500 k contactos | < 1 s | — | ⬜ **no existe todavía** |
-| Calcular audiencia de campaña | < 2 s | — | ⬜ sin medir |
-| Preflight completo | < 3 s | — | ⬜ sin medir (R-24) |
-| Memoria en reposo con motor activo | < 250 MB | — | ⬜ sin medir (R-07) |
-| Importar 100 k filas XLSX | < 60 s | — | ⬜ sin medir |
-| Tamaño del instalador | < 20 MB | — | ⬜ sin medir (P-01) |
+| Operación | Presupuesto | Medido (V10) | Medido (V11) | Veredicto |
+|---|---|---|---|---|
+| Importar 500 000 filas | < 5 min | 51.7 s | **91.4 s** | ✅ cumple (30 % del techo) |
+| Memoria durante importación | < 500 MB | 497 MB | 497 MB | ⚠️ cumple por 3 MB |
+| **Búsqueda por correo** | < 100 ms | ❌ 331 ms | ✅ **< 1 ms** | ✅ **arreglado** |
+| **Abrir tabla de contactos** (la consulta) | < 500 ms | ❌ 1 424 ms | ✅ **357 ms** | ✅ **arreglado** |
+| Simulación de campaña | < 200 ms | 5.9 ms | 6.0 ms | ✅ cumple |
+| Arranque en frío | < 2 s | — | — | ⬜ sin medir (R-07) |
+| Desplazamiento en tabla virtualizada | 60 fps | — | — | ⬜ sin medir (R-07) |
+| Filtro sobre 500 k contactos | < 1 s | — | — | ⬜ **no existe todavía** |
+| Calcular audiencia de campaña | < 2 s | — | — | ⬜ sin medir |
+| Preflight completo | < 3 s | — | — | ⬜ sin medir (R-24) |
+| Memoria en reposo con motor activo | < 250 MB | — | — | ⬜ sin medir (R-07) |
+| Importar 100 k filas XLSX | < 60 s | — | — | ⬜ sin medir |
+| Tamaño del instalador | < 20 MB | — | — | ⬜ sin medir (P-01) |
 
-### Los dos que fallan, y por qué
+> **La columna V11 se midió el 06/10/2026** con el mismo conjunto y la misma
+> semilla, en la misma máquina, el mismo día. La importación se corrió **tres
+> veces** (91.1 s, 93.8 s, 91.4 s) antes de dar su cifra por buena: no se
+> reporta una regresión sin saber si es ruido.
+
+### Lo que costó arreglarlo, dicho con su cifra
+
+**La importación pasó de 51.7 s a 91.4 s: un 78 % más.** No es un efecto
+secundario inesperado, es el precio de los índices: cada fila que entra tiene
+que actualizar también las listas ordenadas. Medido aparte, en inserciones
+puras, los dos índices nuevos cuestan un **+40 %**; sobre SQLCipher el efecto
+se amplifica.
+
+Entra en presupuesto con **3.2× de margen** (91 s de 300), y el cambio vale la
+pena sin discusión: se paga **una vez, al importar** —una operación que un
+usuario hace al empezar y casi nunca más— a cambio de que la pantalla más usada
+del producto baje de 1.4 s a 0.36 s **cada vez que se abre**.
+
+Se consideró y se descartó la técnica habitual de carga masiva —quitar los
+índices, cargar, recrearlos—: el coste de recrear un índice es proporcional al
+**total** de filas de la tabla, no a las que se insertan, así que una
+importación de cien contactos sobre una base de 450 000 saldría muchísimo peor.
+
+### Los dos que fallaban, y por qué (medición del 06/10/2026, esquema V10)
+
+
 
 No son «va un poco lento»: los dos tienen una causa concreta, encontrada con
 `EXPLAIN QUERY PLAN` sobre el esquema V10.
@@ -68,11 +93,10 @@ Así que recorre **todos los canales de la empresa** —correos y WhatsApp, más
 900 000 filas— para encontrar uno. El índice existe y está bien puesto; lo que
 no encaja es la consulta.
 
-> **Las dos se arreglan con una migración V11**, y eso tiene una consecuencia
-> que conviene decidir y no asumir: **un respaldo tomado con el esquema V10 no
-> se podrá restaurar** en una versión con V11 (ver 8.3b). Hoy no hay ningún
-> `.arles` fuera de las pruebas, así que el coste es cero; dentro de un mes de
-> uso, no. **Pendiente de Dirección.**
+> **Las dos las arregló la migración V11**, aprobada por Dirección el
+> 06/10/2026. La consecuencia que se avisó antes de hacerlo: **un respaldo
+> tomado con el esquema V10 ya no se puede restaurar** (ver 8.3b). No existía
+> ninguno fuera de las pruebas, que es justo por lo que se hizo ese día.
 
 ### Y el que pasa por tres megas
 

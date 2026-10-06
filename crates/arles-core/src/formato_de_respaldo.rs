@@ -192,7 +192,7 @@ impl Cifrado {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cabecera {
     pub formato: u32,
-    /// Hasta qué migración llegó la base que se exportó: `V10`.
+    /// Hasta qué migración llegó la base que se exportó: `V11`.
     pub esquema: String,
     pub alcance: Alcance,
     /// Cuándo se hizo, en UTC. Se escribe para que el preflight pueda decir

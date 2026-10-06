@@ -1279,6 +1279,10 @@ MIGRACIONES_PUBLICADAS = {
     # Entrega 7.1, 30/09/2026.
     "V10__registro_de_actividad.sql":
         "e8a4a7338c20ca88a766c6713041abf7587b0c3bb6e86943b35d9b9c548f4cd9",
+    # Los seis índices que la medición del 06/10/2026 demostró que faltaban.
+    # No cambia ni un dato: sólo añade listas ordenadas. Entrega 8.6.
+    "V11__indices_de_rendimiento.sql":
+        "a97d3bddc184e9ba38cae4f3592c7242273999e9dda2bb3d33cb1f8f4c0db555",
 }
 
 
@@ -4941,6 +4945,47 @@ def el_restaurador_tiene_quien_lo_llame():
     )
 
 
+def cambiar_una_migracion_recompila():
+    """**Sin esto, editar una migración no prueba nada.**
+
+    `refinery::embed_migrations!` es una macro: lee los `.sql` y los incrusta en
+    el binario al compilar. Cargo **no sabe** que esos archivos son una
+    dependencia, así que al cambiar uno no recompila — y `cargo test` ejecuta
+    el SQL anterior con todo en verde.
+
+    Se descubrió el 06/10/2026 intentando verificar la V11 rompiéndola (§2): se
+    quitó un índice, la prueba que lo exige **siguió pasando**, y no era que la
+    prueba fuera mala: el índice quitado nunca llegó al binario.
+
+    Es la peor clase de trampa, porque convierte el §2 en teatro: se rompe algo,
+    se ve pasar la prueba, y se concluye que la comprobación no sirve — cuando
+    lo que no sirve es el experimento.
+
+    Lo cierra un `build.rs` con `rerun-if-changed` sobre la carpeta entera.
+    """
+    faltan = []
+
+    build = leer("crates", "arles-db", "build.rs") or ""
+    if not build:
+        faltan.append("falta crates/arles-db/build.rs")
+    elif "rerun-if-changed=migrations" not in build:
+        faltan.append("build.rs no vigila la carpeta migrations")
+
+    # Y que la prueba de los planes exista: es la que convierte un índice en una
+    # garantía y no en una buena intención.
+    planes = leer("crates", "arles-db", "tests", "planes_de_consulta.rs") or ""
+    if "EXPLAIN QUERY PLAN" not in planes:
+        faltan.append("nadie comprueba el plan de las consultas críticas")
+
+    check(
+        8,
+        "cambiar una migración recompila, y los planes se vigilan",
+        not faltan,
+        cambiar_una_migracion_recompila.__doc__,
+        detalle="\n      ".join(faltan),
+    )
+
+
 def el_banco_no_viaja_en_el_instalador():
     """**El banco de pruebas mide el producto; no puede ser parte de él.**
 
@@ -5222,6 +5267,9 @@ def fase_8(rapido=False):
 
     print(f"{GRIS}  el banco de pruebas (8.5){FIN}")
     el_banco_no_viaja_en_el_instalador()
+
+    print(f"{GRIS}  los índices y su vigilancia (8.6){FIN}")
+    cambiar_una_migracion_recompila()
 
 
 def fase_7(rapido=False):

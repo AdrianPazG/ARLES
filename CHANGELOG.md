@@ -12,6 +12,66 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.6 · La migración V11: los dos presupuestos que no se cumplían, cumplidos
+
+#### Lo que cambia para quien usa ARLES
+
+Las dos cifras que la 8.5 midió en rojo ya están en verde, medidas el
+06/10/2026 sobre los mismos 500 000 contactos:
+
+- **Abrir la lista de contactos: de 1 424 ms a 357 ms** (el objetivo era 500).
+  Cuatro veces más rápido.
+- **Buscar un correo: de 331 ms a menos de 1 ms** (el objetivo era 100).
+  Trescientas veces más rápido; deja de ser una espera y pasa a ser instantáneo.
+
+**Y una cosa va más despacio, y conviene decirla:** importar 500 000 contactos
+pasa de **51.7 s a 91.4 s**. Son 40 segundos más, un 78 % de aumento, y es el
+precio literal de los dos índices nuevos: cada fila que entra hay que anotarla
+también en ellos. Se paga **una vez al importar**; lo que se gana se cobra cada
+vez que alguien abre Contactos o escribe en el buscador. El presupuesto de la
+importación son 5 minutos, así que 91 segundos usan el 30 % de lo que hay.
+
+La cifra no es una estimación: se midió tres veces (91.1 s, 93.8 s, 91.4 s).
+
+#### Lo que cambia por dentro
+
+- `crates/arles-db/migrations/V11__indices_de_rendimiento.sql` · **seis
+  índices**, cada uno escrito después de comprobar con `EXPLAIN QUERY PLAN` que
+  cambia el plan de la consulta que dice arreglar. Uno de los diseños no lo
+  cambiaba y se descartó.
+- `crates/arles-db/tests/planes_de_consulta.rs` · tres pruebas que leen el
+  **plan** de nueve consultas críticas y fallan si alguna vuelve a hacer
+  `SCAN` sobre una tabla que crece, o si la lista de contactos vuelve a ordenar
+  en memoria (`USE TEMP B-TREE FOR ORDER BY`).
+- La auditoría recorrió las **295 sentencias SQL** del proyecto y encontró 23
+  `SCAN` sobre tablas que crecen. **El camino de envío ya estaba bien
+  indexado** —supresión, cola y registro—: el motor nunca fue el problema.
+
+#### Lo que estaba mal y se arregla
+
+**`refinery::embed_migrations!` no provocaba una recompilación al cambiar un
+`.sql`.** Es el defecto más grave de esta entrega y no está en el producto,
+está en la verificación: los «rompe y comprueba» del §2 sobre las migraciones
+**no probaban nada**, porque el binario seguía llevando el SQL anterior. Lo
+arregla un `build.rs` con `rerun-if-changed=migrations`, y lo vigila
+`cambiar_una_migracion_recompila` en `--fase 8`.
+
+**Varias pruebas fijaban «V10» a mano**, así que toda migración futura las
+habría roto. Ahora leen la versión del propio motor de migraciones.
+
+**Un comentario afirmaba una verificación falsa**: decía que invertir el índice
+a `created_at ASC` devolvería el ordenado en memoria. No lo hace —SQLite
+recorre un índice hacia atrás igual de bien—. El comentario lleva ahora la
+ruptura real, que es quitar `created_at` de la clave; lo que sí rompe el plan
+son las direcciones mezcladas (`ASC, DESC`).
+
+#### Lo que esto cuesta, y hay que saberlo
+
+**Un respaldo tomado con el esquema V10 ya no se puede restaurar.** Es la
+limitación que la 8.3b dejó declarada, y esta migración es la primera que la
+dispara. Hoy no existe ningún `.arles` fuera de las pruebas, así que el coste
+real es **cero**; dentro de un mes de uso no lo sería.
+
 ### 8.5 · Medio millón de contactos, y las primeras cifras de verdad
 
 #### Lo que cambia para quien usa ARLES

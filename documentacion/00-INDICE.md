@@ -102,6 +102,7 @@
 | [MANUAL_WINDOWS](06-calidad/MANUAL_WINDOWS.md) · [PLANTILLA-WINDOWS](06-calidad/PLANTILLA-WINDOWS.md) | Cómo revisar en Windows, y dónde anotar lo que se ve |
 | [MANUAL_MAC](06-calidad/MANUAL_MAC.md) · [PLANTILLA-MAC](06-calidad/PLANTILLA-MAC.md) | Lo mismo para macOS. Sigue sin usarse: R-07 |
 | [Hallazgos · Windows 14/09/2026](06-calidad/revision-visual/2026-09-14-windows/HALLAZGOS.md) | La primera revisión en una ventana nativa, con sus capturas |
+| [Medición 8.5 · 06/10/2026](06-calidad/MEDICION-8.5-20261006.md) | La salida cruda del banco de pruebas, tal cual la imprimió |
 
 ### 07 · Entrega
 | Documento | Contenido |

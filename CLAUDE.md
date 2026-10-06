@@ -701,6 +701,59 @@ y vista en rojo nombrando los seis tramos.
 > cazaba a sí misma en un comentario**, saliendo en rojo sobre un generador
 > correcto. Es la trampa que la 5.3 ya documentó, repetida.
 
+**Cerrada la 8.6 · la migración V11 y los planes de consulta**
+(`crates/arles-db/migrations/V11__indices_de_rendimiento.sql`). **Los dos
+presupuestos que la 8.5 midió en rojo están en verde**, medido el 06/10/2026
+sobre los mismos 500 000 contactos: abrir la tabla **1 424 ms → 357 ms**, y
+buscar por correo **331 ms → menos de 1 ms**. Seis índices, tres pruebas
+nuevas, y la fase 8 en 12/12.
+
+> **El precio está medido y no se esconde: importar 500 000 pasa de 51.7 s a
+> 91.4 s** (+78 %, confirmado en tres corridas: 91.1, 93.8, 91.4). Cada fila
+> que entra hay que anotarla también en los índices nuevos. Se paga **una vez
+> al importar** para que la pantalla que se abre a diario tarde un tercio, y
+> usa el 30 % de los 5 minutos de presupuesto. Se consideró tirar los índices
+> antes de importar y recrearlos después: **se descartó**, porque recrear un
+> índice cuesta en proporción a las filas **totales**, no a las nuevas, así que
+> importar mil contactos sobre medio millón saldría peor.
+
+> **La auditoría recorrió las 295 sentencias SQL del proyecto** y encontró 23
+> `SCAN` sobre tablas que crecen. Lo importante es lo que **no** encontró: el
+> **camino de envío ya estaba bien indexado** —supresión, cola y registro—. El
+> motor nunca fue el problema; lo eran dos pantallas.
+
+> **Cada índice se escribió DESPUÉS de ver que cambia el plan**, con
+> `EXPLAIN QUERY PLAN` y no por intuición. **Uno de los diseños no lo
+> cambiaba** y se descartó. Lo vigilan las tres pruebas de
+> `tests/planes_de_consulta.rs`, que leen el plan de nueve consultas críticas y
+> fallan si alguna vuelve a hacer `SCAN`, o si la lista de contactos vuelve a
+> ordenar en memoria (`USE TEMP B-TREE FOR ORDER BY`).
+
+> **El defecto más grave de esta entrega no está en el producto: está en la
+> verificación.** `refinery::embed_migrations!` **no provocaba recompilación al
+> cambiar un `.sql`**, así que cada «rompe y comprueba» del §2 sobre una
+> migración probaba el SQL **anterior** — pasaba en verde sin ejercitar nada. Lo
+> arregla un `build.rs` con `rerun-if-changed=migrations`, y lo vigila
+> `cambiar_una_migracion_recompila`. Invalida verificaciones que se dieron por
+> hechas antes de hoy.
+
+> **Y un comentario que afirmaba una verificación falsa**: decía que invertir el
+> índice a `created_at ASC` devolvería el ordenado en memoria. **No lo hace** —
+> SQLite recorre un índice hacia atrás igual de bien—. Lo que sí rompe el plan
+> es quitar `created_at` de la clave, o mezclar direcciones (`ASC, DESC`); el
+> comentario lleva ahora esa ruptura, que es la que se vio en rojo.
+
+> **Al añadir una migración, hay que mirar qué pruebas fijan el esquema a
+> mano.** Varias escribían `"V10"` como literal, así que **toda migración
+> futura las rompería**; ahora leen `ultima_version()` del propio motor. El
+> `"V9"` que queda es deliberado: es la prueba de que un respaldo de otro
+> esquema se rechaza.
+
+> **Lo que esto cuesta:** un respaldo tomado con el esquema V10 **ya no se
+> puede restaurar** — la limitación que la 8.3b dejó declarada, y esta
+> migración es la primera que la dispara. Hoy no hay ningún `.arles` fuera de
+> las pruebas, así que el coste real es cero; dentro de un mes de uso no lo
+> sería.
 
 **Para una demostración real** con correo y WhatsApp que llegan de verdad:
 `documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md`.

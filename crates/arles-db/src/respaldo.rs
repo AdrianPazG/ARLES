@@ -116,7 +116,7 @@ pub struct TablaDelRespaldo {
 /// de este vector es el orden del cuerpo y el orden en que la 8.3 insertará.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Inventario {
-    /// Hasta qué migración llegó esta base: `V10`.
+    /// Hasta qué migración llegó esta base: `V11`.
     pub esquema: String,
     pub tablas: Vec<TablaDelRespaldo>,
 }
@@ -293,7 +293,7 @@ fn corte_de<'a>(tabla: &str, que: QueSeLleva<'a>) -> Option<(&'static str, &'a s
         .map(|columna| (columna, desde))
 }
 
-/// Hasta qué migración llegó esta base, en la forma `V10`.
+/// Hasta qué migración llegó esta base, en la forma `V11`.
 ///
 /// # Errores
 ///

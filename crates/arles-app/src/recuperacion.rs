@@ -135,7 +135,7 @@ pub fn revisar_respaldo_para_recuperar(
         .map_err(|_| ErrorIpc::from(AppError::ArchivoNoSePudoLeer))?;
 
     let (cabecera, _) = crate::restauracion::leer_la_cabecera(&ruta)?;
-    // La misma forma que escribe el exportador: «V10».
+    // La misma forma que escribe el exportador: «V11».
     let esquema_de_la_base = arles_db::ultima_version()
         .map(|v| format!("V{v}"))
         .unwrap_or_default();

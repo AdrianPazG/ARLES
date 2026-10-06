@@ -85,7 +85,7 @@ Verificado leyendo el código y el esquema el 05/10/2026.
 | **Decir antes de tocar nada** | `registro.rs::que_se_recortaria` (7.4) | El precedente de un preflight destructivo: primero se dice cuánto se va y cuánto se queda, después se pulsa |
 | `audit_log` append-only, por disparador | V1 | «restaurar respaldos» ya está en la lista de acciones críticas del glosario |
 | `ElLlaveroDelSistema` y su contrato | `arles-app/src/llavero.rs` | Nombre del servicio fijado por una prueba, precisamente para no dejar credenciales huérfanas (§75) |
-| 33 tablas, 10 migraciones (V1–V10) | `arles-db/migrations/` | El inventario de lo que un respaldo tiene que llevar |
+| 33 tablas, 11 migraciones (V1–V10) | `arles-db/migrations/` | El inventario de lo que un respaldo tiene que llevar |
 | Derechos ARCO completos | 3.4 · `arco.rs`, `PantallaDerechos.vue` | **El ROADMAP los pone en esta fase y ya están.** Ver §3.1 |
 | Lectura en streaming con topes | `arles-import` | El patrón de memoria acotada, ya probado con archivos maliciosos |
 | `ningun_comando_se_queda_sin_quien_lo_llame` | validador, fase W (7.7) | Los comandos nuevos entran vigilados desde el primer día |

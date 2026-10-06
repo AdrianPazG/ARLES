@@ -73,7 +73,7 @@ pub struct SeVaPorCascada {
 /// Todo lo que hay que saber antes de confirmar una restauración.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoQuePasaria {
-    /// Hasta qué migración va **esta** base: `V10`.
+    /// Hasta qué migración va **esta** base: `V11`.
     pub esquema_de_la_base: String,
     /// Las tablas que el respaldo trae, en el orden en que se insertarán.
     pub tablas: Vec<ComparacionDeTabla>,
@@ -909,6 +909,20 @@ fn comprobar_que_encajan(
 
 #[cfg(test)]
 mod tests_de_restaurar {
+
+    /// El esquema de esta base, leído del motor de migraciones.
+    ///
+    /// Escribirlo a mano —«V10»— hace que cada migración futura rompa estas
+    /// pruebas sin que nada esté mal. Lo que comprueban es que el respaldo y la
+    /// base coincidan, no que coincidan en un número concreto. Lo aprendimos
+    /// con la V11: ocho pruebas en rojo por un cambio que no las tocaba.
+    fn esquema_actual() -> String {
+        format!(
+            "V{}",
+            crate::migraciones::ultima_version().expect("hay migraciones")
+        )
+    }
+
     use super::tests::{base, sembrar};
     use super::*;
 
@@ -1050,7 +1064,7 @@ mod tests_de_restaurar {
         let r = db
             .restaurar(
                 &mut origen,
-                "V10",
+                &esquema_actual(),
                 &cols,
                 Alcance::Esencial,
                 "dirección",
@@ -1114,7 +1128,7 @@ mod tests_de_restaurar {
         let r = db
             .restaurar(
                 &mut origen,
-                "V10",
+                &esquema_actual(),
                 &cols,
                 Alcance::Esencial,
                 "dirección",
@@ -1169,7 +1183,7 @@ mod tests_de_restaurar {
         let r = db
             .restaurar(
                 &mut origen,
-                "V10",
+                &esquema_actual(),
                 &cols,
                 Alcance::Esencial,
                 "dirección",
@@ -1235,7 +1249,7 @@ mod tests_de_restaurar {
 
         let r = db.restaurar(
             &mut origen,
-            "V10",
+            &esquema_actual(),
             &cols,
             Alcance::Esencial,
             "dirección",
@@ -1318,7 +1332,7 @@ mod tests_de_restaurar {
         let r = db
             .restaurar(
                 &mut origen,
-                "V10",
+                &esquema_actual(),
                 &cols,
                 Alcance::Esencial,
                 "dirección",
@@ -1382,7 +1396,7 @@ mod tests_de_restaurar {
         )]);
         let r = db.restaurar(
             &mut origen,
-            "V10",
+            &esquema_actual(),
             &cols,
             Alcance::Esencial,
             "dirección",
@@ -1408,7 +1422,7 @@ mod tests_de_restaurar {
         let mut origen = Filas::de(vec![empresa("E9")]);
         db.restaurar(
             &mut origen,
-            "V10",
+            &esquema_actual(),
             &cols,
             Alcance::Esencial,
             "dirección",

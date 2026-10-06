@@ -77,7 +77,7 @@ pub struct Avance {
 /// con cifras qué va a pasar, y después se pulsa.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct LoQueLlevaria {
-    /// Hasta qué migración va esta base: `V10`.
+    /// Hasta qué migración va esta base: `V11`.
     pub esquema: String,
     /// Una entrada por tabla, en el orden en que se escribirán.
     pub tablas: Vec<FilasDeTabla>,
@@ -585,7 +585,14 @@ mod tests {
                 .expect("la cabecera es texto");
             let (cabecera, _) = Cabecera::leer(texto_cabecera).expect("se lee la cabecera");
 
-            assert_eq!(cabecera.esquema, "V10");
+            // Se lee del propio motor de migraciones y no se escribe a mano:
+            // un literal aquí convierte cada migración futura en una prueba
+            // rota, y lo que esta comprueba es que la cabecera diga el esquema
+            // de ESTA base, no que ese esquema sea uno concreto.
+            assert_eq!(
+                cabecera.esquema,
+                format!("V{}", arles_db::ultima_version().expect("hay migraciones"))
+            );
             assert_eq!(cabecera.total_de_filas(), filas, "{contrasena:?}");
             assert_eq!(
                 cabecera.cifrado.lleva_contrasena(),
