@@ -4941,6 +4941,75 @@ def el_restaurador_tiene_quien_lo_llame():
     )
 
 
+def el_banco_no_viaja_en_el_instalador():
+    """**El banco de pruebas mide el producto; no puede ser parte de él.**
+
+    Uno de los trece presupuestos es el **tamaño del instalador** (< 20 MB), y
+    un generador de medio millón de contactos dentro de `arles-app` lo
+    engordaría justo para poder medirlo. Es la trampa más tonta posible: el
+    instrumento falseando lo que mide.
+
+    Vigila además que las cifras medidas lleven **su fecha**. Un número de
+    rendimiento sin fecha no se puede comparar con el siguiente, y con el
+    tiempo se lee como si fuera de hoy.
+
+    Verificada el 06/10/2026 añadiendo `arles-banco` a las dependencias de
+    `arles-app`: falla nombrándolo.
+    """
+    faltan = []
+
+    app = leer("crates", "arles-app", "Cargo.toml") or ""
+    if "arles-banco" in app:
+        faltan.append("arles-app depende de arles-banco: viajaría en el instalador")
+
+    # El generador tiene que ser reproducible, que es lo que permite repetir una
+    # medición. Si alguien siembra con el reloj, deja de serlo.
+    banco = leer("crates", "arles-banco", "src", "lib.rs") or ""
+    if not banco:
+        faltan.append("no existe crates/arles-banco/src/lib.rs")
+    else:
+        # ── SE QUITAN LOS COMENTARIOS, Y NO ES UN DETALLE ──
+        #
+        # Escrita sobre el texto crudo, esta comprobación salió en rojo el
+        # 06/10/2026 señalando un generador perfectamente reproducible: lo que
+        # casaba era **el comentario de la prueba**, que cuenta que se verificó
+        # sembrando con `SystemTime::now()`. Es la misma trampa que la 5.3 ya
+        # documentó —«una comprobación que se cazaba a sí misma en un
+        # comentario»— y la que hace que una comprobación mienta en los dos
+        # sentidos: aquí dio un falso rojo, y el día que alguien borre ese
+        # comentario daría un falso verde sobre el mismo código.
+        codigo_banco = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", banco, flags=re.S))
+        if "SystemTime" in codigo_banco or "Instant::now" in codigo_banco:
+            faltan.append("el generador usa el reloj: deja de ser reproducible")
+
+    # Y las medidas, con su fecha.
+    presupuesto = leer("documentacion", "06-calidad", "PRESUPUESTO_RENDIMIENTO.md") or ""
+    # Sin distinguir mayúsculas: lo que importa es que el documento separe lo
+    # medido de lo que no, no cómo lo escriba. Escrita primero exigiendo
+    # «SIN MEDIR» en mayúsculas, y corregida el 06/10/2026 al verla señalar un
+    # documento que decía exactamente eso en minúsculas.
+    if "sin medir" not in presupuesto.lower():
+        faltan.append(
+            "el presupuesto no distingue lo medido de lo que no: «sin medir» no es «cumple»"
+        )
+    # ── EL PATRÓN ESTABA MAL, Y LA PRUEBA DE LA PRUEBA LO CAZÓ ──
+    #
+    # Se escribió `\b0[1-9]|[12]\d|3[01]/\d{2}/20\d{2}\b`, y la alternancia
+    # ata antes que la concatenación: casaba «20» en cualquier parte del
+    # documento. Daba por fechado un texto sin una sola fecha — la comprobación
+    # que no puede fallar, otra vez (§2). Los paréntesis son el arreglo.
+    if not re.search(r"\b(?:0[1-9]|[12]\d|3[01])/\d{2}/20\d{2}\b", presupuesto):
+        faltan.append("las cifras medidas no llevan fecha")
+
+    check(
+        8,
+        "el banco de pruebas no viaja en el instalador, y lo medido lleva fecha",
+        not faltan,
+        el_banco_no_viaja_en_el_instalador.__doc__,
+        detalle="\n      ".join(faltan),
+    )
+
+
 def la_clave_perdida_tiene_salida():
     """**El consejo que el producto no puede cumplir.**
 
@@ -5150,6 +5219,9 @@ def fase_8(rapido=False):
 
     print(f"{GRIS}  el llavero perdido (8.4){FIN}")
     la_clave_perdida_tiene_salida()
+
+    print(f"{GRIS}  el banco de pruebas (8.5){FIN}")
+    el_banco_no_viaja_en_el_instalador()
 
 
 def fase_7(rapido=False):

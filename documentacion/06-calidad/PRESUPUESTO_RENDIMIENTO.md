@@ -7,9 +7,91 @@
 
 ---
 
+## 0. Lo que se midió el 06/10/2026, y lo que no
+
+> **Hasta esta fecha, las trece cifras de abajo eran estimaciones de la Fase 0 y
+> ninguna se había comprobado.** La entrega 8.5 construyó el banco de pruebas
+> (`crates/arles-banco`) y midió lo que se puede medir desde un contenedor sin
+> escritorio. **«Sin medir» no es «cumple»**, y así está escrito.
+
+**Medido el 06/10/2026**, con 500 000 contactos sintéticos (semilla 20261006,
+38 MB de CSV) en un contenedor Linux sin escritorio. **No es la máquina de
+referencia del §2**, así que las cifras sirven para comparar entre sí y para
+detectar lo que está mal por un orden de magnitud — no para certificar.
+
+| Operación | Presupuesto | Medido | Veredicto |
+|---|---|---|---|
+| Importar 500 000 filas | < 5 min | **51.7 s** (455 864 escritas, 19 447 choques, 24 689 inválidas) | ✅ cumple |
+| Memoria durante importación de 500 000 | < 500 MB | **497 MB** | ⚠️ cumple por 3 MB |
+| Búsqueda por correo | < 100 ms | **331 ms** | ❌ **no cumple** |
+| Abrir tabla de contactos: la consulta | < 500 ms | **1 424 ms** | ❌ **no cumple** |
+| Simulación de campaña | < 200 ms | **5.9 ms** | ✅ cumple |
+| Arranque en frío | < 2 s | — | ⬜ sin medir (R-07) |
+| Desplazamiento en tabla virtualizada | 60 fps | — | ⬜ sin medir (R-07) |
+| Filtro sobre 500 k contactos | < 1 s | — | ⬜ **no existe todavía** |
+| Calcular audiencia de campaña | < 2 s | — | ⬜ sin medir |
+| Preflight completo | < 3 s | — | ⬜ sin medir (R-24) |
+| Memoria en reposo con motor activo | < 250 MB | — | ⬜ sin medir (R-07) |
+| Importar 100 k filas XLSX | < 60 s | — | ⬜ sin medir |
+| Tamaño del instalador | < 20 MB | — | ⬜ sin medir (P-01) |
+
+### Los dos que fallan, y por qué
+
+No son «va un poco lento»: los dos tienen una causa concreta, encontrada con
+`EXPLAIN QUERY PLAN` sobre el esquema V10.
+
+**1 · Abrir la tabla de contactos — 1 424 ms de 500.**
+
+`contact` **no tiene ningún índice para su propia consulta**. Los únicos que
+hay son el de la clave primaria y uno sobre `import_batch_id`. El plan dice:
+
+```
+SCAN contact
+USE TEMP B-TREE FOR ORDER BY
+```
+
+Es decir: para enseñar **cien** filas, SQLite lee las 455 864 y las ordena en
+memoria. Y el recuento del total hace un segundo barrido completo. Es la
+pantalla donde el usuario pasa más tiempo.
+
+**2 · Búsqueda por correo — 331 ms de 100.**
+
+Hay un índice único sobre `contact_channel(company_id, channel,
+value_normalized)`, y la consulta **no filtra por `channel`**. Sin la segunda
+columna, SQLite sólo puede aprovechar la primera:
+
+```
+SEARCH ch USING INDEX idx_channel_unique (company_id=?)
+```
+
+Así que recorre **todos los canales de la empresa** —correos y WhatsApp, más de
+900 000 filas— para encontrar uno. El índice existe y está bien puesto; lo que
+no encaja es la consulta.
+
+> **Las dos se arreglan con una migración V11**, y eso tiene una consecuencia
+> que conviene decidir y no asumir: **un respaldo tomado con el esquema V10 no
+> se podrá restaurar** en una versión con V11 (ver 8.3b). Hoy no hay ningún
+> `.arles` fuera de las pruebas, así que el coste es cero; dentro de un mes de
+> uso, no. **Pendiente de Dirección.**
+
+### Y el que pasa por tres megas
+
+**497 MB de 500.** Entra, pero no sobra nada, y la causa está documentada desde
+la Fase 3: `TablaLeida` guarda **todas** las filas en memoria a propósito,
+porque la importación las recorre dos veces —una para los choques y otra para
+escribir—. Con 500 000 filas el margen es del 0.6 %; con 600 000 no habría.
+
+No es un defecto hoy —el techo declarado es medio millón— pero sí es la cifra
+que primero se romperá, y ahora se sabe en lugar de suponerse.
+
+---
+
 ## 1. Presupuestos
 
 Medidos en la máquina de referencia (§2), con la base de datos poblada al techo.
+
+> **Ojo:** la tabla de abajo son los presupuestos **estimados en la Fase 0**.
+> Lo que de verdad se ha medido está arriba, en el §0, con su fecha.
 
 | Operación | Presupuesto | Por qué ese número |
 |---|---|---|

@@ -651,11 +651,55 @@ y vista en rojo nombrando los seis tramos.
 > función que falta: es alguien que borra el archivo porque le dijimos que
 > estaba vacío.
 >
-> Dos cosas que la planificación midió y **siguen pendientes**: el paso de rendimiento del CI lleva
-> marcado «pendiente de la Fase 4» y **las trece cifras de
-> `PRESUPUESTO_RENDIMIENTO.md` nunca se han medido**; y **los derechos ARCO, que
-> el ROADMAP pone en la Fase 8, están construidos desde la 3.4** — se verifican
-> en la auditoría B, no se reconstruyen.
+> Y **los derechos ARCO, que el ROADMAP pone en la Fase 8, están construidos
+> desde la 3.4** — se verifican en la auditoría B, no se reconstruyen.
+
+**Cerrada la 8.5 · el banco de pruebas y las trece cifras**
+(`crates/arles-banco`). Medio millón de contactos sintéticos reproducibles, y
+**las trece cifras medidas o declaradas** en `PRESUPUESTO_RENDIMIENTO.md` §0.
+
+> **Cinco medidas, ocho sin medir, y dos de las cinco fallan** — el plan lo
+> anticipaba. Importar 500 000: 51.7 s de 5 min ✅. Memoria: 497 MB de 500 ⚠️.
+> Simulación: 5.9 ms de 200 ✅. **Búsqueda por correo: 331 ms de 100 ❌.**
+> **Abrir la tabla: 1 424 ms de 500 ❌.**
+
+> **Los dos fallos tienen causa concreta**, con `EXPLAIN QUERY PLAN` y no
+> supuesta:
+>
+> 1. **`contact` no tiene ningún índice para su propia consulta.** Sólo están el
+>    de la clave primaria y uno sobre `import_batch_id`. Para enseñar **cien**
+>    filas, SQLite lee las 455 864 y las ordena en memoria (`SCAN contact` +
+>    `USE TEMP B-TREE FOR ORDER BY`), y el recuento hace un segundo barrido.
+> 2. **La búsqueda por correo no filtra por `channel`.** El índice único es
+>    `(company_id, channel, value_normalized)`, así que sin la segunda columna
+>    sólo se aprovecha la primera y se recorren **todos los canales** de la
+>    empresa.
+>
+> Las dos se arreglan con una migración V11 — **y eso deja sin restaurar los
+> respaldos V10** (ver 8.3b). Hoy no hay ninguno fuera de las pruebas, así que
+> el coste es cero; dentro de un mes de uso, no. **Pendiente de Dirección.**
+
+> **497 MB de 500 no es aprobar.** `TablaLeida` guarda todas las filas en
+> memoria a propósito —la importación las recorre dos veces—, así que el margen
+> con 500 000 filas es del 0.6 % y con 600 000 no habría. El techo declarado es
+> medio millón, así que hoy no es un defecto; es la cifra que primero se rompe.
+
+> **El banco no viaja en el instalador** —es un crate del que `arles-app` no
+> depende— porque uno de los trece presupuestos es el tamaño del instalador, y
+> meter dentro un generador de medio millón de filas para medirlo sería el
+> instrumento falseando lo que mide. **El azar es propio** (SplitMix64, diez
+> líneas): una biblioteca promete calidad estadística, no que su algoritmo no
+> cambie entre versiones, y lo que hace falta aquí es reproducibilidad.
+
+> **Lo que el banco encontró de sí mismo**: su primera versión se saltaba el
+> análisis de choques y reventó en la primera corrida con medio millón. No era
+> «medir sin la interfaz»: era medir un camino que el usuario nunca recorre.
+
+> **Y dos defectos de las propias comprobaciones**, los dos del §2: el patrón de
+> fecha tenía la alternancia sin paréntesis y casaba «20» en cualquier parte
+> —daba por fechado un documento sin fechas—, y la de reproducibilidad **se
+> cazaba a sí misma en un comentario**, saliendo en rojo sobre un generador
+> correcto. Es la trampa que la 5.3 ya documentó, repetida.
 
 
 **Para una demostración real** con correo y WhatsApp que llegan de verdad:

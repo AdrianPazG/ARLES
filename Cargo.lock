@@ -116,6 +116,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "arles-banco"
+version = "1.2.0"
+dependencies = [
+ "arles-core",
+ "arles-db",
+ "arles-import",
+ "tempfile",
+ "time",
+]
+
+[[package]]
 name = "arles-core"
 version = "1.2.0"
 dependencies = [

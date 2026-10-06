@@ -1,0 +1,24 @@
+[package]
+name = "arles-banco"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+# ── POR QUÉ ES UN CRATE APARTE Y NO UN MÓDULO DE PRUEBAS ──────────────────
+#
+# Porque uno de los trece presupuestos es **el tamaño del instalador** (< 20 MB),
+# y un generador de medio millón de contactos dentro de `arles-app` lo
+# engordaría para medirlo. Aquí no lo depende nadie que se distribuya: se
+# comprueba en `--fase 8`.
+[dependencies]
+arles-core = { path = "../arles-core" }
+arles-db = { path = "../arles-db", features = ["test-util"] }
+arles-import = { path = "../arles-import" }
+tempfile = "3"
+time = { workspace = true }
+
+[[bin]]
+name = "banco"
+path = "src/main.rs"

@@ -851,7 +851,59 @@ pantalla dice las tres cosas y lleva a restaurar. Se verifica **rompiéndolo**.
 
 ---
 
-### 8.5 · Los 500 000 contactos sintéticos, y trece cifras medidas
+### 8.5 · Los 500 000 contactos sintéticos, y trece cifras medidas ✅ **cerrada el 06/10/2026**
+
+El banco (`crates/arles-banco`), el generador reproducible y **las trece cifras
+medidas o declaradas** en `PRESUPUESTO_RENDIMIENTO.md` §0.
+
+**Cinco medidas, ocho sin medir, y dos de las cinco fallan.** El plan lo
+anticipaba —«que salgan los trece a la primera sería la señal de que el banco no
+está midiendo lo que dice»— y así fue:
+
+| | |
+|---|---|
+| Importar 500 000 | **51.7 s** de 5 min ✅ |
+| Memoria importando | **497 MB** de 500 ⚠️ |
+| Búsqueda por correo | **331 ms** de 100 ❌ |
+| Abrir la tabla (la consulta) | **1 424 ms** de 500 ❌ |
+| Simulación de campaña | **5.9 ms** de 200 ✅ |
+
+**Los dos fallos tienen causa concreta**, encontrada con `EXPLAIN QUERY PLAN` y
+no supuesta: `contact` **no tiene índice para su propia consulta** —lee las
+455 864 filas y las ordena en memoria para enseñar cien—, y la búsqueda por
+correo no filtra por `channel`, así que del índice único sólo puede aprovechar
+la primera columna y recorre todos los canales de la empresa.
+
+**El generador no viaja en el instalador.** Es un crate aparte del que no
+depende `arles-app`, porque uno de los trece presupuestos es el tamaño del
+instalador y meter un generador de medio millón de filas dentro para poder
+medirlo sería el instrumento falseando lo que mide. Lo vigila
+`el_banco_no_viaja_en_el_instalador`.
+
+**El azar es propio, no de una dependencia.** El requisito es reproducible, y
+una biblioteca de números aleatorios promete calidad estadística —que aquí da
+igual— y no que su algoritmo no cambie entre versiones. SplitMix64 cabe en diez
+líneas y da lo mismo en cualquier máquina.
+
+**Lo que el propio banco encontró de sí mismo**, y es el patrón de siempre: la
+primera versión validaba cada fila y se las daba todas a `importar_contactos`,
+saltándose el análisis de choques. Con medio millón de filas sintéticas eso
+reventó en la primera corrida — el conjunto trae duplicados a propósito. No era
+«medir sin la interfaz»: era medir un camino que el usuario nunca recorre.
+
+**Y dos defectos de las propias comprobaciones**, los dos del §2:
+
+1. El patrón de fecha era `\b0[1-9]|[12]\d|3[01]/\d{2}/20\d{2}\b`, y la
+   alternancia ata antes que la concatenación: casaba «20» en cualquier parte.
+   Daba por fechado un documento sin una sola fecha.
+2. La comprobación de reproducibilidad **se cazaba a sí misma en un
+   comentario**: salió en rojo señalando un generador correcto porque el
+   comentario de la prueba cuenta que se verificó sembrando con `SystemTime`.
+   Es la misma trampa que la 5.3 ya documentó.
+
+---
+
+#### 8.5 · lo que pedía el plan
 
 **Qué.** El generador, el banco de pruebas y el paso de CI que lleva pendiente
 desde la Fase 4 (§1.3).

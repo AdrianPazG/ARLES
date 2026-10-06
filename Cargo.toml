@@ -8,6 +8,7 @@ members = [
   "crates/arles-import",
   "crates/arles-motor",
   "crates/arles-app",
+  "crates/arles-banco",
 ]
 
 [workspace.package]

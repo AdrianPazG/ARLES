@@ -12,6 +12,36 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.5 · Medio millón de contactos, y las primeras cifras de verdad
+
+#### Lo que cambia para quien usa ARLES
+
+Nada todavía. Lo que hay es la primera medición real: hasta hoy, las trece
+cifras de rendimiento del proyecto eran estimaciones que nadie había comprobado.
+
+**Y dos no se cumplen.** Con 500 000 contactos, abrir la lista tarda **1.4
+segundos** cuando el objetivo era medio segundo, y buscar un correo tarda
+**331 milisegundos** cuando el objetivo era 100. Las dos tienen un arreglo
+claro y pendiente de decidir, porque toca la estructura de la base.
+
+Lo que sí cumple: importar medio millón de contactos tarda **52 segundos** —el
+objetivo eran 5 minutos— y la simulación de una campaña es instantánea.
+
+#### Lo que cambia por dentro
+
+- `crates/arles-banco` · el generador y el banco de medición. **No viaja en el
+  instalador**: uno de los presupuestos es su tamaño.
+- El conjunto es reproducible con una semilla, y trae a propósito acentos,
+  correos en mayúsculas y con `+`, campos vacíos, duplicados, direcciones
+  inválidas y nombres que parecen fórmulas.
+- Las ocho cifras que no se pueden medir desde un contenedor sin escritorio se
+  declaran **sin medir**, que no es lo mismo que cumplidas.
+
+#### Lo que estaba mal y se arregla
+
+**Dos comprobaciones del validador mentían**: una daba por fechado un documento
+sin fechas, y otra se cazaba a sí misma en un comentario.
+
 ### 8.4 · Si se pierde la llave, ahora hay salida
 
 #### Lo que cambia para quien usa ARLES
