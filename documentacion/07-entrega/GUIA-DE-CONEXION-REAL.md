@@ -163,6 +163,11 @@ producto, no un trámite.
 
 ## 3 · Dónde se hace esto, y dónde no
 
+> **Antes de nada hace falta abrir ARLES**, y eso tiene su propia guía desde el
+> 07/10/2026: [`COMO-ABRIR-ARLES.md`](COMO-ABRIR-ARLES.md) — qué instalar en
+> Windows y los dos comandos que abren la ventana. Esta guía daba por hecho ese
+> paso y nunca lo explicaba.
+
 **En tu equipo, no en la nube.** Esta sesión de trabajo corre en un contenedor
 de Linux sin escritorio, y ahí dos cosas lo impiden:
 

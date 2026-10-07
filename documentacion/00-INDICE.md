@@ -152,6 +152,7 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Auditoría F · la Fase 8 entera](09-fases/AUDITORIA-F-FASE-08.md) | Las once entregas como un sistema · el respaldo cifrado que no se podía restaurar |
 | [Fase 8 · Respaldos y endurecimiento](09-fases/FASE-08-RESPALDOS.md) | Lo construido, las cinco auditorías y las doce cifras |
 | [Fase 8 · para Dirección](09-fases/FASE-08-PARA-DIRECCION.md) | El informe en términos de Dirección |
+| [Cómo abrir ARLES](07-entrega/COMO-ABRIR-ARLES.md) | Qué instalar y los dos comandos que abren la aplicación |
 
 ---
 
