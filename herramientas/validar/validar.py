@@ -5520,6 +5520,100 @@ def el_banco_no_viaja_en_el_instalador():
     )
 
 
+def el_desenlace_de_la_simulacion_llega_hasta_la_pantalla():
+    """**ARLES ya sabe si una campaña puede terminar, y no lo decía.**
+
+    El núcleo calcula tres desenlaces —`Termina`, `NoAvanza`,
+    `NoCabeEnElHorizonte { faltan }`— y los tres textos están escritos en
+    `es.ts` desde la Fase 4, incluido el que dice *«la campaña no termina en
+    cinco años: {faltan} mensajes se quedarían sin enviar»*. El comentario de
+    uno de ellos dice literalmente **«el caso que hay que cazar antes de
+    activar»**.
+
+    **No los llamaba nadie.** El paso 8 del asistente pintaba el tope diario y
+    los días, y nada más; y `activar_campana` no consultaba la estimación. Con
+    451 196 personas a 50 diarios el asistente enseñaba «1 303 días» —una cifra
+    correcta— y **nunca decía que 386 046 personas no van a recibir un
+    mensaje**, que es lo que el núcleo había calculado y entregado.
+
+    Es el patrón del §9 número diecisiete: el cálculo bien, las variantes bien,
+    los textos bien, y el cable sin conectar. Y las comprobaciones que persiguen
+    ese patrón no lo cazaban, porque miran **comandos** registrados y quién los
+    llama — un campo de una respuesta que la pantalla ignora no es un comando.
+
+    Esto vigila los dos tramos del cable:
+
+    1. La pantalla **usa** las tres claves de `duracion`.
+    2. `activar_campana` **consulta** la estimación y rechaza lo imposible.
+
+    Escrita **antes** del arreglo (8.6 E, 07/10/2026) y vista en rojo nombrando
+    los dos tramos.
+    """
+    faltan = []
+
+    # ── Tramo 1 · la pantalla enseña el desenlace ──
+    #
+    # Se miran las pantallas y los stores, no el catálogo: el catálogo es quien
+    # TIENE los textos, y buscarlo ahí sería preguntarle a la pieza por sí
+    # misma. Lo que hace falta saber es si alguien los pide.
+    # ── Y AQUÍ TAMBIÉN SE QUITAN LOS COMENTARIOS. SÉPTIMA VEZ ──
+    #
+    # La primera versión de estas líneas miraba el texto crudo, y `termina`
+    # **no salía en rojo**: casaba el comentario `/** Cuándo termina una
+    # campaña, según el simulador. */` de `campanas.ts`. Dos de los tres
+    # tramos se habrían dado por conectados sin estarlo.
+    #
+    # Es la misma trampa que la 5.3, la 8.5, las dos de la 8.3 bis, la 8.6 A y
+    # la 8.6 D — y la segunda **en la misma sesión**, dentro de una
+    # comprobación escrita horas después de arreglar la anterior. Saberlo no
+    # basta: hay que quitar los comentarios siempre, por defecto.
+    usados = ""
+    for carpeta, nombre in (("pantallas", "AsistenteDeCampana.vue"),
+                            ("stores", "campanas.ts")):
+        bruto = leer("app", "src", "app", carpeta, nombre) or ""
+        usados += re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", bruto, flags=re.S))
+    if not usados:
+        faltan.append("no se pudo leer el asistente ni el store de campañas")
+    for clave in ("duracion.termina", "duracion.noAvanza",
+                  "duracion.noCabeEnElHorizonte"):
+        # La clave puede escribirse entera o por su hoja dentro de un `t()`
+        # con prefijo. Se aceptan las dos formas y se exige la hoja, que es lo
+        # que no puede faltar.
+        hoja = clave.split(".")[1]
+        if clave not in usados and hoja not in usados:
+            faltan.append(
+                f"la pantalla no enseña «{clave}»: el núcleo lo calcula y nadie lo dice"
+            )
+
+    # ── Tramo 2 · activar rechaza lo que no puede terminar ──
+    alta = leer("crates", "arles-db", "src", "alta_de_campana.rs") or ""
+    if not alta:
+        faltan.append("no existe crates/arles-db/src/alta_de_campana.rs")
+    else:
+        # Se quitan los comentarios antes de mirar. Este módulo EXPLICA en su
+        # cabecera por qué consulta la estimación, nombrando las variantes — y
+        # sin esto la comprobación se cazaría en esa explicación. Es la trampa
+        # que este proyecto ya ha tenido seis veces.
+        codigo = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", alta, flags=re.S))
+        if "estimar" not in codigo:
+            faltan.append(
+                "activar_campana no llama a `estimar`: se puede activar una campaña "
+                "que el núcleo ya sabe que no termina"
+            )
+        if "NoCabeEnElHorizonte" not in codigo:
+            faltan.append("activar_campana no rechaza NoCabeEnElHorizonte")
+        if "NoAvanza" not in codigo:
+            faltan.append("activar_campana no rechaza NoAvanza")
+
+    check(
+        8,
+        "el desenlace de la simulación llega hasta la pantalla y hasta activar",
+        not faltan,
+        el_desenlace_de_la_simulacion_llega_hasta_la_pantalla.__doc__,
+        detalle="\n      ".join(faltan),
+    )
+
+
 def las_sondas_recorren_todas_las_pantallas():
     """**Una sonda que no recorre una pantalla no dice nada de esa pantalla.**
 
@@ -6174,6 +6268,9 @@ def fase_8(rapido=False):
 
     print(f"{GRIS}  la auditoría de UX (8.6 D){FIN}")
     las_sondas_recorren_todas_las_pantallas()
+
+    print(f"{GRIS}  el desenlace conectado (8.6 E){FIN}")
+    el_desenlace_de_la_simulacion_llega_hasta_la_pantalla()
 
 
 def fase_7(rapido=False):

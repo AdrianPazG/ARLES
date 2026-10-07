@@ -75,7 +75,13 @@ function revision(sobreescribe: Partial<Revision> = {}): Revision {
     audiencia: 1342,
     contactosConHuecos: 34,
     estimacion: {
-      desenlace: { resultado: 'termina' },
+      // La forma de verdad que manda Rust: el enum va etiquetado con
+      // `desenlace`. Esta línea decía `{ resultado: 'termina' }` hasta la
+      // 8.6 E, igual que el tipo del store — y compilaba, porque nadie leía el
+      // campo. Al conectarlo, el tipo corregido dejó la prueba en rojo, que es
+      // lo que una prueba sobre un tipo que miente tenía que hacer desde el
+      // principio.
+      desenlace: { desenlace: 'termina', cuando: '24 de enero' },
       audiencia: 1342,
       techoDiario: 50,
       quienManda: 'elTopeDelDia',
@@ -348,6 +354,101 @@ describe('el asistente de campaña', () => {
     expect(texto).toContain('50 al día')
     expect(texto).toContain('27 días')
     expect(texto).toContain('34 de 1342')
+  })
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // EL DESENLACE · conectado en la 8.6 E
+  //
+  // El núcleo calcula los tres desde la Fase 4 y los tres textos estaban
+  // escritos desde entonces. La pantalla pintaba el techo y los días, y nada
+  // más: con 451 196 personas a 50 diarios decía «1 303 días» —una cifra
+  // correcta— y NUNCA decía que 386 046 personas no iban a recibir nada.
+  //
+  // Las tres pruebas se vieron fallar quitando los `AAviso` del paso 6.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /** Pone el asistente en el paso de la simulación con la revisión que se diga. */
+  async function enLaSimulacion(rev: Revision): Promise<ReturnType<typeof mount>> {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.revision = rev
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 6
+    p.vm.paso = 6
+    await p.vm.$nextTick()
+    return p
+  }
+
+  /**
+   * **Una campaña que no termina lo dice, y dice a cuánta gente deja fuera.**
+   *
+   * Es la mitad que faltaba: sin la cifra, «no termina» no permite decidir
+   * entre subir el tope y partir la campaña (§94).
+   */
+  it('avisa cuando la campaña no termina en cinco años, con la cifra', async () => {
+    const p = await enLaSimulacion(
+      revision({
+        audiencia: 451_196,
+        estimacion: {
+          desenlace: { desenlace: 'noCabeEnElHorizonte', faltan: 386_046 },
+          audiencia: 451_196,
+          techoDiario: 50,
+          quienManda: 'elTopeDelDia',
+          diasConEnvio: 1303,
+        },
+      }),
+    )
+
+    const texto = p.text()
+    expect(texto).toContain('no termina en cinco años')
+    expect(texto, 'la cifra con separador de miles (§94, es-MX)').toContain('386,046')
+  })
+
+  /** **Y con el tope a cero también, que es el otro caso que el núcleo caza.** */
+  it('avisa cuando con esos topes no sale ni un mensaje', async () => {
+    const p = await enLaSimulacion(
+      revision({
+        estimacion: {
+          desenlace: { desenlace: 'noAvanza' },
+          audiencia: 1342,
+          techoDiario: 0,
+          quienManda: 'elTopeDelDia',
+          diasConEnvio: 0,
+        },
+      }),
+    )
+    expect(p.text()).toContain('no saldría ni un mensaje')
+  })
+
+  /**
+   * **El aviso de espera, por encima de 30 000 destinatarios.**
+   *
+   * Medido: 4 s con 45 000 y 73 s con 451 000. No es un tope —una campaña de
+   * 136 000 que termina en nueve meses es razonable— es convertir un cuelgue
+   * en una espera explicada (§95).
+   */
+  it('avisa de cuánto va a tardar en prepararse una campaña grande', async () => {
+    const p = await enLaSimulacion(
+      revision({
+        audiencia: 451_196,
+        estimacion: {
+          desenlace: { desenlace: 'termina', cuando: '3 de marzo' },
+          audiencia: 451_196,
+          techoDiario: 500,
+          quienManda: 'elTopeDelDia',
+          diasConEnvio: 903,
+        },
+      }),
+    )
+    const texto = p.text()
+    expect(texto).toContain('segundos en preparar')
+    expect(texto, 'no cerrar ARLES es la parte accionable (§95)').toContain('no cierres ARLES')
+  })
+
+  /** **Y una campaña normal no lo enseña**, o el aviso se deja de leer. */
+  it('no avisa de la espera con una audiencia normal', async () => {
+    const p = await enLaSimulacion(revision())
+    expect(p.text()).not.toContain('segundos en preparar')
   })
   // ═══════════════════════════════════════════════════════════════════════
   // LA PARADA DE EMERGENCIA · enchufada en la 7.3

@@ -54,6 +54,46 @@ import {
 
 const campanas = useCampanasStore()
 const remitentes = useRemitentesStore()
+
+/**
+ * Por encima de cuántos destinatarios se avisa de la espera.
+ *
+ * ── DE DÓNDE SALE ESTE NÚMERO ─────────────────────────────────────────────
+ *
+ * De medir, no de elegirlo. `activar_campana` escribe dos filas por
+ * destinatario con sus índices sobre SQLCipher, y la auditoría C del §140 lo
+ * midió a cuatro escalas el 07/10/2026:
+ *
+ *     18 121 → 1.2 s     45 253 → 3.8 s
+ *    135 588 → 16.7 s   451 196 → 73.5 s
+ *
+ * El presupuesto del §1 son 2 s, y se rompe **alrededor de los 30 000**. Por
+ * debajo de eso el aviso estorbaría; por encima, su ausencia convierte una
+ * espera normal en una avería aparente (§95).
+ *
+ * **Esto no es un tope.** Una campaña de 136 000 personas que termina en nueve
+ * meses es perfectamente razonable, y prohibirla por tardar diecisiete
+ * segundos en prepararse sería cambiar un problema de rendimiento por una
+ * limitación de producto. El arreglo de verdad —sacarlo a segundo plano con
+ * avance— es la Fase 9.
+ */
+const AUDIENCIA_QUE_TARDA = 30_000
+
+/**
+ * Cuántos segundos va a tardar en prepararse, redondeado hacia arriba.
+ *
+ * La curva medida no es lineal —163 µs por fila a 451 000 contra 66 a 18 000,
+ * porque los índices crecen— así que una regla de tres con el caso pequeño
+ * prometería la mitad del tiempo real. Se usa el peor caso medido, 163 µs por
+ * destinatario, y se redondea a múltiplos de cinco: dar «17 segundos» finge
+ * una precisión que esta estimación no tiene (§94), y quedarse corto es el
+ * único error que importa — quien espera diez y tarda veinte cree que se
+ * colgó.
+ */
+function segundosDePreparacion(audiencia: number): number {
+  const estimados = (audiencia * 163) / 1_000_000
+  return Math.max(5, Math.ceil(estimados / 5) * 5)
+}
 const router = useRouter()
 const { t, te } = useI18n()
 
@@ -165,6 +205,21 @@ const sePuedeSeguir = computed(() => {
       return (
         ventana.value.length > 0 && (!avisaDelVolumen.value || aceptoElRiesgo.value)
       )
+    case 6: {
+      // ── NO SE DEJA AVANZAR SI LA CAMPAÑA NO VA A PODER ACTIVARSE ──
+      //
+      // `activar_campana` la rechaza desde la 8.6 E, y eso pasa en el paso 9.
+      // Dejar seguir aquí sería hacer rellenar tres pasos más —el preflight y
+      // el envío de prueba, que habla con el servidor— para fallar al final:
+      // es exactamente el defecto que el aviso de volumen evita pidiéndolo
+      // antes de escribir nada, y que CLAUDE.md nombra como lo que no hay que
+      // hacer («rechaza al final nueve pasos de formulario»).
+      //
+      // Lo que se puede hacer es volver al paso 5 y subir los topes, que es lo
+      // que el aviso dice. Por eso se bloquea «Continuar» y no «Atrás».
+      const d = campanas.revision?.estimacion.desenlace.desenlace
+      return d !== 'noAvanza' && d !== 'noCabeEnElHorizonte'
+    }
     case 8:
       // La prueba es obligatoria (§45). Y vale la que el servidor aceptó: una
       // rechazada demuestra lo contrario de lo que se quería demostrar.
@@ -173,6 +228,11 @@ const sePuedeSeguir = computed(() => {
       return true
   }
 })
+
+/** ¿El simulador dice que esta campaña llega al final? */
+const termina = computed(
+  () => campanas.revision?.estimacion.desenlace.desenlace === 'termina',
+)
 
 /** Lo que dice el preflight. `null` mientras no se haya pedido. */
 const sePuedeActivar = computed(
@@ -397,14 +457,81 @@ function rotulo(clave: string): string {
               })
             }}
           </p>
+          <!-- ── LA FRASE DEL RITMO NO PROMETE LO QUE NO VA A PASAR ──
+               Mirando la demostración se vio «saldrán a lo largo de 1303 días
+               de envío» y justo debajo «no termina en cinco años». La primera
+               no es falsa —el reloj se para en el horizonte— pero dice
+               «saldrán» de unos mensajes que no van a salir.
+
+               Con un desenlace que impide activar se enseña sólo el techo, que
+               es el dato con el que se arregla; los días los dice el aviso. -->
           <p class="asistente__frase">
             {{
-              t('asistente.paso.simulacion.ritmo', {
-                techo: campanas.revision.estimacion.techoDiario,
-                dias: campanas.revision.estimacion.diasConEnvio,
+              termina
+                ? t('asistente.paso.simulacion.ritmo', {
+                  techo: campanas.revision.estimacion.techoDiario,
+                  dias: campanas.revision.estimacion.diasConEnvio.toLocaleString('es-MX'),
+                })
+                : t('asistente.paso.simulacion.ritmoSinFinal', {
+                  techo: campanas.revision.estimacion.techoDiario,
+                })
+            }}
+          </p>
+
+          <!-- ── EL DESENLACE, QUE EL NÚCLEO CALCULABA Y NADIE ENSEÑABA ──
+               `estimar` devuelve tres desenlaces desde la Fase 4 y los tres
+               textos estaban escritos desde entonces. La pantalla pintaba el
+               techo y los días, y nada más: con 451 196 personas a 50 diarios
+               decía «1 303 días» —correcto— y **nunca decía que 386 046
+               personas no iban a recibir un mensaje nunca**.
+
+               Va en un `AAviso` y no en un párrafo porque los dos casos malos
+               impiden activar: `activar_campana` los rechaza desde la 8.6 E, y
+               una frase suelta no se lee como un impedimento. -->
+          <AAviso
+            v-if="campanas.revision.estimacion.desenlace.desenlace === 'noAvanza'"
+            tono="peligro"
+            :titulo="t('duracion.noAvanza')"
+          />
+          <AAviso
+            v-else-if="
+              campanas.revision.estimacion.desenlace.desenlace === 'noCabeEnElHorizonte'
+            "
+            tono="peligro"
+            :titulo="
+              t('duracion.noCabeEnElHorizonte', {
+                faltan: (campanas.revision.estimacion.desenlace.faltan ?? 0).toLocaleString(
+                  'es-MX',
+                ),
+              })
+            "
+          />
+          <p
+            v-else
+            class="asistente__frase"
+          >
+            {{
+              t('duracion.termina', {
+                cuantos: campanas.revision.audiencia.toLocaleString('es-MX'),
+                cuando: campanas.revision.estimacion.desenlace.cuando ?? '—',
               })
             }}
           </p>
+
+          <!-- ── Y LO QUE VA A TARDAR EN PREPARARSE (8.6 E) ──
+               Medido: 4 s con 45 000 destinatarios, 73 s con 451 000. El
+               arreglo de verdad es sacarlo a segundo plano (Fase 9); hasta
+               entonces lo que convierte un cuelgue en una espera es avisar
+               antes, con la cifra (§95). -->
+          <AAviso
+            v-if="campanas.revision.audiencia > AUDIENCIA_QUE_TARDA"
+            tono="aviso"
+            :titulo="
+              t('asistente.paso.simulacion.tardaraEnPrepararse', {
+                segundos: segundosDePreparacion(campanas.revision.audiencia),
+              })
+            "
+          />
           <p
             v-if="campanas.revision.contactosConHuecos > 0"
             class="asistente__nota"

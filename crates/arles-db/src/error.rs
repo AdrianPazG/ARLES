@@ -82,6 +82,40 @@ pub enum DbError {
     #[error("no queda nadie a quien escribir en esta campaña")]
     AudienciaVacia,
 
+    /// Se intentó activar una campaña que **no termina nunca**.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// EL NÚCLEO YA LO SABÍA, Y NADIE SE LO PREGUNTABA
+    ///
+    /// `arles_core::duracion::estimar` devuelve `NoCabeEnElHorizonte { faltan }`
+    /// desde la Fase 4, y su texto está escrito desde entonces. Hasta la
+    /// 8.6 E (07/10/2026) **`activar_campana` no consultaba la estimación**:
+    /// se podía activar una campaña de 451 196 personas con 50 correos al día,
+    /// y la pantalla decía «1 303 días» sin decir que **386 046 personas no
+    /// recibirían un mensaje nunca**.
+    ///
+    /// Lo que lo hace grave es que el fallo es silencioso y largo: el motor
+    /// envía correctamente durante años, el contador sube, y nada dice que no
+    /// va a llegar al final. No hay ningún momento en que algo falle.
+    ///
+    /// `faltan` es la cifra (§94). Sin ella el mensaje sería «no termina», que
+    /// no dice si sobra gente o sobra muchísima.
+    #[error("esta campaña no termina en cinco años: faltarían {faltan} mensajes")]
+    LaCampanaNoTermina { faltan: u32 },
+
+    /// Se intentó activar una campaña con la que **no sale ni un mensaje**.
+    ///
+    /// Pasa con un tope a cero, o con una ventana que no contiene ninguna hora
+    /// de ningún día permitido. El comentario del texto que lo acompaña lo
+    /// llama, desde la Fase 4, «el caso que hay que cazar antes de activar» —
+    /// y no se cazaba.
+    ///
+    /// Es peor que un error al activar: una campaña «enviando» que nunca manda
+    /// nada es exactamente la razón número uno por la que alguien cree que
+    /// ARLES se rompió (7.3).
+    #[error("con estos topes no saldría ni un mensaje de esta campaña")]
+    LaCampanaNoAvanza,
+
     /// Esa acción no procede desde el estado en que está la campaña.
     ///
     /// **Lleva la clave i18n del caso concreto dentro**, no una genérica: la
@@ -197,6 +231,8 @@ impl DbError {
             Self::SupresionNoExiste => "error.db.supresion_no_existe",
             Self::CampanaNoExiste => "error.db.campana_no_existe",
             Self::AudienciaVacia => "error.db.audiencia_vacia",
+            Self::LaCampanaNoTermina { .. } => "error.db.la_campana_no_termina",
+            Self::LaCampanaNoAvanza => "error.db.la_campana_no_avanza",
             Self::CuentaDeCorreoNoExiste => "error.db.cuenta_de_correo_no_existe",
             Self::AccionDeCampanaImposible { clave } => clave,
             Self::FaltaAceptarElVolumen => "error.db.falta_aceptar_el_volumen",

@@ -12,6 +12,71 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.6 E · El desenlace conectado, y el aviso de espera
+
+Lo que Dirección pidió como «el tope de activación» **ya estaba decidido y
+construido**: lo que faltaba era enseñarlo y obedecerlo. El núcleo calcula tres
+desenlaces desde la Fase 4 —`Termina`, `NoAvanza`, `NoCabeEnElHorizonte { faltan }`—
+y los tres textos estaban escritos desde entonces, incluido el que dice «la
+campaña no termina en cinco años: {faltan} mensajes se quedarían sin enviar». El
+comentario de uno de ellos decía literalmente **«el caso que hay que cazar antes
+de activar»**.
+
+**No los llamaba nadie.** Con 451 196 personas a 50 correos diarios el paso 8
+enseñaba «1 303 días» —una cifra correcta— y nunca decía que **386 046 personas
+no iban a recibir un mensaje nunca**. El motor habría enviado correctamente
+durante años sin que nada fallara en ningún momento.
+
+#### Lo que hace ahora
+
+- **`activar_campana` rechaza los dos desenlaces imposibles**, con su cifra y
+  las tres partes del §95. Se pregunta con la audiencia ya congelada y **antes
+  del bucle de la cola**: devolver el error deshace la transacción entera y
+  ahorra las 451 196 inserciones.
+- **El paso 6 enseña el desenlace** y bloquea «Continuar» cuando impide activar:
+  dejar seguir sería hacer rellenar el preflight y el envío de prueba para
+  fallar al final, que es el defecto que CLAUDE.md nombra.
+- **Y avisa de la espera** por encima de 30 000 destinatarios, con los segundos
+  que va a tardar. **No es un tope**: una campaña de 136 000 que termina en
+  nueve meses es razonable, y prohibirla por tardar diecisiete segundos en
+  prepararse sería cambiar un problema de rendimiento por una limitación de
+  producto. El arreglo de verdad —sacarlo a segundo plano— es la Fase 9.
+
+#### Y tres cosas más que estaban desalineadas porque nadie las leía
+
+- **El tipo de TypeScript mentía.** Decía `desenlace: { resultado, cuando }` y
+  lo que manda Rust es `{ desenlace, cuando?, faltan? }`. `vue-tsc` no podía
+  cazarlo: un tipo sólo se contradice al leerlo.
+- **El fixture de la prueba también**, por lo mismo. Al corregir el tipo quedó
+  en rojo, que es lo que tenía que hacer desde el principio.
+- **El simulador de la vista previa devolvía `{ horas, dias, porDia }`**, una
+  forma que no existe en `Estimacion`, así que el paso 6 de la demostración
+  llevaba tiempo pintando huecos. La comprobación de la fase 7 no lo cazaba y
+  no podía: compara **qué comandos** se contestan, no la **forma** de lo que
+  devuelven.
+
+#### Y una cifra mía corregida
+
+Dije que 451 196 personas a 50 diarios son «24 años de campaña». Era una cuenta
+a mano y estaba mal: el núcleo no devuelve una duración para ese caso, devuelve
+`NoCabeEnElHorizonte` con 386 046 mensajes sin enviar. Corregido en los tres
+documentos, con la cifra vieja a la vista.
+
+#### Tres defectos que encontró mirar la demostración
+
+Con todo en verde: «1303 días» sin separador de miles, la frase del ritmo
+prometiendo que «saldrán» unos mensajes que el aviso de debajo decía que no van
+a salir, y «Continuar» habilitado hacia tres pasos que iban a terminar en un
+rechazo.
+
+#### Y el séptimo comentario que se cazaba a sí mismo
+
+La comprobación nueva —escrita antes del arreglo y vista en rojo nombrando los
+seis tramos— no cazaba `duracion.termina`: casaba el comentario «Cuándo termina
+una campaña» del store. **Séptima vez en el proyecto y segunda en la misma
+sesión**, dentro de una comprobación escrita horas después de arreglar la
+anterior por lo mismo. Saberlo no basta: se quitan los comentarios siempre.
+
 ### 8.6 D · Auditoría de UX y accesibilidad (§140): cinco pantallas que nadie medía
 
 Cuarta y última de las pasadas separadas, y la primera que se pudo **medir de

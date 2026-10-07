@@ -1202,6 +1202,64 @@ Chromium, no leídas. Cuatro hallazgos, cuatro arreglados. Está contado en
 > patrón no lo caza porque mira **comandos** registrados y quién los llama; un
 > campo de una respuesta que la pantalla ignora no es un comando.
 
+**Cerrada la 8.6 E · el desenlace conectado y el aviso de espera.** Lo que
+Dirección pidió como «el tope de activación» **ya estaba decidido y
+construido**; faltaba enseñarlo y obedecerlo. Cuatro pruebas en `arles-db`,
+cuatro de pantalla, y la comprobación escrita **antes** y vista en rojo
+nombrando los seis tramos.
+
+> **`activar_campana` rechaza ahora los dos desenlaces imposibles**, con su
+> cifra y las tres partes del §95. **Se pregunta con la audiencia ya congelada y
+> antes del bucle de la cola**: lo limpio sería rechazar antes de tocar la base,
+> pero la audiencia no se sabe hasta contarla y contarla aparte es otro
+> recorrido completo del `JOIN`. Devolver el error ahí deshace la transacción
+> entera —audiencia incluida— y ahorra las 451 196 inserciones. **Entero o nada
+> lo mantiene la transacción, no el orden**, y hay una prueba de eso.
+
+> **El paso 6 enseña el desenlace y bloquea «Continuar»** cuando impide activar.
+> Dejar seguir sería hacer rellenar el preflight y el envío de prueba —que habla
+> con el servidor— para fallar en el paso 9: es el defecto que este archivo
+> nombra al hablar del `AVISO_DIARIO` («rechaza al final nueve pasos de
+> formulario»). El aviso queda justo encima del botón, así que el botón apagado
+> dice por qué (§95, y el defecto que la 8.2c y la 8.3c tuvieron).
+
+> **El aviso de espera NO es un tope, y la diferencia importa.** Por encima de
+> 30 000 destinatarios dice cuántos segundos va a tardar en prepararse. Una
+> campaña de 136 000 que termina en nueve meses es razonable, y prohibirla por
+> tardar diecisiete segundos sería cambiar un problema de rendimiento por una
+> limitación de producto. El umbral sale de la curva medida en la auditoría C, y
+> los segundos del peor caso medido (163 µs por fila), redondeados a cinco:
+> quedarse corto es el único error que importa.
+
+> **Tres cosas estaban desalineadas, y las tres por la misma razón: nadie las
+> leía.** El tipo de TypeScript decía `{ resultado, cuando }` cuando Rust manda
+> `{ desenlace, cuando?, faltan? }`; el fixture de la prueba repetía el mismo
+> error; y el simulador de la vista previa devolvía `{ horas, dias, porDia }`,
+> una forma que no existe en `Estimacion` — así que el paso 6 de la demostración
+> llevaba tiempo pintando huecos.
+>
+> **`vue-tsc` no podía cazar el primero**: un tipo sólo se contradice al
+> **leerlo**. Y la comprobación de la fase 7 no podía cazar el tercero: compara
+> **qué comandos** contesta el simulador, no la **forma** de lo que devuelven.
+> Es la cola del patrón del §9 — cuando nadie usa una pieza, todo lo que la
+> describe se desalinea sin que nada falle.
+
+> **Tres defectos que encontró mirar la demostración**, con todo en verde:
+> «1303 días» sin separador de miles (séptima vez de este defecto, el de las
+> «12536 filas» de la 8.2c); la frase del ritmo prometiendo que «saldrán» unos
+> mensajes que el aviso de debajo decía que no van a salir; y «Continuar»
+> habilitado hacia tres pasos que iban a terminar en un rechazo.
+
+> **Y el séptimo comentario que se caza a sí mismo.** La comprobación nueva no
+> cazaba `duracion.termina`: casaba el comentario «Cuándo termina una campaña»
+> del store, así que dos de los tres tramos se habrían dado por conectados sin
+> estarlo. **Séptima vez en el proyecto y segunda en la misma sesión**, dentro de
+> una comprobación escrita horas después de arreglar la anterior por lo mismo.
+>
+> La conclusión, que ya no es una anécdota: **saberlo no basta.** Se quitan los
+> comentarios siempre, por defecto, en cualquier comprobación que busque una
+> cadena en un archivo.
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |
@@ -1218,9 +1276,13 @@ del producto sino de sus comprobaciones** — una lista a mano, un alcance
 demasiado corto, un comentario que se cazaba a sí mismo. El producto aguantó
 mejor que sus instrumentos, y eso es lo que había que descubrir.
 
-**Lo que queda abierto:** C-1 (el tope de activación, esperando a Dirección),
-C-2 (el filtro del registro, declarado), reescribir el §97, y **R-07** — nada de
-la pasada D se ha visto en WKWebView.
+**Lo que queda abierto:** C-2 (el filtro del registro, declarado), reescribir el
+§97, **sacar la activación a segundo plano con avance** (Fase 9) y **R-07** —
+nada de la pasada D se ha visto en WKWebView.
+
+**C-1 lo cerró la 8.6 E**, y no como se planteó: no hay tope por número de
+destinatarios, hay un rechazo de lo que no puede terminar y un aviso de lo que
+va a tardar. Ver más arriba.
 
 **Para una demostración real** con correo y WhatsApp que llegan de verdad:
 `documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md`.

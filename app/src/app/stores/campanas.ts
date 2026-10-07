@@ -72,9 +72,28 @@ export interface PuntoRevisado {
   readonly veredicto: string
 }
 
-/** Cuándo termina una campaña, según el simulador. */
+/**
+ * Cuándo termina una campaña, según el simulador.
+ *
+ * ── ESTE TIPO MENTÍA, Y COMPILABA ──────────────────────────────────────
+ *
+ * Hasta la 8.6 E decía `desenlace: { resultado, cuando }`. Lo que Rust manda
+ * es `{ desenlace, cuando?, faltan? }` — el enum va etiquetado con `desenlace`
+ * y `resultado` no existe en el JSON.
+ *
+ * `vue-tsc` no lo cazó y no podía: un tipo sólo se contradice al **leerlo**, y
+ * nadie leía este campo. Es la cola del patrón del §9 que esta entrega vino a
+ * cerrar — cuando nadie usa una pieza, el tipo que la describe se desalinea sin
+ * que nada falle.
+ */
 export interface Estimacion {
-  readonly desenlace: { readonly resultado: string; readonly cuando?: string }
+  readonly desenlace: {
+    /** `termina`, `noAvanza` o `noCabeEnElHorizonte`. */
+    readonly desenlace: string
+    readonly cuando?: string
+    /** Cuántos se quedan fuera. Sólo en `noCabeEnElHorizonte`. */
+    readonly faltan?: number
+  }
   readonly audiencia: number
   readonly techoDiario: number
   readonly quienManda: string

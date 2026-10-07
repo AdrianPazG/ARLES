@@ -89,6 +89,11 @@ const CLAVES_DEL_NUCLEO = [
   // Entrega 4.4 · pausar, reanudar y detener.
   'error.db.campana_no_existe',
   'error.db.audiencia_vacia',
+  // Las dos de la 8.6 E: el desenlace que el núcleo calculaba y nadie
+  // preguntaba. El validador las exigió aquí en cuanto entraron en `DbError`,
+  // que es por lo que esta lista a mano se puede tener.
+  'error.db.la_campana_no_termina',
+  'error.db.la_campana_no_avanza',
   // Entrega 6.6 · el aviso de volumen del §48. No es un límite: es la
   // constancia de que se informó antes de crear la campaña.
   'error.db.falta_aceptar_el_volumen',

@@ -943,7 +943,30 @@
             },
             audiencia: (e.contactos || DEMO.contactos).length,
             contactosConHuecos: 0,
-            estimacion: { horas: 27, dias: 2, porDia: 50 },
+            // ── ESTA FORMA NO EXISTÍA, Y EL PASO 8 ENSEÑABA HUECOS ──
+            //
+            // Hasta la 8.6 E esto devolvía `{ horas, dias, porDia }`, que no
+            // coincide con un solo campo de `Estimacion`: lo que manda Rust es
+            // `techoDiario`, `diasConEnvio`, `audiencia`, `quienManda` y el
+            // `desenlace` etiquetado. Así que en la demostración el paso de la
+            // simulación llevaba tiempo pintando valores vacíos.
+            //
+            // La comprobación de la fase 7 —«la vista previa contesta lo que
+            // las pantallas piden»— no lo cazaba y no podía: compara **qué
+            // comandos** se piden y se contestan, no la **forma** de lo que
+            // devuelven. Es el mismo tipo de hueco que el del tipo de
+            // TypeScript que mentía, y por la misma razón: nadie lo leía.
+            //
+            // Se simula el caso interesante —una audiencia que no termina— a
+            // propósito: es el que la 8.6 E vino a enseñar, y en la
+            // demostración hay que poder verlo.
+            estimacion: {
+              desenlace: { desenlace: 'noCabeEnElHorizonte', faltan: 386046 },
+              audiencia: (e.contactos || DEMO.contactos).length,
+              techoDiario: 50,
+              quienManda: 'elTopeDelDia',
+              diasConEnvio: 1303,
+            },
             diagnostico: null,
           });
 

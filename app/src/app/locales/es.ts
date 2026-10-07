@@ -1714,6 +1714,32 @@ export const es = {
           'La campaña sigue en borrador y no se envió nada. No se ha ' +
           'modificado ningún contacto.',
       },
+      // Activar una campaña que el simulador ya sabe que no termina. El
+      // núcleo lo calculaba desde la Fase 4 y nadie se lo preguntaba: el
+      // motor habría enviado correctamente durante años mientras cientos de
+      // miles de personas no recibían nada, sin que nada fallara (8.6 E).
+      la_campana_no_termina: {
+        que: 'Con este ritmo la campaña no terminaría en cinco años.',
+        como:
+          'Sube el máximo diario del remitente, recorta la audiencia, o ' +
+          'divide la campaña en varias. En el paso de la simulación puedes ' +
+          'ver cuántos mensajes saldrían al día.',
+        salvo:
+          'La campaña sigue en borrador y no se envió nada. No se congeló ' +
+          'ninguna audiencia.',
+      },
+      // El tope a cero, o una ventana que no contiene ninguna hora. Una
+      // campaña «enviando» que nunca manda nada es la razón número uno por la
+      // que alguien cree que ARLES se rompió (7.3).
+      la_campana_no_avanza: {
+        que: 'Con estos topes no saldría ni un mensaje.',
+        como:
+          'Revisa el máximo por hora y por día del remitente, y que la ' +
+          'ventana de envío tenga al menos una hora en un día permitido.',
+        salvo:
+          'La campaña sigue en borrador y no se envió nada. No se congeló ' +
+          'ninguna audiencia.',
+      },
       cuenta_de_correo_no_existe: {
       que: 'Esa cuenta de correo ya no está.',
       como: 'Vuelve a la lista de remitentes y elige una de las que hay.',
@@ -2035,9 +2061,22 @@ export const es = {
           'Comprobando la cuenta contra el servidor de correo. Puede tardar ' +
           'hasta un minuto si el servidor va lento.',
         cuantos: 'Esta campaña enviará {n} correos.',
+        // ── EL AVISO DE ESPERA (8.6 E) ──
+        //
+        // Preparar una campaña grande congela ARLES: medido, 4 s con 45 000
+        // destinatarios y 73 s con 451 000. El arreglo de verdad es sacarlo a
+        // segundo plano (Fase 9); hasta entonces, lo que convierte un cuelgue
+        // en una espera es decirlo antes, con su cifra (§94, §95).
+        tardaraEnPrepararse:
+          'Al activar, ARLES va a tardar alrededor de {segundos} segundos en ' +
+          'preparar los envíos. Durante ese rato la ventana no responde: no ' +
+          'cierres ARLES, no se ha perdido nada.',
         ritmo:
           'Con tu ritmo, caben {techo} al día dentro del horario, así que ' +
           'saldrán a lo largo de {dias} días de envío.',
+        // Cuando el desenlace impide activar, el techo sigue siendo el dato
+        // útil —es lo que hay que subir— pero no se promete que nada salga.
+        ritmoSinFinal: 'Con tu ritmo, caben {techo} al día dentro del horario.',
         // La cifra en vez del sí/no: con 34 de 1 300 se puede seguir; con 900,
         // conviene revisar la lista antes.
         huecos:

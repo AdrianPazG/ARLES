@@ -110,13 +110,7 @@ impl Db {
 
             let ventana = fila.ventana()?;
 
-            // El más bajo de los dos topes, igual que en el motor: quien cuenta
-            // los correos de verdad es el proveedor, y pasarse de su límite no
-            // da un error claro — da una cuenta marcada como spam.
-            let limites = Limites::nuevos(
-                el_mas_bajo(fila.hora_etapa, fila.hora_cuenta),
-                el_mas_bajo(fila.dia_etapa, fila.dia_cuenta),
-            );
+            let limites = fila.limites();
 
             // ── La audiencia, y de dónde sale ──
             //
@@ -163,7 +157,7 @@ impl Db {
 /// **fuera** del `query_row`: dentro sólo caben errores de `rusqlite`, y decir
 /// «error de SQLite» ante una zona horaria inventada manda a buscar el problema
 /// al disco. Es el mismo patrón que `FilaDeEtapa` en `trabajo.rs`.
-struct FilaDeRevision {
+pub(crate) struct FilaDeRevision {
     cuenta: String,
     dias: i64,
     desde: i64,
@@ -181,7 +175,24 @@ struct FilaDeRevision {
 }
 
 impl FilaDeRevision {
-    fn ventana(&self) -> Result<Ventana, DbError> {
+    /// Los topes con los que de verdad se va a enviar.
+    ///
+    /// **El más bajo de la etapa y la cuenta**, igual que en el motor: quien
+    /// cuenta los correos es el proveedor, y pasarse de su límite no da un
+    /// error claro — da una cuenta marcada como spam.
+    ///
+    /// Vive aquí y no en cada llamador desde la 8.6 E: lo necesitan el
+    /// preflight y `activar_campana`, y dos copias del mismo «el más bajo de
+    /// los dos» son dos sitios donde uno puede quedarse con el de la etapa y
+    /// prometer un ritmo que el proveedor no acepta.
+    pub(crate) fn limites(&self) -> Limites {
+        Limites::nuevos(
+            el_mas_bajo(self.hora_etapa, self.hora_cuenta),
+            el_mas_bajo(self.dia_etapa, self.dia_cuenta),
+        )
+    }
+
+    pub(crate) fn ventana(&self) -> Result<Ventana, DbError> {
         let dias = u8::try_from(self.dias)
             .map(Dias)
             .map_err(|_| DbError::DatoInvalido {
@@ -203,7 +214,7 @@ impl FilaDeRevision {
     }
 }
 
-fn leer_la_etapa(
+pub(crate) fn leer_la_etapa(
     conn: &Connection,
     campana: &str,
     empresa: CompanyId,

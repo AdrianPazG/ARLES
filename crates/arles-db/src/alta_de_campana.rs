@@ -55,6 +55,8 @@ use rusqlite::{OptionalExtension, params};
 
 use arles_core::ritmo::Limites;
 
+use time::OffsetDateTime;
+
 use crate::db::Db;
 use crate::empresa::{ahora, auditar};
 use crate::error::DbError;
@@ -373,6 +375,75 @@ impl Db {
                 return Err(DbError::AudienciaVacia);
             }
 
+            // ── 3 bis · ¿Esta campaña puede terminar? ─────────────────────
+            //
+            // ── EL NÚCLEO YA LO SABÍA Y NADIE SE LO PREGUNTABA ───────────
+            //
+            // `estimar` devuelve tres desenlaces desde la Fase 4, y los tres
+            // textos están escritos desde entonces — incluido el que dice «la
+            // campaña no termina en cinco años: {faltan} mensajes se quedarían
+            // sin enviar», cuyo comentario llama a esto «el caso que hay que
+            // cazar antes de activar».
+            //
+            // No se cazaba. Hasta la 8.6 E se podía activar una campaña de
+            // 451 196 personas con 50 correos al día: el motor enviaría
+            // correctamente durante años, el contador subiría, y **386 046
+            // personas no recibirían nada nunca** sin que nada fallara en
+            // ningún momento. Es el patrón del §9 número diecisiete.
+            //
+            // ── POR QUÉ AQUÍ Y NO ANTES DE ESCRIBIR NADA ─────────────────
+            //
+            // Lo limpio sería rechazar antes de tocar la base, pero la
+            // audiencia **no se sabe** hasta contarla, y contarla aparte es
+            // otro recorrido completo del `JOIN` — segundos sobre medio
+            // millón, pagados también por las campañas correctas.
+            //
+            // Así que se pregunta con la audiencia ya congelada y **antes del
+            // bucle de la cola**, que es la parte cara: devolver un
+            // `Err` aquí deshace la transacción entera —audiencia incluida— y
+            // ahorra las 451 196 inserciones de `message_attempt`. Entero o
+            // nada se mantiene porque lo mantiene la transacción, no el orden.
+            //
+            // Los límites son **el más bajo de la etapa y la cuenta**, igual
+            // que en el motor y en el preflight: estimar con el de la etapa
+            // cuando la cuenta tiene uno menor prometería un ritmo que el
+            // proveedor no va a aceptar.
+            {
+                use arles_core::duracion::{Desenlace, estimar};
+
+                let fila = crate::revision::leer_la_etapa(&tx, &id, empresa)?;
+                let limites = fila.limites();
+                let audiencia = u32::try_from(metidos).unwrap_or(u32::MAX);
+                // ── EL INSTANTE SE LEE AQUÍ, Y EN `lo_que_se_sabe_de` ENTRA
+                //    POR PARÁMETRO. LA DIFERENCIA ES A PROPÓSITO ───────────
+                //
+                // Allí hace falta poder situarse un martes a las nueve, porque
+                // lo que se enseña es **una fecha** y una fecha depende del día
+                // en que se empiece.
+                //
+                // Aquí lo que se decide es un **veredicto**, y los dos que
+                // rechazan no dependen del instante: con el tope a cero no sale
+                // ni uno cualquier día que se empiece, y una audiencia que no
+                // cabe en cinco años no cabe empezando un lunes ni un sábado —
+                // empezar en fin de semana mueve el final dos días, no cinco
+                // años. Pedir el instante por parámetro aquí sería un argumento
+                // que ningún llamador tiene motivo para variar.
+                let estimacion = estimar(
+                    audiencia,
+                    limites,
+                    &fila.ventana()?,
+                    OffsetDateTime::now_utc(),
+                );
+
+                match estimacion.desenlace {
+                    Desenlace::NoAvanza => return Err(DbError::LaCampanaNoAvanza),
+                    Desenlace::NoCabeEnElHorizonte { faltan } => {
+                        return Err(DbError::LaCampanaNoTermina { faltan });
+                    }
+                    Desenlace::Termina { .. } => {}
+                }
+            }
+
             // 4 · La cola. Una fila por destinatario, con su clave de
             // idempotencia escrita ANTES de que nadie llame a un proveedor
             // (ADR-0004). Es lo único que permite reconocer después un envío
@@ -542,6 +613,155 @@ mod tests {
         )
         .expect("crea")
         .id
+    }
+
+    // ─── El desenlace, que hasta la 8.6 E nadie preguntaba ─────────────────
+
+    /// **Una campaña que no termina nunca no se activa.**
+    ///
+    /// ── POR QUÉ ESTA PRUEBA NO EXISTÍA ANTES ─────────────────────────────
+    ///
+    /// Porque la garantía no existía. `estimar` devolvía
+    /// `NoCabeEnElHorizonte { faltan }` desde la Fase 4 y su texto estaba
+    /// escrito desde entonces, pero `activar_campana` no lo consultaba: se
+    /// podía activar una campaña de medio millón de personas con 50 correos al
+    /// día, y el motor enviaría correctamente durante años mientras cientos de
+    /// miles de personas **no recibían nada nunca**, sin que nada fallara.
+    ///
+    /// La cifra que se comprueba es la del error, no sólo que falle: «no
+    /// termina» sin decir cuánta gente se queda fuera no permite decidir si
+    /// hay que subir el tope o partir la campaña (§94).
+    ///
+    /// **Verificada quitando el rechazo** —las tres ramas del `match` por un
+    /// `let _ = estimacion;`—: la activación devuelve `Ok` y la prueba falla
+    /// diciendo que esperaba `LaCampanaNoTermina`.
+    #[test]
+    fn una_campana_que_no_termina_en_cinco_anos_no_se_activa() {
+        let (_d, db, version) = base();
+        let campana = una_campana(&db, version);
+
+        // ── POR QUÉ EL TOPE A UNO Y NO MEDIO MILLÓN DE CONTACTOS ──
+        //
+        // Lo que decide el veredicto es la aritmética: audiencia ÷ tope diario
+        // contra los ~1 304 días laborables que caben en cinco años. Da igual
+        // por qué lado se desequilibre.
+        //
+        // El primer intento fue al revés —60 000 contactos con el tope de la
+        // cuenta en 50— y **la prueba falló sobre código correcto**: 60 000 ÷ 50
+        // son 1 200 días, que **sí** caben. Estaba al filo y cayó del lado malo.
+        // Con el tope a uno hacen falta 1 400 contactos en vez de 65 000, la
+        // prueba corre en un segundo en vez de en cincuenta, y el margen es de
+        // casi cien días en vez de cien días en contra.
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "UPDATE email_account SET daily_limit = 1 WHERE id = ?1",
+                params![CUENTA],
+            )
+        })
+        .expect("tope diario a uno");
+
+        for i in 0..1_400 {
+            contacto(&db, &format!("c-{i}"), &format!("p{i}@empresa.mx"));
+        }
+
+        match db.activar_campana(empresa(), campana) {
+            Err(DbError::LaCampanaNoTermina { faltan }) => {
+                assert!(
+                    faltan > 0,
+                    "el error tiene que decir CUÁNTA gente se queda fuera, no \
+                     sólo que no termina"
+                );
+            }
+            otro => panic!("se esperaba LaCampanaNoTermina y salió {otro:?}"),
+        }
+    }
+
+    /// **Y no deja nada detrás: ni audiencia congelada, ni cola.**
+    ///
+    /// El rechazo ocurre con la audiencia ya escrita —contarla aparte sería
+    /// otro recorrido completo del `JOIN`— así que lo que lo mantiene limpio es
+    /// la transacción, no el orden. Esto lo comprueba: si alguien mueve el
+    /// `return` fuera de la transacción, o confirma antes, quedaría una campaña
+    /// en borrador con 1 400 filas de audiencia que nadie va a usar.
+    #[test]
+    fn la_campana_rechazada_no_deja_audiencia_ni_cola() {
+        let (_d, db, version) = base();
+        let campana = una_campana(&db, version);
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "UPDATE email_account SET daily_limit = 1 WHERE id = ?1",
+                params![CUENTA],
+            )
+        })
+        .expect("tope diario a uno");
+        for i in 0..1_400 {
+            contacto(&db, &format!("c-{i}"), &format!("p{i}@empresa.mx"));
+        }
+
+        let _ = db.activar_campana(empresa(), campana);
+
+        assert_eq!(cuantos(&db, "campaign_audience", campana), 0);
+        assert_eq!(cuantos(&db, "message_attempt", campana), 0);
+        // Y sigue en borrador, no «enviando».
+        let estado: String = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row(
+                    "SELECT status FROM campaign WHERE id = ?1",
+                    params![campana.to_string()],
+                    |f| f.get(0),
+                )
+            })
+            .expect("estado");
+        assert_eq!(estado, "draft");
+    }
+
+    /// **Con el tope a cero no sale ni un mensaje, y tampoco se activa.**
+    ///
+    /// Es el otro desenlace que el núcleo caza y nadie preguntaba. Una campaña
+    /// «enviando» que nunca manda nada es la razón número uno por la que
+    /// alguien cree que ARLES se rompió (7.3), y aquí se evita antes de llegar
+    /// a esa pantalla.
+    ///
+    /// **Verificada quitando la rama `NoAvanza`**: devuelve `Ok` y la prueba
+    /// falla.
+    #[test]
+    fn con_el_tope_a_cero_la_campana_no_se_activa() {
+        let (_d, db, version) = base();
+        contacto(&db, "c-1", "uno@empresa.mx");
+
+        // El tope de la cuenta a cero. No se toca el de la etapa: lo que manda
+        // es el más bajo de los dos, y así se comprueba además que se mira el
+        // de la cuenta y no sólo el propio.
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "UPDATE email_account SET daily_limit = 0, hourly_limit = 0 WHERE id = ?1",
+                params![CUENTA],
+            )
+        })
+        .expect("tope a cero");
+
+        let campana = una_campana(&db, version);
+        assert!(matches!(
+            db.activar_campana(empresa(), campana),
+            Err(DbError::LaCampanaNoAvanza)
+        ));
+    }
+
+    /// **Y la campaña que sí termina se activa, que es lo que no puede
+    /// romperse al añadir un rechazo.**
+    ///
+    /// Sin esta prueba, un rechazo demasiado estricto —estimar con el tope de
+    /// la etapa en vez del más bajo, o equivocar el horizonte— dejaría ARLES
+    /// sin poder activar nada y las otras tres seguirían en verde.
+    #[test]
+    fn una_campana_que_termina_se_activa_igual_que_antes() {
+        let (_d, db, version) = base();
+        contacto(&db, "c-1", "uno@empresa.mx");
+        contacto(&db, "c-2", "dos@empresa.mx");
+        let campana = una_campana(&db, version);
+
+        let activada = db.activar_campana(empresa(), campana).expect("activa");
+        assert_eq!(activada.en_la_audiencia, 2);
     }
 
     fn cuantos(db: &Db, tabla: &str, campana: CampaignId) -> i64 {
