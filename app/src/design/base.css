@@ -17,6 +17,20 @@
   --arles-space-7: 48px;
   --arles-space-8: 64px;
 
+  /* El objetivo más pequeño que se puede pulsar.
+     ─────────────────────────────────────────────────────────────────────
+     `ESTRATEGIA_QA.md` §5 pide 32 px desde la Fase 0, y es más alto que el
+     24 px del WCAG 2.2 (2.5.8) a propósito: el público del §22 no tiene
+     ratones de precisión ni pantallas grandes.
+
+     Vive aquí y no en cada pantalla porque hasta el 07/10/2026 **no vivía en
+     ningún sitio**: nada lo medía, y la auditoría D del §140 encontró cinco
+     enlaces de navegación de 20 px de alto — el alto de su línea de texto,
+     sin un píxel de relleno. Lo vigila `sonda:auditoria`, que ahora mide cada
+     control en cuatro ventanas, incluida la de 960×540 que es la que de
+     verdad tiene quien trabaja al 200 %. */
+  --arles-objetivo-minimo: 32px;
+
   /* Proporción áurea. Dirección la pidió para la composición: la rejilla de
      módulos reparte el ancho en 1.618 : 1 en vez de partirlo por la mitad.
      Vive aquí y no en una pantalla para que sea la misma en todas. */

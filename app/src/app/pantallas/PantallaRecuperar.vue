@@ -68,7 +68,19 @@ function fecha(iso: string): string {
 </script>
 
 <template>
-  <div class="recuperar">
+  <!-- ── POR QUÉ ESTO ES UN `<main>` Y NO UN `<div>` ──────────────────────
+       Es la única pantalla que no pasa por el armazón de `App.vue`, que es
+       quien pone el `<main>` de las otras diecisiete. Con un `div` esta
+       pantalla se quedaba **sin ningún landmark**: quien usa un lector de
+       pantalla no tiene «ir al contenido principal» justo el día en que algo
+       se ha roto y hay que leer con atención.
+
+       Y tenía una segunda consecuencia, que es la que lo encontró: dos de las
+       siete medidas de `sonda:auditoria` se acotan a `main` —el contraste y
+       la jerarquía de encabezados—, así que aquí **medían cero elementos**
+       mientras la sonda contaba esta pantalla como medida. Auditoría D del
+       §140, 07/10/2026. -->
+  <main class="recuperar">
     <!-- La única pantalla sin barra lateral, así que la marca va aquí: sin
          ella, una ventana suelta con un aviso rojo no dice ni de qué programa
          es. El logotipo va en su componente porque el §21 prohíbe
@@ -242,7 +254,7 @@ function fecha(iso: string): string {
         {{ $t(`${r.error}.salvo`) }}
       </p>
     </AAviso>
-  </div>
+  </main>
 </template>
 
 <style scoped>

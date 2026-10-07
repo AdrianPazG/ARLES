@@ -35,6 +35,28 @@
  *  6. Identificadores repetidos, que rompen `for`/`aria-labelledby` en
  *     silencio: la etiqueta deja de apuntar al campo y nada falla.
  *  7. Marca de foco visible en cada parada del tabulador.
+ *  8. Tamaño de cada objetivo que se pulsa: 32 px (§22), en cuatro ventanas
+ *     **incluida la de 960×540**, que es la que de verdad tiene quien trabaja
+ *     al 200 %. Las dos cosas faltaban: ni el tamaño ni ese escalado se
+ *     medían, aunque `ESTRATEGIA_QA.md` §5 los pide desde la Fase 0.
+ *  9. Que ningún estado se distinga **sólo por color**: cada insignia lleva
+ *     texto o nombre accesible.
+ *
+ * LAS DOS ÚLTIMAS SON DEL 07/10/2026, Y SE VIERON FALLAR
+ *
+ * Las añadió la auditoría D del §140, y encontraron cinco enlaces de
+ * navegación de 20 px de alto —el alto de su línea, sin un píxel de relleno—
+ * en Inicio, Actividad y el Registro. A ojo un enlace corto no se ve pequeño,
+ * que es justo por lo que hacía falta medirlo.
+ *
+ * Rupturas, las dos vistas en rojo:
+ *
+ *   · objetivos  → `min-height: 0` en `.enlace` de Inicio: falla en las
+ *     cuatro ventanas nombrando «Ver los 6 pasos» y su medida, 97×20.
+ *   · sólo color → quitarle el `<slot />` a `AInsignia`: falla en Campañas
+ *     nombrando cada insignia que queda convertida en un rectángulo de
+ *     color. Y se caza igual la que lleva icono y no texto, que era el caso
+ *     dudoso: un icono no dice qué estado es.
  *
  * EL SUELO DE CONTRASTE NO ES 4.5 PARA TODO
  *
@@ -70,6 +92,7 @@ import path from 'node:path'
 import { chromium } from 'playwright-core'
 
 import { exigirChromium } from './navegador.mjs'
+import { leerRutasConAlmohadilla } from './rutas.mjs'
 import { python } from './ordenes.mjs'
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url))
@@ -79,35 +102,50 @@ const ARCHIVO = path.join(RAIZ, 'vista-previa/ARLES-vista-previa.html')
 /** Suelo de contraste para un control deshabilitado (ver ABoton.vue). */
 const SUELO_DESHABILITADO = 3
 
-/** Las pantallas que existen hoy. Una nueva se añade aquí. */
-const RUTAS = [
-  '#/inicio',
-  '#/inicio/configuracion',
-  '#/contactos',
-  '#/contactos/importar',
-  '#/contactos/supresion',
-  '#/contactos/derechos',
-  '#/campanas',
-  // Las tres de abajo faltaban hasta el 29/09/2026, y con ellas faltaba la
-  // mitad de lo que el usuario puede abrir hoy. Una auditoría que no recorre
-  // una pantalla no dice nada de esa pantalla, aunque termine en verde — que
-  // es peor que no tenerla, porque se cree.
-  '#/campanas/plantillas',
-  '#/campanas/nueva',
-  '#/remitentes',
-  '#/remitentes/whatsapp',
-  '#/actividad',
-  '#/ajustes',
-]
+/**
+ * Las pantallas que existen, **leídas del router**.
+ *
+ * ── ESTO ERA UNA LISTA A MANO, Y LE FALTABAN CINCO PANTALLAS ────────────
+ *
+ * Hasta el 07/10/2026 aquí había trece rutas escritas a mano, las que existían
+ * el 29/09/2026. El producto tiene dieciocho, así que **Registro, Respaldos,
+ * Restaurar, Archivar y Recuperar nunca se habían medido**: ni su contraste,
+ * ni su foco, ni sus desbordes, ni la jerarquía de sus encabezados.
+ *
+ * Y el aviso estaba escrito justo aquí, puesto el 29/09/2026 el día que se le
+ * añadieron tres rutas que faltaban: «una auditoría que no recorre una
+ * pantalla no dice nada de esa pantalla, aunque termine en verde». Se escribió
+ * la lección y volvió a pasar cinco veces, porque la lección iba en un
+ * comentario y la lista seguía siendo a mano.
+ *
+ * Lo encontró la auditoría D del §140. Ver `rutas.mjs`.
+ */
+const RUTAS = leerRutasConAlmohadilla()
 
 /**
- * Los anchos que se prueban.
+ * Las ventanas que se prueban, como `[ancho, alto]`.
  *
  * 1280 es la ventana por defecto de ARLES; 1024 es el portátil pequeño con el
  * que Dirección revisa; 900 está por debajo del umbral de plegado, así que
  * mide la barra plegada, que es un montaje distinto y nadie miraba.
+ *
+ * ── Y 960×540 ES EL ESCALADO AL 200 %, QUE NADIE MEDÍA ─────────────────
+ *
+ * `ESTRATEGIA_QA.md` §5 pide objetivos de 32 px «a escalado 200 %» desde la
+ * Fase 0, y hasta el 07/10/2026 no se medía ni el tamaño de los objetivos ni
+ * ese escalado. Aquí las tres ventanas eran de 900 px de alto fijo.
+ *
+ * El escalado del sistema **no encoge los píxeles CSS**: encoge la ventana
+ * medida en píxeles CSS. Un portátil de 1920×1080 al 200 % le da al navegador
+ * 960×540. Eso es lo que hay que montar, y el alto importa tanto como el
+ * ancho: 540 px es donde una pantalla empieza a apretar sus controles.
  */
-const ANCHOS = [1280, 1024, 900]
+const ANCHOS = [
+  [1280, 900],
+  [1024, 900],
+  [900, 900],
+  [960, 540],
+]
 
 let fallos = 0
 function mal(mensaje) {
@@ -117,7 +155,8 @@ function mal(mensaje) {
 
 /** Batería de medidas. Corre dentro de la página. */
 const MEDIR = (sueloDeshabilitado) => {
-  const out = { desbordes: [], contrastes: [], sinNombre: [], encabezados: [], ids: [] }
+  const out = { desbordes: [], contrastes: [], sinNombre: [], encabezados: [], ids: [],
+                objetivos: [], soloColor: [] }
 
   // ── 2 · contenido que no cabe ───────────────────────────────────────
   //
@@ -283,6 +322,75 @@ const MEDIR = (sueloDeshabilitado) => {
     vistos.add(el.id)
   }
 
+  // ── 8 · el objetivo que hay que acertar con el ratón ────────────────
+  //
+  // ── QUÉ SIGNIFICA «32 px AL 200 %», Y POR QUÉ NO SE MIDE AMPLIANDO ──
+  //
+  // `ESTRATEGIA_QA.md` §5 lo pide así desde la Fase 0, y la frase se puede
+  // leer mal. El escalado del sistema operativo al 200 % **no encoge los
+  // píxeles CSS**: encoge la ventana medida en píxeles CSS. Una pantalla de
+  // 1920×1080 al 200 % le da al navegador 960×540, no botones de la mitad.
+  //
+  // Así que lo que hay que medir no es un zoom: es **la ventana de 960×540**,
+  // que es la que de verdad tiene quien trabaja al 200 %, y comprobar que ahí
+  // ningún control queda por debajo de 32 px. Está en ANCHOS con su alto.
+  //
+  // El suelo de ARLES (32) es más alto que el de WCAG 2.2 (24 del 2.5.8), y
+  // eso es una decisión del §22: el público objetivo no tiene ratones de
+  // precisión ni pantallas grandes.
+  const PISO = 32
+  for (const el of document.querySelectorAll(
+    'main button, main a[href], main input, main select, main textarea, ' +
+      'nav button, nav a[href], header button, header a[href]',
+  )) {
+    const r = el.getBoundingClientRect()
+    // Lo que no se ve no se pulsa. Y una caja de cero es un control que la
+    // pantalla tiene apagado o colapsado, no un objetivo pequeño.
+    if (r.width === 0 || r.height === 0) continue
+    const est = getComputedStyle(el)
+    if (est.visibility === 'hidden' || est.display === 'none') continue
+    // Una casilla o un radio nativos miden 13 px por el navegador y el
+    // objetivo real es su etiqueta, que los envuelve. Se mide la etiqueta.
+    if (el.type === 'checkbox' || el.type === 'radio') continue
+    // Un enlace dentro de un párrafo es texto, no un control: su alto es el
+    // de la línea y agrandarlo rompería el párrafo. El 2.5.8 lo exceptúa
+    // igual («inline»).
+    if (el.tagName === 'A' && el.parentElement && /^(P|LI|SPAN|TD)$/.test(el.parentElement.tagName)) {
+      continue
+    }
+    if (r.width < PISO || r.height < PISO) {
+      out.objetivos.push(
+        `${el.tagName.toLowerCase()} «${(el.textContent || el.getAttribute('aria-label') || '')
+          .trim()
+          .slice(0, 30)}» mide ${Math.round(r.width)}×${Math.round(r.height)}`,
+      )
+    }
+  }
+
+  // ── 9 · ningún estado sólo por color ────────────────────────────────
+  //
+  // Es el punto del §140 que no se podía mirar a ojo y nadie medía. Una
+  // insignia que distingue «aceptado» de «rebotó» **sólo** por el color de su
+  // fondo no dice nada a quien no distingue esos dos colores — y en ARLES los
+  // estados de envío son justo eso: lo que el usuario mira para decidir si
+  // una campaña va bien.
+  //
+  // Lo que se exige es que cada insignia lleve **texto**. No se exige icono:
+  // la revisión del 29/09/2026 encontró lo contrario —ocho insignias con un
+  // reloj que no esperaba nada— y la lección fue que un icono de adorno
+  // estorba. El texto es lo que no se puede confundir.
+  for (const el of document.querySelectorAll('[class*="insignia"], [class*="etiqueta-estado"]')) {
+    const r = el.getBoundingClientRect()
+    if (r.width === 0 || r.height === 0) continue
+    const texto = (el.textContent || '').trim()
+    const nombre = (el.getAttribute('aria-label') || '').trim()
+    if (!texto && !nombre) {
+      out.soloColor.push(
+        `insignia sin texto ni nombre: ${el.outerHTML.slice(0, 120)}`,
+      )
+    }
+  }
+
   return out
 }
 
@@ -293,8 +401,8 @@ python([path.join(RAIZ, 'herramientas/vista-previa/generar.py')])
 
 const navegador = await chromium.launch({ executablePath: ejecutable })
 
-for (const ancho of ANCHOS) {
-  const pagina = await navegador.newPage({ viewport: { width: ancho, height: 900 } })
+for (const [ancho, alto] of ANCHOS) {
+  const pagina = await navegador.newPage({ viewport: { width: ancho, height: alto } })
   const consola = []
   pagina.on('console', (m) => {
     if (m.type() === 'error') consola.push(m.text())
@@ -307,7 +415,7 @@ for (const ancho of ANCHOS) {
     await pagina.waitForTimeout(1000)
 
     const r = await pagina.evaluate(MEDIR, SUELO_DESHABILITADO)
-    const donde = `${ruta} @ ${ancho}px`
+    const donde = `${ruta} @ ${ancho}×${alto}`
 
     consola.forEach((c) => mal(`${donde} · consola: ${c.slice(0, 200)}`))
     r.desbordes.forEach((d) =>
@@ -322,9 +430,11 @@ for (const ancho of ANCHOS) {
     r.sinNombre.forEach((s) => mal(`${donde} · sin nombre accesible: ${s}`))
     r.encabezados.forEach((e) => mal(`${donde} · salto de encabezado ${e}`))
     r.ids.forEach((i) => mal(`${donde} · id repetido: ${i}`))
+    r.objetivos.forEach((o) => mal(`${donde} · objetivo por debajo de 32 px: ${o}`))
+    r.soloColor.forEach((c) => mal(`${donde} · estado sólo por color: ${c}`))
   }
   await pagina.close()
-  console.log(`✓ ${RUTAS.length} pantallas medidas a ${ancho}px.`)
+  console.log(`✓ ${RUTAS.length} pantallas medidas a ${ancho}×${alto}.`)
 }
 
 // ── 7 · el foco se ve ──────────────────────────────────────────────────

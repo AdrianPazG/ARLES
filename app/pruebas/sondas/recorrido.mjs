@@ -52,32 +52,65 @@ import { chromium } from 'playwright-core'
 
 import { exigirChromium } from './navegador.mjs'
 import { python } from './ordenes.mjs'
+import { leerRutas } from './rutas.mjs'
 
 const RAIZ = fileURLToPath(new URL('../../..', import.meta.url))
 const ARCHIVO = path.join(RAIZ, 'vista-previa/ARLES-vista-previa.html')
 
 /**
- * Cada sitio al que el usuario puede llegar, y qué se espera encontrar.
+ * Qué se espera encontrar en cada pantalla.
  *
  * `minimoAcciones` es cuántas cosas se pueden hacer sin contar «volver». Una
  * pantalla de solo lectura puede tener 0 y estar bien —la lista de bajas, por
  * ejemplo—, pero entonces tiene que decirlo por escrito.
+ *
+ * ── LAS RUTAS SALEN DEL ROUTER; ESTA TABLA SÓLO AÑADE EL MÍNIMO ─────────
+ *
+ * Hasta el 07/10/2026 aquí había trece rutas escritas a mano —las mismas que
+ * en `auditoria.mjs`, y con los mismos cinco huecos—, así que **el recorrido
+ * no pasaba por Registro, Respaldos, Restaurar, Archivar ni Recuperar**: las
+ * cinco podrían haber sido callejones sin salida y la sonda terminaba en
+ * verde.
+ *
+ * Ahora las rutas las da `rutas.mjs` leyendo el router, y esta tabla sólo
+ * dice el mínimo de cada una. **Una ruta sin fila aquí es un fallo**, no un
+ * salto: es la única forma de que añadir una pantalla obligue a decidir qué
+ * se puede hacer en ella. Lo encontró la auditoría D del §140.
  */
-const RECORRIDO = [
-  { ruta: '#/inicio', que: 'Inicio', minimoAcciones: 1 },
-  { ruta: '#/inicio/configuracion', que: 'Configuración de la empresa', minimoAcciones: 1 },
-  { ruta: '#/contactos', que: 'Contactos', minimoAcciones: 1 },
-  { ruta: '#/contactos/importar', que: 'Importar', minimoAcciones: 1 },
-  { ruta: '#/contactos/supresion', que: 'Bajas', minimoAcciones: 0 },
-  { ruta: '#/contactos/derechos', que: 'Derechos ARCO', minimoAcciones: 1 },
-  { ruta: '#/campanas', que: 'Campañas', minimoAcciones: 1 },
-  { ruta: '#/campanas/plantillas', que: 'Plantillas y firmas', minimoAcciones: 2 },
-  { ruta: '#/campanas/nueva', que: 'Asistente de campaña', minimoAcciones: 1 },
-  { ruta: '#/remitentes', que: 'Remitentes', minimoAcciones: 1 },
-  { ruta: '#/remitentes/whatsapp', que: 'Número de WhatsApp', minimoAcciones: 1 },
-  { ruta: '#/actividad', que: 'Actividad', minimoAcciones: 0 },
-  { ruta: '#/ajustes', que: 'Ajustes', minimoAcciones: 1 },
-]
+const MINIMOS = {
+  '/inicio': { que: 'Inicio', minimoAcciones: 1 },
+  '/inicio/configuracion': { que: 'Configuración de la empresa', minimoAcciones: 1 },
+  '/contactos': { que: 'Contactos', minimoAcciones: 1 },
+  '/contactos/importar': { que: 'Importar', minimoAcciones: 1 },
+  '/contactos/supresion': { que: 'Bajas', minimoAcciones: 0 },
+  '/contactos/derechos': { que: 'Derechos ARCO', minimoAcciones: 1 },
+  '/campanas': { que: 'Campañas', minimoAcciones: 1 },
+  '/campanas/plantillas': { que: 'Plantillas y firmas', minimoAcciones: 2 },
+  '/campanas/nueva': { que: 'Asistente de campaña', minimoAcciones: 1 },
+  '/remitentes': { que: 'Remitentes', minimoAcciones: 1 },
+  '/remitentes/whatsapp': { que: 'Número de WhatsApp', minimoAcciones: 1 },
+  '/actividad': { que: 'Actividad', minimoAcciones: 0 },
+  '/actividad/registro': { que: 'Registro de envíos', minimoAcciones: 1 },
+  '/ajustes': { que: 'Ajustes', minimoAcciones: 1 },
+  '/ajustes/respaldos': { que: 'Respaldos', minimoAcciones: 1 },
+  '/ajustes/restaurar': { que: 'Restaurar un respaldo', minimoAcciones: 1 },
+  '/ajustes/archivar': { que: 'Archivar el historial', minimoAcciones: 1 },
+  // Sin base no hay a dónde ir: la única acción es elegir un respaldo. Y por
+  // eso tampoco lleva barra lateral.
+  '/recuperar': { que: 'Recuperar tras perder el llavero', minimoAcciones: 1 },
+}
+
+const RECORRIDO = leerRutas().map((ruta) => {
+  const m = MINIMOS[ruta]
+  if (!m) {
+    throw new Error(
+      `recorrido.mjs: la ruta ${ruta} está en el router y no en MINIMOS. ` +
+        'Añádela diciendo cuántas acciones tiene que ofrecer: una pantalla sin ' +
+        'fila aquí es una pantalla que nadie ha mirado.',
+    )
+  }
+  return { ruta: `#${ruta}`, ...m }
+})
 
 /** §94: cifras, no adjetivos. Estas palabras no se pueden verificar. */
 const ADJETIVOS = ['casi listo', 'casi todo', 'muchos', 'pocos', 'bastantes', 'la mayoría']
@@ -129,10 +162,27 @@ const MEDIR = () => {
   //
   // Se mide el primer hijo de `<main>` que tenga algo dentro: es el título, o
   // las migas si las hay. Lo que importa no es el número en sí sino que sea el
-  // MISMO en las trece: el ojo no mide anchos, pero un salto del título de una
+  // MISMO en todas: el ojo no mide anchos, pero un salto del título de una
   // pantalla a la siguiente lo ve cualquiera.
+  //
+  // ── SÓLO LAS PANTALLAS DEL ARMAZÓN, Y ESTO LO ENSEÑÓ UN FALSO POSITIVO ──
+  //
+  // Al ampliar la sonda a las dieciocho pantallas el 07/10/2026, ésta salió en
+  // rojo señalando `/recuperar`: empieza en 362 px y las demás en 272. **Y es
+  // correcto**: es la única pantalla que no pasa por el armazón de `App.vue`
+  // —sin base de datos no hay secciones a las que ir, así que no lleva barra
+  // lateral— y es una columna centrada a propósito. Comparar su borde con el
+  // de las diecisiete que sí tienen barra es comparar dos maquetaciones
+  // distintas.
+  //
+  // El arreglo no es una excepción con su ruta escrita dentro, que se queda
+  // obsoleta: es preguntar por **la estructura**. Si la pantalla vive dentro
+  // del armazón, su borde se compara; si es una ventana suelta, no. Una
+  // pantalla nueva del armazón entra en la comparación sin que nadie la
+  // apunte, que es lo contrario de lo que hacía la lista de rutas.
+  const enElArmazon = main.closest('.armazon') !== null || main.classList.contains('contenido')
   const primero = [...main.children].find((el) => (el.innerText ?? '').trim().length > 0)
-  const borde = primero ? Math.round(primero.getBoundingClientRect().left) : null
+  const borde = enElArmazon && primero ? Math.round(primero.getBoundingClientRect().left) : null
 
   return { texto, acciones, claves, largo: texto.length, borde }
 }
@@ -242,7 +292,7 @@ for (const { ruta, que, minimoAcciones } of RECORRIDO) {
     }
   }
 
-  // 8 · Las trece pantallas arrancan en el mismo borde.
+  // 8 · Las pantallas del armazón arrancan en el mismo borde.
   //
   // Escrita el 29/09/2026, después de encontrarlo a ojo: Ajustes llevaba un
   // `max-width: 62ch` sobre `.pantalla`, que el armazón centra con

@@ -509,4 +509,14 @@ const error = computed(() =>
   flex-wrap: wrap;
   gap: var(--arles-space-4);
 }
+
+/* Las salidas se pulsan, así que tienen que medir lo que el §22 exige. Sin
+   esto medían 20 px —el alto de su línea—, y lo encontró la auditoría D del
+   §140 el 07/10/2026 midiendo, porque a ojo un enlace corto no se ve
+   pequeño. */
+.salidas a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--arles-objetivo-minimo);
+}
 </style>

@@ -1097,6 +1097,106 @@ arreglados, dos declarados con su cifra. Está contado en
 > nombres inventados. **Dar por sabido lo que dice el código en vez de leerlo
 > entero** — dos veces, en la misma dirección.
 
+**Cerrada la 8.6 D · la auditoría de UX y accesibilidad** (§140, pasada 4 de 4,
+y con ella **las cuatro están hechas**). Las dieciocho pantallas medidas en
+Chromium, no leídas. Cuatro hallazgos, cuatro arreglados. Está contado en
+[`AUDITORIA-D-UX.md`](documentacion/09-fases/AUDITORIA-D-UX.md).
+
+> **Las dos sondas que recorren el producto iban cinco pantallas por detrás, y
+> el aviso llevaba ocho días escrito en una de ellas.** `auditoria.mjs`
+> —contraste real, foco, desbordes, nombres accesibles, encabezados, ids— y
+> `recorrido.mjs` llevaban **cada una su lista de rutas a mano**, parada el
+> 29/09/2026 en trece. El producto tiene dieciocho.
+>
+> **Registro, Respaldos, Restaurar, Archivar y Recuperar nunca se habían
+> medido** — las cuatro últimas son todo lo que construyó la Fase 8. Y la
+> cabecera de `auditoria.mjs` dice desde el 29/09/2026: *«una auditoría que no
+> recorre una pantalla no dice nada de esa pantalla, aunque termine en verde —
+> que es peor que no tenerla, porque se cree»*. **Se escribió la lección y
+> volvió a pasar cinco veces**, porque iba en un comentario y la lista seguía
+> siendo a mano.
+>
+> Ahora salen de `rutas.mjs`, que las lee del router, y lo vigila
+> `las_sondas_recorren_todas_las_pantallas`. **Medidas las dieciocho, las cinco
+> pasan**: el hueco estaba en la medición, no en las pantallas.
+
+> **`/recuperar` no tenía landmark, y eso hacía que dos medidas la saltaran en
+> silencio.** Es la única pantalla que no pasa por el armazón de `App.vue` y
+> abría con un `<div>`. Dos de las siete medidas se acotan a `main` —contraste y
+> jerarquía de encabezados—, así que ahí **medían cero elementos** mientras la
+> sonda la contaba como medida. La primera corrida dijo «no tiene ningún
+> encabezado» y la pantalla **tiene un `h1`** desde que se escribió.
+
+> **Cinco enlaces de navegación medían 20 px de alto**, el alto de su línea sin
+> un píxel de relleno: «Ver los 6 pasos» en Inicio, tres de las salidas que la
+> 7.3 añadió a Actividad, y una del Registro. A ojo un enlace corto no se ve
+> pequeño, que es por lo que hacía falta medirlo.
+>
+> **Y «32 px al 200 %» se leía mal.** El escalado del sistema **no encoge los
+> píxeles CSS**: encoge la ventana. Un portátil de 1920×1080 al 200 % le da al
+> navegador **960×540**, y ésa es ahora una de las cuatro ventanas que la sonda
+> prueba. Hasta hoy no se medía ni el tamaño de los objetivos ni ese escalado,
+> aunque el §5 los pide desde la Fase 0.
+>
+> Arreglado con `--arles-objetivo-minimo: 32px`, porque la regla **no vivía en
+> ningún sitio**. El suelo de ARLES es más alto que el 24 del WCAG 2.2 a
+> propósito (§22).
+
+> **Que ningún estado se distinga sólo por color no lo medía nada**, y es el
+> punto que no se puede mirar a ojo: quien mira ve los colores. Ahora cada
+> insignia tiene que llevar **texto** o nombre accesible. **No se exige icono**,
+> y es deliberado: la revisión del 29/09/2026 encontró lo contrario —ocho
+> insignias con un reloj que no esperaba nada—.
+
+> **El §97 no se puede cumplir como está escrito**, y lo que hay que reescribir
+> es la regla. «Los cuatro estados en cada pantalla» no aplica a seis de las
+> dieciocho —son formularios sin ninguna colección— y Ajustes no enseña errores
+> **a propósito**: guardar el tema puede fallar y el fallo se traga con su
+> motivo escrito desde la Fase 3. Lo verificable —toda pantalla que pinta una
+> colección **variable** tiene su estado vacío— se cumple en las nueve que la
+> tienen. Va a la 8.7.
+
+> **Tres hallazgos falsos descartados antes de anotarlos**, que es la lección
+> que las pasadas B y C aprendieron cada una por las malas: que la pantalla de
+> recuperación no tenía `h1` (lo tiene), que Ajustes no enseña errores
+> (correcto), y que cinco pantallas pintan listas sin estado vacío (las cinco
+> recorren datos fijos o posteriores a una acción). Las tres se descartaron
+> **mirando el código entero** en vez de la cifra de un `grep`.
+
+> **Y dos defectos de mi propia comprobación, el segundo es el de siempre.** La
+> primera versión **contaba rutas** y salió en rojo señalando la tabla de
+> mínimos de `recorrido.mjs`, que es legítima: contar rutas era medir lo que se
+> ve, no quién decide qué pantallas se recorren. Y la ruptura de quitarle el
+> mínimo a `rutas.mjs` **no la cazó**, porque `MINIMO` sigue nombrado en la
+> cabecera que explica por qué existe — **sexta vez** (5.3, 8.5, dos en la
+> 8.3 bis, la 8.6 A), y la primera **dentro de una comprobación escrita el mismo
+> día para arreglar otra igual**.
+>
+> Verificada al final con cuatro rupturas, las cuatro en rojo. Y una de ellas
+> estaba mal elegida: renombrar sólo la declaración de `MINIMO` dejaba el
+> identificador en sus usos. **Una ruptura que deja el síntoma en pie no prueba
+> nada**: hay que quitar la garantía, no su nombre.
+
+### Las cuatro auditorías del §140, cerradas el 07/10/2026
+
+| Pasada | Hallazgos | Arreglados | Declarados |
+|---|---|---|---|
+| A · Arquitectura | 5 | 5 | — |
+| B · Seguridad | 2 + 3 puntos del documento | 5 | — |
+| C · QA y rendimiento | 6 | 4 | 2 |
+| D · UX y accesibilidad | 4 | 4 | — |
+
+**Diecisiete hallazgos. Quince arreglados, dos declarados con su cifra.**
+
+Y el patrón que atraviesa las cuatro: **once de los diecisiete no eran defectos
+del producto sino de sus comprobaciones** — una lista a mano, un alcance
+demasiado corto, un comentario que se cazaba a sí mismo. El producto aguantó
+mejor que sus instrumentos, y eso es lo que había que descubrir.
+
+**Lo que queda abierto:** C-1 (el tope de activación, esperando a Dirección),
+C-2 (el filtro del registro, declarado), reescribir el §97, y **R-07** — nada de
+la pasada D se ha visto en WKWebView.
+
 **Para una demostración real** con correo y WhatsApp que llegan de verdad:
 `documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md`.
 

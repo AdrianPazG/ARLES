@@ -334,6 +334,11 @@ const accesos = computed(() => [
 }
 
 .enlace {
+  /* No es texto corrido: es la salida de la tarjeta, y se pulsa. El alto
+     mínimo es el del §22 y lo mide `sonda:auditoria` (auditoría D, §140). */
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--arles-objetivo-minimo);
   color: var(--arles-text);
   font-size: var(--arles-font-size-small);
 }

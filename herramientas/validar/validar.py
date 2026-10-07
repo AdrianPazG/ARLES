@@ -5520,6 +5520,113 @@ def el_banco_no_viaja_en_el_instalador():
     )
 
 
+def las_sondas_recorren_todas_las_pantallas():
+    """**Una sonda que no recorre una pantalla no dice nada de esa pantalla.**
+
+    La frase está escrita en `auditoria.mjs` desde el 29/09/2026, el día que se
+    le añadieron tres rutas que faltaban. **Y volvió a pasar cinco veces**: la
+    auditoría D del §140 encontró el 07/10/2026 que las dos sondas de recorrido
+    llevaban cada una su lista de trece rutas a mano, y el producto tiene
+    dieciocho.
+
+    Registro, Respaldos, Restaurar, Archivar y Recuperar **nunca se habían
+    medido**: ni su contraste, ni su foco, ni sus desbordes, ni la jerarquía de
+    sus encabezados, ni si eran callejones sin salida. Y las dos sondas
+    terminaban en verde.
+
+    La lección se había escrito y no sirvió, porque iba en un comentario y la
+    lista seguía siendo a mano. Ahora las rutas salen de `rutas.mjs`, que las
+    lee del router, y esto vigila que siga siendo así: **ninguna sonda puede
+    volver a llevar su propia lista**.
+
+    Verificada el 07/10/2026 con cuatro rupturas, las cuatro vistas en rojo:
+
+    1. Devolviendo a `auditoria.mjs` una constante `RUTAS = ['#/inicio', …]`:
+       falla con «importa rutas.mjs y no lo llama».
+    2. Borrando `rutas.mjs`: falla por no existir.
+    3. Quitándole el `MINIMO` a `rutas.mjs`.
+    4. Quitándole el `throw` a `recorrido.mjs`, que tiene tabla por ruta.
+
+    **La tercera no cazó a la primera**, y es la lección del día: mirando el
+    archivo entero, `MINIMO` seguía apareciendo en la cabecera del módulo que
+    explica por qué existe. Es la trampa del comentario por **sexta vez** en
+    este proyecto, y la primera dentro de una comprobación escrita el mismo día
+    para arreglar otra igual. Se quitan los comentarios antes de mirar.
+    """
+    faltan = []
+
+    rutas_mjs = leer("app", "pruebas", "sondas", "rutas.mjs")
+    if not rutas_mjs:
+        faltan.append("no existe app/pruebas/sondas/rutas.mjs: las rutas volverían a ser una lista")
+    else:
+        # ── Y AQUÍ TAMBIÉN SE QUITAN LOS COMENTARIOS, POR LO MISMO ──
+        #
+        # La primera versión de estas dos líneas miraba el archivo entero, y la
+        # ruptura de «quitarle el mínimo» **no la cazó**: `MINIMO` y `router.ts`
+        # están nombrados en la cabecera del módulo, que explica por qué
+        # existen. Sexta vez en este proyecto, y la primera dentro de una
+        # comprobación escrita el mismo día para arreglar otra igual.
+        codigo_rutas = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", rutas_mjs, flags=re.S))
+        # El módulo tiene que leer del router de verdad, no traer su propia
+        # copia. Sin esto, «leer del código» se cumple de nombre.
+        if "router.ts" not in codigo_rutas:
+            faltan.append("rutas.mjs no lee router.ts: entonces su lista también es a mano")
+        # Y tiene que reventar si el patrón deja de casar. Una sonda que
+        # recorre cero pantallas pasa en verde en un segundo, y es la trampa
+        # del §2 que este proyecto ya ha tenido cinco veces.
+        if "MINIMO" not in codigo_rutas:
+            faltan.append("rutas.mjs no exige un mínimo: un patrón roto daría cero rutas en verde")
+
+    # ── LAS DOS SONDAS QUE RECORREN EL PRODUCTO ENTERO ──
+    #
+    # ── LA PRIMERA VERSIÓN DE ESTA COMPROBACIÓN ESTABA MAL ──
+    #
+    # Contaba cadenas con forma de ruta en el código y exigía como mucho una.
+    # Salió en rojo el 07/10/2026 señalando `recorrido.mjs`, que **es
+    # correcto**: lleva una tabla de cuántas acciones mínimas tiene que ofrecer
+    # cada pantalla, y esa tabla va legítimamente indexada por ruta.
+    #
+    # Contar rutas era medir lo que se ve, no la propiedad que importa. La
+    # propiedad es: **quién decide qué pantallas se recorren**. Y es el router,
+    # si la sonda importa `rutas.mjs` y además —cuando tiene una tabla por
+    # ruta— **revienta si al router le sobra una fila**. Una tabla que se
+    # comprueba contra el router no puede quedarse corta; una lista que manda,
+    # sí.
+    for sonda in ("auditoria.mjs", "recorrido.mjs"):
+        fuente = leer("app", "pruebas", "sondas", sonda)
+        if not fuente:
+            faltan.append(f"no existe app/pruebas/sondas/{sonda}")
+            continue
+        # Se quitan los comentarios antes de mirar. Las dos sondas EXPLICAN en
+        # su cabecera qué rutas les faltaban, con sus nombres escritos — y sin
+        # esto la comprobación se cazaría en esa explicación. Es la trampa del
+        # comentario, que ya ha salido cinco veces en este proyecto.
+        codigo = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", fuente, flags=re.S))
+        if "rutas.mjs" not in codigo:
+            faltan.append(f"{sonda} no importa rutas.mjs: ¿volvió a tener su lista?")
+            continue
+        # Si la sonda tiene datos por ruta, el recorrido tiene que salir de
+        # `leerRutas()` y no de las claves de esa tabla: al revés, añadir una
+        # pantalla y no apuntarla la dejaría fuera en silencio, que es
+        # exactamente lo que pasó.
+        tiene_tabla = bool(re.search(r"'/[a-z][a-z/-]*'\s*:", codigo))
+        if tiene_tabla and "throw new Error" not in codigo:
+            faltan.append(
+                f"{sonda} tiene una tabla por ruta y no revienta cuando al router "
+                "le sobra una: una pantalla nueva se quedaría fuera en silencio"
+            )
+        if not re.search(r"leerRutas(ConAlmohadilla)?\(\)", codigo):
+            faltan.append(f"{sonda} importa rutas.mjs y no lo llama")
+
+    check(
+        8,
+        "las sondas recorren todas las pantallas del router",
+        not faltan,
+        las_sondas_recorren_todas_las_pantallas.__doc__,
+        detalle="\n      ".join(faltan),
+    )
+
+
 def cada_caso_frontera_nombra_su_test():
     """**Una lista de casos frontera que nadie puede comprobar envejece sola.**
 
@@ -6064,6 +6171,9 @@ def fase_8(rapido=False):
 
     print(f"{GRIS}  la auditoría de QA (8.6 C){FIN}")
     cada_caso_frontera_nombra_su_test()
+
+    print(f"{GRIS}  la auditoría de UX (8.6 D){FIN}")
+    las_sondas_recorren_todas_las_pantallas()
 
 
 def fase_7(rapido=False):

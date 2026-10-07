@@ -12,6 +12,85 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.6 D · Auditoría de UX y accesibilidad (§140): cinco pantallas que nadie medía
+
+Cuarta y última de las pasadas separadas, y la primera que se pudo **medir de
+verdad**: el contenedor tiene Chromium, así que no se auditó leyendo código sino
+abriendo las dieciocho pantallas.
+
+**Cuatro hallazgos, los cuatro arreglados.**
+
+#### Las dos sondas que recorren el producto iban trece pantallas por detrás
+
+`auditoria.mjs` —contraste real, foco, desbordes, nombres accesibles, jerarquía
+de encabezados, identificadores repetidos— y `recorrido.mjs` llevaban **cada una
+su lista de rutas escrita a mano**, parada el 29/09/2026. El producto tiene
+dieciocho pantallas.
+
+**Registro, Respaldos, Restaurar, Archivar y Recuperar nunca se habían medido** —
+las cuatro últimas son todo lo que construyó la Fase 8—. Y el aviso llevaba
+ocho días escrito en ese mismo archivo: *«una auditoría que no recorre una
+pantalla no dice nada de esa pantalla, aunque termine en verde»*. Se escribió la
+lección y volvió a pasar cinco veces, porque iba en un comentario y la lista
+seguía siendo a mano.
+
+Ahora las rutas salen de `rutas.mjs`, que las lee del router. **Medidas las
+dieciocho, las cinco pasan**: el hueco estaba en la medición.
+
+#### Una pantalla sin landmark, y dos medidas que la saltaban en silencio
+
+`/recuperar` es la única que no pasa por el armazón, y abría con un `<div>`. Se
+quedaba **sin ningún landmark** — y dos de las siete medidas se acotan a `main`,
+así que ahí **medían cero elementos** mientras la sonda la contaba como medida.
+
+#### Cinco enlaces de 20 px, y el 200 % no se había probado nunca
+
+`ESTRATEGIA_QA.md` §5 pide objetivos de 32 px a escalado 200 % desde la Fase 0, y
+no se medía **ninguna de las dos cosas**. Salieron cinco enlaces de navegación de
+20 px de alto —el alto de su línea, sin relleno— en Inicio, Actividad y el
+Registro; tres son las salidas que la 7.3 añadió justo porque Actividad no tenía
+ninguna.
+
+Y «al 200 %» se leía mal: el escalado del sistema no encoge los píxeles CSS,
+encoge la ventana. Un portátil de 1920×1080 al 200 % da **960×540**, y ésa es
+ahora una de las cuatro ventanas que se prueban.
+
+Arreglado con un token, `--arles-objetivo-minimo`, porque la regla **no vivía en
+ningún sitio**.
+
+#### Y que ningún estado se distinga sólo por color no lo medía nada
+
+Es el punto que no se puede mirar a ojo —quien mira ve los colores—. Ahora cada
+insignia tiene que llevar texto o nombre accesible. No se exige icono: la
+revisión del 29/09/2026 encontró lo contrario, ocho insignias con un reloj que
+no esperaba nada.
+
+#### El §97 no se puede cumplir como está escrito
+
+«Los cuatro estados en cada pantalla» no aplica a seis de las dieciocho, que son
+formularios sin ninguna colección; y Ajustes no enseña errores **a propósito**,
+con su motivo escrito desde la Fase 3. Lo verificable —toda pantalla que pinta
+una colección variable tiene su estado vacío— se cumple en las nueve que la
+tienen. Queda declarado: lo que hay que reescribir es la regla, no el producto.
+
+#### Tres hallazgos falsos descartados, y dos defectos de mi propia comprobación
+
+Se descartaron tres cosas que parecían defectos y no lo eran, todas mirando el
+código entero en vez de la cifra de un `grep`.
+
+Y la comprobación nueva tuvo dos defectos: su primera versión contaba rutas y
+señalaba una tabla legítima, y **se cazaba a sí misma en un comentario** —sexta
+vez en este proyecto, y la primera dentro de una comprobación escrita el mismo
+día para arreglar otra igual—. Verificada al final con cuatro rupturas, las
+cuatro vistas en rojo.
+
+Con esto **las cuatro pasadas del §140 están hechas**: diecisiete hallazgos,
+quince arreglados, dos declarados. Y once de los diecisiete no eran defectos del
+producto sino de sus comprobaciones.
+
+Está contado en
+[`AUDITORIA-D-UX.md`](documentacion/09-fases/AUDITORIA-D-UX.md).
+
 ### 8.6 C · Auditoría de QA y rendimiento (§140): lo que pasa al activar una campaña
 
 Tercera de las cuatro pasadas separadas. `ESTRATEGIA_QA.md` §5 le fija tres
