@@ -84,8 +84,19 @@ function fecha(iso: string): string {
     <!-- La única pantalla sin barra lateral, así que la marca va aquí: sin
          ella, una ventana suelta con un aviso rojo no dice ni de qué programa
          es. El logotipo va en su componente porque el §21 prohíbe
-         estilizarlo. -->
-    <ALogotipo class="marca" />
+         estilizarlo.
+
+         Y lleva `numeral`, como la barra lateral de las otras diecisiete: sin
+         él, ésta era la única pantalla del producto que decía «ARLES RELAY» a
+         secas. La marca es «ARLES RELAY I» (ADR-0010: el numeral vive en la
+         marca, lo que nunca hace es ir pegado al número de versión), y el
+         sitio donde más falta hace que la marca esté entera es justo éste —
+         una ventana sin barra lateral que aparece el día que algo se rompió.
+         Encontrado mirando la demostración en la 8.7, con todo en verde. -->
+    <ALogotipo
+      class="marca"
+      numeral
+    />
 
     <h1 class="titulo">
       {{ $t('recuperar.titulo') }}

@@ -171,7 +171,7 @@ La lista completa está en `04-seguridad/THREAT_MODEL.md` §8. Resumen: sin conc
 Casos frontera de §3 cubiertos · presupuestos de `PRESUPUESTO_RENDIMIENTO.md` medidos, no estimados · sin fugas de memoria en ejecuciones largas del motor
 
 ### D · UX y accesibilidad
-Contraste AA **calculado** en todos los pares · foco visible siempre · navegación completa por teclado · ningún estado sólo por color · `prefers-reduced-motion` · objetivos ≥32 px a escalado 200 % · los cuatro estados en cada pantalla (§97) · textos de error con las tres partes (§95)
+Contraste AA **calculado** en todos los pares · foco visible siempre · navegación completa por teclado · ningún estado sólo por color · `prefers-reduced-motion` · objetivos ≥32 px a escalado 200 % · los cuatro estados donde significan algo (§97) · textos de error con las tres partes (§95)
 
 ---
 
@@ -209,7 +209,7 @@ Una funcionalidad está terminada cuando:
 - [ ] Tests unitarios y de integración pasan
 - [ ] Casos frontera relevantes cubiertos
 - [ ] Verificada en Windows **y** macOS
-- [ ] Los cuatro estados implementados (§97)
+- [ ] Los cuatro estados **donde significan algo** (§97, reescrita el 07/10/2026): estado vacío en toda pantalla con colección variable, carga en toda espera de más de un segundo, error con las tres partes del §95, y acuse de todo final
 - [ ] Accesible por teclado, con foco visible
 - [ ] Contraste verificado
 - [ ] Textos de error con las tres partes (§95)

@@ -12,6 +12,63 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.7 · Cierre de la Fase 8
+
+Documento de fase, informe para Dirección, el avance recalculado —**89 % a
+2026-10-07**, con la F8 al 100 %— y lo que ninguna orden hace: **abrir la
+demostración y mirar** las dieciocho pantallas. Está contado en
+[`FASE-08-RESPALDOS.md`](documentacion/09-fases/FASE-08-RESPALDOS.md).
+
+#### Dos cosas que encontró mirar, con las sondas en verde
+
+- **Restaurar y Archivar no empezaban como Respaldos**, siendo hermanas en la
+  misma subsección de Ajustes: su entradilla quedaba a **54 px** del título
+  donde Respaldos la tiene a **8**, y el título arrancaba 19 px más abajo.
+
+  La causa no era un número mal puesto: `.pantalla` es un flex con
+  `gap: space-6`, y esas dos dejaban el `h1` y el `<p>` **sueltos** — dos hijos
+  del flex, con los 48 px del hueco metidos entre ellos. Las otras siete los
+  envuelven en un `<header>`. Es el defecto de la Fase 3 —«Ajustes empezaba
+  300 px más a la derecha»— girado 90°: cada pantalla, sola, se ve bien.
+
+- **La pantalla de recuperación decía «ARLES RELAY», sin el numeral**, siendo la
+  única de las dieciocho. Y es justo donde más falta hace que la marca esté
+  entera: su propio comentario dice que sin ella «una ventana suelta con un
+  aviso rojo no dice ni de qué programa es».
+
+**Las dos las vigila ahora `sonda:recorrido`**, que ya comparaba el borde
+izquierdo de todas las pantallas y compara también el hueco vertical.
+Verificada quitando el `<header>` de Restaurar: «entre el título y su entradilla
+hay 40 px y en las demás 8».
+
+> **Y la comprobación nueva nació con un defecto propio.** Su primera versión
+> comparaba las dieciocho y sacó **tres hallazgos falsos**: en Remitentes midió
+> −24 px —el `<p>` iba **al lado** del título, no debajo— y en Plantillas y
+> WhatsApp midió 19, porque ahí el título comparte fila con sus botones y eso
+> mueve su línea base. **Comparar un número entre maquetaciones distintas es
+> comparar dos cosas.** El arreglo no fue subir el umbral hasta que callaran
+> —eso es ajustar el instrumento—: fue preguntar por **la estructura**, como ya
+> hacía con el armazón.
+
+#### El §97, reescrito
+
+La regla pedía «los cuatro estados en cada pantalla» y la auditoría D midió que
+**no se puede cumplir, y no debería**: seis de las dieciocho no tienen ninguna
+colección, y Ajustes no enseña errores a propósito. Una regla que nunca se puede
+marcar es peor que una que falta, porque hace dudar de la lista entera.
+
+Ahora dice lo verificable, y lo que se verificó: **estado vacío en toda pantalla
+con colección variable** (las nueve que la tienen), carga en toda espera de más
+de un segundo, error con las tres partes del §95 (diecisiete de dieciocho) y
+acuse de todo final.
+
+#### Y una corrección del ROADMAP
+
+Ponía **los derechos ARCO en esta fase** y están construidos desde la 3.4
+(22/09/2026), verificados uno a uno por la auditoría B. Un plan que pide dos
+veces lo mismo hace perder el tiempo buscando lo que ya existe — que es
+exactamente lo que le pasó a esa auditoría.
+
 ### 8.6 F · Auditoría de la Fase 8 entera, por sus junturas
 
 Las once entregas de la fase vistas **como un sistema**: qué pasa si lo que sale

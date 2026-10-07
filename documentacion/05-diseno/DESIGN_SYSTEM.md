@@ -223,9 +223,37 @@ Obligatorio, no opcional.
 
 ---
 
-## 8. Los cuatro estados de cada pantalla (§97)
+## 8. Los cuatro estados, donde cada uno significa algo (§97)
 
-Ninguna pantalla se da por terminada sin los cuatro.
+> **Reescrita el 07/10/2026, en la 8.7.** Esta regla decía *«ninguna pantalla se
+> da por terminada sin los cuatro»*, y la auditoría D del §140 la midió en las
+> dieciocho pantallas: **no se puede cumplir, y no debería.** Seis no tienen
+> ninguna colección —son formularios o pantallas de acción— y un «estado vacío»
+> en un formulario no significa nada; Ajustes **no enseña errores a propósito**,
+> con el motivo escrito en el store desde la Fase 3.
+>
+> Una regla que nunca se puede marcar es peor que una que falta: hace dudar de
+> la lista entera, y la lista es lo que se revisa antes de cerrar una fase. Así
+> que lo que se exige es lo que de verdad se puede comprobar, y lo que se
+> comprobó:
+>
+> **1 · Toda pantalla que pinta una colección variable tiene su estado vacío.**
+> Se cumple en las nueve que la tienen: Actividad, Campañas, Contactos,
+> Importar, Plantillas, Registro, Remitentes, Bajas y WhatsApp. Las que recorren
+> una lista **fija** —los seis pasos de Inicio, los campos de Configuración— o
+> **posterior a una acción** —las cifras del preflight en Restaurar y Archivar—
+> no la necesitan.
+>
+> **2 · Toda espera que pueda pasar de un segundo tiene su estado de carga.**
+>
+> **3 · Todo fallo que el usuario pueda provocar se enseña con las tres partes
+> del §95.** Diecisiete de dieciocho pantallas lo hacen; la excepción es Ajustes
+> y está razonada arriba.
+>
+> **4 · Todo final tiene su acuse**, breve y con el siguiente paso si lo hay.
+>
+> Los cuatro bloques siguen existiendo y se describen abajo. Lo que cambia es
+> **dónde son obligatorios**: donde significan algo, no en todas partes.
 
 **Vacío.** Explica qué es esto y da la acción para empezar. No un dibujo con «Nada por aquí».
 

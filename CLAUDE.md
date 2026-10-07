@@ -1319,6 +1319,49 @@ arreglados**, con las diez fases en verde al empezar. Está contado en
 > significado todo lo que viene después.** Se verifica contra el bloque de código
 > entero, nunca contra un identificador.
 
+**Cerrada la 8.7 y con ella la Fase 8 entera** — documento de fase, informe para
+Dirección, el avance al **89 % a 2026-10-07** y la revisión a ojo de las
+dieciocho pantallas. Está contado en
+[`FASE-08-RESPALDOS.md`](documentacion/09-fases/FASE-08-RESPALDOS.md), y el
+informe en
+[`FASE-08-PARA-DIRECCION.md`](documentacion/09-fases/FASE-08-PARA-DIRECCION.md).
+
+> **Dos cosas que encontró mirar, con todo en verde.** Restaurar y Archivar
+> tenían su entradilla a **54 px** del título donde Respaldos —su hermana en la
+> misma subsección— la tiene a **8**, porque dejaban el `h1` y el `<p>` sueltos
+> dentro de un flex con `gap: space-6`: dos hijos, y los 48 px del hueco en
+> medio. Las otras siete los envuelven en un `<header>`. Es el defecto de la
+> Fase 3 girado 90°. Y **la pantalla de recuperación decía «ARLES RELAY» sin el
+> numeral**, la única de las dieciocho, justo donde más falta hace que la marca
+> esté entera.
+>
+> Las dos las vigila ahora `sonda:recorrido`, que ya comparaba el borde
+> izquierdo y compara también el hueco vertical.
+
+> **Y la comprobación nueva nació con un defecto propio, el de siempre con otra
+> cara.** Comparaba el hueco de las dieciocho y sacó **tres hallazgos falsos**:
+> −24 px en Remitentes —el `<p>` iba **al lado** del título, no debajo— y 19 en
+> Plantillas y WhatsApp, donde el título comparte fila con sus botones y eso
+> mueve su línea base.
+>
+> **Comparar un número entre maquetaciones distintas es comparar dos cosas.** El
+> arreglo no fue subir el umbral hasta que callaran —eso es ajustar el
+> instrumento hasta que deje de medir—: fue preguntar por **la estructura**,
+> como la misma sonda ya hace con el armazón. Se mide sólo cuando el título va
+> solo en su banda y lo que sigue es un párrafo debajo.
+
+> **El §97 está reescrito**, que era lo que la pasada D dejó pendiente. Pedía
+> «los cuatro estados en cada pantalla» y eso **no se puede cumplir**: seis de
+> las dieciocho no tienen ninguna colección y Ajustes no enseña errores a
+> propósito. Ahora exige lo verificable: estado vacío en toda pantalla con
+> colección **variable**, carga en toda espera de más de un segundo, error con
+> las tres partes del §95, y acuse de todo final. **Una regla que nunca se puede
+> marcar es peor que una que falta**, porque hace dudar de la lista entera.
+
+> **Y el ROADMAP ponía los derechos ARCO en la Fase 8**, construidos desde la
+> 3.4. Un plan que pide dos veces lo mismo hace perder el tiempo buscando lo que
+> ya existe — que es exactamente lo que le pasó a la auditoría B.
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |

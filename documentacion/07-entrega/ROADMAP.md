@@ -197,7 +197,15 @@ Panel de INICIO · actividad en vivo · eventos y errores · métricas honestas 
 
 ### Fase 8 — Respaldos y endurecimiento
 
-Exportación e importación `.arles` · migración entre sistemas con manejo elegante del llavero (§75) · derechos ARCO · **las cuatro auditorías** (§140) · presupuestos de rendimiento a 500 k verificados.
+Exportación e importación `.arles` · migración entre sistemas con manejo elegante del llavero (§75) · **las cuatro auditorías** (§140) · presupuestos de rendimiento a 500 k verificados.
+
+> **Los derechos ARCO estaban aquí y llevan construidos desde la 3.4**
+> (22/09/2026): los cuatro tienen comando y pantalla, y la auditoría B del §140
+> los verificó uno a uno el 07/10/2026 — `cancelar_datos_de`,
+> `que_se_borraria` y `editar_contacto`, con `/contactos/derechos` y
+> `/contactos/supresion`. Se quitan de esta fase porque un plan que pide dos
+> veces lo mismo hace perder el tiempo buscando lo que ya existe, que es
+> exactamente lo que le pasó a esta auditoría.
 
 ---
 

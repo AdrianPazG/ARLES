@@ -184,7 +184,52 @@ const MEDIR = () => {
   const primero = [...main.children].find((el) => (el.innerText ?? '').trim().length > 0)
   const borde = enElArmazon && primero ? Math.round(primero.getBoundingClientRect().left) : null
 
-  return { texto, acciones, claves, largo: texto.length, borde }
+  // ── Y EL RITMO VERTICAL, QUE ES EL MISMO DEFECTO GIRADO 90° ──
+  //
+  // El borde de arriba caza que una pantalla empiece más a la derecha. Lo que
+  // no cazaba nada es que empiece más **abajo**, o que su entradilla quede
+  // despegada del título. Encontrado mirando la demostración en la 8.7:
+  // Restaurar y Archivar tenían 54 px entre el título y su entradilla donde
+  // Respaldos —su hermana, en la misma subsección de Ajustes— tiene 8.
+  //
+  // La causa no era un número mal puesto: `.pantalla` es un flex con
+  // `gap: space-6`, y esas dos pantallas dejaban el `h1` y el `<p>` sueltos,
+  // así que eran **dos hijos del flex** y el hueco de 48 px se metía entre
+  // ellos. Las otras siete los envuelven en un `<header>`. Un número no se
+  // puede comparar entre pantallas distintas; **un hueco sí**.
+  // ── Y SE COMPARA SÓLO ENTRE PANTALLAS DEL MISMO TIPO ──
+  //
+  // La primera versión comparaba el hueco de las dieciocho y sacó tres
+  // hallazgos que **no lo eran**, por dos motivos que conviene distinguir:
+  //
+  //   · En Remitentes dio **−24 px**. El `<p>` que encontraba era «Tienes 1
+  //     configurada», que va **al lado** del título y no debajo: un hueco
+  //     negativo no es un defecto, es la señal de que se midió otra cosa.
+  //   · En Plantillas y en WhatsApp dio 19. Ahí el título comparte fila con
+  //     sus botones, y eso mueve su línea base. Comparar ese número con el de
+  //     una pantalla cuyo título va solo es comparar dos maquetaciones.
+  //
+  // Así que se pregunta por la estructura, como con el armazón: se mide sólo
+  // cuando el título **va solo en su banda** y lo que sigue es un párrafo
+  // **debajo**. Una pantalla nueva entra sin que nadie la apunte, y la que
+  // tiene otra forma no ensucia la comparación.
+  const h1 = main.querySelector('h1')
+  let hueco = null
+  if (enElArmazon && h1) {
+    const rh = h1.getBoundingClientRect()
+    const acompanado = [...main.querySelectorAll('button, a, p, span')].some((el) => {
+      const r = el.getBoundingClientRect()
+      return r.width > 0 && r.top < rh.bottom - 4 && r.bottom > rh.top + 4 && r.left > rh.right
+    })
+    let sig = h1.nextElementSibling
+    while (sig && (sig.innerText ?? '').trim().length < 10) sig = sig.nextElementSibling
+    if (!acompanado && sig && sig.tagName === 'P') {
+      const h = Math.round(sig.getBoundingClientRect().top - rh.bottom)
+      if (h >= 0) hueco = h
+    }
+  }
+
+  return { texto, acciones, claves, largo: texto.length, borde, hueco }
 }
 
 const ejecutable = await exigirChromium()
@@ -215,6 +260,8 @@ const resumen = []
 
 /** El borde izquierdo de la primera pantalla, contra el que se comparan todas. */
 let bordeComun = null
+/** Lo mismo en vertical: el hueco entre el título y su entradilla. */
+let huecoComun = null
 
 for (const { ruta, que, minimoAcciones } of RECORRIDO) {
   await pagina.goto(`file://${ARCHIVO}${ruta}`, { waitUntil: 'load' })
@@ -309,6 +356,25 @@ for (const { ruta, que, minimoAcciones } of RECORRIDO) {
     else if (Math.abs(r.borde - bordeComun) > 2) {
       mal(`${ruta} (${que}): el contenido empieza en ${r.borde} px y el de las demás en ` +
           `${bordeComun} px. Al pasar de una pantalla a otra el título salta.`)
+    }
+  }
+
+  // 9 · Y el título y su entradilla se separan igual en todas.
+  //
+  // Verificada rompiéndola (§2) el 07/10/2026: quitando el `<header>` de
+  // `PantallaRestaurar.vue`, la sonda dice «#/ajustes/restaurar (Restaurar un
+  // respaldo): entre el título y su entradilla hay 40 px y en las demás 8».
+  //
+  // **Son 40 y no los 54 que tenía el defecto original** porque el arreglo
+  // llevó además los márgenes del `h1` y del `<p>` a cero, y la ruptura sólo
+  // deshace el agrupamiento. La cifra se escribe tras verla, no antes: una
+  // afirmación de verificación es una afirmación como cualquier otra, y en
+  // este proyecto son las que más veces han resultado falsas.
+  if (r.hueco !== null) {
+    if (huecoComun === null) huecoComun = r.hueco
+    else if (Math.abs(r.hueco - huecoComun) > 4) {
+      mal(`${ruta} (${que}): entre el título y su entradilla hay ${r.hueco} px y en las demás ` +
+          `${huecoComun} px. Al pasar de una pantalla a otra la entradilla salta.`)
     }
   }
 

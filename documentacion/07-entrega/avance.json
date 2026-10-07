@@ -35,7 +35,7 @@
     "  python3 herramientas/avance/calcular.py --escribir"
   ],
   "version": "1.2.0",
-  "actualizado": "2026-10-01",
+  "actualizado": "2026-10-07",
   "fases": [
     {
       "id": "F0",
@@ -104,8 +104,8 @@
       "id": "F8",
       "nombre": "Respaldos y endurecimiento",
       "peso": 7,
-      "hecho": 0.0,
-      "porque": "Sin empezar."
+      "hecho": 1.0,
+      "porque": "Cerrada el 07/10/2026, las once entregas más el cierre. Manifiesto de las 29 tablas (8.0), formato .arles con su suma (8.1), sobre cifrado Argon2id+XChaCha20 por trozos (8.2a), exportación con cursor (8.2b) y su pantalla (8.2c), lectura y preflight (8.3a), reemplazo con unión de bajas (8.3b) y su pantalla (8.3c), archivado del historial verificado antes de borrar (8.3 bis a y b), salida del llavero perdido (8.4), banco de pruebas con las trece cifras (8.5) y migración V11 (8.6). Las CUATRO auditorías del §140 corridas aisladas (8.6 A-D), más una quinta de la fase entera (8.6 F) y el desenlace conectado (8.6 E). 22 hallazgos: 20 arreglados, 2 declarados con su cifra. validar.py --fase 8 en verde, cargo test --workspace entero, 191 pruebas del frontend, sonda:recorrido sin hallazgos. Lo declarado y NO hecho: restaurar un respaldo de un esquema anterior (se rechaza con error claro) y R-07, que no depende de nosotros."
     },
     {
       "id": "F9",

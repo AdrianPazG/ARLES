@@ -59,12 +59,21 @@ function enMegas(bytes: number): string {
 
 <template>
   <div class="pantalla">
-    <h1 class="titulo">
-      {{ $t('archivar.titulo') }}
-    </h1>
-    <p class="entradilla">
-      {{ $t('archivar.entradilla') }}
-    </p>
+    <!-- ── EL TÍTULO Y LA ENTRADILLA VAN JUNTOS, Y NO ES DECORATIVO ──────
+         `.pantalla` es un flex con `gap: space-6` (48 px). Sueltos, el título
+         y su entradilla son DOS hijos del flex, así que ese hueco se mete
+         entre ellos: medido el 07/10/2026, 54 px aquí contra los 8 de
+         Respaldos, que sí los envuelve. Cada pantalla, sola, se ve bien; el
+         defecto sólo existe al pasar de una a otra — es el mismo caso que
+         «Ajustes empezaba 300 px más a la derecha» de la Fase 3. -->
+    <header>
+      <h1 class="titulo">
+        {{ $t('archivar.titulo') }}
+      </h1>
+      <p class="entradilla">
+        {{ $t('archivar.entradilla') }}
+      </p>
+    </header>
 
     <!-- ── 1 · Cuánto se deja ────────────────────────────────────────────── -->
     <section
@@ -251,14 +260,23 @@ function enMegas(bytes: number): string {
   gap: var(--arles-space-6);
 }
 
+header {
+  max-width: 62ch;
+}
+
 .titulo {
+  /* `margin: 0` arriba y el hueco justo abajo. Sin esto el navegador mete su
+     propio margen en el `h1` y en el `<p>`, y el título arranca 19 px más
+     abajo que en Respaldos con 14 px de separación en vez de 8. */
+  margin: 0 0 var(--arles-space-2);
   font-size: var(--arles-font-size-h1);
+  line-height: var(--arles-line-height-h1);
   font-weight: var(--arles-font-weight-bold);
   color: var(--arles-text);
-  margin-bottom: var(--arles-space-2);
 }
 
 .entradilla {
+  margin: 0;
   color: var(--arles-text-muted);
   font-size: var(--arles-font-size-body);
   max-width: 62ch;
