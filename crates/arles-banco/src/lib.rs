@@ -25,6 +25,7 @@
 // §140 el 07/10/2026, y la comprobación ahora lee las carpetas que hay.
 #![forbid(unsafe_code)]
 
+pub mod larga;
 pub mod medir;
 
 /// Un generador de números reproducible. SplitMix64.

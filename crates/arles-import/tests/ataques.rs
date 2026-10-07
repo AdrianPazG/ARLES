@@ -514,3 +514,139 @@ fn el_tope_de_bytes_se_aplica_tambien_durante_la_lectura() {
         Err(ErrorDeLectura::FormatoDesconocido)
     ));
 }
+
+// ── 9 · Las codificaciones que escribe un Excel de verdad ───────────────
+//
+// ─────────────────────────────────────────────────────────────────────────
+// POR QUÉ ESTAS TRES PRUEBAS LAS ESCRIBIÓ UNA AUDITORÍA Y NO LA 3.3
+//
+// `ESTRATEGIA_QA.md` §3 lleva desde la Fase 0 el caso «archivo con BOM,
+// UTF-16, CRLF mezclado → se detecta y se lee correctamente», y dice de toda
+// esa lista que «cada uno tiene un test con nombre». La auditoría C del §140
+// los buscó uno a uno el 07/10/2026 y **éste no existía**.
+//
+// Y funcionaba. Lo que es grave no es el defecto —no hay—, es de qué depende:
+// `decodificar` sólo mira a mano el BOM de UTF-8, y quien decodifica un UTF-16
+// es `encoding_rs::Encoding::decode`, que **olfatea el BOM por su cuenta** y
+// cambia de codificación aunque se le haya pedido Windows-1252. Eso no lo dice
+// ninguna línea del módulo: su comentario llama «Windows-1252» a esa rama.
+//
+// Así que la garantía estaba viva por una cortesía de la biblioteca que nadie
+// había escrito. Cambiar esa rama a `decode_without_bom_handling` —el cambio
+// natural para quien lea el comentario y crea que el BOM ya se trató arriba—
+// convierte cada importación en UTF-16 en basura silenciosa: los nombres salen
+// con un carácter nulo intercalado, la columna del correo no valida, y **no
+// falla nada**.
+//
+// Verificado haciendo ese cambio: `un_csv_en_utf16_se_lee_con_sus_acentos`
+// sale en rojo.
+//
+// ─────────────────────────────────────────────────────────────────────────
+// Y DE LAS OTRAS DOS HAY QUE DECIR ALGO INCÓMODO: NO SE PUEDEN ROMPER
+//
+// Se intentó, porque el §2 obliga. Ninguna de las dos cayó:
+//
+//   · **BOM de UTF-8** → se quitó entera la primera rama de `decodificar`,
+//     la que lo mira a mano. El encabezado siguió saliendo `"correo"` limpio:
+//     el BOM lo quita **el lector de `csv`** por su cuenta. Esa rama es
+//     redundante hoy; se deja porque documenta la intención y no cuesta nada,
+//     pero **no es ella la que cumple la garantía**.
+//
+//   · **Saltos mezclados** → se quitó el `.trim()` de cada celda en
+//     `leer_csv`. Siguió en verde: `csv` ya trata `\r\n` como terminador.
+//
+// Así que las dos vigilan **a la biblioteca, no a ARLES**. Eso no las hace
+// inútiles —si `csv` cambiara de comportamiento en una actualización, las
+// importaciones se romperían en silencio y estas dos lo dirían— pero sí
+// obliga a etiquetarlas: una prueba que nadie ha visto fallar no está
+// verificada, y de éstas se sabe además **por qué** no se puede.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Un CSV en UTF-16 con su BOM, que es lo que da «Texto Unicode» en Excel.
+///
+/// Separado por tabuladores porque es lo que escribe ese formato, no por
+/// gusto: así la prueba usa el archivo que el usuario tiene de verdad.
+#[test]
+fn un_csv_en_utf16_se_lee_con_sus_acentos() {
+    for (nombre, bom, al_reves) in [
+        ("u16le.csv", [0xFF, 0xFE], false),
+        ("u16be.csv", [0xFE, 0xFF], true),
+    ] {
+        let texto = "nombre\tapellido\tcorreo\nAna\tÁlvarez\tana@ejemplo.mx\n";
+        let mut crudo = bom.to_vec();
+        for unidad in texto.encode_utf16() {
+            let [bajo, alto] = unidad.to_le_bytes();
+            if al_reves {
+                crudo.extend_from_slice(&[alto, bajo]);
+            } else {
+                crudo.extend_from_slice(&[bajo, alto]);
+            }
+        }
+
+        let (_dir, ruta) = escribir(nombre, &crudo);
+        let tabla = leer(&ruta).expect("un UTF-16 con BOM es legible");
+
+        assert_eq!(
+            tabla.encabezados,
+            vec!["nombre", "apellido", "correo"],
+            "{nombre}: los encabezados salieron mal. Si llevan caracteres \
+             nulos intercalados, el BOM no se está mirando y el archivo se \
+             leyó como Windows-1252"
+        );
+        assert_eq!(
+            tabla.filas,
+            vec![vec![
+                "Ana".to_owned(),
+                "Álvarez".to_owned(),
+                "ana@ejemplo.mx".to_owned()
+            ]],
+            "{nombre}: la fila salió mal"
+        );
+    }
+}
+
+/// El BOM de UTF-8 **no llega a la primera columna**.
+///
+/// Es el caso más silencioso de los tres: si el BOM se queda pegado, el
+/// encabezado es `\u{feff}correo` y no `correo`, así que el paso 2 del
+/// asistente no reconoce la columna del correo — y lo que el usuario ve es un
+/// archivo correcto que ARLES «no entiende».
+#[test]
+fn el_bom_de_utf8_no_se_pega_al_primer_encabezado() {
+    let mut crudo = vec![0xEF, 0xBB, 0xBF];
+    crudo.extend_from_slice("correo;nombre\nana@ejemplo.mx;Ana\n".as_bytes());
+
+    let (_dir, ruta) = escribir("conbom.csv", &crudo);
+    let tabla = leer(&ruta).expect("un UTF-8 con BOM es legible");
+
+    assert_eq!(
+        tabla.encabezados.first().map(String::as_str),
+        Some("correo"),
+        "el BOM se quedó pegado al primer encabezado"
+    );
+}
+
+/// Saltos de línea mezclados en el mismo archivo.
+///
+/// Pasa de verdad: una tabla que se editó en Windows y se le pegaron filas
+/// desde un correo acaba con `\r\n` en unas líneas y `\n` en otras. Lo que no
+/// puede pasar es que el retorno de carro acabe **dentro** del último campo,
+/// porque entonces el correo de esa fila no valida y nadie entiende por qué.
+#[test]
+fn los_saltos_de_linea_mezclados_no_dejan_un_retorno_en_el_dato() {
+    let crudo = "correo;nombre\r\nana@ejemplo.mx;Ana\nluis@ejemplo.mx;Luis\r\n";
+
+    let (_dir, ruta) = escribir("mezclado.csv", crudo.as_bytes());
+    let tabla = leer(&ruta).expect("los saltos mezclados son legibles");
+
+    assert_eq!(tabla.encabezados, vec!["correo", "nombre"]);
+    assert_eq!(tabla.total_de_filas, 2);
+    for fila in &tabla.filas {
+        for celda in fila {
+            assert!(
+                !celda.contains('\r') && !celda.contains('\n'),
+                "quedó un salto de línea dentro del dato: {celda:?}"
+            );
+        }
+    }
+}

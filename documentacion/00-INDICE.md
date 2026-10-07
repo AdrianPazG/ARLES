@@ -147,6 +147,7 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Fase 08 · resumen para Dirección](09-fases/FASE-08-PARA-DIRECCION.md) | Sin tecnicismos |
 | [Auditoría A · Arquitectura](09-fases/AUDITORIA-A-ARQUITECTURA.md) | §140, pasada 1 de 4 · cinco hallazgos, cinco arreglados |
 | [Auditoría B · Seguridad](09-fases/AUDITORIA-B-SEGURIDAD.md) | §140, pasada 2 de 4 · los quince puntos del THREAT_MODEL §8, medidos |
+| [Auditoría C · QA y rendimiento](09-fases/AUDITORIA-C-QA.md) | §140, pasada 3 de 4 · los 32 casos frontera y las trece cifras, medidas |
 
 ---
 

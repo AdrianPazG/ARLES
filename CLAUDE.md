@@ -1003,6 +1003,100 @@ arreglados y tres puntos del documento corregidos.** Está contado en
 > manda a arreglar algo que funciona y gasta la credibilidad del resto.
 > Antes de anotar que algo falta, se busca cómo se llama de verdad.
 
+**Cerrada la 8.6 C · la auditoría de QA y rendimiento** (§140, pasada 3 de 4).
+Los 32 casos frontera uno a uno, las trece cifras del presupuesto, y **la
+corrida larga del motor, que nunca se había hecho**. Seis hallazgos: cuatro
+arreglados, dos declarados con su cifra. Está contado en
+[`AUDITORIA-C-QA.md`](documentacion/09-fases/AUDITORIA-C-QA.md).
+
+> **Activar una campaña tarda 73.5 s de un presupuesto de 2 s**, y es el peor
+> número del producto. Corre dentro de un comando de Tauri, en una transacción,
+> con el cerrojo de la conexión tomado: la interfaz no contesta, no hay cifra de
+> avance y no se puede cancelar. El §7 del presupuesto lo tenía escrito como
+> señal de alarma desde la Fase 0 —«la interfaz se congela al activar una
+> campaña»— y nadie lo había medido.
+>
+> Y **no es un problema del techo**: medido a cuatro escalas (18 k → 1.2 s,
+> 45 k → 3.8 s, 136 k → 16.7 s, 451 k → 73.5 s), el presupuesto se rompe
+> **alrededor de los 30 000 destinatarios**. Eso es una lista ordinaria.
+>
+> **Pendiente de Dirección**, con cuatro alternativas y una recomendación: un
+> tope que diga su cifra ahora (horas) y sacarlo al hilo del motor en la Fase 9
+> (días). Lo barato no es técnico: a 50 correos diarios (§48), 451 196 personas
+> son **24 años** de campaña, y el simulador ya se lo enseña en el paso 8.
+
+> **Y la causa no era la que parecía, que es la razón de medir.** La hipótesis
+> obvia eran los 451 196 pares de identificadores, cada uno pidiendo entropía al
+> sistema. **Medido aparte: 0.58 s, el 0.8 %.** Lo que cuesta es escribir
+> ~902 000 filas con sus índices sobre SQLCipher. Sin medirlo se habría
+> «optimizado» la generación de claves de idempotencia —tocando ADR-0004, la
+> parte más delicada del producto— para ganar medio segundo de setenta y tres.
+
+> **Tres cifras estaban «sin medir» por un motivo que no se sostenía**, y un
+> «sin medir» con un motivo falso es peor que un hueco: el hueco se ve, el
+> motivo escrito se cree. «Exige un banco aparte» era una **molestia**, no un
+> impedimento. «No existe el filtro» era verdad de la lista de contactos y falso
+> del registro, que la 7.4 construyó con seis criterios. «Sin llavero no arranca
+> la aplicación» era verdad de la **aplicación** y falso del **motor**.
+>
+> Los cuatro que quedan sin medir sí tienen motivo: necesitan una webview
+> (R-07), los puertos 587/465/25 (R-24) o el empaquetador y Mont (P-01).
+
+> **La corrida larga: 20 000 envíos, 13.9 MB en los cuatro cuartos, 0.00 MB de
+> crecimiento.** No se mide un número, se mide una **forma** — la corrida se
+> parte en cuatro tramos y se compara el último con el **segundo**, porque
+> comparar con el primero metería dentro todo el arranque de la caché de SQLite
+> y una corrida sana saldría en rojo.
+>
+> Y se vio fallar: con una fuga de verdad, 13.9 → 15.0 MB y +0.79 de
+> crecimiento. La fuga no es inventada — es exactamente lo que hace
+> `ProveedorSimulado`, que guarda cada pedido, y la razón por la que la corrida
+> larga **no lo usa**: un instrumento que acumula acusaría al motor de una fuga
+> que es suya.
+>
+> De paso: el motor hace **13 ms por envío**, unas 77 por segundo, contra los 50
+> **diarios** que el producto permite.
+
+> **Dos casos frontera llevaban desde la Fase 0 sin ningún test**, y el
+> documento afirmaba de la lista entera que «cada uno tiene un test con nombre»
+> **sin decir cuál** — así que no se podía comprobar. Ahora cada caso nombra el
+> suyo y `cada_caso_frontera_nombra_su_test` falla si alguno desaparece.
+>
+> - **Disco lleno a mitad de importación.** Llenar un disco en una prueba no se
+>   puede; **provocar su error, sí**: `PRAGMA max_page_count` da el
+>   `SQLITE_FULL` de verdad. Verificada **partiendo la atomicidad**, no quitando
+>   el tope — lo que hay que ver caer es la garantía, no el disparador.
+> - **BOM, UTF-16, CRLF mezclado.** Funcionaba, y lo grave era **de qué
+>   dependía**: del olfateo de BOM de `encoding_rs::decode`, que ninguna línea
+>   del módulo menciona. Su comentario llama «Windows-1252» a esa rama. Cambiarla
+>   a `decode_without_bom_handling` —el cambio natural para quien lea el
+>   comentario— convierte cada importación en UTF-16 en basura silenciosa.
+>
+> **Y de las tres pruebas nuevas, dos no se pueden romper desde nuestro código**:
+> el BOM de UTF-8 lo quita el lector de `csv` y los `\r\n` también. Vigilan a la
+> biblioteca, no a ARLES. No son inútiles —si `csv` cambiara, las importaciones
+> se romperían en silencio— pero hay que etiquetarlas, y así están.
+
+> **El presupuesto describía una arquitectura con Tokio, y el proyecto no usa
+> Tokio.** `PRESUPUESTO_RENDIMIENTO.md` §3 decía que el motor corre «en su
+> propio conjunto de tareas de Tokio» y que la base «vive en un hilo dedicado
+> con canal (ADR-0002), lo que elimina de raíz los `SQLITE_BUSY`». No hay Tokio
+> en el taller, la conexión es un `Mutex<Connection>`, y el `busy_timeout(5 s)`
+> sigue puesto.
+>
+> **Es el mismo defecto que la auditoría B encontró un día antes** en el
+> `THREAT_MODEL.md` §8, que pedía «la capa de redacción de `tracing`» sin que el
+> proyecto use `tracing`. Dos documentos de la Fase 0 nombrando bibliotecas que
+> nunca se adoptaron, a una pasada de distancia.
+
+> **Y un hallazgo falso mío, el segundo en dos pasadas.** Anoté que la cabecera
+> de `arco.rs` ordena usar `neutralizar_formula` en un `.txt`, que sería un
+> defecto. La frase lleva delante «**si algún día hace falta exportar en CSV**»
+> y la cité sin ella: el comentario es correcto, una defensa dormida con su
+> condición al lado. La auditoría B cometió el mismo error buscando comandos por
+> nombres inventados. **Dar por sabido lo que dice el código en vez de leerlo
+> entero** — dos veces, en la misma dirección.
+
 **Para una demostración real** con correo y WhatsApp que llegan de verdad:
 `documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md`.
 

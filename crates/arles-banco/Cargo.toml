@@ -16,6 +16,11 @@ publish = false
 arles-core = { path = "../arles-core" }
 arles-db = { path = "../arles-db", features = ["test-util"] }
 arles-import = { path = "../arles-import" }
+arles-motor = { path = "../arles-motor" }
+# Para sembrar la cola de la corrida larga por el camino de `ejecutar_en_pruebas`,
+# que recibe la conexión. Misma versión y mismas características que `arles-db`:
+# dos `rusqlite` distintos en el mismo binario no comparten tipos.
+rusqlite = { version = "0.37", features = ["bundled-sqlcipher-vendored-openssl"] }
 tempfile = "3"
 time = { workspace = true }
 

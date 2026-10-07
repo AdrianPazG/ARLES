@@ -1142,6 +1142,107 @@ mod tests {
         assert_eq!(con_lote, 2);
     }
 
+    /// **El disco se llena a mitad de una importación.**
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ ESTA PRUEBA LA ESCRIBIÓ UNA AUDITORÍA Y NO LA 3.3
+    ///
+    /// `ESTRATEGIA_QA.md` §3 lo lleva como caso frontera desde la Fase 0
+    /// —«disco lleno a mitad de importación → transacción revertida, sin
+    /// estado a medias»— y afirma de toda esa lista que «cada uno tiene un
+    /// test con nombre». La auditoría C del §140 los buscó uno a uno el
+    /// 07/10/2026 y **éste no existía**, seguramente porque llenar un disco
+    /// de verdad no se puede hacer en una prueba.
+    ///
+    /// Pero sí se puede **provocar el error que daría**. SQLite tiene
+    /// `PRAGMA max_page_count`: con el tope bajado, la escritura que lo pasa
+    /// falla con `SQLITE_FULL`, que es exactamente el código de un disco
+    /// lleno. No es una simulación aproximada: es el mismo error por el mismo
+    /// camino.
+    ///
+    /// Lo que se comprueba es lo que importa: que **no queda nada a medias**.
+    /// Una importación de diez mil filas a medias es la peor de las tres
+    /// salidas posibles — reintentarla duplica, no reintentarla pierde gente,
+    /// y nadie sabe por dónde se quedó.
+    ///
+    /// **Verificada rompiéndola**, y no por el camino fácil. Quitar el tope de
+    /// páginas sólo demostraría que el disparador funciona; lo que hay que ver
+    /// caer es la **garantía**. Así que se partió la atomicidad: un
+    /// `tx.commit()` colado entre el registro del lote y el bucle de los
+    /// contactos. Sale en rojo por la segunda aserción, la del registro —
+    /// *«quedó el registro de una importación que no ocurrió, y la pantalla lo
+    /// enseñaría como hecha»*—, que es exactamente el estado a medias que el
+    /// caso frontera describe.
+    #[test]
+    fn un_disco_lleno_a_mitad_de_importacion_no_deja_nada_a_medias() {
+        let (_d, db, empresa) = base();
+
+        // Primero una importación normal, para tener un estado conocido que
+        // comparar. Sin ella la prueba sólo diría «de cero no salió nada».
+        db.importar_contactos(
+            empresa,
+            &lote_de_prueba(),
+            &[contacto(&[(Canal::Correo, "antes@empresa.mx")])],
+        )
+        .expect("la primera importación cabe");
+
+        let antes = db.listar_contactos(empresa, 0, 100).expect("lista").total;
+        let lotes_antes: i64 = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row("SELECT count(*) FROM import_batch", [], |f| f.get(0))
+            })
+            .expect("cuenta lotes");
+
+        // Y ahora el disco se acaba. El tope se pone al número de páginas que
+        // ya hay: la siguiente escritura que necesite una más falla.
+        let paginas: i64 = db
+            .ejecutar_en_pruebas(|c| c.query_row("PRAGMA page_count", [], |f| f.get(0)))
+            .expect("páginas");
+        db.ejecutar_en_pruebas(|c| {
+            c.pragma_update(None, "max_page_count", paginas)?;
+            Ok(())
+        })
+        .expect("baja el tope");
+
+        // Bastante gente para que haga falta una página nueva. Con dos o tres
+        // podría caber en el hueco libre de las que ya hay, y la prueba
+        // pasaría sin haber provocado nada — el caso clásico de la prueba de
+        // la página de contactos con un solo contacto (§2).
+        let muchos: Vec<_> = (0..400)
+            .map(|i| contacto(&[(Canal::Correo, &format!("lleno{i}@empresa.mx"))]))
+            .collect();
+        let resultado = db.importar_contactos(empresa, &lote_de_prueba(), &muchos);
+
+        assert!(
+            resultado.is_err(),
+            "con el disco lleno la importación tiene que fallar, no escribir \
+             lo que quepa"
+        );
+
+        // Se devuelve el tope para poder leer la base y comprobarlo.
+        db.ejecutar_en_pruebas(|c| {
+            c.pragma_update(None, "max_page_count", 1_073_741_823_i64)?;
+            Ok(())
+        })
+        .expect("devuelve el tope");
+
+        assert_eq!(
+            db.listar_contactos(empresa, 0, 100).expect("lista").total,
+            antes,
+            "quedaron contactos de la importación que falló"
+        );
+        let lotes_despues: i64 = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row("SELECT count(*) FROM import_batch", [], |f| f.get(0))
+            })
+            .expect("cuenta lotes");
+        assert_eq!(
+            lotes_despues, lotes_antes,
+            "quedó el registro de una importación que no ocurrió, y la \
+             pantalla lo enseñaría como hecha"
+        );
+    }
+
     /// **La garantía de esta entrega: o entra todo, o no entra nada.**
     ///
     /// Una importación a medias deja una lista de la que nadie sabe dónde se

@@ -11,6 +11,46 @@
 //! cumplido. Es la regla que el validador ya aplica a las sondas omitidas.
 
 fn main() {
+    // `banco larga 100000` mide la corrida larga del motor en vez de las trece
+    // cifras. Va aparte porque mide una **forma** —si la memoria se
+    // estabiliza— y no un número, y porque tarda lo suyo.
+    if std::env::args().nth(1).as_deref() == Some("larga") {
+        let pasos: u32 = std::env::args()
+            .nth(2)
+            .and_then(|a| a.parse().ok())
+            .unwrap_or(100_000);
+        // `banco larga 20000 fuga` mete una fuga de verdad —un proveedor que
+        // guarda cada pedido— para poder ver la comprobación en rojo. Sin
+        // esto, «la memoria no crece» sería una afirmación que nadie ha visto
+        // caer, que es lo que el §2 no admite.
+        let con_fuga = std::env::args().nth(3).as_deref() == Some("fuga");
+        match arles_banco::larga::correr(pasos, con_fuga) {
+            Ok(c) => {
+                let n = c.muestras.len();
+                let cuarto = n / 4;
+                println!(
+                    "pasos: {} ({} enviados) en {:.1} s\nmuestras: {n}\n\
+                     primer cuarto:  {:.1} MB\nsegundo cuarto: {:.1} MB\n\
+                     tercer cuarto:  {:.1} MB\nultimo cuarto:  {:.1} MB\n\
+                     crecimiento (ultimo - segundo): {:.2} MB",
+                    c.pasos,
+                    c.enviados,
+                    c.tardo.as_secs_f64(),
+                    c.tramo(0, cuarto) as f64 / 1_048_576.0,
+                    c.tramo(cuarto, cuarto * 2) as f64 / 1_048_576.0,
+                    c.tramo(cuarto * 2, cuarto * 3) as f64 / 1_048_576.0,
+                    c.tramo(cuarto * 3, n) as f64 / 1_048_576.0,
+                    c.crecimiento() as f64 / 1_048_576.0,
+                );
+            }
+            Err(e) => {
+                eprintln!("la corrida larga no pudo terminar: {e}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+
     let cuantas: usize = std::env::args()
         .nth(1)
         .and_then(|a| a.parse().ok())

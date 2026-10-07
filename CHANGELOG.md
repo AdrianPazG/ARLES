@@ -12,6 +12,99 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.6 C · Auditoría de QA y rendimiento (§140): lo que pasa al activar una campaña
+
+Tercera de las cuatro pasadas separadas. `ESTRATEGIA_QA.md` §5 le fija tres
+cosas y se hicieron las tres: los 32 casos frontera uno a uno, las trece cifras
+del presupuesto **medidas y no estimadas**, y la corrida larga del motor
+buscando fugas de memoria — que **nunca se había intentado**.
+
+**Seis hallazgos. Cuatro arreglados, dos declarados con su cifra.**
+
+#### Los dos presupuestos que fallan, con su curva
+
+- **Activar una campaña: 73.5 s de un presupuesto de 2 s.** Corre dentro de un
+  comando de Tauri, en una transacción, con el cerrojo de la conexión tomado:
+  la interfaz no contesta, no hay cifra de avance y no se puede cancelar. El
+  §7 del presupuesto lo tenía escrito como señal de alarma desde la Fase 0 y
+  nadie lo había medido. Medido a cuatro escalas, **el presupuesto se rompe
+  alrededor de los 30 000 destinatarios** — no en el medio millón del techo.
+- **El filtro del registro por texto: 3 709 ms de 1 s.** Se rompe a los
+  ~135 000 sucesos, que a 50 envíos diarios son **más de siete años**. Queda
+  declarado con su número y su condición, no arreglado.
+
+Decir que los dos «fallan» sin esa diferencia habría sido exacto y useless.
+
+#### Y la causa del primero no era la que parecía
+
+La hipótesis obvia eran los 451 196 pares de identificadores, cada uno pidiendo
+entropía al sistema. **Medido aparte: 0.58 s, el 0.8 % del total.** Lo que
+cuesta es escribir ~902 000 filas con sus índices sobre SQLCipher.
+
+Sin medirlo se habría «optimizado» la generación de claves de idempotencia
+—tocando ADR-0004, la parte más delicada del producto— para ganar medio segundo
+de setenta y tres.
+
+#### Tres cifras estaban «sin medir» por un motivo que no se sostenía
+
+Y un «sin medir» con un motivo falso es peor que un hueco, porque cierra la
+pregunta. «Exige un banco aparte» era una molestia, no un impedimento. «No
+existe el filtro» era verdad de la lista de contactos y falso del registro, que
+la 7.4 construyó. «Sin llavero no arranca la aplicación» era verdad de la
+aplicación y falso del motor, que corre contra un proveedor simulado desde la
+4.3a.
+
+#### Dos casos frontera llevaban desde la Fase 0 sin ningún test
+
+Y el documento afirmaba de la lista entera que «cada uno tiene un test con
+nombre», **sin decir cuál** — así que la afirmación no se podía comprobar.
+
+- **Disco lleno a mitad de importación.** Escrita con `PRAGMA max_page_count`,
+  que provoca el `SQLITE_FULL` de verdad. Verificada **partiendo la
+  atomicidad**, no quitando el tope: lo que hay que ver caer es la garantía.
+- **Archivo con BOM, UTF-16, CRLF mezclado.** Funcionaba, y lo grave era de qué
+  dependía: del olfateo de BOM de `encoding_rs`, que ninguna línea del módulo
+  mencionaba. Cambiar esa rama a `decode_without_bom_handling` —el cambio
+  natural para quien lea el comentario— convertiría cada importación en UTF-16
+  en basura silenciosa.
+
+Ahora cada caso nombra su test, y `cada_caso_frontera_nombra_su_test` falla si
+alguno deja de existir.
+
+#### Y el presupuesto describía una arquitectura con Tokio, que el proyecto no usa
+
+`PRESUPUESTO_RENDIMIENTO.md` §3 decía que el motor corre «en su propio conjunto
+de tareas de Tokio» y que la base «vive en un hilo dedicado con canal». **No hay
+Tokio en el taller** y la conexión es un `Mutex<Connection>`. Es el mismo
+defecto que la auditoría B encontró un día antes en el `THREAT_MODEL.md`, que
+pedía la capa de redacción de `tracing` sin que el proyecto use `tracing`.
+
+#### La corrida larga: 20 000 envíos, memoria plana
+
+**13.9 MB en los cuatro cuartos y 0.00 MB de crecimiento.** No se mide un
+número, se mide una forma: la corrida se parte en cuatro tramos y se compara el
+último con el **segundo**, porque comparar con el primero metería dentro todo el
+arranque de la caché de SQLite.
+
+Y se vio fallar, metiendo una fuga de verdad: con un proveedor que guarda cada
+pedido, 13.9 → 15.0 MB y +0.79 MB de crecimiento. La fuga no es inventada — es
+exactamente lo que hace `ProveedorSimulado`, y la razón de que la corrida larga
+no lo use.
+
+De paso: el motor hace **13 ms por envío**, unas 77 por segundo, contra los 50
+**diarios** que el producto permite.
+
+#### Un hallazgo falso, anotado
+
+`neutralizar_formula` no la llama nadie, y la cabecera de `arco.rs` dice «hay
+que usarla» — pero la frase lleva delante «**si algún día hace falta exportar en
+CSV**», y la cité sin ella. Es el mismo error que la auditoría B cometió el día
+anterior buscando comandos por nombres inventados: dar por sabido lo que dice el
+código en vez de leerlo entero.
+
+Está contado en
+[`AUDITORIA-C-QA.md`](documentacion/09-fases/AUDITORIA-C-QA.md).
+
 ### 8.6 B · Auditoría de seguridad (§140): los quince puntos, medidos
 
 Segunda de las cuatro pasadas separadas. Se recorrió el `THREAT_MODEL.md` §8

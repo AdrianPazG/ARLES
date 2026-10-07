@@ -25,7 +25,12 @@ pub enum AttemptState {
     /// No significa «entregado»: significa que el proveedor se hizo cargo.
     /// La interfaz dice «Aceptado» (§65).
     Sent,
-    /// Fallo transitorio. Se reintentará con backoff.
+    /// Fallo transitorio. Se reintentará a los 5, 15 y 30 minutos.
+    ///
+    /// **No es backoff**, aunque este comentario lo dijo hasta el 07/10/2026:
+    /// es la tabla fija de `reintento::ESPERAS`, que Dirección cambió el
+    /// 23/09/2026 (D-12) porque la progresión geométrica gastaba los cinco
+    /// intentos dentro del mismo corte de luz.
     Failed,
     /// Fallo definitivo. No se reintenta.
     PermanentlyFailed,

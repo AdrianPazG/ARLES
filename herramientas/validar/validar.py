@@ -753,7 +753,14 @@ def el_grafo_de_crates_solo_apunta_hacia_dentro():
         "arles-whatsapp": {"arles-core", "arles-motor"},
         "arles-app": {"arles-core", "arles-db", "arles-import", "arles-motor",
                       "arles-email", "arles-whatsapp"},
-        "arles-banco": {"arles-core", "arles-db", "arles-import"},
+        # `arles-motor` entró el 07/10/2026 con la corrida larga de la
+        # auditoría C: para medir si la memoria del motor se estabiliza hay que
+        # hacerlo correr. La flecha apunta hacia dentro igual que las otras
+        # tres, y el banco sigue sin que nadie dependa de él.
+        #
+        # Esta comprobación la cazó el mismo día que se añadió, que es
+        # exactamente para lo que la escribió la auditoría A.
+        "arles-banco": {"arles-core", "arles-db", "arles-import", "arles-motor"},
     }
 
     problemas = []
@@ -5513,6 +5520,105 @@ def el_banco_no_viaja_en_el_instalador():
     )
 
 
+def cada_caso_frontera_nombra_su_test():
+    """**Una lista de casos frontera que nadie puede comprobar envejece sola.**
+
+    `ESTRATEGIA_QA.md` §3 lleva desde la Fase 0 la lista de los fallos que
+    convierten ARLES en un problema para el cliente, y afirmaba de ella que
+    «cada uno tiene un test con nombre» — **sin decir cuál**. Así que la
+    afirmación no se podía comprobar, y la auditoría C del §140 la comprobó a
+    mano el 07/10/2026: a dos casos les faltaba el test, y tres describían
+    caminos que el producto no tiene.
+
+    Ahora cada fila nombra su test y esto lo verifica: lee los nombres entre
+    comillas invertidas de las tablas del §3 y exige que cada uno exista como
+    `fn <nombre>` en algún `.rs` de `crates/`. Un test que alguien renombre o
+    borre deja la tabla mintiendo, y aquí se para.
+
+    **Lo que esta comprobación NO hace, y conviene saberlo:** comprueba que el
+    test *existe*, no que *cubra el caso*. Para eso no hay comprobación
+    automática posible — es lo que hace la auditoría cada vez, y por eso la
+    auditoría existe.
+
+    Verificada el 07/10/2026 de dos formas: renombrando
+    `quien_pidio_la_baja_no_recibe_nada` en el motor —falla nombrándolo— y
+    quitando una columna «Su test» de una tabla del documento, que falla por
+    tener menos casos nombrados que filas.
+    """
+    faltan = []
+
+    doc = leer("documentacion", "06-calidad", "ESTRATEGIA_QA.md") or ""
+    if not doc:
+        faltan.append("no existe ESTRATEGIA_QA.md")
+        check(8, "cada caso frontera nombra su test", False,
+              cada_caso_frontera_nombra_su_test.__doc__, detalle="\n      ".join(faltan))
+        return
+
+    # Sólo el §3, no el documento entero: el §5 también nombra cosas entre
+    # comillas y no son tests.
+    try:
+        trozo = doc[doc.index("## 3. Los casos que de verdad rompen"):doc.index("## 3 bis.")]
+    except ValueError:
+        faltan.append("el §3 no tiene la forma esperada: ¿se renombró la sección?")
+        trozo = ""
+
+    # ── SÓLO LAS FILAS DE TABLA, Y ESTO LO ENSEÑÓ UN ROJO ──
+    #
+    # Escrita sobre el §3 entero, esta comprobación salió en rojo el
+    # 07/10/2026 señalando `cada_caso_frontera_nombra_su_test` — **su propio
+    # nombre**, que la entradilla de la sección cita al explicar qué vigila.
+    # Es la trampa que este proyecto ya ha visto cinco veces —una comprobación
+    # que se caza a sí misma en un texto— y aquí apareció del revés: no un
+    # falso verde, un falso rojo sobre un documento correcto.
+    #
+    # El arreglo no es una excepción con su nombre dentro, que se quedaría
+    # obsoleta al renombrarla: es mirar **sólo las filas de tabla**, que es
+    # donde viven los casos. Lo que el documento diga en prosa sobre sí mismo
+    # no es un caso frontera.
+    filas = [l for l in trozo.splitlines() if l.lstrip().startswith("|")]
+    # Los nombres de test tienen forma de identificador de Rust y son largos:
+    # el filtro de longitud deja fuera `.arles`, `.txt`, `company.timezone` y
+    # los demás nombres cortos que las tablas citan.
+    nombres = {
+        n for n in re.findall(r"`([a-z][a-z0-9_]+)`", "\n".join(filas))
+        if n.count("_") >= 3
+    }
+
+    # ── LA GUARDA QUE FALTABA, Y ES LA IMPORTANTE ──
+    #
+    # Sin esto, borrar la columna «Su test» de una tabla entera dejaría la
+    # comprobación en verde: cero nombres, cero fallos. Es la forma de fallo
+    # que esta familia de comprobaciones ha tenido cinco veces en este
+    # proyecto — vigilar una lista y no vigilar que la lista esté llena.
+    MINIMO = 25
+    if len(nombres) < MINIMO:
+        faltan.append(
+            f"el §3 sólo nombra {len(nombres)} tests y tiene que nombrar al menos "
+            f"{MINIMO}: ¿se quitó la columna «Su test» de alguna tabla?"
+        )
+
+    declaradas = set()
+    for ruta, _, archivos in os.walk(os.path.join(RAIZ, "crates")):
+        for archivo in archivos:
+            if archivo.endswith(".rs"):
+                try:
+                    with open(os.path.join(ruta, archivo), encoding="utf-8") as f:
+                        declaradas.update(re.findall(r"\bfn\s+([a-z][a-z0-9_]+)", f.read()))
+                except OSError:
+                    pass
+
+    for n in sorted(nombres - declaradas):
+        faltan.append(f"el §3 nombra el test `{n}` y no existe en crates/")
+
+    check(
+        8,
+        f"cada caso frontera nombra su test ({len(nombres)} nombrados)",
+        not faltan,
+        cada_caso_frontera_nombra_su_test.__doc__,
+        detalle="\n      ".join(faltan),
+    )
+
+
 def la_clave_perdida_tiene_salida():
     """**El consejo que el producto no puede cumplir.**
 
@@ -5955,6 +6061,9 @@ def fase_8(rapido=False):
 
     print(f"{GRIS}  los índices y su vigilancia (8.6){FIN}")
     cambiar_una_migracion_recompila()
+
+    print(f"{GRIS}  la auditoría de QA (8.6 C){FIN}")
+    cada_caso_frontera_nombra_su_test()
 
 
 def fase_7(rapido=False):

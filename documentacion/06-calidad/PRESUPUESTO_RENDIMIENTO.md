@@ -21,19 +21,53 @@ detectar lo que está mal por un orden de magnitud — no para certificar.
 
 | Operación | Presupuesto | Medido (V10) | Medido (V11) | Veredicto |
 |---|---|---|---|---|
-| Importar 500 000 filas | < 5 min | 51.7 s | **91.4 s** | ✅ cumple (30 % del techo) |
+| Importar 500 000 filas | < 5 min | 51.7 s | **91.4 s** · 110.7 s | ✅ cumple (37 % del techo) |
 | Memoria durante importación | < 500 MB | 497 MB | 497 MB | ⚠️ cumple por 3 MB |
-| **Búsqueda por correo** | < 100 ms | ❌ 331 ms | ✅ **< 1 ms** | ✅ **arreglado** |
-| **Abrir tabla de contactos** (la consulta) | < 500 ms | ❌ 1 424 ms | ✅ **357 ms** | ✅ **arreglado** |
+| **Búsqueda por correo** | < 100 ms | ❌ 331 ms | ✅ **< 1 ms** | ✅ arreglado en la 8.6 |
+| **Abrir tabla de contactos** (la consulta) | < 500 ms | ❌ 1 424 ms | ✅ **357 ms** | ✅ arreglado en la 8.6 |
 | Simulación de campaña | < 200 ms | 5.9 ms | 6.0 ms | ✅ cumple |
+| **Calcular audiencia de campaña** (activar) | < 2 s | — | ❌ **73.5 s** | ❌ **36× por encima** |
+| **Filtro del registro por texto** | < 1 s | — | ❌ **3 709 ms** | ❌ **3.7× por encima** |
+| **Memoria del motor en corrida larga** | < 250 MB | — | ✅ **13.9 MB, plana** | ✅ cumple · parcial (sin webview) |
 | Arranque en frío | < 2 s | — | — | ⬜ sin medir (R-07) |
 | Desplazamiento en tabla virtualizada | 60 fps | — | — | ⬜ sin medir (R-07) |
-| Filtro sobre 500 k contactos | < 1 s | — | — | ⬜ **no existe todavía** |
-| Calcular audiencia de campaña | < 2 s | — | — | ⬜ sin medir |
+| Filtro sobre 500 k **contactos** | < 1 s | — | — | ⬜ **no existe todavía** |
 | Preflight completo | < 3 s | — | — | ⬜ sin medir (R-24) |
-| Memoria en reposo con motor activo | < 250 MB | — | — | ⬜ sin medir (R-07) |
 | Importar 100 k filas XLSX | < 60 s | — | — | ⬜ sin medir |
 | Tamaño del instalador | < 20 MB | — | — | ⬜ sin medir (P-01) |
+
+> **Las tres filas nuevas las midió la auditoría C del §140 el 07/10/2026**, y
+> las tres estaban declaradas «sin medir» por motivos que no se sostenían al
+> mirarlos:
+>
+> - «Calcular audiencia» decía *«exige una campaña activa con su etapa y
+>   remitente: es un banco aparte»*. Eso es una **molestia**, no un
+>   impedimento: la etapa y el remitente son cuatro `INSERT`. Y era la peor
+>   cifra del producto.
+> - «Filtro sobre 500 k» decía *«no existe todavía»*. Es verdad de la **lista de
+>   contactos** —`listar_contactos` sólo toma página y tamaño— y falso del
+>   producto: la 7.4 construyó seis filtros combinables sobre el registro. Las
+>   dos filas están ahora separadas, porque son dos cosas.
+> - «Memoria en reposo con motor activo» decía *«sin llavero no arranca la
+>   aplicación entera»*. Verdad de la aplicación, falso del motor, que corre
+>   contra un proveedor simulado desde la 4.3a.
+>
+> **Un «sin medir» con un motivo falso es peor que un hueco**, porque cierra la
+> pregunta. Los cuatro que quedan arriba sí tienen un motivo que se sostiene:
+> necesitan una webview, una red sin puertos bloqueados o un empaquetador.
+
+### Importar 500 000: una cuarta medición, y lo que dice del ruido
+
+La 8.6 dio **91.4 s** sobre tres corridas (91.1, 93.8, 91.4). La de hoy, mismo
+conjunto, misma semilla, misma máquina: **110.7 s**, un 21 % más.
+
+No se cambia la cifra de la 8.6 ni se tacha: **se escriben las dos**. Lo que
+esto dice es que la máquina de medición tiene un ruido de ese orden, así que una
+regresión por debajo del 25 % **no se puede distinguir aquí** — y el margen del
+20 % del §5 es demasiado estrecho para este contenedor. En la máquina de
+referencia del §2 habrá que volver a medirlo.
+
+Sigue dentro de presupuesto con 2.7× de margen (111 s de 300).
 
 > **La columna V11 se midió el 06/10/2026** con el mismo conjunto y la misma
 > semilla, en la misma máquina, el mismo día. La importación se corrió **tres
@@ -97,6 +131,84 @@ no encaja es la consulta.
 > 06/10/2026. La consecuencia que se avisó antes de hacerlo: **un respaldo
 > tomado con el esquema V10 ya no se puede restaurar** (ver 8.3b). No existía
 > ninguno fuera de las pruebas, que es justo por lo que se hizo ese día.
+
+### Los dos que falló la auditoría C (07/10/2026), con su curva
+
+**1 · Activar una campaña — 73.5 s de 2 s.**
+
+No es «va lento»: es una interfaz congelada tres cuartos de minuto en la acción
+central del producto. `activar_campana` corre **dentro de un comando de Tauri**,
+en una sola transacción y con el cerrojo de la conexión tomado, así que mientras
+dura no contesta nada y el motor no escribe.
+
+Se midió a cuatro escalas, con el mismo conjunto y la misma semilla:
+
+| Destinatarios | Activar | µs por fila |
+|---|---|---|
+| 18 121 | 1.2 s | 66 |
+| 45 253 | 3.8 s | 84 |
+| 135 588 | 16.7 s | 123 |
+| 451 196 | 73.5 s | 163 |
+
+**El presupuesto de 2 s se rompe alrededor de los 30 000 destinatarios**, que es
+una lista de tamaño ordinario. No es un problema del techo arquitectónico: es un
+problema de una campaña mediana.
+
+**Y la causa medida no es la que parecía.** La hipótesis obvia era el bucle que
+genera dos UUID por fila —451 196 pares, dos llamadas a entropía cada uno—. Se
+midió aparte: **0.58 s**, un 0.8 % del total. Lo que cuesta es la **escritura**:
+la activación mete ~451 000 filas en `campaign_audience` y otras ~451 000 en
+`message_attempt`, cada una actualizando sus índices, sobre SQLCipher. Es el
+mismo orden que la importación (~1.35 M filas en 111 s).
+
+Las alternativas y su coste están en
+[`AUDITORIA-C-QA.md`](../09-fases/AUDITORIA-C-QA.md) §C-1. **Pendiente de
+Dirección**, porque la opción barata no es técnica: a 50 correos diarios (§48)
+una campaña de 451 196 personas tarda **24 años** en enviarse, y el simulador ya
+lo dice en el paso 8 del asistente.
+
+**2 · Filtro del registro por texto — 3 709 ms de 1 s.**
+
+El filtro de texto de D-7C compara contra `message_attempt.contact_address` con
+`LIKE '%…%'`, que ningún índice puede aprovechar. El módulo ya lo decía, medido
+sobre 20 000 filas: 11 ms. La curva:
+
+| Sucesos | Coincidencias | Filtrar |
+|---|---|---|
+| 18 121 | 4 888 | 137 ms |
+| 45 253 | 12 160 | 486 ms |
+| 135 588 | 36 029 | 1 003 ms |
+| 451 196 | 119 532 | 3 709 ms |
+
+**El presupuesto se rompe justo a los ~135 000 sucesos**, y aquí la urgencia es
+otra: a 50 envíos diarios se tarda **más de siete años** en acumularlos, y el
+recorte bimestral de la 7.4 los quita antes. Lo que lo hace alcanzable es que
+ese recorte **lo pulsa el usuario**, no un reloj.
+
+Así que C-1 es trabajo y C-2 es una cifra declarada con su condición. Decir que
+los dos «fallan» sin esa diferencia habría sido exacto y useless.
+
+### La memoria del motor en una corrida larga, que nunca se había medido
+
+**20 000 envíos consecutivos: 13.9 MB en los cuatro cuartos de la corrida, y
+0.00 MB de crecimiento.** Es el tercer punto de la pasada C del §140 —«sin fugas
+de memoria en ejecuciones largas del motor»— y hasta hoy no se había intentado.
+
+No se mide un número, se mide una **forma**. Un proceso que envía veinte mil
+correos tiene que crecer al principio —SQLite llena su caché, el asignador pide
+arenas— y ese crecimiento es correcto y se detiene. Lo que el §7 llama fuga es
+«memoria que **crece sin estabilizarse**», así que la corrida se parte en cuatro
+tramos y se compara el último con el **segundo**. Comparar con el primero
+metería dentro todo el arranque y una corrida sana saldría en rojo.
+
+De paso sale el rendimiento del motor: 20 000 pasos en 261 s, **13 ms por
+envío**. Unas 77 por segundo, contra los 50 **diarios** que el producto permite:
+el motor no es el cuello de botella de nada, que es lo que el §6 ya decía y
+ahora está medido.
+
+**Es una medida parcial y hay que decirlo:** son el motor y la base, sin la
+ventana de Tauri ni la webview. El presupuesto de 250 MB habla de la aplicación
+entera, y esa mitad es R-07.
 
 ### Y el que pasa por tres megas
 
@@ -194,7 +306,35 @@ Lectura XLSX en **streaming** con `calamine`: el archivo nunca se carga entero e
 
 ### El motor no bloquea la interfaz
 
-Corre en su propio conjunto de tareas de Tokio (§51). La base de datos vive en un hilo dedicado con canal (ADR-0002), lo que además elimina de raíz los errores `SQLITE_BUSY` en vez de gestionarlos con reintentos.
+> **Este párrafo decía dos cosas que no eran verdad, y las corrigió la auditoría
+> C del §140 el 07/10/2026.** Decía que el motor corre «en su propio conjunto de
+> tareas de Tokio» —**el proyecto no usa Tokio**, ni lo ha usado nunca, y
+> `Proveedor` es síncrono a propósito— y que la base «vive en un hilo dedicado
+> con canal», que era el diseño pensado en la Fase 0 y no el que se construyó.
+>
+> Es el mismo defecto que la auditoría B encontró un día antes en
+> `THREAT_MODEL.md` §8, que pedía «la capa de redacción de `tracing`» sin que
+> el proyecto use `tracing`. Dos documentos de la Fase 0 nombrando bibliotecas
+> que nunca se adoptaron: lo que describen suena plausible, nadie lo relee, y
+> quien llega nuevo busca un `tokio::spawn` que no existe.
+
+**Lo que hay de verdad, medido el 07/10/2026:**
+
+El motor corre en **su propio hilo del sistema** (`std::thread`), que
+`arles-app` arranca desde la 5.4 (§51). Cerrar la ventana no detiene una
+campaña.
+
+La conexión a la base vive en un **`Mutex<Connection>`** dentro de `Db`
+(`arles-db/src/db.rs`). Eso serializa los accesos **dentro del proceso**, así
+que un `SQLITE_BUSY` entre el motor y la interfaz no puede ocurrir — pero no
+por un canal, y el `busy_timeout(5 s)` de `conexion.rs` **sigue puesto** para
+lo que venga de fuera. El cerrojo **no es reentrante**: llamar a un método
+público de `Db` desde dentro de un `con_dominio` cuelga el programa sin error
+ni traza, y es la trampa que documenta el CLAUDE.md.
+
+Entre procesos no hay reintentos ni canal: hay el **cerrojo de instancia** de
+`arles-motor/src/instancia.rs`, que impide que un segundo ARLES abra la misma
+base.
 
 ---
 

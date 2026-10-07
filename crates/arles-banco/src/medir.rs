@@ -242,7 +242,64 @@ pub fn correr(cuantas: usize, semilla: u64) -> Result<String, Box<dyn std::error
         });
     }
 
-    // ── 9 · Y las que no se pueden medir desde aquí ───────────────────────
+    // ── 9 · Activar una campaña sobre la base poblada ─────────────────────
+    //
+    // ── POR QUÉ ESTA CIFRA SE MIDE AHORA Y NO EN LA 8.5 ──────────────────
+    //
+    // La 8.5 la dejó como `SinMedir("exige una campaña activa con su etapa y
+    // remitente: es un banco aparte")`. Eso describe una **molestia**, no un
+    // impedimento: la etapa y el remitente son cuatro `INSERT`. La auditoría C
+    // del §140 la midió el 07/10/2026 y salió **la peor cifra del producto**.
+    //
+    // Y es la que más importa de las trece, porque `activar_campana` corre
+    // **dentro de un comando de Tauri**, en una sola transacción y con el
+    // cerrojo de la conexión tomado: mientras dura, la interfaz no contesta y
+    // el motor no escribe.
+    let activar = match activacion(&db, empresa, cuantas) {
+        Ok(d) => Some(d),
+        Err(e) => {
+            eprintln!("no se pudo medir la activación: {e}");
+            None
+        }
+    };
+    medidas.push(Medida {
+        operacion: "Calcular audiencia de campaña (activar)",
+        presupuesto: "< 2 s",
+        medido: activar.map_or_else(|| "no se pudo medir".to_owned(), |d| segundos(d.0)),
+        metodo: "Db::activar_campana sobre la base ya importada: congela la audiencia y llena la cola, en una transacción",
+        veredicto: match activar {
+            Some((d, _)) if d.as_millis() < 2000 => Veredicto::Cumple,
+            Some(_) => Veredicto::NoCumple,
+            None => Veredicto::SinMedir("la activación falló: ver la salida de error"),
+        },
+    });
+
+    // ── 10 · El filtro del registro, que sí existe desde la 7.4 ───────────
+    //
+    // La 8.5 declaró este presupuesto `NoConstruido("la audiencia no se puede
+    // filtrar todavía")`. Es verdad de la audiencia y **falso del producto**:
+    // la 7.4 construyó seis criterios combinables sobre el registro, y el de
+    // texto es el caso malo —un `LIKE '%…%'`, que ningún índice sirve—.
+    //
+    // Se mide el que se busca de verdad: una dirección parcial sobre los
+    // intentos que acaba de crear la activación de arriba.
+    let filtro = activar.and_then(|_| filtrar_el_registro(&db, empresa).ok());
+    medidas.push(Medida {
+        operacion: "Filtro del registro por texto",
+        presupuesto: "< 1 s",
+        medido: filtro.map_or_else(
+            || "no se pudo medir".to_owned(),
+            |(d, total)| format!("{} ({total} coincidencias)", ms(d)),
+        ),
+        metodo: "Db::sucesos con Filtro::texto sobre los intentos de la campaña activada",
+        veredicto: match filtro {
+            Some((d, _)) if d.as_millis() < 1000 => Veredicto::Cumple,
+            Some(_) => Veredicto::NoCumple,
+            None => Veredicto::SinMedir("exige la activación de arriba, que no se pudo medir"),
+        },
+    });
+
+    // ── 11 · Y las que no se pueden medir desde aquí ──────────────────────
     //
     // Cada una dice por qué, y ninguna dice «cumple».
     medidas.push(Medida {
@@ -263,18 +320,9 @@ pub fn correr(cuantas: usize, semilla: u64) -> Result<String, Box<dyn std::error
         operacion: "Filtro sobre 500 k contactos",
         presupuesto: "< 1 s",
         medido: "—".to_owned(),
-        metodo: "No hay filtro de contactos que medir",
+        metodo: "No hay filtro de la LISTA DE CONTACTOS: `listar_contactos` sólo toma página y tamaño. El del registro se mide arriba",
         veredicto: Veredicto::NoConstruido(
             "la audiencia no se puede filtrar todavía: está anotado desde la Fase 6",
-        ),
-    });
-    medidas.push(Medida {
-        operacion: "Calcular audiencia de campaña",
-        presupuesto: "< 2 s",
-        medido: "—".to_owned(),
-        metodo: "La audiencia se congela al activar, desde el asistente",
-        veredicto: Veredicto::SinMedir(
-            "exige una campaña activa con su etapa y remitente: es un banco aparte",
         ),
     });
     medidas.push(Medida {
@@ -375,6 +423,126 @@ fn importar(
         analisis.choques.len(),
         analisis.invalidas.len() + analisis.rechazadas.len(),
     ))
+}
+
+/// Siembra remitente, ventana y plantilla, crea una campaña y la **activa**.
+///
+/// Devuelve lo que tardó la activación y cuántos entraron en la audiencia. Se
+/// mide **sólo `activar_campana`**: sembrar la cuenta y crear el borrador son
+/// cuatro filas que el usuario hace en el asistente, y meterlas en el reloj
+/// daría una cifra peor y menos útil.
+///
+/// El tope diario va alto **con su aceptación de riesgo** (§48): la campaña que
+/// este presupuesto describe es la de medio millón, y `crear_campana` exige
+/// constancia de que se informó antes de dejar pasar de 50.
+fn activacion(
+    db: &arles_db::Db,
+    empresa: arles_core::ids::CompanyId,
+    cuantas: usize,
+) -> Result<(std::time::Duration, u32), Box<dyn std::error::Error>> {
+    use arles_db::alta_de_campana::CampanaNueva;
+    use arles_db::plantillas::Redaccion;
+
+    const CUENTA: &str = "01900000-0000-7000-8000-00000000000a";
+    let e = empresa.to_string();
+    db.ejecutar_en_pruebas(|c| {
+        c.execute_batch(&format!(
+            "INSERT INTO email_account (id, company_id, display_name, email_address,
+                                        provider_kind, credential_ref, status,
+                                        daily_limit, hourly_limit, created_at, updated_at)
+             VALUES ('{CUENTA}', '{e}', 'Banco', 'banco@ejemplo.mx', 'smtp',
+                     'llavero://banco', 'connected', 50, 10,
+                     '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+
+             INSERT INTO execution_window (id, company_id, name, days_of_week,
+                                           start_hour, end_hour, timezone, created_at)
+             VALUES ('vent-banco', '{e}', 'Laborables', 31, 9, 18,
+                     'America/Mexico_City', '2026-01-01T00:00:00Z');"
+        ))
+    })?;
+
+    let (_, version) = db.crear_plantilla(
+        empresa,
+        "Banco",
+        &Redaccion {
+            asunto: "Hola {{nombre}}".to_owned(),
+            cuerpo_html: "<p>Gracias</p>".to_owned(),
+        },
+    )?;
+
+    let creada = db.crear_campana(
+        empresa,
+        &CampanaNueva {
+            nombre: "Campaña del banco",
+            cuenta: CUENTA.parse().map_err(|e| format!("cuenta: {e:?}"))?,
+            version_de_plantilla: version,
+            ventana: "vent-banco",
+            limite_por_hora: Some(500),
+            limite_diario: Some(5_000),
+            acepto_el_riesgo_del_volumen: true,
+        },
+    )?;
+
+    let t = Instant::now();
+    let activada = db.activar_campana(empresa, creada.id)?;
+    let tardo = t.elapsed();
+    eprintln!(
+        "activada con {} destinatarios de {cuantas} en {}",
+        activada.en_la_audiencia,
+        segundos(tardo)
+    );
+    Ok((tardo, activada.en_la_audiencia))
+}
+
+/// Mide el filtro de texto del registro sobre los intentos ya creados.
+///
+/// Se busca un trozo de dominio que **todas** las filas contienen: es el peor
+/// caso del `LIKE '%…%'` y el que de verdad se escribe, porque quien filtra no
+/// sabe la dirección entera. Buscar algo que no está mediría el mismo recorrido
+/// con menos trabajo al devolver.
+///
+/// ── LOS SUCESOS SE SIEMBRAN CON SQL, Y HAY QUE DECIR POR QUÉ ─────────────
+///
+/// `activity_event` lo llena el motor, un desenlace por envío. Medio millón de
+/// envíos de verdad son medio millón de conexiones al servidor de mentira, que
+/// es otra medición y tarda horas. Lo que este presupuesto describe es **la
+/// consulta sobre una tabla grande**, así que lo honesto es poner las filas por
+/// el camino corto y decirlo, en vez de no medirlo.
+///
+/// Lo que esto **no** mide: lo que cuesta escribirlas. Eso lo paga el motor,
+/// una por envío, y se mide en la corrida larga.
+fn filtrar_el_registro(
+    db: &arles_db::Db,
+    empresa: arles_core::ids::CompanyId,
+) -> Result<(std::time::Duration, u32), Box<dyn std::error::Error>> {
+    use arles_db::actividad::Filtro;
+
+    db.ejecutar_en_pruebas(|c| {
+        c.execute_batch(
+            "INSERT INTO activity_event (id, company_id, campaign_id, campaign_stage_id,
+                                         channel, kind, is_outcome, message_attempt_id,
+                                         occurred_at)
+             SELECT 'ev-' || a.id, c.company_id, a.campaign_id, a.stage_id, 'email',
+                    'desenlace.aceptado', 1, a.id, a.created_at
+               FROM message_attempt a
+               JOIN campaign c ON c.id = a.campaign_id",
+        )
+    })?;
+
+    let filtro = Filtro {
+        texto: Some("ejemplo.mx"),
+        ..Filtro::default()
+    };
+    let t = Instant::now();
+    let pagina = db.sucesos(empresa, &filtro)?;
+    let tardo = t.elapsed();
+    eprintln!(
+        "el registro filtrado devolvió {} de {} en {}",
+        pagina.sucesos.len(),
+        pagina.total,
+        ms(tardo)
+    );
+    Ok((tardo, pagina.total))
 }
 
 fn informe(

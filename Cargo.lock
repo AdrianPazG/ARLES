@@ -122,6 +122,8 @@ dependencies = [
  "arles-core",
  "arles-db",
  "arles-import",
+ "arles-motor",
+ "rusqlite",
  "tempfile",
  "time",
 ]
