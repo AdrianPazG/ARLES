@@ -16,6 +16,11 @@ pub mod estado;
 pub mod fabrica;
 pub mod llavero;
 pub mod motor;
+/// Las cuatro cifras del respaldo, que el presupuesto no tenía (hallazgo F-4
+/// de la auditoría de la Fase 8). Sólo existe en pruebas: no entra en el
+/// binario que se distribuye.
+#[cfg(test)]
+mod presupuesto_del_respaldo;
 pub mod recuperacion;
 pub mod registro;
 pub mod respaldo;

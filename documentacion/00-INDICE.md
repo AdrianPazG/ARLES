@@ -149,6 +149,7 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Auditoría B · Seguridad](09-fases/AUDITORIA-B-SEGURIDAD.md) | §140, pasada 2 de 4 · los quince puntos del THREAT_MODEL §8, medidos |
 | [Auditoría C · QA y rendimiento](09-fases/AUDITORIA-C-QA.md) | §140, pasada 3 de 4 · los 32 casos frontera y las trece cifras, medidas |
 | [Auditoría D · UX y accesibilidad](09-fases/AUDITORIA-D-UX.md) | §140, pasada 4 de 4 · las dieciocho pantallas medidas en Chromium |
+| [Auditoría F · la Fase 8 entera](09-fases/AUDITORIA-F-FASE-08.md) | Las once entregas como un sistema · el respaldo cifrado que no se podía restaurar |
 
 ---
 

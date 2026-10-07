@@ -12,6 +12,105 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.6 F · Auditoría de la Fase 8 entera, por sus junturas
+
+Las once entregas de la fase vistas **como un sistema**: qué pasa si lo que sale
+de una entra en otra, a tamaño real y por el camino que el usuario recorre.
+**Cinco hallazgos, cinco arreglados**, con las diez fases en verde al empezar.
+Está contado en
+[`AUDITORIA-F-FASE-08.md`](documentacion/09-fases/AUDITORIA-F-FASE-08.md).
+
+#### F-5 · El respaldo cifrado no se podía restaurar
+
+**Es el hallazgo que justifica la pasada entera.** El cuerpo se descifra en
+trozos de 64 KiB (8.2a) y cada trozo se convertía a texto **por su cuenta**. Un
+trozo no es una unidad de texto: la frontera cae donde cae, y una `Á`, una `ñ` o
+una `é` ocupan dos bytes. En cuanto una frontera partía una letra acentuada —en
+una base mexicana, constantemente— el lector devolvía `RespaldoCorrupto`
+**sobre un archivo perfectamente bueno**.
+
+Con 30 000 contactos el cuerpo son 8.3 MB y unas 130 fronteras: que ninguna caiga
+mal es despreciable. Así que el respaldo se escribía bien, la pantalla lo leía
+bien —fecha, recuento, qué se pierde—, y al pulsar «Restaurar y reemplazar»
+decía que el archivo estaba estropeado. **Una copia de seguridad que existe,
+parece correcta y no abre el día que hace falta.**
+
+Ninguna prueba lo cazaba por dos razones que son la lección: todas las pruebas de
+ida y vuelta usaban **dos filas** —un trozo, ninguna frontera— y el último trozo
+siempre acaba en `\n`, que es ASCII. El único trozo que se ejercitaba era el
+único que no puede fallar.
+
+Arreglado con una cola de bytes que espera al trozo siguiente, y con la
+distinción que no se puede perder: `Utf8Error::error_len()` separa «se acabó la
+entrada a mitad de un carácter» —la frontera, normal— de una secuencia imposible
+—un archivo manipulado—. Esa rama **no aporta el rechazo** (la guarda del final
+ya rechazaría el archivo) sino *cuándo y a qué coste*: sin ella el byte malo se
+atasca y **la cola crece hasta el tamaño del archivo**, con la memoria acotada de
+la 8.2b por el suelo. La prueba lo mide: 3 bytes con la rama, 280 sin ella.
+
+#### F-2 y F-3 · Lo irreversible ocurría antes de lo comprobable
+
+`recuperar_desde_respaldo` apartaba la base y **escribía una clave nueva en el
+llavero** antes de leer el respaldo, así que una contraseña mal teclada
+—la del respaldo, que nadie guarda en ningún sitio (8.2a)— convertía un problema
+reversible en definitivo. Es el hallazgo F2 de la Fase 1, que esa pantalla existe
+para no repetir.
+
+Y tenía dos disparadores más, los dos conocibles de la cabecera: un **archivo de
+historial** elegido por error —el escenario realista, quien busca «el archivo de
+ARLES» encuentra dos— y un respaldo de **otro esquema**. Peor: la pantalla
+**decía que sí se podía restaurar** un archivo de historial, porque el veredicto
+sólo comparaba esquemas y no preguntaba por el alcance.
+
+El arreglo es una regla: **nada irreversible ocurre hasta que todo lo conocible
+está comprobado.** `comprobar_el_respaldo_antes_de_tocar_nada` valida alcance,
+esquema y que el archivo se abra y se descifre —pidiendo la primera fila, porque
+el cifrado autenticado no sabe si la contraseña es buena hasta que una etiqueta
+cuadra— y sólo entonces se toca la base y el llavero.
+
+#### F-1 · El camino por defecto, sin recorrer
+
+Tres decisiones se cruzan en la recuperación y ninguna prueba cruzaba las tres:
+el respaldo va cifrado por defecto (D-8A), perder el llavero se arregla
+restaurando uno (8.4), y la contraseña del respaldo no se guarda (8.2a). El
+desastre realista no es «perdí el llavero»: es **«perdí el llavero y mi único
+respaldo está cifrado»**. El comando aceptaba contraseña desde la 8.4 y nunca se
+había probado con una.
+
+#### F-4 · Las cuatro cifras que el presupuesto no tenía
+
+Ninguna de las trece cifras medía exportar, restaurar ni archivar — la fase que
+recorre la base entera, dentro de un comando de Tauri y con el cerrojo tomado.
+Es el hueco que la auditoría C encontró con la activación de campañas, donde
+resultó ser el peor número del producto.
+
+Medido con 30 000 contactos: exportar cifrado **244 ms**, restaurar **745 ms**,
+revisar **0.1 ms** y la memoria **15 → 19 MB**. Las cuatro holgadas, y eso
+también es un resultado. Lo importante no fue ninguna de ellas: fue que **al ir a
+medirlas apareció F-5**.
+
+Los cuatro presupuestos son **propuestas de esta auditoría**, no requisitos de la
+Fase 0, y así están escritos.
+
+#### Y seis defectos de mis propias comprobaciones, en una tarde
+
+- Un **nombre de error inventado** (`RespaldoDeOtroEsquema`; el real es
+  `RespaldoNoEncaja`) — tercera vez en esta auditoría.
+- Dos pruebas comparando **el nombre de la variante de Rust** cuando `ErrorIpc`
+  lleva la clave de i18n: en rojo sobre código correcto.
+- **La prueba de regresión de F-5 pasaba por suerte**: con 1 200 filas hay una
+  frontera y salió en verde con el lector roto a propósito. Ahora lleva 14 000
+  filas y **comprueba que haya quince fronteras**. *Una prueba probabilística
+  tiene que declarar su margen.*
+- La prueba del byte imposible **aceptaba cualquier rechazo**, así que tampoco
+  cazaba su ruptura.
+- **Mi verificación de haber restaurado una ruptura contó el comentario que la
+  explica**, así que estuve trabajando sobre un archivo roto creyéndolo bueno.
+  **Octava vez en el proyecto**, y la conclusión de la 8.6 E —quitar los
+  comentarios siempre— no la había aplicado al propio bucle de rupturas, que es
+  donde más duele.
+- Una consulta de prueba buscando un dato que yo mismo había cambiado.
+
 ### 8.6 E · El desenlace conectado, y el aviso de espera
 
 Lo que Dirección pidió como «el tope de activación» **ya estaba decidido y

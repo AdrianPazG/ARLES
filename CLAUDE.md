@@ -1260,6 +1260,65 @@ nombrando los seis tramos.
 > comentarios siempre, por defecto, en cualquier comprobación que busque una
 > cadena en un archivo.
 
+**Cerrada la 8.6 F · la auditoría de la Fase 8 entera**, mirada **como un
+sistema** y no entrega por entrega: qué pasa si lo que sale de una entra en otra,
+a tamaño real y por el camino que el usuario recorre. **Cinco hallazgos, cinco
+arreglados**, con las diez fases en verde al empezar. Está contado en
+[`AUDITORIA-F-FASE-08.md`](documentacion/09-fases/AUDITORIA-F-FASE-08.md).
+
+> **La Fase 8 estaba en verde y su función principal no funcionaba.** El cuerpo
+> de un respaldo cifrado se descifra en trozos de 64 KiB y cada trozo se
+> convertía a texto **por su cuenta**. Un trozo no es una unidad de texto: una
+> `Á`, una `ñ` o una `é` ocupan dos bytes, y en cuanto una frontera partía una
+> letra acentuada el lector devolvía `RespaldoCorrupto` **sobre un archivo
+> perfectamente bueno**. Con 30 000 contactos hay unas 130 fronteras: que
+> ninguna caiga mal es despreciable.
+>
+> Así que el respaldo se escribía bien, la pantalla lo leía bien, y al pulsar
+> «Restaurar y reemplazar» decía que el archivo estaba estropeado. **Una copia
+> de seguridad que existe, parece correcta y no abre el día que hace falta** —
+> que es exactamente lo que esta fase existía para no tener.
+>
+> **Ninguna prueba podía cazarlo**, y las dos razones son la lección: todas las
+> pruebas de ida y vuelta usaban **dos filas** —un trozo, ninguna frontera— y el
+> último trozo siempre acaba en `\n`, que es ASCII. El único trozo que se
+> ejercitaba era el único que no puede fallar. Y no lo encontró leer el código ni
+> correr las pruebas: lo encontró **poner treinta mil contactos y cronometrar**.
+
+> **Una prueba de ida y vuelta con dos filas no prueba una ida y vuelta.** Si lo
+> que se recorre tiene trozos, páginas, lotes o cursores, la prueba tiene que
+> cruzar **varias** fronteras — y decir cuántas. La prueba de regresión de este
+> fallo salió en verde en su primera versión, con el lector roto a propósito,
+> porque 1 200 filas dan una sola frontera: **una prueba probabilística tiene que
+> declarar su margen**, o el día que alguien la haga más rápida deja de probar
+> algo y nadie se entera.
+
+> **Nada irreversible ocurre hasta que todo lo comprobable está comprobado.** La
+> recuperación del llavero perdido apartaba la base y **escribía una clave nueva
+> en el llavero** antes de leer el respaldo, así que una contraseña mal teclada
+> —la del respaldo, que nadie guarda (8.2a)— volvía definitivo un problema
+> reversible: el F2 de la Fase 1, en la pantalla que existe para no repetirlo. Y
+> con dos disparadores más que se saben **de la cabecera**: un archivo de
+> historial elegido por error y un respaldo de otro esquema. La pantalla además
+> **decía que sí se podía restaurar** un archivo de historial, porque el
+> veredicto comparaba esquemas y no preguntaba por el alcance.
+
+> **Las cuatro cifras del respaldo, que el presupuesto no tenía** (30 000
+> contactos, 07/10/2026): exportar cifrado **244 ms**, restaurar **745 ms**,
+> revisar **0.1 ms**, memoria **15 → 19 MB**. Las cuatro holgadas — la fase que
+> más datos mueve no tiene un problema de rendimiento. Los presupuestos son
+> **propuestas de esta auditoría**, no requisitos de la Fase 0, y así están
+> escritos.
+
+> **Y el octavo comentario que se caza a sí mismo, el peor sitio posible: mi
+> propio bucle de rupturas.** Verifiqué «la ruptura está restaurada» con un grep
+> que casaba el comentario de dos líneas encima del código, y estuve trabajando
+> sobre un archivo roto creyéndolo bueno — así que la ruptura siguiente salió en
+> verde por eso y no por el código. La conclusión de la 8.6 E era correcta y no
+> la había aplicado donde más duele: **una restauración que no restaura deja sin
+> significado todo lo que viene después.** Se verifica contra el bloque de código
+> entero, nunca contra un identificador.
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |

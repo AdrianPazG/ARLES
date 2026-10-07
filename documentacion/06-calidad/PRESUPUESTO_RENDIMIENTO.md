@@ -34,9 +34,35 @@ detectar lo que está mal por un orden de magnitud — no para certificar.
 | Filtro sobre 500 k **contactos** | < 1 s | — | — | ⬜ **no existe todavía** |
 | Preflight completo | < 3 s | — | — | ⬜ sin medir (R-24) |
 | Importar 100 k filas XLSX | < 60 s | — | — | ⬜ sin medir |
+| **Exportar un respaldo cifrado** | < 30 s | — | ✅ **244 ms / 30 k** · ~4 s / 500 k | ✅ cumple · medido en la auditoría F |
+| **Restaurar un respaldo** | < 60 s | — | ✅ **745 ms / 30 k** · ~12 s / 500 k | ✅ cumple · medido en la auditoría F |
+| **Revisar un respaldo** (el preflight) | < 1 s | — | ✅ **0.1 ms** · no crece con las filas | ✅ cumple · lee sólo la cabecera |
+| **Memoria al exportar y restaurar** | < 500 MB | — | ✅ **15 → 19 MB** | ✅ cumple · el cursor de la 8.2b |
 | Tamaño del instalador | < 20 MB | — | — | ⬜ sin medir (P-01) |
 
-> **Las tres filas nuevas las midió la auditoría C del §140 el 07/10/2026**, y
+> **Las cuatro filas del respaldo son nuevas, y sus presupuestos también.** Los
+> midió la auditoría F de la Fase 8 el 07/10/2026, y conviene ser claro en lo que
+> son: **la Fase 8 construyó exportar, restaurar y archivar sin ningún
+> presupuesto declarado** —ninguna de las trece cifras originales los
+> mencionaba—, así que las columnas «< 30 s», «< 60 s», «< 1 s» y «< 500 MB» son
+> **propuestas de esta auditoría**, no requisitos que vinieran de la Fase 0.
+>
+> Están puestas donde está la frase que hay que poder decir: *«pulsé respaldar y
+> no me dio tiempo a preguntarme si se había colgado»*. Las cuatro medidas caben
+> con dos órdenes de magnitud de margen, así que afinar el número no cambia nada
+> hoy; **Dirección puede bajarlas cuando quiera** y seguirán cumpliéndose.
+>
+> La de memoria no es una propuesta suelta: es la garantía que la 8.2b y la 8.2c
+> escribieron —cursor y sobre a trozos, nunca el cuerpo entero en memoria— y que
+> hasta hoy **no tenía una sola cifra al lado**.
+>
+> Y lo importante de esa pasada no fue ninguna de las cuatro: fue que al ir a
+> medirlas apareció que **un respaldo cifrado de tamaño real no se podía
+> restaurar**. Está contado en
+> [`AUDITORIA-F-FASE-08.md`](../09-fases/AUDITORIA-F-FASE-08.md).
+
+> **Las tres filas del motor y las campañas las midió la auditoría C del §140 el
+> 07/10/2026**, y
 > las tres estaban declaradas «sin medir» por motivos que no se sostenían al
 > mirarlos:
 >

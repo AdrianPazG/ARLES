@@ -281,6 +281,23 @@ pub(crate) struct LeeElArchivo {
     sobre: Option<SobreQueSeAbre>,
     /// Texto claro leído y todavía no entregado como filas.
     pendiente: String,
+    /// Los bytes del final del último trozo que **no completan un carácter**.
+    ///
+    /// ── POR QUÉ ESTO EXISTE, Y EL FALLO QUE NO TENERLO CAUSABA ───────────
+    ///
+    /// El cuerpo se descifra en trozos de 64 KiB (8.2a) y **un trozo no es una
+    /// unidad de texto**: la frontera cae donde cae, y en una base mexicana cae
+    /// a menudo en la mitad de una `Á`, una `ñ` o una `é`, que ocupan dos bytes.
+    /// Convertir cada trozo a texto por separado daba entonces
+    /// `RespaldoCorrupto` sobre un archivo perfectamente bueno, y el respaldo
+    /// que D-8A hace el valor por defecto **no se podía restaurar**.
+    ///
+    /// Ninguna prueba lo cazaba porque todas usaban un puñado de filas: un solo
+    /// trozo, y el último siempre acaba en `\n`. Apareció con 30 000 contactos,
+    /// midiendo el presupuesto que esta fase no tenía. Es la misma clase de
+    /// juntura que el cifrado a trozos ya tuvo dos veces: **las dos piezas
+    /// correctas y el agujero en la unión**.
+    cola: Vec<u8>,
     /// `true` cuando el archivo se acabó.
     se_acabo: bool,
     suma: SumaEnCurso,
@@ -333,6 +350,7 @@ impl LeeElArchivo {
             fichero,
             sobre,
             pendiente: String::new(),
+            cola: Vec::new(),
             se_acabo: false,
             suma,
             declarada: None,
@@ -398,12 +416,65 @@ impl LeeElArchivo {
         if claro.is_empty() && self.se_acabo {
             return Ok(false);
         }
-        self.pendiente
-            .push_str(std::str::from_utf8(&claro).map_err(|_| {
-                arles_db::DbError::Nucleo(arles_core::CoreError::RespaldoCorrupto {
-                    motivo: "el contenido del respaldo no es texto válido",
-                })
-            })?);
+        // ── DE BYTES A TEXTO, SIN FIARSE DE DÓNDE CORTÓ EL TROZO ──
+        //
+        // Se pegan los bytes que quedaron a medias del trozo anterior, se
+        // decodifica **hasta donde haya caracteres completos**, y el resto
+        // vuelve a esperar. Así las fronteras de trozo dejan de tener nada que
+        // ver con las de carácter, que es como debió ser desde el principio.
+        let mut bytes = std::mem::take(&mut self.cola);
+        bytes.extend_from_slice(&claro);
+
+        let corrupto = || {
+            arles_db::DbError::Nucleo(arles_core::CoreError::RespaldoCorrupto {
+                motivo: "el contenido del respaldo no es texto válido",
+            })
+        };
+
+        let valido = match std::str::from_utf8(&bytes) {
+            Ok(texto) => {
+                self.pendiente.push_str(texto);
+                bytes.len()
+            }
+            Err(e) => {
+                // ── LA DISTINCIÓN QUE NO SE PUEDE PERDER ──
+                //
+                // `error_len() == None` significa «se acabó la entrada a mitad
+                // de un carácter»: eso es el corte del trozo y es normal.
+                // `Some(_)` es una secuencia que **no puede** ser UTF-8, y eso
+                // sí es un archivo manipulado o estropeado. Tratar los dos
+                // igual sería volver al fallo original.
+                //
+                // **Qué garantiza exactamente, que no es lo que parece.** La
+                // guarda del final de esta función ya rechaza un archivo que
+                // acaba con bytes a medias, así que sin esta rama un byte
+                // imposible **también** se rechazaría — al final. Lo que esta
+                // rama aporta es *cuándo* y *con qué coste*: sin ella, el byte
+                // malo se queda en la cola y cada trozo siguiente se le pega
+                // sin poder decodificar nada, así que **la cola crece hasta el
+                // tamaño del archivo** y la memoria acotada de la 8.2b se va al
+                // suelo con medio millón de filas. Lo vigila la prueba
+                // `un_byte_que_no_puede_ser_utf8_no_se_cuela`, midiendo la cola.
+                if e.error_len().is_some() {
+                    return Err(corrupto());
+                }
+                let hasta = e.valid_up_to();
+                self.pendiente.push_str(
+                    std::str::from_utf8(bytes.get(..hasta).unwrap_or_default())
+                        .map_err(|_| corrupto())?,
+                );
+                hasta
+            }
+        };
+        self.cola = bytes.split_off(valido);
+
+        // Si el archivo se acabó y quedan bytes a medias, el último carácter
+        // está partido: eso ya no es una frontera de trozo, es un archivo
+        // cortado — y uno cortado por la mitad de una letra tiene que decirlo
+        // en vez de entregar una fila truncada.
+        if self.se_acabo && !self.cola.is_empty() {
+            return Err(corrupto());
+        }
         Ok(true)
     }
 }
@@ -700,5 +771,198 @@ mod tests {
         let ruta = dir.path().join("vacaciones.jpg");
         std::fs::write(&ruta, b"\xff\xd8\xff\xe0 no soy un respaldo").expect("escribe");
         assert!(leer_la_cabecera(&ruta).is_err());
+    }
+
+    /// **Un respaldo cifrado con acentos y más de un trozo se restaura.**
+    ///
+    /// ── LA PRUEBA QUE TODAS LAS DEMÁS EVITABAN SIN QUERER ─────────────────
+    ///
+    /// El cuerpo se descifra en trozos de 64 KiB, y hasta hoy cada trozo se
+    /// convertía a texto por su cuenta. Una `Á` ocupa dos bytes, así que en
+    /// cuanto un trozo cortaba por la mitad de una letra acentuada el
+    /// respaldo daba `RespaldoCorrupto` **siendo perfectamente bueno**: el
+    /// respaldo cifrado, que D-8A hace el valor por defecto, no se podía
+    /// restaurar en ninguna base de tamaño real.
+    ///
+    /// Ninguna de las pruebas de la fase lo cazaba, y las dos razones importan:
+    /// todas usaban **dos filas** —un trozo, nunca una frontera— y el último
+    /// trozo siempre acaba en `\n`. Apareció midiendo el presupuesto que esta
+    /// fase no tenía, con 30 000 contactos, el 07/10/2026.
+    ///
+    /// Así que esta prueba siembra **lo suficiente para pasar de 64 KiB** y
+    /// nombres con acentos en cada fila. Verificada volviendo el lector a
+    /// `from_utf8(&claro)`: falla con «el contenido del respaldo no es texto
+    /// válido», que es exactamente el síntoma del fallo original.
+    #[test]
+    fn un_respaldo_cifrado_de_mas_de_un_trozo_con_acentos_se_restaura() {
+        const CONTRASENA: &str = "una contraseña larga de verdad";
+        // ── CUÁNTAS FILAS, Y POR QUÉ ESTA CIFRA NO ES DECORATIVA ──
+        //
+        // La primera versión ponía 1 200 filas (~100 KB): **pasaba por suerte**.
+        // Con 100 KB hay una o dos fronteras de trozo, y que una caiga justo en
+        // la mitad de una letra acentuada es improbable — así que la prueba
+        // salió en verde incluso con el lector roto a propósito, que es la
+        // definición del §2 de una comprobación que no vale.
+        //
+        // Cada frontera falla con probabilidad parecida a la fracción de bytes
+        // que son la segunda mitad de un par. Con los campos de abajo, llenos
+        // de acentos, eso ronda el 25 %: con una frontera, la prueba acierta
+        // una vez de cuatro; con veinte, falla el 99.7 % de las veces. Así que
+        // lo que la hace válida es **el número de fronteras**, y abajo se
+        // comprueba que de verdad las haya en vez de darlas por supuestas.
+        const FILAS: usize = 14_000;
+        /// Cuántas fronteras de trozo hacen falta para que esto no sea un
+        /// sorteo. Si alguien baja `FILAS`, la prueba lo dice en voz alta.
+        const FRONTERAS_MINIMAS: u64 = 15;
+
+        let (_d1, origen_db) = base_con_datos();
+        origen_db
+            .ejecutar_en_pruebas(|c| {
+                let tx = c.unchecked_transaction()?;
+                {
+                    let mut mete = tx.prepare(
+                        "INSERT INTO contact (id, company_id, import_batch_id, first_name, last_name, source, created_at, updated_at)
+                           VALUES (?1, 'E1', 'L1', ?2, ?3, ?4, '2026-01-02T00:00:00Z', '2026-01-02T00:00:00Z')",
+                    )?;
+                    for i in 0..FILAS {
+                        // Campos densos en caracteres de dos bytes: es lo que
+                        // le da a las fronteras dónde caer mal.
+                        mete.execute(rusqlite::params![
+                            format!("X{i:06}"),
+                            format!("Ángela Ñoño Iñárritu Übermann {i}"),
+                            "Álvarez Bañuelos Peña Núñez Echeverría",
+                            "Café de Olla Ñandú, S.A. de C.V. — Á É Í Ó Ú"
+                        ])?;
+                    }
+                }
+                tx.commit()
+            })
+            .expect("siembra las filas con acentos");
+
+        let dir = tempfile::tempdir().expect("temporal");
+        let ruta = dir.path().join("grande.arles");
+        escribir(&origen_db, &ruta, Some(CONTRASENA));
+
+        // Que de verdad hay fronteras suficientes. Sin esta comprobación, bajar
+        // `FILAS` dejaría la prueba en verde sin ejercitar nada — y en verde es
+        // precisamente como estaba el día que el fallo existía.
+        let bytes = std::fs::metadata(&ruta).expect("mide").len();
+        let fronteras = bytes / 65_536;
+        assert!(
+            fronteras >= FRONTERAS_MINIMAS,
+            "el respaldo mide {bytes} bytes: sólo {fronteras} fronteras de trozo, y hacen falta \
+             {FRONTERAS_MINIMAS} para que esto no dependa de la suerte"
+        );
+
+        let (_d2, destino_db) = base_vacia();
+        let (cabecera, salta) = leer_la_cabecera(&ruta).expect("cabecera");
+        let mut lector =
+            LeeElArchivo::nuevo(&ruta, &cabecera, salta, Some(CONTRASENA)).expect("abre el lector");
+        let paso = destino_db
+            .restaurar(
+                &mut lector,
+                &cabecera.esquema,
+                &cabecera.columnas,
+                cabecera.alcance.clone(),
+                "dirección",
+                "2026-10-07T13:00:00Z",
+            )
+            .expect("un respaldo cifrado de varios trozos tiene que restaurarse");
+
+        assert_eq!(paso.filas, cabecera.total_de_filas());
+
+        // Y los acentos volvieron enteros, no aproximados: un `from_utf8_lossy`
+        // en el camino habría dejado rombos y la restauración habría «pasado».
+        let cuantos: u64 = destino_db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row(
+                    "SELECT COUNT(*) FROM contact WHERE last_name = 'Álvarez Bañuelos Peña Núñez Echeverría'",
+                    [],
+                    |f| f.get(0),
+                )
+            })
+            .expect("cuenta");
+        assert_eq!(
+            cuantos as usize, FILAS,
+            "los apellidos con acento no volvieron exactos"
+        );
+    }
+
+    /// **Un byte que no puede ser UTF-8 se rechaza; un carácter partido espera.**
+    ///
+    /// Las dos cosas llegan al lector como «esto no es texto», y la diferencia
+    /// está en `Utf8Error::error_len()`: `None` es «se acabó la entrada a mitad
+    /// de un carácter» —la frontera de un trozo, que es normal— y `Some` es una
+    /// secuencia imposible, que es un archivo estropeado. Tratar los dos igual
+    /// en un sentido devuelve el fallo de arriba; en el otro se traga la
+    /// corrupción de verdad.
+    ///
+    /// Va **sin cifrar** a propósito: con el sobre puesto, alterar un byte lo
+    /// caza la autenticación antes de llegar aquí, así que esta rama no se
+    /// podría ejercitar.
+    ///
+    /// Verificada quitando el `return` de la rama `Some`: el byte inválido pasa
+    /// a tratarse como una frontera, se queda en la cola para siempre y la
+    /// restauración termina **sin la fila alterada y sin un solo error**.
+    #[test]
+    fn un_byte_que_no_puede_ser_utf8_no_se_cuela() {
+        let (_d1, origen_db) = base_con_datos();
+        let dir = tempfile::tempdir().expect("temporal");
+        let ruta = dir.path().join("roto.arles");
+        escribir(&origen_db, &ruta, None);
+
+        // 0xFF no es un byte válido en ninguna posición de UTF-8. Va **en el
+        // cuerpo**, pasado `salta`: puesto en la cabecera lo rechazaría
+        // `leer_la_cabecera` y la prueba no tocaría el lector, que es lo que
+        // viene a vigilar. Primera versión: a mitad del archivo, que en un
+        // respaldo de dos filas cae dentro de la cabecera.
+        let (cabecera, salta) = leer_la_cabecera(&ruta).expect("cabecera");
+        let mut bytes = std::fs::read(&ruta).expect("lee");
+        let dentro_del_cuerpo = salta + (bytes.len() - salta) / 2;
+        *bytes
+            .get_mut(dentro_del_cuerpo)
+            .expect("el respaldo tiene cuerpo") = 0xFF;
+        std::fs::write(&ruta, &bytes).expect("escribe");
+
+        // Se ejercita el lector directamente, no a través de `restaurar`,
+        // porque lo que hay que medir es **la cola**: a través de la base sólo
+        // se ve que falla, y falla de las dos formas.
+        let mut lector =
+            LeeElArchivo::nuevo(&ruta, &cabecera, salta, None).expect("abre el lector");
+        let error = loop {
+            match lector.siguiente() {
+                Ok(Some(_)) => {}
+                Ok(None) => panic!("el respaldo con un byte imposible terminó sin protestar"),
+                Err(e) => break e,
+            }
+        };
+
+        // ── LA GARANTÍA QUE DISTINGUE EL ARREGLO DE NO TENERLO ──
+        //
+        // Con la rama de `error_len` el lector para en cuanto ve el byte malo,
+        // así que la cola tiene como mucho los tres bytes de un carácter a
+        // medias. Sin ella, el byte se queda atascado, cada trozo siguiente se
+        // le pega sin poder decodificar, y la cola acaba teniendo **el resto
+        // del archivo** — con medio millón de filas, eso es el respaldo entero
+        // en memoria. Verificada quitando la rama: la cola pasa de 3 bytes a
+        // cientos y la prueba cae.
+        assert!(
+            lector.cola.len() <= 3,
+            "la cola se quedó con {} bytes: el byte imposible no paró la lectura y la memoria \
+             deja de estar acotada",
+            lector.cola.len()
+        );
+
+        let (_d2, destino_db) = base_vacia();
+
+        assert!(
+            format!("{error:?}").contains("RespaldoCorrupto")
+                || format!("{error:?}").contains("Suma"),
+            "se rechazó por otro motivo: {error:?}"
+        );
+        assert!(
+            contactos(&destino_db).is_empty(),
+            "la base quedó con datos de un archivo estropeado"
+        );
     }
 }

@@ -139,7 +139,20 @@ pub fn revisar_respaldo_para_recuperar(
     let esquema_de_la_base = arles_db::ultima_version()
         .map(|v| format!("V{v}"))
         .unwrap_or_default();
-    let se_puede = cabecera.esquema == esquema_de_la_base;
+    // ── EL VEREDICTO MIRA DOS COSAS, Y ANTES MIRABA UNA ──────────────────
+    //
+    // Hasta la auditoría de la Fase 8 (07/10/2026) esto era sólo la comparación
+    // de esquemas, y el campo se llama `se_puede_restaurar`. Así que ante un
+    // **archivo de historial** con el esquema de hoy la pantalla decía que sí
+    // se podía: quien hubiera perdido el llavero y eligiera por error el
+    // archivo del disco externo recibía luz verde, confirmaba, y el comando
+    // apartaba la base y creaba la clave nueva antes de que `restaurar`
+    // rechazara el archivo por su alcance.
+    //
+    // Un archivo de historial no se puede restaurar **nunca** (D-8C y la 8.3
+    // bis a): reemplazar con él vaciaría la base entera. El restaurador ya lo
+    // rechaza; lo que faltaba era decirlo **antes** de que alguien confirme.
+    let se_puede = cabecera.esquema == esquema_de_la_base && cabecera.alcance.se_puede_restaurar();
 
     estado
         .respaldo_elegido
@@ -221,14 +234,42 @@ pub fn recuperar_desde_respaldo(
         return Err(AppError::RespaldoSinRevisar.into());
     };
 
+    // ── 1 · PRIMERO SE COMPRUEBA EL RESPALDO. NADA SE TOCA TODAVÍA ───────
+    //
+    // ── POR QUÉ ESTE ORDEN, Y QUÉ PASABA CON EL ANTERIOR ────────────────
+    //
+    // Hasta la auditoría de la Fase 8 (07/10/2026) este comando apartaba la
+    // base y **creaba la clave nueva** antes de mirar el respaldo. Con una
+    // contraseña mal escrita —y el respaldo va cifrado por defecto (D-8A)— el
+    // resultado era:
+    //
+    //   · la base ilegible renombrada, y su nombre NO se decía, porque el
+    //     comando devolvía `Err` y `nombre_de_la_apartada` sólo viaja en el
+    //     `Ok`: quien se equivocara al teclear se quedaba sin saber dónde
+    //     estaba su archivo;
+    //   · **una clave nueva escrita en el llavero**, que es exactamente lo que
+    //     el F2 de la Fase 1 prohíbe. El llavero puede estar vacío por motivos
+    //     pasajeros —un Keychain bloqueado, un D-Bus que no levantó— y la
+    //     regla dice que la clave sólo nace cuando alguien elige un respaldo
+    //     **y la recuperación sale bien**. Una contraseña mal teclada
+    //     convertía un problema reversible en uno definitivo.
+    //
+    // El sobre **no puede validar la contraseña al abrirse**: hace falta
+    // descifrar un trozo y comprobar su etiqueta. Así que se descifra el
+    // primero aquí, a propósito, y sólo entonces se toca algo.
+    let (cabecera, salta) = crate::restauracion::leer_la_cabecera(&ruta)?;
+    let contrasena = contrasena.filter(|c| !c.is_empty());
+    comprobar_el_respaldo_antes_de_tocar_nada(&ruta, &cabecera, salta, contrasena.as_deref())?;
+
+    // ── 2 · Y AHORA SÍ: apartar, crear la clave y restaurar ─────────────
     let base = estado.rutas.base_de_datos();
     let apartada = apartar_la_base_ilegible(&base, &ahora_para_nombre())?;
 
     let clave = estado.llavero.crear()?;
     let db = Db::abrir(&base, &clave).map_err(AppError::Db)?;
 
-    let (cabecera, salta) = crate::restauracion::leer_la_cabecera(&ruta)?;
-    let contrasena = contrasena.filter(|c| !c.is_empty());
+    // Se vuelve a abrir desde el principio: el que se usó para comprobar ya
+    // gastó el primer trozo.
     let mut origen =
         crate::restauracion::LeeElArchivo::nuevo(&ruta, &cabecera, salta, contrasena.as_deref())?;
 
@@ -273,6 +314,68 @@ pub struct Recuperado {
     /// Cómo se llama ahora la base vieja. **Se dice**, para que quien recupere
     /// su llavero más tarde sepa qué archivo buscar.
     pub nombre_de_la_apartada: String,
+}
+
+/// Comprueba **todo lo que se puede saber** antes de tocar la base y el llavero.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LA REGLA QUE ESTA FUNCIÓN EXISTE PARA CUMPLIR
+///
+/// **Nada irreversible ocurre hasta que todo lo conocible está comprobado.**
+///
+/// En esta pantalla lo irreversible son dos cosas: renombrar la base ilegible y
+/// **escribir una clave nueva en el llavero**. La segunda es la que no tiene
+/// vuelta: el llavero puede estar vacío por un motivo pasajero y arreglarse
+/// solo, pero no después de que le escribamos encima (F2 de la Fase 1).
+///
+/// Así que aquí se comprueban las tres cosas que `Db::restaurar` rechazaría, en
+/// orden de lo más barato a lo más caro:
+///
+/// 1. **El alcance.** Un archivo de historial no se restaura nunca (D-8C): con
+///    él, reemplazar vaciaría la base entera. Se sabe de la cabecera.
+/// 2. **El esquema.** La base que se va a crear es nueva, así que su esquema es
+///    el último; un respaldo de otro esquema no entra, y eso también se sabe de
+///    la cabecera.
+/// 3. **Que se abra y se descifre.** Pide la primera fila, porque el cifrado
+///    autenticado **no se puede comprobar sin descifrar** (8.2a): el sobre no
+///    sabe si la contraseña es buena hasta que una etiqueta cuadra.
+///
+/// Un respaldo de cero filas vale: lo que se comprueba es que el archivo se
+/// abre, no que traiga datos. Quien exportó una base recién creada tiene
+/// derecho a restaurarla.
+///
+/// # Errores
+///
+/// Lo que falle en cualquiera de los tres pasos. **Y entonces no se sigue**,
+/// que es todo el punto.
+fn comprobar_el_respaldo_antes_de_tocar_nada(
+    ruta: &Path,
+    cabecera: &arles_core::formato_de_respaldo::Cabecera,
+    salta: usize,
+    contrasena: Option<&str>,
+) -> Result<(), ErrorIpc> {
+    use arles_db::restauracion::Origen as _;
+
+    if !cabecera.alcance.se_puede_restaurar() {
+        return Err(AppError::Db(arles_db::DbError::EsoEsUnArchivoDeHistorial).into());
+    }
+
+    let ultimo = arles_db::ultima_version()
+        .map(|v| format!("V{v}"))
+        .unwrap_or_default();
+    if cabecera.esquema != ultimo {
+        let del_respaldo = &cabecera.esquema;
+        return Err(AppError::Db(arles_db::DbError::RespaldoNoEncaja {
+            motivo: format!(
+                "el respaldo es del esquema {del_respaldo} y esta base va por el {ultimo}"
+            ),
+        })
+        .into());
+    }
+
+    let mut origen = crate::restauracion::LeeElArchivo::nuevo(ruta, cabecera, salta, contrasena)?;
+    origen.siguiente().map_err(AppError::Db)?;
+    Ok(())
 }
 
 /// Aparta la base que no se puede leer, con fecha en el nombre.
@@ -538,6 +641,209 @@ mod tests {
         );
     }
 
+    /// **El camino que D-8A hace el más probable: el respaldo va cifrado.**
+    ///
+    /// ── POR QUÉ ESTA PRUEBA ES LA QUE FALTABA ────────────────────────────
+    ///
+    /// Tres decisiones se cruzan justo aquí, y ninguna prueba cruzaba las tres:
+    ///
+    ///   · **D-8A** · el respaldo va cifrado, y es el valor por defecto.
+    ///   · **8.4** · perder el llavero se arregla restaurando un respaldo.
+    ///   · **8.2a** · la contraseña del respaldo **no se guarda en ningún
+    ///     sitio**.
+    ///
+    /// Así que el desastre realista no es «perdí el llavero»: es «perdí el
+    /// llavero y mi único respaldo está cifrado». El comando aceptaba una
+    /// contraseña desde la 8.4 y **nunca se había probado con una**: el camino
+    /// existía y nadie lo había recorrido.
+    ///
+    /// Encontrada por la auditoría de la Fase 8, 07/10/2026.
+    #[test]
+    fn se_recupera_de_un_respaldo_cifrado_con_su_contrasena() {
+        use arles_db::{ClaveMaestra, Db, QueSeLleva};
+
+        let dir = tempfile::tempdir().expect("temporal");
+        let base = dir.path().join("arles.db");
+        let respaldo = dir.path().join("copia.arles");
+        const CLAVE_DEL_RESPALDO: &str = "una contraseña larga de verdad";
+
+        let clave = ClaveMaestra::generar().expect("genera");
+        {
+            let db = Db::abrir(&base, &clave).expect("abre");
+            sembrar(&db);
+            let mut destino = crate::respaldo::ElArchivo::nuevo(
+                &respaldo,
+                "completo",
+                Some(CLAVE_DEL_RESPALDO),
+                Box::new(|_| {}),
+                "2026-10-07T12:00:00Z".to_owned(),
+            )
+            .expect("abre el archivo");
+            db.exportar(QueSeLleva::Todo, &mut destino)
+                .expect("exporta");
+            destino.cerrar().expect("cierra");
+        }
+
+        // Que esté cifrado de verdad, no que lo diga la cabecera: si el cuerpo
+        // saliera en claro, el resto de la prueba pasaría igual y no
+        // demostraría nada.
+        let crudo = std::fs::read(&respaldo).expect("lee");
+        assert!(
+            !String::from_utf8_lossy(&crudo).contains("Ana"),
+            "el respaldo no está cifrado: el nombre se lee en el archivo"
+        );
+
+        let (cabecera, salta) = crate::restauracion::leer_la_cabecera(&respaldo).expect("cabecera");
+        assert!(
+            cabecera.cifrado.lleva_contrasena(),
+            "la cabecera tiene que decir que hace falta contraseña, en claro"
+        );
+
+        // La comprobación previa pasa con la buena…
+        comprobar_el_respaldo_antes_de_tocar_nada(
+            &respaldo,
+            &cabecera,
+            salta,
+            Some(CLAVE_DEL_RESPALDO),
+        )
+        .expect("con la contraseña buena el respaldo se abre");
+
+        // …y restaura.
+        let apartada = apartar_la_base_ilegible(&base, "20261007").expect("aparta");
+        let clave_nueva = ClaveMaestra::generar().expect("genera");
+        let db = Db::abrir(&base, &clave_nueva).expect("abre la base nueva");
+        let mut origen = crate::restauracion::LeeElArchivo::nuevo(
+            &respaldo,
+            &cabecera,
+            salta,
+            Some(CLAVE_DEL_RESPALDO),
+        )
+        .expect("lector");
+        db.restaurar(
+            &mut origen,
+            &cabecera.esquema,
+            &cabecera.columnas,
+            cabecera.alcance,
+            "recuperación",
+            "2026-10-07T13:00:00Z",
+        )
+        .expect("recupera del respaldo cifrado");
+
+        let nombre: String = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row("SELECT first_name FROM contact WHERE id='C1'", [], |f| {
+                    f.get(0)
+                })
+            })
+            .expect("lee");
+        assert_eq!(nombre, "Ana");
+        assert!(apartada.exists(), "la base ilegible se perdió");
+    }
+
+    /// **Una contraseña mal escrita no toca la base ni el llavero.**
+    ///
+    /// ── EL FALLO QUE ESTO ARREGLA, Y POR QUÉ ERA GRAVE ───────────────────
+    ///
+    /// Hasta el 07/10/2026 `recuperar_desde_respaldo` apartaba la base y
+    /// **creaba la clave nueva** antes de mirar el respaldo. El sobre no puede
+    /// validar la contraseña al abrirse —hace falta descifrar un trozo— así que
+    /// una contraseña mal teclada fallaba **después** de:
+    ///
+    ///   · renombrar la base ilegible, sin decir cómo se llama ahora: el nombre
+    ///     sólo viaja en el `Ok`, y esto devolvía `Err`;
+    ///   · **escribir una clave nueva en el llavero**, que es justo lo que el
+    ///     F2 de la Fase 1 prohíbe. Un llavero vacío por un motivo pasajero
+    ///     —Keychain bloqueado, D-Bus que no levantó— se arregla solo; una
+    ///     clave nueva encima, no.
+    ///
+    /// Es decir: **un error de tecleo convertía un problema reversible en uno
+    /// definitivo**, y en la pantalla a la que se llega el día que ya se ha
+    /// perdido algo.
+    ///
+    /// Esto comprueba la garantía nueva: con la contraseña mala, la
+    /// comprobación previa falla y **nada se ha movido**.
+    ///
+    /// Verificada quitando la llamada a `comprobar_el_respaldo_antes_de_tocar_nada` del
+    /// comando: la contraseña mala pasa el filtro y revienta dentro de
+    /// `restaurar`, con la base ya apartada.
+    #[test]
+    fn con_la_contrasena_mal_escrita_no_se_toca_nada() {
+        use arles_db::{ClaveMaestra, Db, QueSeLleva};
+
+        let dir = tempfile::tempdir().expect("temporal");
+        let base = dir.path().join("arles.db");
+        let respaldo = dir.path().join("copia.arles");
+
+        let clave = ClaveMaestra::generar().expect("genera");
+        {
+            let db = Db::abrir(&base, &clave).expect("abre");
+            sembrar(&db);
+            let mut destino = crate::respaldo::ElArchivo::nuevo(
+                &respaldo,
+                "completo",
+                Some("la buena"),
+                Box::new(|_| {}),
+                "2026-10-07T12:00:00Z".to_owned(),
+            )
+            .expect("abre el archivo");
+            db.exportar(QueSeLleva::Todo, &mut destino)
+                .expect("exporta");
+            destino.cerrar().expect("cierra");
+        }
+        let bytes_antes = std::fs::metadata(&base).expect("metadatos").len();
+
+        let (cabecera, salta) = crate::restauracion::leer_la_cabecera(&respaldo).expect("cabecera");
+
+        // La comprobación previa rechaza la contraseña mala.
+        assert!(
+            comprobar_el_respaldo_antes_de_tocar_nada(&respaldo, &cabecera, salta, Some("la mala"))
+                .is_err(),
+            "una contraseña equivocada tiene que rechazarse ANTES de tocar nada"
+        );
+
+        // Y sin contraseña también, que es el otro descuido posible.
+        assert!(
+            comprobar_el_respaldo_antes_de_tocar_nada(&respaldo, &cabecera, salta, None).is_err(),
+            "un respaldo cifrado sin contraseña tiene que rechazarse"
+        );
+
+        // Lo que importa: la base sigue donde estaba, con su tamaño.
+        assert!(base.exists(), "la base se apartó con una contraseña mala");
+        assert_eq!(
+            std::fs::metadata(&base).expect("metadatos").len(),
+            bytes_antes,
+            "la base cambió de tamaño con una contraseña mala"
+        );
+        // Y no quedó ninguna base apartada rondando.
+        let apartadas = std::fs::read_dir(dir.path())
+            .expect("lee la carpeta")
+            .filter_map(Result::ok)
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .starts_with("arles-ilegible-")
+            })
+            .count();
+        assert_eq!(apartadas, 0, "se apartó una base con la contraseña mala");
+    }
+
+    /// Siembra una empresa, un lote y un contacto. Lo mismo en tres pruebas.
+    fn sembrar(db: &arles_db::Db) {
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(
+                "INSERT INTO company (id, commercial_name, country, timezone, corporate_email, created_at, updated_at)
+                   VALUES ('E1', 'Telemetry', 'MX', 'America/Mexico_City', 'hola@telemetry.mx', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+                 INSERT INTO import_batch
+                   (id, company_id, original_filename, stored_filename, file_hash, column_mapping,
+                    total_rows, consent_affirmation, created_at)
+                   VALUES ('L1', 'E1', 'lista.csv', 'L1.csv', 'abc', '{}', 1, 'sí', '2026-01-02T00:00:00Z');
+                 INSERT INTO contact (id, company_id, import_batch_id, first_name, last_name, created_at, updated_at)
+                   VALUES ('C1', 'E1', 'L1', 'Ana', 'Ruiz', '2026-01-02T00:00:00Z', '2026-01-02T00:00:00Z');",
+            )
+        })
+        .expect("siembra");
+    }
+
     /// **Arrancar sin clave y con una base en disco no improvisa una nueva.**
     ///
     /// Es el hallazgo F2 de la Fase 1 y el error que más caro saldría aquí:
@@ -576,5 +882,107 @@ mod tests {
             "el arranque creó una clave nueva: la base vieja queda ilegible para siempre (F2)"
         );
         let _ = llavero.borrar();
+    }
+
+    /// Una cabecera cualquiera, para ejercitar las dos puertas que se contestan
+    /// **sin abrir el archivo**.
+    fn cabecera_de(
+        alcance: arles_core::formato_de_respaldo::Alcance,
+        esquema: &str,
+    ) -> arles_core::formato_de_respaldo::Cabecera {
+        use arles_core::formato_de_respaldo::{Cabecera, Cifrado};
+        Cabecera {
+            formato: arles_core::formato_de_respaldo::VERSION_DEL_FORMATO,
+            esquema: esquema.to_owned(),
+            alcance,
+            creado_en: "2026-10-07T12:00:00Z".to_owned(),
+            cifrado: Cifrado::No,
+            filas: Vec::new(),
+            columnas: Vec::new(),
+        }
+    }
+
+    /// **Un archivo de historial dado a la recuperación no llega a tocar nada.**
+    ///
+    /// ── EL SEGUNDO DISPARADOR DEL MISMO FALLO ────────────────────────────
+    ///
+    /// `Db::restaurar` rechaza tres cosas, y las tres se saben **de la cabecera**
+    /// antes de tocar la base: el alcance, el esquema y que el archivo se abra.
+    /// La primera versión de la comprobación previa sólo cubría la tercera, así
+    /// que elegir por error el archivo del disco externo —el escenario realista:
+    /// quien perdió el llavero busca «el archivo de ARLES» y encuentra dos—
+    /// apartaba la base y **escribía una clave nueva en el llavero** antes de
+    /// que `restaurar` lo rechazara. Eso es el F2 de la Fase 1, que esta misma
+    /// pantalla existe para no cometer.
+    ///
+    /// La ruta **no existe a propósito**: si la comprobación abriera el archivo
+    /// primero, el error sería de E/S y no éste. Que salga
+    /// `EsoEsUnArchivoDeHistorial` sobre una ruta inexistente demuestra que la
+    /// puerta está antes de cualquier apertura.
+    ///
+    /// Verificada quitando la puerta del alcance: el error pasa a ser de E/S y
+    /// la prueba cae.
+    ///
+    /// **Se compara la clave de i18n, no el nombre de la variante.** La primera
+    /// versión buscaba `EsoEsUnArchivoDeHistorial` en el `Debug` del error y
+    /// salió en rojo sobre código correcto: `ErrorIpc` no lleva nombres de Rust
+    /// al otro lado de la frontera —lleva la clave y el detalle traducido—, que
+    /// es precisamente lo que el §139 pide. La clave es además lo que el usuario
+    /// acaba leyendo, así que es la garantía que importa.
+    ///
+    /// Encontrada por la auditoría de la Fase 8, 07/10/2026.
+    #[test]
+    fn un_archivo_de_historial_no_llega_a_tocar_nada() {
+        use arles_core::formato_de_respaldo::Alcance;
+
+        let cabecera = cabecera_de(
+            Alcance::Historial {
+                hasta: "2025-10-07T00:00:00Z".to_owned(),
+            },
+            &arles_db::ultima_version()
+                .map(|v| format!("V{v}"))
+                .unwrap_or_default(),
+        );
+        let error = comprobar_el_respaldo_antes_de_tocar_nada(
+            Path::new("/no/existe/archivo-de-historial.arles"),
+            &cabecera,
+            0,
+            None,
+        )
+        .expect_err("un archivo de historial tiene que rechazarse");
+
+        assert!(
+            error.clave == "error.db.eso_es_un_archivo_de_historial",
+            "se rechazó, pero por otro motivo — la puerta del alcance no está antes de abrir: {error:?}"
+        );
+    }
+
+    /// **Un respaldo de otro esquema tampoco llega a tocar nada.**
+    ///
+    /// La base que la recuperación va a crear es **nueva**, así que su esquema
+    /// es siempre el último; un respaldo anterior no entra (8.3b) y hoy no hay
+    /// forma de migrarlo. Saberlo cuesta una comparación de cadenas, y no
+    /// saberlo cuesta una clave nueva en el llavero.
+    ///
+    /// El `"V1"` es deliberado: cualquier migración futura lo mantiene distinto
+    /// del último, que es lo que la prueba necesita. Verificada quitando la
+    /// comparación de esquemas.
+    #[test]
+    fn un_respaldo_de_otro_esquema_no_llega_a_tocar_nada() {
+        use arles_core::formato_de_respaldo::Alcance;
+
+        let cabecera = cabecera_de(Alcance::Completo, "V1");
+        let error = comprobar_el_respaldo_antes_de_tocar_nada(
+            Path::new("/no/existe/respaldo-viejo.arles"),
+            &cabecera,
+            0,
+            None,
+        )
+        .expect_err("un respaldo de otro esquema tiene que rechazarse");
+
+        assert!(
+            error.clave == "error.db.respaldo_no_encaja",
+            "se rechazó, pero por otro motivo — la comparación de esquemas no está antes de abrir: {error:?}"
+        );
     }
 }
