@@ -93,8 +93,12 @@ coste:
 >
 > **Trade-off** · La A son horas y cierra el agujero hoy, a cambio de decirle a
 > alguien «esta campaña es demasiado grande» — que además **es verdad**: a 50
-> correos diarios (§48), 451 196 personas son **24 años** de campaña, y el
-> simulador ya se lo enseña en el paso 8. La B es la buena de verdad y son días.
+> correos diarios (§48), el simulador del núcleo dice que esa campaña
+> **no termina en cinco años** y que **386 046 mensajes se quedarían sin
+> enviar** — medido el 07/10/2026 con `estimar`. (Esta línea decía «24 años»
+> hasta esa fecha: era una cuenta mía a mano, y mal. El núcleo no da una
+> duración, da un rechazo.) Y el simulador **lo calcula y la pantalla no lo
+> enseña** (ver el §7). La B es la buena de verdad y son días.
 >
 > **Recomendación** · **La A ahora y la B en la Fase 9.** Un tope que diga su
 > cifra convierte un cuelgue en un mensaje, y el mensaje es correcto: una

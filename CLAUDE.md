@@ -1022,8 +1022,14 @@ arreglados, dos declarados con su cifra. Está contado en
 >
 > **Pendiente de Dirección**, con cuatro alternativas y una recomendación: un
 > tope que diga su cifra ahora (horas) y sacarlo al hilo del motor en la Fase 9
-> (días). Lo barato no es técnico: a 50 correos diarios (§48), 451 196 personas
-> son **24 años** de campaña, y el simulador ya se lo enseña en el paso 8.
+> (días). Lo barato no es técnico: a 50 correos diarios (§48), el simulador dice
+> que esa campaña **no termina en cinco años** y que **386 046 mensajes se
+> quedarían sin enviar**.
+>
+> **Corrección del 07/10/2026:** esta línea decía «24 años», que era una cuenta
+> a mano y estaba mal — el núcleo no devuelve una duración para ese caso,
+> devuelve `NoCabeEnElHorizonte { faltan }`. Y decía que «el simulador ya se lo
+> enseña en el paso 8»: **no lo enseña.** Ver el hueco de abajo.
 
 > **Y la causa no era la que parecía, que es la razón de medir.** La hipótesis
 > obvia eran los 451 196 pares de identificadores, cada uno pidiendo entropía al
@@ -1176,6 +1182,25 @@ Chromium, no leídas. Cuatro hallazgos, cuatro arreglados. Está contado en
 > estaba mal elegida: renombrar sólo la declaración de `MINIMO` dejaba el
 > identificador en sus usos. **Una ruptura que deja el síntoma en pie no prueba
 > nada**: hay que quitar la garantía, no su nombre.
+
+> **Y el hueco del §9 número diecisiete, encontrado al preparar la
+> recomendación del tope.** El núcleo **ya decide** si una campaña puede
+> terminar: `Desenlace` tiene tres variantes —`Termina`, `NoAvanza`,
+> `NoCabeEnElHorizonte { faltan }`— y los tres textos están escritos en
+> `es.ts`, incluido el que dice *«la campaña no termina en cinco años:
+> {faltan} mensajes se quedarían sin enviar»*. El comentario de uno de ellos
+> dice literalmente **«el caso que hay que cazar antes de activar»**.
+>
+> **No los llama nadie.** El asistente pinta `techoDiario` y `diasConEnvio` y
+> nada más, y `activar_campana` no consulta la estimación. Así que con 451 196
+> personas a 50 diarios el paso 8 enseña «1 303 días» —una cifra correcta— y
+> **nunca dice que 386 046 personas no van a recibir un mensaje**, que es la
+> cifra que el núcleo calculó y entregó.
+>
+> Es el patrón de siempre: tres piezas correctas —el cálculo, las variantes y
+> los textos— y el cable sin conectar. Y la comprobación que persigue este
+> patrón no lo caza porque mira **comandos** registrados y quién los llama; un
+> campo de una respuesta que la pantalla ignora no es un comando.
 
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 

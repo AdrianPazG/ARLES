@@ -164,8 +164,11 @@ mismo orden que la importación (~1.35 M filas en 111 s).
 Las alternativas y su coste están en
 [`AUDITORIA-C-QA.md`](../09-fases/AUDITORIA-C-QA.md) §C-1. **Pendiente de
 Dirección**, porque la opción barata no es técnica: a 50 correos diarios (§48)
-una campaña de 451 196 personas tarda **24 años** en enviarse, y el simulador ya
-lo dice en el paso 8 del asistente.
+el simulador del núcleo dice que una campaña de 451 196 personas **no termina en
+cinco años** y que **386 046 mensajes se quedarían sin enviar** (medido el
+07/10/2026 con `estimar`). Esta línea decía «24 años» hasta esa fecha: era una
+cuenta a mano, y mal — el núcleo no devuelve una duración para ese caso, devuelve
+`NoCabeEnElHorizonte`.
 
 **2 · Filtro del registro por texto — 3 709 ms de 1 s.**
 
