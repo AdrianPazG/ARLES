@@ -12,6 +12,60 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.6 B · Auditoría de seguridad (§140): los quince puntos, medidos
+
+Segunda de las cuatro pasadas separadas. Se recorrió el `THREAT_MODEL.md` §8
+entero, punto por punto, midiendo en vez de suponiendo.
+
+#### Lo que estaba mal
+
+**1 · La regla más cargada de la frontera se vigilaba en 17 de 52 estructuras.**
+«Ningún comando devuelve un secreto» es lo que impide que la contraseña de tu
+cuenta de correo o el token de Meta acaben en la memoria del navegador interno.
+La comprobación leía **un solo archivo**, y la frontera había crecido a once.
+Verificado metiendo una contraseña en otro módulo: **pasó en verde**. Ahora lee
+la frontera entera y busca seis nombres de secreto en vez de tres.
+
+**2 · El saneado del HTML «al usar» no existe** — y no es un olvido: el cuerpo
+de una campaña **todavía no llega al remitente**, así que no hay nada que
+sanear ahí. El hallazgo es que el día que se conecte, **nada pedirá sanear otra
+vez**, y entre guardar y enviar está la sustitución de variables, que mete datos
+de un Excel ajeno dentro del HTML ya saneado. Hay una comprobación nueva que
+falla ese día.
+
+#### Tres puntos del documento que no se podían marcar con verdad
+
+Un punto que nunca se puede marcar es peor que uno que falta: hace dudar de la
+lista entera.
+
+- Uno pedía **una biblioteca que el proyecto no usa** (`tracing`). Reescrito
+  contra lo que sí existe.
+- **No hay exportación CSV**, así que la neutralización de fórmulas no aplica.
+- **No hay updater**, así que la verificación de su firma no aplica.
+
+Los dos últimos quedan marcados «no aplica» **con su fecha y la condición para
+volver a contar**, no borrados.
+
+#### Lo que salió limpio
+
+Cero concatenación en las consultas —los siete `format!` interpolan nombres de
+tabla, que es lo único que SQLite no deja parametrizar—. Capabilities denegadas
+por defecto. La bitácora es imborrable **por esquema**, con dos *triggers* y una
+prueba que los ejercita. Las respuestas del servidor de correo se recortan y se
+filtran. `cargo deny` y `npm audit` están en CI. Y **los cuatro derechos ARCO
+tienen comando y pantalla**.
+
+#### Un error propio, anotado
+
+Al comprobar los derechos ARCO busqué los comandos por nombres **que me
+inventé**, salieron a cero, y estuve a punto de anotarlo como hallazgo. Es el
+mismo defecto que la auditoría A encontró en una comprobación del validador,
+repetido a mano en la misma sesión. Un hallazgo falso en una auditoría de
+seguridad cuesta más que uno ausente.
+
+Está contado en
+[`AUDITORIA-B-SEGURIDAD.md`](documentacion/09-fases/AUDITORIA-B-SEGURIDAD.md).
+
 ### 8.6 A · Auditoría de arquitectura (§140): cinco hallazgos, cinco arreglados
 
 Primera de las cuatro pasadas **separadas** que el §140 pide. Separadas y no una

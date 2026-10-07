@@ -219,17 +219,75 @@ de comprobación.
 
 ## 8. Qué verificar en la auditoría de seguridad (§140-B)
 
-- [ ] Ninguna cadena de consulta se construye por concatenación
-- [ ] `Secret<T>` envuelve todo secreto; la capa de redacción de `tracing` está activa
-- [ ] Ningún comando Tauri devuelve una credencial
-- [ ] Capabilities denegadas por defecto; sin `shell`; `fs` acotado
+> **Pasada B corrida el 07/10/2026** (entrega 8.6 B). Cada punto lleva abajo lo
+> que se midió, no lo que se supone. Tres de los quince **no se podían marcar
+> con verdad** y están reescritos: uno pedía una biblioteca que el proyecto no
+> usa, y dos describen caminos que todavía no existen. Un punto que no se puede
+> marcar nunca es peor que un punto que falta, porque hace dudar de la lista
+> entera.
+
+- [x] Ninguna cadena de consulta se construye por concatenación — **medido el
+  07/10/2026**: siete `format!` dentro de consultas, los siete interpolando
+  **identificadores** (nombres de tabla y columna del manifiesto o de
+  `sqlite_master`), que es lo único que SQLite no deja parametrizar. Todo dato
+  de usuario va por `?N`, incluido el filtro de texto del registro, que usa
+  `'%' || ?7 || '%'`
+- [x] `Secret<T>` envuelve la clave maestra, con `ZeroizeOnDrop` y `Debug`/
+  `Display` redactados. **Las contraseñas que entran como parámetro de un
+  comando son `String` a propósito**: `Secret<T>` no deserializa —no debe—, y
+  esos valores van derechos al llavero sin guardarse
+  > **Corregido el 07/10/2026:** este punto decía *«la capa de redacción de
+  > `tracing` está activa»*. **El proyecto no usa `tracing`**, ni lo ha usado
+  > nunca: la redacción que sí existe es `redactar_rutas` en `ErrorIpc`, que
+  > quita las rutas del sistema de archivos de los mensajes de las capas de
+  > abajo (F7 de la Fase 1). Un punto que pide algo inexistente no se puede
+  > marcar ni desmarcar con honestidad
+- [x] Ningún comando Tauri devuelve una credencial — **verificado rompiéndolo**
+  en cuatro módulos distintos de la frontera el 07/10/2026
+- [x] Capabilities denegadas por defecto; sin `shell`; `fs` acotado — `core:default`
+  y `core:window:allow-start-dragging`, y nada más
 - [x] CSP sin `unsafe-inline` ni `unsafe-eval` — verificado en la Fase 2 ejercitando la aplicación bajo la política del producto (`sonda:csp`)
 - [x] Ningún campo de entrada ofrece autocompletado ni corrector por defecto: las credenciales no pueden acabar en el gestor de contraseñas de la webview (§30)
-- [ ] Sanitizado HTML en Rust, al guardar **y** al usar
+- [~] Sanitizado HTML en Rust **al guardar**: hecho y probado —`crear_plantilla`
+  y `crear_firma` pasan por `sanear::html` y `sanear::a_texto_plano`—. **Al usar
+  no aplica todavía**, y conviene saber por qué: `Mensaje` sólo lleva el
+  destinatario y la clave de idempotencia, y el único `Contenido` que llega al
+  adaptador SMTP es un texto fijo escrito en el código (el del envío de prueba).
+  **El cuerpo de una campaña no llega al remitente.**
+  > El día que se conecte, el camino nuevo pasaría por ahí **sin que nada
+  > pidiera sanear otra vez** — y el saneado al guardar no cubre ese caso,
+  > porque en medio está la sustitución de variables, que mete datos de un XLSX
+  > ajeno dentro del HTML ya saneado. Por eso la 8.6 B dejó
+  > `nada_sale_por_correo_sin_pasar_por_el_saneado` en `--fase 5`: vigila que
+  > `Contenido` se arme de constantes, y **falla el día que deje de ser cierto**,
+  > para que quien lo conecte tenga que decidir dónde se sanea
 - [x] Topes de zip bomb, filas, celdas y nombre verificados **con archivos reales construidos a propósito** — 13 ataques en `crates/arles-import/tests/ataques.rs` y `bomba.rs` (18/09/2026). El de la bomba mide el **pico de memoria**, no sólo el error: sin eso, la defensa rota pasaba la prueba
-- [ ] Neutralización de fórmulas en la **exportación** CSV
-- [ ] La aplicación se niega a arrancar sin llavero (probado, no supuesto)
-- [ ] Las respuestas SMTP se tratan como no confiables
-- [ ] Verificación de firma del updater probada con una actualización manipulada
-- [ ] `audit_log` sin caminos de `UPDATE` ni `DELETE`
-- [ ] Auditoría de dependencias (`cargo audit`, `npm audit`) en CI
+- [–] Neutralización de fórmulas en la **exportación** CSV — **no aplica el
+  07/10/2026: ARLES no exporta CSV.** Los únicos archivos que escribe son `.txt`
+  (el informe ARCO y el resumen de campaña, los dos en prosa) y `.arles`. Este
+  punto **vuelve a contar** el día que exista un «Exportar contactos» o
+  cualquier otra salida que un programa de hoja de cálculo abra directamente
+- [x] La aplicación se niega a arrancar sin llavero — construido y probado
+  (F2 de la Fase 1, ADR-0011). **Límite declarado:** la rama del arranque no se
+  puede ejercitar en este contenedor, que no tiene llavero ni D-Bus; la prueba
+  lo declara y se omite aquí. Se cierra en Windows y macOS al cerrar **R-07**
+- [x] Las respuestas SMTP se tratan como no confiables — `recortar_respuesta`
+  filtra los caracteres que engañan a quien mira y corta a 500, con la prueba de
+  los cinco mil caracteres de basura
+- [–] Verificación de firma del updater — **no aplica el 07/10/2026: no hay
+  updater.** `tauri.conf.json` no configura ninguno, y la distribución está
+  además bloqueada por **P-01** (licencia de Mont). Este punto vuelve a contar
+  el día que se añada el updater, y entonces se prueba **con una actualización
+  manipulada**, no con una buena
+- [x] `audit_log` sin caminos de `UPDATE` ni `DELETE` — y no por convención:
+  dos *triggers* del esquema (`audit_log_sin_update` y `audit_log_sin_delete`,
+  V1) lo abortan, con una prueba que los ejercita
+- [x] Auditoría de dependencias en CI — `cargo-deny-action` con `advisories`
+  (la misma base de RustSec que `cargo audit`) y `npm audit` en dos pasadas:
+  `--omit=dev --audit-level=moderate` para lo que se distribuye y
+  `--audit-level=high` para las herramientas
+- [x] **Los cuatro derechos ARCO (3.4) tienen comando y pantalla** — verificado
+  el 07/10/2026 contra `generate_handler!`: acceso
+  (`entregar_informe_de_acceso`), rectificación (`editar_contacto`), cancelación
+  (`que_se_borraria` + `cancelar_datos_de`, con su preflight) y oposición
+  (`suprimir_contacto`)

@@ -578,6 +578,78 @@ def las_cifras_del_nucleo_son_las_mismas_en_la_pantalla():
           detalle="\n      ".join(problemas))
 
 
+def nada_sale_por_correo_sin_pasar_por_el_saneado():
+    """**El saneado «al usar» del §8: hoy no aplica, y el día que aplique no
+    habrá nada que lo recuerde.**
+
+    Encontrado por la auditoría B del §140 el 07/10/2026.
+
+    `THREAT_MODEL.md` §8 pide sanear el HTML **al guardar y al usar**. Al
+    guardar está hecho y probado: `crear_plantilla` y `crear_firma` pasan por
+    `sanear::html`. **Al usar no existe**, y por un motivo que no es un olvido:
+    `Mensaje` sólo lleva el destinatario y la clave de idempotencia, y el único
+    `Contenido` que llega al adaptador es un texto fijo escrito en el código
+    —el del envío de prueba—. **El cuerpo de una campaña no llega al remitente
+    todavía.**
+
+    ── POR QUÉ ESTO ES UNA COMPROBACIÓN Y NO UNA NOTA ──
+
+    El día que alguien conecte el cuerpo de la plantilla al envío, el camino
+    nuevo pasará por aquí **sin que nada pida sanear otra vez**. Y el saneado al
+    guardar no cubre ese caso: entre guardar y enviar está la sustitución de
+    variables, que mete datos de contacto importados de un XLSX ajeno en medio
+    del HTML ya saneado.
+
+    Es el patrón del §9 aplicado a una regla de seguridad: las dos piezas
+    correctas y el agujero en la junta, que ninguna prueba de una u otra puede
+    cazar.
+
+    Así que esto vigila la condición de hoy —que `Contenido` se arme de
+    constantes— y falla el día que deje de ser cierta, **para que quien lo
+    conecte tenga que decidir dónde se sanea**.
+
+    Verificada el 07/10/2026 armando un `Contenido` con una variable en vez de
+    una constante: falla nombrando el archivo.
+    """
+    # Quién construye un `Contenido` fuera de las pruebas, y con qué.
+    problemas = []
+    base = os.path.join(RAIZ, "crates", "arles-app", "src")
+    for carpeta, _, ficheros in os.walk(base):
+        for f in sorted(ficheros):
+            if not f.endswith(".rs"):
+                continue
+            ruta = os.path.join(carpeta, f)
+            with open(ruta, encoding="utf-8") as fh:
+                texto = fh.read()
+            corte = texto.find("#[cfg(test)]")
+            if corte > 0:
+                texto = texto[:corte]
+            for m in re.finditer(r"Contenido\s*\{(.*?)\}", texto, re.S):
+                cuerpo = m.group(1)
+                campo = re.search(r"cuerpo\s*:\s*([^,\n]+)", cuerpo)
+                if not campo:
+                    continue
+                valor = campo.group(1).strip()
+                # Lo que vale hoy: una cadena literal, una vacía, o una
+                # concatenación de literales. Cualquier otra cosa es un cuerpo
+                # que viene de fuera.
+                es_constante = (
+                    valor.startswith('"')
+                    or valor.startswith("String::new()")
+                    or valor.startswith("String::from(\"")
+                )
+                if not es_constante and "sanear" not in cuerpo:
+                    rel = os.path.relpath(ruta, RAIZ)
+                    problemas.append(
+                        f"{rel}: el cuerpo del correo sale de `{valor[:40]}` "
+                        f"y no pasa por `sanear`"
+                    )
+
+    check(5, "nada sale por correo sin pasar por el saneado", not problemas,
+          nada_sale_por_correo_sin_pasar_por_el_saneado.__doc__,
+          detalle="\n      ".join(problemas))
+
+
 def el_nucleo_no_toca_el_mundo():
     """**Cero I/O en `arles-core`, y el reloj también es I/O.**
 
@@ -3411,22 +3483,55 @@ def nada_que_cruce_la_frontera_lleva_contrasena():
     declara el campo aunque no lo rellene todavía; la otra, al que lo llama de
     otra manera.
     """
-    texto = leer("crates/arles-app/src", "comandos.rs") or ""
-    # Cada bloque «#[derive(... Serialize ...)] ... pub struct X { ... }».
+    # ── SE LEE LA FRONTERA ENTERA, NO UN ARCHIVO ──
+    #
+    # Hasta el 07/10/2026 esto leía **sólo `comandos.rs`**: 17 de las 52
+    # estructuras serializables de `arles-app`. La frontera creció a once
+    # módulos —respaldo, restauración, archivo, recuperación, whatsapp,
+    # campañas, cifras, control, registro, error, motor— y ninguno se miraba.
+    #
+    # Verificado por la auditoría B del §140 metiendo un
+    # `pub contrasena: String` en una estructura de `respaldo.rs`: **pasó en
+    # verde**. La regla más cargada de la frontera —ningún comando devuelve un
+    # secreto— se vigilaba en un tercio de su superficie.
     sospechosos = []
-    for bloque in re.finditer(
-        r"#\[derive\(([^)]*)\)\][^{]*?pub struct (\w+)\s*\{([^}]*)\}",
-        texto,
-        re.S,
-    ):
-        derivados, nombre, cuerpo = bloque.group(1), bloque.group(2), bloque.group(3)
-        if "Serialize" not in derivados:
-            continue
-        if re.search(r"^\s*(pub )?(contrasena|password|secreto)\s*:", cuerpo, re.M):
-            sospechosos.append(nombre)
-    check(5, "nada que cruce la frontera lleva contraseña", not sospechosos,
-          "Regla 3 de la frontera: la contraseña entra y no sale.",
-          f"estructuras: {sorted(sospechosos)}")
+    base = os.path.join(RAIZ, "crates", "arles-app", "src")
+    for carpeta, _, ficheros in os.walk(base):
+        for f in sorted(ficheros):
+            if not f.endswith(".rs"):
+                continue
+            ruta = os.path.join(carpeta, f)
+            with open(ruta, encoding="utf-8") as fh:
+                texto = fh.read()
+            # Las pruebas pueden construir lo que quieran: lo que no puede
+            # tener un secreto es lo que se serializa de verdad.
+            corte = texto.find("#[cfg(test)]")
+            if corte > 0:
+                texto = texto[:corte]
+            for bloque in re.finditer(
+                r"#\[derive\(([^)]*)\)\][^{]*?pub struct (\w+)\s*\{([^}]*)\}",
+                texto,
+                re.S,
+            ):
+                derivados, nombre, cuerpo = bloque.group(1), bloque.group(2), bloque.group(3)
+                if "Serialize" not in derivados:
+                    continue
+                # Más nombres que antes: el token de Meta y la clave de una API
+                # son secretos igual que una contraseña, y no los buscaba nadie.
+                # `lleva_contrasena: bool` NO entra: dice si hace falta una, no
+                # cuál es, y el preflight de la 8.3 lo necesita.
+                campo = re.search(
+                    r"^\s*(pub )?(contrasena|password|secreto|token|api_key|credencial)\w*\s*:\s*(String|Secret|Vec<u8>)",
+                    cuerpo,
+                    re.M,
+                )
+                if campo:
+                    rel = os.path.relpath(ruta, RAIZ)
+                    sospechosos.append(f"{rel} · {nombre}.{campo.group(2)}")
+    check(5, "nada que cruce la frontera lleva un secreto", not sospechosos,
+          "Regla 3 de la frontera: la contraseña entra y no sale. "
+          "Se lee `arles-app/src` entero desde el 07/10/2026, no sólo `comandos.rs`.",
+          detalle="\n      ".join(sorted(sospechosos)))
 
 
 def la_contrasena_no_se_guarda_en_la_webview():
@@ -3512,6 +3617,7 @@ def fase_5(rapido):
     la_pantalla_sabe_si_esta_ventana_envia()
     un_envio_de_prueba_no_da_de_baja_a_nadie()
     nada_que_cruce_la_frontera_lleva_contrasena()
+    nada_sale_por_correo_sin_pasar_por_el_saneado()
     la_contrasena_no_se_guarda_en_la_webview()
     claves_de_error_sin_texto()
 

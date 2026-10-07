@@ -947,6 +947,62 @@ Está contado en
 > dependen del motor y no al revés— y hay cero `any` y cero `@ts-ignore` en el
 > frontend.
 
+**Cerrada la 8.6 B · la auditoría de seguridad** (§140, pasada 2 de 4). Los
+**quince puntos** de `THREAT_MODEL.md` §8, medidos uno a uno. **Dos hallazgos
+arreglados y tres puntos del documento corregidos.** Está contado en
+[`AUDITORIA-B-SEGURIDAD.md`](documentacion/09-fases/AUDITORIA-B-SEGURIDAD.md).
+
+> **La regla 3 de la frontera —ningún comando devuelve un secreto— se vigilaba
+> en 17 de 52 estructuras.** `nada_que_cruce_la_frontera_lleva_contrasena` leía
+> **sólo `comandos.rs`**, y la frontera había crecido a once módulos. Verificado
+> metiendo un `pub contrasena: String` en una estructura de `respaldo.rs`: **pasó
+> en verde**. Ahora lee `arles-app/src` entero y busca seis nombres —se añadieron
+> `token`, `api_key` y `credencial`—, verificado rompiéndolo en cuatro módulos.
+>
+> `lleva_contrasena: bool` queda fuera a propósito: dice si hace falta una, no
+> cuál es. Y lo que esta comprobación **sigue sin cubrir** está dicho desde la
+> Fase 5: busca el **nombre** del campo, así que un `clave_de_acceso` se le
+> escapa — a ése lo caza la prueba que serializa y busca el **valor**.
+
+> **El saneado «al usar» no existe, y no es un olvido.** `Mensaje` lleva sólo
+> destinatario y clave de idempotencia, y el único `Contenido` que llega al SMTP
+> es un texto fijo escrito en el código. **El cuerpo de una campaña no llega al
+> remitente todavía.**
+>
+> El hallazgo es lo que pasará el día que se conecte: el camino nuevo pasará por
+> ahí **sin que nada pida sanear otra vez**, y entre guardar y enviar está la
+> sustitución de variables, que mete datos de un XLSX ajeno **dentro del HTML ya
+> saneado**. Es el §9 aplicado a una regla de seguridad. Lo vigila
+> `nada_sale_por_correo_sin_pasar_por_el_saneado`, que comprueba que `Contenido`
+> se arme de constantes y **falla el día que deje de ser cierto**.
+
+> **Tres puntos del §8 no se podían marcar con verdad**, y un punto que nunca se
+> puede marcar es peor que uno que falta: hace dudar de la lista entera.
+>
+> - Uno pedía la «capa de redacción de `tracing`» y **el proyecto no usa
+>   `tracing`**. Lo que sí existe es `redactar_rutas` en `ErrorIpc`.
+> - **No hay exportación CSV** —sólo `.txt` y `.arles`—, así que la
+>   neutralización de fórmulas no aplica.
+> - **No hay updater**, así que su firma no se puede verificar.
+>
+> Los dos últimos quedan `[–] no aplica` **con fecha y condición de
+> reactivación**, no borrados.
+
+> **Lo que salió limpio:** cero concatenación en las consultas —los siete
+> `format!` interpolan identificadores, que es lo único que SQLite no
+> parametriza—; capabilities a `core:default` y nada más; `audit_log` imborrable
+> **por esquema**, con dos *triggers* y una prueba que los ejercita; las
+> respuestas SMTP recortadas y filtradas; `cargo deny` con `advisories` y
+> `npm audit` en CI; y **los cuatro derechos ARCO con comando y pantalla**.
+
+> **Y un error mío, del mismo tipo que los que la auditoría caza.** Busqué los
+> comandos de ARCO por nombres **que me inventé** —`cancelar_contacto`,
+> `rectificar`—, salieron a cero, y estuve a punto de anotarlo como hallazgo.
+> Los de verdad son `cancelar_datos_de`, `que_se_borraria` y `editar_contacto`.
+> **Un hallazgo falso en una auditoría de seguridad cuesta más que uno ausente:**
+> manda a arreglar algo que funciona y gasta la credibilidad del resto.
+> Antes de anotar que algo falta, se busca cómo se llama de verdad.
+
 **Para una demostración real** con correo y WhatsApp que llegan de verdad:
 `documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md`.
 
