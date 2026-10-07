@@ -243,18 +243,9 @@ def fase_1(rapido):
     # ── Fronteras de arquitectura ──
     print(f"{GRIS}  fronteras de arquitectura{FIN}")
 
-    core = ""
-    core_dir = os.path.join(RAIZ, "crates/arles-core/src")
-    for f in os.listdir(core_dir):
-        core += leer("crates/arles-core/src", f) or ""
-    check(1, "arles-core no hace I/O",
-          not any(p in core for p in ["std::fs", "std::net", "rusqlite", "reqwest", "tokio::net"]),
-          "Regla de frontera 3.2: si el dominio toca I/O, deja de poder probarse sin infraestructura.")
-
-    core_toml = leer("crates/arles-core", "Cargo.toml") or ""
-    check(1, "arles-core no depende de arles-db",
-          "arles-db" not in core_toml,
-          "Las dependencias solo apuntan hacia dentro; al revés, el monolito modular deja de ser modular.")
+    el_nucleo_no_toca_el_mundo()
+    el_grafo_de_crates_solo_apunta_hacia_dentro()
+    las_cifras_del_nucleo_son_las_mismas_en_la_pantalla()
 
     cap = json.loads(leer("crates/arles-app", "capabilities/principal.json") or "{}")
     permisos = cap.get("permissions", [])
@@ -515,6 +506,210 @@ def fase_1(rapido):
     informe_para_direccion(1, "FASE-01-PARA-DIRECCION")
 
 
+def las_cifras_del_nucleo_son_las_mismas_en_la_pantalla():
+    """**Dos números de negocio viven en Rust y en TypeScript, y nada los
+    mantenía iguales.**
+
+    Encontrado por la auditoría A del §140 el 07/10/2026.
+
+    La duplicación **es deliberada en los dos casos** y está escrita: la
+    pantalla necesita enseñar el aviso *antes* de llamar a nadie, así que no
+    puede preguntárselo al núcleo. Lo que faltaba no era quitar la copia, era
+    que alguien comprobara que las dos dicen lo mismo.
+
+    ── POR QUÉ IMPORTA, CON LO QUE PASARÍA ──
+
+    - **`AVISO_DIARIO` = 50** (`arles-core/src/ritmo.rs` y
+      `app/src/app/stores/campanas.ts`). Si el núcleo sube a 100 y la pantalla
+      se queda en 50, el asistente **exige aceptar un aviso que el núcleo ya no
+      pide**. Al revés es peor: la pantalla no enseña el aviso, el usuario
+      rellena nueve pasos, y `crear_campana` lo rechaza al final con un error
+      que no vio venir.
+    - **Los meses del historial = 12** (`MESES_EN_EL_ESENCIAL` en el núcleo y
+      el primer valor de `MESES_QUE_SE_OFRECEN` en el archivado). Si no
+      coinciden, la pantalla ofrece un periodo que la frontera **sube en
+      silencio**: el preflight enseña una cifra y se archiva otra.
+
+    Las dos son del mismo tipo que los seis tokens de diseño inventados de la
+    5.2: nada falla, nada cambia de color, y lo que se rompe es lo que el
+    usuario ve.
+
+    Verificada el 07/10/2026 cambiando el 50 de `ritmo.rs` a 75: falla
+    nombrando las dos cifras.
+    """
+    def numero(texto, patron):
+        m = re.search(patron, texto or "")
+        return int(m.group(1)) if m else None
+
+    ritmo = leer("crates", "arles-core", "src", "ritmo.rs")
+    campanas = leer("app", "src", "app", "stores", "campanas.ts")
+    respaldo = leer("crates", "arles-core", "src", "respaldo.rs")
+    archivado = leer("app", "src", "app", "stores", "archivado.ts")
+
+    parejas = [
+        (
+            "el aviso de envíos diarios",
+            numero(ritmo, r"AVISO_DIARIO:\s*u32\s*=\s*(\d+)"),
+            numero(campanas, r"AVISO_DIARIO\s*=\s*(\d+)"),
+        ),
+        (
+            "los meses de historial que se quedan",
+            numero(respaldo, r"MESES_EN_EL_ESENCIAL:\s*u32\s*=\s*(\d+)"),
+            numero(archivado, r"MESES_QUE_SE_OFRECEN\s*=\s*\[\s*(\d+)"),
+        ),
+    ]
+
+    problemas = []
+    for nombre, en_rust, en_ts in parejas:
+        if en_rust is None or en_ts is None:
+            # Que una no se encuentre es tan grave como que no coincidan: la
+            # comprobación habría pasado en verde sin mirar nada. Es la trampa
+            # de `el_manifiesto_se_lee_entero`, aplicada aquí.
+            problemas.append(
+                f"{nombre}: no se encuentra en "
+                f"{'Rust' if en_rust is None else 'TypeScript'}"
+            )
+        elif en_rust != en_ts:
+            problemas.append(f"{nombre}: Rust dice {en_rust} y la pantalla {en_ts}")
+
+    check(1, "las cifras de negocio dicen lo mismo en el núcleo y en la pantalla",
+          not problemas,
+          las_cifras_del_nucleo_son_las_mismas_en_la_pantalla.__doc__,
+          detalle="\n      ".join(problemas))
+
+
+def el_nucleo_no_toca_el_mundo():
+    """**Cero I/O en `arles-core`, y el reloj también es I/O.**
+
+    Es la regla que sostiene la arquitectura entera: un dominio que no toca el
+    mundo se prueba sin infraestructura, da el mismo resultado dos veces y no
+    necesita una base ni una red para decir si una dirección vale.
+
+    ── LO QUE ESTA COMPROBACIÓN NO MIRABA, Y SE VIO EL 07/10/2026 ──
+
+    La versión anterior buscaba cinco cadenas —`std::fs`, `std::net`,
+    `rusqlite`, `reqwest`, `tokio::net`— en los archivos **sueltos** de
+    `src/`, con un `os.listdir` que **no entra en subcarpetas**. Dos huecos:
+
+    1. **El reloj no estaba en la lista.** Y el proyecto repite en tres sitios
+       que el núcleo no tiene reloj —«la fecha la calcula `arles-app`, que es
+       quien tiene reloj: ni el núcleo ni este crate lo tienen»—. Verificado
+       metiendo un `OffsetDateTime::now_utc()` en `respaldo.rs`: la
+       comprobación **pasó en verde**. Tampoco miraba la aleatoriedad, que es
+       lo mismo: la 8.2a declara que la sal y el nonce entran como parámetros
+       **porque el núcleo no pide entropía al sistema**.
+    2. **Sin recursión.** Hoy `arles-core/src` no tiene subcarpetas, así que el
+       hueco no se nota; el día que tenga una, todo lo que viva dentro deja de
+       mirarse **sin que nada cambie de color**.
+
+    Es el mismo patrón que la 7.7 y la 8.5: una comprobación que dice cubrir
+    una regla y cubre una parte, y la parte que falta es justo la que nadie ha
+    roto todavía.
+
+    Verificada el 07/10/2026 con las dos rupturas: un reloj y un
+    `getrandom::fill` dentro del núcleo. Falla nombrando el archivo y la línea.
+    """
+    # Lo que un dominio puro no puede tener. El reloj y la aleatoriedad están
+    # aquí por derecho propio: los dos hacen que la misma entrada dé salidas
+    # distintas, que es exactamente lo que impide probar sin infraestructura.
+    PROHIBIDO = (
+        "std::fs", "std::net", "std::io", "std::env", "std::process",
+        "rusqlite", "reqwest", "tokio::net", "File::", "OpenOptions",
+        "SystemTime::now", "Instant::now", "OffsetDateTime::now",
+        "getrandom", "rand::",
+    )
+
+    encontrados = []
+    base = os.path.join(RAIZ, "crates", "arles-core", "src")
+    for carpeta, _, ficheros in os.walk(base):
+        for f in sorted(ficheros):
+            if not f.endswith(".rs"):
+                continue
+            ruta = os.path.join(carpeta, f)
+            with open(ruta, encoding="utf-8") as fh:
+                lineas = fh.read().split("\n")
+            dentro_de_pruebas = False
+            for n, linea in enumerate(lineas, 1):
+                # Las pruebas del núcleo sí pueden pedir un temporal o un
+                # reloj: lo que no puede es el código que viaja al instalador.
+                if "#[cfg(test)]" in linea:
+                    dentro_de_pruebas = True
+                if dentro_de_pruebas or linea.strip().startswith("//"):
+                    continue
+                for p in PROHIBIDO:
+                    if p in linea:
+                        rel = os.path.relpath(ruta, RAIZ)
+                        encontrados.append(f"{rel}:{n} → {p}")
+
+    check(1, "arles-core no toca el mundo: ni disco, ni red, ni reloj, ni azar",
+          not encontrados,
+          el_nucleo_no_toca_el_mundo.__doc__,
+          detalle="\n      ".join(encontrados[:8]))
+
+
+def el_grafo_de_crates_solo_apunta_hacia_dentro():
+    """**Las dependencias entre crates van en una dirección y sólo en una.**
+
+    ── LO QUE SE VIGILABA, Y LO QUE NO ──
+
+    Hasta el 07/10/2026 se comprobaba **una sola arista**: que `arles-core` no
+    dependiera de `arles-db`. El resto del grafo no lo miraba nadie, y el resto
+    del grafo es donde vive la arquitectura:
+
+    - `arles-db` **no conoce la IPC**: no depende de `arles-app` ni de `serde`.
+    - `arles-motor` **no sabe que los adaptadores existen**: define el rasgo, y
+      `arles-email` y `arles-whatsapp` lo implementan. La flecha va de los
+      adaptadores al motor, nunca al revés.
+    - **Nadie depende de `arles-app`**, que es la frontera: una dependencia
+      hacia él convertiría un crate de dominio en parte de la interfaz.
+    - `arles-banco` **no entra en el instalador**, así que nadie puede
+      depender de él (eso ya lo vigila `el_banco_no_viaja_en_el_instalador`).
+
+    El grafo se lee de los `Cargo.toml`, no de una lista escrita aquí: lo que
+    se compara es lo que Cargo compila.
+
+    Verificada el 07/10/2026 añadiendo `arles-app` a las dependencias de
+    `arles-db`: falla nombrando la arista.
+    """
+    # Quién puede depender de quién. Vacío = de nadie.
+    PERMITIDO = {
+        "arles-core": set(),
+        "arles-db": {"arles-core"},
+        "arles-import": {"arles-core"},
+        "arles-motor": {"arles-core", "arles-db"},
+        "arles-email": {"arles-core", "arles-motor"},
+        "arles-whatsapp": {"arles-core", "arles-motor"},
+        "arles-app": {"arles-core", "arles-db", "arles-import", "arles-motor",
+                      "arles-email", "arles-whatsapp"},
+        "arles-banco": {"arles-core", "arles-db", "arles-import"},
+    }
+
+    problemas = []
+    crates_dir = os.path.join(RAIZ, "crates")
+    presentes = sorted(d for d in os.listdir(crates_dir)
+                       if os.path.isdir(os.path.join(crates_dir, d)))
+
+    # Un crate nuevo sin su fila aquí es un crate cuya posición en el grafo no
+    # ha decidido nadie. Eso también es un fallo, y es el que más barato sale
+    # cazar el día que se añade.
+    for c in presentes:
+        if c not in PERMITIDO:
+            problemas.append(f"{c}: crate nuevo sin sitio declarado en el grafo")
+
+    for c in presentes:
+        if c not in PERMITIDO:
+            continue
+        toml = leer("crates", c, "Cargo.toml") or ""
+        usadas = set(re.findall(r"^\s*(arles-[a-z]+)\s*[=.]", toml, re.M))
+        for d in sorted(usadas - PERMITIDO[c]):
+            problemas.append(f"{c} → {d}: esta flecha no existe en la arquitectura")
+
+    check(1, "el grafo de crates sólo apunta hacia dentro",
+          not problemas,
+          el_grafo_de_crates_solo_apunta_hacia_dentro.__doc__,
+          detalle="\n      ".join(problemas))
+
+
 def invariantes_de_unsafe():
     """El workspace deniega `unsafe`; la prohibición dura vive en las raíces.
 
@@ -527,11 +722,44 @@ def invariantes_de_unsafe():
     Así que la política pasó a `deny`, y estas comprobaciones son lo que impide
     que ese relajamiento se convierta en barra libre.
     """
-    for crate in ("arles-core", "arles-db"):
+    # ── SE LEEN LOS CRATES QUE HAY, NO DOS ESCRITOS A MANO ──
+    #
+    # Hasta el 07/10/2026 la lista decía `("arles-core", "arles-db")`: **dos de
+    # siete**. Los otros cuatro de dominio —import, motor, email, whatsapp— lo
+    # tenían puesto y nada lo sostenía, y `arles-banco` no lo tenía. Es el mismo
+    # patrón que el §139 en la 7.7 y que el cero I/O de aquí al lado: una
+    # comprobación que dice cubrir una regla y cubre una parte.
+    #
+    # `arles-app` queda fuera a propósito y con su motivo escrito arriba: es el
+    # único con una excepción auditada, y tiene su propia comprobación debajo.
+    crates_dir = os.path.join(RAIZ, "crates")
+    de_dominio = sorted(
+        d for d in os.listdir(crates_dir)
+        if os.path.isdir(os.path.join(crates_dir, d, "src")) and d != "arles-app"
+    )
+    sin_prohibicion = []
+    for crate in de_dominio:
         fuente = leer("crates", crate, "src", "lib.rs") or ""
-        check(1, f"{crate} prohíbe unsafe en su raíz",
-              "#![forbid(unsafe_code)]" in fuente,
-              "Un crate de dominio que acepta `unsafe` ha dejado de ser de dominio.")
+        # ── SE QUITAN LOS COMENTARIOS ANTES DE MIRAR ──
+        #
+        # Sin esto, comentar el atributo —`// #![forbid(unsafe_code)]`— deja la
+        # comprobación en verde: la cadena sigue ahí, dentro del comentario.
+        # Se vio el 07/10/2026 haciendo justo esa ruptura en `arles-motor`: la
+        # prohibición desaparecía del crate y nada cambiaba de color. **Quinta
+        # vez** que este patrón aparece en el proyecto (5.3, 8.5 y dos veces en
+        # la 8.3 bis), y la lección es siempre la misma: una comprobación que
+        # busca una palabra en un archivo con comentarios la encuentra en los
+        # comentarios.
+        sin_comentarios = re.sub(r"//[^\n]*", "", fuente)
+        if "#![forbid(unsafe_code)]" not in sin_comentarios:
+            sin_prohibicion.append(crate)
+    check(1, "todo crate que no sea la frontera prohíbe unsafe en su raíz",
+          not sin_prohibicion,
+          "Un crate de dominio que acepta `unsafe` ha dejado de ser de dominio. "
+          "La lista sale de las carpetas que hay, no de dos nombres escritos aquí. "
+          "Verificada el 07/10/2026 quitando el `forbid` de arles-motor, y "
+          "**comentándolo**, que es la ruptura que la versión anterior no cazaba.",
+          detalle=f"sin forbid: {', '.join(sin_prohibicion)}")
 
     app = leer("crates", "arles-app", "src", "lib.rs") or ""
     permisos = app.count("#[allow(unsafe_code)]")

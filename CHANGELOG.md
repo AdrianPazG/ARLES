@@ -12,6 +12,52 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### 8.6 A · Auditoría de arquitectura (§140): cinco hallazgos, cinco arreglados
+
+Primera de las cuatro pasadas **separadas** que el §140 pide. Separadas y no una
+revisión general, y aquí se vio por qué: **todo estaba en verde** cuando empezó.
+
+#### Lo que cambia para quien usa ARLES
+
+Nada visible. Lo que cambia es que cuatro reglas que el proyecto daba por
+vigiladas ahora lo están de verdad.
+
+#### Lo que estaba mal
+
+**Cuatro de los cinco hallazgos no son defectos del producto: son defectos de
+sus comprobaciones.** Las cuatro decían cubrir una regla y cubrían una parte.
+
+1. **La comprobación del «núcleo sin I/O» no miraba el reloj.** El proyecto
+   repite en tres sitios que el núcleo no tiene reloj ni pide aleatoriedad al
+   sistema. Comprobado metiendo un reloj dentro del núcleo: la validación
+   **pasó en verde**. Tampoco entraba en subcarpetas.
+2. **El `forbid(unsafe_code)` se vigilaba en 2 de 7 crates**, por una lista
+   escrita a mano. Cuatro lo tenían sin que nada lo sostuviera, y `arles-banco`
+   no lo tenía.
+3. **El grafo de dependencias se vigilaba con una sola flecha.** El resto —que
+   la base no dependa de la interfaz, que el motor no dependa de los
+   adaptadores— no lo miraba nadie, y cualquiera de esas al revés **compila**.
+4. **Dos cifras de negocio viven en Rust y en TypeScript y nada las ataba.** El
+   aviso de más de 50 envíos diarios, y los meses de historial que se quedan.
+   Si se separan, la pantalla pide aceptar un aviso que el núcleo ya no exige —
+   o peor, no lo enseña y el usuario rellena nueve pasos para que lo rechacen al
+   final.
+5. **Un `panic!` en el código de producción.** Correcto pero evitable, y era la
+   única forma de que el proceso muriera a mitad de una restauración.
+
+**Y un quinto defecto apareció verificando el arreglo del segundo:** la
+comprobación nueva se cazaba en un comentario — comentar el atributo la dejaba
+en verde. **Quinta vez** que este patrón aparece en el proyecto.
+
+#### Lo que estaba bien
+
+`arles-core` no toca el mundo. El motor no escribe SQL fuera de sus pruebas.
+`arles-db` no conoce la IPC. El grafo es un DAG limpio, con los adaptadores
+dependiendo del motor y no al revés. Cero `any` en el frontend.
+
+Está contado en
+[`AUDITORIA-A-ARQUITECTURA.md`](documentacion/09-fases/AUDITORIA-A-ARQUITECTURA.md).
+
 ### 8.3 bis b · El botón de archivar: ARLES archiva el historial de verdad
 
 #### Lo que cambia para quien usa ARLES

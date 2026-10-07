@@ -904,6 +904,49 @@ los siete tramos.
 > `archivar_historial`, que es donde esa pregunta tiene respuesta. Verificada
 > rompiéndola en los dos sentidos: borrar sin verificar, y verificar después.
 
+**Cerrada la 8.6 A · la auditoría de arquitectura** (§140, pasada 1 de 4).
+**Cinco hallazgos, cinco arreglados**, con las diez fases en verde al empezar.
+Está contado en
+[`AUDITORIA-A-ARQUITECTURA.md`](documentacion/09-fases/AUDITORIA-A-ARQUITECTURA.md).
+
+> **Cuatro de los cinco no son defectos del producto: son defectos de sus
+> comprobaciones.** Las cuatro decían cubrir una regla y cubrían una parte, y la
+> parte que faltaba era justo la que nadie había roto:
+>
+> 1. **El cero I/O del núcleo no miraba el reloj ni el azar**, y las dos reglas
+>    están escritas en tres sitios del proyecto. Verificado metiendo un
+>    `OffsetDateTime::now_utc()` en `arles-core`: **45 pasan, 0 fallan**. Y el
+>    `os.listdir` no entraba en subcarpetas. Reescrita como
+>    `el_nucleo_no_toca_el_mundo`: `os.walk`, quince patrones, y salta las
+>    pruebas.
+> 2. **El `forbid(unsafe_code)` se vigilaba en 2 de 7 crates**, por una lista a
+>    mano. Ahora sale de las carpetas que hay. `arles-banco` no lo tenía.
+> 3. **El grafo de dependencias se vigilaba con una arista de doce.**
+>    `el_grafo_de_crates_solo_apunta_hacia_dentro` declara qué puede depender de
+>    qué y lo compara con los `Cargo.toml`; un crate nuevo sin fila también
+>    falla.
+> 4. **`AVISO_DIARIO` y los meses del historial viven en Rust y en TypeScript**,
+>    duplicados a propósito —la pantalla avisa antes de llamar a nadie— y **sin
+>    nada que los mantuviera iguales**. Si se separan, el asistente pide aceptar
+>    un aviso que el núcleo ya no exige, o no lo enseña y `crear_campana`
+>    rechaza al final nueve pasos de formulario.
+>
+> Y el quinto: **un `unreachable!()` en producción**, el único panic de los ocho
+> crates. Correcto —la rama acaba de ver `Some`— y evitable con un `if let`.
+
+> **El quinto defecto de comprobación apareció verificando el arreglo del
+> segundo.** La primera ruptura fue **comentar** el `#![forbid(unsafe_code)]`, y
+> la comprobación nueva siguió en verde: la cadena seguía ahí, dentro del
+> comentario. **Quinta vez** (5.3, 8.5 y dos en la 8.3 bis). Si la ruptura se
+> hubiera dado por hecha, habría entrado una comprobación rota **junto con el
+> arreglo que venía a corregir otra igual**.
+
+> **Lo que salió limpio, y conviene dejarlo escrito:** `arles-core` no toca el
+> mundo, el motor no escribe SQL fuera de sus pruebas, `arles-db` no depende de
+> `serde`, el grafo es un DAG que coincide con el documentado —los adaptadores
+> dependen del motor y no al revés— y hay cero `any` y cero `@ts-ignore` en el
+> frontend.
+
 **Para una demostración real** con correo y WhatsApp que llegan de verdad:
 `documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md`.
 

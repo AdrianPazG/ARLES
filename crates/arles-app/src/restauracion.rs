@@ -369,12 +369,23 @@ impl LeeElArchivo {
             (Some(_), _) => {
                 // Se acabó el archivo: hay que cerrar el sobre, que es donde se
                 // caza un respaldo al que le cortaron el final.
+                //
+                // ── POR QUÉ UN `if let` Y NO UN `unwrap` ──
+                //
+                // Aquí había `self.sobre.take().unwrap_or_else(|| unreachable!())`:
+                // correcto —la rama acaba de ver `Some`— y aun así el único
+                // `panic!` del código de producción del proyecto, encontrado por
+                // la auditoría A del §140 el 07/10/2026. El `take` va fuera del
+                // `match` porque dentro se tiene prestado `&mut self.sobre`; con
+                // `if let` el caso imposible simplemente no hace nada, en vez de
+                // tumbar la aplicación a mitad de una restauración.
                 self.se_acabo = true;
-                let sobre = self.sobre.take().unwrap_or_else(|| unreachable!());
                 let mut salida = Vec::new();
-                sobre
-                    .terminar(&mut salida)
-                    .map_err(arles_db::DbError::Nucleo)?;
+                if let Some(sobre) = self.sobre.take() {
+                    sobre
+                        .terminar(&mut salida)
+                        .map_err(arles_db::DbError::Nucleo)?;
+                }
                 salida
             }
             (None, 0) => {

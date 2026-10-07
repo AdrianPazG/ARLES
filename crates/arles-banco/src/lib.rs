@@ -20,6 +20,11 @@
 //!
 //! Y no es criptografía: **no se use para nada que proteja algo.**
 
+// Lo tenían los seis crates de dominio y éste no, porque la comprobación que
+// lo vigila nombraba **dos de siete** a mano. Lo encontró la auditoría A del
+// §140 el 07/10/2026, y la comprobación ahora lee las carpetas que hay.
+#![forbid(unsafe_code)]
+
 pub mod medir;
 
 /// Un generador de números reproducible. SplitMix64.

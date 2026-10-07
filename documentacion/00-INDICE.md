@@ -145,6 +145,7 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Fase 07 · resumen para Dirección](09-fases/FASE-07-PARA-DIRECCION.md) | Sin tecnicismos |
 | [Fase 08 · Respaldos y endurecimiento · **plan**](09-fases/FASE-08-PLAN.md) | 📋 planificada · ocho entregas y tres decisiones que esperan a Dirección |
 | [Fase 08 · resumen para Dirección](09-fases/FASE-08-PARA-DIRECCION.md) | Sin tecnicismos |
+| [Auditoría A · Arquitectura](09-fases/AUDITORIA-A-ARQUITECTURA.md) | §140, pasada 1 de 4 · cinco hallazgos, cinco arreglados |
 
 ---
 
