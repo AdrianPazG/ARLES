@@ -79,8 +79,9 @@ Dirección pidió «corregir toda la información del git», y lo que había era
 - **Ninguno de los dos enlazaba cómo abrir la aplicación.** Alguien que clona el
   repositorio no tenía dónde mirar.
 
-Las cifras de este CHANGELOG salen de correr las diez fases el 08/10/2026:
-**324 comprobaciones, 0 fallos** (5·52·37·84·41·36·20·21·9·19).
+Las cifras de este CHANGELOG salen de correr las diez fases el 08/10/2026 **con
+las sondas abriendo Chromium de verdad**: **324 comprobaciones, 0 fallos y 0
+omitidas** (5·52·37·84·41·36·20·21·9·19).
 
 ### El arranque de la aplicación, que nunca había funcionado
 

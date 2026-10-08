@@ -80,9 +80,9 @@ para Dirección, sin tecnicismos.
 | [08 · Respaldos y endurecimiento](documentacion/09-fases/FASE-08-RESPALDOS.md) · [↳ Dirección](documentacion/09-fases/FASE-08-PARA-DIRECCION.md) | ✅ cerrada | 19/19 |
 | 09 · Release v1.2.0 | ⬜ sin empezar | — |
 
-**324 comprobaciones, 0 fallos**, con las sondas abriendo un navegador de
-verdad. Una sonda que no se puede correr se marca **omitida**, que no es lo
-mismo que pasada, y así se dice.
+**324 comprobaciones, 0 fallos y 0 omitidas** (08/10/2026), con las sondas
+abriendo un navegador de verdad. Una sonda que no se puede correr se marca
+**omitida**, que no es lo mismo que pasada, y así se dice.
 
 ```bash
 # Las diez fases. Correr sólo la fase en curso no basta: en la 5.2 y la 5.3
