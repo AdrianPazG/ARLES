@@ -69,6 +69,42 @@ cargo run --release -p arles-app
 
 Y se abre la ventana.
 
+> ### Si PowerShell dice que «no se pueden cargar scripts»
+>
+> ```
+> npm : File C:\Program Files\nodejs\npm.ps1 cannot be loaded because
+> running scripts is disabled on this system.
+> ```
+>
+> **Le pasa a todo el mundo la primera vez**, y no tiene nada que ver con ARLES:
+> Windows bloquea por defecto los scripts de PowerShell, y `npm` es uno. Hay dos
+> salidas.
+>
+> **La rápida, sin tocar nada del sistema** — añade `.cmd`:
+>
+> ```powershell
+> npm.cmd install
+> npm.cmd run build
+> ```
+>
+> `npm` a secas es un script de PowerShell; `npm.cmd` es el programa de toda la
+> vida y no pasa por esa restricción.
+>
+> **La permanente**, para no acordarte del `.cmd` nunca más:
+>
+> ```powershell
+> Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+> ```
+>
+> Responde **S**. Permite ejecutar scripts hechos en tu equipo y sigue exigiendo
+> firma digital a los descargados de internet; es lo que Microsoft recomienda
+> para estaciones de trabajo, afecta **sólo a tu usuario** y se deshace con el
+> mismo comando poniendo `Restricted`.
+>
+> **Encontrado el 08/10/2026, en el primer intento real.** Esta guía se escribió
+> sin recorrerla en Windows, y el primer paso falló: queda aquí porque el
+> siguiente que la lea no debería tropezar con lo mismo.
+
 > **Por qué así y no con el modo de desarrollo de Tauri.** Esta vía no necesita
 > instalar nada más, y el programa arranca con la interfaz ya compilada dentro
 > del ejecutable — que es exactamente lo que verá un usuario. El modo de
