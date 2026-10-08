@@ -222,6 +222,80 @@ def fase_0(rapido):
 
 # ─── Fase 1 · Cimientos ──────────────────────────────────────────────────────
 
+def la_aplicacion_se_construye_como_aplicacion():
+    """**El binario que se entrega no puede quedar en modo de desarrollo.**
+
+    Tauri NO decide por el perfil de cargo si la aplicación es un programa
+    terminado o un entorno de desarrollo. Lo decide por una característica del
+    compilador:
+
+        pub const fn is_dev() -> bool { !cfg!(feature = "custom-protocol") }
+
+    Sin ella, **incluso compilando en `--release`**, la ventana abre buscando
+    la interfaz en el servidor de desarrollo y enseña «no se puede acceder a
+    esta página». La aplicación compila, arranca, abre su ventana — y no sirve
+    para nada.
+
+    ── POR QUÉ ESTO ESTUVO NUEVE FASES SIN VERSE ──
+
+    Porque **nadie había construido la aplicación**. Todo lo que el proyecto
+    verifica lo verifica con pruebas, que no abren ninguna ventana, y con la
+    vista previa, que es HTML en un navegador sin nada de Rust detrás. El
+    andamiaje estándar de Tauri declara esta característica desde el primer
+    día; aquí faltaba, y lo encontró Dirección al abrir ARLES por primera vez
+    el 08/10/2026.
+
+    Es el patrón del §9 en el último tramo que quedaba: **la junta entre
+    «compila» y «se puede usar»**.
+
+    Se comprueban las tres piezas, porque cualquiera de las tres sola se queda
+    corta: la característica declarada, el alias que la usa (para que nadie
+    tenga que acordarse), y que la guía de arranque mande ese comando y no otro.
+
+    Verificada el 08/10/2026 quitando cada una de las tres: las tres en rojo. Y
+    medida en el binario, que es lo que de verdad importa — sin la
+    característica, 20 017 216 bytes y **cero** apariciones de `index.html`;
+    con ella, 20 377 184 y siete.
+    """
+    cargo = leer(os.path.join(RAIZ, "crates/arles-app/Cargo.toml"))
+    alias = leer(os.path.join(RAIZ, ".cargo/config.toml"))
+    guia = leer(os.path.join(RAIZ, "documentacion/07-entrega/COMO-ABRIR-ARLES.md"))
+
+    declarada = 'custom-protocol = ["tauri/custom-protocol"]' in sin_comentarios_toml(cargo)
+    check(
+        1,
+        "arles-app declara la característica custom-protocol",
+        declarada,
+        "Sin ella la aplicación abre en modo desarrollo y busca la interfaz en localhost.",
+    )
+
+    en_el_alias = "--features custom-protocol" in sin_comentarios_toml(alias)
+    check(
+        1,
+        "el alias `cargo arles` construye la aplicación de verdad",
+        en_el_alias,
+        "Un alias sin la característica deja la ventana pidiendo localhost, que es el defecto que vino a evitar.",
+    )
+
+    check(
+        1,
+        "la guía de arranque manda el comando que funciona",
+        "cargo arles" in guia,
+        "Una guía que manda `cargo run --release` a secas describe un arranque que no sirve.",
+    )
+
+
+def sin_comentarios_toml(texto):
+    """Quita los comentarios de un TOML.
+
+    Octava vez que una comprobación de este proyecto se caza a sí misma en un
+    comentario (5.3, 8.5, dos en la 8.3 bis, 8.6 A, 8.6 D, 8.6 E). Aquí los
+    comentarios explican la característica **citándola entera**, así que buscar
+    la cadena sin quitarlos pasaría en verde con la línea borrada.
+    """
+    return "\n".join(l.split("#", 1)[0] for l in texto.splitlines())
+
+
 def fase_1(rapido):
     titulo("FASE 1 · Cimientos")
 
@@ -239,6 +313,10 @@ def fase_1(rapido):
         ("deny.toml", "La política de licencias debe hacerse cumplir, no documentarse."),
     ]:
         check(1, f"existe {ruta}", os.path.exists(os.path.join(RAIZ, ruta)), porque)
+
+    # ── Que lo que se construye sea una aplicación, no un andamio ──
+    print(f"{GRIS}  la aplicación se construye como aplicación{FIN}")
+    la_aplicacion_se_construye_como_aplicacion()
 
     # ── Fronteras de arquitectura ──
     print(f"{GRIS}  fronteras de arquitectura{FIN}")

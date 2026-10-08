@@ -1,0 +1,21 @@
+# ── CÓMO SE ABRE ARLES, EN UN COMANDO ──────────────────────────────────────
+#
+# `cargo arles` compila y abre la aplicación como un programa terminado.
+#
+# El `--features custom-protocol` NO es opcional ni una optimización: es lo que
+# Tauri mira para saber si la aplicación es un programa o un entorno de
+# desarrollo (`is_dev()` devuelve `!cfg!(feature = "custom-protocol")`). Sin él,
+# incluso compilando en `--release`, la ventana abre buscando la interfaz en
+# localhost:1420 y enseña «no se puede acceder a esta página».
+#
+# Dirección se topó con eso el 08/10/2026 al abrir ARLES por primera vez, y el
+# alias existe para que nadie tenga que acordarse. Está explicado entero en
+# `crates/arles-app/Cargo.toml`.
+#
+# Antes de la primera vez, y cada vez que cambie la interfaz:
+#     cd app && npm run build
+#
+# Para programar con recarga en caliente es al revés — ahí hace falta el modo
+# de desarrollo — y el comando es `cargo tauri dev` desde `crates/arles-app`.
+[alias]
+arles = "run --release -p arles-app --features custom-protocol"

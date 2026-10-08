@@ -1362,6 +1362,46 @@ informe en
 > 3.4. Un plan que pide dos veces lo mismo hace perder el tiempo buscando lo que
 > ya existe — que es exactamente lo que le pasó a la auditoría B.
 
+**Y el 08/10/2026, el último hueco del §9 que quedaba: ARLES compilaba,
+arrancaba, abría su ventana — y dentro no había nada.** Lo encontró Dirección al
+abrirlo por primera vez: la ventana enseñó «can't reach this page — localhost
+refused to connect».
+
+> **Tauri no decide por el perfil de cargo** si lo que construye es un programa
+> terminado o un entorno de desarrollo. Lo decide por una característica del
+> compilador:
+>
+> ```rust
+> pub const fn is_dev() -> bool { !cfg!(feature = "custom-protocol") }
+> ```
+>
+> Sin ella, **incluso compilando en `--release`**, la aplicación busca la
+> interfaz en el servidor de desarrollo. El andamiaje estándar de Tauri la
+> declara desde el primer día; aquí **no estaba declarada en ninguna parte**, así
+> que ni siquiera se podía activar de la forma normal.
+>
+> **Estuvo nueve fases sin verse porque nadie había construido la aplicación**:
+> todo se verifica con pruebas, que no abren ninguna ventana, y con la vista
+> previa, que es HTML en un navegador sin nada de Rust detrás. Medido en el mismo
+> binario: sin la característica, 20 017 216 bytes y **cero** apariciones de
+> `index.html`; con ella, 20 377 184 y **siete**.
+>
+> **Se abre con `cargo arles`** (alias de `.cargo/config.toml`), nunca con
+> `cargo run --release` a secas. Antes, `cd app && npm run build`. Lo vigila
+> `la_aplicacion_se_construye_como_aplicacion` en `--fase 1`, que comprueba las
+> tres piezas: la característica declarada, el alias que la usa, y que
+> [`COMO-ABRIR-ARLES.md`](documentacion/07-entrega/COMO-ABRIR-ARLES.md) mande
+> ese comando — **esa guía dijo el comando equivocado en su primera versión,
+> porque se escribió sin recorrerla**.
+
+> **Al escribir una guía, se recorre.** La de arranque se escribió en una tarde
+> con todo verificado «por lectura», y en el primer intento real de Dirección
+> falló **tres veces seguidas**: PowerShell bloqueando `npm`, una base de una
+> versión anterior que impide migrar, y el comando de arranque equivocado. Las
+> tres están ahora en la guía, con su fecha. **Una instrucción que nadie ha
+> seguido no es una instrucción verificada** — es el §2 aplicado a la
+> documentación.
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |

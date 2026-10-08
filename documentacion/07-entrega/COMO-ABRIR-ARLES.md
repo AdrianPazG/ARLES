@@ -161,8 +161,12 @@ En Windows ese paso no existe: el Administrador de credenciales se desbloquea
 con tu sesión y no pregunta nada.
 
 **Si la ventana se abre en blanco o en negro**, es que el frontend no se embebió:
-vuelve a correr `npm run build` dentro de `app` y después `cargo run --release
--p arles-app` otra vez. Si sigue, dímelo con lo que diga la consola.
+vuelve a correr `npm run build` dentro de `app` y después `cargo arles` otra
+vez. Si sigue, dímelo con lo que diga la consola.
+
+**Si la ventana dice «can't reach this page» o «localhost refused to
+connect»**, estás arrancando sin la característica `custom-protocol`: usa
+`cargo arles`, no `cargo run --release` a secas. Está explicado arriba.
 
 ---
 

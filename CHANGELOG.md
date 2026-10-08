@@ -12,6 +12,66 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### El arranque de la aplicación, que nunca había funcionado
+
+**ARLES compilaba, arrancaba y abría su ventana — y dentro no había nada.**
+Dirección lo abrió por primera vez el 08/10/2026 y la ventana enseñó
+«Hmmm… can't reach this page — localhost refused to connect».
+
+Tauri **no decide por el perfil de cargo** si lo que construye es un programa
+terminado o un entorno de desarrollo. Lo decide por una característica del
+compilador:
+
+```rust
+pub const fn is_dev() -> bool { !cfg!(feature = "custom-protocol") }
+```
+
+Sin ella, **incluso compilando en `--release`**, la aplicación arranca creyendo
+que alguien está programando y busca la interfaz en el servidor de desarrollo.
+El andamiaje estándar de Tauri la declara desde el primer día; en este proyecto
+**no estaba declarada en ninguna parte**, y por eso ni siquiera se podía activar
+de la forma normal.
+
+**Estuvo nueve fases sin verse porque nadie había construido la aplicación.**
+Todo lo que el proyecto verifica lo verifica con pruebas —que no abren ninguna
+ventana— y con la vista previa, que es HTML en un navegador sin nada de Rust
+detrás. Es el patrón del §9 en el último tramo que quedaba: **la junta entre
+«compila» y «se puede usar»**.
+
+#### Qué cambia
+
+- **`crates/arles-app/Cargo.toml` declara `custom-protocol`**, como el
+  andamiaje estándar. No es `default` a propósito: `tauri dev` necesita el modo
+  de desarrollo.
+- **`.cargo/config.toml` añade el alias `cargo arles`**, para que nadie tenga
+  que acordarse de la característica.
+- **`COMO-ABRIR-ARLES.md` manda `cargo arles`** y explica el porqué. Su primera
+  versión decía `cargo run --release -p arles-app`, que describe un arranque que
+  no sirve: **la guía se escribió sin recorrerla**.
+- **`la_aplicacion_se_construye_como_aplicacion`** en `--fase 1` comprueba las
+  tres piezas —la característica declarada, el alias que la usa, y que la guía
+  mande ese comando—, porque cualquiera de las tres sola se queda corta.
+
+Medido en el mismo binario: sin la característica, **20 017 216 bytes y cero
+apariciones de `index.html`**; con ella, **20 377 184 y siete**. La interfaz
+entra.
+
+> **Y la comprobación nueva quita los comentarios antes de buscar**, porque los
+> comentarios de `Cargo.toml` explican la característica **citándola entera**:
+> sin quitarlos, borrar la línea pasaría en verde. Sería la **novena vez** en el
+> proyecto que una comprobación se caza a sí misma en un comentario.
+
+### Lo que la guía de arranque recogió del primer intento real
+
+Dos tropiezos de Windows que la guía no mencionaba, porque se escribió sin
+recorrerla en Windows:
+
+- **PowerShell bloquea los scripts** por defecto, así que `npm install` falla
+  con `npm.ps1 cannot be loaded`. Las dos salidas están documentadas.
+- **Una base de datos de una versión anterior impide arrancar**: el esquema
+  inicial cambió después de crearse, refinery lo detecta y se niega a tocarla.
+  La guía dice ahora dónde vive la base y cómo apartarla.
+
 ### 8.7 · Cierre de la Fase 8
 
 Documento de fase, informe para Dirección, el avance recalculado —**89 % a

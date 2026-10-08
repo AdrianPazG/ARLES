@@ -61,6 +61,34 @@ arles-db = { path = "../arles-db", features = ["test-util"] }
 arles-email = { path = "../arles-email", features = ["test-util"] }
 rusqlite = "0.37"
 
+# ── LA CARACTERÍSTICA QUE SEPARA «COMPILA» DE «SE PUEDE USAR» ──────────────
+#
+# Tauri NO decide por el perfil de cargo si la aplicación es un programa
+# terminado o un entorno de desarrollo. Lo decide por esta característica:
+#
+#     pub const fn is_dev() -> bool { !cfg!(feature = "custom-protocol") }
+#
+# Sin ella, **incluso compilando en `--release`**, la aplicación arranca
+# creyendo que alguien está programando y busca la interfaz en el servidor de
+# desarrollo (`devUrl`, localhost:1420). La ventana abre con «no se puede
+# acceder a esta página» y nada funciona.
+#
+# El andamiaje estándar de Tauri la declara desde el primer día. Aquí faltaba,
+# y no se notó en nueve fases **porque nadie había construido la aplicación**:
+# todo estaba verificado por pruebas, que no abren ninguna ventana. Lo encontró
+# Dirección al abrirla por primera vez el 08/10/2026 — el último hueco posible
+# del patrón del §9, el que separa «compila» de «se puede usar».
+#
+# **No es `default` a propósito**: `tauri dev` necesita el modo de desarrollo,
+# y hacerla predeterminada obligaría a desactivarla ahí. Quien construye la
+# aplicación la pide, y para no tener que acordarse está el alias `cargo arles`
+# de `.cargo/config.toml`.
+#
+# Medido el 08/10/2026 en el mismo binario: sin ella, 20 017 216 bytes y cero
+# apariciones de `index.html`; con ella, 20 377 184 y siete. La interfaz entra.
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
 [lints]
 workspace = true
 
