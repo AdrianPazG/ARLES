@@ -39,6 +39,44 @@ node --version
 
 Si las dos contestan con un número, ya está.
 
+> ### Si dice que «cargo no se reconoce» y acabas de instalar Rust
+>
+> ```
+> cargo : The term 'cargo' is not recognized as the name of a cmdlet,
+> function, script file, or operable program.
+> ```
+>
+> **No falta Rust: falta cerrar la ventana.** El instalador deja `cargo` en
+> `C:\Users\<tu usuario>\.cargo\bin` y añade esa carpeta al PATH, pero el PATH
+> se lee **al abrir** cada programa. VS Code y cualquier terminal que ya
+> estuviera abierta siguen con el de antes, y abrir una pestaña nueva **no
+> basta**: hereda el de VS Code.
+>
+> **La salida permanente:** cierra VS Code entero y vuelve a abrirlo.
+>
+> **La salida inmediata**, si no quieres perder lo que tienes abierto:
+>
+> ```powershell
+> $env:Path = "$env:USERPROFILE\.cargo\bin;" + $env:Path
+> cargo --version
+> ```
+>
+> Vale sólo para esa ventana.
+>
+> **Y si aun así no aparece**, comprueba si el programa llegó a instalarse:
+>
+> ```powershell
+> Test-Path "$env:USERPROFILE\.cargo\bin\cargo.exe"
+> ```
+>
+> Un `False` quiere decir que el instalador no terminó. `rustup-init.exe` abre
+> una **pantalla de texto que se queda esperando**: hay que escribir `1` y pulsar
+> Enter. Si se cierra la ventana ahí, no instala nada y no dice nada.
+>
+> **Encontrado el 08/10/2026, en el segundo equipo.** Mismo tropiezo que el de
+> PowerShell de más abajo: ninguno de los dos es de ARLES, y los dos paran la
+> primera vez.
+
 ---
 
 ## 2 · Traer el código
@@ -64,10 +102,16 @@ cd app
 npm install
 npm run build
 cd ..
-cargo run --release -p arles-app
+cargo arles
 ```
 
 Y se abre la ventana.
+
+> **`cargo arles`, no `cargo run --release`.** Es un alias del propio proyecto
+> (`.cargo/config.toml`) y existe por una razón concreta: añade la característica
+> `custom-protocol`, que es lo que hace que la interfaz viaje **dentro** del
+> ejecutable. Sin ella la ventana abre pidiendo un servidor de desarrollo que no
+> está, y enseña «can't reach this page». Está contado en el §5.
 
 > ### Si PowerShell dice que «no se pueden cargar scripts»
 >
@@ -126,7 +170,8 @@ un archivo (ADR-0011).
 
 Esto no es un detalle de implementación, es la decisión central del producto:
 
-- Tus datos viven cifrados en `%APPDATA%\mx.telemetryinsight.arlesrelay\`.
+- Tus datos viven cifrados en `%APPDATA%\TelemetryInsight\ArlesRelay\data\`,
+  en un archivo llamado `arles.db`.
 - **La llave vive en Windows, no en ARLES.** Si alguien se lleva el archivo de
   la base, no puede leerlo.
 - **Si el Administrador de credenciales no está disponible, ARLES no arranca.**
@@ -136,6 +181,36 @@ Esto no es un detalle de implementación, es la decisión central del producto:
 
 Después verás **Inicio**, con la lista de seis pasos. El primero es configurar
 los datos de tu empresa.
+
+> ### Si dice «fallo al migrar el esquema»
+>
+> ```
+> fallo al migrar el esquema: applied migration V1__esquema_inicial is
+> different than filesystem one V1__esquema_inicial
+> ```
+>
+> **Tienes una base de una versión anterior de ARLES.** El esquema inicial
+> cambió después de que se creara, y el motor de migraciones guarda la huella
+> del SQL de cada una: al no coincidir, **se niega a tocarla**. Y hace bien —
+> aplicar migraciones sobre una base que no es la que esperan puede corromperla.
+>
+> Lo que ARLES te dice en ese cuadro **no sirve**, y está pendiente de arreglo:
+> manda a cerrar y volver a abrir, que da exactamente el mismo error siempre, y
+> a restaurar un respaldo que probablemente no tienes.
+>
+> **Lo que sí funciona: apartar la base.** No la borres — si algún día hace
+> falta, un ARLES de aquella versión sí la abriría.
+>
+> ```powershell
+> # Cierra ARLES primero.
+> cd "$env:APPDATA\TelemetryInsight\ArlesRelay\data"
+> Rename-Item arles.db "arles-vieja-$(Get-Date -Format yyyyMMdd).db"
+> ```
+>
+> Al volver a abrir, ARLES crea una base nueva y vacía. **Lo que había dentro no
+> vuelve**: si eran datos que te importan, dímelo antes de hacer esto.
+>
+> **Encontrado el 08/10/2026, en el primer intento real.**
 
 ---
 

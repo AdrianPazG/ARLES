@@ -15,8 +15,17 @@ const APLICACION: &str = "ArlesRelay";
 ///
 /// | | Windows | macOS |
 /// |---|---|---|
-/// | Datos | `%APPDATA%\TelemetryInsight\ArlesRelay` | `~/Library/Application Support/…` |
+/// | Datos | `%APPDATA%\TelemetryInsight\ArlesRelay\data` | `~/Library/Application Support/mx.TelemetryInsight.ArlesRelay` |
 /// | Registros | `%LOCALAPPDATA%\…\logs` | `~/Library/Logs/…` |
+///
+/// **El `data` final de Windows no es decorativo y el `mx.` de macOS tampoco**:
+/// `directories` 6 compone `roaming + organización + aplicación + "data"` allí,
+/// y `~/Library/Application Support/` + `qualifier.organización.aplicación`
+/// aquí — el `qualifier` se ignora en Windows y manda en macOS. Están medidos
+/// leyendo `directories-6.0.0/src/win.rs` y `src/mac.rs`, no de memoria: la
+/// guía de arranque dio la ruta mal (mezclaba el nombre del **servicio del
+/// llavero**, `mx.telemetryinsight.arlesrelay`, con la carpeta de datos) y
+/// mandó a Dirección a buscar su base donde no estaba.
 #[derive(Debug, Clone)]
 pub struct Rutas {
     datos: PathBuf,

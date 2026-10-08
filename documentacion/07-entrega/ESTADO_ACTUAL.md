@@ -1,7 +1,7 @@
 # Estado actual · dónde está ARLES y qué sigue
 
 **Proyecto:** ARLES RELAY I · v1.2.0
-**Última actualización:** 5 de octubre de 2026 (plan de la Fase 8)
+**Última actualización:** 8 de octubre de 2026 (Fase 8 cerrada; el arranque de la aplicación)
 **Para qué sirve este documento:** que quien retome el trabajo —otra sesión, otra persona, otro equipo— sepa en una lectura qué está construido, qué decisiones ya están tomadas, qué **no** hay que volver a discutir y qué es lo siguiente.
 
 > Se actualiza **al cerrar cada entrega**, no al empezarla. Un documento de estado que describe intenciones en vez de hechos es peor que no tenerlo: se lee como si fuera cierto.
@@ -18,6 +18,10 @@
 
 **El canal de WhatsApp (W.1 a W.8) está construido**, y desde la 7.7 **se puede mandar un WhatsApp de prueba desde la aplicación** — hasta entonces el comando existía sin botón. Lo que WhatsApp **no** hace es lanzar una campaña entera: el motor sólo recorre `Canal::Correo`. Es la decisión que espera a Dirección en `09-fases/FASE-05-PARA-DIRECCION.md`.
 
+**Y ARLES ya sabe guardar y recuperar todo lo que tiene.** La Fase 8 está cerrada entera (8.0 a 8.7, más la 8.3 bis y las cinco auditorías): respaldo cifrado con dos alcances, restauración que reemplaza y une las bajas, archivado del historial a un disco externo verificado antes de borrar, la pantalla de recuperación para el día que se pierda la llave del llavero, y la migración V11 que dejó la lista de contactos en 357 ms y la búsqueda por correo en menos de 1.
+
+**Y desde el 08/10/2026 la aplicación arranca de verdad.** Hasta ese día ARLES compilaba, abría su ventana y **dentro no había nada**: faltaba la característica `custom-protocol` de Tauri, sin la que la interfaz no viaja dentro del ejecutable. **Se abre con `cargo arles`**, nunca con `cargo run --release` a secas. Está en [`COMO-ABRIR-ARLES.md`](COMO-ABRIR-ARLES.md), con los cuatro tropiezos ya vistos en Windows.
+
 ---
 
 ## 2. Lo que está construido y verificado
@@ -32,13 +36,19 @@
 | F4 · Motor de ejecución | ✅ cerrada | Máquina de estados, ritmo, ventana con zona IANA, reintentos, disyuntor, cola, presupuesto, pausa/detención, preflight |
 | **F5 · Proveedores de envío** | **🟡 70 %** | **La parte de correo cerrada (5.1 a 5.6). Falta WhatsApp. Ver §3** |
 | **F6 · Campañas y mensajes** | **✅ cerrada** | **Plantillas, saneado, versiones, campañas, preflight y el asistente de nueve pasos (6.1 a 6.7), con su auditoría. Ver §3 bis** |
-| **F7 · Actividad** | **🟡 92 %** | **El freno, el registro, las cifras, la pantalla de Actividad, el registro con filtros, el resumen exportable y la auditoría de cierre (7.0 a 7.4, 7.6 y 7.7). Falta sólo la 7.5 · SPF/DKIM/DMARC, movida al final por Dirección. Ver `09-fases/FASE-07-ACTIVIDAD.md`** |
-| F8 · Respaldos y endurecimiento | 📋 planificada | Ocho entregas, tres decisiones que esperan a Dirección. Ver `09-fases/FASE-08-PLAN.md`. **Lo urgente: hoy, si se pierde la clave del llavero, los datos son ilegibles para siempre y no hay respaldo del que tirar** |
+| F7 · Actividad | 🟡 92 % | El freno, el registro, las cifras, la pantalla de Actividad, el registro con filtros, el resumen exportable y la auditoría de cierre (7.0 a 7.4, 7.6 y 7.7). Falta sólo la 7.5 · SPF/DKIM/DMARC, movida al final por Dirección. Ver `09-fases/FASE-07-ACTIVIDAD.md` |
+| **F8 · Respaldos y endurecimiento** | **✅ cerrada** | **Respaldo cifrado con dos alcances, restauración que reemplaza y une las bajas, archivado del historial verificado antes de borrar, la pantalla de recuperación del llavero perdido, el banco de pruebas con las trece cifras, la migración V11 y las cinco auditorías (8.0 a 8.7, más la 8.3 bis). Ver `09-fases/FASE-08-RESPALDOS.md`** |
 | F9 · Release v1.2.0 | ⬜ sin empezar | Instaladores firmados, updater, despliegue interno |
 
-**Cifras del 01/10/2026:** 187 pruebas del frontend y las nueve fases del validador **con las sondas corriendo de verdad** — 298 comprobaciones, 0 fallos y **0 omitidas** (5·48·37·83·40·35·20·21·9). `fmt`, `clippy`, `eslint` y `vue-tsc` limpios.
+**Cifras del 08/10/2026:** las **diez** fases del validador — **324 comprobaciones, 0 fallos**. `fmt`, `clippy`, `eslint` y `vue-tsc` limpios.
 
-**Avance de la v1.2.0: 82 %**, calculado desde `avance.json` el 01/10/2026.
+> **El bucle son diez fases, no nueve**, y correr sólo la tuya no basta: en la 5.2 y la 5.3 se rompieron cuatro comprobaciones de las fases 2, 3 y 4 sin que nadie lo viera (§8 bis).
+>
+> ```bash
+> for f in 0 1 2 3 4 5 6 W 7 8; do python3 herramientas/validar/validar.py --fase $f; done
+> ```
+
+**Avance de la v1.2.0: 89 %**, calculado desde `avance.json` el 07/10/2026.
 
 ---
 
@@ -283,17 +293,41 @@ viera**. Salieron todas juntas el 24/09/2026, al repasar el proyecto:
 
 Los cuatro están arreglados. Dos cosas que conviene llevarse:
 
-**Antes de empujar, correr las seis fases**, no sólo la que se está tocando.
+**Antes de empujar, correr las diez fases**, no sólo la que se está tocando.
 Cuesta un minuto con `--rapido`.
 
-**Y el patrón del comentario que se caza a sí mismo ya va por la tercera vez**
-—la invariante del TLS en la 5.2, la del secreto en la webview en la 5.3, y ésta.
-Cualquier comprobación nueva que busque un texto en el código tiene que quitar
+**Y el patrón del comentario que se caza a sí mismo ya va por la novena vez.**
+Cualquier comprobación nueva que busque un texto en un archivo tiene que quitar
 los comentarios antes de mirar, porque la documentación de la regla contiene la
-palabra que la regla prohíbe.
+palabra que la regla prohíbe. **Saberlo no basta** — ha vuelto a pasar dentro de
+comprobaciones escritas el mismo día para arreglar otra igual, y una vez dentro
+del propio bucle de rupturas, dando por restaurado un archivo que seguía roto.
+
+**La novena tiene otra cara y conviene distinguirla:** no fue un comentario, fue
+**el sitio**. La comprobación de la guía de arranque preguntaba si la cadena
+`cargo arles` aparecía **en el archivo entero**, y aparecía — en la prosa de
+solución de problemas, mientras el bloque que se copia seguía mandando el
+comando que no sirve. **Medir que una cadena aparece no es medir que el sitio
+que importa la tenga.**
 
 ## 9. Lo que este documento no cubre
 
 - **El porqué de cada decisión de producto** está en `01-producto/DECISIONES_DE_DIRECCION.md` y en los ADR de `03-arquitectura/adr/`.
 - **El estado de cada fase con su cifra** está en `07-entrega/avance.json`, que es la fuente única del porcentaje.
 - **Lo que pasó en cada entrega** está en `CHANGELOG.md`, escrito para que lo lea Dirección.
+- **Cómo se abre la aplicación** está en [`COMO-ABRIR-ARLES.md`](COMO-ABRIR-ARLES.md). No es un detalle de instalación: hasta el 08/10/2026 **nadie había construido ARLES como aplicación**, y el día que se hizo apareció un hueco del §9 que nueve fases de pruebas no podían ver.
+
+---
+
+## 10. Lo siguiente
+
+**La Fase 9 · Release**, con tres cosas que la Fase 8 dejó anotadas y una decisión pendiente:
+
+| | Qué | De dónde viene |
+|---|---|---|
+| **1** | **Sacar la activación de campañas a segundo plano**, con avance y botón de cancelar. Hoy tarda 73.5 s con 451 196 destinatarios y la interfaz no contesta; el presupuesto de 2 s se rompe hacia los 30 000 | Auditoría C |
+| **2** | **El filtro del registro** (C-2): buscar texto tarda 3 709 ms. Declarado con su cifra, no arreglado | Auditoría C |
+| **3** | **La 7.5 · SPF, DKIM y DMARC**, que Dirección movió al final el 30/09/2026: es lo único que necesita red y una dependencia nueva | Fase 7 |
+| **4** | **El mensaje de «fallo al migrar el esquema» no cumple el §95**: manda a cerrar y reabrir —que da el mismo error siempre— y a restaurar un respaldo que puede no existir, y no dice dónde vive la base. La salida real está hoy sólo en la guía de arranque | 08/10/2026, primer intento real |
+
+**Y la decisión que sigue esperando:** construir el adaptador de WhatsApp para el motor antes de la Fase 9, o entregar la v1.2.0 con campañas sólo por correo. Está planteada en `09-fases/FASE-05-PARA-DIRECCION.md`.

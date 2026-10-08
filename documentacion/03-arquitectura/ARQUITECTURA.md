@@ -154,7 +154,7 @@ Por qué un hilo dedicado y no un pool: SQLite con SQLCipher y WAL admite lector
 
 | Qué | Windows | macOS |
 |---|---|---|
-| Base de datos | `%APPDATA%\TelemetryInsight\ArlesRelay\` | `~/Library/Application Support/…` |
+| Base de datos | `%APPDATA%\TelemetryInsight\ArlesRelay\data\arles.db` | `~/Library/Application Support/mx.TelemetryInsight.ArlesRelay/arles.db` |
 | Configuración | idem | idem |
 | Registros | `%LOCALAPPDATA%\…\logs\` | `~/Library/Logs/…` |
 | Respaldos | elegido por el usuario | elegido por el usuario |

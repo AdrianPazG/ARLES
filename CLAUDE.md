@@ -1402,6 +1402,33 @@ refused to connect».
 > seguido no es una instrucción verificada** — es el §2 aplicado a la
 > documentación.
 
+> **Y al día siguiente, un cuarto tropiezo y la novena vez del mismo defecto de
+> comprobación.** En un segundo equipo, `cargo arles` dio *«cargo no se
+> reconoce»* con Rust ya instalado: el PATH se lee **al abrir** cada programa, y
+> una pestaña nueva de VS Code hereda el de VS Code. Está en la guía, con cómo
+> distinguirlo de un instalador que no llegó a terminar — `rustup-init.exe` abre
+> una pantalla de texto que espera un `1` y un Enter, y cerrarla ahí no instala
+> nada ni avisa.
+>
+> Lo grave fue lo otro: **Dirección escribió el comando viejo porque lo leyó en
+> el §3 de la guía**, que seguía diciéndolo mientras el §5 explicaba por qué no
+> se usa. Y la comprobación escrita el día anterior para esto **pasó en verde**:
+> preguntaba `"cargo arles" in guia` sobre el archivo entero, y la cadena buena
+> estaba… en los avisos de solución de problemas, no en el bloque que se copia.
+>
+> **Medir que una cadena aparece no es medir que el sitio que importa la tenga.**
+> Ahora mira sólo los bloques de código, y hay una cuarta comprobación: que
+> ninguno mande el arranque que no sirve. **Exigir que el bueno esté no impide
+> que el malo siga ahí**, que es literalmente lo que pasó. Verificada por los dos
+> caminos, incluido colar el comando viejo en otro bloque dejando el §3 correcto
+> — ahí la tercera sigue en verde, que es lo que prueba que la cuarta hace falta.
+>
+> **Y la cuarta nació con un hueco propio, visto antes de darla por buena:** los
+> bloques de los avisos viven dentro de **citas**, y `^\s*cargo run` no casa
+> `> cargo run`. Se quita el `> ` antes de medir. **Al buscar en Markdown, los
+> bloques citados son bloques**, y son justo donde se escriben los comandos de
+> salida de un tropiezo.
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |

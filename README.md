@@ -63,32 +63,32 @@ python3 herramientas/avance/calcular.py --escribir
 
 ## Estado
 
-**Al 01/10/2026.** Cada fase cerrada tiene su documento técnico y su resumen
+**Al 08/10/2026.** Cada fase cerrada tiene su documento técnico y su resumen
 para Dirección, sin tecnicismos.
 
 | Fase | | Validación |
 |---|---|---|
 | [00 · Discovery y auditoría](documentacion/09-fases/FASE-00-DISCOVERY.md) | ✅ cerrada | 5/5 |
-| [01 · Cimientos](documentacion/09-fases/FASE-01-CIMIENTOS.md) · [↳ Dirección](documentacion/09-fases/FASE-01-PARA-DIRECCION.md) | ✅ cerrada y revisada | 48/48 |
+| [01 · Cimientos](documentacion/09-fases/FASE-01-CIMIENTOS.md) · [↳ Dirección](documentacion/09-fases/FASE-01-PARA-DIRECCION.md) | ✅ cerrada y revisada | 52/52 |
 | [02 · Design System](documentacion/09-fases/FASE-02-DESIGN-SYSTEM.md) · [↳ Dirección](documentacion/09-fases/FASE-02-PARA-DIRECCION.md) | ✅ cerrada y revisada | 37/37 |
-| [03 · Empresa y contactos](documentacion/09-fases/FASE-03-EMPRESA-Y-CONTACTOS.md) · [↳ Dirección](documentacion/09-fases/FASE-03-PARA-DIRECCION.md) | ✅ cerrada | 83/83 |
-| [04 · Motor de ejecución](documentacion/09-fases/FASE-04-MOTOR-DE-EJECUCION.md) · [↳ Dirección](documentacion/09-fases/FASE-04-PARA-DIRECCION.md) | ✅ cerrada | 40/40 |
-| [05 · Proveedores de envío](documentacion/09-fases/FASE-05-PROVEEDORES-DE-ENVIO.md) · [↳ Dirección](documentacion/09-fases/FASE-05-PARA-DIRECCION.md) | 🟨 la parte de correo cerrada | 35/35 |
+| [03 · Empresa y contactos](documentacion/09-fases/FASE-03-EMPRESA-Y-CONTACTOS.md) · [↳ Dirección](documentacion/09-fases/FASE-03-PARA-DIRECCION.md) | ✅ cerrada | 84/84 |
+| [04 · Motor de ejecución](documentacion/09-fases/FASE-04-MOTOR-DE-EJECUCION.md) · [↳ Dirección](documentacion/09-fases/FASE-04-PARA-DIRECCION.md) | ✅ cerrada | 41/41 |
+| [05 · Proveedores de envío](documentacion/09-fases/FASE-05-PROVEEDORES-DE-ENVIO.md) · [↳ Dirección](documentacion/09-fases/FASE-05-PARA-DIRECCION.md) | 🟨 la parte de correo cerrada | 36/36 |
 | [06 · Campañas y mensajes](documentacion/09-fases/FASE-06-CAMPANAS-Y-MENSAJES.md) · [↳ Dirección](documentacion/09-fases/FASE-06-PARA-DIRECCION.md) | ✅ cerrada | 20/20 |
 | [Canal W · WhatsApp](documentacion/09-fases/FASE-W-CANAL-WHATSAPP.md) · [↳ Dirección](documentacion/09-fases/FASE-W-PARA-DIRECCION.md) | 🟨 manda mensajes de prueba, **no campañas** | 21/21 |
 | [07 · Actividad](documentacion/09-fases/FASE-07-ACTIVIDAD.md) · [↳ Dirección](documentacion/09-fases/FASE-07-PARA-DIRECCION.md) | 🟨 92 % · falta sólo SPF/DKIM/DMARC | 9/9 |
-| 08 · Respaldos y endurecimiento | ⬜ sin empezar | — |
+| [08 · Respaldos y endurecimiento](documentacion/09-fases/FASE-08-RESPALDOS.md) · [↳ Dirección](documentacion/09-fases/FASE-08-PARA-DIRECCION.md) | ✅ cerrada | 19/19 |
 | 09 · Release v1.2.0 | ⬜ sin empezar | — |
 
-**298 comprobaciones, 0 fallos y 0 omitidas**, con las sondas abriendo un
-navegador de verdad. Una sonda que no se puede correr se marca **omitida**, que
-no es lo mismo que pasada, y así se dice.
+**324 comprobaciones, 0 fallos**, con las sondas abriendo un navegador de
+verdad. Una sonda que no se puede correr se marca **omitida**, que no es lo
+mismo que pasada, y así se dice.
 
 ```bash
-# Las nueve fases. Correr sólo la fase en curso no basta: en la 5.2 y la 5.3
+# Las diez fases. Correr sólo la fase en curso no basta: en la 5.2 y la 5.3
 # se rompieron cuatro comprobaciones de las fases 2, 3 y 4 sin que nadie lo
 # viera.
-for f in 0 1 2 3 4 5 6 W 7; do python3 herramientas/validar/validar.py --fase $f; done
+for f in 0 1 2 3 4 5 6 W 7 8; do python3 herramientas/validar/validar.py --fase $f; done
 ```
 
 👉 **[Empieza por la documentación](documentacion/00-INDICE.md)**
@@ -107,7 +107,7 @@ que verlo.
 
 ### Qué se ve, y qué no
 
-**Se recorren las catorce pantallas** con contactos, campañas, plantillas,
+**Se recorren las dieciocho pantallas** con contactos, campañas, plantillas,
 remitentes y un número de WhatsApp ya dados de alta. Se puede escribir una
 plantilla, navegar el asistente de nueve pasos, confirmar Coexistencia y ver las
 dos cifras de permiso antes de activar una campaña — y desde la 7.7, ver
@@ -145,6 +145,33 @@ python3 herramientas/vista-previa/generar.py
 
 ---
 
+## Abrir ARLES de verdad, en tu equipo
+
+La vista previa de arriba es HTML en un navegador: **no hay nada de Rust
+detrás**, así que no guarda, no cifra y no manda. Para abrir la aplicación de
+verdad —con su base cifrada y su motor— hacen falta Rust y Node, y dos comandos:
+
+```powershell
+cd app
+npm install
+npm run build
+cd ..
+cargo arles
+```
+
+📘 **[`COMO-ABRIR-ARLES.md`](documentacion/07-entrega/COMO-ABRIR-ARLES.md)** · qué
+instalar, qué pasa la primera vez, y **los cuatro tropiezos que ya se han visto
+en Windows** con su salida: PowerShell bloqueando `npm`, una base de una versión
+anterior, «cargo no se reconoce» tras instalar Rust, y la ventana que enseña
+«localhost refused to connect».
+
+> **`cargo arles`, no `cargo run --release`.** El alias añade la característica
+> `custom-protocol`, que es lo que mete la interfaz **dentro** del ejecutable.
+> Sin ella la aplicación compila, arranca, abre su ventana — y dentro no hay
+> nada. Estuvo nueve fases así porque nadie la había construido.
+
+---
+
 ## Descargar ARLES
 
 **Todavía no hay ninguna versión descargable, y conviene decir por qué en vez de
@@ -166,7 +193,8 @@ Para que exista el primero hacen falta tres cosas, y **ninguna es programar**:
 ### Mientras tanto: la versión de prueba
 
 Se puede construir **hoy**, sin firmar y sin Mont, para revisar la aplicación de
-verdad en lugar de con capturas.
+verdad en lugar de con capturas. Para abrirla en tu propio equipo sin pasar por
+una release, está [`COMO-ABRIR-ARLES.md`](documentacion/07-entrega/COMO-ABRIR-ARLES.md).
 
 ### Dónde se descarga
 
@@ -208,7 +236,7 @@ Lo que se verá distinto en ella: **la tipografía**, porque va sin Mont. Los
 tamaños, los pesos y el ritmo sí son los definitivos — salen de los tokens. Un
 hallazgo del tipo «la letra no es la de la marca» en esa versión es esperado.
 
-**Qué se puede hacer ya con una versión de prueba** (actualizado el 01/10/2026 —
+**Qué se puede hacer ya con una versión de prueba** (actualizado el 08/10/2026 —
 este párrafo decía «la aplicación todavía no envía correos ni carga contactos», y
 llevaba meses sin ser cierto):
 
@@ -220,6 +248,9 @@ llevaba meses sin ser cierto):
 - Verla enviar en Actividad, con sus cifras y **por qué no sale nada**, y
   **pararla** en cualquier momento.
 - Dar de alta un número de WhatsApp y **mandarse un WhatsApp de prueba**.
+- **Hacer un respaldo cifrado de todo, restaurarlo en otro equipo**, archivar el
+  historial viejo a un disco externo, y recuperar la base el día que Windows
+  pierda la llave.
 
 **Lo que todavía no:** una campaña entera por WhatsApp (el motor sólo recorre el
 correo), filtrar la audiencia, y editar una campaña ya creada.
@@ -269,6 +300,7 @@ Mailchimp · un CRM · un ERP · una plataforma omnicanal · una herramienta de 
 | [🗺️ Roadmap](documentacion/07-entrega/ROADMAP.md) | Las fases con sus dependencias reales |
 | [🖥️ Mapa de pantallas](documentacion/05-diseno/MAPA-DE-PANTALLAS.md) | Qué archivo dibuja cada pantalla y qué comprobación salta si se rompe |
 | [🔌 Guía de conexión real](documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md) | Cómo hacer una demostración con correo y WhatsApp que llegan de verdad |
+| [📘 Cómo abrir ARLES](documentacion/07-entrega/COMO-ABRIR-ARLES.md) | Qué instalar, los dos comandos, y los cuatro tropiezos ya vistos en Windows |
 
 ---
 

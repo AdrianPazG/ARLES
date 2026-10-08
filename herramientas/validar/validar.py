@@ -248,14 +248,36 @@ def la_aplicacion_se_construye_como_aplicacion():
     Es el patrón del §9 en el último tramo que quedaba: **la junta entre
     «compila» y «se puede usar»**.
 
-    Se comprueban las tres piezas, porque cualquiera de las tres sola se queda
-    corta: la característica declarada, el alias que la usa (para que nadie
-    tenga que acordarse), y que la guía de arranque mande ese comando y no otro.
+    Se comprueban cuatro piezas, porque cualquiera sola se queda corta: la
+    característica declarada, el alias que la usa (para que nadie tenga que
+    acordarse), que la guía mande ese comando, y que **ningún bloque de la guía
+    mande el que no sirve**.
 
-    Verificada el 08/10/2026 quitando cada una de las tres: las tres en rojo. Y
-    medida en el binario, que es lo que de verdad importa — sin la
-    característica, 20 017 216 bytes y **cero** apariciones de `index.html`;
-    con ella, 20 377 184 y siete.
+    ── POR QUÉ LA CUARTA, Y POR QUÉ MIRANDO SÓLO LOS BLOQUES ──
+
+    La tercera nació el 08/10/2026 preguntando `"cargo arles" in guia`, sobre el
+    archivo entero. Pasó en verde ese mismo día **sobre una guía cuyo bloque de
+    arranque decía `cargo run --release -p arles-app`**: la cadena buena estaba,
+    pero en los avisos de solución de problemas del §5, no donde se copia. Y el
+    equipo nuevo de Dirección arrancó con el comando viejo porque lo leyó ahí.
+
+    Es la trampa del comentario con otra cara: **medir que una cadena aparece no
+    es medir que el sitio que importa la tenga.** Por eso esta mira los bloques
+    de código y no la prosa — que nombra `cargo run --release` a propósito, para
+    explicar por qué no se usa.
+
+    Verificada el 08/10/2026 rompiendo las cuatro: quitando la característica,
+    el `--features` del alias, el `cargo arles` del bloque, y devolviendo el
+    `cargo run --release -p arles-app` al §3. Las cuatro en rojo. Y medida en el
+    binario, que es lo que de verdad importa — sin la característica,
+    20 017 216 bytes y **cero** apariciones de `index.html`; con ella,
+    20 377 184 y siete.
+
+    **La cuarta nació con un hueco propio**, encontrado antes de darla por
+    buena: los bloques de los avisos viven dentro de citas, y `^\\s*cargo run`
+    no casa `> cargo run`. Colar el comando viejo ahí —que es justo donde se
+    escriben los comandos de salida de un tropiezo— pasaba en verde. Verificada
+    otra vez con esa tercera ruptura, ya en rojo.
     """
     cargo = leer(os.path.join(RAIZ, "crates/arles-app/Cargo.toml"))
     alias = leer(os.path.join(RAIZ, ".cargo/config.toml"))
@@ -277,11 +299,33 @@ def la_aplicacion_se_construye_como_aplicacion():
         "Un alias sin la característica deja la ventana pidiendo localhost, que es el defecto que vino a evitar.",
     )
 
+    # Sólo los bloques de código, que son los que alguien copia y pega. La prosa
+    # de la guía nombra `cargo run --release` a propósito, para explicar por qué
+    # NO se usa; medir el archivo entero confunde las dos cosas.
+    #
+    # El `> ` de cada línea se quita porque los bloques de los avisos viven
+    # dentro de citas, y ahí es justo donde se escriben los comandos de salida
+    # de un tropiezo. Sin quitarlo, `^\s*cargo run` no casa `> cargo run` y la
+    # comprobación mira los bloques sueltos y **ninguno de los citados**.
+    bloques = "\n".join(
+        re.sub(r"(?m)^> ?", "", b)
+        for b in re.findall(r"```[a-z]*\n(.*?)```", guia, re.S)
+    )
+
     check(
         1,
         "la guía de arranque manda el comando que funciona",
-        "cargo arles" in guia,
+        "cargo arles" in bloques,
         "Una guía que manda `cargo run --release` a secas describe un arranque que no sirve.",
+    )
+
+    viejo = re.search(r"^\s*cargo run\b.*\barles-app\b", bloques, re.M)
+    check(
+        1,
+        "ningún bloque de la guía manda el arranque que no sirve",
+        viejo is None,
+        "Un bloque que se puede copiar pesa más que el aviso que lo desmiente tres secciones más abajo.",
+        f"Encontrado: {viejo.group(0).strip() if viejo else ''}",
     )
 
 

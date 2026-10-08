@@ -12,6 +12,76 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### La guía mandaba el comando que la guía desmiente, y la comprobación lo dejó pasar
+
+Dirección abrió ARLES en un **segundo equipo** el 08/10/2026 y escribió
+`cargo run --release -p arles-app` — el comando que el arreglo del día anterior
+vino a sustituir. No lo recordaba de memoria: **lo copió del §3 de la guía**,
+que seguía diciéndolo mientras el §5, tres secciones más abajo, explicaba por
+qué no se usa.
+
+**Y la comprobación que existe exactamente para esto pasó en verde.** Preguntaba
+`"cargo arles" in guia`, sobre el archivo entero: la cadena buena estaba, pero
+en los avisos de solución de problemas, no en el bloque que se copia.
+
+> Es la trampa del comentario con otra cara: **medir que una cadena aparece no
+> es medir que el sitio que importa la tenga.** Ya ha costado ocho veces en este
+> proyecto, siempre por mirar un archivo entero en vez del sitio donde la
+> garantía vive.
+
+#### Qué cambia
+
+- **El §3 de la guía manda `cargo arles`**, con el porqué al lado en vez de a
+  tres secciones de distancia.
+- **La comprobación mira sólo los bloques de código**, que son los que alguien
+  copia y pega — la prosa nombra `cargo run --release` a propósito, para
+  explicar por qué no se usa, y medir el archivo entero confunde las dos cosas.
+- **Y una cuarta comprobación**: que ningún bloque de la guía mande el arranque
+  que no sirve. Exigir que el bueno esté no impide que el malo siga ahí, que es
+  literalmente lo que pasó.
+
+Verificada rompiendo las dos por caminos distintos: devolviendo el comando viejo
+al §3 (las dos en rojo) y colándolo en **otro** bloque dejando el §3 correcto
+(la cuarta en rojo, la tercera en verde — que es lo que prueba que la cuarta
+hace falta).
+
+> **Y la cuarta nació con un hueco propio**, encontrado antes de darla por
+> buena: los bloques de los avisos viven dentro de **citas**, con un `> ` al
+> principio de cada línea, y `^\s*cargo run` no casa `> cargo run`. Colar el
+> comando viejo ahí —que es exactamente donde se escriben los comandos de
+> salida de un tropiezo— pasaba en verde. Se quita el `> ` antes de medir, y
+> está verificado con esa tercera ruptura.
+>
+> Es la misma lección una vez más, ahora sobre la **forma** del texto en vez de
+> sobre su sitio: **una comprobación que no se ha visto fallar por cada camino
+> por el que puede fallar sólo está verificada por los que se probaron.**
+
+### El cuarto tropiezo de Windows: «cargo no se reconoce»
+
+En ese mismo equipo, con Rust ya instalado. **No falta Rust: falta cerrar la
+ventana.** El instalador añade `%USERPROFILE%\.cargo\bin` al PATH, pero el PATH
+se lee **al abrir** cada programa, y una pestaña nueva de VS Code hereda el de
+VS Code. La guía lo recoge ahora, con la salida permanente, la inmediata, y cómo
+distinguirlo de un instalador que no llegó a terminar.
+
+### El estado del repositorio decía cosas que no eran
+
+Dirección pidió «corregir toda la información del git», y lo que había era esto:
+
+- **El README decía «08 · Respaldos y endurecimiento ⬜ sin empezar»** con la
+  Fase 8 cerrada entera, contaba **nueve** fases de validación cuando son diez,
+  y hablaba de **catorce** pantallas cuando hay dieciocho. Ninguna comprobación
+  lo caza: son números correctos de otro día.
+- **`ESTADO_ACTUAL.md` —el documento que CLAUDE.md señala como punto de partida
+  para quien retome el trabajo— decía «F8 📋 planificada»**, con el aviso de que
+  «hoy, si se pierde la clave del llavero, los datos son ilegibles para siempre
+  y no hay respaldo del que tirar». Eso dejó de ser cierto hace dos días.
+- **Ninguno de los dos enlazaba cómo abrir la aplicación.** Alguien que clona el
+  repositorio no tenía dónde mirar.
+
+Las cifras de este CHANGELOG salen de correr las diez fases el 08/10/2026:
+**324 comprobaciones, 0 fallos** (5·52·37·84·41·36·20·21·9·19).
+
 ### El arranque de la aplicación, que nunca había funcionado
 
 **ARLES compilaba, arrancaba y abría su ventana — y dentro no había nada.**
@@ -71,6 +141,23 @@ recorrerla en Windows:
 - **Una base de datos de una versión anterior impide arrancar**: el esquema
   inicial cambió después de crearse, refinery lo detecta y se niega a tocarla.
   La guía dice ahora dónde vive la base y cómo apartarla.
+
+> **Esta última línea fue falsa durante un día, y la corrige la entrada de
+> arriba.** El 07/10/2026 afirmaba que la guía decía dónde vive la base y cómo
+> apartarla, y la guía **no tenía una sola línea sobre eso**: ni el error, ni la
+> ruta, ni el renombrado. Ahora sí.
+>
+> **Y la ruta que sí traía estaba mal**: decía `%APPDATA%\mx.telemetryinsight.arlesrelay\`,
+> que es el nombre del **servicio del llavero** (`llavero.rs`), no la carpeta de
+> datos. `directories` 6 compone en Windows `roaming + organización +
+> aplicación + "data"` e ignora el `qualifier`, así que la base vive en
+> `%APPDATA%\TelemetryInsight\ArlesRelay\data\arles.db`. Medido leyendo
+> `directories-6.0.0/src/win.rs` y `src/mac.rs`, no de memoria. Corregida
+> también en `ARQUITECTURA.md` y en el docstring de `rutas.rs`, a las que les
+> faltaba el `data` final.
+>
+> **Una afirmación de verificación es una afirmación como cualquier otra**, y
+> ésta mandó a Dirección a buscar su base donde no estaba.
 
 ### 8.7 · Cierre de la Fase 8
 
