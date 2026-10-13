@@ -328,6 +328,37 @@ def la_aplicacion_se_construye_como_aplicacion():
         f"Encontrado: {viejo.group(0).strip() if viejo else ''}",
     )
 
+    # ── EL OTRO CAMINO, QUE NO VIGILABA NADIE ────────────────────────────────
+    #
+    # Las tres de arriba vigilan `cargo arles`, que es como se abre ARLES **a
+    # mano**. El instalador que descarga Dirección no sale de ahí: lo construye
+    # `entrega-de-prueba.yml` con `tauri-apps/tauri-action`, y de ese camino no
+    # decía nada ninguna comprobación.
+    #
+    # Importa porque `tauri-action` ejecuta `tauri build`, y es el CLI de Tauri
+    # quien añade `custom-protocol`. Cambiarlo por un `cargo build --release` a
+    # secas —el reflejo natural de quien quiera «simplificar» el flujo— produce
+    # un instalador que compila, instala, abre su ventana y enseña «localhost
+    # refused to connect». Exactamente el defecto del 08/10/2026, pero ya
+    # empaquetado y en manos de alguien.
+    #
+    # Medido el 13/10/2026 sobre el instalador real, extrayendo el NSIS: el
+    # binario de dentro pesa 22 266 368 bytes y trae **siete** apariciones de
+    # `index.html` y los assets del frontend (`AsistenteDeCampana-*.js`). Las
+    # mismas siete que el 08/10 con la característica activada.
+    #
+    # Verificada rompiéndola de dos formas: cambiando `tauri-action` por un paso
+    # con `cargo build --release`, y quitando el paso de compilación entero.
+    entrega = leer(os.path.join(RAIZ, ".github/workflows/entrega-de-prueba.yml"))
+    sin_comentarios = re.sub(r"(?m)^\s*#.*$", "", entrega)
+    construye_con_tauri = "tauri-apps/tauri-action" in sin_comentarios
+    check(
+        1,
+        "el instalador se construye con tauri-action, que activa custom-protocol",
+        construye_con_tauri,
+        "Un `cargo build` a secas en el flujo da un instalador que abre la ventana pidiendo localhost.",
+    )
+
 
 def sin_comentarios_toml(texto):
     """Quita los comentarios de un TOML.

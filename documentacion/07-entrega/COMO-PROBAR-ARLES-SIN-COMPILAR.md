@@ -20,12 +20,30 @@ derecha de la portada del repositorio.
 
 **No de la pestaña Actions**: ahí sólo se ve cómo se construyó.
 
-Cada versión de prueba trae un archivo por sistema:
+**La primera versión descargable es
+[`prueba-20261013-0041`](https://github.com/AdrianPazG/ARLES/releases/tag/prueba-20261013-0041)**,
+del 13/10/2026, y trae tres archivos:
 
-| Archivo | Para |
-|---|---|
-| `ARLES RELAY_1.2.0_x64-setup.exe` | **Windows** |
-| `ARLES RELAY_1.2.0_aarch64.dmg` | **macOS** (Apple Silicon) |
+| Archivo | Para | Tamaño |
+|---|---|---|
+| `ARLES.RELAY_1.2.0_x64-setup.exe` | **Windows** · el recomendado | 5 MB |
+| `ARLES.RELAY_1.2.0_x64_en-US.msi` | Windows · para instalación desatendida | 8 MB |
+| `ARLES.RELAY_1.2.0_aarch64.dmg` | **macOS** (Apple Silicon) | 7 MB |
+
+> **Por qué no había ninguna hasta hoy, y no era por falta de código.** El flujo
+> que las construye se intentó una vez, el 17/09/2026, y falló: `sin-mont.py`
+> reescribió el CSS —su trabajo entero, hecho— y reventó **al imprimir
+> «✓ Aplicado»**, porque la consola de Windows usa cp1252 y no tiene ese
+> carácter. `UnicodeEncodeError`, código de salida 1, y el flujo entero cayó.
+> **Veintiséis días sin instalador, por un carácter decorativo.**
+
+> **Esta versión está medida, no supuesta.** Se extrajo el instalador NSIS y se
+> miró dentro: el binario pesa **22 266 368 bytes** y trae **siete** apariciones
+> de `index.html` más los assets del frontend. Son las mismas siete que el
+> 08/10/2026 con `custom-protocol` activada — es decir, **la interfaz viaja
+> dentro del ejecutable** y la ventana no va a abrir pidiendo `localhost`.
+> Lo vigila ahora `la_aplicacion_se_construye_como_aplicacion` en `--fase 1`,
+> que hasta hoy miraba sólo el camino de `cargo arles` y no el del instalador.
 
 ---
 

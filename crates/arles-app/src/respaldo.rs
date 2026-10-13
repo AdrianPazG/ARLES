@@ -239,7 +239,7 @@ pub fn exportar_respaldo(
     // forma de saber cuál es cuál.
     let sugerido = format!(
         "arles-{}-{}.arles",
-        &ahora_utc().get(..10).unwrap_or("fecha").replace('-', ""),
+        ahora_utc().get(..10).unwrap_or("fecha").replace('-', ""),
         alcance
     );
 

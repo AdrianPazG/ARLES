@@ -153,6 +153,7 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Fase 8 · Respaldos y endurecimiento](09-fases/FASE-08-RESPALDOS.md) | Lo construido, las cinco auditorías y las doce cifras |
 | [Fase 8 · para Dirección](09-fases/FASE-08-PARA-DIRECCION.md) | El informe en términos de Dirección |
 | [Cómo abrir ARLES](07-entrega/COMO-ABRIR-ARLES.md) | Qué instalar y los dos comandos que abren la aplicación |
+| [Probar ARLES sin compilar](07-entrega/COMO-PROBAR-ARLES-SIN-COMPILAR.md) | Descargar el instalador de Releases, y qué borrar —y en qué orden— si ya lo tenías |
 
 ---
 
