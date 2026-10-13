@@ -15,6 +15,12 @@ parte **cómo abrir el programa**. Este documento es esa parte.
 > Ese día se arrancó por primera vez, en el contenedor donde se escribe el
 > código. Lo que quedó comprobado y lo que no está en el §5.
 
+> **Y si sólo quieres probarla, no compilarla**, hay un camino más corto que no
+> pide instalar nada:
+> [`COMO-PROBAR-ARLES-SIN-COMPILAR.md`](COMO-PROBAR-ARLES-SIN-COMPILAR.md) —
+> descargar el instalador de Releases y abrirlo con doble clic. Ahí está también
+> **qué borrar, y en qué orden**, si ya habías instalado ARLES antes.
+
 ---
 
 ## 1 · Lo que hay que instalar en Windows

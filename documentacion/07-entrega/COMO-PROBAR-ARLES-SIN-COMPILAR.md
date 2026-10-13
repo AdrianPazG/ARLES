@@ -1,0 +1,195 @@
+# Probar ARLES sin compilar nada
+
+**Para Adrián Paz · 13 de octubre de 2026**
+
+[`COMO-ABRIR-ARLES.md`](COMO-ABRIR-ARLES.md) explica cómo **compilar** ARLES, que
+exige instalar Rust, Node y las Build Tools de Visual Studio. Este documento es
+la otra vía: **descargar un instalador ya construido** y abrirlo con doble clic.
+
+> **Para probar la aplicación no hace falta Visual Studio, ni VS Code, ni Rust,
+> ni Node.** Nada de eso. Se descarga un `.exe`, se instala y se abre. Las
+> herramientas sólo hacen falta para **compilar**, que es lo que hace el
+> servidor de GitHub por nosotros.
+
+---
+
+## 1 · De dónde se descarga
+
+De **[Releases](https://github.com/AdrianPazG/ARLES/releases)**, el enlace de la
+derecha de la portada del repositorio.
+
+**No de la pestaña Actions**: ahí sólo se ve cómo se construyó.
+
+Cada versión de prueba trae un archivo por sistema:
+
+| Archivo | Para |
+|---|---|
+| `ARLES RELAY_1.2.0_x64-setup.exe` | **Windows** |
+| `ARLES RELAY_1.2.0_aarch64.dmg` | **macOS** (Apple Silicon) |
+
+---
+
+## 2 · Cómo se instala en Windows
+
+1. Descarga el `.exe`.
+2. Doble clic. **Windows dirá «editor desconocido»** y SmartScreen pedirá
+   confirmación.
+3. **Más información** → *Ejecutar de todas formas*.
+
+> **Ese aviso sale porque la versión no está firmada**, no porque algo vaya mal.
+> El certificado de firma de Windows es uno de los tres bloqueos de la Fase 9, y
+> no es trabajo de programar. Mientras tanto, cada versión de prueba lo enseña.
+
+### Lo que verás distinto, y es esperado
+
+**La tipografía no es la de la marca.** Estas versiones van **sin Mont**, porque
+la licencia para incrustarla en una aplicación que se distribuye sigue sin
+confirmarse (P-01). ARLES usa Figtree o la letra del sistema.
+
+Los **tamaños, los pesos y el ritmo vertical sí son los definitivos**: salen de
+los tokens, no de la tipografía. Un hallazgo del tipo «la letra no es la nuestra»
+en una versión de prueba es esperado y no hace falta anotarlo.
+
+---
+
+## 3 · Qué pasa la primera vez
+
+**Windows te pedirá permiso para guardar una credencial.** Es correcto y es lo
+que tiene que pasar: ARLES genera una llave para cifrar tu base de datos y la
+guarda en el **Administrador de credenciales**, nunca en un archivo (ADR-0011).
+
+- Tus datos viven cifrados en
+  `%APPDATA%\TelemetryInsight\ArlesRelay\data\arles.db`.
+- **La llave vive en Windows, no en ARLES.** Si alguien se lleva el archivo de la
+  base, no puede leerlo.
+- **Si el Administrador de credenciales no responde, ARLES no arranca.** Nunca
+  se degrada a texto plano.
+
+Después verás **Inicio**, con la lista de seis pasos.
+
+---
+
+## 4 · Si ya habías instalado ARLES antes
+
+Aquí hay **un orden que importa**, y hacerlo al revés deja datos ilegibles para
+siempre. Esto sale de leer `estado.rs`, no de suponerlo:
+
+| Llavero | Base en disco | Qué hace ARLES al abrir |
+|---|---|---|
+| sin clave | **con** base | **Pantalla de recuperación.** La base ya no se puede leer: hace falta un respaldo |
+| sin clave | sin base | Crea una clave nueva. Arranque limpio ✅ |
+| con clave | sin base | Crea una base nueva con esa clave. Arranque limpio ✅ |
+
+> **La regla, en una frase: nunca borres la credencial dejando la base.**
+>
+> ARLES **no** crea una clave nueva al encontrarse una base que no puede
+> descifrar, y es deliberado (hallazgo F2 de la Fase 1): un llavero puede estar
+> vacío por motivos pasajeros, y una clave nueva dejaría esos datos perdidos
+> **para siempre** sin que nadie se entere. Por eso te manda a la pantalla de
+> recuperación en vez de seguir.
+
+### Empezar de cero · la forma corta y segura
+
+**Basta con borrar la base.** La credencial puede quedarse: ARLES creará una base
+nueva y la cifrará con la misma llave.
+
+1. **Cierra ARLES.**
+2. Pulsa `Win + R`, pega esto y Enter:
+
+   ```
+   %APPDATA%\TelemetryInsight\ArlesRelay\data
+   ```
+
+3. **Renombra `arles.db`** en vez de borrarlo — por ejemplo a
+   `arles-vieja-20261013.db`. Si algún día vuelve a hacer falta, la llave sigue
+   en Windows y se puede volver atrás; borrándolo, no.
+
+Al abrir ARLES otra vez, estarás en el primer arranque.
+
+### Desinstalar del todo, credencial incluida
+
+Sólo si quieres no dejar rastro. **Primero la base, después la credencial**:
+
+1. **Cierra ARLES** y desinstálalo desde *Configuración → Aplicaciones*.
+2. Borra la carpeta `%APPDATA%\TelemetryInsight\ArlesRelay`.
+3. Abre el **Administrador de credenciales** (`Win` → escribe «credenciales»)
+   → **Credenciales de Windows** → **Credenciales genéricas**.
+4. Busca las entradas que mencionan **`mx.telemetryinsight.arlesrelay`** y
+   quítalas. Puede haber varias:
+
+   | Entrada | Qué guarda |
+   |---|---|
+   | `db-master-key` | **La llave que cifra la base.** Es la crítica |
+   | `email-account/<identificador>` | La contraseña de aplicación de cada cuenta de correo |
+   | `whatsapp-number/<identificador>` | El token de Meta de cada número |
+
+> **El nombre exacto con el que Windows las muestra depende de la versión de la
+> biblioteca `keyring`, así que no se promete aquí**: búscalas por
+> `mx.telemetryinsight.arlesrelay`, que es el servicio y sí está fijado en el
+> código (`llavero.rs`). Si no aparece ninguna, es que nunca llegaste a abrir
+> ARLES en este equipo.
+
+**Si borras una contraseña de correo pero dejas la base**, no pasa nada grave: esa
+cuenta aparecerá como «hay que configurarla» y se vuelve a escribir. La única que
+no se puede reponer es `db-master-key`.
+
+---
+
+## 5 · Qué se puede hacer con una versión de prueba
+
+Al 08/10/2026, con las diez fases del validador en **324/324**:
+
+- Configurar la empresa y **cargar contactos** desde CSV o XLSX, con los choques
+  revisados antes de importar; bajas y derechos ARCO.
+- Dar de alta una cuenta de correo y **mandarse un correo real**.
+- Escribir plantillas y firmas, crear una campaña con el asistente de nueve pasos
+  y **activarla**.
+- Verla enviar en Actividad, con sus cifras y **por qué no sale nada**, y
+  **pararla** en cualquier momento.
+- Dar de alta un número de WhatsApp y **mandarse un WhatsApp real**.
+- **Respaldo cifrado, restauración, archivado del historial** y la pantalla de
+  recuperación del llavero perdido.
+
+### Lo que todavía NO hace
+
+- Una **campaña entera por WhatsApp**: el motor sólo recorre correo. De WhatsApp
+  sale el mensaje de prueba y nada más.
+- **Filtrar la audiencia** y **editar una campaña ya creada**.
+- **Activar una campaña grande** tarda y congela la ventana: 73.5 s con 451 196
+  destinatarios, y empieza a notarse hacia los 30 000. Con una lista de prueba no
+  se nota.
+
+---
+
+## 6 · Cómo se genera una versión nueva
+
+**Con una etiqueta que empiece por `prueba-`:**
+
+```bash
+git tag prueba-2026-10-13
+git push origin prueba-2026-10-13
+```
+
+O desde la API, que es como se lanzó la del 13/10/2026 —desde el contenedor de
+desarrollo las etiquetas dan 403, pero `workflow_dispatch` sí pasa—.
+
+> **El botón «Run workflow» de la pestaña Actions no aparece**, y no es un fallo:
+> GitHub sólo lo enseña cuando el archivo del flujo está en la rama **por
+> defecto** (`main`), y el trabajo vive en `claude/loving-faraday-5chmmy`.
+> Aparecerá solo el día que esto llegue a `main`.
+
+**Nunca se dispara sola.** No hay compilación en cada push: una versión sin firmar
+que se publica sola acaba instalada donde nadie la pidió.
+
+---
+
+## 7 · Lo que esta vía no cubre
+
+| | Por qué |
+|---|---|
+| **Ver la tipografía definitiva** | Va sin Mont hasta que se cierre P-01 |
+| **Una instalación sin avisos de Windows** | Falta el certificado de firma (Fase 9) |
+| **macOS** | Se construye, pero **nadie ha abierto ARLES en un Mac todavía** — es el riesgo R-07, y sigue abierto |
+
+Para compilar en tu propio equipo, con Mont y sin esperar al servidor:
+[`COMO-ABRIR-ARLES.md`](COMO-ABRIR-ARLES.md).

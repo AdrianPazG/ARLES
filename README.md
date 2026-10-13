@@ -102,8 +102,20 @@ ejemplo.** Un solo HTML de 798 kB, sin instalador, sin conexión y sin dejar nad
 en el equipo: se abre con doble clic y se puede mandar por correo a quien tenga
 que verlo.
 
-📄 **[`vista-previa/ARLES-vista-previa.html`](vista-previa/ARLES-vista-previa.html)**
-→ *Download raw file* (el botón de descarga, arriba a la derecha del archivo)
+**No está en el repositorio, y es deliberado**: son 798 kB generados que
+`.gitignore` deja fuera. Se produce con un comando y se manda a quien tenga que
+verlo:
+
+```bash
+python3 herramientas/vista-previa/generar.py   # deja vista-previa/ARLES-vista-previa.html
+```
+
+> Hasta el 13/10/2026 esta sección enlazaba el archivo como si estuviera aquí,
+> con instrucciones de *Download raw file*. **Ese enlace nunca funcionó**, porque
+> el archivo nunca estuvo — está ignorado a propósito desde que existe.
+
+**Si lo que quieres es ARLES de verdad, no una maqueta**, hay instalador:
+[`COMO-PROBAR-ARLES-SIN-COMPILAR.md`](documentacion/07-entrega/COMO-PROBAR-ARLES-SIN-COMPILAR.md).
 
 ### Qué se ve, y qué no
 
@@ -193,8 +205,16 @@ Para que exista el primero hacen falta tres cosas, y **ninguna es programar**:
 ### Mientras tanto: la versión de prueba
 
 Se puede construir **hoy**, sin firmar y sin Mont, para revisar la aplicación de
-verdad en lugar de con capturas. Para abrirla en tu propio equipo sin pasar por
-una release, está [`COMO-ABRIR-ARLES.md`](documentacion/07-entrega/COMO-ABRIR-ARLES.md).
+verdad en lugar de con capturas. Hay dos caminos:
+
+📦 **[`COMO-PROBAR-ARLES-SIN-COMPILAR.md`](documentacion/07-entrega/COMO-PROBAR-ARLES-SIN-COMPILAR.md)**
+· descargar el instalador de Releases y abrirlo con doble clic. **No hace falta
+Visual Studio, ni VS Code, ni Rust, ni Node.** Incluye **qué borrar y en qué
+orden** si ya habías instalado ARLES antes — hacerlo al revés deja datos
+ilegibles para siempre.
+
+🔧 **[`COMO-ABRIR-ARLES.md`](documentacion/07-entrega/COMO-ABRIR-ARLES.md)** ·
+compilarlo en tu propio equipo, con Mont y sin esperar al servidor.
 
 ### Dónde se descarga
 
@@ -301,6 +321,7 @@ Mailchimp · un CRM · un ERP · una plataforma omnicanal · una herramienta de 
 | [🖥️ Mapa de pantallas](documentacion/05-diseno/MAPA-DE-PANTALLAS.md) | Qué archivo dibuja cada pantalla y qué comprobación salta si se rompe |
 | [🔌 Guía de conexión real](documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md) | Cómo hacer una demostración con correo y WhatsApp que llegan de verdad |
 | [📘 Cómo abrir ARLES](documentacion/07-entrega/COMO-ABRIR-ARLES.md) | Qué instalar, los dos comandos, y los cuatro tropiezos ya vistos en Windows |
+| [📦 Probar ARLES sin compilar](documentacion/07-entrega/COMO-PROBAR-ARLES-SIN-COMPILAR.md) | Descargar el instalador, y qué borrar —y en qué orden— si ya lo tenías |
 
 ---
 
