@@ -12,6 +12,76 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### El primer instalador descargable, y el carácter que lo impedía
+
+**Publicada [`prueba-20261013-0041`](https://github.com/AdrianPazG/ARLES/releases/tag/prueba-20261013-0041)**:
+`.exe` y `.msi` para Windows, `.dmg` para macOS. Es la primera versión que
+cualquiera puede descargar y abrir **sin instalar Rust, Node ni nada**.
+
+No la impedía el código. El flujo que la construye se intentó una vez, el
+17/09/2026, y falló: `sin-mont.py` reescribió el CSS —su trabajo entero, hecho—
+y reventó **al imprimir «✓ Aplicado»**, porque la consola de Windows usa cp1252
+y no tiene U+2713. `UnicodeEncodeError`, código 1, flujo caído.
+**Veintiséis días sin instalador, por un carácter decorativo.**
+
+Reproducido en el contenedor con `PYTHONIOENCODING=cp1252` —mismo traceback,
+mismo código— y arreglado reconfigurando `stdout`/`stderr` a UTF-8 con
+`errors="replace"`: lo que no se pueda escribir sale como `?` en vez de abortar.
+
+> **Medido, no supuesto.** Se extrajo el instalador NSIS y se miró el binario de
+> dentro: **22 266 368 bytes y siete apariciones de `index.html`**, más los
+> assets del frontend. Las mismas siete que el 08/10 con `custom-protocol`
+> activada, así que **la interfaz viaja dentro** y la ventana no abrirá pidiendo
+> `localhost`.
+
+> **Y el hueco que eso destapó.** Las comprobaciones del arranque vigilaban
+> `cargo arles`, que es como se abre a mano. **El instalador no sale de ahí**: lo
+> construye `tauri-action`, y de ese camino no decía nada nadie. Sustituirlo por
+> un `cargo build --release` daría un instalador que compila, instala, abre su
+> ventana y enseña «localhost refused to connect» — el defecto del 08/10, ya
+> empaquetado. Verificada con dos rupturas, incluida la del comentario.
+
+### El denominador encoge en silencio
+
+**325 comprobaciones, 0 fallos y 0 omitidas** (13/10/2026, con sondas):
+5·53·37·84·41·36·20·21·9·19.
+
+Pero ese mismo día, en un contenedor recién creado, la fase 1 dio
+**«45 pasan, 0 fallan» de 49**. Sin `node_modules` ni llavero, cuatro
+comprobaciones se marcaron **omitidas** y el total bajó solo. Nada en rojo, nada
+roto — y cinco cosas que nadie midió.
+
+El validador lo dice: lista cada omitida con su motivo y con el comando que la
+arregla. **La trampa está en leer sólo el «0 fallan».** Con `npm ci` y
+`gnome-keyring dbus-x11` instalados son 53 de 53, y el arranque con llavero
+—ADR-0011, el centro del producto— se **ejercita** en vez de declararse.
+
+### Dos defectos de documentación en el camino
+
+- **El texto que acompaña al release estaba congelado en la Fase 2**: decía que
+  con esa versión no se puede «enviar, cargar contactos ni conectar cuentas», y
+  las tres existen. Quien descargara el instalador habría leído que no puede
+  hacer lo que sí puede. Ahora es autosuficiente y no remite a
+  `CHECKLIST-VISUAL.md`, que **sigue congelada en la Fase 3** y queda anotada.
+- **Un enlace del README que nunca funcionó**: ofrecía
+  `vista-previa/ARLES-vista-previa.html` con instrucciones de *Download raw
+  file*, y ese archivo está en `.gitignore` **a propósito** desde que existe.
+
+### Y la guía que faltaba
+
+[`COMO-PROBAR-ARLES-SIN-COMPILAR.md`](documentacion/07-entrega/COMO-PROBAR-ARLES-SIN-COMPILAR.md),
+con **el orden de borrado que no se puede invertir**, leído de `estado.rs`:
+
+| Llavero | Base | Qué hace ARLES |
+|---|---|---|
+| sin clave | **con** base | Pantalla de recuperación. **Esa base ya no se lee** |
+| sin clave | sin base | Clave nueva · arranque limpio |
+| con clave | sin base | Base nueva con esa clave · arranque limpio |
+
+**Nunca se borra la credencial dejando la base.** ARLES no se inventa una clave
+nueva al encontrarse una base que no puede descifrar —hallazgo F2 de la Fase 1—
+porque un llavero vacío puede serlo por un motivo pasajero.
+
 ### La guía mandaba el comando que la guía desmiente, y la comprobación lo dejó pasar
 
 Dirección abrió ARLES en un **segundo equipo** el 08/10/2026 y escribió

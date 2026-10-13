@@ -69,7 +69,7 @@ para Dirección, sin tecnicismos.
 | Fase | | Validación |
 |---|---|---|
 | [00 · Discovery y auditoría](documentacion/09-fases/FASE-00-DISCOVERY.md) | ✅ cerrada | 5/5 |
-| [01 · Cimientos](documentacion/09-fases/FASE-01-CIMIENTOS.md) · [↳ Dirección](documentacion/09-fases/FASE-01-PARA-DIRECCION.md) | ✅ cerrada y revisada | 52/52 |
+| [01 · Cimientos](documentacion/09-fases/FASE-01-CIMIENTOS.md) · [↳ Dirección](documentacion/09-fases/FASE-01-PARA-DIRECCION.md) | ✅ cerrada y revisada | 53/53 |
 | [02 · Design System](documentacion/09-fases/FASE-02-DESIGN-SYSTEM.md) · [↳ Dirección](documentacion/09-fases/FASE-02-PARA-DIRECCION.md) | ✅ cerrada y revisada | 37/37 |
 | [03 · Empresa y contactos](documentacion/09-fases/FASE-03-EMPRESA-Y-CONTACTOS.md) · [↳ Dirección](documentacion/09-fases/FASE-03-PARA-DIRECCION.md) | ✅ cerrada | 84/84 |
 | [04 · Motor de ejecución](documentacion/09-fases/FASE-04-MOTOR-DE-EJECUCION.md) · [↳ Dirección](documentacion/09-fases/FASE-04-PARA-DIRECCION.md) | ✅ cerrada | 41/41 |
@@ -80,9 +80,18 @@ para Dirección, sin tecnicismos.
 | [08 · Respaldos y endurecimiento](documentacion/09-fases/FASE-08-RESPALDOS.md) · [↳ Dirección](documentacion/09-fases/FASE-08-PARA-DIRECCION.md) | ✅ cerrada | 19/19 |
 | 09 · Release v1.2.0 | ⬜ sin empezar | — |
 
-**324 comprobaciones, 0 fallos y 0 omitidas** (08/10/2026), con las sondas
+**325 comprobaciones, 0 fallos y 0 omitidas** (13/10/2026), con las sondas
 abriendo un navegador de verdad. Una sonda que no se puede correr se marca
 **omitida**, que no es lo mismo que pasada, y así se dice.
+
+> **Y el denominador tampoco es fijo, que es la parte fácil de leer mal.** El
+> 13/10/2026 esta misma fase 1 dio «45 pasan, 0 fallan» **de 49** en un
+> contenedor recién creado: sin `node_modules` ni llavero, cuatro comprobaciones
+> se marcaron omitidas y **el total encogió**. Nada estaba roto y nada salía en
+> rojo. Con las dependencias puestas son **53 de 53**.
+>
+> Por eso la cifra se lee entera —pasan, fallan, omitidas **y total**— y nunca
+> sólo el «0 fallan».
 
 ```bash
 # Las diez fases. Correr sólo la fase en curso no basta: en la 5.2 y la 5.3
