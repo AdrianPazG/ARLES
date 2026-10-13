@@ -38,6 +38,24 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[2]
 TIPOGRAFIA = RAIZ / "app" / "src" / "design" / "tipografia.css"
 
+# ── Por qué esto, y por qué antes de cualquier print ──
+#
+# La consola de Windows usa cp1252, que **no tiene `✓`** (U+2713). El 17/09/2026
+# este script tumbó la única compilación que ha intentado el flujo de entrega de
+# prueba: había reescrito el CSS —su trabajo entero, hecho— y reventó con
+# UnicodeEncodeError **al imprimir el mensaje de éxito**, saliendo con código 1.
+# Sin instalador, por un carácter decorativo.
+#
+# `errors="replace"` y no `"strict"` a propósito: lo que no se pueda escribir
+# sale como `?` en vez de abortar. Una herramienta de apoyo no puede tumbar una
+# compilación por cómo se ve su propia salida.
+#
+# Verificado el 13/10/2026 reproduciendo el fallo con `PYTHONIOENCODING=cp1252`
+# —mismo traceback y mismo código 1— y volviéndolo a correr con el arreglo.
+for _flujo in (sys.stdout, sys.stderr):
+    if hasattr(_flujo, "reconfigure"):
+        _flujo.reconfigure(encoding="utf-8", errors="replace")
+
 SUSTITUTO = """/* GENERADO por herramientas/marca/sin-mont.py — NO COMMITEAR.
  *
  * Esta versión se construyó **sin Mont**, porque la licencia para incrustarla
