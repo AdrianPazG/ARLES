@@ -173,15 +173,38 @@ jobs:
             | 2 | **Va sin firmar** | Windows dirá «editor desconocido» y SmartScreen pedirá confirmar |
             | 3 | **No está notarizada** | En macOS hay que abrirla con clic derecho → Abrir la primera vez |
 
-            ### Qué se puede revisar con esto
+            ### Qué se puede hacer con esto
 
-            Los bloques **A a F** de
-            [CHECKLIST-VISUAL.md](documentacion/06-calidad/CHECKLIST-VISUAL.md):
-            el primer arranque, la navegación, el tema claro y oscuro, los
-            textos y el recorrido por teclado.
+            **Las dieciocho pantallas, y ARLES manda de verdad.** Al 08/10/2026,
+            con las diez fases del validador en 324/324:
 
-            El bloque **G** dice lo que todavía **no** se puede revisar:
-            enviar, cargar contactos y conectar cuentas no existen aún.
+            - Configurar la empresa y **cargar contactos** desde CSV o XLSX, con
+              los choques revisados antes de importar; bajas y derechos ARCO.
+            - Dar de alta una cuenta de correo y **mandarse un correo real**.
+            - Escribir plantillas y firmas, crear una campaña con el asistente
+              de nueve pasos y **activarla**.
+            - Verla enviar en Actividad, con sus cifras y **por qué no sale
+              nada**, y **pararla** en cualquier momento.
+            - Dar de alta un número de WhatsApp y **mandarse un WhatsApp real**.
+            - **Respaldo cifrado, restauración, archivado del historial** y la
+              pantalla de recuperación del llavero perdido.
+
+            ### Lo que todavía NO hace
+
+            - Una **campaña entera por WhatsApp**: el motor sólo recorre correo.
+              De WhatsApp sale el mensaje de prueba y nada más.
+            - **Filtrar la audiencia** y **editar una campaña ya creada**.
+            - **Activar una campaña grande** tarda y congela la ventana: 73.5 s
+              con 451 196 destinatarios, y empieza a notarse hacia los 30 000.
+
+            > **La primera vez, Windows te pedirá permiso para guardar una
+            > credencial.** Es correcto: ARLES cifra su base de datos con una
+            > llave que guarda en el Administrador de credenciales, nunca en un
+            > archivo. **Si el llavero no responde, ARLES no arranca** — nunca
+            > se degrada a texto plano.
+
+            Tus datos quedan en
+            `%APPDATA%\TelemetryInsight\ArlesRelay\data\arles.db`.
 
             ### Cómo devolver los hallazgos
 
