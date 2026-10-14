@@ -174,9 +174,20 @@ la vista previa desalineada con el núcleo y una comprobación que se cazaba a s
 misma en un comentario. Está contado en `ESTADO_ACTUAL.md` §8 bis.
 
 **Las sondas abren un navegador de verdad y miden.** `npm run sonda:contactos`,
-`sonda:tema`, `sonda:plegado`, `sonda:cabecera`, `sonda:vista-previa`… Necesitan
-Chromium; sin él el validador las marca como **omitidas**, que no es lo mismo
-que pasadas y así se dice.
+`sonda:tema`, `sonda:plegado`, `sonda:cabecera`, `sonda:vista-previa`,
+`sonda:encimado`… Necesitan Chromium; sin él el validador las marca como
+**omitidas**, que no es lo mismo que pasadas y así se dice.
+
+**El tablero visual** que Dirección abre con doble clic:
+
+```bash
+python3 herramientas/tablero/generar.py --medir   # deja tablero/ARLES-tablero.html
+```
+
+No lleva **ni una cifra escrita a mano**: avance, hallazgos, bloqueos,
+tropiezos y comprobaciones salen de sus fuentes. Un tablero con cifras dentro
+es el §9 de este archivo con colores, que dan más confianza todavía — y el
+validador compara su porcentaje con `avance.json`.
 
 **La vista previa** que Dirección abre con doble clic:
 
@@ -1606,3 +1617,81 @@ alguien toca una.
 Ante un contacto repetido, ARLES **enseña los choques antes de importar**. No
 los salta ni fusiona solo: una importación de diez mil filas es irreversible en
 la práctica.
+
+### La ronda de correcciones de Dirección · 13 y 14/10/2026
+
+Dirección abrió ARLES por primera vez y probó. **Lo que encontró en dos tardes
+no lo había encontrado ninguna de las cuatro auditorías del §140**, y conviene
+saber por qué: las auditorías miden, y lo que falló es lo que sólo se ve
+usando.
+
+| | Qué | Estado |
+|---|---|---|
+| **H-01** | Remitentes decía «todavía no has configurado los datos de tu empresa» **después** de configurarla | ✅ Arreglado |
+| **H-02** | Las tres partes de un error salían **pegadas**: «…con el servidor.El servidor no ofrece…» | ✅ Arreglado |
+| **H-03** | **No se pudo dar de alta una cuenta de Gmail** | 🔎 Faltan tres datos de Dirección |
+| **R-01** | Dar de alta un correo era «demasiado complicado» | ✅ Hecho |
+| **R-02** | Lo mismo con WhatsApp | ✅ Hecho, con un límite declarado |
+
+**El alta de correo son dos campos desde el 14/10/2026.** `PROVEEDORES` en
+`stores/remitentes.ts` relaciona cinco dominios con su servidor, puerto y
+cifrado; la «Configuración avanzada» sólo se abre sola cuando el dominio no se
+reconoce. La garantía que pidió Dirección —«comprueba que el servidor, puerto y
+cifrado sean siempre correctos»— es `el puerto y el cifrado nunca se cruzan`:
+587 con STARTTLS, 465 con TLS directo, y ningún tercer puerto. Verificada
+cruzando los de Gmail.
+
+> **WhatsApp no se puede reducir a dos campos, y el límite está declarado.** El
+> correo se deduce del dominio; los tres identificadores de Meta **sólo existen
+> en su panel** y no hay nada de lo que inferirlos. Lo que sí se puede es cazar
+> el error de pegado antes de guardar, que es donde se pierde la gente:
+> `revisarDatoDeMeta` **avisa y no bloquea**, porque Meta podría cambiar el
+> formato y un formulario que se niega a guardar algo correcto es peor que uno
+> que señala algo dudoso.
+
+**Y lo que Dirección vio estaba en verde.** Escribió «el texto se ve
+extremadamente desordenado» con `sonda:auditoria` y `sonda:recorrido` dando las
+dieciocho pantallas sin un hallazgo. Ninguna de las dos mide lo que vio: la
+auditoría caza lo que no cabe **de ancho**, y dos párrafos montados uno sobre
+otro caben; el recorrido compara el hueco **del título**, y lo que pase cien
+píxeles más abajo no lo mira.
+
+> `sonda:encimado` mide las cuatro cosas que quedaban fuera, las cuatro
+> geométricas: dos rectángulos de texto que se cruzan, texto recortado de alto,
+> texto que asoma de su padre, y **un rótulo cortado por los puntos
+> suspensivos**. Cortar un dato está bien —la dirección entera se lee al abrir
+> la ficha—; cortar una cabecera de columna deja «WhatsApp pri…», que es lo que
+> Contactos enseñaba. **1 836 textos medidos** en 72 pantallas-ventana.
+>
+> **Y nació con tres hallazgos falsos, los tres comprobados antes de
+> anotarlos:** el contenido de un `<details>` **cerrado** sigue devolviendo
+> rectángulos y sus hijos caen apilados —nueve falsos por ventana—, un padre
+> con `text-overflow: ellipsis` no deja asomar nada, y un `.sr-only` de 1×1 px
+> tiene la forma exacta de un rótulo recortado. La pregunta correcta no es
+> «¿tiene área?» sino `checkVisibility()`.
+
+> **Y la comprobación que vigila las sondas tenía el defecto que persigue.**
+> `las_sondas_recorren_todas_las_pantallas` decía vigilar «las sondas» y
+> vigilaba **dos nombres a mano**; la tercera no la habría mirado nunca. Ahora
+> salen de la carpeta, y ninguna puede nombrar más de tres rutas por su cuenta
+> — umbral **medido**: las de una pantalla nombran 0 o 1, `vista-previa.mjs`
+> nombra 3. Es la lista a mano por enésima vez, y esta vez dentro de la
+> comprobación escrita para cazarlas.
+
+> **Una ruptura que no deja síntoma no prueba nada.** La primera de la medida 1
+> fue un margen negativo en el aviso del proveedor de Remitentes, que **sólo se
+> pinta al escribir una dirección**: en la vista previa ese elemento no existe,
+> así que la sonda salió en verde sobre código roto. Se rehízo sobre los
+> subtítulos de Respaldos, que se pintan siempre.
+
+**El tablero visual** (`tablero/`, pedido el 14/10/2026) y el **manual de
+usuario** (`documentacion/07-entrega/MANUAL-DE-USUARIO.md`, que no existía). El
+tablero no lleva ni una cifra propia, y mirarlo encontró cuatro cosas con todo
+en verde: «1 hallazgos abiertos» sin pluralizar, un punto verde delante de cada
+tropiezo que no indicaba nada, «sin medir» pintado en rojo —que es un fallo, y
+lo que pasa es que no se sabe—, y una fase al 0 % con el canal vacío, que se lee
+igual que «no hay dato».
+
+**La sección más importante del manual es la última**: lo que ARLES todavía no
+hace. Es lo que impide prometer algo que no se puede cumplir, y es la misma
+regla del §9 aplicada a lo que lee el usuario.

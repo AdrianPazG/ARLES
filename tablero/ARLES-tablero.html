@@ -86,6 +86,13 @@ th { color: var(--apagado); font-size: 12px; font-weight: 600; text-transform: u
 tr:last-child td { border-bottom: 0; }
 td.angosta { white-space: nowrap; }
 
+.mapa h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase;
+            letter-spacing: .6px; color: var(--acento); }
+.ruta-raiz { font-size: 14px; font-weight: 600; padding: 4px 0; }
+.ruta-hija { font-size: 13px; color: var(--apagado); padding: 3px 0 3px 16px;
+             border-left: 2px solid var(--borde); margin-left: 3px; }
+.ruta-hija.sola { border-left-style: dashed; font-style: italic; }
+
 .alarma { border-left: 4px solid var(--rojo); }
 .alarma.espera { border-left-color: var(--amarillo); }
 .alarma.info { border-left-color: var(--azul); }
@@ -130,7 +137,7 @@ code { background: var(--panel-alto); padding: 1px 5px; border-radius: 4px;
         fill="var(--texto)" font-size="30" font-weight="700">89%</text>
 </svg><div class='dentro'>de la v1.2.0<br><small>fuente: avance.json, 2026-10-07</small></div></div></div>
 <div class='panel'><div class='cifra verde'>311</div><div class='rotulo'>comprobaciones en verde<br><small>0 en rojo · 18 omitidas</small></div></div>
-<div class='panel'><div class='cifra rojo'>1</div><div class='rotulo'>hallazgo abierto<br><small>1 bloqueante · 5 en total</small></div></div>
+<div class='panel'><div class='cifra rojo'>1</div><div class='rotulo'>hallazgo abierto<br><small>1 bloqueante · 6 en total</small></div></div>
 <div class='panel'><div class='cifra amarillo'>5</div><div class='rotulo'>esperan a alguien de fuera<br><small>ninguno impide construir</small></div></div>
 </div>
 <p class='sub'><span class='sem'><span class='punto p-verde'></span>medido el 2026-10-14 a las 12:36</span> · --rapido (las sondas se omiten)</p>
@@ -163,6 +170,37 @@ code { background: var(--panel-alto); padding: 1px 5px; border-radius: 4px;
 <tr><td class='angosta'><strong>8</strong></td><td>19</td><td>0</td><td>0</td><td><span class='sem'><span class='punto p-verde'></span>entera</span></td></tr>
 </tbody></table></div>
 <p class='sub'>Las omitidas <strong>no son pasadas</strong>, y por eso van en su columna: son las sondas que abren un navegador de verdad —se omiten en <code>--rapido</code>— y las que necesitan el llavero del sistema, que un contenedor no tiene.</p>
+<h2>Las pantallas, y cómo se ligan</h2>
+<p class='sub'>Leídas de <code>router.ts</code>, no de una lista: una pantalla nueva aparece aquí sola. Las de la izquierda son las seis secciones de la barra; las de debajo, lo que cuelga de cada una.</p>
+<div class='rejilla r3'>
+<div class='panel mapa'><h3>inicio</h3><div class='ruta-raiz'>/inicio</div>
+<div class='ruta-hija'>/inicio/configuracion</div>
+</div>
+<div class='panel mapa'><h3>campanas</h3><div class='ruta-raiz'>/campanas</div>
+<div class='ruta-hija'>/campanas/plantillas</div>
+<div class='ruta-hija'>/campanas/nueva</div>
+</div>
+<div class='panel mapa'><h3>contactos</h3><div class='ruta-raiz'>/contactos</div>
+<div class='ruta-hija'>/contactos/importar</div>
+<div class='ruta-hija'>/contactos/supresion</div>
+<div class='ruta-hija'>/contactos/derechos</div>
+</div>
+<div class='panel mapa'><h3>remitentes</h3><div class='ruta-raiz'>/remitentes</div>
+<div class='ruta-hija'>/remitentes/whatsapp</div>
+</div>
+<div class='panel mapa'><h3>actividad</h3><div class='ruta-raiz'>/actividad</div>
+<div class='ruta-hija'>/actividad/registro</div>
+</div>
+<div class='panel mapa'><h3>ajustes</h3><div class='ruta-raiz'>/ajustes</div>
+<div class='ruta-hija'>/ajustes/respaldos</div>
+<div class='ruta-hija'>/ajustes/restaurar</div>
+<div class='ruta-hija'>/ajustes/archivar</div>
+</div>
+<div class='panel mapa'><h3>fuera del armazón</h3><div class='ruta-raiz'>/recuperar</div>
+<div class='ruta-hija sola'>no tiene subpantallas</div>
+</div>
+</div>
+<p class='sub'>18 pantallas en total. Qué hace cada una, qué necesita antes y qué verificar en ella: <code>documentacion/05-diseno/MAPA-FUNCIONAL.md</code>. Cómo se usan, en orden: <code>documentacion/07-entrega/MANUAL-DE-USUARIO.md</code>.</p>
 <h2>Hallazgos de las pruebas de Dirección</h2>
 <div class='panel'><table><thead><tr><th></th><th>#</th><th>Pantalla</th><th>Qué pasa</th><th>Estado</th></tr></thead><tbody>
 <tr><td class='angosta'><span class='punto p-amarillo' title='🟠 Grave' style='display:inline-block'></span></td><td class='angosta'><strong>H-01</strong></td><td class='angosta'>Remitentes</td><td>Dice «todavía no has configurado los datos de tu empresa» después de haberla configurado</td><td class='angosta'>✅ Arreglado 14/10/2026</td></tr>
@@ -170,6 +208,7 @@ code { background: var(--panel-alto); padding: 1px 5px; border-radius: 4px;
 <tr><td class='angosta'><span class='punto p-rojo' title='🔴 Bloqueante' style='display:inline-block'></span></td><td class='angosta'><strong>H-03</strong></td><td class='angosta'>Remitentes</td><td>No se puede dar de alta una cuenta de Gmail. «No se pudo cifrar la conexión con el servidor»</td><td class='angosta'>🔎 Investigando · faltan datos</td></tr>
 <tr><td class='angosta'><span class='punto p-azul' title='🔵 Requisito' style='display:inline-block'></span></td><td class='angosta'><strong>R-01</strong></td><td class='angosta'>Remitentes</td><td>Dar de alta un correo es demasiado complicado. Tiene que ser sencillo e intuitivo</td><td class='angosta'>✅ Hecho 14/10/2026</td></tr>
 <tr><td class='angosta'><span class='punto p-azul' title='🔵 Requisito' style='display:inline-block'></span></td><td class='angosta'><strong>R-02</strong></td><td class='angosta'>WhatsApp</td><td>Lo mismo con el alta de un número</td><td class='angosta'>✅ Hecho 14/10/2026 · con un límite declarado</td></tr>
+<tr><td class='angosta'><span class='punto p-amarillo' title='🟡 Molesto' style='display:inline-block'></span></td><td class='angosta'><strong>A-01</strong></td><td class='angosta'>Contactos</td><td>La cabecera de la tabla se leía «Correo princip…» y «WhatsApp pri…»: no cabían en su columna</td><td class='angosta'>✅ Arreglado 14/10/2026</td></tr>
 </tbody></table></div>
 <p class='sub'>Rojo: bloqueante. Amarillo: grave o molesto. Azul: propuesta o requisito. La tabla sale de <code>BITACORA-DE-PRUEBAS.md</code> — se edita ahí, no aquí.</p>
 <h2>Esperan a alguien de fuera</h2>

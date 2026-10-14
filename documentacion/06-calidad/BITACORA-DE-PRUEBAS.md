@@ -89,6 +89,12 @@ mirando, no una comprobación automática.
 | **H-03** | 🔴 Bloqueante | Remitentes | **No se puede dar de alta una cuenta de Gmail.** «No se pudo cifrar la conexión con el servidor» | 🔎 **Investigando** · faltan datos |
 | **R-01** | 🔵 Requisito | Remitentes | Dar de alta un correo es **demasiado complicado**. Tiene que ser sencillo e intuitivo | ✅ **Hecho** 14/10/2026 |
 | **R-02** | 🔵 Requisito | WhatsApp | Lo mismo con el alta de un número | ✅ **Hecho** 14/10/2026 · con un límite declarado |
+| **A-01** | 🟡 Molesto | Contactos | La cabecera de la tabla se leía **«Correo princip…»** y **«WhatsApp pri…»**: no cabían en su columna | ✅ **Arreglado** 14/10/2026 |
+
+> Los hallazgos con **A** los encontré yo auditando, no Dirección probando. Van
+> en la misma tabla a propósito: separarlos en dos listas haría que una de las
+> dos se mirara menos, y un defecto no es más leve por haberlo encontrado quien
+> lo escribió.
 
 ---
 
@@ -284,6 +290,28 @@ y cruzarlos deja la conexión esperando a un servidor que no va a contestar.
 **Dar por buena esa hipótesis sin los datos sería inventarse un diagnóstico**,
 que en este proyecto ya ha costado caro dos veces.
 
+### Qué cambió el 14/10/2026 con R-01, y qué NO
+
+R-01 hace que el servidor, el puerto y el cifrado **ya no se escriban a mano**
+cuando el dominio se reconoce: `@gmail.com` rellena `smtp.gmail.com`, `587` y
+STARTTLS, y la garantía `el puerto y el cifrado nunca se cruzan` impide
+justamente el par imposible que era la hipótesis.
+
+Así que **si la causa era ésa, hoy ya no puede ocurrir**. Pero eso no cierra
+H-03, y la diferencia importa:
+
+- **No se ha probado contra Gmail.** La red de este contenedor bloquea los
+  puertos 587, 465 y 25 —medido—, así que aquí no se puede. Es **R-24**.
+- **Si la causa era la contraseña** —la de la cuenta en vez de la de
+  aplicación— R-01 sólo añade un aviso cuando no mide dieciséis letras. Avisa,
+  no impide.
+- **Y el usuario** seguía siendo el otro sospechoso: ahora sigue a la dirección
+  mientras nadie lo toque, que cierra el caso de la captura.
+
+**H-03 se cierra cuando Dirección vuelva a intentarlo** con la versión nueva, no
+antes. Un defecto que se marca arreglado porque «debería estarlo» es peor que
+uno abierto: deja de buscarse.
+
 ---
 
 ## R-01 · Dar de alta un correo es demasiado complicado
@@ -384,3 +412,159 @@ mal**. Ahora se avisa antes:
 niega a guardar algo correcto es peor que uno que señala algo dudoso.
 
 **Nueve pruebas, cinco vistas en rojo** haciendo que la revisión deje pasar todo.
+
+---
+
+## A-01 · Dos cabeceras de columna que no cabían en su columna
+
+**🟡 Molesto · Contactos · ✅ Arreglado 14/10/2026**
+
+### Qué se leía
+
+La tabla de contactos tiene cuatro columnas. Las dos últimas decían
+«Correo principal» y «WhatsApp principal», y lo que se veía era:
+
+```
+   Nombre     Empresa     Correo princip…     WhatsApp pri…
+```
+
+Medido en Chromium, no mirado: **15 px de sobra a 1280 px de ancho y 51 px a
+1024**, con el icono de ordenar comiéndose lo que quedaba. A 900 px no pasaba,
+porque ahí la tabla se repliega a tarjetas.
+
+### Por qué ninguna sonda lo veía
+
+Y ésta es la parte que importa, porque el defecto de verdad no era la columna.
+
+`.celda` recorta con `text-overflow: ellipsis`, que es la decisión correcta
+**para un dato**: una dirección larga se corta con sus puntos y se lee entera al
+abrir la ficha. El problema es que recortar **un rótulo** no es lo mismo: una
+cabecera de columna es la única pista de qué estás mirando, y lo que se pierde
+al cortarla es el final, que es justo donde está lo que la distingue de la de al
+lado.
+
+Y de ancho **cabe**: el recorte no ensancha nada, así que
+`scrollWidth > clientWidth` —que es lo que mide `sonda:auditoria`— no se
+dispara. Las dieciocho pantallas salían en verde.
+
+### Qué se hizo
+
+Se quita la palabra «principal». No se ensancha la columna porque el ancho que
+haría falta se lo quita a la dirección, que es el dato; y lo que sobra es la
+palabra: la celda ya enseña **cuántos más hay** con un `+2` al lado, que es
+exactamente lo que «principal» venía a decir, y lo dice con una cifra (§94).
+
+### Qué impide que vuelva
+
+`sonda:encimado`, medida 4: ningún rótulo —`th`, `columnheader`, `label`,
+`legend`, `caption`— puede estar recortado por los puntos suspensivos. Vista en
+rojo estrechando la columna «Nombre» a 34 px: falla con «rótulo cortado:
+«Nombre» necesita 46 px más».
+
+---
+
+## A-02 · Las sondas no medían el texto encimado
+
+**🟠 Grave · Las dieciocho · ✅ Arreglado 14/10/2026**
+
+No es un defecto del producto: es un defecto de las comprobaciones, y por eso
+está aquí. Dirección escribió el 13/10/2026 *«el texto se ve extremadamente
+desordenado y poco profesional»* con **las dos sondas de recorrido en verde**.
+
+### Qué medía cada una, y qué no
+
+| Sonda | Qué mide | Por qué no cazaba esto |
+|---|---|---|
+| `sonda:auditoria` | Desbordes con `scrollWidth > clientWidth` | Caza lo que no cabe **de ancho**. Dos párrafos montados uno sobre otro caben: su contenedor no se ensancha ni un píxel |
+| `sonda:recorrido` | El borde izquierdo y el hueco vertical **del título** | Lo que pase cien píxeles más abajo no lo mira |
+
+### Las cuatro medidas nuevas
+
+`sonda:encimado` recorre las dieciocho pantallas en cuatro ventanas —**1 836
+textos medidos**— y pregunta cuatro cosas geométricas:
+
+| | Qué caza |
+|---|---|
+| **1** | Dos textos cuyos rectángulos se cruzan sin que uno contenga al otro |
+| **2** | Texto que su contenedor recorta de alto: la última línea se queda a medias |
+| **3** | Texto que asoma por debajo o por la derecha de su padre |
+| **4** | Un **rótulo** cortado por los puntos suspensivos (ver A-01) |
+
+Las cuatro **vistas en rojo** rompiendo el código de verdad, con copia previa
+del archivo y nunca `git checkout`.
+
+### Los tres hallazgos falsos que dio al nacer, y por qué se comprobaron
+
+Una sonda que grita de más se desactiva, y un hallazgo falso en una auditoría
+cuesta más que uno ausente: manda a arreglar algo que funciona y gasta la
+credibilidad del resto. Los tres se comprobaron **antes** de anotarlos:
+
+1. **El contenido de un `<details>` cerrado sigue devolviendo rectángulos**, y
+   todos sus hijos caen apilados en la posición del `<details>`. Nueve falsos
+   por ventana en Respaldos. La pregunta correcta no es «¿tiene área?» sino
+   `checkVisibility()`, que para ese mismo `<li>` devolvía `false`.
+2. **Un padre con `text-overflow: ellipsis` no deja asomar nada**: corta y pone
+   los puntos. Las tres columnas de Contactos salían como si se desbordaran
+   sobre la de al lado. No lo hacían — el defecto era otro, y es A-01.
+3. **Un `.sr-only` de 1×1 px tiene la forma exacta de un rótulo recortado.** Es
+   el texto que sólo oye el lector de pantalla, y se lee entero por el único
+   camino que lo usa.
+
+### Y una ruptura mía mal elegida
+
+La primera ruptura de la medida 1 fue un margen negativo en el aviso del
+proveedor de Remitentes. **No dejó síntoma**, porque ese aviso sólo se pinta al
+escribir una dirección y en la vista previa el campo está vacío. Una ruptura
+sobre algo que no está en pantalla no prueba nada; se rehízo sobre los
+subtítulos de Respaldos, que se pintan siempre.
+
+---
+
+## A-03 · La comprobación que vigila las sondas tenía el defecto que persigue
+
+**🟡 Molesto · Herramientas · ✅ Arreglado 14/10/2026**
+
+`las_sondas_recorren_todas_las_pantallas` existe desde el 07/10/2026 para que
+ninguna sonda vuelva a llevar su propia lista de rutas — el defecto que dejó
+cinco pantallas sin medir nunca.
+
+Decía vigilar «las sondas» y vigilaba **dos nombres escritos a mano**:
+`auditoria.mjs` y `recorrido.mjs`. Al escribir la tercera, `encimado.mjs`, esta
+comprobación **no la habría mirado nunca**.
+
+Ahora las sondas salen de la carpeta: son las que importan `rutas.mjs`. Y el
+hueco obvio que eso deja —una sonda con su lista propia no importa
+`rutas.mjs`— lo cierra un segundo criterio: **ninguna puede nombrar más de tres
+rutas por su cuenta**. El umbral está medido, no elegido: las sondas de una
+pantalla nombran 0 o 1, `vista-previa.mjs` nombra 3, y las que recorren el
+producto nombran 0 porque las piden.
+
+### Y una afirmación mía de verificación que era falsa
+
+Anoté que renombrar `rutas.mjs` haría fallar la comprobación **dos veces** —por
+no existir el módulo y porque entonces nadie lo importa—. Es falso: las tres
+sondas siguen llevando la cadena `./rutas.mjs` en su `import`, así que la
+segunda guarda no se dispara. Hubo que romperla aparte, apuntando los tres
+imports a otro nombre.
+
+Una afirmación de verificación es una afirmación como cualquier otra, y en este
+proyecto llevan varias entregas siendo las que más veces resultan falsas.
+
+---
+
+## A-04 · Cuatro cosas del tablero, encontradas mirándolo
+
+**🟡 Molesto · Tablero · ✅ Arreglado 14/10/2026**
+
+El tablero que Dirección pidió el 14/10/2026 salió con sus cifras correctas y
+sin un error de consola. Mirarlo encontró cuatro cosas:
+
+| | Qué | Por qué importa |
+|---|---|---|
+| **1** | **«1 hallazgos abiertos»** y **«1 bloqueante(s)»** | El mismo defecto que la 8.3c corrigió en «2 cuenta(s)». Un tablero que Dirección enseña a alguien no puede escribir así |
+| **2** | Un **punto verde** delante de cada tropiezo | Verde quiere decir «esto está bien» y lo que decía era «éste es el número 1». Es el defecto de las ocho insignias con un reloj que no esperaba nada |
+| **3** | **«Sin medir» pintado en rojo** | Rojo quiere decir que algo falla. Lo que pasaba es que no se sabe, y son dos cosas distintas — la misma razón por la que las omitidas van en su columna |
+| **4** | Una fase al **0 %** con el canal vacío | Un canal vacío se lee igual que «no hay dato» |
+
+Ninguna la caza una comprobación: las cuatro son dibujos correctos que dicen
+algo que no es. **Antes de cerrar una entrega, se abre y se mira.**

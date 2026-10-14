@@ -71,6 +71,12 @@ FASES = ["0", "1", "2", "3", "4", "5", "6", "W", "7", "8"]
 #: A partir de cuántos días una medición se enseña como vieja.
 DIAS_PARA_ENVEJECER = 7
 
+#: Cuántas pantallas tiene que leer del router como mínimo. Si el patrón deja
+#: de casar, el mapa sale corto y un mapa corto se lee como un producto
+#: pequeño: el tablero prefiere decir que no pudo leerlo. Es el mismo `MINIMO`
+#: que `rutas.mjs` tiene para las sondas, y por la misma razón.
+MINIMO_DE_PANTALLAS = 15
+
 
 # ───────────────────────────────────────────────────────────────────────────
 # LEER LAS FUENTES
@@ -145,6 +151,72 @@ def leer_hallazgos() -> dict:
     if not hallazgos:
         return {"falta": "la tabla de hallazgos de la bitácora no se pudo leer"}
     return {"hallazgos": hallazgos}
+
+
+def leer_pantallas() -> list[dict]:
+    """El mapa de pantallas, leído **del router** y no de una lista.
+
+    Dirección pidió el 14/10/2026 saber «cómo funcionan las pantallas y cómo es
+    que se ligan entre sí», y lo pidió gráfico. El árbol está escrito en
+    `MAPA-FUNCIONAL.md`, pero un árbol escrito a mano se queda atrás a la
+    primera pantalla nueva — es lo que le pasó a las dos sondas de recorrido,
+    que llevaban cinco pantallas de retraso y lo contaban en verde.
+
+    Así que se lee `router.ts`, igual que hace `rutas.mjs` para las sondas. Y
+    por la misma razón: una pantalla nueva aparece sola, y una que se quite
+    desaparece. Si el patrón deja de casar, esto devuelve una lista corta y el
+    tablero lo dice en vez de pintar un mapa incompleto.
+    """
+    router = RAIZ / "app" / "src" / "app" / "router.ts"
+    if not router.exists():
+        return []
+    texto = router.read_text(encoding="utf-8")
+    # Se quitan los comentarios antes de mirar: el router explica en ellos por
+    # qué una ruta cuelga de donde cuelga, y esas explicaciones nombran rutas
+    # y secciones. Es la trampa del comentario, que en este proyecto ya ha
+    # salido ocho veces.
+    codigo = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", texto, flags=re.S))
+
+    # ── LA PRIMERA VERSIÓN DE ESTE PATRÓN SE EQUIVOCÓ EN DOS COSAS, Y SE VIO
+    #    PORQUE SE COMPARÓ EL RESULTADO CON EL ÁRBOL ESCRITO ──
+    #
+    # 1. Usaba `path: '…' .*? name: '…'` con `re.S`, así que **cruzaba el
+    #    límite de una ruta**: el `{ path: '/', redirect: '/inicio' }` del
+    #    principio no tiene `name`, y el patrón se llevó su `path` con el
+    #    `name` de la ruta siguiente. El mapa habría dicho `/` donde va
+    #    `/inicio`. Ahora `name` tiene que venir pegado al `path`.
+    #
+    # 2. Exigía `meta.seccion`, y **`/recuperar` no la tiene**: es la única
+    #    pantalla fuera del armazón, porque sin base de datos no hay secciones
+    #    a las que ir. Así que el mapa salía con diecisiete de dieciocho — que
+    #    es exactamente lo que les pasó a las dos sondas de recorrido, y lo que
+    #    aquí se habría enseñado en un dibujo bonito.
+    # Las rutas que NO son pantallas del producto, cada una con su motivo —la
+    # misma lista y el mismo criterio que `rutas.mjs` usa para las sondas, y
+    # está escrita para que quitar una del mapa sea una decisión visible.
+    NO_SON_PANTALLAS = {
+        "/catalogo": "es el catálogo del design system, una herramienta nuestra",
+    }
+
+    pantallas = []
+    for bloque in re.finditer(
+            r"path:\s*'([^']+)',\s*name:\s*'([^']+)',", codigo):
+        ruta, nombre = bloque.groups()
+        if ruta in NO_SON_PANTALLAS:
+            continue
+        # La sección es la de su `meta`, si la ruta la declara. Se busca en lo
+        # que sigue hasta el siguiente `path:`, para no leer la del vecino.
+        resto = codigo[bloque.end():]
+        corte = resto.find("path:")
+        trozo = resto[:corte if corte > 0 else len(resto)]
+        sec = re.search(r"seccion:\s*'([^']+)'", trozo)
+        pantallas.append({
+            "ruta": ruta,
+            "nombre": nombre,
+            "seccion": sec.group(1) if sec else "fuera del armazón",
+            "es_sub": bool(re.search(r"subseccion:\s*'", trozo)),
+        })
+    return pantallas
 
 
 def leer_tropiezos() -> list[str]:
@@ -291,6 +363,13 @@ th { color: var(--apagado); font-size: 12px; font-weight: 600; text-transform: u
 tr:last-child td { border-bottom: 0; }
 td.angosta { white-space: nowrap; }
 
+.mapa h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase;
+            letter-spacing: .6px; color: var(--acento); }
+.ruta-raiz { font-size: 14px; font-weight: 600; padding: 4px 0; }
+.ruta-hija { font-size: 13px; color: var(--apagado); padding: 3px 0 3px 16px;
+             border-left: 2px solid var(--borde); margin-left: 3px; }
+.ruta-hija.sola { border-left-style: dashed; font-style: italic; }
+
 .alarma { border-left: 4px solid var(--rojo); }
 .alarma.espera { border-left-color: var(--amarillo); }
 .alarma.info { border-left-color: var(--azul); }
@@ -384,7 +463,7 @@ def esta_abierto(estado: str) -> bool:
 
 
 def pintar(avance: dict, hallazgos: dict, tropiezos: list[str],
-           corrida: dict | None) -> str:
+           pantallas: list[dict], corrida: dict | None) -> str:
     hoy = datetime.date.today().isoformat()
     partes: list[str] = []
     A = partes.append
@@ -521,6 +600,46 @@ def pintar(avance: dict, hallazgos: dict, tropiezos: list[str],
           "verdad —se omiten en <code>--rapido</code>— y las que necesitan el "
           "llavero del sistema, que un contenedor no tiene.</p>")
 
+    # ── El mapa de pantallas ─────────────────────────────────────────
+    A("<h2>Las pantallas, y cómo se ligan</h2>")
+    if len(pantallas) < MINIMO_DE_PANTALLAS:
+        # ── UN MAPA CORTO ES PEOR QUE NINGÚN MAPA ──
+        #
+        # Si el patrón del router deja de casar, esto devuelve dos pantallas y
+        # el tablero pintaría un mapa de dos **sin decir que faltan dieciséis**.
+        # Es la trampa que dejó cinco pantallas sin medir durante ocho días, y
+        # cuesta cuatro líneas cerrarla.
+        A(f"<div class='falta'>Sólo se leyeron {len(pantallas)} pantallas del "
+          f"router, y hay al menos {MINIMO_DE_PANTALLAS}. El patrón de "
+          "<code>leer_pantallas()</code> dejó de casar: el mapa no se pinta, "
+          "porque un mapa corto se lee como un producto pequeño.</div>")
+    else:
+        A("<p class='sub'>Leídas de <code>router.ts</code>, no de una lista: "
+          "una pantalla nueva aparece aquí sola. Las de la izquierda son las "
+          "seis secciones de la barra; las de debajo, lo que cuelga de cada "
+          "una.</p>")
+        A("<div class='rejilla r3'>")
+        secciones: dict[str, list[dict]] = {}
+        for p in pantallas:
+            secciones.setdefault(p["seccion"], []).append(p)
+        for seccion, suyas in secciones.items():
+            raiz = [p for p in suyas if not p["es_sub"]]
+            hijas = [p for p in suyas if p["es_sub"]]
+            titulo = raiz[0]["ruta"] if raiz else seccion
+            A(f"<div class='panel mapa'><h3>{e(seccion)}</h3>"
+              f"<div class='ruta-raiz'>{e(titulo)}</div>")
+            for h in hijas:
+                A(f"<div class='ruta-hija'>{e(h['ruta'])}</div>")
+            if not hijas:
+                A("<div class='ruta-hija sola'>no tiene subpantallas</div>")
+            A("</div>")
+        A("</div>")
+        A(f"<p class='sub'>{plural(len(pantallas), 'pantalla', 'pantallas')} en "
+          "total. Qué hace cada una, qué necesita antes y qué verificar en "
+          "ella: <code>documentacion/05-diseno/MAPA-FUNCIONAL.md</code>. Cómo "
+          "se usan, en orden: <code>documentacion/07-entrega/"
+          "MANUAL-DE-USUARIO.md</code>.</p>")
+
     # ── Hallazgos de las pruebas ─────────────────────────────────────
     A("<h2>Hallazgos de las pruebas de Dirección</h2>")
     if "falta" in hallazgos:
@@ -614,15 +733,17 @@ def main() -> int:
     avance = leer_avance()
     hallazgos = leer_hallazgos()
     tropiezos = leer_tropiezos()
+    pantallas = leer_pantallas()
 
     SALIDA.parent.mkdir(parents=True, exist_ok=True)
-    SALIDA.write_text(pintar(avance, hallazgos, tropiezos, corrida),
+    SALIDA.write_text(pintar(avance, hallazgos, tropiezos, pantallas, corrida),
                       encoding="utf-8")
     print(f"✓ {SALIDA.relative_to(RAIZ)}")
     if "falta" not in avance:
         print(f"  avance {avance['porcentaje']} % · "
               f"{len(hallazgos.get('hallazgos', []))} hallazgos · "
-              f"{len(avance['bloqueos'])} bloqueos · {len(tropiezos)} tropiezos")
+              f"{len(avance['bloqueos'])} bloqueos · {len(tropiezos)} tropiezos · "
+              f"{len(pantallas)} pantallas")
     return 0
 
 

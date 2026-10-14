@@ -187,12 +187,34 @@ usa** — extraídos de los almacenes, no supuestos.
 | Comandos | `remitentes`, `guardar_remitente`, `probar_remitente`, `probar_envio_de_la_cuenta` |
 | Qué verificar | Que **«Probar conexión» dice qué falla**, no un error genérico. Que la contraseña **no vuelve** a la pantalla una vez guardada |
 
+> **Desde el 14/10/2026 (R-01) el formulario son dos campos**: correo y
+> contraseña. El servidor, el puerto y el cifrado se deducen del dominio con
+> `PROVEEDORES` —Gmail, Outlook, Yahoo, Zoho e iCloud— y viven en una
+> «Configuración avanzada» que **sólo se abre sola cuando el dominio no se
+> reconoce**, que es cuando de verdad hacen falta.
+>
+> Qué verificar aquí: que escribir `@gmail.com` rellena `smtp.gmail.com`, `587`
+> y STARTTLS **y lo dice**; que el usuario sigue a la dirección mientras nadie
+> lo toque; y que con Gmail avisa si la contraseña no mide dieciséis letras —la
+> de aplicación—, que es lo que impidió el alta en la prueba del 13/10/2026.
+>
+> Lo vigila `el puerto y el cifrado nunca se cruzan`: 587 con STARTTLS, 465 con
+> TLS directo, y ningún tercer puerto.
+
 | | |
 |---|---|
 | **`/remitentes/whatsapp`** | Los números de WhatsApp, con Coexistencia y la aceptación de riesgo |
 | Necesita | Empresa · cuenta de Meta |
 | Comandos | `numeros_de_whatsapp`, `guardar_numero_de_whatsapp`, `enviar_whatsapp_de_prueba` |
 | Qué verificar | Que el envío de prueba llega al teléfono. **Una campaña entera por WhatsApp no existe** |
+
+> **Aquí NO se puede hacer lo del correo, y el límite está declarado (R-02).**
+> El correo se deduce del dominio; los tres identificadores de Meta —WABA ID,
+> Phone Number ID y token— **sólo existen en su panel**. Lo que sí se hizo es
+> agrupar el formulario en tres bloques con su rótulo —«Tu número», «Lo que se
+> copia del panel de Meta», «Cómo se va a usar»— y **cazar el error de pegado**
+> con `revisarDatoDeMeta`: los identificadores son dígitos y el token empieza
+> por `EAA`. **Avisa, no bloquea.**
 
 ### ACTIVIDAD
 
