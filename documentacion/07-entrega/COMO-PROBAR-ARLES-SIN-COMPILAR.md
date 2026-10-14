@@ -71,15 +71,30 @@ derecha de la portada del repositorio.
 
 **No de la pestaña Actions**: ahí sólo se ve cómo se construyó.
 
-**La primera versión descargable es
-[`prueba-20261013-0041`](https://github.com/AdrianPazG/ARLES/releases/tag/prueba-20261013-0041)**,
-del 13/10/2026, y trae tres archivos:
+**La versión al día es
+[`prueba-20261014-1533`](https://github.com/AdrianPazG/ARLES/releases/tag/prueba-20261014-1533)**,
+del 14/10/2026, y trae tres archivos:
 
 | Archivo | Para | Tamaño |
 |---|---|---|
-| `ARLES.RELAY_1.2.0_x64-setup.exe` | **Windows** · el recomendado | 5 MB |
-| `ARLES.RELAY_1.2.0_x64_en-US.msi` | Windows · para instalación desatendida | 8 MB |
-| `ARLES.RELAY_1.2.0_aarch64.dmg` | **macOS** (Apple Silicon) | 7 MB |
+| `ARLES.RELAY_1.2.0_x64-setup.exe` | **Windows** · el recomendado | 6.1 MB |
+| `ARLES.RELAY_1.2.0_x64_en-US.msi` | Windows · para instalación desatendida | 8.6 MB |
+| `ARLES.RELAY_1.2.0_aarch64.dmg` | **macOS** (Apple Silicon) | 8.1 MB |
+
+**Qué trae de nuevo respecto a la del 13/10:** el alta de correo en dos campos
+(R-01), el alta de WhatsApp con avisos de pegado (R-02), el aviso de la empresa
+que ya no sobrevive a la recarga (H-01), las tres partes de un error que ya no
+salen pegadas (H-02) y la cabecera de Contactos que ya no se lee «WhatsApp pri…»
+(A-01). Todo está en
+[`BITACORA-DE-PRUEBAS.md`](../06-calidad/BITACORA-DE-PRUEBAS.md).
+
+> **Medida también, y con la misma regla.** Se descargó el `.exe`, se extrajo el
+> NSIS y se miró dentro: el binario pesa **22 268 928 bytes** y trae **siete**
+> apariciones de `index.html` más los assets. Siete es el número de una
+> compilación con `custom-protocol`; **sin ella serían cero**, y la ventana
+> abriría pidiendo `localhost` — que es lo que le pasó a Dirección el
+> 08/10/2026. Un instalador que no se mira por dentro es un instalador del que
+> se supone, y eso ya costó una tarde.
 
 > **Por qué no había ninguna hasta hoy, y no era por falta de código.** El flujo
 > que las construye se intentó una vez, el 17/09/2026, y falló: `sin-mont.py`
