@@ -138,6 +138,14 @@ export const useRemitentesStore = defineStore('remitentes', () => {
   async function cargar(): Promise<void> {
     if (cargada.value || cargando.value) return
     cargando.value = true
+    // El aviso de la carga anterior se borra **antes** de reintentar, no al
+    // terminar bien. Sin esto, el error de un intento fallido sobrevive al
+    // intento que lo resuelve: Dirección entró aquí sin empresa configurada
+    // —el aviso era correcto—, fue a configurarla, volvió, la carga funcionó,
+    // y la pantalla seguía diciendo «todavía no has configurado los datos de
+    // tu empresa» (H-01, 14/10/2026). Un error que ya no existe dando
+    // instrucciones es el §95 al revés.
+    errorGeneral.value = null
     try {
       if (hayNucleo()) {
         remitentes.value = await invocar<Remitente[]>('remitentes')

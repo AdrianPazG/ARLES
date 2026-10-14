@@ -114,6 +114,10 @@ export const useEmpresaStore = defineStore('empresa', () => {
   async function cargar(): Promise<void> {
     if (cargada.value || cargando.value) return
     cargando.value = true
+    // El aviso de la carga anterior se borra **antes** de reintentar. Ver el
+    // porqué entero en `remitentes.ts` y en `avisos-al-recargar.spec.ts`: un
+    // error que ya no existe seguía dando instrucciones (H-01, 14/10/2026).
+    errorGeneral.value = null
     try {
       if (hayNucleo()) {
         configuracion.value = await invocar<ConfiguracionDeEmpresa>(

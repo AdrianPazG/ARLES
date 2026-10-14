@@ -5015,6 +5015,87 @@ def ningun_texto_lleva_una_arroba_suelta():
     )
 
 
+def ningun_aviso_sobrevive_a_la_recarga_que_lo_resuelve():
+    """Un `cargar()` que escribe un aviso de error tiene que borrarlo al reintentar.
+
+    ── EL FALLO QUE ESTO CAZA ──────────────────────────────────────────────
+
+    Lo encontró Dirección el 14/10/2026 usando ARLES, y es el hallazgo H-01:
+
+      1. Entra en Remitentes **antes** de configurar la empresa. La carga falla
+         con `EmpresaNoConfigurada` y la pantalla pinta el aviso. Correcto.
+      2. Va a Configuración y guarda los datos. Correcto.
+      3. Vuelve a Remitentes. La carga **ahora sí funciona**… y el aviso viejo
+         **sigue pintado**: «Todavía no has configurado los datos de tu
+         empresa».
+
+    La pantalla afirmaba algo **falso sobre el estado de su propia base**, y le
+    hizo dudar de si el guardado había servido. Es el §95 al revés: un error
+    que ya no existe sigue dando instrucciones.
+
+    La causa es de una línea — `cargar()` escribe el aviso en su `catch` y nunca
+    lo limpia al empezar — y **no era de Remitentes**: lo tenían dos de los diez
+    stores, y un tercero lo limpiaba pasada su guarda de núcleo, que es otra
+    forma de lo mismo.
+
+    ── POR QUÉ UNA COMPROBACIÓN Y NO SÓLO LA PRUEBA ────────────────────────
+
+    La prueba (`avisos-al-recargar.spec.ts`) cubre los tres stores que existen
+    hoy. **Un store nuevo no estaría en ella**, y el patrón es tan fácil de
+    repetir que ya se escribió tres veces sin querer. Esto mira *todos* los
+    stores que haya, ahora y los que vengan.
+
+    Se mide sobre el cuerpo de `cargar()` **sin sus comentarios**: ésta es la
+    décima vez en el proyecto que una comprobación podría cazarse a sí misma en
+    la explicación de la regla que vigila.
+
+    Verificada el 14/10/2026 quitando el `errorGeneral.value = null` de
+    `remitentes.ts` y de `empresa.ts`: en rojo las dos veces, nombrando el store.
+    """
+    import glob
+
+    sospechosos = []
+    for ruta in sorted(glob.glob(os.path.join(RAIZ, "app/src/app/stores/*.ts"))):
+        if ruta.endswith(".spec.ts"):
+            continue
+        texto = leer(ruta)
+        if not texto:
+            continue
+
+        # El cuerpo de `cargar()`: desde su firma hasta el cierre de la función.
+        m = re.search(r"async function cargar\b[^\n]*\n(.*?)\n  \}", texto, re.S)
+        if not m:
+            continue
+        cuerpo = re.sub(r"//[^\n]*", "", m.group(1))
+        cuerpo = re.sub(r"/\*.*?\*/", "", cuerpo, flags=re.S)
+
+        # Sólo importa si el `catch` deja un aviso escrito. Un `catch` vacío
+        # —una preferencia de interfaz que no se puede leer no impide usar
+        # ARLES— no tiene nada que limpiar, y exigírselo mandaría a arreglar
+        # algo que funciona.
+        tras_catch = cuerpo.split("catch", 1)
+        if len(tras_catch) < 2:
+            continue
+        escribe = re.search(r"\b(\w*[eE]rror\w*)\.value\s*=\s*(?!null)", tras_catch[1])
+        if not escribe:
+            continue
+
+        campo = escribe.group(1)
+        # Y tiene que borrarlo ANTES del `try`, no después de que todo salga
+        # bien: lo que hay que limpiar es el aviso del intento anterior.
+        antes = cuerpo.split("try", 1)[0]
+        if not re.search(rf"{re.escape(campo)}\.value\s*=\s*null", antes):
+            sospechosos.append(f"{os.path.basename(ruta)} ({campo})")
+
+    check(
+        7,
+        "ningún aviso de error sobrevive a la recarga que lo resuelve",
+        not sospechosos,
+        "Un error que ya no existe sigue dando instrucciones, y la pantalla miente sobre su propia base (§95 al revés).",
+        f"Sin limpiar antes del try: {', '.join(sospechosos)}",
+    )
+
+
 def ningun_texto_lleva_markdown():
     """Los `**asteriscos**` de un texto salen **literales** en la pantalla.
 
@@ -6446,6 +6527,7 @@ def fase_7(rapido=False):
     print(f"{GRIS}  el registro con sus filtros (7.4){FIN}")
     ningun_texto_lleva_una_arroba_suelta()
     ningun_texto_lleva_markdown()
+    ningun_aviso_sobrevive_a_la_recarga_que_lo_resuelve()
 
     print(f"{GRIS}  el resumen exportable (7.6){FIN}")
     el_resumen_no_puede_llevar_direcciones()

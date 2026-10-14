@@ -82,11 +82,68 @@ mirando, no una comprobación automática.
 
 # Hallazgos
 
-> Vacía por ahora. El primero entra en cuanto Dirección lo describa.
-
 | # | Gravedad | Pantalla | Qué pasa | Estado |
 |---|---|---|---|---|
-| — | — | — | *(sin hallazgos todavía)* | — |
+| **H-01** | 🟠 Grave | Remitentes | Dice «todavía no has configurado los datos de tu empresa» **después** de haberla configurado | ✅ **Arreglado** 14/10/2026 |
+
+---
+
+## H-01 · Un aviso que sobrevive a la recarga que lo resuelve
+
+**Encontrado por Dirección el 14/10/2026**, usando ARLES en Windows.
+
+### Qué pasó
+
+1. Entró en **Remitentes antes** de configurar la empresa. La pantalla avisó:
+   *«Todavía no has configurado los datos de tu empresa. Ve a Ajustes, completa
+   los datos de la empresa y vuelve aquí. No se modificó nada.»* **Correcto.**
+2. Fue a **Configuración** y guardó los datos de TELEMETRY. La pantalla confirmó
+   *«Configuración guardada»*. **Correcto.**
+3. Volvió a **Remitentes**. La carga **funcionó**… y el aviso viejo **seguía
+   pintado**.
+
+### Por qué importa más de lo que parece
+
+La pantalla **afirmaba algo falso sobre el estado de su propia base de datos**, y
+eso hizo dudar de si el guardado había servido. Es el **§95 al revés**: un error
+que ya no existe sigue dando instrucciones, y las instrucciones mandan a repetir
+algo ya hecho.
+
+### La causa
+
+Una línea. `cargar()` escribe el aviso en su `catch` y **nunca lo limpia al
+empezar**, así que el error de un intento fallido sobrevive al intento que lo
+resuelve.
+
+### Y no era de Remitentes
+
+| Store | Estado antes | Qué se hizo |
+|---|---|---|
+| `remitentes` | **El defecto** | Limpia antes del `try` |
+| `empresa` | **El mismo defecto** | Limpia antes del `try` |
+| `whatsapp` | Limpiaba, pero **pasada su guarda de núcleo** | Se movió, para que el patrón sea uno |
+| `interfaz` | Sin defecto — su `catch` está vacío **a propósito** | Nada |
+| `recuperacion` | Sin defecto — deja `quePaso` en nulo **a propósito** | Nada |
+
+> **Los dos últimos salieron de un detector por heurística y son falsos
+> positivos.** Se descartaron **leyendo el código**, no la cifra: una preferencia
+> de interfaz ilegible no impide usar ARLES, y la pantalla de recuperación sigue
+> siendo útil sin sus metadatos. Anotarlos habría mandado a arreglar algo que
+> funciona — que en este proyecto cuesta más que un defecto ausente.
+
+### Qué impide que vuelva
+
+- **`avisos-al-recargar.spec.ts`** · tres pruebas, **vistas en rojo antes del
+  arreglo**.
+- **`ningun_aviso_sobrevive_a_la_recarga_que_lo_resuelve`** en `--fase 7` ·
+  recorre **todos** los stores que haya, ahora y los que vengan, porque un store
+  nuevo no estaría en la prueba y este patrón ya se escribió tres veces sin
+  querer. Verificada con tres rupturas: quitando el limpiado, dejándolo sólo en
+  un comentario, y poniéndolo **después** del `try` — que es el error sutil.
+
+### Entra en
+
+La siguiente versión descargable.
 
 ---
 

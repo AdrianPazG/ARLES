@@ -156,6 +156,7 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Probar ARLES sin compilar](07-entrega/COMO-PROBAR-ARLES-SIN-COMPILAR.md) | Descargar el instalador de Releases, y qué borrar —y en qué orden— si ya lo tenías |
 | [Registro de tropiezos](07-entrega/REGISTRO-DE-TROPIEZOS.md) | **Empieza aquí si algo te para.** Los siete que ya han ocurrido, con su causa y su salida — y las reglas que salieron de cada uno |
 | [Bitácora de pruebas](06-calidad/BITACORA-DE-PRUEBAS.md) | **El método de corrección de errores**, y todo defecto encontrado usando ARLES: qué pasa, cuánto estorba y en qué estado está |
+| [Mapa funcional](05-diseno/MAPA-FUNCIONAL.md) | **Qué hace cada una de las dieciocho pantallas**, qué necesita antes, a dónde lleva y qué verificar en ella |
 
 ---
 

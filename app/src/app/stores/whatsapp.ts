@@ -82,9 +82,14 @@ export const useWhatsappStore = defineStore('whatsapp', () => {
   const porConfirmar = computed(() => numeros.value.filter((n) => !n.puedeEnviar).length)
 
   async function cargar(): Promise<void> {
+    // El aviso se limpia **antes** de la guarda del núcleo, no después. Éste ya
+    // limpiaba —a diferencia de `remitentes` y `empresa`, que es donde estaba el
+    // H-01— pero lo hacía pasada la guarda, así que el patrón no era el mismo en
+    // los tres y una comprobación no puede verificar tres formas distintas de lo
+    // mismo.
+    error.value = null
     if (!hayNucleo()) return
     cargando.value = true
-    error.value = null
     try {
       numeros.value = await invocar<Numero[]>('numeros_de_whatsapp')
     } catch (e) {

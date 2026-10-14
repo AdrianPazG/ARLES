@@ -86,8 +86,17 @@ describe('Inicio no afirma lo que no sabe', () => {
    */
   it('si no pudo leer los datos, no enseña nada: enseña el error', async () => {
     const empresa = useEmpresaStore()
-    empresa.errorGeneral = 'error.db.sqlite'
     const w = montar()
+    await w.vm.$nextTick()
+
+    // El error se fija **después** de montar, y no antes, desde el 14/10/2026.
+    //
+    // Antes se fijaba antes y la prueba pasaba — pero ese estado ya no es
+    // alcanzable: `cargar()` limpia el aviso de la carga anterior al empezar
+    // (arreglo del H-01), así que el montaje lo borraba y lo que se medía era
+    // un estado imposible. Lo que sí puede ocurrir es que la carga falle y el
+    // aviso quede puesto, que es lo que se simula aquí.
+    empresa.errorGeneral = 'error.db.sqlite'
     await w.vm.$nextTick()
 
     expect(w.text(), 'no debe pintar un avance que no sabe si es cierto').not.toContain('0 de 6')
