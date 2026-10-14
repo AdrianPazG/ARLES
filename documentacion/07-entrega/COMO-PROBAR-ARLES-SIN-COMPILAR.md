@@ -141,9 +141,21 @@ nueva y la cifrará con la misma llave.
    %APPDATA%\TelemetryInsight\ArlesRelay\data
    ```
 
-3. **Renombra `arles.db`** en vez de borrarlo — por ejemplo a
-   `arles-vieja-20261013.db`. Si algún día vuelve a hacer falta, la llave sigue
-   en Windows y se puede volver atrás; borrándolo, no.
+3. **Clic derecho** sobre `arles.db` → **Cambiar nombre** → escribe
+   `arles-vieja.db` → **Enter**.
+
+   Si Windows no te muestra la parte `.db`, escribe sólo `arles-vieja`.
+
+4. Abre ARLES.
+
+**Renombrar y no borrar**: la llave sigue en Windows, así que se puede volver
+atrás. Borrándolo, no.
+
+> **Se hace con el Explorador y no con la terminal a propósito.** Windows tiene
+> dos terminales que **no entienden la misma sintaxis** —PowerShell usa
+> `$env:APPDATA` y Símbolo del sistema usa `%APPDATA%`—, y dar un comando sin
+> decir cuál paró el trabajo el 14/10/2026. `Win + R` funciona en cualquier caso.
+> Está en [`REGISTRO-DE-TROPIEZOS.md`](REGISTRO-DE-TROPIEZOS.md) §5.
 
 Al abrir ARLES otra vez, estarás en el primer arranque.
 

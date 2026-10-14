@@ -222,6 +222,12 @@ Visual Studio, ni VS Code, ni Rust, ni Node.** Incluye **qué borrar y en qué
 orden** si ya habías instalado ARLES antes — hacerlo al revés deja datos
 ilegibles para siempre.
 
+🚧 **[`REGISTRO-DE-TROPIEZOS.md`](documentacion/07-entrega/REGISTRO-DE-TROPIEZOS.md)**
+· si algo te para, empieza aquí: **los siete tropiezos que ya han ocurrido**, con
+su causa, su salida y la regla que salió de cada uno. Ninguno fue un fallo del
+producto: fueron instrucciones mal escritas y cosas que el programa sabía y no
+decía.
+
 🔧 **[`COMO-ABRIR-ARLES.md`](documentacion/07-entrega/COMO-ABRIR-ARLES.md)** ·
 compilarlo en tu propio equipo, con Mont y sin esperar al servidor.
 
@@ -331,6 +337,7 @@ Mailchimp · un CRM · un ERP · una plataforma omnicanal · una herramienta de 
 | [🔌 Guía de conexión real](documentacion/07-entrega/GUIA-DE-CONEXION-REAL.md) | Cómo hacer una demostración con correo y WhatsApp que llegan de verdad |
 | [📘 Cómo abrir ARLES](documentacion/07-entrega/COMO-ABRIR-ARLES.md) | Qué instalar, los dos comandos, y los cuatro tropiezos ya vistos en Windows |
 | [📦 Probar ARLES sin compilar](documentacion/07-entrega/COMO-PROBAR-ARLES-SIN-COMPILAR.md) | Descargar el instalador, y qué borrar —y en qué orden— si ya lo tenías |
+| [🚧 Registro de tropiezos](documentacion/07-entrega/REGISTRO-DE-TROPIEZOS.md) | **Si algo te para, empieza aquí.** Los siete que ya han ocurrido, con su causa y su salida |
 
 ---
 

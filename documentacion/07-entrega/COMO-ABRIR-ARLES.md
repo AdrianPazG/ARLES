@@ -211,11 +211,31 @@ los datos de tu empresa.
 > llavero, así que esos datos se podrán recuperar el día que exista la entrega
 > que migra un respaldo de otro esquema.
 >
+> **Sin terminal, que es lo que no se puede escribir mal:**
+>
+> 1. Cierra ARLES.
+> 2. **Win + R** → pega `%APPDATA%\TelemetryInsight\ArlesRelay\data` → Enter.
+> 3. Clic derecho en `arles.db` → **Cambiar nombre** → `arles-vieja.db` → Enter.
+> 4. Abre ARLES.
+>
+> Con terminal, **y la sintaxis depende de cuál abras**:
+>
 > ```powershell
-> # Cierra ARLES primero.
+> # PowerShell (dice «Windows PowerShell» o «Terminal» arriba)
 > cd "$env:APPDATA\TelemetryInsight\ArlesRelay\data"
 > Rename-Item arles.db "arles-vieja-$(Get-Date -Format yyyyMMdd).db"
 > ```
+>
+> ```bat
+> rem Símbolo del sistema (dice «Command Prompt»)
+> cd "%APPDATA%\TelemetryInsight\ArlesRelay\data"
+> ren arles.db arles-vieja.db
+> ```
+>
+> **`$env:APPDATA` en Símbolo del sistema no funciona** y da «The filename,
+> directory name, or volume label syntax is incorrect» — pasó el 14/10/2026 por
+> dar el comando sin decir la terminal. Está en
+> [`REGISTRO-DE-TROPIEZOS.md`](REGISTRO-DE-TROPIEZOS.md) §5.
 >
 > Al volver a abrir, ARLES crea una base nueva y vacía. **Lo que había dentro no
 > vuelve**: si eran datos que te importan, dímelo antes de hacer esto.
