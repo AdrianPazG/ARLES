@@ -2169,11 +2169,25 @@ export const es = {
 
     tablaEtiqueta: 'Lista de contactos',
 
+    // ── POR QUÉ ESTOS DOS NO DICEN «PRINCIPAL» (14/10/2026) ───────────────
+    //
+    // Decían «Correo principal» y «WhatsApp principal», y **no cabían en su
+    // columna**: `.celda` recorta con puntos suspensivos, así que la cabecera
+    // de la tabla se leía «Correo princip…» y «WhatsApp pri…». Medido en
+    // Chromium: 15 px de sobra a 1280 y 51 px a 1024, con el icono de orden
+    // comiendo lo que queda.
+    //
+    // Se podría ensanchar la columna, pero el ancho que hace falta se lo quita
+    // a la dirección, que es el dato. Lo que sobra es la palabra: la celda ya
+    // enseña **cuántos más hay** con un `+2` al lado, que es lo que «principal»
+    // venía a decir, y lo dice con una cifra (§94).
+    //
+    // Lo caza `sonda:encimado`, que mide si una cabecera se corta.
     columna: {
       nombre: 'Nombre',
       empresa: 'Empresa',
-      email: 'Correo principal',
-      whatsapp: 'WhatsApp principal',
+      email: 'Correo',
+      whatsapp: 'WhatsApp',
     },
 
     canal: {

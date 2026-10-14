@@ -152,6 +152,7 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Auditoría F · la Fase 8 entera](09-fases/AUDITORIA-F-FASE-08.md) | Las once entregas como un sistema · el respaldo cifrado que no se podía restaurar |
 | [Fase 8 · Respaldos y endurecimiento](09-fases/FASE-08-RESPALDOS.md) | Lo construido, las cinco auditorías y las doce cifras |
 | [Fase 8 · para Dirección](09-fases/FASE-08-PARA-DIRECCION.md) | El informe en términos de Dirección |
+| [Manual de usuario](07-entrega/MANUAL-DE-USUARIO.md) | **Qué puedes hacer con ARLES y en qué orden**, en español llano — y la lista de lo que todavía no hace, para no prometerlo |
 | [Cómo abrir ARLES](07-entrega/COMO-ABRIR-ARLES.md) | Qué instalar y los dos comandos que abren la aplicación |
 | [Probar ARLES sin compilar](07-entrega/COMO-PROBAR-ARLES-SIN-COMPILAR.md) | Descargar el instalador de Releases, y qué borrar —y en qué orden— si ya lo tenías |
 | [Registro de tropiezos](07-entrega/REGISTRO-DE-TROPIEZOS.md) | **Empieza aquí si algo te para.** Los siete que ya han ocurrido, con su causa y su salida — y las reglas que salieron de cada uno |

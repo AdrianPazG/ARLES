@@ -1,0 +1,66 @@
+{
+  "cuando": "2026-10-14T12:36",
+  "modo": "--rapido (las sondas se omiten)",
+  "fases": {
+    "0": {
+      "pasan": 5,
+      "fallan": 0,
+      "omitidos": 0,
+      "total": 5
+    },
+    "1": {
+      "pasan": 50,
+      "fallan": 0,
+      "omitidos": 3,
+      "total": 53
+    },
+    "2": {
+      "pasan": 34,
+      "fallan": 0,
+      "omitidos": 4,
+      "total": 38
+    },
+    "3": {
+      "pasan": 76,
+      "fallan": 0,
+      "omitidos": 10,
+      "total": 86
+    },
+    "4": {
+      "pasan": 41,
+      "fallan": 0,
+      "omitidos": 0,
+      "total": 41
+    },
+    "5": {
+      "pasan": 36,
+      "fallan": 0,
+      "omitidos": 0,
+      "total": 36
+    },
+    "6": {
+      "pasan": 20,
+      "fallan": 0,
+      "omitidos": 0,
+      "total": 20
+    },
+    "W": {
+      "pasan": 20,
+      "fallan": 0,
+      "omitidos": 1,
+      "total": 21
+    },
+    "7": {
+      "pasan": 10,
+      "fallan": 0,
+      "omitidos": 0,
+      "total": 10
+    },
+    "8": {
+      "pasan": 19,
+      "fallan": 0,
+      "omitidos": 0,
+      "total": 19
+    }
+  }
+}

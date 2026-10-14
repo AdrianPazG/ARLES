@@ -2145,6 +2145,33 @@ def avance_no_diverge():
           "es peor que ninguno.",
           f"README {en_readme} vs calculado {esperado}")
 
+    # ── Y EL TABLERO, QUE ES EL TERCER DESTINO DESDE EL 14/10/2026 ──
+    #
+    # Dirección pidió «una carpeta donde podamos graficar los avances». Un
+    # tablero con colores es el sitio donde un número viejo hace más daño: se
+    # mira de un vistazo, se cree entero y nadie va a comprobarlo contra el
+    # JSON. Es exactamente lo que le pasó al §9 del CLAUDE.md, que estuvo
+    # diciendo «entrega 3.3» con la Fase 4 cerrada.
+    #
+    # El tablero se genera, así que coincide **el día que se genera**. Esto
+    # vigila que no se haya quedado atrás: cambiar `avance.json` y empujar sin
+    # regenerar deja el tablero enseñando el porcentaje de antes.
+    tablero = leer("tablero", "ARLES-tablero.html")
+    if tablero is None:
+        check(3, "el tablero existe y está al día", False,
+              "Dirección pidió el tablero el 14/10/2026 y se genera con "
+              "`python3 herramientas/tablero/generar.py`.",
+              "no existe tablero/ARLES-tablero.html")
+    else:
+        m = re.search(r">(\d+)%</text>", tablero)
+        en_tablero = int(m.group(1)) if m else None
+        check(3, "el avance del tablero coincide con la fuente",
+              en_tablero == esperado,
+              "Un tablero se mira de un vistazo y se cree entero: un "
+              "porcentaje viejo ahí hace más daño que en ningún otro sitio. "
+              "Se regenera con `python3 herramientas/tablero/generar.py`.",
+              f"tablero {en_tablero} vs calculado {esperado}")
+
     # Aquí había una tercera comprobación, sobre el porcentaje dentro de la
     # aplicación. Dirección decidió el 17/09/2026 que el avance va **sólo** en
     # la portada de GitHub, así que se retiró de la pantalla y con ella su
@@ -3058,6 +3085,40 @@ def fase_3(rapido):
         omitir(3, nombre, "--rapido")
     else:
         check_cmd(3, nombre, ["npm", "run", "sonda:auditoria", "--silent"],
+                  porque, cwd=app, timeout=900)
+
+    nombre = "sonda: ningún texto se monta sobre otro ni se queda cortado"
+    porque = (
+        "Dirección abrió la aplicación el 13/10/2026 y escribió de Remitentes: "
+        "«el texto se ve extremadamente desordenado y poco profesional». Las "
+        "dos sondas que recorren el producto estaban EN VERDE ese día, y las "
+        "dieciocho pantallas sin un hallazgo.\n\n"
+        "Lo que pasaba es que nadie medía lo que Dirección estaba viendo. "
+        "`sonda:auditoria` mide desbordes con `scrollWidth > clientWidth`, que "
+        "caza lo que no cabe DE ANCHO: dos párrafos montados uno sobre otro "
+        "caben perfectamente, su contenedor no se ensancha ni un píxel. Y "
+        "`sonda:recorrido` compara el borde y el hueco DEL TÍTULO; lo que pase "
+        "cien píxeles más abajo no lo mira.\n\n"
+        "Esta sonda mide las cuatro cosas que quedaban fuera, las cuatro "
+        "geométricas: dos textos cuyos rectángulos se cruzan, texto que su "
+        "contenedor recorta de alto, texto que asoma de su padre, y un RÓTULO "
+        "cortado por los puntos suspensivos —cortar un dato está bien, cortar "
+        "una cabecera de columna deja «WhatsApp pri…», que es lo que Contactos "
+        "enseñaba—.\n\n"
+        "Las cuatro se vieron en rojo el 14/10/2026, rompiendo el código de "
+        "verdad. Y la sonda nació con TRES hallazgos falsos, los tres "
+        "comprobados antes de anotarlos: el contenido de un `<details>` cerrado "
+        "sigue devolviendo rectángulos (nueve falsos por ventana), un padre con "
+        "`text-overflow: ellipsis` no deja asomar nada, y un `.sr-only` de "
+        "1×1 px tiene la forma exacta de un rótulo recortado y se lee entero "
+        "por el único camino que lo usa."
+    )
+    if motivo:
+        omitir(3, nombre, motivo)
+    elif rapido:
+        omitir(3, nombre, "--rapido")
+    else:
+        check_cmd(3, nombre, ["npm", "run", "sonda:encimado", "--silent"],
                   porque, cwd=app, timeout=900)
 
     nombre = "sonda: la pantalla de contactos hace lo que dice"
@@ -5943,6 +6004,44 @@ def las_sondas_recorren_todas_las_pantallas():
     explica por qué existe. Es la trampa del comentario por **sexta vez** en
     este proyecto, y la primera dentro de una comprobación escrita el mismo día
     para arreglar otra igual. Se quitan los comentarios antes de mirar.
+
+    ─────────────────────────────────────────────────────────────────────────
+    Y EL 14/10/2026, EL DEFECTO DE ESTA COMPROBACIÓN DENTRO DE ELLA MISMA
+
+    Decía vigilar «las sondas» y vigilaba **dos nombres escritos a mano**:
+    `auditoria.mjs` y `recorrido.mjs`, las que existían el 07/10/2026. Ese día
+    se escribió una tercera —`encimado.mjs`, para medir el texto montado que
+    Dirección vio— y esta comprobación **no la habría mirado nunca**.
+
+    Es el mismo defecto, dentro de la comprobación que existe para cazarlo. La
+    lección volvió a ir en un comentario y la lista volvió a ser a mano.
+
+    Ahora las sondas **salen de la carpeta**: son las que importan `rutas.mjs`.
+    Y el hueco que eso deja —una sonda con su lista propia no importa
+    `rutas.mjs`, así que no entraría— lo cierra un segundo criterio: ninguna
+    sonda puede nombrar más de `MAX_RUTAS_PROPIAS` rutas por su cuenta. El
+    umbral está **medido**: las sondas de una pantalla nombran 0 o 1,
+    `vista-previa.mjs` nombra 3, y las que recorren el producto nombran 0
+    porque las piden. Una lista a mano del producto entero son dieciocho.
+
+    Verificada el 14/10/2026 con tres rupturas más, las tres en rojo:
+
+    5. Quitándole a `encimado.mjs` el `import` de `rutas.mjs` y dándole una
+       lista de cuatro rutas: falla nombrando el archivo y la cifra.
+    6. Quitándole el `leerRutasConAlmohadilla()` a `encimado.mjs` dejando el
+       import: falla con «importa rutas.mjs y no lo llama».
+    7. Renombrando `rutas.mjs`: falla por no existir.
+    8. Dejando `rutas.mjs` en su sitio y apuntando los tres imports a otro
+       nombre: falla con «ninguna sonda importa rutas.mjs», que es la guarda
+       que impide que esto pase en verde sin haber mirado ninguna sonda.
+
+    **La séptima ruptura no hizo lo que yo había escrito que haría.** Anoté que
+    fallaría «dos veces» —por no existir el módulo y porque entonces nadie lo
+    importa—, y es falso: las tres sondas siguen llevando la cadena
+    `./rutas.mjs` en su `import`, así que la segunda guarda no se dispara. Hubo
+    que romperla aparte, y eso es la octava. Una afirmación de verificación es
+    una afirmación como cualquier otra, y en este proyecto son las que más
+    veces resultan falsas.
     """
     faltan = []
 
@@ -5983,7 +6082,59 @@ def las_sondas_recorren_todas_las_pantallas():
     # ruta— **revienta si al router le sobra una fila**. Una tabla que se
     # comprueba contra el router no puede quedarse corta; una lista que manda,
     # sí.
-    for sonda in ("auditoria.mjs", "recorrido.mjs"):
+    # ── Y ESTA LISTA TAMBIÉN ERA A MANO, DENTRO DE LA COMPROBACIÓN QUE
+    #    EXISTE PARA CAZAR LISTAS A MANO (14/10/2026) ──
+    #
+    # Decía `("auditoria.mjs", "recorrido.mjs")`, las dos sondas que recorrían
+    # el producto el 07/10/2026. El 14/10/2026 se escribió una tercera
+    # —`encimado.mjs`, para medir el texto montado que Dirección vio— y esta
+    # comprobación **no la habría mirado nunca**: ni que importara `rutas.mjs`,
+    # ni que lo llamara, ni que su tabla reventara.
+    #
+    # Es el defecto de esta comprobación repetido dentro de ella misma, que es
+    # lo que lleva pasando todo el proyecto: la lección iba escrita en la
+    # cabecera y la lista seguía siendo a mano. **Saberlo no basta.**
+    #
+    # Ahora las sondas salen de la carpeta, y son las que importan `rutas.mjs`.
+    # Eso deja un hueco obvio —una sonda nueva con su lista propia no importa
+    # `rutas.mjs`, así que se escaparía— y se cierra con lo de abajo: ninguna
+    # sonda puede nombrar más de `MAX_RUTAS_PROPIAS` rutas por su cuenta.
+    #
+    # El umbral está **medido, no elegido**: las sondas de una pantalla nombran
+    # 0 o 1 ruta, `vista-previa.mjs` nombra 3 —tres pantallas concretas que
+    # comprueba— y las que recorren el producto nombran 0 porque las piden. Una
+    # lista a mano del producto entero son dieciocho.
+    MAX_RUTAS_PROPIAS = 3
+    carpeta = os.path.join(RAIZ, "app", "pruebas", "sondas")
+    # No son sondas: `rutas.mjs` es el módulo que se vigila, y los otros tres
+    # son ayudas compartidas —lanzar Chromium, correr una orden, la lista de
+    # temas— que no abren ninguna pantalla.
+    NO_SON_SONDAS = {"rutas.mjs", "navegador.mjs", "ordenes.mjs", "temas.mjs"}
+
+    que_recorren = []
+    nombres = sorted(n for n in os.listdir(carpeta) if n.endswith(".mjs"))
+    for nombre in nombres:
+        if nombre in NO_SON_SONDAS:
+            continue
+        fuente = leer("app", "pruebas", "sondas", nombre) or ""
+        codigo = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", fuente, flags=re.S))
+        if "rutas.mjs" in codigo:
+            que_recorren.append(nombre)
+            continue
+        propias = set(re.findall(r"['\"`]#/[a-z0-9/_:-]+['\"`]", codigo))
+        if len(propias) > MAX_RUTAS_PROPIAS:
+            faltan.append(
+                f"{nombre} nombra {len(propias)} rutas por su cuenta y no "
+                "importa rutas.mjs: es una lista a mano, y se quedará corta"
+            )
+
+    if not que_recorren:
+        faltan.append(
+            "ninguna sonda importa rutas.mjs: o se borró el módulo, o esta "
+            "comprobación dejó de encontrar las sondas y estaría en verde sin mirar"
+        )
+
+    for sonda in que_recorren:
         fuente = leer("app", "pruebas", "sondas", sonda)
         if not fuente:
             faltan.append(f"no existe app/pruebas/sondas/{sonda}")

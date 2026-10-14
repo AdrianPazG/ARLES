@@ -27,7 +27,8 @@
     "sonda:contactos": "node pruebas/sondas/contactos.mjs",
     "sonda:importar": "node pruebas/sondas/importar.mjs",
     "sonda:auditoria": "node pruebas/sondas/auditoria.mjs",
-    "sonda:recorrido": "node pruebas/sondas/recorrido.mjs"
+    "sonda:recorrido": "node pruebas/sondas/recorrido.mjs",
+    "sonda:encimado": "node pruebas/sondas/encimado.mjs"
   },
   "dependencies": {
     "@tanstack/vue-virtual": "^3.13.38",
