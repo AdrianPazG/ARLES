@@ -189,7 +189,11 @@ pub struct FalloDeArranque {
     /// Qué pasó.
     pub que_paso: String,
     /// Cómo arreglarlo.
-    pub que_hacer: &'static str,
+    ///
+    /// Es `String` y no `&'static str` desde el 14/10/2026, porque el fallo de
+    /// migración **tiene que decir dónde vive la base**: sin la ruta, la
+    /// instrucción no se puede seguir.
+    pub que_hacer: String,
     /// Qué está a salvo.
     pub a_salvo: &'static str,
 }
@@ -209,30 +213,94 @@ impl std::fmt::Display for FalloDeArranque {
 
 /// Explica un fallo de arranque.
 ///
+/// `base` es dónde vive el archivo de la base de datos, cuando se sabe. Entra
+/// como parámetro —y no se resuelve aquí dentro— para que esta función siga
+/// siendo pura y los tests puedan fijarla en vez de depender de `%APPDATA%`.
+///
+/// **La regla 4 de la frontera no aplica a esta ruta.** «Ninguna ruta del
+/// sistema de archivos cruza la frontera» protege la IPC con la webview; esto
+/// es un cuadro de diálogo nativo que se muestra **antes de que exista
+/// ninguna ventana**, y la ruta es justamente lo que el usuario necesita para
+/// poder hacer algo.
+///
 /// Es público para que los tests puedan comprobar que cada error produce un
 /// mensaje accionable, sin tener que arrancar la aplicación.
 #[must_use]
-pub fn explicar_fallo(e: &AppError) -> FalloDeArranque {
+pub fn explicar_fallo(e: &AppError, base: Option<&std::path::Path>) -> FalloDeArranque {
+    // Si no se sabe la ruta exacta se nombra la carpeta por plataforma, que es
+    // mejor que no decir nada: con eso el usuario llega igual.
+    let donde = base.map_or_else(
+        || {
+            if cfg!(windows) {
+                "%APPDATA%\\TelemetryInsight\\ArlesRelay\\data\\arles.db".to_owned()
+            } else {
+                "~/Library/Application Support/mx.TelemetryInsight.ArlesRelay/arles.db".to_owned()
+            }
+        },
+        |p| p.display().to_string(),
+    );
+
     let (que_hacer, a_salvo) = match e {
         AppError::ClaveMaestraPerdida => (
             "Restaura tu último respaldo .arles. La clave que cifraba esta base \
              de datos ya no está en tu sistema, y sin ella los datos no se pueden \
-             leer.",
+             leer."
+                .to_owned(),
             "El archivo no se ha modificado ni borrado: sigue donde estaba.",
         ),
         AppError::LlaveroNoDisponible(_) => (
             "Verifica que el almacén de credenciales de tu sistema esté \
-             disponible y desbloqueado, y vuelve a abrir ARLES.",
+             disponible y desbloqueado, y vuelve a abrir ARLES."
+                .to_owned(),
             "Tus datos están intactos: la base de datos no se ha modificado.",
         ),
         AppError::DirectorioDeDatos => (
             "Comprueba que tu usuario tiene permiso de escritura en la carpeta \
-             de datos de las aplicaciones.",
+             de datos de las aplicaciones."
+                .to_owned(),
             "No se ha creado ni modificado ningún archivo.",
         ),
+
+        // ── EL CONSEJO QUE MANDABA A UN BUCLE ────────────────────────────────
+        //
+        // Hasta el 14/10/2026 este caso caía en el `_` de abajo y decía «cierra
+        // ARLES y vuelve a abrirlo; si persiste, restaura tu último respaldo».
+        // Las dos mitades están mal:
+        //
+        //   · Reabrir da **exactamente el mismo error**, siempre. El esquema de
+        //     la base no cambia por volver a intentarlo, así que la primera
+        //     instrucción es un bucle infinito.
+        //   · «Restaura tu último respaldo» supone que hay uno. A quien abre
+        //     ARLES por primera vez tras actualizar —que es justo cuando esto
+        //     ocurre— lo manda a buscar un archivo que no existe.
+        //
+        // Y no decía **dónde** está la base, que es lo único que de verdad se
+        // puede hacer: apartarla. Lo encontró Dirección el 13/10/2026, con el
+        // primer instalador descargable y una base de la versión anterior.
+        //
+        // Se renombra y no se borra a propósito: la llave sigue en el llavero,
+        // así que esos datos se pueden recuperar el día que exista la entrega
+        // que migra un respaldo de otro esquema (declarada en la 8.3b).
+        AppError::Db(arles_db::DbError::Migracion(_)) => (
+            format!(
+                "Esta base de datos es de una versión anterior de ARLES y su \
+                 esquema ya no encaja, así que ARLES se niega a tocarla. Volver \
+                 a abrirlo dará el mismo error.\n\n\
+                 Cierra ARLES, aparta el archivo renombrándolo (no lo borres) y \
+                 vuelve a abrirlo:\n\n\
+                 {donde}\n\n\
+                 Empezarás con una base nueva y vacía. Si tienes un respaldo \
+                 .arles de esta misma versión, puedes restaurarlo después desde \
+                 Ajustes."
+            ),
+            "El archivo no se ha tocado: ninguna migración llegó a aplicarse, y \
+             la llave que lo descifra sigue en tu sistema.",
+        ),
+
         _ => (
             "Cierra ARLES y vuelve a abrirlo. Si el problema persiste, restaura \
-             tu último respaldo.",
+             tu último respaldo."
+                .to_owned(),
             "Las operaciones incompletas se revirtieron por completo.",
         ),
     };
@@ -252,7 +320,11 @@ pub fn explicar_fallo(e: &AppError) -> FalloDeArranque {
 /// que es exactamente el fallo silencioso que ADR-0011 existe para evitar. Por
 /// eso ahí se muestra además un cuadro de diálogo nativo.
 fn mostrar_fallo_de_arranque(e: &AppError) {
-    let texto = explicar_fallo(e).to_string();
+    // Sin crear ninguna carpeta: un fallo de arranque no es momento de escribir
+    // nada en disco, y el fallo de migración necesita esta ruta para que su
+    // instrucción se pueda seguir.
+    let base = rutas::Rutas::base_de_datos_probable();
+    let texto = explicar_fallo(e, base.as_deref()).to_string();
     eprintln!("{texto}");
 
     #[cfg(windows)]
@@ -299,7 +371,7 @@ mod tests {
         ];
 
         for e in casos {
-            let f = explicar_fallo(&e);
+            let f = explicar_fallo(&e, None);
             assert!(!f.que_paso.is_empty(), "falta qué pasó en {e}");
             assert!(!f.que_hacer.is_empty(), "falta qué hacer en {e}");
             assert!(!f.a_salvo.is_empty(), "falta qué está a salvo en {e}");
@@ -315,7 +387,75 @@ mod tests {
     /// sirve, porque lo único que recupera los datos es un respaldo.
     #[test]
     fn la_clave_perdida_manda_al_respaldo() {
-        let f = explicar_fallo(&AppError::ClaveMaestraPerdida);
+        let f = explicar_fallo(&AppError::ClaveMaestraPerdida, None);
         assert!(f.que_hacer.contains("respaldo"), "{}", f.que_hacer);
+    }
+
+    /// ── El fallo que Dirección vio el 13/10/2026 ────────────────────────────
+    ///
+    /// Un instalador nuevo sobre la base de la versión anterior. El mensaje
+    /// caía en el `_` genérico y decía dos cosas que no sirven: «cierra ARLES y
+    /// vuelve a abrirlo» —que da el mismo error siempre— y «restaura tu último
+    /// respaldo» —que puede no existir—. Y no decía **dónde** está el archivo,
+    /// que es lo único que se puede hacer.
+    ///
+    /// Esta prueba se vio en rojo antes del arreglo, con el mensaje genérico:
+    /// no contenía la ruta, no nombraba el renombrado, y sí decía «vuelve a
+    /// abrirlo» como instrucción.
+    #[test]
+    fn el_fallo_de_migracion_dice_donde_esta_la_base_y_que_hacer_con_ella() {
+        let base = std::path::Path::new("/tmp/prueba/ArlesRelay/data/arles.db");
+        let e = AppError::Db(arles_db::DbError::Migracion(
+            "applied migration V1__esquema_inicial is different than filesystem one".to_owned(),
+        ));
+        let f = explicar_fallo(&e, Some(base));
+
+        // 1 · La ruta exacta, o la instrucción no se puede seguir.
+        assert!(
+            f.que_hacer.contains("arles.db"),
+            "no dice dónde está la base: {}",
+            f.que_hacer
+        );
+        assert!(
+            f.que_hacer.contains("/tmp/prueba/ArlesRelay/data"),
+            "no usa la ruta que se le pasó: {}",
+            f.que_hacer
+        );
+
+        // 2 · La salida real es apartar el archivo, no reabrir.
+        assert!(
+            f.que_hacer.contains("renombr") && f.que_hacer.contains("no lo borres"),
+            "no dice que se renombre sin borrar: {}",
+            f.que_hacer
+        );
+
+        // 3 · Y dice que reabrir NO sirve, que es lo que evita el bucle.
+        assert!(
+            f.que_hacer.contains("mismo error"),
+            "no avisa de que reabrir da el mismo error: {}",
+            f.que_hacer
+        );
+
+        // 4 · El §95 entero: qué está a salvo, sin prometer de más.
+        assert!(
+            f.a_salvo.contains("no se ha tocado"),
+            "la tercera parte del §95 no dice qué está a salvo: {}",
+            f.a_salvo
+        );
+    }
+
+    /// Sin ruta conocida el mensaje **sigue sirviendo**: nombra la carpeta por
+    /// convención de la plataforma. Callar sería peor que aproximar.
+    #[test]
+    fn sin_ruta_el_mensaje_de_migracion_nombra_la_carpeta_de_la_plataforma() {
+        let e = AppError::Db(arles_db::DbError::Migracion("lo que sea".to_owned()));
+        let f = explicar_fallo(&e, None);
+        let esperado = if cfg!(windows) {
+            "%APPDATA%"
+        } else {
+            "Application Support"
+        };
+        assert!(f.que_hacer.contains(esperado), "{}", f.que_hacer);
+        assert!(f.que_hacer.contains("arles.db"), "{}", f.que_hacer);
     }
 }

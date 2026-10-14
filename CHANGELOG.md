@@ -12,6 +12,61 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### El error que mandaba a un bucle infinito, arreglado
+
+Dirección instaló el primer instalador descargable el 13/10/2026 sobre una base
+de la versión anterior, y ARLES enseñó esto:
+
+```
+Qué pasó: fallo al migrar el esquema: applied migration V1__esquema_inicial
+          is different than filesystem one V1__esquema_inicial.
+Qué hacer: Cierra ARLES y vuelve a abrirlo. Si el problema persiste, restaura
+          tu último respaldo.
+```
+
+**Las dos mitades de «qué hacer» están mal**, y el §95 existe precisamente para
+que eso no pase:
+
+- **Reabrir da el mismo error. Siempre.** El esquema de una base no cambia por
+  volver a intentarlo, así que la primera instrucción es un bucle infinito.
+- **«Restaura tu último respaldo» supone que hay uno.** A quien actualiza por
+  primera vez —que es justo cuando esto ocurre— lo manda a buscar un archivo que
+  no existe.
+
+Y faltaba lo único accionable: **dónde está la base**. Sin la ruta, la salida
+real —apartar el archivo— no se puede seguir.
+
+El caso caía en el `_` genérico del `match`. Ahora tiene su propia rama, con la
+ruta dentro del mensaje, el aviso de que reabrir no sirve, la instrucción de
+**renombrar y no borrar**, y una tercera parte que no promete de más: *«el
+archivo no se ha tocado: ninguna migración llegó a aplicarse, y la llave que lo
+descifra sigue en tu sistema»*.
+
+> **`que_hacer` pasa de `&'static str` a `String`**, porque un mensaje que tiene
+> que nombrar una ruta no puede ser una constante. Y la ruta entra en
+> `explicar_fallo` **como parámetro**, no resuelta dentro: así la función sigue
+> siendo pura y los tests la fijan en vez de depender de `%APPDATA%`.
+>
+> **La regla 4 de la frontera no aplica aquí.** «Ninguna ruta cruza la frontera»
+> protege la IPC con la webview; esto es un diálogo nativo que se muestra
+> **antes de que exista ninguna ventana**, y la ruta es justamente lo que hace
+> falta para poder actuar.
+>
+> `Rutas::base_de_datos_probable()` resuelve la ruta **sin crear ninguna
+> carpeta** — `resolver()` hace `create_dir_all`, y un fallo de arranque no es
+> momento de escribir nada en disco.
+
+**Dos pruebas, vistas en rojo antes del arreglo** quitando la rama nueva: una
+comprueba las cuatro cosas que el mensaje debe decir (la ruta exacta, el
+renombrado sin borrar, que reabrir no sirve, y qué está a salvo), y la otra que
+sin ruta conocida **sigue sirviendo**, nombrando la carpeta por convención de la
+plataforma — callar sería peor que aproximar.
+
+**Y las dos guías lo recogen.** `COMO-PROBAR-ARLES-SIN-COMPILAR.md` no lo
+mencionaba, y era *la guía que se sigue para descargar el instalador*: quien la
+siguiera teniendo una instalación previa se encontraba este error sin que nada
+se lo hubiera advertido.
+
 ### El primer instalador descargable, y el carácter que lo impedía
 
 **Publicada [`prueba-20261013-0041`](https://github.com/AdrianPazG/ARLES/releases/tag/prueba-20261013-0041)**:

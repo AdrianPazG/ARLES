@@ -200,12 +200,16 @@ los datos de tu empresa.
 > del SQL de cada una: al no coincidir, **se niega a tocarla**. Y hace bien —
 > aplicar migraciones sobre una base que no es la que esperan puede corromperla.
 >
-> Lo que ARLES te dice en ese cuadro **no sirve**, y está pendiente de arreglo:
-> manda a cerrar y volver a abrir, que da exactamente el mismo error siempre, y
-> a restaurar un respaldo que probablemente no tienes.
+> **Desde el 14/10/2026 el propio cuadro te dice qué hacer**, con la ruta de tu
+> base dentro. Hasta entonces decía dos cosas que no servían —«cierra ARLES y
+> vuelve a abrirlo», que da el mismo error siempre, y «restaura tu último
+> respaldo», que puede no existir— y **no decía dónde está el archivo**, que es
+> lo único que se puede hacer. Dirección lo vio el 13/10/2026 al abrir el primer
+> instalador descargable sobre una base de la versión anterior.
 >
-> **Lo que sí funciona: apartar la base.** No la borres — si algún día hace
-> falta, un ARLES de aquella versión sí la abriría.
+> **Lo que funciona: apartar la base.** No la borres — la llave sigue en el
+> llavero, así que esos datos se podrán recuperar el día que exista la entrega
+> que migra un respaldo de otro esquema.
 >
 > ```powershell
 > # Cierra ARLES primero.

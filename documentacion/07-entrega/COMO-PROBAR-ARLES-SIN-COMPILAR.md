@@ -89,6 +89,29 @@ Después verás **Inicio**, con la lista de seis pasos.
 
 ## 4 · Si ya habías instalado ARLES antes
 
+> ### Lo primero que te va a pasar: «fallo al migrar el esquema»
+>
+> ```
+> ARLES RELAY no pudo arrancar.
+> Qué pasó: fallo al migrar el esquema: applied migration V1__esquema_inicial
+> is different than filesystem one V1__esquema_inicial.
+> ```
+>
+> **Es lo esperado, no un defecto del instalador.** Desinstalar ARLES **no borra
+> tus datos** —y hace bien, son tuyos—, así que la base de la versión anterior
+> sigue ahí. Su esquema ya no encaja con el de esta versión, y el motor de
+> migraciones guarda la huella del SQL de cada una: al no coincidir, **se niega
+> a tocarla**. Aplicar migraciones sobre una base que no es la que esperan puede
+> corromperla.
+>
+> **Desde el 14/10/2026 el propio cuadro te dice qué hacer, con la ruta dentro.**
+> Antes decía «cierra ARLES y vuelve a abrirlo» —que da el mismo error siempre—
+> y «restaura tu último respaldo» —que puede no existir—, sin decir dónde está
+> el archivo. Lo vio Dirección el 13/10/2026, con el primer instalador
+> descargable.
+>
+> La salida es la de abajo: **apartar la base, no borrarla.**
+
 Aquí hay **un orden que importa**, y hacerlo al revés deja datos ilegibles para
 siempre. Esto sale de leer `estado.rs`, no de suponerlo:
 

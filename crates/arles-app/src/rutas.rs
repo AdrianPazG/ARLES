@@ -52,6 +52,20 @@ impl Rutas {
         Self { datos }
     }
 
+    /// Dónde **estaría** la base, sin crear ninguna carpeta.
+    ///
+    /// Existe para los mensajes de error: `resolver()` hace `create_dir_all`, y
+    /// un fallo de arranque no es momento de crear nada. `ProjectDirs::from`
+    /// sólo consulta variables de entorno, así que esto no toca el disco.
+    ///
+    /// Devuelve `None` en la plataforma rara que no expone directorio de datos
+    /// — ahí el mensaje nombra la carpeta por convención, que sigue siendo más
+    /// útil que callar.
+    #[must_use]
+    pub fn base_de_datos_probable() -> Option<PathBuf> {
+        ProjectDirs::from("mx", ORGANIZACION, APLICACION).map(|d| d.data_dir().join("arles.db"))
+    }
+
     /// Archivo de la base de datos cifrada.
     #[must_use]
     pub fn base_de_datos(&self) -> PathBuf {
