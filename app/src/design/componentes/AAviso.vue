@@ -136,7 +136,22 @@ const icono = computed(() => ICONO[props.tono])
 /* El cuerpo del aviso va en el texto secundario y el título en el primario:
    la jerarquía la marca el contraste, no el tamaño, para no romper la
    densidad de la interfaz. Ambos pasan AA sobre `surface`. */
+/* Las tres partes del §95 —qué pasó, cómo se arregla, qué está a salvo— se
+ * escriben como tres elementos dentro de este slot. Sin esto son elementos **en
+ * línea** y el navegador los pega sin un espacio: «…con el servidor.El servidor
+ * no ofrece cifrado…».
+ *
+ * Lo encontró Dirección el 14/10/2026 al fallar una conexión SMTP (H-02). El
+ * texto era correcto; lo que se leía era un bloque corrido, y daba la impresión
+ * de producto sin terminar justo en el momento en que algo ha fallado.
+ *
+ * Va aquí y no en cada pantalla a propósito: eran cinco avisos en tres
+ * pantallas, y el siguiente que se escriba hereda la separación sin que nadie
+ * tenga que acordarse. */
 .texto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-2);
   color: var(--arles-text-muted);
 }
 

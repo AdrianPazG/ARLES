@@ -85,6 +85,9 @@ mirando, no una comprobación automática.
 | # | Gravedad | Pantalla | Qué pasa | Estado |
 |---|---|---|---|---|
 | **H-01** | 🟠 Grave | Remitentes | Dice «todavía no has configurado los datos de tu empresa» **después** de haberla configurado | ✅ **Arreglado** 14/10/2026 |
+| **H-02** | 🟡 Molesto | Todas las que avisan | Las tres partes de un error salen **pegadas**: «…con el servidor.El servidor no ofrece…» | ✅ **Arreglado** 14/10/2026 |
+| **H-03** | 🔴 Bloqueante | Remitentes | **No se puede dar de alta una cuenta de Gmail.** «No se pudo cifrar la conexión con el servidor» | 🔎 **Investigando** · faltan datos |
+| **R-01** | 🔵 Requisito | Remitentes | Dar de alta un correo es **demasiado complicado**. Tiene que ser sencillo e intuitivo | 📋 **Abierto** |
 
 ---
 
@@ -161,3 +164,154 @@ encuentras, no hace falta que las anotes.
 | Windows dice «editor desconocido» | Falta el certificado de firma (Fase 9) |
 | Activar una campaña grande congela la ventana | Medido: 73,5 s con 451 196 destinatarios; se nota desde unos 30 000. Está en la Fase 9 |
 | Buscar texto en el registro tarda | Medido: 3 709 ms. Declarado como C-2 |
+
+---
+
+## H-02 · Las tres partes de un error salen pegadas
+
+**Encontrado por Dirección el 14/10/2026**, al fallar una conexión SMTP.
+
+### Qué se leía
+
+> **No se pudo cifrar la conexión con el servidor.**El servidor no ofrece
+> cifrado, o su certificado no corresponde al nombre que escribiste. Revisa el
+> nombre y el puerto. ARLES no envía por una conexión sin cifrar y no hay forma
+> de desactivarlo: la contraseña viajaría legible por la red.La contraseña no
+> llegó a enviarse: se cortó antes. No se envió ningún correo y no se guardó
+> nada.
+
+Fíjate en `servidor.El` y en `red.La`: **sin un espacio**.
+
+### La causa
+
+El §95 exige que todo error diga tres cosas, y las pantallas las escriben como
+tres elementos:
+
+```html
+<AAviso>
+  <strong>{{ que }}</strong><span>{{ como }}</span><span>{{ salvo }}</span>
+</AAviso>
+```
+
+`<strong>` y `<span>` son elementos **en línea**. El contenedor del slot en
+`AAviso` no los separaba, así que el navegador los pega.
+
+**El texto era correcto.** Lo que fallaba era la maquetación — y daba impresión
+de producto sin terminar **justo en el momento en que algo acaba de fallar**,
+que es cuando más se lee.
+
+### Alcance
+
+**Cinco avisos en tres pantallas** (Remitentes, Supresión, Derechos). El arreglo
+va en el componente compartido, así que el siguiente aviso que se escriba hereda
+la separación sin que nadie tenga que acordarse.
+
+### Lo que esto enseñó sobre nuestras sondas
+
+**Se intentó medirlo con la sonda de auditoría**, que recorre las dieciocho
+pantallas en Chromium y mide píxeles. Parecía su sitio.
+
+**Con el defecto puesto a propósito, la sonda no encontró nada.** La razón
+importa: en la demostración **los avisos de error no aparecen** —el simulador no
+falla— y el catálogo del design system está fuera de las rutas que se recorren.
+Así que esa medida nunca se habría ejercitado.
+
+Se retiró de la sonda **en vez de dejarla dando falsa seguridad**, y en su lugar
+hay una comprobación en `--fase 2` que inspecciona el CSS. Es menos fiel que
+medir, pero **se puede romper y ver en rojo** — y eso es lo que decide si una
+comprobación sirve (§2).
+
+> **Queda anotado como límite conocido:** las sondas no pueden ver ningún estado
+> de error del producto, porque la demostración nunca falla. Todo lo que sólo se
+> ve cuando algo va mal está fuera de su alcance.
+
+### Qué impide que vuelva
+
+`las_tres_partes_de_un_error_no_salen_pegadas` en `--fase 2`. **Verificada
+viéndola en rojo con el defecto real** —el mismo que vio Dirección— y con una
+segunda ruptura: quitando sólo la separación, porque dos párrafos seguidos sin
+hueco se siguen leyendo como uno.
+
+---
+
+## H-03 · No se pudo dar de alta la cuenta de Gmail
+
+**Encontrado por Dirección el 14/10/2026.** 🔴 **Bloqueante**: sin cuenta
+remitente no hay envío de prueba, y sin envío de prueba no se cierra **R-24**.
+
+### Qué dijo ARLES
+
+> No se pudo cifrar la conexión con el servidor. El servidor no ofrece cifrado,
+> o su certificado no corresponde al nombre que escribiste. Revisa el nombre y
+> el puerto.
+
+### Lo que se ve en la captura
+
+| Campo | Valor |
+|---|---|
+| Dirección desde la que se envía | `pruebas.telemetry@gmail.com` |
+| Nombre que acompaña | `Telemetry Insight` |
+| **Usuario** | **`Pruebas_1`** |
+| Contraseña | (ocho caracteres ocultos) |
+
+**Dos cosas llaman la atención, y las dos apuntan a lo mismo (R-01):**
+
+1. **El usuario no es la dirección completa.** Para Gmail **tiene que serlo**:
+   `pruebas.telemetry@gmail.com`, no `Pruebas_1`. La ayuda del campo dice «casi
+   siempre es la misma dirección de correo» — es una **pista**, no una
+   instrucción, y el formulario lo aceptó sin decir nada.
+2. **La contraseña parece de ocho caracteres.** La de aplicación de Google son
+   **dieciséis letras**. Si es la contraseña normal de la cuenta, Google la
+   rechaza siempre.
+
+### Lo que falta por saber
+
+Lo que no se ve en la captura, y hace falta para cerrar esto:
+
+- **Servidor**, **puerto** y **cifrado** (están más abajo en el formulario)
+- Si la cuenta tiene **verificación en dos pasos** activada
+- Si la contraseña es una **contraseña de aplicación** de dieciséis letras
+
+### Por qué no lo doy por diagnosticado
+
+El mensaje dice «no se pudo cifrar», que apunta al **servidor o al puerto**, no
+al usuario ni a la contraseña — una credencial mala daría un error de
+autenticación, no de cifrado. Así que lo más probable es que el puerto y el
+cifrado no se correspondan: **587 va con STARTTLS** y **465 con TLS directo**,
+y cruzarlos deja la conexión esperando a un servidor que no va a contestar.
+
+**Dar por buena esa hipótesis sin los datos sería inventarse un diagnóstico**,
+que en este proyecto ya ha costado caro dos veces.
+
+---
+
+## R-01 · Dar de alta un correo es demasiado complicado
+
+**Pedido por Dirección el 14/10/2026**, y H-03 es su consecuencia directa: el
+formulario dejó guardar un usuario que no podía funcionar, sin decir nada.
+
+### Lo que hay hoy
+
+Siete campos: dirección, nombre visible, usuario, contraseña, servidor, puerto y
+cifrado. Tres se rellenan solos con los valores de Gmail; los otros cuatro los
+escribe el usuario, y **nada comprueba que encajen entre sí** hasta que se pulsa
+«Probar conexión».
+
+### Lo que debería ser
+
+**Que la mayoría de la gente sólo escriba dos cosas: su correo y su contraseña
+de aplicación.** Todo lo demás se puede deducir o esconder.
+
+Propuestas, a decidir:
+
+| | Qué | Por qué |
+|---|---|---|
+| **1** | **Rellenar el usuario con la dirección** en cuanto se escriba, y dejarlo cambiar | Es lo correcto en Gmail, Outlook y casi todo. Hoy es un campo vacío que invita a inventarse algo |
+| **2** | **Esconder servidor, puerto y cifrado** tras un «Configuración avanzada» plegado | Tres campos que nadie debería tocar ocupan la mitad del formulario |
+| **3** | **Detectar el proveedor por el dominio** (`@gmail.com` → Gmail) y decirlo en pantalla | Quita la duda de si los valores automáticos son los correctos |
+| **4** | **Avisar si la contraseña no tiene dieciséis caracteres** y el dominio es Gmail | Es el error más común y hoy sólo se descubre al fallar la conexión |
+| **5** | **Que «Probar conexión» sea el camino principal**, no un botón más | Guardar una cuenta que no funciona no sirve de nada |
+
+### Estado
+
+📋 **Abierto**, esperando decisión de Dirección sobre cuáles de las cinco.

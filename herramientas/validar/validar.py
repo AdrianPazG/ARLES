@@ -1366,6 +1366,8 @@ def sondas(rapido, app):
 def fase_2(rapido):
     titulo("FASE 2 · Design System")
 
+    las_tres_partes_de_un_error_no_salen_pegadas()
+
     # ── Estructura ──
     print(f"{GRIS}  estructura{FIN}")
     for ruta, porque in [
@@ -5012,6 +5014,67 @@ def ningun_texto_lleva_una_arroba_suelta():
         not malos,
         "\n      ".join(malos),
         ningun_texto_lleva_una_arroba_suelta.__doc__,
+    )
+
+
+def las_tres_partes_de_un_error_no_salen_pegadas():
+    """El slot de `AAviso` separa a sus hijos, o el §95 se lee como un bloque.
+
+    ── EL FALLO QUE ESTO CAZA ──────────────────────────────────────────────
+
+    Lo encontró Dirección el 14/10/2026 al fallar una conexión SMTP (H-02). Las
+    pantallas escriben las tres partes del §95 como tres elementos:
+
+        <AAviso><strong>{{ que }}</strong><span>{{ como }}</span>
+                <span>{{ salvo }}</span></AAviso>
+
+    `<strong>` y `<span>` son elementos **en línea**. Sin un contenedor que los
+    separe el navegador los pega sin un espacio, y se lee:
+
+        «No se pudo cifrar la conexión con el servidor.El servidor no ofrece
+         cifrado…»
+
+    El texto era correcto. Lo que fallaba era la maquetación, y daba impresión
+    de producto sin terminar **justo en el momento en que algo ha fallado**, que
+    es cuando más se lee.
+
+    Eran cinco avisos en tres pantallas, y el arreglo va en el componente
+    compartido para que el siguiente lo herede sin acordarse de nada.
+
+    ── POR QUÉ NO LO MIDE UNA SONDA, QUE SERÍA LO FIEL ─────────────────────
+
+    Se intentó. `auditoria.mjs` recorre las dieciocho pantallas en Chromium y
+    mide píxeles, así que parecía su sitio. **Con el defecto puesto a propósito,
+    la sonda no encontró nada** — y la razón es que en la demostración **los
+    avisos de error no aparecen**: el simulador no falla, y el catálogo del
+    design system está fuera de las rutas que se recorren.
+
+    Una medida que no se puede ver fallar no vale, así que se retiró de la sonda
+    en vez de dejarla dando falsa seguridad. Esto inspecciona el CSS, que es
+    menos fiel que medir, pero **se puede romper y verlo en rojo** — y eso es lo
+    que decide si una comprobación sirve (§2).
+
+    Verificada el 14/10/2026 quitando el `flex-direction: column` de `.texto`:
+    en rojo. Y quitando sólo el `gap`: en rojo también, porque sin separación
+    dos párrafos seguidos siguen leyéndose como uno.
+    """
+    aviso = leer(os.path.join(RAIZ, "app/src/design/componentes/AAviso.vue"))
+    # Sin comentarios: la explicación de esta regla cita las propiedades que la
+    # regla exige, y sería la undécima vez que una comprobación se caza a sí
+    # misma en el texto que la justifica.
+    sin_comentarios = re.sub(r"/\*.*?\*/", "", aviso, flags=re.S)
+
+    m = re.search(r"\.texto\s*\{([^}]*)\}", sin_comentarios)
+    cuerpo = m.group(1) if m else ""
+
+    check(
+        2,
+        "las tres partes de un error no salen pegadas",
+        bool(m)
+        and "flex-direction: column" in cuerpo
+        and re.search(r"gap:\s*var\(--arles-space", cuerpo) is not None,
+        "Sin separar, `<strong>` y `<span>` se pegan y el §95 se lee como un bloque corrido.",
+        f"`.texto` de AAviso: {cuerpo.strip()[:120] or 'no encontrado'}",
     )
 
 
