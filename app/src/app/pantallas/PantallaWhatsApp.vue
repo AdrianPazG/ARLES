@@ -43,6 +43,7 @@ import { useI18n } from 'vue-i18n'
 import { resolverError } from '@/app/errores'
 import {
   borradorDeNumeroVacio,
+  revisarDatoDeMeta,
   useWhatsappStore,
   type BorradorDeNumero,
   type Numero,
@@ -90,6 +91,44 @@ const MODOS = computed(() => [
   { valor: 'seguimiento', texto: t('whatsapp.modo.seguimiento') },
   { valor: 'prospeccion_directa', texto: t('whatsapp.modo.prospeccionDirecta') },
 ])
+
+/**
+ * Los avisos de los tres datos que se copian del panel de Meta.
+ *
+ * ── R-02 · por qué esto y no «dos campos como el correo» ────────────────────
+ *
+ * Dirección pidió que esto fuera tan sencillo como el alta de correo. **No se
+ * puede, y es importante decir por qué**: el correo se deduce del dominio, pero
+ * el WABA ID, el Phone Number ID y el token **sólo existen en el panel de
+ * Meta** y no hay nada de lo que inferirlos.
+ *
+ * Lo que sí se puede es cazar el error de pegado **antes** de guardar, que es
+ * donde se pierde la gente: los dos identificadores son números largos, el
+ * token empieza por `EAA`, y copiar uno en el campo del otro da un error de
+ * Meta que no dice cuál de los tres está mal.
+ */
+const avisoWabaId = computed(() =>
+  claveAviso(revisarDatoDeMeta('wabaId', borrador.value.wabaId)),
+)
+const avisoPhoneNumberId = computed(() =>
+  claveAviso(revisarDatoDeMeta('phoneNumberId', borrador.value.phoneNumberId)),
+)
+const avisoToken = computed(() => claveAviso(revisarDatoDeMeta('token', token.value)))
+
+function claveAviso(clave: string): string {
+  return clave ? t(clave) : ''
+}
+
+/**
+ * El nombre para identificarlo sigue al teléfono mientras nadie lo cambie.
+ *
+ * Es un campo «solo para ti» que no sale en ningún mensaje, así que dejarlo
+ * vacío y obligar a inventarse algo es pedir trabajo sin motivo (R-02).
+ */
+const nombreTocado = ref(false)
+function alEscribirElTelefono(): void {
+  if (!nombreTocado.value) borrador.value.nombreVisible = borrador.value.telefono
+}
 
 /** Avisa antes de guardar, no después: el modo en frío se elige sabiéndolo. */
 const elegidoEnFrio = computed(() => borrador.value.modo === 'prospeccion_directa')
@@ -258,33 +297,84 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
       v-if="formularioAbierto"
       :titulo="t('numeroDeWhatsapp.anadir')"
     >
+      <!-- ── R-02 · el formulario en tres bloques ──
+           Antes eran seis campos seguidos, todos iguales, mezclando lo que se
+           escribe con lo que se copia del panel de Meta. Ahora se separan:
+
+             1 · tu número          — lo que la persona sabe de memoria
+             2 · copiado de Meta    — los tres que hay que ir a buscar
+             3 · cómo se va a usar  — la decisión
+
+           No se puede reducir a dos campos como el correo, y conviene decirlo:
+           el correo se deduce del dominio, pero estos tres identificadores sólo
+           existen en el panel de Meta y no hay nada de lo que inferirlos. Lo
+           que sí se hace es avisar del error de pegado antes de guardar. -->
       <div class="campos">
-        <AEntrada
-          v-model="borrador.nombreVisible"
-          :etiqueta="t('numeroDeWhatsapp.nombreVisible')"
-          :ayuda="t('numeroDeWhatsapp.nombreVisibleAyuda')"
-        />
+        <p class="grupo">
+          {{ t('numeroDeWhatsapp.grupoTuNumero') }}
+        </p>
+
         <AEntrada
           v-model="borrador.telefono"
           :etiqueta="t('numeroDeWhatsapp.telefono')"
           :ayuda="t('numeroDeWhatsapp.telefonoAyuda')"
+          @update:model-value="alEscribirElTelefono"
         />
+        <AEntrada
+          v-model="borrador.nombreVisible"
+          :etiqueta="t('numeroDeWhatsapp.nombreVisible')"
+          :ayuda="t('numeroDeWhatsapp.nombreVisibleAyuda')"
+          @update:model-value="nombreTocado = true"
+        />
+
+        <p class="grupo">
+          {{ t('numeroDeWhatsapp.grupoDeMeta') }}
+        </p>
+        <p class="grupo-nota">
+          {{ t('numeroDeWhatsapp.grupoDeMetaNota') }}
+        </p>
+
         <AEntrada
           v-model="borrador.wabaId"
           :etiqueta="t('numeroDeWhatsapp.wabaId')"
           :ayuda="t('numeroDeWhatsapp.wabaIdAyuda')"
         />
+        <p
+          v-if="avisoWabaId"
+          class="aviso-de-pegado"
+        >
+          {{ avisoWabaId }}
+        </p>
+
         <AEntrada
           v-model="borrador.phoneNumberId"
           :etiqueta="t('numeroDeWhatsapp.phoneNumberId')"
           :ayuda="t('numeroDeWhatsapp.phoneNumberIdAyuda')"
         />
+        <p
+          v-if="avisoPhoneNumberId"
+          class="aviso-de-pegado"
+        >
+          {{ avisoPhoneNumberId }}
+        </p>
+
         <AEntrada
           v-model="token"
           tipo="password"
           :etiqueta="t('numeroDeWhatsapp.token')"
           :ayuda="t('numeroDeWhatsapp.tokenAyuda')"
         />
+        <p
+          v-if="avisoToken"
+          class="aviso-de-pegado"
+        >
+          {{ avisoToken }}
+        </p>
+
+        <p class="grupo">
+          {{ t('numeroDeWhatsapp.grupoComoSeUsa') }}
+        </p>
+
         <ASelector
           v-model="borrador.modo"
           :etiqueta="t('numeroDeWhatsapp.modo')"
@@ -533,6 +623,29 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
 .campos {
   display: grid;
   gap: var(--arles-space-4);
+}
+
+/* Los tres títulos que parten el formulario (R-02). Separan lo que se sabe de
+   memoria de lo que hay que ir a buscar al panel de Meta. */
+.grupo {
+  margin: var(--arles-space-2) 0 0;
+  font-weight: var(--arles-font-weight-semibold);
+  color: var(--arles-text);
+}
+
+.grupo-nota {
+  margin: 0;
+  font-size: var(--arles-font-size-small);
+  color: var(--arles-text-muted);
+}
+
+/* El aviso de un dato que no tiene la pinta que debería. Avisa, no bloquea:
+   Meta podría cambiar el formato, y negarse a guardar algo correcto es peor
+   que señalar algo dudoso. */
+.aviso-de-pegado {
+  margin: 0;
+  font-size: var(--arles-font-size-small);
+  color: var(--arles-warning);
 }
 
 .acciones {

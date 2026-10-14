@@ -58,6 +58,80 @@ export const GMAIL = {
   cifrado: 'starttls',
 } as const
 
+/** Lo que hay que saber de un proveedor para conectarse a él. */
+export interface Proveedor {
+  /** Cómo se llama para el usuario. */
+  readonly nombre: string
+  readonly servidor: string
+  readonly puerto: string
+  readonly cifrado: string
+  /**
+   * Cuántos caracteres tiene su contraseña de aplicación, si usa una.
+   *
+   * `null` cuando el proveedor no la impone. Sirve para avisar **antes** de
+   * intentar conectar: con Google, meter la contraseña normal de la cuenta es
+   * el error más común y hoy sólo se descubre cuando el servidor la rechaza.
+   */
+  readonly largoDeContrasena: number | null
+}
+
+/**
+ * Los proveedores que ARLES reconoce por el dominio del correo.
+ *
+ * ── POR QUÉ ESTA TABLA ──────────────────────────────────────────────────────
+ *
+ * Dirección intentó dar de alta una cuenta el 14/10/2026 y no pudo (H-03). El
+ * formulario pedía **siete campos** —tres de ellos técnicos— y aceptó valores
+ * que no podían funcionar sin decir nada: un usuario que no era la dirección y
+ * una contraseña que no era la de aplicación.
+ *
+ * El requisito que salió de ahí (R-01) es: **correo y contraseña, nada más.**
+ * Todo lo demás se deduce del dominio, y los tres campos técnicos se esconden
+ * para quien tenga un servidor propio.
+ *
+ * **Los valores no se inventan**: son los que publica cada proveedor, y el par
+ * puerto+cifrado va junto a propósito. Cruzarlos —587 con TLS directo, o 465
+ * con STARTTLS— deja la conexión esperando a un servidor que no va a contestar,
+ * y ése es exactamente el error que Dirección vio.
+ */
+export const PROVEEDORES: ReadonlyArray<readonly [RegExp, Proveedor]> = [
+  [
+    /@(gmail\.com|googlemail\.com)$/i,
+    { nombre: 'Gmail', servidor: 'smtp.gmail.com', puerto: '587', cifrado: 'starttls', largoDeContrasena: 16 },
+  ],
+  [
+    /@(outlook\.com|hotmail\.com|live\.com|msn\.com)$/i,
+    { nombre: 'Outlook', servidor: 'smtp-mail.outlook.com', puerto: '587', cifrado: 'starttls', largoDeContrasena: null },
+  ],
+  [
+    /@(yahoo\.(com|com\.mx|es))$/i,
+    { nombre: 'Yahoo', servidor: 'smtp.mail.yahoo.com', puerto: '465', cifrado: 'directo', largoDeContrasena: null },
+  ],
+  [
+    /@(zoho\.com|zohomail\.com)$/i,
+    { nombre: 'Zoho', servidor: 'smtp.zoho.com', puerto: '465', cifrado: 'directo', largoDeContrasena: null },
+  ],
+  [
+    /@icloud\.com$/i,
+    { nombre: 'iCloud', servidor: 'smtp.mail.me.com', puerto: '587', cifrado: 'starttls', largoDeContrasena: null },
+  ],
+]
+
+/**
+ * El proveedor que corresponde a una dirección, o `null` si no se reconoce.
+ *
+ * Un dominio propio —`@telemetrymx.com`— devuelve `null` **a propósito**:
+ * ARLES no se inventa un servidor que no sabe. En ese caso la configuración
+ * avanzada se abre sola y se escriben a mano, que es lo correcto.
+ */
+export function proveedorDe(direccion: string): Proveedor | null {
+  const limpia = direccion.trim()
+  for (const [patron, proveedor] of PROVEEDORES) {
+    if (patron.test(limpia)) return proveedor
+  }
+  return null
+}
+
 export function borradorVacio(): BorradorDeCuenta {
   return {
     servidor: GMAIL.servidor,

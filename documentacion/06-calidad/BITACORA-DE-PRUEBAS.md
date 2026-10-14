@@ -87,7 +87,8 @@ mirando, no una comprobación automática.
 | **H-01** | 🟠 Grave | Remitentes | Dice «todavía no has configurado los datos de tu empresa» **después** de haberla configurado | ✅ **Arreglado** 14/10/2026 |
 | **H-02** | 🟡 Molesto | Todas las que avisan | Las tres partes de un error salen **pegadas**: «…con el servidor.El servidor no ofrece…» | ✅ **Arreglado** 14/10/2026 |
 | **H-03** | 🔴 Bloqueante | Remitentes | **No se puede dar de alta una cuenta de Gmail.** «No se pudo cifrar la conexión con el servidor» | 🔎 **Investigando** · faltan datos |
-| **R-01** | 🔵 Requisito | Remitentes | Dar de alta un correo es **demasiado complicado**. Tiene que ser sencillo e intuitivo | 📋 **Abierto** |
+| **R-01** | 🔵 Requisito | Remitentes | Dar de alta un correo es **demasiado complicado**. Tiene que ser sencillo e intuitivo | ✅ **Hecho** 14/10/2026 |
+| **R-02** | 🔵 Requisito | WhatsApp | Lo mismo con el alta de un número | ✅ **Hecho** 14/10/2026 · con un límite declarado |
 
 ---
 
@@ -312,6 +313,74 @@ Propuestas, a decidir:
 | **4** | **Avisar si la contraseña no tiene dieciséis caracteres** y el dominio es Gmail | Es el error más común y hoy sólo se descubre al fallar la conexión |
 | **5** | **Que «Probar conexión» sea el camino principal**, no un botón más | Guardar una cuenta que no funciona no sirve de nada |
 
-### Estado
+### Qué se hizo
 
-📋 **Abierto**, esperando decisión de Dirección sobre cuáles de las cinco.
+**Lo que escribes ahora son dos campos: tu correo y tu contraseña.**
+
+| | Qué | Cómo |
+|---|---|---|
+| **1** | **El servidor, el puerto y el cifrado se deducen del dominio** | `@gmail.com` → `smtp.gmail.com:587` con STARTTLS. También Outlook, Yahoo, Zoho e iCloud |
+| **2** | **El usuario se rellena con tu dirección** | Es lo correcto en todos ellos. Sigue siendo editable, y deja de seguirla en cuanto lo tocas |
+| **3** | **Los tres campos técnicos se esconden** tras «Configuración avanzada» | Ocupaban media pantalla y nadie debería tocarlos |
+| **4** | **Se dice qué proveedor se reconoció** | «Reconocido como Gmail. El servidor, el puerto y el cifrado ya están puestos» — para no tener que abrir lo avanzado sólo por comprobar |
+| **5** | **Avisa si la contraseña no tiene 16 caracteres** y el dominio es Gmail | Es el error más común y hoy sólo se descubría al fallar la conexión |
+
+**Un dominio propio abre la configuración avanzada sola**, porque ahí sí hay que
+escribirlos: ARLES no se inventa un servidor que no sabe.
+
+### La garantía que pediste
+
+> «Comprueba que el servidor, puerto y cifrado sean siempre correctos.»
+
+El par **puerto + cifrado** sólo tiene dos combinaciones válidas en SMTP, y
+cruzarlas es el error que no da un mensaje útil: la conexión se queda esperando.
+Una prueba lo fija **para todos los proveedores, los de hoy y los que se
+añadan** — 587 va con STARTTLS, 465 con TLS directo, y cualquier otro puerto
+hace fallar la prueba con su nombre.
+
+**Verificada en rojo** cruzando el par de Gmail a propósito: falla con
+*«Gmail: 587 va con STARTTLS»*.
+
+---
+
+## R-02 · El alta de un número de WhatsApp
+
+**Pedido por Dirección el 14/10/2026**, junto con R-01.
+
+### El límite, dicho antes que nada
+
+**Esto no se puede reducir a dos campos como el correo**, y conviene que quede
+escrito por qué:
+
+El correo **se deduce del dominio** — `@gmail.com` implica `smtp.gmail.com:587`.
+Pero el **WABA ID**, el **Phone Number ID** y el **token** de Meta **sólo existen
+en su panel**. No hay nada de lo que inferirlos: ni el teléfono los determina, ni
+hay un patrón que seguir. Prometer otra cosa sería inventarse una función.
+
+### Qué sí se hizo
+
+| | Qué | Por qué |
+|---|---|---|
+| **1** | **El formulario se parte en tres bloques**: tu número · lo que se copia de Meta · cómo se va a usar | Antes eran seis campos seguidos, todos iguales, mezclando lo que se sabe de memoria con lo que hay que ir a buscar |
+| **2** | **El nombre para identificarlo se rellena con el teléfono** | Es un campo «sólo para ti» que no sale en ningún mensaje: dejarlo vacío era pedir trabajo sin motivo |
+| **3** | **Los tres datos de Meta se revisan al pegarlos**, antes de guardar | Es donde se pierde la gente |
+| **4** | **Se dice en pantalla que esos tres sólo existen en Meta** | Para que nadie los busque en ARLES |
+
+### Lo que la revisión caza
+
+Los dos identificadores son números largos; el token empieza por `EAA`. Copiar
+uno en el campo del otro da un error de Meta que **no dice cuál de los tres está
+mal**. Ahora se avisa antes:
+
+| Lo que pegas | Lo que dice |
+|---|---|
+| El token en un identificador | «Esto parece el token de acceso, no un identificador» |
+| Un identificador en el token | «Esto parece un identificador, no el token» |
+| Un identificador con espacios o guiones | «Son sólo dígitos, sin espacios ni guiones» |
+| Un identificador cortado | «Parece corto: suelen tener quince dígitos o más» |
+| Un token que no empieza por EAA | «Los tokens de Meta empiezan por EAA» |
+
+**Avisa, no bloquea.** Meta podría cambiar el formato, y un formulario que se
+niega a guardar algo correcto es peor que uno que señala algo dudoso.
+
+**Nueve pruebas, cinco vistas en rojo** haciendo que la revisión deje pasar todo.

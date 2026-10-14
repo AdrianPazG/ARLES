@@ -52,6 +52,51 @@ export interface BorradorDeNumero {
   modo: string
 }
 
+/**
+ * Revisa que un dato copiado del panel de Meta tenga la forma que debe.
+ *
+ * ── POR QUÉ, Y POR QUÉ NO SE PUEDE HACER MÁS (R-02, 14/10/2026) ─────────────
+ *
+ * Dirección pidió que dar de alta un número fuera tan sencillo como el correo:
+ * «correo y contraseña nomás». **Con WhatsApp no se puede**, y conviene que
+ * quede escrito por qué: el correo se deduce del dominio —`@gmail.com` implica
+ * `smtp.gmail.com:587`— pero los tres identificadores de Meta (WABA ID, Phone
+ * Number ID y token) **sólo existen en su panel**. No hay nada de lo que
+ * inferirlos.
+ *
+ * Lo que sí se puede es **cazar el error de pegado antes de guardar**, que es
+ * donde se pierde la gente: los dos identificadores son números largos y el
+ * token empieza siempre por `EAA`. Copiar uno en el campo del otro, o pegar un
+ * trozo con espacios, da un error de Meta que no dice cuál de los tres está
+ * mal.
+ *
+ * **Avisa, no bloquea.** Meta podría cambiar el formato, y un formulario que se
+ * niega a guardar algo correcto es peor que uno que avisa de algo dudoso.
+ *
+ * @returns la clave del aviso, o `''` si el dato tiene buena pinta.
+ */
+export function revisarDatoDeMeta(
+  campo: 'wabaId' | 'phoneNumberId' | 'token',
+  valor: string,
+): string {
+  const v = valor.trim()
+  if (v.length === 0) return ''
+
+  if (campo === 'token') {
+    // Los tokens de la Cloud API empiezan por `EAA` y son largos. Lo que más
+    // pasa es pegar sólo un trozo, o pegar un identificador aquí por error.
+    if (/^\d+$/.test(v)) return 'numeroDeWhatsapp.avisos.tokenEsUnNumero'
+    if (!v.startsWith('EAA')) return 'numeroDeWhatsapp.avisos.tokenNoEmpiezaBien'
+    return ''
+  }
+
+  // Los dos identificadores son números largos, sin espacios ni guiones.
+  if (v.startsWith('EAA')) return 'numeroDeWhatsapp.avisos.esElToken'
+  if (!/^\d+$/.test(v)) return 'numeroDeWhatsapp.avisos.soloDigitos'
+  if (v.length < 10) return 'numeroDeWhatsapp.avisos.demasiadoCorto'
+  return ''
+}
+
 export function borradorDeNumeroVacio(): BorradorDeNumero {
   return {
     nombreVisible: '',

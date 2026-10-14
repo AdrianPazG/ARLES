@@ -2655,7 +2655,22 @@ export const es = {
     nombreVisible: 'Nombre que acompaña a la dirección',
     nombreVisibleAyuda: 'Opcional. Por ejemplo, el nombre de tu empresa.',
     usuario: 'Usuario',
-    usuarioAyuda: 'Casi siempre es la misma dirección de correo.',
+    usuarioAyuda:
+      'Se rellena con tu dirección, que es lo correcto en casi todos los ' +
+      'proveedores. Sólo cámbialo si tu servidor pide otra cosa.',
+
+    // ── R-01 · «que sea correo y contraseña nomás» ──
+    proveedorReconocido:
+      'Reconocido como {nombre}. El servidor, el puerto y el cifrado ya están ' +
+      'puestos: no tienes que tocar nada más.',
+    avisoLargoContrasena:
+      'La contraseña de aplicación de {proveedor} tiene {esperado} caracteres ' +
+      'y has escrito {escrito}. Si pusiste la contraseña normal de tu cuenta, ' +
+      'no va a funcionar: hace falta una de aplicación.',
+    avanzadaTitulo: 'Configuración avanzada',
+    avanzadaNota:
+      'No hace falta tocar nada de aquí si tu correo es de un proveedor ' +
+      'conocido. Se abre sola cuando ARLES no reconoce el dominio.',
     contrasena: 'Contraseña',
     servidor: 'Servidor',
     servidorAyuda: 'Para Gmail, smtp.gmail.com.',
@@ -2766,10 +2781,38 @@ export const es = {
       'Con lada, por ejemplo 81 1234 5678. Es el número desde el que verán ' +
       'llegar los mensajes.',
     wabaId: 'Identificador de la cuenta de empresa',
-    wabaIdAyuda: 'Meta lo llama WABA ID y lo enseña en su panel.',
+    wabaIdAyuda:
+      'Meta lo llama WABA ID. Está en su panel, en Configuración de la cuenta ' +
+      'de WhatsApp Business. Es un número largo.',
     phoneNumberId: 'Identificador del número',
     phoneNumberIdAyuda:
-      'Otro número distinto del teléfono. Meta lo llama Phone Number ID.',
+      'Otro número largo, distinto del teléfono. Meta lo llama Phone Number ID ' +
+      'y está junto a tu número en el panel.',
+
+    // ── R-02 · los tres bloques del formulario, y los avisos de pegado ──
+    grupoTuNumero: 'Tu número',
+    grupoDeMeta: 'Lo que se copia del panel de Meta',
+    grupoDeMetaNota:
+      'Estos tres sólo existen en tu cuenta de Meta: ARLES no puede ' +
+      'adivinarlos. Si algo no cuadra al pegarlo, te avisa antes de guardar.',
+    grupoComoSeUsa: 'Cómo se va a usar',
+    avisos: {
+      esElToken:
+        'Esto parece el token de acceso, no un identificador. El token va en ' +
+        'su propio campo, más abajo.',
+      soloDigitos:
+        'Un identificador de Meta son sólo dígitos, sin espacios ni guiones. ' +
+        'Revisa que lo copiaste entero y sin nada más.',
+      demasiadoCorto:
+        'Parece corto para ser un identificador de Meta: suelen tener quince ' +
+        'dígitos o más. Puede que falte un trozo al copiarlo.',
+      tokenEsUnNumero:
+        'Esto parece un identificador, no el token. El token de Meta empieza ' +
+        'por EAA y es mucho más largo.',
+      tokenNoEmpiezaBien:
+        'Los tokens de Meta empiezan por EAA. Si el tuyo no, puede que hayas ' +
+        'copiado otra cosa o sólo un trozo.',
+    },
     token: 'Token de acceso',
     tokenAyuda:
       'Se guarda en el llavero de tu equipo, nunca en la base de datos. ' +

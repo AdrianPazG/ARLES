@@ -37,6 +37,7 @@ import { useI18n } from 'vue-i18n'
 import { resolverError } from '@/app/errores'
 import {
   borradorVacio,
+  proveedorDe,
   useRemitentesStore,
   type BorradorDeCuenta,
   type Remitente,
@@ -72,6 +73,77 @@ const editando = ref<string | null>(null)
 const contrasena = ref('')
 /** La guía de Gmail, plegada por defecto. */
 const ayudaAbierta = ref(false)
+/** La configuración avanzada —servidor, puerto, cifrado—, plegada por defecto. */
+const avanzadaAbierta = ref(false)
+
+/**
+ * El proveedor que corresponde a la dirección escrita, o `null`.
+ *
+ * ── POR QUÉ ESTO EXISTE (R-01, 14/10/2026) ──────────────────────────────────
+ *
+ * El formulario pedía siete campos y Dirección no pudo dar de alta su cuenta
+ * (H-03): escribió un usuario que no era la dirección y una contraseña que no
+ * era la de aplicación, y **nada se lo dijo** hasta que la conexión falló con
+ * un error de cifrado que no apuntaba a ninguna de las dos cosas.
+ *
+ * Ahora servidor, puerto y cifrado se deducen del dominio en cuanto se escribe
+ * la dirección. Lo único que se teclea es **correo y contraseña**.
+ */
+const proveedor = computed(() => (borrador.value ? proveedorDe(borrador.value.remitente) : null))
+
+/**
+ * Aviso si la contraseña no tiene el largo que el proveedor exige.
+ *
+ * Google da **dieciséis letras** para una contraseña de aplicación, y meter la
+ * contraseña normal de la cuenta es el error más común: hoy sólo se descubre
+ * cuando el servidor la rechaza, con un mensaje que habla de autenticación y no
+ * de esto. Se avisa **antes** de intentar conectar, y es un aviso y no un
+ * bloqueo: el largo podría cambiar y nadie quiere un formulario que se niega a
+ * guardar algo correcto.
+ */
+const avisoDeContrasena = computed(() => {
+  const largo = proveedor.value?.largoDeContrasena
+  if (!largo || contrasena.value.length === 0) return ''
+  const sinEspacios = contrasena.value.replace(/\s/g, '')
+  if (sinEspacios.length === largo) return ''
+  return t('remitentes.avisoLargoContrasena', {
+    proveedor: proveedor.value?.nombre ?? '',
+    esperado: largo,
+    escrito: sinEspacios.length,
+  })
+})
+
+/**
+ * Al escribir la dirección: rellena lo que se puede deducir.
+ *
+ * El **usuario** se iguala a la dirección porque es lo correcto en Gmail,
+ * Outlook y casi todo lo demás — y porque dejarlo vacío invita a inventarse un
+ * nombre de usuario, que es lo que pasó. Sigue siendo editable: hay servidores
+ * donde el usuario es otra cosa.
+ *
+ * Si el dominio **no** se reconoce, no se toca nada y se abre la configuración
+ * avanzada: ARLES no se inventa un servidor que no sabe.
+ */
+function alEscribirLaDireccion(): void {
+  const b = borrador.value
+  if (!b) return
+
+  const p = proveedorDe(b.remitente)
+  if (p) {
+    b.servidor = p.servidor
+    b.puerto = p.puerto
+    b.cifrado = p.cifrado
+    avanzadaAbierta.value = false
+  } else if (b.remitente.includes('@') && b.remitente.split('@')[1]) {
+    avanzadaAbierta.value = true
+  }
+
+  // El usuario sigue a la dirección mientras nadie lo haya cambiado a mano.
+  if (!usuarioTocado.value) b.usuario = b.remitente
+}
+
+/** Si alguien editó el usuario, deja de seguir a la dirección. */
+const usuarioTocado = ref(false)
 
 /**
  * Qué cuenta tiene abierto el formulario de «mandar un correo de prueba».
@@ -425,32 +497,48 @@ async function probarGuardada(r: Remitente): Promise<void> {
         class="remitentes__formulario"
         @submit.prevent="guardar"
       >
-        <!-- Primero de quién es el correo: es lo que la persona tiene claro. -->
+        <!-- ── Los dos campos que de verdad se escriben ──
+             R-01: «que sea correo y contraseña nomás». Todo lo demás se deduce
+             del dominio o se esconde en la configuración avanzada. -->
         <AEntrada
           v-model="borrador.remitente"
           tipo="email"
           :etiqueta="t('remitentes.remitente')"
           :ayuda="t('remitentes.remitenteAyuda')"
           :error="errorDe('remitente')"
-        />
-        <AEntrada
-          v-model="borrador.nombreVisible"
-          :etiqueta="t('remitentes.nombreVisible')"
-          :ayuda="t('remitentes.nombreVisibleAyuda')"
-          :error="errorDe('nombreVisible')"
+          @update:model-value="alEscribirLaDireccion"
         />
 
-        <AEntrada
-          v-model="borrador.usuario"
-          :etiqueta="t('remitentes.usuario')"
-          :ayuda="t('remitentes.usuarioAyuda')"
-          :error="errorDe('usuario')"
-        />
+        <!-- Qué proveedor se reconoció. Se dice en voz alta para que nadie tenga
+             que abrir la configuración avanzada sólo para comprobar que los
+             valores automáticos son los correctos. -->
+        <p
+          v-if="proveedor"
+          class="remitentes__proveedor"
+        >
+          {{ t('remitentes.proveedorReconocido', { nombre: proveedor.nombre }) }}
+        </p>
+
         <AEntrada
           v-model="contrasena"
           tipo="password"
           :etiqueta="t('remitentes.contrasena')"
           :ayuda="editando ? t('remitentes.contrasenaGuardada') : ''"
+        />
+
+        <!-- El aviso del largo. No bloquea: avisa. -->
+        <p
+          v-if="avisoDeContrasena"
+          class="remitentes__aviso-largo"
+        >
+          {{ avisoDeContrasena }}
+        </p>
+
+        <AEntrada
+          v-model="borrador.nombreVisible"
+          :etiqueta="t('remitentes.nombreVisible')"
+          :ayuda="t('remitentes.nombreVisibleAyuda')"
+          :error="errorDe('nombreVisible')"
         />
 
         <p class="remitentes__secreto">
@@ -476,24 +564,48 @@ async function probarGuardada(r: Remitente): Promise<void> {
           <p>{{ t('remitentes.ayudaGmailNota') }}</p>
         </details>
 
-        <!-- Y después, cómo se conecta: lo que hay que copiar de algún sitio. -->
-        <AEntrada
-          v-model="borrador.servidor"
-          :etiqueta="t('remitentes.servidor')"
-          :ayuda="t('remitentes.servidorAyuda')"
-          :error="errorDe('servidor')"
-        />
-        <AEntrada
-          v-model="borrador.puerto"
-          :etiqueta="t('remitentes.puerto')"
-          :error="errorDe('puerto')"
-        />
-        <ASelector
-          v-model="borrador.cifrado"
-          :etiqueta="t('remitentes.cifrado')"
-          :opciones="cifrados"
-          :error="errorDe('cifrado')"
-        />
+        <!-- ── Configuración avanzada ──
+             Cuatro campos que la inmensa mayoría no debería tocar nunca:
+             servidor, puerto, cifrado y el nombre de usuario. Ocupaban la mitad
+             del formulario y eran donde se atascaba la gente (R-01).
+
+             Se abre sola cuando el dominio **no** se reconoce, porque entonces
+             sí hay que escribirlos: ARLES no se inventa un servidor que no
+             sabe. -->
+        <details
+          class="remitentes__avanzada"
+          :open="avanzadaAbierta"
+        >
+          <summary>{{ t('remitentes.avanzadaTitulo') }}</summary>
+          <p class="remitentes__avanzada-nota">
+            {{ t('remitentes.avanzadaNota') }}
+          </p>
+
+          <AEntrada
+            v-model="borrador.usuario"
+            :etiqueta="t('remitentes.usuario')"
+            :ayuda="t('remitentes.usuarioAyuda')"
+            :error="errorDe('usuario')"
+            @update:model-value="usuarioTocado = true"
+          />
+          <AEntrada
+            v-model="borrador.servidor"
+            :etiqueta="t('remitentes.servidor')"
+            :ayuda="t('remitentes.servidorAyuda')"
+            :error="errorDe('servidor')"
+          />
+          <AEntrada
+            v-model="borrador.puerto"
+            :etiqueta="t('remitentes.puerto')"
+            :error="errorDe('puerto')"
+          />
+          <ASelector
+            v-model="borrador.cifrado"
+            :etiqueta="t('remitentes.cifrado')"
+            :opciones="cifrados"
+            :error="errorDe('cifrado')"
+          />
+        </details>
 
         <div class="remitentes__botones">
           <ABoton
@@ -614,10 +726,47 @@ async function probarGuardada(r: Remitente): Promise<void> {
   line-height: var(--arles-line-height-body);
 }
 
-.remitentes__ayuda {
+.remitentes__ayuda,
+.remitentes__avanzada {
   border: var(--arles-border-width) solid var(--arles-border);
   border-radius: var(--arles-radius-md);
   padding: var(--arles-space-3) var(--arles-space-4);
+}
+
+/* Los cuatro campos de dentro, separados entre sí y del resumen. El `details`
+   no maqueta su contenido: sin esto saldrían pegados, que es el defecto H-02
+   con otra cara. */
+.remitentes__avanzada[open] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-4);
+}
+
+.remitentes__avanzada summary {
+  cursor: pointer;
+  font-weight: var(--arles-font-weight-semibold);
+  color: var(--arles-text);
+}
+
+.remitentes__avanzada-nota {
+  margin: 0;
+  font-size: var(--arles-font-size-small);
+  color: var(--arles-text-muted);
+}
+
+/* El proveedor reconocido: confirma que no hay nada más que tocar. */
+.remitentes__proveedor {
+  margin: 0;
+  font-size: var(--arles-font-size-small);
+  color: var(--arles-success);
+}
+
+/* El aviso del largo de la contraseña. Avisa, no bloquea, así que va en el
+   color de advertencia y no en el de error. */
+.remitentes__aviso-largo {
+  margin: 0;
+  font-size: var(--arles-font-size-small);
+  color: var(--arles-warning);
 }
 
 .remitentes__ayuda summary {
