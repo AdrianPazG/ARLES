@@ -13,6 +13,57 @@ la otra vía: **descargar un instalador ya construido** y abrirlo con doble clic
 
 ---
 
+## 0 · La ruta corta · cuatro pasos
+
+**Si ya tenías ARLES instalado, haz el paso 1. Si es la primera vez, sáltatelo.**
+
+### 1 · Aparta la base anterior
+
+Pega esto en el **Explorador de archivos**, en la barra de la dirección:
+
+```
+%APPDATA%\TelemetryInsight\ArlesRelay\data
+```
+
+Si hay un `arles.db`, **renómbralo** a `arles-anterior.db`. No lo borres: si
+algo sale mal, ese archivo es lo único que tiene tus datos.
+
+> **Por qué hace falta.** Desinstalar ARLES no borra tus datos —y hace bien, son
+> tuyos—, pero el esquema de la versión anterior ya no encaja. Sin esto sale
+> «fallo al migrar el esquema» nada más abrir.
+>
+> **No toques el llavero de Windows.** Borrar la credencial dejando la base deja
+> esos datos ilegibles para siempre. El orden está explicado en el §4.
+
+### 2 · Descarga el instalador
+
+Ve a **[Releases](https://github.com/AdrianPazG/ARLES/releases)** y baja el
+primero de la lista. El archivo que quieres es:
+
+```
+ARLES.RELAY_1.2.0_x64-setup.exe
+```
+
+### 3 · Instálalo
+
+Doble clic. **Windows va a decir «editor desconocido»**: es correcto y esperado,
+la aplicación no está firmada todavía. Pulsa **«Más información» → «Ejecutar de
+todas formas»**.
+
+### 4 · Ábrelo
+
+Se abre solo al terminar, o desde el menú de Inicio.
+
+**Lo primero que verás es «Empieza por aquí»**, porque sin los datos de tu
+empresa no se puede hacer nada más. A partir de ahí, el
+[manual de usuario](MANUAL-DE-USUARIO.md) te lleva paso a paso.
+
+> **Si algo te para**, la respuesta está casi seguro en
+> [`REGISTRO-DE-TROPIEZOS.md`](REGISTRO-DE-TROPIEZOS.md): los siete tropiezos
+> que ya nos han pasado de verdad, con su causa y su salida exacta.
+
+---
+
 ## 1 · De dónde se descarga
 
 De **[Releases](https://github.com/AdrianPazG/ARLES/releases)**, el enlace de la
