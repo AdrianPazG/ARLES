@@ -72,8 +72,8 @@ derecha de la portada del repositorio.
 **No de la pestaña Actions**: ahí sólo se ve cómo se construyó.
 
 **La versión al día es
-[`prueba-20261014-1533`](https://github.com/AdrianPazG/ARLES/releases/tag/prueba-20261014-1533)**,
-del 14/10/2026, y trae tres archivos:
+[`prueba-20261015-2105`](https://github.com/AdrianPazG/ARLES/releases/tag/prueba-20261015-2105)**,
+del 15/10/2026, y trae tres archivos:
 
 | Archivo | Para | Tamaño |
 |---|---|---|
@@ -81,20 +81,52 @@ del 14/10/2026, y trae tres archivos:
 | `ARLES.RELAY_1.2.0_x64_en-US.msi` | Windows · para instalación desatendida | 8.6 MB |
 | `ARLES.RELAY_1.2.0_aarch64.dmg` | **macOS** (Apple Silicon) | 8.1 MB |
 
-**Qué trae de nuevo respecto a la del 13/10:** el alta de correo en dos campos
-(R-01), el alta de WhatsApp con avisos de pegado (R-02), el aviso de la empresa
-que ya no sobrevive a la recarga (H-01), las tres partes de un error que ya no
-salen pegadas (H-02) y la cabecera de Contactos que ya no se lee «WhatsApp pri…»
+**Qué trae de nuevo respecto a la del 14/10:**
+
+- **A-05** · la contraseña de aplicación de Gmail ya se puede pegar **con los
+  espacios** con que Google la enseña. Antes viajaban al servidor y Gmail la
+  rechazaba, **sin que nada avisara**.
+- **A-06** · la guía del alta dice **la dirección exacta** donde se crea esa
+  contraseña, con un botón para copiarla, el aviso de que **sólo se enseña una
+  vez**, y los **cuatro casos** en que esa página no aparece.
+
+Y lo que ya traía la del 14/10: el alta de correo en dos campos (R-01), el alta
+de WhatsApp con avisos de pegado (R-02), el aviso de la empresa que ya no
+sobrevive a la recarga (H-01), las tres partes de un error que ya no salen
+pegadas (H-02) y la cabecera de Contactos que ya no se lee «WhatsApp pri…»
 (A-01). Todo está en
 [`BITACORA-DE-PRUEBAS.md`](../06-calidad/BITACORA-DE-PRUEBAS.md).
 
 > **Medida también, y con la misma regla.** Se descargó el `.exe`, se extrajo el
-> NSIS y se miró dentro: el binario pesa **22 268 928 bytes** y trae **siete**
-> apariciones de `index.html` más los assets. Siete es el número de una
-> compilación con `custom-protocol`; **sin ella serían cero**, y la ventana
-> abriría pidiendo `localhost` — que es lo que le pasó a Dirección el
-> 08/10/2026. Un instalador que no se mira por dentro es un instalador del que
-> se supone, y eso ya costó una tarde.
+> NSIS y se miró dentro: el binario pesa **22 273 024 bytes** y trae **siete**
+> apariciones de `index.html`. Siete es el número de una compilación con
+> `custom-protocol`; **sin ella serían cero**, y la ventana abriría pidiendo
+> `localhost` — que es lo que le pasó a Dirección el 08/10/2026.
+
+> ### Y una corrección del método, del 15/10/2026
+>
+> Buscar en el binario **el texto de la interfaz no sirve**, y conviene saberlo
+> antes de sacar conclusiones de ahí. Al verificar esta versión busqué
+> `apppasswords` dentro del `.exe` y salió **cero** — lo que parecía decir que
+> el texto nuevo no viajaba.
+>
+> **No era eso.** El frontend va comprimido dentro del binario, así que ninguna
+> de sus cadenas se encuentra en claro. Lo que se encontraba —«Remitentes»,
+> «contraseña», `smtp.gmail.com`— son cadenas de **Rust**, y por eso «Campañas»
+> salía a cero mientras «Remitentes» salía a dos: la diferencia no era el
+> idioma ni el acento, era de qué lado venía cada una.
+>
+> `index.html` **sí** vale como medida, y es la que está escrita arriba, porque
+> es una referencia que Tauri deja en claro y **discrimina**: cero sin la
+> característica, siete con ella.
+>
+> Para comprobar un texto de la interfaz, lo que vale es construir el frontend
+> del mismo commit y buscarlo en `app/dist`. Hecho aquí: `apppasswords` aparece
+> dos veces, «sólo se enseña una vez» una, y el texto viejo —«busca
+> «Contraseñas»»— **cero**.
+>
+> **Una medida que no discrimina no mide.** Si una cadena ausente y una cadena
+> presente dan el mismo resultado, lo que falla es el instrumento.
 
 > **Por qué no había ninguna hasta hoy, y no era por falta de código.** El flujo
 > que las construye se intentó una vez, el 17/09/2026, y falló: `sin-mont.py`
