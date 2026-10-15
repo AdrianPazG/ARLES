@@ -83,6 +83,24 @@ La verificación OAuth de Google para el scope `gmail.send` exige:
 
 **Lo que necesitamos:** el dominio, quién redacta el aviso de privacidad, y quién lo publica. **El trámite arranca en la Fase 1**, así que esto se necesita pronto aunque `GoogleProvider` no entre hasta v1.2.x.
 
+> ### 15/10/2026 · esta pregunta y el cierre de la Fase 1 se contradicen
+>
+> `09-fases/FASE-01-CIMIENTOS.md` §7 dice del trámite de verificación de Google:
+> *«Arrancado en paralelo — P-05»*. Y P-05 sigue abierta preguntando el dominio,
+> el aviso de privacidad y quién lo publica — que es **exactamente lo que hace
+> falta para arrancarlo**: Google comprueba la propiedad del dominio en Search
+> Console antes de admitir nada.
+>
+> Las dos cosas no pueden ser ciertas a la vez. O el trámite arrancó y esto
+> debería estar cerrado, o lleva meses sin arrancar y el cierre de la Fase 1
+> afirma de más. **Lo que ocurrió fuera del repositorio no consta aquí**: es
+> información de Dirección, y se le ha preguntado.
+>
+> Importa porque es el camino crítico: si no está en marcha, el reloj de las
+> 2–8 semanas de revisión **no ha empezado a correr**. Los pasos y lo que ARLES
+> gana están en
+> [`VERIFICACION-OAUTH-DE-GOOGLE.md`](../07-entrega/VERIFICACION-OAUTH-DE-GOOGLE.md).
+
 ---
 
 ### P-06 · ¿Cuál es el volumen operativo realista por campaña?
