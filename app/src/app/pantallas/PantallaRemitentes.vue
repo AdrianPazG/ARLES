@@ -74,6 +74,53 @@ const editando = ref<string | null>(null)
 const contrasena = ref('')
 /** La guía de Gmail, plegada por defecto. */
 const ayudaAbierta = ref(false)
+
+/**
+ * El acuse de «Copiada», y el aviso si no se pudo.
+ *
+ * ── POR QUÉ UN BOTÓN DE COPIAR Y NO UN ENLACE QUE ABRA EL NAVEGADOR ───────
+ *
+ * Sería más cómodo un enlace, y **cuesta un permiso nuevo**. ARLES declara
+ * hoy `core:default` y nada más, y la auditoría B del §140 lo recogió como
+ * uno de los puntos que salieron limpios: cada permiso que se añade es
+ * superficie de ataque que alguien tiene que vigilar.
+ *
+ * Copiar y pegar en el navegador son dos gestos en vez de uno. Abrir el
+ * navegador desde la aplicación es un plugin, una dependencia nueva que pasar
+ * por `cargo deny`, y un permiso que habría que acotar a una lista de
+ * direcciones. **Se queda como está hasta que Dirección decida que el gesto
+ * de más lo merece**, y queda escrito aquí para que sea una decisión y no un
+ * olvido.
+ */
+const copiada = ref(false)
+const fallóAlCopiar = ref(false)
+
+/**
+ * Dónde se crea la contraseña de este proveedor, o cadena vacía.
+ *
+ * Sale del catálogo y no de un `if` sobre Gmail: el día que se sepa la de
+ * Outlook, se escribe en `PROVEEDORES` y esta pantalla no se toca. Un `if`
+ * aquí sería el mismo dato en dos sitios.
+ */
+const donde = computed(() => proveedor.value?.dondeSeCreaLaContrasena ?? '')
+
+async function copiarLaDireccion(donde: string): Promise<void> {
+  fallóAlCopiar.value = false
+  try {
+    await navigator.clipboard.writeText(donde)
+    copiada.value = true
+    // El acuse se borra solo: un «Copiada» que se queda para siempre deja de
+    // decir que acaba de pasar algo.
+    window.setTimeout(() => {
+      copiada.value = false
+    }, 2000)
+  } catch {
+    // El portapapeles puede estar negado o no existir. La dirección sigue en
+    // pantalla y se puede seleccionar a mano, así que esto no bloquea nada —
+    // pero se dice, porque un botón que no hace nada se lee como una avería.
+    fallóAlCopiar.value = true
+  }
+}
 /** La configuración avanzada —servidor, puerto, cifrado—, plegada por defecto. */
 const avanzadaAbierta = ref(false)
 
@@ -558,7 +605,11 @@ async function probarGuardada(r: Remitente): Promise<void> {
              leerla, y quien no, se atasca justo aquí. Es un `<details>` nativo
              y no un desplegable propio porque el navegador ya lo sabe abrir
              con el teclado y anunciarlo a un lector de pantalla. -->
+        <!-- Sólo se enseña cuando sabemos dónde se crea la contraseña de ese
+             proveedor. Enseñar la guía de Gmail a quien escribe un correo de
+             Zoho sería mandarlo a una página que no es la suya. -->
         <details
+          v-if="donde"
           class="remitentes__ayuda"
           :open="ayudaAbierta"
         >
@@ -566,9 +617,50 @@ async function probarGuardada(r: Remitente): Promise<void> {
           <p>{{ t('remitentes.ayudaGmailCuerpo') }}</p>
           <ol>
             <li>{{ t('remitentes.ayudaGmailPaso1') }}</li>
-            <li>{{ t('remitentes.ayudaGmailPaso2') }}</li>
+            <li>
+              {{ t('remitentes.ayudaGmailPaso2') }}
+              <!-- La dirección exacta, que es lo que faltaba. Va en un bloque
+                   seleccionable aunque el botón falle: lo que no puede pasar
+                   es que la única forma de tenerla sea un botón. -->
+              <span class="remitentes__donde">
+                <code>{{ donde }}</code>
+                <!-- `secundario` y no `sutil`: con sutil no parecía un
+                     botón, sino una etiqueta puesta al lado de la dirección.
+                     Es la acción de este paso, y lo tiene que parecer. Lo
+                     encontró mirar la pantalla, no una medida: mide 170×40 y
+                     cumple el mínimo del §22 igual con las dos variantes. -->
+                <ABoton
+                  variante="secundario"
+                  tamano="compacto"
+                  @click="copiarLaDireccion(donde)"
+                >
+                  {{ copiada ? t('remitentes.direccionCopiada') : t('remitentes.copiarDireccion') }}
+                </ABoton>
+              </span>
+              <span
+                v-if="fallóAlCopiar"
+                class="remitentes__aviso-largo"
+              >{{ t('remitentes.noSePudoCopiar') }}</span>
+            </li>
             <li>{{ t('remitentes.ayudaGmailPaso3') }}</li>
           </ol>
+          <p class="remitentes__aviso-largo">
+            {{ t('remitentes.ayudaGmailSoloUnaVez') }}
+          </p>
+
+          <!-- Los cuatro casos. El segundo y el cuarto no los arregla quien
+               está delante de la pantalla, y decirlo ahorra la hora que se
+               pasaría buscando una opción que su empresa le ha quitado. -->
+          <p class="remitentes__no-aparece-titulo">
+            {{ t('remitentes.noApareceTitulo') }}
+          </p>
+          <ul>
+            <li>{{ t('remitentes.noAparece1') }}</li>
+            <li>{{ t('remitentes.noAparece2') }}</li>
+            <li>{{ t('remitentes.noAparece3') }}</li>
+            <li>{{ t('remitentes.noAparece4') }}</li>
+          </ul>
+
           <p>{{ t('remitentes.ayudaGmailNota') }}</p>
         </details>
 
@@ -771,6 +863,34 @@ async function probarGuardada(r: Remitente): Promise<void> {
 
 /* El aviso del largo de la contraseña. Avisa, no bloquea, así que va en el
    color de advertencia y no en el de error. */
+.remitentes__donde {
+  display: flex;
+  align-items: center;
+  gap: var(--arles-space-2);
+  flex-wrap: wrap;
+  margin-top: var(--arles-space-2);
+}
+
+.remitentes__donde code {
+  /* `--arles-surface-raised`, no `--arles-surface-alt`: el segundo NO EXISTE y
+     me lo inventé al escribir esto. El navegador resuelve un `var()`
+     inexistente a nada, sin error, así que el bloque se habría visto sin
+     fondo y nadie lo habría notado. Cuarta vez en el proyecto — las otras tres
+     están contadas en la Fase 8. Se comprueba que el token existe ANTES de
+     usarlo, no después. */
+  background: var(--arles-surface-raised);
+  border: 1px solid var(--arles-border);
+  border-radius: var(--arles-radius-sm);
+  padding: var(--arles-space-1) var(--arles-space-2);
+  /* Seleccionable a mano: si el portapapeles falla, ésta es la salida. */
+  user-select: all;
+}
+
+.remitentes__no-aparece-titulo {
+  margin-top: var(--arles-space-4);
+  font-weight: var(--arles-font-weight-semibold);
+}
+
 .remitentes__aviso-largo {
   margin: 0;
   font-size: var(--arles-font-size-small);

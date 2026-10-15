@@ -1206,11 +1206,22 @@ export const es = {
       contrasena_rechazada: {
         que: 'El servidor rechazó la contraseña.',
         // El punto donde más gente se atasca, así que va el camino exacto.
+        // ── «SE GENERA EN LA CONFIGURACIÓN DE SEGURIDAD» NO ERA UNA
+        //    INSTRUCCIÓN, ERA UN SITIO DONDE BUSCAR (15/10/2026)
+        //
+        // Ésta es la frase que leyó Dirección el 13/10/2026 al no poder dar de
+        // alta su cuenta, y lo que hizo fue preguntar dónde — que es
+        // exactamente lo que un error con las tres partes del §95 debería
+        // haberle ahorrado. La parte de «cómo se arregla» mandaba a buscar.
+        //
+        // Ahora lleva la dirección exacta. La pantalla además enseña los
+        // cuatro casos en que esa página no aparece, que aquí no caben.
         como:
           'Si es una cuenta de Gmail, necesitas una «contraseña de ' +
-          'aplicación», que no es la de tu cuenta de Google: se genera en la ' +
-          'configuración de seguridad de Google y hace falta tener activada ' +
-          'la verificación en dos pasos.',
+          'aplicación», que no es la de tu cuenta de Google. Se crea en ' +
+          'myaccount.google.com/apppasswords y hace falta tener activada la ' +
+          'verificación en dos pasos. Abre «¿De dónde saco esta contraseña?» ' +
+          'en el formulario y están los pasos.',
         salvo:
           'No se envió ningún correo. Si ya tenías una cuenta guardada, sigue ' +
           'como estaba.',
@@ -2685,6 +2696,32 @@ export const es = {
     avanzadaNota:
       'No hace falta tocar nada de aquí si tu correo es de un proveedor ' +
       'conocido. Se abre sola cuando ARLES no reconoce el dominio.',
+
+    // ── LOS TEXTOS QUE LA GUÍA NO TENÍA (15/10/2026) ──────────────────────
+    //
+    // Dirección preguntó «¿de dónde consigo la contraseña de 16 caracteres?»
+    // con la guía de Gmail YA en pantalla. Eso es el síntoma: la guía estaba y
+    // no contestaba, porque su paso 2 decía «busca Contraseñas de
+    // aplicaciones» — un sitio donde buscar, no una instrucción.
+    copiarDireccion: 'Copiar la dirección',
+    direccionCopiada: 'Copiada',
+    noSePudoCopiar: 'No se pudo copiar. Selecciónala y cópiala a mano.',
+
+    // Los cuatro casos en que la opción no aparece. Van los cuatro porque
+    // enseñar sólo el primero —«activa la verificación en dos pasos»— manda a
+    // buscar durante horas a quien tiene una cuenta de empresa donde está
+    // prohibida: ahí el problema no se arregla solo, lo arregla otra persona.
+    noApareceTitulo: 'Si esa página no te aparece, es una de cuatro cosas',
+    noAparece1:
+      'No tienes la verificación en dos pasos activada. Es el caso más común.',
+    noAparece2:
+      'Tu correo es de una empresa y el administrador lo tiene desactivado ' +
+      'para todo el dominio. Esto no lo puedes arreglar tú.',
+    noAparece3:
+      'La cuenta tiene el Programa de Protección Avanzada, que no permite ' +
+      'ninguna contraseña de aplicación.',
+    noAparece4: 'Tu organización lo bloquea por política.',
+
     contrasena: 'Contraseña',
     servidor: 'Servidor',
     servidorAyuda: 'Para Gmail, smtp.gmail.com.',
@@ -2715,12 +2752,20 @@ export const es = {
     ayudaGmailPaso1:
       'Activa la verificación en dos pasos en tu cuenta de Google. Sin eso, ' +
       'la opción de contraseñas de aplicación no aparece.',
+    // Antes decía «busca Contraseñas de aplicaciones». Buscar es donde la
+    // gente se rinde: la opción vive al final de una página a la que se llega
+    // por tres menús. La dirección va debajo, con un botón para copiarla.
     ayudaGmailPaso2:
-      'En la configuración de seguridad de Google, busca «Contraseñas de ' +
-      'aplicaciones» y crea una nueva.',
+      'Entra en esta dirección y escribe un nombre que te recuerde para qué ' +
+      'es —ARLES—, luego pulsa Generar:',
     ayudaGmailPaso3:
-      'Google te da dieciséis letras. Ésa es la que se escribe aquí, no la ' +
-      'de tu cuenta.',
+      'Google te da dieciséis letras en cuatro grupos. Cópialas y pégalas ' +
+      'arriba: los espacios no importan, ARLES los quita.',
+    // Faltaba, y es la que hace perder la contraseña recién creada.
+    ayudaGmailSoloUnaVez:
+      'Esa contraseña sólo se enseña una vez. Si cierras la ventana sin ' +
+      'copiarla hay que generar otra — no pasa nada, puedes crear las que ' +
+      'quieras y borrar las viejas.',
     ayudaGmailNota:
       'Si algún día quieres que ARLES deje de tener acceso, basta con borrar ' +
       'esa contraseña de aplicación desde tu cuenta de Google.',

@@ -128,3 +128,54 @@ describe('la contraseña que sale hacia el servidor', () => {
     expect(contrasenaParaEnviar(null, 'a b c d')).toBe('a b c d')
   })
 })
+
+/**
+ * ── DÓNDE SE CREA LA CONTRASEÑA ES UN DATO DEL CATÁLOGO ───────────────────
+ *
+ * Dirección preguntó «¿de dónde consigo la contraseña de 16 caracteres?» con
+ * la guía de Gmail **ya en pantalla**. Ése es el síntoma que importa: la guía
+ * estaba y no contestaba, porque su paso 2 decía «busca Contraseñas de
+ * aplicaciones» — un sitio donde buscar, no una instrucción que se pueda
+ * seguir.
+ *
+ * La dirección vive en `PROVEEDORES` y no en un `if` sobre Gmail dentro de la
+ * pantalla: el día que se sepa la de Outlook se escribe aquí y la pantalla no
+ * se toca. Un `if` allí sería el mismo dato en dos sitios, que es como
+ * empiezan todos los que se separan.
+ */
+describe('dónde se crea la contraseña de cada proveedor', () => {
+  it('Gmail dice exactamente dónde, y es una dirección completa', () => {
+    const gmail = proveedorDe('alguien@gmail.com')
+    expect(gmail?.dondeSeCreaLaContrasena).toBe('https://myaccount.google.com/apppasswords')
+  })
+
+  it('ningún proveedor apunta a una dirección a medias', () => {
+    // Una dirección sin esquema no se puede pegar en un navegador, y una que
+    // no es de su propio proveedor manda al sitio de otro.
+    for (const [, p] of PROVEEDORES) {
+      if (p.dondeSeCreaLaContrasena === null) continue
+      expect(p.dondeSeCreaLaContrasena, `${p.nombre}`).toMatch(/^https:\/\/[a-z0-9.-]+\//)
+    }
+  })
+
+  it('los que no se saben valen null, y NO una dirección inventada', () => {
+    // Es la decisión que sostiene lo anterior: una dirección que lleva a
+    // ninguna parte es peor que no dar ninguna, porque se sigue. Hoy sólo
+    // está comprobada la de Google.
+    const sinDireccion = PROVEEDORES
+      .filter(([, p]) => p.dondeSeCreaLaContrasena === null)
+      .map(([, p]) => p.nombre)
+    expect(sinDireccion).toEqual(['Outlook', 'Yahoo', 'Zoho', 'iCloud'])
+  })
+
+  it('quien declara un largo de contraseña dice también dónde se crea', () => {
+    // Si ARLES sabe lo bastante de un proveedor como para avisar del largo de
+    // su contraseña de aplicación, tiene que saber decir dónde se crea. Avisar
+    // de que algo está mal sin decir cómo arreglarlo es media instrucción
+    // (§95).
+    for (const [, p] of PROVEEDORES) {
+      if (p.largoDeContrasena === null) continue
+      expect(p.dondeSeCreaLaContrasena, `${p.nombre} avisa del largo`).not.toBeNull()
+    }
+  })
+})

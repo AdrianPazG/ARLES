@@ -73,6 +73,22 @@ export interface Proveedor {
    * el error más común y hoy sólo se descubre cuando el servidor la rechaza.
    */
   readonly largoDeContrasena: number | null
+  /**
+   * Dónde se crea esa contraseña, exactamente.
+   *
+   * ── POR QUÉ UNA DIRECCIÓN Y NO «BUSCA EN SEGURIDAD» ──
+   *
+   * Hasta el 15/10/2026 tanto la pantalla como el error decían «se genera en
+   * la configuración de seguridad de Google». Eso es una instrucción que
+   * **no se puede seguir sin buscar**, y buscar es donde la gente se rinde:
+   * la opción vive al final de una página a la que se llega por tres menús, y
+   * sólo aparece si la verificación en dos pasos está activada.
+   *
+   * `null` cuando no la sabemos. **No se inventa una**: una dirección que
+   * lleva a ninguna parte es peor que no dar ninguna, porque se sigue. Hoy
+   * sólo está la de Google, que es la única comprobada.
+   */
+  readonly dondeSeCreaLaContrasena: string | null
 }
 
 /**
@@ -97,23 +113,30 @@ export interface Proveedor {
 export const PROVEEDORES: ReadonlyArray<readonly [RegExp, Proveedor]> = [
   [
     /@(gmail\.com|googlemail\.com)$/i,
-    { nombre: 'Gmail', servidor: 'smtp.gmail.com', puerto: '587', cifrado: 'starttls', largoDeContrasena: 16 },
+    {
+      nombre: 'Gmail',
+      servidor: 'smtp.gmail.com',
+      puerto: '587',
+      cifrado: 'starttls',
+      largoDeContrasena: 16,
+      dondeSeCreaLaContrasena: 'https://myaccount.google.com/apppasswords',
+    },
   ],
   [
     /@(outlook\.com|hotmail\.com|live\.com|msn\.com)$/i,
-    { nombre: 'Outlook', servidor: 'smtp-mail.outlook.com', puerto: '587', cifrado: 'starttls', largoDeContrasena: null },
+    { nombre: 'Outlook', servidor: 'smtp-mail.outlook.com', puerto: '587', cifrado: 'starttls', largoDeContrasena: null, dondeSeCreaLaContrasena: null },
   ],
   [
     /@(yahoo\.(com|com\.mx|es))$/i,
-    { nombre: 'Yahoo', servidor: 'smtp.mail.yahoo.com', puerto: '465', cifrado: 'directo', largoDeContrasena: null },
+    { nombre: 'Yahoo', servidor: 'smtp.mail.yahoo.com', puerto: '465', cifrado: 'directo', largoDeContrasena: null, dondeSeCreaLaContrasena: null },
   ],
   [
     /@(zoho\.com|zohomail\.com)$/i,
-    { nombre: 'Zoho', servidor: 'smtp.zoho.com', puerto: '465', cifrado: 'directo', largoDeContrasena: null },
+    { nombre: 'Zoho', servidor: 'smtp.zoho.com', puerto: '465', cifrado: 'directo', largoDeContrasena: null, dondeSeCreaLaContrasena: null },
   ],
   [
     /@icloud\.com$/i,
-    { nombre: 'iCloud', servidor: 'smtp.mail.me.com', puerto: '587', cifrado: 'starttls', largoDeContrasena: null },
+    { nombre: 'iCloud', servidor: 'smtp.mail.me.com', puerto: '587', cifrado: 'starttls', largoDeContrasena: null, dondeSeCreaLaContrasena: null },
   ],
 ]
 

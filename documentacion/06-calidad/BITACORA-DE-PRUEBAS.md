@@ -91,6 +91,7 @@ mirando, no una comprobación automática.
 | **R-02** | 🔵 Requisito | WhatsApp | Lo mismo con el alta de un número | ✅ **Hecho** 14/10/2026 · con un límite declarado |
 | **A-01** | 🟡 Molesto | Contactos | La cabecera de la tabla se leía **«Correo princip…»** y **«WhatsApp pri…»**: no cabían en su columna | ✅ **Arreglado** 14/10/2026 |
 | **A-05** | 🟠 Grave | Remitentes | La contraseña de aplicación de Gmail se mandaba **con los espacios** con que Google la enseña, y **nada avisaba** | ✅ **Arreglado** 15/10/2026 |
+| **A-06** | 🟡 Molesto | Remitentes | La guía del alta decía **«busca Contraseñas de aplicaciones»** — un sitio donde buscar, no una instrucción | ✅ **Arreglado** 15/10/2026 |
 
 > Los hallazgos con **A** los encontré yo auditando, no Dirección probando. Van
 > en la misma tabla a propósito: separarlos en dos listas haría que una de las
@@ -641,3 +642,94 @@ el camino por menús, el aviso de que **sólo se enseña una vez**, y los **cuat
 casos** en que la opción no aparece —sin verificación en dos pasos, cuenta de
 Workspace, Protección Avanzada, o bloqueo de la organización— que son la razón
 de que R-24 pida una cuenta desechable y no la corporativa.
+
+---
+
+## A-06 · La guía del alta mandaba a buscar en vez de decir dónde
+
+**🟡 Molesto · Remitentes · ✅ Arreglado 15/10/2026**
+
+### El síntoma fue una pregunta
+
+Dirección preguntó: *«¿de dónde consigo la contraseña de 16 caracteres de
+Google?»* — **con la guía de Gmail ya en la pantalla**, desplegable justo
+debajo del campo.
+
+Eso es lo que importa del hallazgo: **la guía estaba y no contestaba.** Su
+paso 2 decía:
+
+> *«En la configuración de seguridad de Google, busca "Contraseñas de
+> aplicaciones" y crea una nueva.»*
+
+Un sitio donde buscar no es una instrucción. Y buscar es donde la gente se
+rinde: esa opción vive al final de una página a la que se llega por tres menús,
+y **sólo aparece si la verificación en dos pasos está activada** — así que
+quien no la tenga busca algo que para él no existe.
+
+> Es el mismo defecto que el §95 persigue en los errores, aplicado a una
+> ayuda: las tres partes estaban —qué pasa, cómo se arregla, qué está a
+> salvo— y la de «cómo se arregla» mandaba a buscar.
+
+### Qué se hizo
+
+**La dirección exacta, dentro de la guía**, en un bloque seleccionable con un
+botón para copiarla: `https://myaccount.google.com/apppasswords`.
+
+Y tres cosas que faltaban:
+
+| | Qué | Por qué |
+|---|---|---|
+| **Sólo se enseña una vez** | Quien cierra la ventana sin copiarla pierde la contraseña recién creada, y no lo sabe hasta que vuelve a buscarla |
+| **Los cuatro casos** en que esa página no aparece | Enseñar sólo el primero —«activa la verificación en dos pasos»— manda a buscar durante horas a quien tiene una cuenta de empresa donde está prohibida. **Ese no lo arregla él** |
+| **Los espacios no importan** | Va con A-05: ahora se pueden pegar las dieciséis letras tal como Google las enseña |
+
+El error de contraseña rechazada lleva ahora la misma dirección: era la frase
+que Dirección leyó el 13/10/2026 al no poder dar de alta su cuenta.
+
+### El dato vive en el catálogo, no en un `if`
+
+`dondeSeCreaLaContrasena` es un campo de `PROVEEDORES`. El día que se sepa la
+de Outlook se escribe ahí y la pantalla no se toca. Un `if` sobre Gmail dentro
+de la pantalla sería el mismo dato en dos sitios, que es como empiezan todos
+los que se separan.
+
+**Y `null` cuando no se sabe**, que es el caso de los otros cuatro: una
+dirección inventada que lleva a ninguna parte es peor que no dar ninguna,
+porque se sigue. Hoy sólo está comprobada la de Google.
+
+### Por qué un botón de copiar y no un enlace que abra el navegador
+
+Sería más cómodo, y **cuesta un permiso nuevo**. ARLES declara hoy
+`core:default` y nada más, y la auditoría B del §140 lo recogió como uno de los
+puntos que salieron limpios. Abrir el navegador desde la aplicación es un
+plugin, una dependencia que pasar por `cargo deny` y un permiso que acotar.
+
+**Queda como decisión escrita, no como olvido**: si Dirección considera que el
+gesto de más lo merece, se añade con su scope acotado.
+
+### Qué impide que vuelva
+
+Cuatro pruebas en `proveedores.spec.ts`, verificadas rompiéndolas:
+
+- **Gmail avisa del largo y no dice dónde** → falla con «Gmail avisa del largo:
+  expected null not to be null». Es la garantía de que avisar de que algo está
+  mal sin decir cómo arreglarlo no pasa (§95).
+- **Una dirección inventada y a medias** → falla con «Outlook: expected
+  'account.microsoft.com' to match /^https:\/\//».
+
+### Y dos defectos míos en el mismo arreglo
+
+1. **Me inventé un token de diseño**, `--arles-surface-alt`. No existe: los
+   reales son `surface`, `surface-raised` y `surface-hover`. El navegador
+   resuelve un `var()` inexistente **a nada, sin error**, así que el bloque se
+   habría visto sin fondo y nadie lo habría notado. **Cuarta vez en el
+   proyecto** — las otras tres están en la Fase 8. Lo encontré comprobando que
+   el token existía antes de usarlo, y luego verifiqué que el validador
+   también lo caza: lo nombra con archivo y token.
+
+2. **Miré una captura de antes de mi cambio.** El guion de la captura no
+   regenera la vista previa, así que medí el HTML anterior y di por hecho que
+   el botón no había cambiado. Es la trampa de las herramientas que este
+   proyecto ya tiene escrita: *«una sonda que no comprueba su código de salida
+   mide otra versión del código»*. Al regenerar, el botón pasó de 170×40 a
+   162×32 — había cambiado desde el principio.
