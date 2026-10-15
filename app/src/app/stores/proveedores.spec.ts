@@ -15,7 +15,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { PROVEEDORES, proveedorDe } from '@/app/stores/remitentes'
+import { PROVEEDORES, contrasenaParaEnviar, proveedorDe } from '@/app/stores/remitentes'
 
 describe('el proveedor se deduce del dominio', () => {
   it('Gmail, con sus dos dominios', () => {
@@ -79,5 +79,52 @@ describe('el proveedor se deduce del dominio', () => {
     for (const [, p] of PROVEEDORES) {
       expect(p.servidor, p.nombre).toMatch(/^[a-z0-9.-]+\.[a-z]{2,}$/i)
     }
+  })
+})
+
+/**
+ * ── LA CONTRASEÑA QUE GOOGLE ENSEÑA NO ES LA QUE EL SERVIDOR QUIERE ────────
+ *
+ * Google presenta la contraseña de aplicación en cuatro grupos de cuatro
+ * —`abcd efgh ijkl mnop`— sólo para que se pueda leer. Quien la copia, la
+ * copia entera, y hasta el 15/10/2026 ARLES la mandaba con los espacios
+ * dentro.
+ *
+ * **Y nada avisaba**, que es lo que lo hacía grave: el aviso del largo ya
+ * descontaba los espacios para contar, así que veía dieciséis y se callaba.
+ * La cuenta fallaba después con un «no se pudo autenticar» que parece culpa
+ * de quien la escribió.
+ *
+ * Lo encontró una pregunta de Dirección —«¿de dónde consigo la contraseña de
+ * 16 caracteres?»— y no una prueba, que es la razón de que estas cinco
+ * existan ahora.
+ */
+describe('la contraseña que sale hacia el servidor', () => {
+  const gmail = proveedorDe('alguien@gmail.com')
+  const outlook = proveedorDe('alguien@outlook.com')
+
+  it('le quita a Gmail los espacios con que Google la enseña', () => {
+    expect(contrasenaParaEnviar(gmail, 'abcd efgh ijkl mnop')).toBe('abcdefghijklmnop')
+  })
+
+  it('deja intacta una de Gmail ya escrita sin espacios', () => {
+    expect(contrasenaParaEnviar(gmail, 'abcdefghijklmnop')).toBe('abcdefghijklmnop')
+  })
+
+  it('NO toca una contraseña que no da el largo al quitar los espacios', () => {
+    // `mi clave secreta` son 14 letras sin espacios, no 16: no es una
+    // contraseña de aplicación mal pegada, es una contraseña con espacios.
+    // Limpiarla sería mandar otra distinta y hacer fallar un alta correcta.
+    expect(contrasenaParaEnviar(gmail, 'mi clave secreta')).toBe('mi clave secreta')
+  })
+
+  it('NO toca nada de un proveedor sin largo declarado', () => {
+    // Outlook, Yahoo, Zoho e iCloud no declaran largo. Ahí una contraseña con
+    // espacios es exactamente eso, y se manda tal cual.
+    expect(contrasenaParaEnviar(outlook, 'con espacios dentro')).toBe('con espacios dentro')
+  })
+
+  it('NO toca nada cuando el dominio no se reconoce', () => {
+    expect(contrasenaParaEnviar(null, 'a b c d')).toBe('a b c d')
   })
 })

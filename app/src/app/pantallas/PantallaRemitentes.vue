@@ -37,6 +37,7 @@ import { useI18n } from 'vue-i18n'
 import { resolverError } from '@/app/errores'
 import {
   borradorVacio,
+  contrasenaParaEnviar,
   proveedorDe,
   useRemitentesStore,
   type BorradorDeCuenta,
@@ -243,16 +244,23 @@ function cerrar(): void {
   store.limpiarAvisos()
 }
 
+// Las dos salidas de la contraseña pasan por `contrasenaParaEnviar`, y las
+// dos tienen que hacerlo: probar con una y guardar otra daría una prueba en
+// verde y una cuenta que no envía.
 async function probar(): Promise<void> {
   if (!borrador.value) return
-  await store.probar(borrador.value, contrasena.value, editando.value)
+  await store.probar(
+    borrador.value,
+    contrasenaParaEnviar(proveedor.value, contrasena.value),
+    editando.value,
+  )
 }
 
 async function guardar(): Promise<void> {
   if (!borrador.value) return
   const guardado = await store.guardar(
     borrador.value,
-    contrasena.value,
+    contrasenaParaEnviar(proveedor.value, contrasena.value),
     editando.value,
   )
   // Se cierra aunque la prueba no haya pasado: la cuenta quedó escrita, y

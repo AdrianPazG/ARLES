@@ -50,10 +50,40 @@ Hay que generar una aparte:
 1. **Activa la verificación en dos pasos** en la cuenta de Google. Sin esto, la
    opción de contraseñas de aplicación **no aparece** — es el punto donde más
    gente se atasca.
-2. Entra en la configuración de seguridad de Google y busca **«Contraseñas de
-   aplicaciones»**.
-3. Crea una nueva. Google da **dieciséis letras**. Esa es la que se escribe en
-   ARLES, no la de la cuenta.
+2. Entra en **[myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)**.
+   Es el camino directo; por menús es
+   *Gestionar tu cuenta de Google → Seguridad → Verificación en dos pasos →
+   Contraseñas de aplicaciones*, al final de la página.
+3. Escribe un nombre que te recuerde para qué es —`ARLES`— y pulsa **Generar**.
+4. Google enseña **dieciséis letras en cuatro grupos de cuatro**:
+   `abcd efgh ijkl mnop`. Esa es la que se escribe en ARLES, no la de la
+   cuenta. **Sólo se enseña una vez**: si cierras la ventana, hay que generar
+   otra.
+
+> **Los espacios son del dibujo, no de la contraseña.** Google la parte en
+> cuatro grupos para que se pueda leer; lo que vale son las dieciséis letras
+> seguidas. **ARLES los quita solo** desde el 15/10/2026, así que se puede
+> pegar tal como Google la enseña — pero conviene saberlo, porque en cualquier
+> otro programa hay que quitarlos a mano.
+
+> ### Si la opción no aparece, son cuatro casos y no uno
+>
+> | Qué pasa | Qué hacer |
+> |---|---|
+> | **No tienes la verificación en dos pasos** | Actívala primero. Es el caso de nueve de cada diez |
+> | **La cuenta es de Google Workspace** (un correo de empresa, no `@gmail.com`) | Puede estar desactivado para todo el dominio. Lo decide el administrador, y desde 2025 Google empuja a las empresas hacia OAuth |
+> | **La cuenta tiene el Programa de Protección Avanzada** | Ese programa **revoca** las contraseñas de aplicación y no deja crear ninguna |
+> | **Tu organización lo bloquea** | Lo mismo que el segundo caso, decidido por política |
+>
+> Los dos primeros son la razón de que **R-24 pida una cuenta de Gmail
+> desechable** y no la corporativa: una cuenta personal nueva con verificación
+> en dos pasos no tropieza con ninguno de los cuatro.
+>
+> **Comprobado el 15/10/2026**, con la salvedad de que la página de ayuda de
+> Google no se alcanza desde el contenedor de desarrollo: esto sale de fuentes
+> secundarias y de la documentación de administración de Workspace. Si al
+> seguirlo encuentras otra cosa, dímelo y lo corrijo — **una instrucción que
+> nadie ha seguido no es una instrucción verificada**.
 
 Si algún día quieres que ARLES deje de tener acceso, basta con borrar esa
 contraseña de aplicación desde la cuenta de Google. No hace falta cambiar nada

@@ -90,6 +90,7 @@ mirando, no una comprobación automática.
 | **R-01** | 🔵 Requisito | Remitentes | Dar de alta un correo es **demasiado complicado**. Tiene que ser sencillo e intuitivo | ✅ **Hecho** 14/10/2026 |
 | **R-02** | 🔵 Requisito | WhatsApp | Lo mismo con el alta de un número | ✅ **Hecho** 14/10/2026 · con un límite declarado |
 | **A-01** | 🟡 Molesto | Contactos | La cabecera de la tabla se leía **«Correo princip…»** y **«WhatsApp pri…»**: no cabían en su columna | ✅ **Arreglado** 14/10/2026 |
+| **A-05** | 🟠 Grave | Remitentes | La contraseña de aplicación de Gmail se mandaba **con los espacios** con que Google la enseña, y **nada avisaba** | ✅ **Arreglado** 15/10/2026 |
 
 > Los hallazgos con **A** los encontré yo auditando, no Dirección probando. Van
 > en la misma tabla a propósito: separarlos en dos listas haría que una de las
@@ -568,3 +569,75 @@ sin un error de consola. Mirarlo encontró cuatro cosas:
 
 Ninguna la caza una comprobación: las cuatro son dibujos correctos que dicen
 algo que no es. **Antes de cerrar una entrega, se abre y se mira.**
+
+---
+
+## A-05 · La contraseña de Gmail viajaba con los espacios del dibujo
+
+**🟠 Grave · Remitentes · ✅ Arreglado 15/10/2026**
+
+### Lo encontró una pregunta, no una prueba
+
+Dirección preguntó: *«¿de dónde consigo la contraseña de 16 caracteres de
+Google?»*. Al escribir la respuesta hubo que mirar cómo la entrega Google, y
+ahí estaba:
+
+```
+abcd efgh ijkl mnop
+```
+
+**Cuatro grupos de cuatro.** Los espacios son del dibujo —están para que se
+pueda leer— y lo que vale son las dieciséis letras seguidas. Quien la copia, la
+copia entera, y ARLES la mandaba al servidor **tal cual**, espacios incluidos.
+Gmail la rechaza.
+
+### Por qué era grave, y no sólo molesto
+
+**Nada avisaba.** El aviso del largo ya descontaba los espacios para contar, así
+que con `abcd efgh ijkl mnop` veía dieciséis, daba la contraseña por buena y se
+callaba. En pantalla todo estaba correcto.
+
+El fallo llegaba después, del servidor, como «no se pudo autenticar» — un
+mensaje que parece decir *te equivocaste al escribirla*. Y no se había
+equivocado: había copiado exactamente lo que Google le enseñó.
+
+> Es el patrón que este proyecto ya conoce con otra cara: **dos piezas
+> correctas y el agujero en la junta.** El aviso limpiaba para contar y el
+> envío no limpiaba para mandar, y cada uno por separado hacía lo suyo bien.
+
+### Qué se hizo
+
+`contrasenaParaEnviar(proveedor, escrita)`, y las **dos** salidas de la
+contraseña pasan por ella: probar la conexión y guardar. Que una limpie y la
+otra no daría una prueba en verde y una cuenta que no envía.
+
+**No se quitan los espacios siempre**, y la distinción es el arreglo:
+
+| Lo que se escribe | Qué sale | Por qué |
+|---|---|---|
+| `abcd efgh ijkl mnop` en Gmail | `abcdefghijklmnop` | Sin espacios da 16, el largo que Gmail declara |
+| `mi clave secreta` en Gmail | igual | Sin espacios da 14, no 16: no es una de aplicación mal pegada |
+| `con espacios dentro` en Outlook | igual | Outlook no declara largo. Ahí una contraseña con espacios **es** una contraseña con espacios |
+| Cualquier cosa, dominio no reconocido | igual | ARLES no se inventa reglas de un proveedor que no conoce |
+
+Limpiar siempre sería destruir una contraseña válida y hacer fallar un alta
+correcta.
+
+### Qué impide que vuelva
+
+Cinco pruebas en `proveedores.spec.ts`, verificadas **en las dos direcciones**,
+que es lo que esta garantía necesita porque se puede romper por los dos lados:
+
+- **No limpiar nunca** —el comportamiento de ayer—: falla con
+  «expected 'abcd efgh ijkl mnop' to be 'abcdefghijklmnop'».
+- **Limpiar siempre**: fallan tres, entre ellas
+  «expected 'miclavesecreta' to be 'mi clave secreta'».
+
+### Y la guía estaba vaga justo en ese paso
+
+`GUIA-DE-CONEXION-REAL.md` decía «entra en la configuración de seguridad de
+Google y busca Contraseñas de aplicaciones». Ahora lleva la dirección directa,
+el camino por menús, el aviso de que **sólo se enseña una vez**, y los **cuatro
+casos** en que la opción no aparece —sin verificación en dos pasos, cuenta de
+Workspace, Protección Avanzada, o bloqueo de la organización— que son la razón
+de que R-24 pida una cuenta desechable y no la corporativa.

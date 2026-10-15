@@ -132,6 +132,43 @@ export function proveedorDe(direccion: string): Proveedor | null {
   return null
 }
 
+/**
+ * La contraseña tal como hay que mandarla al servidor.
+ *
+ * ── GOOGLE LA ENSEÑA CON ESPACIOS, Y EL SERVIDOR NO LOS QUIERE (15/10/2026)
+ *
+ * Google presenta la contraseña de aplicación en cuatro grupos de cuatro
+ * —`abcd efgh ijkl mnop`— **sólo para que se pueda leer**. Lo que vale son las
+ * dieciséis letras; los espacios son del dibujo.
+ *
+ * Quien la copia, la copia entera. Y hasta hoy ARLES la mandaba tal cual, con
+ * los tres espacios dentro, así que Gmail la rechazaba. Lo peor no es eso: es
+ * que **nada avisaba**. El aviso del largo ya descontaba los espacios para
+ * contar, así que con `abcd efgh ijkl mnop` veía dieciséis, se callaba, y la
+ * cuenta fallaba después con un «no se pudo autenticar» que parece culpa de
+ * quien lo escribió. Lo encontró una pregunta de Dirección, no una prueba.
+ *
+ * ── POR QUÉ NO SE QUITAN LOS ESPACIOS SIEMPRE ──
+ *
+ * Porque una contraseña puede llevarlos de verdad. Outlook, Yahoo, Zoho e
+ * iCloud no declaran ningún largo —su `largoDeContrasena` es `null`— y ahí una
+ * contraseña con espacios es una contraseña con espacios: quitárselos sería
+ * mandar otra distinta y hacer fallar un alta correcta.
+ *
+ * Así que sólo se quitan cuando hay un largo declarado **y quitarlos da
+ * exactamente ese largo**. Con Gmail, `abcd efgh ijkl mnop` da 16 y se limpia;
+ * `mi clave secreta` da 15 y se respeta tal cual.
+ */
+export function contrasenaParaEnviar(
+  proveedor: Proveedor | null,
+  escrita: string,
+): string {
+  const largo = proveedor?.largoDeContrasena
+  if (!largo) return escrita
+  const sinEspacios = escrita.replace(/\s/g, '')
+  return sinEspacios.length === largo ? sinEspacios : escrita
+}
+
 export function borradorVacio(): BorradorDeCuenta {
   return {
     servidor: GMAIL.servidor,
