@@ -272,16 +272,52 @@ fn validar_sitio(entrada: &str) -> Result<Option<String>, &'static str> {
     if s.contains(['\r', '\n']) || s.chars().any(char::is_whitespace) {
         return Err("empresa.error.sitioInvalido");
     }
-    let resto = s
+    // ── SE LE PONE EL `https://` SI NO LO TRAE (16/10/2026) ───────────────
+    //
+    // Dirección escribió `telemetrymx.com` y ARLES se negó a guardar, pidiendo
+    // «la dirección completa, empezando por https://». Nadie escribe el
+    // esquema al dictar su propio sitio web, y exigirlo es hacer teclear algo
+    // que se puede deducir — el mismo defecto que R-01 arregló en el alta de
+    // correo.
+    //
+    // ── LA CONDICIÓN NO ES «SI NO EMPIEZA POR HTTP», Y LA DIFERENCIA ES DE
+    //    SEGURIDAD
+    //
+    // Este valor acaba en un `href`, así que un esquema ejecutable aquí es XSS
+    // servido por la propia configuración del usuario. Anteponer `https://` a
+    // cualquier cosa sin `http` delante convertiría `javascript:alert(1)` en
+    // `https://javascript:alert(1)` — que pasaría la comprobación siguiente y
+    // **dejaría entrar justo lo que la prueba de seguridad rechaza**.
+    //
+    // Así que sólo se completa lo que **no puede llevar esquema**: sin `:` y
+    // sin empezar por `/`. Con eso:
+    //
+    //   · `telemetrymx.com`      → `https://telemetrymx.com`   se completa
+    //   · `javascript:alert(1)`  → lleva `:`, no se toca       se rechaza
+    //   · `data:text/html,<x>`   → lleva `:`, no se toca       se rechaza
+    //   · `//telemetry.mx`       → empieza por `/`             se rechaza
+    //
+    // Un sitio con puerto —`ejemplo.com:8080`— lleva `:` y no se completa, así
+    // que hay que escribirle el esquema. Es el precio de que la regla sea una
+    // sola y no tenga que distinguir un puerto de un esquema: un sitio
+    // corporativo con puerto no existe en la práctica, y un `javascript:` que
+    // entra, sí.
+    let completo: String = if s.contains(':') || s.starts_with('/') {
+        s.to_owned()
+    } else {
+        format!("https://{s}")
+    };
+
+    let resto = completo
         .strip_prefix("https://")
-        .or_else(|| s.strip_prefix("http://"))
+        .or_else(|| completo.strip_prefix("http://"))
         .ok_or("empresa.error.sitioSinEsquema")?;
     // `https://` a secas no es una dirección, y un host sin punto tampoco lo es
     // fuera de una red local.
     if !resto.contains('.') || resto.starts_with('.') || resto.starts_with('/') {
         return Err("empresa.error.sitioInvalido");
     }
-    Ok(Some(s.to_owned()))
+    Ok(Some(completo))
 }
 
 #[cfg(test)]
@@ -333,7 +369,10 @@ mod tests {
             pais: "ES".into(),
             zona_horaria: "Europe/Madrid".into(),
             correo_corporativo: "no-es-un-correo".into(),
-            sitio_web: "telemetry.mx".into(),
+            // `ftp://` no se completa (lleva `:`) y no es http ni https.
+            // Antes aquí decía `telemetry.mx`, que desde el 16/10/2026 es
+            // válido: se le pone el `https://` solo.
+            sitio_web: "ftp://telemetry.mx".into(),
         };
         let campos = campos_con_error(&b);
         assert_eq!(campos.len(), 5, "faltan campos por reportar: {campos:?}");
@@ -371,15 +410,93 @@ mod tests {
             "data:text/html,<script>",
             "JavaScript:alert(1)",
             "//telemetry.mx",
-            "telemetry.mx",
             "https://",
             "https:// telemetry.mx",
+            // Lleva `:`, así que NO se le completa el esquema y cae aquí. Es
+            // el precio declarado de la regla, y va en la prueba para que
+            // quede visible en vez de descubrirse usándolo.
+            "ejemplo.com:8080",
         ] {
             let mut b = borrador_valido();
             b.sitio_web = sitio.into();
             assert!(
                 campos_con_error(&b).contains(&CampoDeEmpresa::SitioWeb),
                 "debería rechazarse el sitio {sitio:?}"
+            );
+        }
+    }
+
+    /// ── SE LE PONE EL `https://` AL SITIO QUE NO LO TRAE ────────────────
+    ///
+    /// Dirección escribió `telemetrymx.com` el 16/10/2026 y ARLES se negó a
+    /// guardar, pidiendo «la dirección completa, empezando por https://».
+    /// Nadie escribe el esquema al dictar su propio sitio.
+    ///
+    /// Lo que se guarda es **lo completado**, no lo tecleado: si se guardara
+    /// lo tecleado, el `href` saldría sin esquema y el navegador lo leería
+    /// como una ruta relativa.
+    #[test]
+    fn al_sitio_sin_esquema_se_le_pone_https() {
+        for (escrito, esperado) in [
+            ("telemetrymx.com", "https://telemetrymx.com"),
+            ("www.telemetrymx.com", "https://www.telemetrymx.com"),
+            (
+                "telemetrymx.com/contacto",
+                "https://telemetrymx.com/contacto",
+            ),
+            // Lo que ya trae esquema se respeta tal cual, `http` incluido:
+            // completar no es reescribir.
+            ("http://telemetrymx.com", "http://telemetrymx.com"),
+            ("https://telemetrymx.com", "https://telemetrymx.com"),
+        ] {
+            let mut b = borrador_valido();
+            b.sitio_web = escrito.into();
+            let d = DatosDeEmpresa::validar(&b)
+                .unwrap_or_else(|_| panic!("debería valer: {escrito:?}"));
+            assert_eq!(d.sitio_web(), Some(esperado), "al escribir {escrito:?}");
+        }
+    }
+
+    /// ── Y COMPLETARLO NO PUEDE ABRIR LA PUERTA QUE LA OTRA PRUEBA CIERRA ──
+    ///
+    /// Es el riesgo real de este cambio, así que tiene prueba propia: si la
+    /// condición fuera «si no empieza por http», `javascript:alert(1)` se
+    /// convertiría en `https://javascript:alert(1)` — que **pasa** la
+    /// comprobación de esquema y la del punto, y entraría en el `href`.
+    ///
+    /// ── ESTA PRUEBA NACIÓ SIN PROBAR NADA, Y LO ENCONTRÓ ROMPERLA ───────
+    ///
+    /// Su primera versión listaba `javascript:alert(1)`, `file:///etc/passwd`
+    /// y `data:text/html,<script>`, y **pasaba en verde con el código roto**.
+    /// El motivo: ninguno lleva un **punto**, así que al completarlos caían en
+    /// la comprobación siguiente —«esto no parece un dominio»— y no en la del
+    /// esquema. La prueba decía cubrir una cosa y cubría otra.
+    ///
+    /// Los de ahora llevan punto a propósito, que es lo que hace falta para
+    /// llegar vivo hasta el `href`: `javascript:alert(document.cookie)` con
+    /// `https://` delante pasa las dos comprobaciones.
+    ///
+    /// Verificada el 16/10/2026 con la condición equivocada —«si no empieza
+    /// por http, ponle https://»—: falla nombrando el payload con punto.
+    #[test]
+    fn completar_el_esquema_no_cuela_uno_ejecutable() {
+        for peligroso in [
+            // Con punto: son los que pasarían la comprobación de dominio.
+            "javascript:alert(document.cookie)",
+            "JavaScript:fetch('https://malo.mx')",
+            "data:text/html;base64,PHNjcmlwdD4.x",
+            "vbscript:msgbox(document.url)",
+            // Sin punto: caen por el dominio, y se dejan para que la prueba
+            // cubra los dos caminos.
+            "javascript:alert(1)",
+            "file:///etc/passwd",
+        ] {
+            let mut b = borrador_valido();
+            b.sitio_web = peligroso.into();
+            let campos = campos_con_error(&b);
+            assert!(
+                campos.contains(&CampoDeEmpresa::SitioWeb),
+                "{peligroso:?} tiene que seguir rechazándose después de completar"
             );
         }
     }

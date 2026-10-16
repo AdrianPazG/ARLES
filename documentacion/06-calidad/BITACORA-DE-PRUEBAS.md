@@ -92,6 +92,7 @@ mirando, no una comprobación automática.
 | **A-01** | 🟡 Molesto | Contactos | La cabecera de la tabla se leía **«Correo princip…»** y **«WhatsApp pri…»**: no cabían en su columna | ✅ **Arreglado** 14/10/2026 |
 | **A-05** | 🟠 Grave | Remitentes | La contraseña de aplicación de Gmail se mandaba **con los espacios** con que Google la enseña, y **nada avisaba** | ✅ **Arreglado** 15/10/2026 |
 | **A-06** | 🟡 Molesto | Remitentes | La guía del alta decía **«busca Contraseñas de aplicaciones»** — un sitio donde buscar, no una instrucción | ✅ **Arreglado** 15/10/2026 |
+| **H-04** | 🟡 Molesto | Configuración | No dejaba guardar `telemetrymx.com`: exigía escribir **`https://` a mano** | ✅ **Arreglado** 16/10/2026 |
 
 > Los hallazgos con **A** los encontré yo auditando, no Dirección probando. Van
 > en la misma tabla a propósito: separarlos en dos listas haría que una de las
@@ -733,3 +734,82 @@ Cuatro pruebas en `proveedores.spec.ts`, verificadas rompiéndolas:
    proyecto ya tiene escrita: *«una sonda que no comprueba su código de salida
    mide otra versión del código»*. Al regenerar, el botón pasó de 170×40 a
    162×32 — había cambiado desde el principio.
+
+---
+
+## H-04 · El sitio web exigía escribir «https://» a mano
+
+**🟡 Molesto · Configuración · ✅ Arreglado 16/10/2026**
+
+### Qué pasó
+
+Dirección escribió `telemetrymx.com` y ARLES se negó a guardar **toda la
+configuración**, con el campo en rojo y:
+
+> *«Escribe la dirección completa, empezando por https://.»*
+
+Nadie escribe el esquema al dictar su propio sitio web, y exigirlo es hacer
+teclear algo que se puede deducir — el mismo defecto que R-01 arregló en el
+alta de correo.
+
+> **Lo que sí estaba bien y conviene decirlo:** el campo **ya era opcional**.
+> Se puede dejar vacío y guardar. Por eso no lleva asterisco, a diferencia del
+> nombre comercial y el correo corporativo. Lo que bloqueaba no era que
+> faltara: era que lo escrito no tenía la forma exigida.
+
+### Qué se hizo
+
+Si lo escrito **no puede llevar esquema**, se le pone `https://` solo:
+
+| Lo que escribes | Lo que se guarda |
+|---|---|
+| `telemetrymx.com` | `https://telemetrymx.com` |
+| `www.telemetrymx.com/contacto` | `https://www.telemetrymx.com/contacto` |
+| `http://telemetrymx.com` | igual — completar no es reescribir |
+
+### La condición no es «si no empieza por http», y la diferencia es de seguridad
+
+Este valor acaba en un `href`, así que un esquema ejecutable ahí es XSS servido
+por la propia configuración del usuario. Hay una prueba de seguridad que lo
+cierra desde la Fase 3.
+
+Anteponer `https://` a todo lo que no empiece por `http` convertiría
+`javascript:alert(document.cookie)` en `https://javascript:alert(document.cookie)`,
+que **pasa las dos comprobaciones** y entra en el `href`.
+
+Así que sólo se completa lo que no lleva `:` ni empieza por `/`. El precio
+declarado: un sitio con puerto —`ejemplo.com:8080`— lleva `:`, no se completa y
+hay que escribirle el esquema. Un sitio corporativo con puerto no existe en la
+práctica; un `javascript:` que entra, sí.
+
+### Mi prueba nueva nació sin probar nada, y lo encontró romperla
+
+Escribí `completar_el_esquema_no_cuela_uno_ejecutable` expresamente para ese
+riesgo, y **pasó en verde con el código roto**.
+
+El motivo: sus ejemplos —`javascript:alert(1)`, `file:///etc/passwd`,
+`data:text/html,<script>`— **no llevan un punto**. Al completarlos caían en la
+comprobación siguiente —«esto no parece un dominio»— y no en la del esquema. La
+prueba decía cubrir una cosa y cubría otra.
+
+Y el comentario que le puse afirmaba *«verificada poniendo esa condición
+equivocada: falla nombrando javascript:alert(1)»*. **Era falso**: lo que fallaba
+eran las otras dos pruebas, no la mía.
+
+Los ejemplos de ahora llevan punto a propósito —`javascript:alert(document.cookie)`—
+porque es lo que hace falta para llegar vivo hasta el `href`. Con esos, la
+condición equivocada **sí** la caza, nombrando el payload.
+
+> **Una afirmación de verificación es una afirmación como cualquier otra**, y
+> en este proyecto llevan varias entregas siendo las que más veces resultan
+> falsas. Ésta es la enésima.
+
+### Lo que esto no arregla, y es la pregunta de Dirección
+
+**El sitio web no se usa en ninguna parte.** Se guarda, se lee de vuelta al
+formulario, y ahí acaba: no es variable de plantilla —las cuatro son `nombre`,
+`apellido`, `empresa` y `mi_empresa`—, no sale en ninguna firma, no entra en el
+preflight y no viaja en ningún correo.
+
+Es un campo que pide trabajo en el primer minuto de uso y no devuelve nada. La
+decisión de qué hacer con él está planteada a Dirección.

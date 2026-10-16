@@ -807,7 +807,9 @@ export const es = {
       pais: 'Determina el marco legal aplicable. Esta versión opera en México.',
       zonaHoraria: 'Decide a qué hora sale cada correo.',
       correoCorporativo: 'Para avisos internos de ARLES. No se usa para enviar campañas.',
-      sitioWeb: 'Opcional. Con https:// delante.',
+      // Antes decía «Opcional. Con https:// delante.» y ARLES se negaba a
+      // guardar `telemetrymx.com`. Desde el 16/10/2026 se le pone solo.
+      sitioWeb: 'Opcional. Puedes escribirlo sin https:// — se añade solo.',
     },
     // Claves que devuelve `arles_core::empresa`. Una por motivo, porque «dato
     // inválido» no dice qué corregir.
@@ -823,8 +825,16 @@ export const es = {
       // entera, en silencio. Lo vigila una prueba que compila todos los textos.
       correoInvalido: "Revisa que el correo tenga la forma nombre{'@'}dominio.com.",
       sitioLargo: 'La dirección es demasiado larga.',
-      sitioSinEsquema: 'Escribe la dirección completa, empezando por https://.',
-      sitioInvalido: 'Esta dirección no es válida. Debe empezar por https:// o http://.',
+      // Ya no sale al escribir `telemetrymx.com`, que ahora se completa.
+      // Queda para lo que SÍ lleva un esquema y no es web: `ftp://`,
+      // `javascript:`, `data:`. Por eso ya no dice «escribe https://
+      // delante» —eso no arreglaría un `javascript:`— sino qué se acepta.
+      sitioSinEsquema:
+        'Esto no parece una dirección de sitio web. Escríbela como ' +
+        'tuempresa.com, o completa con https:// delante.',
+      sitioInvalido:
+        'Esta dirección no es válida. Escríbela como tuempresa.com, sin ' +
+        'espacios.',
     },
   },
 
