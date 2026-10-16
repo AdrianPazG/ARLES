@@ -707,7 +707,7 @@ mod tests {
 
     use crate::conexion::ClaveMaestra;
 
-    fn base() -> (tempfile::TempDir, Db, CompanyId) {
+    pub(super) fn base() -> (tempfile::TempDir, Db, CompanyId) {
         let dir = tempfile::tempdir().expect("temporal");
         let clave = ClaveMaestra::generar().expect("genera");
         let db = Db::abrir(&dir.path().join("arles.db"), &clave).expect("abre");
@@ -1784,5 +1784,82 @@ mod tests {
             db.borrar_contacto(otra, id),
             Err(DbError::ContactoNoExiste)
         ));
+    }
+}
+
+#[cfg(test)]
+mod reproduccion_h05 {
+    //! Reproducción del H-05, reportado por Dirección el 16/10/2026: dar de
+    //! alta un contacto a mano devolvió «Ocurrió un error al acceder a los
+    //! datos», que es `DbError::Sqlite` genérico — SQLite rechazó algo y
+    //! nadie tradujo qué.
+    //!
+    //! Hace EXACTAMENTE lo de la captura: empresa configurada, lista vacía, y
+    //! un contacto con nombre, apellido, empresa y un solo correo.
+    use super::tests::base;
+    use arles_core::contacto::{BorradorDeCanal, BorradorDeContacto, DatosDeContacto};
+    use arles_core::Canal;
+
+    #[test]
+    fn el_alta_a_mano_de_la_captura_de_direccion() {
+        let (_d, db, empresa) = base();
+
+        let antes = db
+            .listar_contactos(empresa, 100, 0)
+            .expect("leer la lista vacía");
+        assert_eq!(antes.contactos.len(), 0, "la base empieza vacía, como en la captura");
+
+        let borrador = BorradorDeContacto {
+            nombre: "Adrian".into(),
+            apellido: "Paz".into(),
+            empresa: "Insight".into(),
+            canales: vec![BorradorDeCanal {
+                canal: Canal::Correo,
+                valor: "apazg@outlook.com".into(),
+                principal: true,
+            }],
+        };
+        let datos = DatosDeContacto::validar(&borrador, "MX")
+            .expect("el borrador de la captura es válido");
+
+        let r = db.crear_contacto(empresa, &datos);
+        assert!(r.is_ok(), "el alta de la captura falló con: {:?}", r.err());
+
+        // Y lo que la pantalla hace JUSTO DESPUÉS: recargar. Aquí la lista ya
+        // trae un canal, así que `direcciones_suprimidas` recibe algo — con
+        // cero contactos devolvía pronto y ese tramo no se ejercitaba.
+        let despues = db
+            .listar_contactos(empresa, 0, 100)
+            .expect("recargar tras el alta");
+        assert_eq!(despues.contactos.len(), 1, "el contacto tiene que estar");
+
+        let canales: Vec<_> = despues
+            .contactos
+            .iter()
+            .flat_map(|c| c.datos.canales.iter().cloned())
+            .collect();
+        let supr = db.direcciones_suprimidas(empresa, &canales);
+        assert!(supr.is_ok(), "las suprimidas fallaron con: {:?}", supr.err());
+    }
+
+    /// El segundo contacto, que es donde se cruzan índices únicos.
+    #[test]
+    fn dos_altas_seguidas_a_mano() {
+        let (_d, db, empresa) = base();
+        for (n, correo) in [("Adrian", "apazg@outlook.com"), ("Ana", "ana@empresa.mx")] {
+            let b = BorradorDeContacto {
+                nombre: n.into(),
+                apellido: "Paz".into(),
+                empresa: "Insight".into(),
+                canales: vec![BorradorDeCanal {
+                    canal: Canal::Correo,
+                    valor: correo.into(),
+                    principal: true,
+                }],
+            };
+            let d = DatosDeContacto::validar(&b, "MX").expect("válido");
+            let r = db.crear_contacto(empresa, &d);
+            assert!(r.is_ok(), "el alta de {correo} falló con: {:?}", r.err());
+        }
     }
 }

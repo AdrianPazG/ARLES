@@ -93,6 +93,17 @@ mirando, no una comprobación automática.
 | **A-05** | 🟠 Grave | Remitentes | La contraseña de aplicación de Gmail se mandaba **con los espacios** con que Google la enseña, y **nada avisaba** | ✅ **Arreglado** 15/10/2026 |
 | **A-06** | 🟡 Molesto | Remitentes | La guía del alta decía **«busca Contraseñas de aplicaciones»** — un sitio donde buscar, no una instrucción | ✅ **Arreglado** 15/10/2026 |
 | **H-04** | 🟡 Molesto | Configuración | No dejaba guardar `telemetrymx.com`: exigía escribir **`https://` a mano** | ✅ **Arreglado** 16/10/2026 |
+| **H-05** | 🔴 Bloqueante | Contactos | «Ocurrió un error al acceder a los datos. Cierra ARLES y vuelve a abrirlo» al dar de alta un contacto | 🔎 **Investigando** · no se reproduce |
+| **H-06** | 🔴 Bloqueante | Nueva campaña | **El horario de envío sale vacío** y no se puede avanzar del paso 5 | 🔎 **Diagnosticado** · nadie puede crear una ventana |
+| **H-07** | 🟠 Grave | Remitentes | La ficha del remitente **se parte en vertical** cuando hay un panel al lado: «Cifrado / (STARTTLS, / puerto / 587» una palabra por línea | 📋 **Abierto** |
+| **H-08** | 🟡 Molesto | Inicio | El paso «Conectar una cuenta remitente» **no se marca** aunque haya un remitente configurado | 📋 **Abierto** |
+| **H-09** | 🟡 Molesto | Nueva campaña | El hueco entre «Déjalo en blanco para usar el de la cuenta» y lo que sigue es **demasiado estrecho** | 📋 **Abierto** |
+| **H-10** | 🟠 Grave | Nueva campaña | No dice **cuál es el máximo diario por defecto**, así que se deja en blanco sin saber qué se está aceptando | 📋 **Abierto** |
+| **R-03** | 🔵 Requisito | Plantillas | Poder poner **negrita y cursiva** en el texto | 📋 **Abierto** |
+| **R-04** | 🔴 Requisito | Firmas | **Una firma no puede ofrecer variables del contacto.** Que la firma del remitente lleve el nombre de a quien se escribe es una tragedia | 📋 **Abierto** |
+| **R-05** | 🔵 Requisito | Firmas | Poder poner **una imagen** en la firma, como en Outlook | 📋 **Abierto** |
+| **R-06** | 🟠 Requisito | Plantillas | **No se pueden editar** las plantillas ni las firmas ya creadas | 📋 **Abierto** |
+| **R-07** | 🔵 Requisito | Remitentes | El correo de prueba **llega a spam** — qué se puede hacer | 📋 **Abierto** · es la 7.5 |
 
 > Los hallazgos con **A** los encontré yo auditando, no Dirección probando. Van
 > en la misma tabla a propósito: separarlos en dos listas haría que una de las
@@ -813,3 +824,233 @@ preflight y no viaja en ningún correo.
 
 Es un campo que pide trabajo en el primer minuto de uso y no devuelve nada. La
 decisión de qué hacer con él está planteada a Dirección.
+
+---
+
+# La ronda del 16/10/2026
+
+**Y lo primero, que no es un defecto: ARLES mandó un correo de verdad.** Con la
+cuenta `pruebas.telemetry@gmail.com`, a una dirección real, y el servidor lo
+aceptó. **H-03 queda cerrado** — era el bloqueante desde el 13/10, y con él
+cerrado la Fase 5 deja de estar probada sólo contra un servidor de mentira.
+
+---
+
+## H-05 · «Ocurrió un error al acceder a los datos» al dar de alta un contacto
+
+**🔴 Bloqueante · Contactos · 🔎 Investigando**
+
+### Qué se vio
+
+Al rellenar «Agregar contacto» —Adrian / Paz / Insight / `apazg@outlook.com`— y
+pulsar **Dar de alta**:
+
+> **Ocurrió un error al acceder a los datos.**
+> Cierra ARLES y vuelve a abrirlo.
+> Las operaciones incompletas se revirtieron por completo.
+
+### Lo que encontré, y es un defecto aunque no sea la causa
+
+**Ese mensaje es un cajón de sastre, y miente sobre lo que pasó.** En
+`stores/contactos.ts`:
+
+```ts
+if (!esErrorIpc(e)) {
+  errorGeneral.value = 'error.db.sqlite'
+  return
+}
+```
+
+Cualquier cosa que no sea un error tipado del núcleo —un fallo del propio
+JavaScript, un problema al serializar, cualquier excepción de la webview— se
+reporta como **«error al acceder a los datos»** y manda a **cerrar y reabrir
+ARLES**, que si la causa es otra no arregla nada.
+
+Es exactamente el defecto que el fallo de migración tenía el 13/10: una
+instrucción que el producto no puede cumplir. Y aquí es peor, porque además
+**afirma una causa que no conoce**.
+
+### Lo que NO es
+
+Reproduje el camino exacto de la captura en `arles-db`, contra una base nueva
+con todas las migraciones: leer la lista vacía, validar ese borrador, crear el
+contacto, recargar la lista y resolver las direcciones suprimidas. **Pasa
+entero**, y un segundo alta seguido también.
+
+Así que el alta en sí funciona. Las pruebas se quedan en el repositorio —
+`reproduccion_h05`— porque cubren un camino que ninguna cubría de punta a
+punta.
+
+### Qué hace falta para cerrarlo
+
+**El mensaje se traga la causa**, así que no puedo ir más allá sin verla. Lo
+que se va a hacer: que ARLES **enseñe el detalle técnico** del error, plegado,
+para poder pegarlo aquí. Un producto que pierde la causa de sus propios fallos
+obliga a adivinar.
+
+---
+
+## H-06 · El horario de envío sale vacío y no se puede crear ninguna campaña
+
+**🔴 Bloqueante · Nueva campaña · 🔎 Diagnosticado**
+
+### Qué se vio
+
+Paso 5 de 9, «Ritmo y horario». El desplegable **Horario de envío** no tiene
+ninguna opción, y sin elegir uno **«Continuar» no deja pasar**. La campaña no
+se puede crear.
+
+### La causa, y es el patrón de este proyecto por decimoctava vez
+
+Las opciones salen de las ventanas de envío guardadas. **Y no hay forma de
+crear una desde la aplicación.**
+
+| | |
+|---|---|
+| El comando `guardar_ventana` | **existe**, registrado en la frontera |
+| El store `campanas.ts` | **lo envuelve**, en `guardarVentana()` |
+| Alguna pantalla que lo llame | **ninguna** |
+
+Es el hueco del §9 en su forma de siempre: las piezas correctas y el cable sin
+conectar. La propia lista de Inicio lo dice —«Definir una ventana de envío ·
+*Llega en la entrega 6*»— mientras el asistente **la exige para avanzar**.
+
+### Por qué la comprobación que persigue esto no lo cazó
+
+`ningun_comando_se_queda_sin_quien_lo_llame` compara los comandos de
+`generate_handler!` con quien los invoca **en todo `app/src`**. Y el store lo
+invoca, así que pasa en verde.
+
+El tramo que falta es el siguiente: **store → pantalla**. Un comando que sólo
+llega hasta el store es exactamente igual de inútil que uno que no llega a
+ninguna parte, y hasta hoy nadie lo medía.
+
+---
+
+## H-07 · La ficha del remitente se parte en vertical
+
+**🟠 Grave · Remitentes · 📋 Abierto**
+
+Con el panel de «Mandar un correo de prueba» abierto al lado, la ficha de la
+cuenta se estrecha y su línea de configuración se parte **una palabra por
+línea**:
+
+```
+Cifrado
+(STARTTLS,
+puerto
+587
+Hasta
+50
+al
+día
+```
+
+Cerrado el panel, la misma línea cabe entera. Es un defecto de maquetación: la
+ficha no tiene ancho mínimo y el panel se lo come.
+
+> **`sonda:encimado` no lo caza**, y es información: mide textos montados,
+> cortados y asomados, y éste **cabe perfectamente** — está partido, no
+> desbordado. Una palabra por línea es legible carácter a carácter y legible es
+> lo que la sonda comprueba.
+
+---
+
+## H-08 · El paso del remitente no se marca
+
+**🟡 Molesto · Inicio · 📋 Abierto**
+
+Con una cuenta configurada y «Lista para enviar», la lista de Inicio sigue
+enseñando **«1 de 6»** y «Conectar una cuenta remitente» sin su palomita,
+mientras «Configurar tu empresa» sí la tiene.
+
+Un contador que no sube cuando acabas de hacer el paso hace dudar de si de
+verdad quedó hecho.
+
+---
+
+## H-09 · El hueco del ritmo es demasiado estrecho
+
+**🟡 Molesto · Nueva campaña · 📋 Abierto**
+
+Entre la ayuda «Déjalo en blanco para usar el de la cuenta» y la etiqueta
+siguiente —«Máximo por hora»— casi no hay aire, y las dos líneas se leen como
+una sola. Pedido: ampliarlo **sin pasarse**.
+
+---
+
+## H-10 · No dice cuál es el máximo diario por defecto
+
+**🟠 Grave · Nueva campaña · 📋 Abierto**
+
+«Máximo al día» se puede dejar en blanco, y la ayuda dice que entonces se usa
+«el de la cuenta» — **sin decir cuál es**. Se acepta un número sin saberlo.
+
+Y es un número que importa: por encima de 50 diarios ARLES exige aceptar un
+aviso (§48), porque es donde los proveedores empiezan a tratarte como remitente
+masivo.
+
+Dirección pidió consejo sobre si hacerlo obligatorio. Está respondido más
+abajo, en «Las tres decisiones».
+
+---
+
+## R-03 a R-07 · Lo que falta en plantillas, firmas y entregabilidad
+
+| | Qué | Por qué importa |
+|---|---|---|
+| **R-03** | **Negrita y cursiva** en las plantillas | Hoy el texto sale plano |
+| **R-04** | **Una firma NO puede ofrecer variables del contacto** | Es un error de diseño con consecuencias: una firma con `{{nombre}}` pondría el nombre de **quien recibe** donde va el de quien firma. Dirección lo llamó «una tragedia», y tiene razón: sale en cada correo de la campaña |
+| **R-05** | **Una imagen en la firma**, como en Outlook | El logotipo es lo primero que se mira en una firma |
+| **R-06** | **Editar** plantillas y firmas ya creadas | Hoy se crean y no se tocan. Chocaba con «las versiones no se editan», y hay que distinguir las dos cosas: una **versión** no se edita —eso es correcto y protege lo ya enviado—, pero **tiene que poder nacer otra** a partir de la anterior |
+| **R-07** | **El correo de prueba llegó a spam** | Es la 7.5 (SPF, DKIM, DMARC), lo único que necesita red y que sólo se podía verificar el día que R-24 se cerrara. **Hoy se cerró** |
+
+---
+
+# Las tres decisiones que Dirección pidió que asesorara
+
+## 1 · El máximo al día, ¿obligatorio o con un valor por defecto visible?
+
+**Recomiendo: ni obligatorio ni en blanco — que salga relleno con el número de
+la cuenta y se pueda cambiar.**
+
+| | Qué pasa | Por qué no |
+|---|---|---|
+| **Dejarlo como está** | Se acepta un número sin saber cuál | Es H-10 |
+| **Hacerlo obligatorio** | Un campo más que rellenar en un asistente de nueve pasos, y quien no sepa qué poner inventará un número | Obliga a decidir a quien no tiene con qué decidir |
+| **Rellenarlo con el de la cuenta** ✅ | Se ve el número desde el principio, se puede cambiar, y quien no lo toque sabe qué está aceptando | — |
+
+La cuenta ya dice «Hasta 50 al día · 10 por hora» en su ficha. Ese 50 es el que
+debe aparecer en el campo, escrito, no sobreentendido. **Cifras, no adjetivos**
+(§94): «el de la cuenta» es un adjetivo; «50» es una cifra.
+
+## 2 · El sitio web de la empresa (de la ronda del 16/10)
+
+**Recomiendo: darle uso como variable de firma**, no quitarlo. Está desarrollado
+en H-04.
+
+## 3 · Qué hacer con el spam
+
+**No es un defecto de ARLES, y tampoco se arregla dentro de ARLES.** Un correo
+de Gmail enviado a Gmail cae en spam cuando el dominio del remitente no tiene
+los tres registros que dicen «este servidor puede mandar en mi nombre»:
+
+| | Qué dice |
+|---|---|
+| **SPF** | Qué servidores pueden enviar con tu dominio |
+| **DKIM** | Una firma que prueba que el correo no se alteró |
+| **DMARC** | Qué hacer si los dos anteriores fallan |
+
+Con una cuenta `@gmail.com` **esos registros son de Google, no tuyos**, y Google
+marca como sospechoso un correo automatizado que sale de una cuenta personal.
+Es lo que pasó.
+
+**La salida real es mandar desde un dominio propio** —`@telemetrymx.com`— con
+sus tres registros puestos. Eso es exactamente **la entrega 7.5**, que estaba
+aplazada «hasta que se pueda verificar de verdad»: hoy ya se puede, porque R-24
+se cerró con el primer correo real.
+
+> **Lo que ARLES puede hacer y hoy no hace:** comprobar esos tres registros y
+> decir cuáles faltan, antes de que la campaña salga. El preflight ya tiene el
+> punto `registros_del_dominio` reservado desde la Fase 6 — y es uno de los tres
+> que hoy se contestan desde `arles-app` sin mirar nada.
