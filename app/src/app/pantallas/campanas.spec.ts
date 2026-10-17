@@ -513,3 +513,81 @@ describe('el asistente de campaña', () => {
     expect(w.text()).not.toContain('no sale nada de ninguna campaña')
   })
 })
+
+/**
+ * El paso 5, que dejaba la campaña sin salida · H-06 y H-10, 16/10/2026
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * DIRECCIÓN NO PUDO CREAR NINGUNA CAMPAÑA
+ *
+ * El desplegable de **Horario de envío** salía vacío, y sin elegir uno
+ * «Continuar» no deja pasar. Las opciones son las ventanas guardadas, y
+ * **ninguna pantalla podía crear una**: `guardar_ventana` existía, el store lo
+ * envolvía, y nadie lo llamaba. Es el patrón del §9 por decimoctava vez.
+ *
+ * La propia lista de Inicio lo decía —«Definir una ventana de envío · Llega en
+ * la entrega 6»— mientras el asistente la exigía para avanzar.
+ *
+ * **Y la vista previa no podía enseñarlo**: su demo trae una ventana ya
+ * guardada, así que ahí el desplegable nunca estuvo vacío. Un decorado con más
+ * datos que la realidad esconde justo los caminos de quien empieza.
+ */
+describe('el paso 5 sin ningún horario guardado', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  function enElPaso5(ventanas: unknown[] = []) {
+    const remitentes = useRemitentesStore()
+    remitentes.remitentes = [CUENTA]
+    remitentes.cargada = true
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    // @ts-expect-error se fija el estado del store para el caso bajo prueba
+    campanas.ventanas = ventanas
+    const p = mount(AsistenteDeCampana, entorno)
+    // @ts-expect-error acceso al estado interno para situarse en el paso 5
+    p.vm.paso = 5
+    return p
+  }
+
+  it('NO deja a nadie sin salida: ofrece crear uno', async () => {
+    const p = enElPaso5([])
+    await p.vm.$nextTick()
+    expect(p.text()).toContain('Todavía no has definido ningún horario')
+    expect(p.text()).toContain('Usar lunes a viernes')
+  })
+
+  it('con horarios guardados no estorba con el aviso', async () => {
+    const p = enElPaso5([
+      { id: 'v1', nombre: 'Días laborables', dias: 31, desde: 9, hasta: 18, zona: 'America/Monterrey' },
+    ])
+    await p.vm.$nextTick()
+    expect(p.text()).not.toContain('Todavía no has definido ningún horario')
+    expect(p.text()).toContain('Horario de envío')
+  })
+
+  /**
+   * ── «EL DE LA CUENTA» ES UN ADJETIVO; «50» ES UNA CIFRA (H-10) ──────────
+   *
+   * La ayuda decía «Déjalo en blanco para usar el de la cuenta» **sin decir
+   * cuál**, así que se aceptaba un número sin saberlo. Y es un número que
+   * importa: por encima de 50 ARLES exige aceptar un aviso (§48).
+   */
+  it('dice CUÁL es el máximo diario que se va a usar', async () => {
+    const p = enElPaso5([])
+    // @ts-expect-error se elige la cuenta, que es de donde sale la cifra
+    p.vm.cuenta = CUENTA.id
+    await p.vm.$nextTick()
+    expect(p.text()).toContain(`se usan ${CUENTA.limiteDiario} al día`)
+    expect(p.text()).toContain(`se usan ${CUENTA.limitePorHora} por hora`)
+  })
+
+  it('y sin cuenta elegida no se inventa una cifra', async () => {
+    const p = enElPaso5([])
+    await p.vm.$nextTick()
+    // Sin cuenta no hay tope que nombrar, y decir uno sería inventarlo.
+    expect(p.text()).toContain('Déjalo en blanco para usar el de la cuenta')
+    expect(p.text()).not.toMatch(/se usan \d+ al día/)
+  })
+})

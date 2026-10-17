@@ -2081,8 +2081,42 @@ export const es = {
         titulo: 'Ritmo y horario',
         horario: 'Horario de envío',
         diario: 'Máximo al día',
+        // Se queda para cuando todavía no hay cuenta elegida y no se puede
+        // decir la cifra. En cuanto la hay, se usa la de abajo.
         diarioAyuda: 'Déjalo en blanco para usar el de la cuenta.',
+        // ── «EL DE LA CUENTA» ES UN ADJETIVO; «50» ES UNA CIFRA (H-10) ────
+        //
+        // Dirección llegó al paso 5 el 16/10/2026 y no sabía qué estaba
+        // aceptando al dejarlo en blanco. Y es un número que importa: por
+        // encima de 50 ARLES exige aceptar un aviso (§48), porque es donde los
+        // proveedores empiezan a tratarte como remitente masivo.
+        diarioAyudaConCifra:
+          'Déjalo en blanco y se usan {n} al día, que es el tope de la cuenta ' +
+          'que elegiste.',
         porHora: 'Máximo por hora',
+        porHoraAyuda:
+          'En blanco se usan {n} por hora, el tope de esa cuenta.',
+
+        // ── EL HORARIO, QUE DEJABA LA CAMPAÑA SIN SALIDA (H-06) ──────────
+        //
+        // Sin ninguna ventana guardada el desplegable salía vacío y
+        // «Continuar» no dejaba pasar: la campaña no se podía crear. Y no
+        // había forma de crear una desde ninguna pantalla.
+        horarioDeOficina: 'Horario de oficina',
+        horarioSinNombre: 'Mi horario',
+        sinHorarios: {
+          titulo: 'Todavía no has definido ningún horario de envío',
+          cuerpo:
+            'Es la franja en la que ARLES puede mandar correos, en la zona ' +
+            'horaria de tu empresa. Casi siempre es el horario de oficina.',
+          usarOficina: 'Usar lunes a viernes, de 9:00 a 18:00',
+          oDefineElTuyo: 'O define otro',
+          nombre: 'Nombre',
+          nombreAyuda: 'Para reconocerlo luego. Por ejemplo: Mañanas.',
+          desde: 'Desde (hora)',
+          hasta: 'Hasta (hora)',
+          crear: 'Crear este horario',
+        },
 
         // §48, en línea y no en un modal. §154: informar, no dictar.
         aviso: {

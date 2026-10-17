@@ -41,6 +41,7 @@ import { useRouter } from 'vue-router'
 
 import { resolverError } from '@/app/errores'
 import { AVISO_DIARIO, useCampanasStore } from '@/app/stores/campanas'
+import { useEmpresaStore } from '@/app/stores/empresa'
 import { useRemitentesStore } from '@/app/stores/remitentes'
 import {
   AAviso,
@@ -54,6 +55,9 @@ import {
 
 const campanas = useCampanasStore()
 const remitentes = useRemitentesStore()
+// La zona horaria del horario es la de la EMPRESA, nunca la del equipo: es la
+// decisión que la pantalla de Configuración explica en su aviso.
+const empresa = useEmpresaStore()
 
 /**
  * Por encima de cuántos destinatarios se avisa de la espera.
@@ -130,6 +134,8 @@ const activacion = ref<{ enLaAudiencia: number; fueraPorBaja: number } | null>(n
 onMounted(() => {
   void campanas.cargar()
   void remitentes.cargar()
+  // Hace falta su zona horaria para crear un horario (H-06).
+  void empresa.cargar()
 })
 
 const error = computed(() =>
@@ -161,6 +167,78 @@ const opcionesDeVentana = computed(() =>
     texto: `${v.nombre} · ${v.desde}:00–${v.hasta}:00 · ${v.zona}`,
   })),
 )
+
+// ── EL HORARIO DE ENVÍO, QUE DEJABA LA CAMPAÑA SIN SALIDA (H-06) ─────────
+//
+// Dirección llegó al paso 5 el 16/10/2026 y el desplegable estaba VACÍO, así
+// que «Continuar» no dejaba pasar y la campaña no se podía crear.
+//
+// La causa es el patrón del §9 por decimoctava vez: `guardar_ventana` existe,
+// el store lo envuelve, y **ninguna pantalla lo llamaba**. La lista de Inicio
+// lo decía —«Definir una ventana de envío · Llega en la entrega 6»— mientras
+// el asistente la exigía para avanzar.
+//
+// Se resuelve AQUÍ y no en otra pantalla porque mandar a definir un horario a
+// otra sección, a mitad de un asistente de nueve pasos, es perder lo tecleado
+// o volver con el hilo roto. Y lo que hace falta casi siempre es un horario de
+// oficina, que no hay por qué construir campo a campo.
+const noHayHorarios = computed(() => campanas.ventanas.length === 0)
+
+/** Lunes a viernes, que es `Dias::LABORABLES` en el núcleo. */
+const DIAS_LABORABLES = 0b001_1111
+const HORA_DE_ENTRADA = 9
+const HORA_DE_SALIDA = 18
+
+const creandoHorario = ref(false)
+const horarioPropio = ref({ nombre: '', desde: '9', hasta: '18' })
+
+async function usarElDeOficina(): Promise<void> {
+  await crearHorario(
+    t('asistente.paso.limites.horarioDeOficina'),
+    HORA_DE_ENTRADA,
+    HORA_DE_SALIDA,
+  )
+}
+
+async function crearElPropio(): Promise<void> {
+  const desde = Number.parseInt(horarioPropio.value.desde, 10)
+  const hasta = Number.parseInt(horarioPropio.value.hasta, 10)
+  await crearHorario(
+    horarioPropio.value.nombre.trim() || t('asistente.paso.limites.horarioSinNombre'),
+    Number.isNaN(desde) ? HORA_DE_ENTRADA : desde,
+    Number.isNaN(hasta) ? HORA_DE_SALIDA : hasta,
+  )
+}
+
+/**
+ * Crea el horario y **lo deja elegido**.
+ *
+ * Dejarlo creado pero sin elegir obligaría a desplegar y seleccionar lo que se
+ * acaba de crear, que además es el único horario que hay.
+ */
+async function crearHorario(nombre: string, desde: number, hasta: number): Promise<void> {
+  creandoHorario.value = true
+  try {
+    const zona = empresa.empresa?.zonaHoraria ?? 'America/Mexico_City'
+    if (await campanas.guardarVentana(nombre, DIAS_LABORABLES, desde, hasta, zona)) {
+      const recien = campanas.ventanas[campanas.ventanas.length - 1]
+      if (recien) ventana.value = recien.id
+    }
+  } finally {
+    creandoHorario.value = false
+  }
+}
+
+// ── EL MÁXIMO DIARIO, QUE NO DECÍA CUÁL ERA (H-10) ──────────────────────
+//
+// «Déjalo en blanco para usar el de la cuenta» no decía CUÁL es, así que se
+// aceptaba un número sin saberlo — y es un número que importa: por encima de
+// 50 ARLES exige aceptar un aviso (§48).
+//
+// «El de la cuenta» es un adjetivo; «50» es una cifra (§94).
+const cuentaElegida = computed(() => remitentes.remitentes.find((r) => r.id === cuenta.value))
+const topeDeLaCuenta = computed(() => cuentaElegida.value?.limiteDiario ?? null)
+const topePorHoraDeLaCuenta = computed(() => cuentaElegida.value?.limitePorHora ?? null)
 
 /** La plantilla elegida, para poder enseñar sus variables en el paso 4. */
 const plantillaElegida = computed(() =>
@@ -400,19 +478,77 @@ function rotulo(clave: string): string {
 
       <!-- 5 · Límites y horario -->
       <template v-else-if="paso === 5">
+        <!-- ── SIN NINGÚN HORARIO ESTO ERA UN CALLEJÓN SIN SALIDA (H-06) ──
+             El desplegable salía vacío y «Continuar» no dejaba pasar, así que
+             la campaña no se podía crear. Ahora se ofrece el de oficina a un
+             botón, que es lo que hace falta casi siempre. -->
+        <AAviso
+          v-if="noHayHorarios"
+          tono="info"
+          :titulo="t('asistente.paso.limites.sinHorarios.titulo')"
+        >
+          <p>{{ t('asistente.paso.limites.sinHorarios.cuerpo') }}</p>
+          <div class="asistente__horario-acciones">
+            <ABoton
+              variante="primario"
+              :ocupado="creandoHorario"
+              @click="usarElDeOficina()"
+            >
+              {{ t('asistente.paso.limites.sinHorarios.usarOficina') }}
+            </ABoton>
+          </div>
+
+          <details class="asistente__horario-propio">
+            <summary>{{ t('asistente.paso.limites.sinHorarios.oDefineElTuyo') }}</summary>
+            <AEntrada
+              v-model="horarioPropio.nombre"
+              :etiqueta="t('asistente.paso.limites.sinHorarios.nombre')"
+              :ayuda="t('asistente.paso.limites.sinHorarios.nombreAyuda')"
+            />
+            <div class="asistente__horas">
+              <AEntrada
+                v-model="horarioPropio.desde"
+                :etiqueta="t('asistente.paso.limites.sinHorarios.desde')"
+              />
+              <AEntrada
+                v-model="horarioPropio.hasta"
+                :etiqueta="t('asistente.paso.limites.sinHorarios.hasta')"
+              />
+            </div>
+            <ABoton
+              variante="secundario"
+              :ocupado="creandoHorario"
+              @click="crearElPropio()"
+            >
+              {{ t('asistente.paso.limites.sinHorarios.crear') }}
+            </ABoton>
+          </details>
+        </AAviso>
+
         <ASelector
+          v-else
           v-model="ventana"
           :etiqueta="t('asistente.paso.limites.horario')"
           :opciones="opcionesDeVentana"
         />
+
         <AEntrada
           v-model="limiteDiario"
           :etiqueta="t('asistente.paso.limites.diario')"
-          :ayuda="t('asistente.paso.limites.diarioAyuda')"
+          :ayuda="
+            topeDeLaCuenta === null
+              ? t('asistente.paso.limites.diarioAyuda')
+              : t('asistente.paso.limites.diarioAyudaConCifra', { n: topeDeLaCuenta })
+          "
         />
         <AEntrada
           v-model="limitePorHora"
           :etiqueta="t('asistente.paso.limites.porHora')"
+          :ayuda="
+            topePorHoraDeLaCuenta === null
+              ? ''
+              : t('asistente.paso.limites.porHoraAyuda', { n: topePorHoraDeLaCuenta })
+          "
         />
 
         <!-- §48: en línea, no en un modal. Informar, no dictar (§154). -->
@@ -741,6 +877,32 @@ function rotulo(clave: string): string {
   display: flex;
   flex-direction: column;
   gap: var(--arles-space-2);
+}
+
+/* ── El horario que se crea desde aquí (H-06) ───────────────────────────── */
+.asistente__horario-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--arles-space-3);
+  margin-top: var(--arles-space-3);
+}
+
+.asistente__horario-propio {
+  margin-top: var(--arles-space-4);
+}
+
+.asistente__horario-propio[open] > *:not(summary) {
+  margin-top: var(--arles-space-3);
+}
+
+.asistente__horas {
+  display: flex;
+  gap: var(--arles-space-3);
+  flex-wrap: wrap;
+}
+
+.asistente__horas > * {
+  flex: 1 1 8rem;
 }
 
 .asistente__casilla {

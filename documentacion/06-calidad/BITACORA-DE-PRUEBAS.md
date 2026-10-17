@@ -93,12 +93,12 @@ mirando, no una comprobación automática.
 | **A-05** | 🟠 Grave | Remitentes | La contraseña de aplicación de Gmail se mandaba **con los espacios** con que Google la enseña, y **nada avisaba** | ✅ **Arreglado** 15/10/2026 |
 | **A-06** | 🟡 Molesto | Remitentes | La guía del alta decía **«busca Contraseñas de aplicaciones»** — un sitio donde buscar, no una instrucción | ✅ **Arreglado** 15/10/2026 |
 | **H-04** | 🟡 Molesto | Configuración | No dejaba guardar `telemetrymx.com`: exigía escribir **`https://` a mano** | ✅ **Arreglado** 16/10/2026 |
-| **H-05** | 🔴 Bloqueante | Contactos | «Ocurrió un error al acceder a los datos. Cierra ARLES y vuelve a abrirlo» al dar de alta un contacto | 🔎 **Investigando** · no se reproduce |
-| **H-06** | 🔴 Bloqueante | Nueva campaña | **El horario de envío sale vacío** y no se puede avanzar del paso 5 | 🔎 **Diagnosticado** · nadie puede crear una ventana |
+| **H-05** | 🔴 Bloqueante | Contactos | «Ocurrió un error al acceder a los datos. Cierra ARLES y vuelve a abrirlo» al dar de alta un contacto | 🔎 **El mensaje, arreglado** 17/10 · falta la causa |
+| **H-06** | 🔴 Bloqueante | Nueva campaña | **El horario de envío sale vacío** y no se puede avanzar del paso 5 | ✅ **Arreglado** 17/10/2026 |
 | **H-07** | 🟠 Grave | Remitentes | La ficha del remitente **se parte en vertical** cuando hay un panel al lado: «Cifrado / (STARTTLS, / puerto / 587» una palabra por línea | 📋 **Abierto** |
 | **H-08** | 🟡 Molesto | Inicio | El paso «Conectar una cuenta remitente» **no se marca** aunque haya un remitente configurado | 📋 **Abierto** |
 | **H-09** | 🟡 Molesto | Nueva campaña | El hueco entre «Déjalo en blanco para usar el de la cuenta» y lo que sigue es **demasiado estrecho** | 📋 **Abierto** |
-| **H-10** | 🟠 Grave | Nueva campaña | No dice **cuál es el máximo diario por defecto**, así que se deja en blanco sin saber qué se está aceptando | 📋 **Abierto** |
+| **H-10** | 🟠 Grave | Nueva campaña | No dice **cuál es el máximo diario por defecto**, así que se deja en blanco sin saber qué se está aceptando | ✅ **Arreglado** 17/10/2026 |
 | **R-03** | 🔵 Requisito | Plantillas | Poder poner **negrita y cursiva** en el texto | 📋 **Abierto** |
 | **R-04** | 🔴 Requisito | Firmas | **Una firma no puede ofrecer variables del contacto.** Que la firma del remitente lleve el nombre de a quien se escribe es una tragedia | 📋 **Abierto** |
 | **R-05** | 🔵 Requisito | Firmas | Poder poner **una imagen** en la firma, como en Outlook | 📋 **Abierto** |
@@ -1054,3 +1054,60 @@ se cerró con el primer correo real.
 > decir cuáles faltan, antes de que la campaña salga. El preflight ya tiene el
 > punto `registros_del_dominio` reservado desde la Fase 6 — y es uno de los tres
 > que hoy se contestan desde `arles-app` sin mirar nada.
+
+---
+
+## H-06 y H-10 · arreglados el 17/10/2026
+
+### El horario se crea desde donde hace falta
+
+El paso 5 ya no deja a nadie sin salida. Si no hay ningún horario guardado,
+ofrece **el de oficina a un botón** —lunes a viernes, 9:00 a 18:00— y debajo,
+plegado, la forma de definir otro. El que se crea **queda elegido**: dejarlo
+creado y sin elegir obligaría a desplegar y seleccionar el único que hay.
+
+Se resuelve **dentro del asistente** y no en otra pantalla a propósito: mandar
+a definir un horario a otra sección, a mitad de nueve pasos, es perder lo
+tecleado o volver con el hilo roto.
+
+La zona horaria es **la de la empresa**, nunca la del equipo — es la decisión
+que la pantalla de Configuración explica en su propio aviso.
+
+### Y el máximo diario dice su cifra
+
+«Déjalo en blanco para usar el de la cuenta» pasa a «Déjalo en blanco y se usan
+**50** al día, que es el tope de la cuenta que elegiste». Lo mismo por hora.
+
+**Sin cuenta elegida no se inventa una cifra**: ahí se queda la frase de antes,
+porque todavía no hay tope que nombrar. Hay una prueba de eso.
+
+### La vista previa no podía enseñar este defecto
+
+Su demo **trae una ventana ya guardada**, así que ahí el desplegable nunca
+estuvo vacío. Es un hueco del decorado, no del producto: **un decorado con más
+datos que la realidad esconde justo los caminos de quien empieza**, que son los
+que más fallan.
+
+Queda anotado como propuesta: que la vista previa tenga un modo «cuenta nueva»,
+con la base como la encuentra alguien que acaba de instalar.
+
+### Cuatro pruebas, dos vistas en rojo
+
+Quitando la salida falla con «expected … to contain "Todavía no has definido
+ningún horario"»; quitando la cifra, con «expected … to contain "se usan 50 al
+día"».
+
+> **Y un error mío en medio, el peor de la sesión.** Al restaurar la primera
+> ruptura escribí un `git checkout -- AsistenteDeCampana.vue`, que **revirtió
+> el archivo entero** y se llevó todo el arreglo de H-06 y H-10 — no sólo la
+> ruptura.
+>
+> Es **exactamente** lo que el `CLAUDE.md` tiene escrito desde la 8.3 bis a:
+> *«para restaurar una ruptura se usa una copia del archivo hecha antes, nunca
+> `git checkout` sobre un archivo con trabajo sin confirmar»*. La lección estaba
+> escrita y la repetí.
+>
+> El trabajo se rehízo entero y las rupturas siguientes ya fueron contra una
+> copia. Lo que lo hizo recuperable fue que los textos y las pruebas estaban en
+> otros archivos: si todo hubiera vivido en el mismo, se habría perdido también
+> la forma de saber qué faltaba.
