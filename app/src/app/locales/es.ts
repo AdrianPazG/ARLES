@@ -1380,6 +1380,26 @@ export const es = {
   error: {
     // Cada error lleva sus tres partes (§95).
 
+    // ── EL ERROR QUE ARLES NO ESPERABA (H-05, 16/10/2026) ─────────────────
+    //
+    // Nueve stores escribían `error.db.sqlite` para cualquier cosa no tipada,
+    // así que ARLES afirmaba que había fallado la base cuando no lo sabía — y
+    // mandaba a cerrar y reabrir, que si la causa es otra no arregla nada.
+    //
+    // Este texto dice la verdad: que no se esperaba. Y lleva el detalle
+    // técnico dentro, porque un producto que pierde la causa de sus propios
+    // fallos obliga a adivinar.
+    inesperado: {
+      que: 'Algo falló de una forma que ARLES no esperaba.',
+      como:
+        'Vuelve a intentarlo. Si pasa otra vez, copia el detalle de abajo y ' +
+        'mándanoslo: con él se puede arreglar, y sin él hay que adivinar.' +
+        '\n\nDetalle técnico: {detalle}',
+      salvo:
+        'Nada quedó a medias: lo que no se completó se deshizo entero. Tus ' +
+        'datos, tus contactos y tus cuentas están como estaban.',
+    },
+
     // ── La cuenta de correo · entrega 5.2 ─────────────────────────────────
     //
     // Son problemas de CONFIGURACIÓN de la cuenta, no de un envío concreto.

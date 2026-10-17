@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { esErrorIpc, hayNucleo, invocar } from '@/app/nucleo'
+import { claveDelError, hayNucleo, invocar } from '@/app/nucleo'
 
 /** Coincide con `arles_core::importacion::CampoImportable`. */
 export type CampoImportable =
@@ -196,7 +196,7 @@ export const useImportacionStore = defineStore('importacion', () => {
   }
 
   function fallo(e: unknown): void {
-    errorGeneral.value = esErrorIpc(e) ? e.clave : 'error.db.sqlite'
+    errorGeneral.value = claveDelError(e)
   }
 
   /** Abre el diálogo del sistema. La ruta no llega hasta aquí: la elige Rust. */

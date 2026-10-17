@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { esErrorIpc, hayNucleo, invocar } from '@/app/nucleo'
+import { claveDelError, esErrorIpc, hayNucleo, invocar } from '@/app/nucleo'
 
 /** Coincide con `arles_core::canal::Canal`. */
 export type Canal = 'email' | 'whatsapp'
@@ -185,7 +185,7 @@ export const useContactosStore = defineStore('contactos', () => {
       }
       cargada.value = true
     } catch (e) {
-      errorGeneral.value = esErrorIpc(e) ? e.clave : 'error.db.sqlite'
+      errorGeneral.value = claveDelError(e)
     } finally {
       cargando.value = false
     }
@@ -208,7 +208,7 @@ export const useContactosStore = defineStore('contactos', () => {
   function repartirError(e: unknown): void {
     limpiarErrores()
     if (!esErrorIpc(e)) {
-      errorGeneral.value = 'error.db.sqlite'
+      errorGeneral.value = claveDelError(e)
       return
     }
 

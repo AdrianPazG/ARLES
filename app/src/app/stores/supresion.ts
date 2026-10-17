@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { esErrorIpc, hayNucleo, invocar } from '@/app/nucleo'
+import { claveDelError, hayNucleo, invocar } from '@/app/nucleo'
 
 /** Coincide con `arles_core::MotivoDeSupresion`. */
 export type MotivoDeSupresion =
@@ -130,7 +130,7 @@ export const useSupresionStore = defineStore('supresion', () => {
   const hayMas = computed(() => desde.value + supresiones.value.length < total.value)
 
   function fallo(e: unknown): void {
-    errorGeneral.value = esErrorIpc(e) ? e.clave : 'error.db.sqlite'
+    errorGeneral.value = claveDelError(e)
   }
 
   /** Carga una página. `desde` cuenta filas, no páginas. */

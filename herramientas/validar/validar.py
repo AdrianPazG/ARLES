@@ -5220,6 +5220,73 @@ def ningun_aviso_sobrevive_a_la_recarga_que_lo_resuelve():
     )
 
 
+def ningun_store_se_inventa_la_causa_de_un_error():
+    """**Un error que no se conoce no se puede diagnosticar inventándole una causa.**
+
+    Dirección no pudo dar de alta un contacto el 16/10/2026 y ARLES contestó
+    «Ocurrió un error al acceder a los datos. Cierra ARLES y vuelve a abrirlo»
+    (H-05). No se pudo arreglar, y el motivo no fue que el fallo fuera raro:
+    fue que **el mensaje se tragó la causa**.
+
+    Nueve stores escribían, para cualquier cosa no tipada que cayera en su
+    `catch`:
+
+        errorGeneral.value = esErrorIpc(e) ? e.clave : 'error.db.sqlite'
+
+    Ese `: 'error.db.sqlite'` convierte un `TypeError` del propio JavaScript,
+    un fallo al serializar o cualquier excepción de la webview en «falló la
+    base de datos». Hace dos cosas malas a la vez:
+
+      1. **Afirma una causa que no conoce.** Manda a arreglar lo que no está
+         roto, y a cerrar y reabrir ARLES, que no arregla nada si la causa es
+         otra — el mismo defecto que el fallo de migración tenía el 13/10.
+      2. **Pierde la de verdad**, así que nadie puede diagnosticarla después.
+
+    Esto exige que el fallback de un error no tipado sea `claveDelError(e)`,
+    que devuelve `error.inesperado` y **guarda el detalle técnico**.
+
+    ── LO QUE ESTA COMPROBACIÓN NO CUBRE, Y CONVIENE SABERLO ──
+
+    Mira el **fallback**, no el camino entero. Un store que capture y no
+    reporte nada se le escapa; para eso está
+    `ningun_aviso_sobrevive_a_la_recarga_que_lo_resuelve`.
+
+    Verificada el 17/10/2026 devolviendo el cajón de sastre a `contactos.ts`:
+    falla nombrando el archivo y la clave inventada.
+    """
+    malos = []
+    carpeta = os.path.join(RAIZ, "app", "src", "app", "stores")
+    # Las claves que nombran una causa CONCRETA. Usarlas como red de seguridad
+    # de un `catch` es afirmar algo que no se sabe. `error.inesperado` no está
+    # aquí a propósito: es la que dice la verdad.
+    INVENTADAS = ("error.db.sqlite", "error.db.", "error.correo.", "error.whatsapp.")
+    for nombre in sorted(n for n in os.listdir(carpeta) if n.endswith(".ts")):
+        if nombre.endswith(".spec.ts"):
+            continue
+        fuente = leer("app", "src", "app", "stores", nombre) or ""
+        # Se quitan los comentarios antes de mirar: varios stores EXPLICAN en
+        # los suyos qué clave usaban antes, y sin esto la comprobación se
+        # cazaría en la explicación. Es la trampa del comentario, que en este
+        # proyecto ya ha salido nueve veces.
+        codigo = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", fuente, flags=re.S))
+        # El patrón busca el fallback de un ternario sobre `esErrorIpc`, y
+        # también la rama `if (!esErrorIpc(e))` que hace lo mismo con otra
+        # forma — las dos existían en el código del 16/10.
+        for m in re.finditer(r"esErrorIpc\([^)]*\)\s*\?[^:]*:\s*'([^']+)'", codigo):
+            if any(m.group(1).startswith(p) for p in INVENTADAS):
+                malos.append(f"{nombre}: el fallback de un error no tipado es «{m.group(1)}»")
+        if re.search(r"!esErrorIpc\([^)]*\)\s*\)\s*\{[^}]*?'error\.db\.", codigo, flags=re.S):
+            malos.append(f"{nombre}: una rama `!esErrorIpc` reporta una causa de base de datos")
+
+    check(
+        7,
+        "ningún store se inventa la causa de un error que no conoce",
+        not malos,
+        ningun_store_se_inventa_la_causa_de_un_error.__doc__,
+        detalle="\n      ".join(malos),
+    )
+
+
 def ningun_texto_lleva_markdown():
     """Los `**asteriscos**` de un texto salen **literales** en la pantalla.
 
@@ -6740,6 +6807,7 @@ def fase_7(rapido=False):
 
     print(f"{GRIS}  el registro con sus filtros (7.4){FIN}")
     ningun_texto_lleva_una_arroba_suelta()
+    ningun_store_se_inventa_la_causa_de_un_error()
     ningun_texto_lleva_markdown()
     ningun_aviso_sobrevive_a_la_recarga_que_lo_resuelve()
 

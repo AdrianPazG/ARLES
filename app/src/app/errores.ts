@@ -1,4 +1,5 @@
 import { i18n } from '@/app/i18n'
+import { ultimoDetalleTecnico } from '@/app/nucleo'
 
 /** Forma en que un error cruza la frontera IPC. Coincide con `arles_app::ErrorIpc`. */
 export interface ErrorIpc {
@@ -69,7 +70,22 @@ export function resolverError(e: ErrorIpc): ErrorMostrable {
     // Sin esto, el error de dirección repetida obliga a adivinar cuál de los
     // hasta diez canales del formulario se repitió — que es justo lo que ese
     // error existe para evitar (§95).
-    const con = { detalle: e.detalle }
+    // ── EL DETALLE SE RECUPERA AQUÍ, Y ES LO QUE ARREGLA EL H-05 ──────────
+    //
+    // Las pantallas llaman con `{ clave: store.errorGeneral, detalle: '' }`
+    // porque el store sólo guarda la clave. Así que el detalle llegaba vacío
+    // **siempre**, incluso cuando el núcleo lo había mandado.
+    //
+    // Para `error.inesperado` eso deja el mensaje sin lo único que permite
+    // diagnosticarlo, así que se recoge del almacén que `claveDelError` acaba
+    // de llenar. Se hace **sólo** para esa clave: las demás nombran un dato
+    // del dominio —una dirección repetida, por ejemplo— y ahí el detalle
+    // vacío es lo correcto cuando la pantalla no lo pasa.
+    const detalle =
+      e.clave === 'error.inesperado' && (!e.detalle || e.detalle.length === 0)
+        ? (ultimoDetalleTecnico() ?? '(no se pudo averiguar)')
+        : e.detalle
+    const con = { detalle }
     return {
       que: i18n.global.t(`${e.clave}.que`, con),
       como: i18n.global.t(`${e.clave}.como`, con),

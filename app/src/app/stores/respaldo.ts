@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { escuchar, esErrorIpc, hayNucleo, invocar } from '@/app/nucleo'
+import { escuchar, claveDelError, hayNucleo, invocar } from '@/app/nucleo'
 
 /** Cuántas filas trae una tabla. Coincide con `FilasDeTabla`. */
 export interface FilasDeTabla {
@@ -78,7 +78,7 @@ export const useRespaldoStore = defineStore('respaldo', () => {
   const cifraria = computed(() => contrasena.value !== '')
 
   function recordarError(e: unknown): void {
-    errorGeneral.value = esErrorIpc(e) ? e.clave : 'error.db.sqlite'
+    errorGeneral.value = claveDelError(e)
   }
 
   /**

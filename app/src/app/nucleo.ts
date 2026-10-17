@@ -129,3 +129,84 @@ export async function escuchar<T>(
     return () => {}
   }
 }
+
+// ───────────────────────────────────────────────────────────────────────────
+// EL DETALLE TÉCNICO DE UN ERROR QUE NADIE ESPERABA
+//
+// ── POR QUÉ ESTO EXISTE (H-05, 16/10/2026) ────────────────────────────────
+//
+// Dirección no pudo dar de alta un contacto y ARLES contestó «Ocurrió un error
+// al acceder a los datos. Cierra ARLES y vuelve a abrirlo». No se pudo
+// diagnosticar, y la razón es que **ese mensaje se traga la causa**: nueve
+// stores escribían
+//
+//     errorGeneral.value = esErrorIpc(e) ? e.clave : 'error.db.sqlite'
+//
+// y ese `: 'error.db.sqlite'` convierte CUALQUIER cosa no tipada —un fallo del
+// propio JavaScript, un problema al serializar, cualquier excepción de la
+// webview— en «falló la base de datos». Dos defectos de una vez:
+//
+//   1. **Afirma una causa que no conoce.** Es el pecado que este proyecto
+//      persigue en todas partes: un diagnóstico inventado manda a arreglar lo
+//      que no está roto.
+//   2. **Pierde la causa de verdad**, así que nadie puede arreglarla después.
+//      Un producto que no sabe decir por qué falló obliga a adivinar, y
+//      adivinar en este proyecto ya ha costado caro dos veces.
+//
+// La salida no es más texto: es **no perder el dato**. El detalle técnico se
+// guarda aquí y el error lo enseña plegado, para que se pueda copiar y pegar.
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Lo último que falló sin ser un error tipado del núcleo. */
+let ultimoDetalle: string | null = null
+
+/**
+ * Describe en una línea algo que se lanzó y no es un `ErrorIpc`.
+ *
+ * Se recorren las formas que de verdad llegan: un `Error` con su mensaje, una
+ * cadena suelta, o un objeto que hay que serializar. **Nunca revienta**: esto
+ * corre dentro de un `catch`, y una excepción aquí taparía la original.
+ */
+function describir(e: unknown): string {
+  try {
+    if (e instanceof Error) {
+      return e.stack ? `${e.name}: ${e.message}\n${e.stack}` : `${e.name}: ${e.message}`
+    }
+    if (typeof e === 'string') return e
+    return JSON.stringify(e) ?? String(e)
+  } catch {
+    return String(e)
+  }
+}
+
+/**
+ * La clave de texto que le corresponde a lo que se capturó.
+ *
+ * **Sustituye al patrón `esErrorIpc(e) ? e.clave : <una causa inventada>`.**
+ * Lo que no viene tipado del núcleo es `error.inesperado`, que dice justo eso
+ * —que ARLES no esperaba esto— en vez de culpar a la base.
+ *
+ * De paso guarda el detalle técnico, que es lo que permite diagnosticarlo
+ * después.
+ */
+export function claveDelError(e: unknown): string {
+  if (esErrorIpc(e)) {
+    ultimoDetalle = e.detalle && e.detalle.length > 0 ? e.detalle : null
+    return e.clave
+  }
+  ultimoDetalle = describir(e)
+  // Y a la consola también: en una sesión de desarrollo es donde se mira
+  // primero, y ahí va entero sin recortar.
+  console.error('[ARLES] error inesperado:', e)
+  return 'error.inesperado'
+}
+
+/** El detalle de lo último que falló, para enseñarlo plegado. */
+export function ultimoDetalleTecnico(): string | null {
+  return ultimoDetalle
+}
+
+/** Se olvida al empezar una operación nueva, igual que los avisos (H-01). */
+export function olvidarDetalleTecnico(): void {
+  ultimoDetalle = null
+}

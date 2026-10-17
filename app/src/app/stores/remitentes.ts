@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { esErrorIpc, hayNucleo, invocar } from '@/app/nucleo'
+import { claveDelError, esErrorIpc, hayNucleo, invocar } from '@/app/nucleo'
 
 /**
  * Una cuenta remitente tal como la devuelve el núcleo.
@@ -286,7 +286,7 @@ export const useRemitentesStore = defineStore('remitentes', () => {
       }
       cargada.value = true
     } catch (e) {
-      errorGeneral.value = esErrorIpc(e) ? e.clave : 'error.db.sqlite'
+      errorGeneral.value = claveDelError(e)
     } finally {
       cargando.value = false
     }
@@ -304,7 +304,7 @@ export const useRemitentesStore = defineStore('remitentes', () => {
         errorGeneral.value = e.clave
       }
     } else {
-      errorGeneral.value = 'error.db.sqlite'
+      errorGeneral.value = claveDelError(e)
     }
   }
 

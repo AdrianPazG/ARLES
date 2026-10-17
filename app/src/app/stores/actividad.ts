@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { esErrorIpc, hayNucleo, invocar } from '@/app/nucleo'
+import { claveDelError, hayNucleo, invocar } from '@/app/nucleo'
 
 /**
  * Lo que salió en una hora. Coincide con `RitmoDeHoraIpc`.
@@ -185,7 +185,7 @@ export const useActividadStore = defineStore('actividad', () => {
   }
 
   function recordarError(e: unknown): void {
-    errorGeneral.value = esErrorIpc(e) ? e.clave : 'error.db.sqlite'
+    errorGeneral.value = claveDelError(e)
   }
 
   function guardar(a: Actividad): void {

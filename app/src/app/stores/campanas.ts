@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { esErrorIpc, hayNucleo, invocar } from '@/app/nucleo'
+import { claveDelError, hayNucleo, invocar } from '@/app/nucleo'
 
 /**
  * El umbral del aviso de volumen (§48).
@@ -187,7 +187,7 @@ export const useCampanasStore = defineStore('campanas', () => {
   )
 
   function recordarError(e: unknown): void {
-    errorGeneral.value = esErrorIpc(e) ? e.clave : 'error.db.sqlite'
+    errorGeneral.value = claveDelError(e)
   }
 
   async function cargar(): Promise<void> {

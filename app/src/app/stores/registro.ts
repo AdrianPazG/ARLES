@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { esErrorIpc, hayNucleo, invocar } from '@/app/nucleo'
+import { claveDelError, hayNucleo, invocar } from '@/app/nucleo'
 
 /** Una fila del registro. Coincide con `SucesoIpc`. */
 export interface Suceso {
@@ -86,7 +86,7 @@ export const useRegistroStore = defineStore('registro', () => {
   const hayMasDeLosQueCaben = computed(() => total.value > sucesos.value.length)
 
   function recordarError(e: unknown): void {
-    errorGeneral.value = esErrorIpc(e) ? e.clave : 'error.db.sqlite'
+    errorGeneral.value = claveDelError(e)
   }
 
   /** Lo que se manda al núcleo: las cadenas vacías se quedan aquí. */
