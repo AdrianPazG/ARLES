@@ -40,6 +40,10 @@
  *     rótulo** no: una cabecera de columna o una etiqueta de campo es la
  *     única pista de qué se está mirando, y lo que se pierde es el final,
  *     que es donde está lo que la distingue de la de al lado.
+ *  5. **Texto estrujado**, cayendo de una palabra por línea. Cabe, no
+ *     desborda y no está cortado — las otras cuatro lo dan por bueno — y es
+ *     ilegible como frase. Lo encontró Dirección el 16/10/2026 con el panel
+ *     del correo de prueba abierto (H-07).
  *
  * ─────────────────────────────────────────────────────────────────────────
  * LOS CUATRO FALSOS POSITIVOS QUE HAY QUE CERRAR, Y POR QUÉ
@@ -172,7 +176,22 @@ const MEDIR = ([MINIMO_PX, PARTE_TAPADA, MARGEN_DE_SALIDA]) => {
   for (const el of main.querySelectorAll('*')) {
     if (!tieneTextoPropio(el)) continue
     const r = el.getBoundingClientRect()
-    if (r.width < 1 || r.height < 1) continue
+    // ── SE EXIGE ALTO, NO ANCHO, Y LA DIFERENCIA ES EL CASO PEOR ─────────
+    //
+    // Esto decía `r.width < 1 || r.height < 1`, para descartar lo que no se
+    // ve. Y descartaba justo el síntoma más extremo del estrujado: un bloque
+    // al que no le queda NADA de ancho tiene `width: 0` y un alto enorme
+    // —seis líneas, una palabra cada una— porque el texto se desborda.
+    //
+    // Medido con la ficha de Remitentes reproducida como la vio Dirección:
+    // «smtp.gmail.com:587 · Cifrado (STARTTLS, puerto 587)», 6 palabras,
+    // 6 líneas, **ancho 0**. La medida 5 lo habría cazado y no llegaba a
+    // verlo.
+    //
+    // Un elemento de alto cero no se ve; uno de ancho cero y alto 120 sí, y
+    // es el defecto. Las medidas que necesitan ancho ya lo comprueban por su
+    // cuenta.
+    if (r.height < 1) continue
     // ── EL RECTÁNGULO NO DICE SI ALGO SE VE, Y ESO DIO NUEVE HALLAZGOS
     //    FALSOS EL DÍA QUE SE ESCRIBIÓ ESTA SONDA
     //
@@ -326,7 +345,98 @@ const MEDIR = ([MINIMO_PX, PARTE_TAPADA, MARGEN_DE_SALIDA]) => {
     }
   }
 
-  return { medidos: candidatos.length, encimados, cortados, salidos, rotulosCortados }
+  // ── 5 · texto estrujado, cayendo de una palabra por línea ─────────────
+  //
+  // ── POR QUÉ LAS OTRAS CUATRO NO LO VEÍAN (H-07, 16/10/2026) ──
+  //
+  // Dirección abrió el panel de «Mandar un correo de prueba» y la ficha de la
+  // cuenta, al estrecharse, se leyó así:
+  //
+  //     Cifrado / (STARTTLS, / puerto / 587 / Hasta / 50 / al / día
+  //
+  // **Cabe perfectamente.** No desborda, no está cortado, no asoma de su
+  // padre y no lo recortan unos puntos suspensivos — las cuatro medidas de
+  // arriba lo dan por bueno. Está **estrujado**: legible carácter a carácter
+  // e ilegible como frase.
+  //
+  // ── LA PRIMERA VERSIÓN DE ESTA MEDIDA ESTABA MAL PLANTEADA ──
+  //
+  // Preguntaba si en la caja caben «dos palabras largas juntas», medidas con
+  // un `canvas`. Salió en rojo con **diecinueve hallazgos en Bajas**, y al
+  // mirar la pantalla la tabla se leía bien: dos o tres palabras por línea.
+  // Era el umbral acusando a un texto correcto.
+  //
+  // El arreglo no fue subirlo hasta que callara —eso es ajustar el
+  // instrumento hasta que deje de medir, y esta sonda ya tuvo esa lección en
+  // la 8.7— sino **preguntar por el síntoma de verdad**: cuántas líneas ocupa
+  // frente a cuántas palabras tiene. Si son casi iguales, cada palabra está
+  // cayendo en su propia línea, que es exactamente lo que se vio.
+  //
+  //     «Cifrado (STARTTLS, puerto 587 Hasta 50 al día»  8 palabras, 8 líneas
+  //     «El correo rebotó de forma definitiva»           6 palabras, 3 líneas
+  //
+  // El primero es el defecto; el segundo es una tabla estrecha y se lee.
+  const estrujados = []
+  for (const { el, txt } of candidatos) {
+    const palabras = txt.split(/\s+/).filter((p) => p.length > 0)
+    // Con tres palabras o menos, una por línea puede ser el diseño: un rótulo
+    // corto en una columna estrecha se lee bien así.
+    if (palabras.length < 4) continue
+    // ── LAS LÍNEAS SE CUENTAN CON UN RANGO, NO CON `scrollHeight` ────────
+    //
+    // Las dos primeras versiones de esto dividían `scrollHeight` entre el alto
+    // de línea, y las dos daban cifras falsas:
+    //
+    //   · `scrollHeight` **incluye el relleno**, así que tres líneas con
+    //     12 px arriba y abajo parecían cuatro;
+    //   · y en un `<td>` **incluye el alto de la fila entera**, que lo manda
+    //     la celda más alta. Descontar el relleno no arreglaba eso.
+    //
+    // Las dos acusaban a la tabla de Bajas, cuyo «Sin contacto en ARLES» se
+    // lee en tres líneas perfectamente. Lo encontró **mirar la celda**, no el
+    // número: 96 px de ancho y tres renglones.
+    //
+    // Un rango sobre el contenido devuelve **un rectángulo por línea
+    // pintada**, que es la cifra que se busca y no depende ni del relleno ni
+    // de la tabla. Se agrupan por su borde superior porque un texto con algo
+    // en línea dentro da varios rectángulos en el mismo renglón.
+    const rango = document.createRange()
+    rango.selectNodeContents(el)
+    const topes = new Set()
+    for (const caja of rango.getClientRects()) {
+      if (caja.width > 0 || caja.height > 0) topes.add(Math.round(caja.top))
+    }
+    const lineas = topes.size
+    if (lineas === 0) continue
+    // ── `palabras.length`, NO `palabras` ─────────────────────────────────
+    //
+    // Aquí decía `lineas >= palabras * 0.8`, y `palabras` es un **array**.
+    // Multiplicar un array por un número da `NaN`, y `6 >= NaN` es `false`:
+    // **esta medida no podía saltar nunca**. Habría vivido en verde para
+    // siempre sin mirar un solo texto.
+    //
+    // No lo encontró leer el código: lo encontró **romper la pantalla a
+    // propósito** y ver que la sonda seguía en verde. Es el §2 en su forma
+    // literal — una comprobación que nunca se ha visto fallar no está
+    // verificada — y la razón de que cada medida de esta sonda tenga su
+    // ruptura escrita.
+    //
+    // El 0.8: con seis palabras en seis líneas da 1.0 y salta; con seis en
+    // tres da 0.5 y no. El hueco entre los dos casos medidos es ancho, así
+    // que el umbral no está pegado a ninguno.
+    if (lineas >= palabras.length * 0.8) {
+      estrujados.push({ txt, lineas, palabras: palabras.length })
+    }
+  }
+
+  return {
+    medidos: candidatos.length,
+    encimados,
+    cortados,
+    salidos,
+    rotulosCortados,
+    estrujados,
+  }
 }
 
 const ejecutable = await exigirChromium()
@@ -362,6 +472,12 @@ for (const [ancho, alto] of VENTANAS) {
     }
     for (const c of r.rotulosCortados) {
       mal(`${donde} · rótulo cortado: «${c.txt}» necesita ${c.sobra} px más`)
+    }
+    for (const e of r.estrujados) {
+      mal(
+        `${donde} · texto estrujado: «${e.txt}» cae en ${e.lineas} líneas` +
+          ` teniendo ${e.palabras} palabras — una por renglón`,
+      )
     }
   }
 

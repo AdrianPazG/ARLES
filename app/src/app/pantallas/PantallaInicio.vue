@@ -52,7 +52,18 @@ const error = computed(() =>
 )
 
 onMounted(() => {
-  void empresa.cargar()
+  // ── `refrescar`, no `cargar` (H-08, 16/10/2026) ─────────────────────────
+  //
+  // Esta pantalla es la lista de los seis pasos, y se vuelve a ella JUSTO
+  // DESPUÉS de completar uno. `cargar` se salta a sí mismo en cuanto hay
+  // datos, así que enseñaba la foto del arranque: Dirección dio de alta su
+  // cuenta de correo y la lista seguía en «1 de 6», con el paso del remitente
+  // sin marcar, mientras Remitentes enseñaba esa cuenta como lista para
+  // enviar.
+  //
+  // Un contador que no sube cuando acabas de hacer el paso hace dudar de si
+  // de verdad quedó hecho.
+  void empresa.refrescar()
   void app.cargar()
 })
 

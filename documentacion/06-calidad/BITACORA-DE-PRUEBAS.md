@@ -95,9 +95,9 @@ mirando, no una comprobación automática.
 | **H-04** | 🟡 Molesto | Configuración | No dejaba guardar `telemetrymx.com`: exigía escribir **`https://` a mano** | ✅ **Arreglado** 16/10/2026 |
 | **H-05** | 🔴 Bloqueante | Contactos | «Ocurrió un error al acceder a los datos. Cierra ARLES y vuelve a abrirlo» al dar de alta un contacto | 🔎 **El mensaje, arreglado** 17/10 · falta la causa |
 | **H-06** | 🔴 Bloqueante | Nueva campaña | **El horario de envío sale vacío** y no se puede avanzar del paso 5 | ✅ **Arreglado** 17/10/2026 |
-| **H-07** | 🟠 Grave | Remitentes | La ficha del remitente **se parte en vertical** cuando hay un panel al lado: «Cifrado / (STARTTLS, / puerto / 587» una palabra por línea | 📋 **Abierto** |
-| **H-08** | 🟡 Molesto | Inicio | El paso «Conectar una cuenta remitente» **no se marca** aunque haya un remitente configurado | 📋 **Abierto** |
-| **H-09** | 🟡 Molesto | Nueva campaña | El hueco entre «Déjalo en blanco para usar el de la cuenta» y lo que sigue es **demasiado estrecho** | 📋 **Abierto** |
+| **H-07** | 🟠 Grave | Remitentes | La ficha del remitente **se parte en vertical** cuando hay un panel al lado: «Cifrado / (STARTTLS, / puerto / 587» una palabra por línea | ✅ **Arreglado** 17/10/2026 |
+| **H-08** | 🟡 Molesto | Inicio | El paso «Conectar una cuenta remitente» **no se marca** aunque haya un remitente configurado | ✅ **Arreglado** 17/10/2026 |
+| **H-09** | 🟡 Molesto | Nueva campaña | El hueco entre «Déjalo en blanco para usar el de la cuenta» y lo que sigue es **demasiado estrecho** | ✅ **Arreglado** 17/10/2026 |
 | **H-10** | 🟠 Grave | Nueva campaña | No dice **cuál es el máximo diario por defecto**, así que se deja en blanco sin saber qué se está aceptando | ✅ **Arreglado** 17/10/2026 |
 | **R-03** | 🔵 Requisito | Plantillas | Poder poner **negrita y cursiva** en el texto | 📋 **Abierto** |
 | **R-04** | 🔴 Requisito | Firmas | **Una firma no puede ofrecer variables del contacto.** Que la firma del remitente lleve el nombre de a quien se escribe es una tragedia | 📋 **Abierto** |
@@ -1111,3 +1111,76 @@ día"».
 > copia. Lo que lo hizo recuperable fue que los textos y las pruebas estaban en
 > otros archivos: si todo hubiera vivido en el mismo, se habría perdido también
 > la forma de saber qué faltaba.
+
+---
+
+## H-07, H-08 y H-09 · arreglados el 17/10/2026
+
+### H-07 · la ficha envuelve en vez de estrujarse
+
+`.remitentes__quien` tenía `flex: 1` con `min-width: 0`, así que podía
+encogerse hasta nada: con el panel del correo de prueba al lado, la línea de
+configuración caía una palabra por renglón.
+
+Ahora la fila lleva `flex-wrap: wrap` y el bloque de texto una base de 18rem.
+Cuando no hay sitio, **los botones bajan a la línea siguiente** en vez de
+robarle ancho al texto.
+
+### Y la medida que faltaba, que nació sin medir nada
+
+`sonda:encimado` no lo cazaba, y era información: sus cuatro medidas miran si
+algo desborda, se corta, asoma o lo recortan unos puntos. Esto **cabe**. Está
+estrujado, que es otra cosa.
+
+La medida 5 cuenta **líneas contra palabras**: si son casi iguales, cada
+palabra está cayendo en su renglón. Llegar a eso costó tres intentos, y los
+tres fallos valen más que el resultado:
+
+| | Qué hacía | Por qué estaba mal |
+|---|---|---|
+| **1ª** | Preguntaba si caben «dos palabras largas», medidas con un `canvas` | Dio **19 hallazgos en Bajas** y la tabla se lee bien. Era el umbral acusando a un texto correcto |
+| **2ª** | Dividía `scrollHeight` entre el alto de línea | `scrollHeight` **incluye el relleno**, y en un `<td>` **el alto de la fila entera**. Tres líneas parecían cinco |
+| **3ª** ✅ | Un `Range` sobre el contenido: **un rectángulo por línea pintada** | No depende del relleno ni de la tabla |
+
+> **Y la medida no podía saltar nunca.** Escribí `lineas >= palabras * 0.8`, y
+> `palabras` es un **array**: multiplicarlo da `NaN`, y `6 >= NaN` es `false`.
+> Habría vivido en verde para siempre sin mirar un solo texto.
+>
+> **No lo encontró leer el código**: lo encontró romper la pantalla a propósito
+> y ver que la sonda seguía en verde. Es el §2 en su forma literal.
+
+> **Y una guarda mía se comía el caso peor.** La recogida de candidatos
+> descartaba lo que tuviera `width < 1`, para saltar lo invisible. Un bloque sin
+> ancho y con 120 px de alto —el síntoma exacto, seis palabras en seis líneas—
+> entraba justo por ahí. Ahora se exige **alto**, no ancho.
+
+Verificada reproduciendo la ficha como la vio Dirección: caza las tres líneas,
+nombrando «cae en 6 líneas teniendo 6 palabras».
+
+### H-08 · el contador no subía porque nadie volvía a preguntar
+
+`empresa.cargar()` tiene un `if (cargada.value) return`, así que la lista de
+los seis pasos se quedaba con **la foto del arranque**. El recuento es correcto
+en la base —`recuento_de_alta` cuenta `email_account`— pero nadie lo volvía a
+pedir.
+
+Inicio llama ahora a `refrescar()`, que es la misma carga sin el atajo. Es la
+pantalla a la que se vuelve **justo después** de completar un paso.
+
+Es la hermana del H-01: allí un aviso sobrevivía a lo que lo resolvía; aquí un
+contador no sube cuando acabas de hacer el paso, y eso hace dudar de si quedó
+hecho.
+
+### H-09 · el hueco entre campos, de 16 a 24
+
+La ayuda de un campo y la etiqueta del siguiente son **las dos texto pequeño**,
+y entre ellas había los 16 px del módulo mientras dentro del campo hay 4.
+Cuatro veces más no basta cuando lo que separa y lo que junta se parecen tanto.
+
+Se añaden 8 px **sólo entre campos consecutivos**, no al `gap` del módulo:
+subir ése alejaría también el título de su primer campo. 24 contra 4 es seis
+veces, y el título se queda donde estaba — que es el «equilibrado» que Dirección
+pidió.
+
+Comprobado mirando Configuración y Remitentes, y `sonda:recorrido` sigue en
+verde: el cambio no desalineó ninguna de las dieciocho pantallas.

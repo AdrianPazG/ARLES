@@ -767,6 +767,16 @@ async function probarGuardada(r: Remitente): Promise<void> {
 .remitentes__fila {
   display: flex;
   align-items: center;
+  /* ── LA FICHA SE PARTÍA UNA PALABRA POR LÍNEA (H-07, 16/10/2026) ───────
+     Con el panel de «Mandar un correo de prueba» abierto al lado, la fila se
+     estrechaba y la línea de configuración se leía así:
+
+         Cifrado / (STARTTLS, / puerto / 587 / Hasta / 50 / al / día
+
+     Cabía —no desbordaba nada— pero era ilegible. Cuando no hay sitio, lo
+     correcto es que las acciones BAJEN a la línea siguiente, no que el texto
+     se estruje hasta una palabra por renglón. */
+  flex-wrap: wrap;
   gap: var(--arles-space-4);
   padding: var(--arles-space-3) var(--arles-space-4);
   border: var(--arles-border-width) solid var(--arles-border);
@@ -775,7 +785,12 @@ async function probarGuardada(r: Remitente): Promise<void> {
 }
 
 .remitentes__quien {
-  flex: 1;
+  /* La base de 18rem es lo que dispara el envoltorio de arriba: por debajo de
+     ese ancho los botones se van abajo en vez de robarle sitio al texto.
+     `min-width: 0` sigue haciendo falta para que un correo largo se pueda
+     recortar dentro de un flex, pero ya no deja que el bloque se encoja hasta
+     lo ilegible, porque `flex-basis` manda antes. */
+  flex: 1 1 18rem;
   display: flex;
   flex-direction: column;
   gap: var(--arles-space-1);

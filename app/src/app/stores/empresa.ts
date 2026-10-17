@@ -111,6 +111,25 @@ export const useEmpresaStore = defineStore('empresa', () => {
   const onboarding = computed(() => configuracion.value.onboarding)
   const configurada = computed(() => configuracion.value.empresa !== null)
 
+  /**
+   * Pide la configuración y **la lista de los seis pasos**.
+   *
+   * ── POR QUÉ HAY UN `refrescar` Y ESTO NO BASTA (H-08, 16/10/2026) ───────
+   *
+   * Dirección dio de alta su cuenta de correo, volvió a Inicio y la lista
+   * seguía diciendo **«1 de 6»**, con «Conectar una cuenta remitente» sin su
+   * palomita — mientras la pantalla de Remitentes enseñaba esa misma cuenta
+   * como «Lista para enviar».
+   *
+   * El recuento es correcto en la base: `recuento_de_alta` cuenta
+   * `email_account` y habría devuelto 1. Lo que pasa es que **este `cargar`
+   * no vuelve a preguntar**: el `return` de abajo lo salta en cuanto hay
+   * datos, así que la lista se queda con la foto del arranque.
+   *
+   * Es la hermana del H-01: allí un aviso sobrevivía a lo que lo resolvía;
+   * aquí es un contador que no sube cuando acabas de hacer el paso, que hace
+   * dudar de si de verdad quedó hecho.
+   */
   async function cargar(): Promise<void> {
     if (cargada.value || cargando.value) return
     cargando.value = true
@@ -131,6 +150,18 @@ export const useEmpresaStore = defineStore('empresa', () => {
       cargando.value = false
     }
   }
+  /**
+   * Vuelve a pedirla aunque ya esté cargada.
+   *
+   * Es lo que hace falta tras dar de alta un remitente, un contacto o una
+   * plantilla: el paso correspondiente acaba de completarse y la lista tiene
+   * que enterarse. `cargar` no sirve porque se salta a sí mismo (H-08).
+   */
+  async function refrescar(): Promise<void> {
+    cargada.value = false
+    await cargar()
+  }
+
 
   /**
    * Guarda el formulario.
@@ -199,6 +230,7 @@ export const useEmpresaStore = defineStore('empresa', () => {
     errorGeneral,
     guardadoConExito,
     cargar,
+    refrescar,
     guardar,
   }
 })

@@ -119,6 +119,24 @@ withDefaults(
   border-left-width: var(--arles-space-1);
 }
 
+/* ── DOS CAMPOS SEGUIDOS NECESITAN MÁS AIRE QUE EL RESTO (H-09) ──────────
+   Dirección leyó el paso 5 del asistente el 16/10/2026 y dijo que el hueco
+   entre «Déjalo en blanco para usar el de la cuenta» y «Máximo por hora» era
+   «muy reducido»: las dos líneas se leían como una sola.
+
+   La causa es que la ayuda de un campo y la etiqueta del siguiente son **las
+   dos texto pequeño**, y entre ellas había los 16 px del módulo mientras
+   dentro del campo hay 4. Cuatro veces más no basta cuando lo que separa y lo
+   que junta se parecen tanto.
+
+   Se añade sólo ENTRE CAMPOS, no al `gap` del módulo: subir ése alejaría
+   también el título de su primer campo, y lo que Dirección pidió fue
+   «equilibrado, ni amontonado ni con demasiado espacio». 16 + 8 = 24 px entre
+   campos, seis veces lo de dentro, y el título donde estaba. */
+.modulo :deep(.campo + .campo) {
+  margin-top: var(--arles-space-2);
+}
+
 .cabecera {
   display: flex;
   align-items: baseline;
