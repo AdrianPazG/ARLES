@@ -40,6 +40,9 @@ const CLAVES_DEL_NUCLEO = [
   'error.etapa.condicion_desconocida',
   'error.id_invalido',
   'error.transicion_invalida',
+  // Ronda del 17/10/2026 · R-04. Una firma no puede llevar variables de quien
+  // recibe: el remitente firmaría con el nombre y la empresa del destinatario.
+  'error.firma_con_variables_del_contacto',
   // arles-db
   'error.db.clave_incorrecta',
   'error.db.clave_mal_formada',

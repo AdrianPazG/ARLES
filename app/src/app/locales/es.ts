@@ -1535,6 +1535,26 @@ export const es = {
         'No ha salido ni un mensaje más de esa campaña, y no se ha ' +
         'cancelado ninguno. Las demás campañas siguen normal.',
     },
+    // ── R-04 · UNA FIRMA CON DATOS DE QUIEN RECIBE (16/10/2026) ─────────
+    //
+    // Dirección: «sería una tragedia que apareciera en la firma el nombre del
+    // contacto a quien se le está haciendo llegar el correo y su empresa, en
+    // lugar de los datos del remitente».
+    //
+    // `{detalle}` son TODAS las que se encontraron, no la primera: con una
+    // lista de una, corregirla y volver a guardar enseñaría la siguiente.
+    firma_con_variables_del_contacto: {
+      que: 'Esta firma lleva datos de quien RECIBE el correo: {detalle}.',
+      como:
+        'Quítalos de la firma. Esas variables se rellenan con los datos de ' +
+        'cada contacto, así que ahí pondrían el nombre de quien lo recibe, no ' +
+        'el tuyo — debajo de tu mensaje y en cada correo de la campaña. En una ' +
+        'firma sólo cabe «Mi empresa», que es la tuya.',
+      salvo:
+        'No se guardó nada. La firma que tuvieras antes sigue como estaba, y ' +
+        'ninguna campaña ha salido con esto.',
+    },
+
     supresion_sin_canales: {
       que: 'No se dijo qué correo o qué número hay que dar de baja.',
       como: 'Elige al menos una dirección antes de continuar.',
@@ -3154,6 +3174,14 @@ export const es = {
     usaVariables: 'Usa {cuantas} dato(s) de cada contacto',
 
     // §95: qué pasó, cómo se arregla, y qué está a salvo.
+    // ── R-04 · una firma con datos de quien recibe (16/10/2026) ─────────
+    firmaConDatosAjenos: 'Esto no va en una firma',
+    firmaConDatosAjenosAyuda:
+      'Esas variables se rellenan con los datos de cada contacto, así que en ' +
+      'tu firma pondrían el nombre de quien recibe el correo, no el tuyo — ' +
+      'debajo de tu mensaje y en cada envío de la campaña. En una firma sólo ' +
+      'cabe «Mi empresa», que es la tuya.',
+
     variableQueNoExiste: 'Hay un dato escrito que ARLES no reconoce',
     variableQueNoExisteAyuda:
       'Se enviaría tal cual, con las llaves incluidas, en el correo de cada ' +

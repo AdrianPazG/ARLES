@@ -84,6 +84,44 @@ impl Variable {
         }
     }
 
+    /// ¿Habla de **quien recibe** el correo?
+    ///
+    /// ── POR QUÉ ESTA PREGUNTA EXISTE (R-04, 16/10/2026) ──────────────────
+    ///
+    /// Dirección lo dijo así: *«sería una tragedia que apareciera en la firma
+    /// el nombre del contacto a quien se le está haciendo llegar el correo y
+    /// su empresa, en lugar de los datos del remitente»*. Y tiene razón: una
+    /// firma con `{{nombre}}` no pone el de quien firma — pone **el de quien
+    /// recibe**, en cada correo de la campaña, debajo del mensaje y donde más
+    /// se mira.
+    ///
+    /// El formulario de plantillas y el de firmas son el mismo, y ofrecía las
+    /// cuatro variables en los dos casos. Tres de ellas son del destinatario.
+    ///
+    /// `MiEmpresa` es la única que habla de quien envía, y por eso es la única
+    /// que una firma puede usar.
+    #[must_use]
+    pub const fn es_de_quien_recibe(self) -> bool {
+        match self {
+            Self::Nombre | Self::Apellido | Self::Empresa => true,
+            Self::MiEmpresa => false,
+        }
+    }
+
+    /// Las que una **firma** puede llevar.
+    ///
+    /// Se deriva de `es_de_quien_recibe` y no es otra lista: dos listas de lo
+    /// mismo se separan en cuanto alguien añada una variable, y la que se
+    /// quedaría atrás es justo la que protege.
+    #[must_use]
+    pub fn de_quien_firma() -> Vec<Self> {
+        Self::TODAS
+            .iter()
+            .copied()
+            .filter(|v| !v.es_de_quien_recibe())
+            .collect()
+    }
+
     /// La variable que corresponde a una clave, si existe.
     #[must_use]
     pub fn de_clave(clave: &str) -> Option<Self> {
@@ -201,6 +239,43 @@ pub struct Rellenada {
     /// Se devuelve en vez de tragársela porque es lo que el preflight cuenta
     /// para decir «a 34 contactos les falta el nombre» antes de activar.
     pub faltaron: Vec<Variable>,
+}
+
+/// Comprueba que un texto sirve como **firma**.
+///
+/// ── LA GUARDA DE R-04, Y POR QUÉ VIVE AQUÍ ──────────────────────────────
+///
+/// Una firma con `{{nombre}}` pone el nombre de **quien recibe** debajo del
+/// mensaje, en cada correo de la campaña. Dirección lo llamó «una tragedia»
+/// el 16/10/2026, y lo es: no se nota al escribirla, se nota cuando ya salió.
+///
+/// El formulario de plantillas y el de firmas son el mismo, y ofrecía las
+/// cuatro variables en los dos casos. **La pantalla ya no las ofrece**, pero
+/// eso sólo cubre el camino de quien pulsa un botón: quedan las escritas a
+/// mano, las que entren en un respaldo restaurado, y cualquier formulario
+/// futuro que olvide filtrar.
+///
+/// Por eso la comprobación está en el núcleo, donde no se puede rodear.
+///
+/// # Errores
+///
+/// [`CoreError::FirmaConVariablesDelContacto`] nombrando **todas** las que
+/// encontró, no la primera: con una lista de una, corregirla y volver a
+/// guardar enseñaría la siguiente, y así una por intento.
+pub fn revisar_firma(texto: &str) -> Result<(), crate::CoreError> {
+    let ajenas: Vec<&str> = Plantilla::nueva(texto, SiFalta::Nada)
+        .variables()
+        .into_iter()
+        .filter(|v| v.es_de_quien_recibe())
+        .map(Variable::clave)
+        .collect();
+
+    if ajenas.is_empty() {
+        return Ok(());
+    }
+    Err(crate::CoreError::FirmaConVariablesDelContacto {
+        cuales: ajenas.join(", "),
+    })
 }
 
 impl Plantilla {
@@ -528,5 +603,78 @@ mod tests {
         let p = Plantilla::nueva(texto, SiFalta::Nada);
         assert_eq!(p.rellenar(&ana()).texto, texto);
         assert!(p.variables().is_empty());
+    }
+}
+
+#[cfg(test)]
+mod firmas_sin_datos_ajenos {
+    //! R-04 · una firma no puede llevar variables de quien recibe
+    //!
+    //! Dirección lo dijo el 16/10/2026: *«sería una tragedia que apareciera en
+    //! la firma el nombre del contacto a quien se le está haciendo llegar el
+    //! correo y su empresa, en lugar de los datos del remitente»*.
+    //!
+    //! Y es exacto: el formulario de plantillas y el de firmas son el mismo, y
+    //! ofrecía las cuatro variables en los dos casos. Tres son del
+    //! destinatario, y una firma con `{{nombre}}` las habría puesto **debajo
+    //! del mensaje, en cada correo de la campaña**.
+    use super::*;
+
+    #[test]
+    fn una_firma_limpia_pasa() {
+        assert!(revisar_firma("Ana Ruiz · Distribuidora del Norte").is_ok());
+    }
+
+    #[test]
+    fn la_variable_de_quien_envia_si_vale() {
+        // `mi_empresa` es la única que habla de quien firma, y es justo la que
+        // una firma necesita: así el día que cambie el nombre comercial, las
+        // firmas lo recogen solas.
+        assert!(revisar_firma("Ana Ruiz\n{{mi_empresa}}").is_ok());
+    }
+
+    #[test]
+    fn las_tres_del_contacto_se_rechazan() {
+        for ajena in ["{{nombre}}", "{{apellido}}", "{{empresa}}"] {
+            let r = revisar_firma(&format!("Ana Ruiz\n{ajena}"));
+            assert!(r.is_err(), "{ajena} tendría que rechazarse en una firma");
+        }
+    }
+
+    /// **Nombra todas, no la primera.**
+    ///
+    /// Con una lista de una, corregirla y volver a guardar enseñaría la
+    /// siguiente, y así una por intento: es el defecto que
+    /// `reporta_todos_los_campos_malos_de_una_vez` ya corrigió en el
+    /// formulario de empresa.
+    #[test]
+    fn dice_todas_las_que_encontro() {
+        let r = revisar_firma("{{nombre}} de {{empresa}}, saludos de {{mi_empresa}}");
+        let crate::CoreError::FirmaConVariablesDelContacto { cuales } =
+            r.expect_err("tiene que fallar")
+        else {
+            panic!("el error tiene que ser el de la firma")
+        };
+        assert!(cuales.contains("nombre"), "{cuales}");
+        assert!(cuales.contains("empresa"), "{cuales}");
+        // Y no acusa a la que sí vale.
+        assert!(!cuales.contains("mi_empresa"), "{cuales}");
+    }
+
+    /// **La lista de las que una firma puede usar se deriva, no se repite.**
+    ///
+    /// Dos listas de lo mismo se separan en cuanto alguien añada una variable,
+    /// y la que se quedaría atrás es justo la que protege.
+    #[test]
+    fn de_quien_firma_sale_de_es_de_quien_recibe() {
+        let permitidas = Variable::de_quien_firma();
+        assert_eq!(permitidas, vec![Variable::MiEmpresa]);
+        for v in Variable::TODAS {
+            assert_eq!(
+                permitidas.contains(v),
+                !v.es_de_quien_recibe(),
+                "{v:?} no cuadra entre las dos"
+            );
+        }
     }
 }

@@ -1797,8 +1797,8 @@ mod reproduccion_h05 {
     //! Hace EXACTAMENTE lo de la captura: empresa configurada, lista vacía, y
     //! un contacto con nombre, apellido, empresa y un solo correo.
     use super::tests::base;
-    use arles_core::contacto::{BorradorDeCanal, BorradorDeContacto, DatosDeContacto};
     use arles_core::Canal;
+    use arles_core::contacto::{BorradorDeCanal, BorradorDeContacto, DatosDeContacto};
 
     #[test]
     fn el_alta_a_mano_de_la_captura_de_direccion() {
@@ -1807,7 +1807,11 @@ mod reproduccion_h05 {
         let antes = db
             .listar_contactos(empresa, 100, 0)
             .expect("leer la lista vacía");
-        assert_eq!(antes.contactos.len(), 0, "la base empieza vacía, como en la captura");
+        assert_eq!(
+            antes.contactos.len(),
+            0,
+            "la base empieza vacía, como en la captura"
+        );
 
         let borrador = BorradorDeContacto {
             nombre: "Adrian".into(),
@@ -1819,8 +1823,8 @@ mod reproduccion_h05 {
                 principal: true,
             }],
         };
-        let datos = DatosDeContacto::validar(&borrador, "MX")
-            .expect("el borrador de la captura es válido");
+        let datos =
+            DatosDeContacto::validar(&borrador, "MX").expect("el borrador de la captura es válido");
 
         let r = db.crear_contacto(empresa, &datos);
         assert!(r.is_ok(), "el alta de la captura falló con: {:?}", r.err());
@@ -1839,7 +1843,11 @@ mod reproduccion_h05 {
             .flat_map(|c| c.datos.canales.iter().cloned())
             .collect();
         let supr = db.direcciones_suprimidas(empresa, &canales);
-        assert!(supr.is_ok(), "las suprimidas fallaron con: {:?}", supr.err());
+        assert!(
+            supr.is_ok(),
+            "las suprimidas fallaron con: {:?}",
+            supr.err()
+        );
     }
 
     /// El segundo contacto, que es donde se cruzan índices únicos.

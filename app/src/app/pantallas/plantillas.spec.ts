@@ -148,3 +148,77 @@ describe('la pantalla de plantillas y firmas', () => {
     expect(pantalla.find('input[type="checkbox"]').exists()).toBe(true)
   })
 })
+
+/**
+ * R-04 · una firma no puede llevar datos de quien recibe · 16/10/2026
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * DIRECCIÓN LO LLAMÓ «UNA TRAGEDIA», Y LO ES
+ *
+ * *«Sería una tragedia que apareciera en la firma el nombre del contacto a
+ * quien se le está haciendo llegar el correo y su empresa, en lugar de los
+ * datos del remitente.»*
+ *
+ * Este formulario sirve para plantilla **y** firma, y ofrecía las cuatro
+ * variables en los dos casos. Tres son del destinatario: una firma con
+ * `{{nombre}}` habría puesto el de quien recibe **debajo del mensaje, en cada
+ * correo de la campaña**.
+ *
+ * Son dos mitades y hacen falta las dos: la pantalla **ayuda** —no ofrece lo
+ * que no toca y avisa de lo escrito a mano— y el núcleo **impide**
+ * (`revisar_firma`), para lo que llegue por otro camino.
+ */
+describe('el editor de firmas', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  async function abrirFirma(): Promise<ReturnType<typeof mount>> {
+    const pantalla = mount(PantallaPlantillas, entorno)
+    const nueva = pantalla.findAll('button').find((b) => b.text().includes('Nueva firma'))
+    await nueva?.trigger('click')
+    return pantalla
+  }
+
+  it('NO ofrece las variables de quien recibe', async () => {
+    const p = await abrirFirma()
+    const botones = p.findAll('button').map((b) => b.text())
+    expect(botones.some((t) => t.includes('Mi empresa'))).toBe(true)
+    for (const ajena of ['Nombre', 'Apellido']) {
+      expect(
+        botones.filter((t) => t === ajena),
+        `una firma no puede ofrecer «${ajena}»`,
+      ).toHaveLength(0)
+    }
+  })
+
+  it('en una plantilla sí se ofrecen las cuatro', async () => {
+    const p = await abrirEditor()
+    const botones = p.findAll('button').map((b) => b.text())
+    // En una plantilla son correctas: el mensaje SÍ habla de quien lo recibe.
+    expect(botones.some((t) => t === 'Nombre')).toBe(true)
+    expect(botones.some((t) => t.includes('Mi empresa'))).toBe(true)
+  })
+
+  it('avisa si se escriben a mano, y no deja guardar', async () => {
+    const p = await abrirFirma()
+    await p.find('input').setValue('Mi firma')
+    await p.find('textarea').setValue('Ana Ruiz\n{{nombre}} · {{empresa}}')
+    await p.vm.$nextTick()
+
+    expect(p.text()).toContain('Esto no va en una firma')
+    const guardar = p.findAll('button').find((b) => b.text() === 'Guardar')
+    expect(guardar?.attributes('disabled')).toBeDefined()
+  })
+
+  it('con sólo «mi empresa» sí deja guardar', async () => {
+    const p = await abrirFirma()
+    await p.find('input').setValue('Mi firma')
+    await p.find('textarea').setValue('Ana Ruiz\n{{mi_empresa}}')
+    await p.vm.$nextTick()
+
+    expect(p.text()).not.toContain('Esto no va en una firma')
+    const guardar = p.findAll('button').find((b) => b.text() === 'Guardar')
+    expect(guardar?.attributes('disabled')).toBeUndefined()
+  })
+})

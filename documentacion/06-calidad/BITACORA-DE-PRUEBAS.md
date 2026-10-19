@@ -100,7 +100,7 @@ mirando, no una comprobación automática.
 | **H-09** | 🟡 Molesto | Nueva campaña | El hueco entre «Déjalo en blanco para usar el de la cuenta» y lo que sigue es **demasiado estrecho** | ✅ **Arreglado** 17/10/2026 |
 | **H-10** | 🟠 Grave | Nueva campaña | No dice **cuál es el máximo diario por defecto**, así que se deja en blanco sin saber qué se está aceptando | ✅ **Arreglado** 17/10/2026 |
 | **R-03** | 🔵 Requisito | Plantillas | Poder poner **negrita y cursiva** en el texto | 📋 **Abierto** |
-| **R-04** | 🔴 Requisito | Firmas | **Una firma no puede ofrecer variables del contacto.** Que la firma del remitente lleve el nombre de a quien se escribe es una tragedia | 📋 **Abierto** |
+| **R-04** | 🔴 Requisito | Firmas | **Una firma no puede ofrecer variables del contacto.** Que la firma del remitente lleve el nombre de a quien se escribe es una tragedia | ✅ **Arreglado 17/10/2026** |
 | **R-05** | 🔵 Requisito | Firmas | Poder poner **una imagen** en la firma, como en Outlook | 📋 **Abierto** |
 | **R-06** | 🟠 Requisito | Plantillas | **No se pueden editar** las plantillas ni las firmas ya creadas | 📋 **Abierto** |
 | **R-07** | 🔵 Requisito | Remitentes | El correo de prueba **llega a spam** — qué se puede hacer | 📋 **Abierto** · es la 7.5 |
@@ -1004,6 +1004,52 @@ abajo, en «Las tres decisiones».
 | **R-05** | **Una imagen en la firma**, como en Outlook | El logotipo es lo primero que se mira en una firma |
 | **R-06** | **Editar** plantillas y firmas ya creadas | Hoy se crean y no se tocan. Chocaba con «las versiones no se editan», y hay que distinguir las dos cosas: una **versión** no se edita —eso es correcto y protege lo ya enviado—, pero **tiene que poder nacer otra** a partir de la anterior |
 | **R-07** | **El correo de prueba llegó a spam** | Es la 7.5 (SPF, DKIM, DMARC), lo único que necesita red y que sólo se podía verificar el día que R-24 se cerrara. **Hoy se cerró** |
+
+### R-04 · Arreglado el 17/10/2026 — en dos mitades, y las dos hacen falta
+
+Dirección lo dijo así: *«sería una tragedia que apareciera en la firma el nombre
+del contacto a quien se le está haciendo llegar el correo y su empresa, en lugar
+de los datos del remitente»*. Y no era una posibilidad teórica: el editor
+**ofrecía los cuatro botones de variables en la firma igual que en la
+plantilla**, así que el camino más corto para firmar era pulsar el que decía
+«Empresa» — que es la del contacto.
+
+**Lo que no se puede hacer es sólo quitar los botones.** El cuerpo de la firma
+es un campo de texto: quien escriba `{{nombre}}` a mano llega al mismo sitio, y
+una pantalla que ayuda a no equivocarse no es una garantía. Así que el arreglo
+tiene dos mitades, con responsabilidades distintas:
+
+| Dónde | Qué hace | Qué pasa si falla |
+|---|---|---|
+| **La pantalla** (`PantallaPlantillas.vue`) | Ofrece sólo `{{mi_empresa}}` cuando se edita una firma, y avisa en tono de peligro de las que se escriban a mano, con «Guardar» bloqueado | Se puede intentar guardar una firma con `{{nombre}}` |
+| **El núcleo** (`plantilla::revisar_firma`) | Rechaza el cuerpo antes de sanear y antes de tocar la base | **Nada**: la base no puede llegar a tener una firma así, venga de donde venga |
+
+La pregunta que distingue las dos variables la contesta el propio núcleo:
+`Variable::es_de_quien_recibe()` — `Nombre`, `Apellido` y `Empresa` son de quien
+recibe; `MiEmpresa` es de quien firma. Y `de_quien_firma()` **se deriva de ella**
+filtrando `TODAS`, en vez de ser una segunda lista a mano: una variable nueva
+entra por un solo sitio, y si alguien añade una de quien recibe sin marcarla,
+aparece en la firma. Hay una prueba de esa derivación.
+
+**El error es uno nuevo y no un «dato inválido» genérico** —
+`CoreError::FirmaConVariablesDelContacto { cuales }` — porque dice **cuáles**
+encontró. Un error que sólo dijera «la firma no es válida» obligaría a buscar a
+ojo en un HTML; éste nombra las tres si están las tres (§95: qué pasó, cómo se
+arregla, qué está a salvo).
+
+**Verificado rompiéndolo** (§2), que es lo que hace que estas nueve pruebas
+valgan algo:
+
+- Las cinco de `arles-core` (`firmas_sin_datos_ajenos`): se cambió
+  `es_de_quien_recibe` para que `Empresa` contara como de quien firma. **Tres
+  fallan** nombrando `{{empresa}}`, incluida la de la derivación.
+- Las cuatro de la pantalla (`plantillas.spec.ts`): se devolvieron las cuatro
+  variables al editor de firmas. **Falla** con «una firma no puede ofrecer
+  «Nombre»».
+
+**Lo que esto NO arregla:** R-05 (una imagen en la firma) y R-06 (editar una
+firma ya creada) siguen abiertos. Una firma mal escrita hoy se arregla
+creándola otra vez, que es exactamente el motivo de R-06.
 
 ---
 

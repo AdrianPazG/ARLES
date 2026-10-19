@@ -391,6 +391,17 @@ impl Db {
         cuerpo_html: &str,
         por_defecto: bool,
     ) -> Result<SignatureId, DbError> {
+        // ── LA GUARDA DE R-04, ANTES DE TOCAR LA BASE ─────────────────────
+        //
+        // Una firma con `{{nombre}}` pone el nombre de QUIEN RECIBE debajo del
+        // mensaje, en cada correo de la campaña. Se para aquí y no sólo en la
+        // pantalla porque una firma puede llegar por otro camino: escrita a
+        // mano, desde un respaldo, o desde un formulario futuro que olvide
+        // filtrar los botones.
+        //
+        // Va antes del saneado y de la transacción: no hay nada que deshacer.
+        arles_core::plantilla::revisar_firma(cuerpo_html).map_err(DbError::Nucleo)?;
+
         let html = sanear::html(cuerpo_html);
         let texto = sanear::a_texto_plano(&html);
         let id = SignatureId::nuevo();

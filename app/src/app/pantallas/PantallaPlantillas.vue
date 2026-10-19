@@ -60,6 +60,42 @@ onMounted(() => {
 /** Las cuatro variables del núcleo (`arles_core::plantilla::Variable`). */
 const VARIABLES = ['nombre', 'apellido', 'empresa', 'mi_empresa'] as const
 
+/**
+ * Las que habla de **quien recibe** el correo.
+ *
+ * ── R-04, 16/10/2026 ───────────────────────────────────────────────────────
+ *
+ * Dirección: *«sería una tragedia que apareciera en la firma el nombre del
+ * contacto a quien se le está haciendo llegar el correo y su empresa, en lugar
+ * de los datos del remitente»*.
+ *
+ * Y este formulario sirve para las dos cosas —plantilla y firma— y ofrecía las
+ * cuatro en los dos casos. Una firma con `{{nombre}}` pone el de quien recibe
+ * **debajo del mensaje, en cada correo de la campaña**.
+ *
+ * Esto **ayuda**: quita los botones que no tocan. Lo que **impide** es
+ * `revisar_firma` en el núcleo, que para el guardado aunque se escriban a
+ * mano. Las dos mitades hacen falta: sin la de aquí se tropieza, sin la de
+ * allí se cuela.
+ */
+const DE_QUIEN_RECIBE = ['nombre', 'apellido', 'empresa'] as const
+
+/** Las que se ofrecen según lo que se esté escribiendo. */
+const variablesQueSeOfrecen = computed(() =>
+  editando.value === 'firma'
+    ? VARIABLES.filter((v) => !DE_QUIEN_RECIBE.includes(v as (typeof DE_QUIEN_RECIBE)[number]))
+    : VARIABLES,
+)
+
+/** Las de quien recibe que se hayan escrito a mano en una firma. */
+const ajenasEnLaFirma = computed(() =>
+  editando.value === 'firma'
+    ? variablesUsadas.value.filter((v) =>
+        DE_QUIEN_RECIBE.includes(v as (typeof DE_QUIEN_RECIBE)[number]),
+      )
+    : [],
+)
+
 type Cual = 'plantilla' | 'firma' | null
 const editando = ref<Cual>(null)
 
@@ -108,7 +144,12 @@ const puedeGuardar = computed(
     nombre.value.trim().length > 0 &&
     cuerpo.value.trim().length > 0 &&
     (!esPlantilla.value || asunto.value.trim().length > 0) &&
-    variablesQueNoExisten.value.length === 0,
+    variablesQueNoExisten.value.length === 0 &&
+    // El núcleo las rechaza igual (R-04), pero dejar pulsar «Guardar» para
+    // que el guardado falle es hacer escribir la firma entera para enterarse.
+    // El aviso de abajo queda justo encima del botón, así que el botón
+    // apagado dice por qué (§95).
+    ajenasEnLaFirma.value.length === 0,
 )
 
 function abrir(cual: Exclude<Cual, null>): void {
@@ -231,7 +272,7 @@ async function guardar(): Promise<void> {
           <div class="variables">
             <span class="ayuda">{{ t('plantillas.insertar') }}</span>
             <ABoton
-              v-for="v in VARIABLES"
+              v-for="v in variablesQueSeOfrecen"
               :key="v"
               variante="sutil"
               @click="insertar(v)"
@@ -275,6 +316,19 @@ async function guardar(): Promise<void> {
 
       <!-- La que salva un envío: una variable mal escrita no falla en ningún
            sitio, sale impresa tal cual en el correo. -->
+      <!-- ── R-04 · datos de quien RECIBE en una firma ──────────────────
+           Los botones ya no las ofrecen, pero se pueden escribir a mano o
+           venir de una firma vieja. Y el daño es grande: el nombre de quien
+           recibe, debajo del mensaje, en cada correo de la campaña. -->
+      <AAviso
+        v-if="ajenasEnLaFirma.length > 0"
+        tono="peligro"
+      >
+        <strong>{{ t('plantillas.firmaConDatosAjenos') }}</strong>
+        <p>{{ comoSeVen(ajenasEnLaFirma) }}</p>
+        <p>{{ t('plantillas.firmaConDatosAjenosAyuda') }}</p>
+      </AAviso>
+
       <AAviso
         v-if="variablesQueNoExisten.length > 0"
         tono="peligro"

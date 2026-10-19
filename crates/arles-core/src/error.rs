@@ -98,6 +98,27 @@ pub enum CoreError {
     #[error("el estado de esa campaña no es uno de los admitidos")]
     EstadoDeCampanaDesconocido,
 
+    /// Una **firma** lleva variables de quien recibe el correo.
+    ///
+    /// ── POR QUÉ ESTO PARA EL GUARDADO (R-04, 16/10/2026) ─────────────────
+    ///
+    /// Dirección lo dijo así: *«sería una tragedia que apareciera en la firma
+    /// el nombre del contacto a quien se le está haciendo llegar el correo y
+    /// su empresa, en lugar de los datos del remitente»*.
+    ///
+    /// Una firma con `{{nombre}}` no pone el de quien firma: pone el de quien
+    /// recibe, en **cada correo de la campaña**, debajo del mensaje. Y no se
+    /// nota al escribirla — se nota cuando ya salió.
+    ///
+    /// Se para en el núcleo y no sólo en la pantalla porque una firma puede
+    /// llegar por otro camino: un respaldo restaurado, una importación futura,
+    /// o un formulario que olvide filtrar. **La pantalla ayuda; esto impide.**
+    #[error("una firma no puede llevar variables de quien recibe: {cuales}")]
+    FirmaConVariablesDelContacto {
+        /// Las que se encontraron, separadas por comas, para poder nombrarlas.
+        cuales: String,
+    },
+
     /// Se pidió suprimir sin decir qué dirección.
     ///
     /// Una supresión sin dirección no bloquea a nadie: dejaría una fila en la
@@ -162,6 +183,7 @@ impl CoreError {
             Self::OrigenDeSupresionDesconocido => "error.origen_de_supresion_desconocido",
             Self::AlcanceDeSupresionDesconocido => "error.alcance_de_supresion_desconocido",
             Self::EstadoDeCampanaDesconocido => "error.estado_de_campana_desconocido",
+            Self::FirmaConVariablesDelContacto { .. } => "error.firma_con_variables_del_contacto",
             Self::SupresionSinCanales => "error.supresion_sin_canales",
             Self::AlcanceNoCoincideConLosCanales => "error.alcance_no_coincide",
             Self::NoEsUnRespaldo => "error.no_es_un_respaldo",
