@@ -445,6 +445,109 @@ impl Db {
         })
     }
 
+    /// Reescribe una firma **en su sitio**, y es la única cosa de este módulo
+    /// que se edita encima.
+    ///
+    /// ── POR QUÉ AQUÍ SÍ Y EN UNA PLANTILLA NO ──────────────────────────────
+    ///
+    /// Una versión de plantilla no se toca porque es lo que contesta «¿qué
+    /// decía el correo que recibió este cliente?». Una firma **no tiene
+    /// versiones en el esquema**, así que esa pregunta no se le puede hacer, y
+    /// un `UPDATE` no destruye ninguna respuesta que hoy exista.
+    ///
+    /// Y hoy, además, **ninguna campaña apunta a una firma**: la columna
+    /// `campaign_stage.signature_id` existe desde la V4 y **nada la escribe**
+    /// —medido en el 17/10/2026 sobre los ocho crates—, igual que el cuerpo de
+    /// la plantilla no llega todavía al remitente (auditoría B). Así que
+    /// editar una firma no puede cambiar lo que va a salir de una campaña en
+    /// marcha, porque no sale ninguna firma.
+    ///
+    /// **El día que el contenido se conecte al envío, esto hay que decidirlo
+    /// otra vez**, y la decisión correcta será la de la plantilla: congelar en
+    /// la etapa lo que se va a mandar. Si en su lugar la etapa apunta a la
+    /// firma viva, editarla a media corrida cambiará la firma de los que
+    /// falten, y nada protestará. Está anotado como H-12.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Nucleo`] si el cuerpo lleva variables de quien recibe (R-04),
+    /// [`DbError::DatoInvalido`] si la firma no es de esta empresa — o no
+    /// existe, que desde fuera es lo mismo— y [`DbError::Sqlite`] si la
+    /// escritura falla.
+    pub fn actualizar_firma(
+        &self,
+        empresa: CompanyId,
+        firma: SignatureId,
+        nombre: &str,
+        cuerpo_html: &str,
+        por_defecto: bool,
+    ) -> Result<(), DbError> {
+        // La misma guarda que al crear, y por el mismo motivo: editar es otro
+        // camino hasta la base, y una guarda que sólo cubre uno de los dos no
+        // cubre ninguno.
+        arles_core::plantilla::revisar_firma(cuerpo_html).map_err(DbError::Nucleo)?;
+
+        let html = sanear::html(cuerpo_html);
+        let texto = sanear::a_texto_plano(&html);
+
+        // `con_dominio` y no `con`: la decisión de abortar se toma **dentro**
+        // de la transacción, cuando ya se sabe de quién es la firma.
+        self.con_dominio(|conn| {
+            let tx = conn.unchecked_transaction()?;
+            let cuando = ahora();
+
+            // Se comprueba la pertenencia **dentro** de la transacción. Un
+            // `UPDATE … WHERE id = ?1 AND company_id = ?2` que no encaja
+            // devuelve 0 filas y ningún error: la pantalla diría «guardado»
+            // sobre una firma de otra empresa que no se tocó.
+            let suya: Option<i64> = tx
+                .query_row(
+                    "SELECT 1 FROM signature WHERE id = ?1 AND company_id = ?2",
+                    params![firma.to_string(), empresa.to_string()],
+                    |f| f.get(0),
+                )
+                .optional()?;
+            if suya.is_none() {
+                return Err(DbError::DatoInvalido {
+                    motivo: "signature.id",
+                });
+            }
+
+            if por_defecto {
+                tx.execute(
+                    "UPDATE signature SET is_default = 0, updated_at = ?2
+                      WHERE company_id = ?1",
+                    params![empresa.to_string(), cuando],
+                )?;
+            }
+
+            tx.execute(
+                "UPDATE signature
+                    SET name = ?2, body_html = ?3, body_text = ?4,
+                        is_default = ?5, updated_at = ?6
+                  WHERE id = ?1",
+                params![
+                    firma.to_string(),
+                    nombre.trim(),
+                    html,
+                    texto,
+                    i32::from(por_defecto),
+                    cuando
+                ],
+            )?;
+
+            auditar(
+                &tx,
+                &empresa.to_string(),
+                "editar",
+                "signature",
+                &firma.to_string(),
+            )?;
+            tx.commit()?;
+            Ok(())
+        })
+    }
+
     /// Las firmas de una empresa. La de por defecto, primero.
     ///
     /// # Errores
@@ -758,5 +861,128 @@ mod tests {
             "no puede ver la plantilla de otra empresa"
         );
         assert_eq!(db.plantillas(empresa()).expect("lista").len(), 1);
+    }
+
+    // ── R-06 · EDITAR UNA FIRMA ───────────────────────────────────────────
+    //
+    // Dirección no podía arreglar una firma mal escrita: se creaban y no se
+    // tocaban. Las cuatro pruebas siguientes son las cuatro cosas que editar
+    // puede hacer mal, y ninguna de ellas falla por sí sola en la base.
+    //
+    // **Las cuatro se vieron en rojo el 17/10/2026**, con una ruptura cada una
+    // y cada una cazada sólo por la suya: que el `UPDATE` no escribiera el
+    // cuerpo, quitar el desmarcado del por defecto, quitar la guarda de R-04,
+    // y quitar la comprobación de a qué empresa pertenece la firma.
+
+    /// Lo que se edita se guarda, y **no nace una firma nueva**.
+    ///
+    /// La segunda mitad es la que importa: un `INSERT` en vez de un `UPDATE`
+    /// dejaría la firma arreglada en la lista junto a la mala, y quien la use
+    /// después elegiría entre dos cosas con el mismo nombre.
+    #[test]
+    fn editar_una_firma_la_reescribe_y_no_crea_otra() {
+        let (_d, db) = base();
+        let id = db
+            .crear_firma(empresa(), "Ventas", "<p>Con una errata</p>", false)
+            .expect("crea");
+
+        db.actualizar_firma(empresa(), id, "Ventas", "<p>Ya sin errata</p>", true)
+            .expect("edita");
+
+        let firmas = db.firmas(empresa()).expect("lista");
+        assert_eq!(firmas.len(), 1, "sigue habiendo una sola: {firmas:?}");
+        let f = firmas.first().expect("hay una");
+        assert_eq!(f.id, id, "la misma firma, no otra");
+        assert!(f.cuerpo_html.contains("Ya sin errata"), "{}", f.cuerpo_html);
+        assert!(f.por_defecto, "y el por defecto se aplicó");
+    }
+
+    /// Marcar por defecto **al editar** desmarca la anterior, igual que al
+    /// crear.
+    ///
+    /// Es la mitad que se olvida: la regla estaba escrita en `crear_firma`, y
+    /// un camino nuevo hasta la misma columna es un camino nuevo para
+    /// romperla. Dos firmas por defecto no dan ningún error.
+    #[test]
+    fn editar_marcando_por_defecto_desmarca_la_anterior() {
+        let (_d, db) = base();
+        db.crear_firma(empresa(), "Ventas", "<p>Ventas</p>", true)
+            .expect("primera");
+        let soporte = db
+            .crear_firma(empresa(), "Soporte", "<p>Soporte</p>", false)
+            .expect("segunda");
+
+        db.actualizar_firma(empresa(), soporte, "Soporte", "<p>Soporte</p>", true)
+            .expect("edita");
+
+        let firmas = db.firmas(empresa()).expect("lista");
+        let por_defecto: Vec<_> = firmas.iter().filter(|f| f.por_defecto).collect();
+        assert_eq!(por_defecto.len(), 1, "sólo una: {firmas:?}");
+        assert_eq!(por_defecto.first().expect("hay una").nombre, "Soporte");
+    }
+
+    /// La guarda de R-04 también cubre la edición.
+    ///
+    /// Sin esto, el camino para firmar con el nombre de quien recibe seguiría
+    /// abierto: se crea una firma limpia y se edita después.
+    #[test]
+    fn editar_no_deja_meter_variables_del_contacto() {
+        let (_d, db) = base();
+        let id = db
+            .crear_firma(empresa(), "Ventas", "<p>Ventas</p>", false)
+            .expect("crea");
+
+        let error = db
+            .actualizar_firma(empresa(), id, "Ventas", "<p>Atte. {{nombre}}</p>", false)
+            .expect_err("tiene que negarse");
+        assert_eq!(error.clave_i18n(), "error.firma_con_variables_del_contacto");
+
+        let f = db.firmas(empresa()).expect("lista");
+        let f = f.first().expect("sigue ahí");
+        assert!(
+            !f.cuerpo_html.contains("nombre"),
+            "y la firma buena no se tocó: {}",
+            f.cuerpo_html
+        );
+    }
+
+    /// Editar la firma de otra empresa **da error**, no cero filas.
+    ///
+    /// Un `UPDATE … WHERE id = ?1 AND company_id = ?2` que no encaja no falla:
+    /// afecta a cero filas y devuelve `Ok`. La pantalla diría «guardado» sobre
+    /// algo que no se guardó, que es la peor forma de fallar.
+    #[test]
+    fn editar_la_firma_de_otra_empresa_no_se_traga() {
+        let (_d, db) = base();
+        let otra = "22222222-2222-4222-8222-222222222222";
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO company (id, commercial_name, country, timezone,
+                                      corporate_email, created_at, updated_at)
+                 VALUES ('{otra}', 'OTRA', 'MX', 'America/Monterrey',
+                         'h@o.mx', '2026-09-29T00:00:00Z', '2026-09-29T00:00:00Z');"
+            ))
+        })
+        .expect("segunda empresa");
+
+        let mia = db
+            .crear_firma(empresa(), "Mía", "<p>Mía</p>", false)
+            .expect("crea");
+
+        let error = db
+            .actualizar_firma(
+                otra.parse().expect("id"),
+                mia,
+                "Robada",
+                "<p>Robada</p>",
+                true,
+            )
+            .expect_err("no es suya");
+        assert_eq!(error.clave_i18n(), "error.db.dato_invalido");
+
+        let f = db.firmas(empresa()).expect("lista");
+        let f = f.first().expect("sigue ahí");
+        assert_eq!(f.nombre, "Mía", "intacta");
+        assert!(!f.por_defecto, "y sin el por defecto que pedía la otra");
     }
 }

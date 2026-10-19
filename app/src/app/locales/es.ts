@@ -3207,6 +3207,24 @@ export const es = {
     // que quien mire una campaña vieja sepa que el texto no cambió debajo.
     version: 'Versión {numero}',
     sinVersion: 'Esta plantilla no tiene todavía ningún texto escrito.',
+
+    // ── R-06 · corregir lo ya escrito (17/10/2026) ──────────────────────
+    //
+    // El botón dice «Corregir» y no «Editar» a propósito: en una plantilla no
+    // se reescribe nada, nace la versión siguiente. «Editar» prometería que lo
+    // que está saliendo cambia, que es justo lo contrario de lo que pasa.
+    corregir: 'Corregir',
+    corregirPlantilla: 'Corregir la plantilla',
+    corregirFirma: 'Corregir la firma',
+
+    naceUnaVersion: 'Esto va a crear la versión {numero}',
+    naceUnaVersionAyuda:
+      'La versión anterior se queda guardada tal cual, y las campañas que ya ' +
+      'estén activas siguen enviando con ella: lo que está en cola no cambia. ' +
+      'Las campañas que crees a partir de ahora usarán la nueva.',
+    nombreNoCambia:
+      'El nombre no cambia al corregir el texto. Si necesitas otro nombre, ' +
+      'crea una plantilla nueva.',
   },
 
 } as const

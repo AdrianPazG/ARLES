@@ -836,6 +836,29 @@
           return Promise.resolve(ps);
         }
 
+        // ── R-06 · corregir lo ya escrito ─────────────────────────────────
+        //
+        // La versión **sube**, y el decorado lo imita porque es lo que la
+        // pantalla enseña: un número que no cambiara haría parecer que
+        // corregir no hizo nada.
+        case 'nueva_version_de_plantilla': {
+          var pv = (e.plantillas || DEMO.plantillas).map(function (p) {
+            if (p.id !== String(args.plantilla)) return p;
+            var num = (p.version ? p.version.numero : 0) + 1;
+            return Object.assign({}, p, {
+              version: {
+                id: 'v' + Math.random().toString(36).slice(2, 10),
+                numero: num,
+                asunto: String(args.asunto || ''),
+                cuerpoHtml: String(args.cuerpoHtml || ''),
+                variables: variablesDe(String(args.asunto || '') + ' ' + String(args.cuerpoHtml || '')),
+              },
+            });
+          });
+          e.plantillas = pv; escribir(e);
+          return Promise.resolve(pv);
+        }
+
         case 'firmas':
           return Promise.resolve(e.firmas || DEMO.firmas);
 
@@ -852,6 +875,25 @@
           });
           e.firmas = fs; escribir(e);
           return Promise.resolve(fs);
+        }
+
+        // Una firma se reescribe **encima**: no nace otra, y la lista tiene
+        // que seguir teniendo las mismas. Es lo que distingue este caso del
+        // de la plantilla, y lo que la pantalla promete.
+        case 'editar_firma': {
+          var fe = (e.firmas || DEMO.firmas).map(function (f) {
+            if (args.porDefecto && f.id !== String(args.firma)) {
+              return Object.assign({}, f, { porDefecto: false });
+            }
+            if (f.id !== String(args.firma)) return f;
+            return Object.assign({}, f, {
+              nombre: String(args.nombre || f.nombre),
+              cuerpoHtml: String(args.cuerpoHtml || ''),
+              porDefecto: !!args.porDefecto,
+            });
+          });
+          e.firmas = fe; escribir(e);
+          return Promise.resolve(fe);
         }
 
         case 'ventanas':

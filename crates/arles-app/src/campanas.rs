@@ -170,6 +170,56 @@ pub fn guardar_plantilla(
     plantillas(estado)
 }
 
+/// Guarda **una versión nueva** de una plantilla que ya existe, y devuelve la
+/// lista entera.
+///
+/// ── POR QUÉ ESTO NO ES «EDITAR» AUNQUE EL BOTÓN DIGA EDITAR ───────────────
+///
+/// Una versión no se reescribe nunca (§44): la campaña que ya se activó apunta
+/// a la que eligió, y lo que está en cola sale con ese texto. Lo que hace este
+/// comando es **dejar nacer la siguiente**, que es lo que Dirección pedía al
+/// decir que no se podían editar las plantillas (R-06).
+///
+/// La diferencia hay que decirla en la pantalla, porque es contraintuitiva:
+/// quien corrige una errata y ve «versión 3» puede creer que arregló el correo
+/// que está saliendo, y es justo lo contrario.
+///
+/// `arles-db` tenía `nueva_version_de_plantilla` **desde la 6.3, probada, y
+/// sin nadie que la llamara**: el patrón del §9 otra vez, esta vez en el tramo
+/// base → frontera.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si no hay empresa configurada, la plantilla no existe o la
+/// escritura falla.
+#[tauri::command]
+pub fn nueva_version_de_plantilla(
+    estado: tauri::State<'_, EstadoApp>,
+    plantilla: String,
+    asunto: String,
+    cuerpo_html: String,
+) -> Result<Vec<PlantillaIpc>, ErrorIpc> {
+    crate::comandos::empresa_actual(&estado)?;
+    let id = plantilla.parse().map_err(|_| {
+        ErrorIpc::from(crate::AppError::Db(arles_db::DbError::DatoInvalido {
+            motivo: "template.id",
+        }))
+    })?;
+
+    estado
+        .db()
+        .nueva_version_de_plantilla(
+            id,
+            &arles_db::plantillas::Redaccion {
+                asunto,
+                cuerpo_html,
+            },
+        )
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    plantillas(estado)
+}
+
 /// Las firmas de la empresa.
 ///
 /// # Errores
@@ -210,6 +260,40 @@ pub fn guardar_firma(
     estado
         .db()
         .crear_firma(empresa, &nombre, &cuerpo_html, por_defecto)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    firmas(estado)
+}
+
+/// Reescribe una firma que ya existe, y devuelve la lista entera.
+///
+/// A diferencia de una plantilla, una firma **se edita encima**: no tiene
+/// versiones, así que no hay nada congelado que reescribir. El por qué está en
+/// `arles_db::plantillas::Db::actualizar_firma`, incluido lo que habrá que
+/// decidir el día que el contenido llegue al envío (H-12).
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si no hay empresa configurada, la firma no es de esta empresa,
+/// el cuerpo lleva variables de quien recibe (R-04) o la escritura falla.
+#[tauri::command]
+pub fn editar_firma(
+    estado: tauri::State<'_, EstadoApp>,
+    firma: String,
+    nombre: String,
+    cuerpo_html: String,
+    por_defecto: bool,
+) -> Result<Vec<FirmaIpc>, ErrorIpc> {
+    let empresa = crate::comandos::empresa_actual(&estado)?;
+    let id = firma.parse().map_err(|_| {
+        ErrorIpc::from(crate::AppError::Db(arles_db::DbError::DatoInvalido {
+            motivo: "signature.id",
+        }))
+    })?;
+
+    estado
+        .db()
+        .actualizar_firma(empresa, id, &nombre, &cuerpo_html, por_defecto)
         .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
 
     firmas(estado)

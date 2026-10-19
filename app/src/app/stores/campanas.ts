@@ -234,6 +234,35 @@ export const useCampanasStore = defineStore('campanas', () => {
     }
   }
 
+  /**
+   * Hace nacer **la versión siguiente** de una plantilla que ya existe.
+   *
+   * No reescribe la anterior: lo que ya se activó sigue saliendo con el texto
+   * que eligió (§44). Es lo que la pantalla llama «editar», y la diferencia se
+   * dice ahí con palabras, porque es contraintuitiva.
+   */
+  async function nuevaVersionDePlantilla(
+    plantilla: string,
+    asunto: string,
+    cuerpoHtml: string,
+  ): Promise<boolean> {
+    trabajando.value = true
+    errorGeneral.value = null
+    try {
+      plantillas.value = await invocar<Plantilla[]>('nueva_version_de_plantilla', {
+        plantilla,
+        asunto,
+        cuerpoHtml,
+      })
+      return true
+    } catch (e) {
+      recordarError(e)
+      return false
+    } finally {
+      trabajando.value = false
+    }
+  }
+
   async function guardarFirma(
     nombre: string,
     cuerpoHtml: string,
@@ -243,6 +272,36 @@ export const useCampanasStore = defineStore('campanas', () => {
     errorGeneral.value = null
     try {
       firmas.value = await invocar<Firma[]>('guardar_firma', {
+        nombre,
+        cuerpoHtml,
+        porDefecto,
+      })
+      return true
+    } catch (e) {
+      recordarError(e)
+      return false
+    } finally {
+      trabajando.value = false
+    }
+  }
+
+  /**
+   * Reescribe una firma que ya existe, **encima**.
+   *
+   * Una firma no tiene versiones, así que aquí no hay nada congelado que
+   * proteger. El porqué entero está en `actualizar_firma` de `arles-db`.
+   */
+  async function editarFirma(
+    firma: string,
+    nombre: string,
+    cuerpoHtml: string,
+    porDefecto: boolean,
+  ): Promise<boolean> {
+    trabajando.value = true
+    errorGeneral.value = null
+    try {
+      firmas.value = await invocar<Firma[]>('editar_firma', {
+        firma,
         nombre,
         cuerpoHtml,
         porDefecto,
@@ -484,7 +543,9 @@ export const useCampanasStore = defineStore('campanas', () => {
     enMarcha,
     cargar,
     guardarPlantilla,
+    nuevaVersionDePlantilla,
     guardarFirma,
+    editarFirma,
     guardarVentana,
     crearCampana,
     revisar,

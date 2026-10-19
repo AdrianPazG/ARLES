@@ -102,7 +102,7 @@ mirando, no una comprobación automática.
 | **R-03** | 🔵 Requisito | Plantillas | Poder poner **negrita y cursiva** en el texto | 📋 **Abierto** |
 | **R-04** | 🔴 Requisito | Firmas | **Una firma no puede ofrecer variables del contacto.** Que la firma del remitente lleve el nombre de a quien se escribe es una tragedia | ✅ **Arreglado 17/10/2026** |
 | **R-05** | 🔵 Requisito | Firmas | Poder poner **una imagen** en la firma, como en Outlook | 📋 **Abierto** |
-| **R-06** | 🟠 Requisito | Plantillas | **No se pueden editar** las plantillas ni las firmas ya creadas | 📋 **Abierto** |
+| **R-06** | 🟠 Requisito | Plantillas | **No se pueden editar** las plantillas ni las firmas ya creadas | ✅ **Arreglado 17/10/2026** |
 | **R-07** | 🔵 Requisito | Remitentes | El correo de prueba **llega a spam** — qué se puede hacer | 📋 **Abierto** · es la 7.5 |
 
 > Los hallazgos con **A** los encontré yo auditando, no Dirección probando. Van
@@ -1047,9 +1047,86 @@ valgan algo:
   variables al editor de firmas. **Falla** con «una firma no puede ofrecer
   «Nombre»».
 
-**Lo que esto NO arregla:** R-05 (una imagen en la firma) y R-06 (editar una
-firma ya creada) siguen abiertos. Una firma mal escrita hoy se arregla
-creándola otra vez, que es exactamente el motivo de R-06.
+**Lo que esto NO arregla:** R-05 (una imagen en la firma) sigue abierto.
+
+### R-06 · Arreglado el 17/10/2026 — y la cabecera de la pantalla mentía
+
+El código de `PantallaPlantillas.vue` decía esto:
+
+> *«**No edita una versión existente.** Una versión de plantilla no se toca
+> (6.3): guardar crea una nueva. Enseñar un botón de «editar» sería prometer
+> algo que el modelo de datos impide a propósito.»*
+
+**Era falso en los dos casos**, y no por poco:
+
+| | Lo que había | Lo que faltaba |
+|---|---|---|
+| **Plantillas** | `nueva_version_de_plantilla` en `arles-db` **desde la 6.3**, con pruebas | No estaba registrada en la frontera ni la llamaba nadie |
+| **Firmas** | Nada: una firma no tiene versiones | El `UPDATE` no estaba escrito |
+
+Lo que el modelo de datos impide es **reescribir lo ya enviado**. Corregir una
+plantilla no es eso: es hacer nacer la versión siguiente, y era exactamente lo
+que Dirección necesitaba. Es el patrón del §9 por **decimonovena vez**, y aquí
+con una agravante: el comentario que explicaba por qué no existía el botón
+**describía una limitación que no existe**, así que leyéndolo se daba el hueco
+por intencional.
+
+**Consecuencia real, y es la que importa:** una firma con una errata —o con un
+`{{nombre}}`, que es R-04— **no se podía arreglar nunca**.
+
+**Los dos botones dicen cosas distintas a propósito.** Se llaman «Corregir» y
+no «Editar»:
+
+- En una **plantilla**, nace una versión nueva y un aviso lo dice con su cifra
+  —«Esto va a crear la versión 3»— más la frase que importa: *las campañas que
+  ya estén activas siguen enviando con la anterior; lo que está en cola no
+  cambia*. Creer lo contrario es el error caro, y es el que la forma de los
+  datos invita a cometer. El nombre sale en sólo lectura, porque versionar no
+  lo cambia, y se dice por qué (§95, la lección de la 8.2c).
+- En una **firma** se reescribe encima. No hay nada congelado que proteger: una
+  firma no tiene versiones.
+
+**Verificado rompiéndolo** (§2) — nueve pruebas, cinco rupturas:
+
+- Cuatro en `arles-db` (`actualizar_firma`): el `UPDATE` sin escribir el
+  cuerpo, sin desmarcar el por defecto anterior, sin la guarda de R-04, y sin
+  comprobar de qué empresa es la firma. Las cuatro en rojo, cada una cazada
+  sólo por la suya.
+- Cinco de pantalla: el editor sin precargar, el aviso de la versión fuera, y
+  el guardado mandando al comando de crear —en la plantilla y en la firma—.
+
+**Y la quinta ruptura enseñó algo.** `idEditado` se limpia en **dos** sitios,
+`abrir()` y `cerrar()`; quitar uno no deja ningún síntoma porque el otro lo
+tapa, y la prueba seguía en verde. Hubo que quitar los dos para verla caer.
+Está bien que el código lo haga dos veces; lo que no vale es dar la
+verificación por hecha con una ruptura que la otra mitad tapa — es la lección
+de la pasada D dicha de otra forma: **una ruptura que deja el síntoma en pie no
+prueba nada.**
+
+### H-12 · La firma no llega a ningún correo (encontrado el 17/10/2026)
+
+Mirando qué protege editar una firma salió esto: **`campaign_stage.signature_id`
+existe desde la V4 y nada lo escribe.** Medido sobre los ocho crates — las
+únicas apariciones de `signature` fuera del módulo de plantillas son el
+manifiesto del respaldo y las migraciones.
+
+Así que una firma se guarda, se lista, se corrige… y **no sale en ningún
+mensaje**. Es el mismo estado en que está el cuerpo de la plantilla, que la
+auditoría B ya declaró: *«el único `Contenido` que llega al SMTP es un texto
+fijo escrito en el código»*.
+
+**Qué cambia esto:**
+
+- **No bloquea nada de hoy** y por eso no se inventó un aviso de «esta firma la
+  usan N campañas»: hoy ese número es siempre 0, y un aviso que nunca se enseña
+  es decorado. Se consideró y se descartó.
+- **R-05 (una imagen en la firma) construye sobre algo desconectado**, y
+  conviene saberlo antes de empezarlo.
+- **El día que el contenido se conecte al envío hay que decidirlo otra vez**, y
+  la decisión correcta será la de la plantilla: congelar en la etapa lo que se
+  va a mandar. Si en su lugar la etapa apunta a la firma viva, editarla a media
+  corrida cambia la firma de los que falten y nada protesta. Está escrito en el
+  comentario de `actualizar_firma`, que es donde lo va a leer quien lo toque.
 
 ---
 

@@ -133,8 +133,13 @@ pub fn run() {
             whatsapp::enviar_whatsapp_de_prueba,
             campanas::plantillas,
             campanas::guardar_plantilla,
+            // R-06 (17/10/2026). `nueva_version_de_plantilla` estaba en
+            // `arles-db` desde la 6.3, probada, y sin registrar aquí: una
+            // plantilla se creaba y no se podía corregir nunca.
+            campanas::nueva_version_de_plantilla,
             campanas::firmas,
             campanas::guardar_firma,
+            campanas::editar_firma,
             campanas::ventanas,
             campanas::guardar_ventana,
             campanas::campanas,

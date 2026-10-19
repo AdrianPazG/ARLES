@@ -29,16 +29,38 @@
  * Limpiar aquí también daría la impresión de que es esta capa la que protege —
  * y el día que alguien llamara al comando desde otro sitio, no protegería nada.
  *
- * **No edita una versión existente.** Una versión de plantilla no se toca
- * (6.3): guardar crea una nueva. Enseñar un botón de «editar» sería prometer
- * algo que el modelo de datos impide a propósito, para que una campaña activa
- * siga mandando el texto que se aprobó.
+ * **No reescribe una versión existente.** Una versión de plantilla no se toca
+ * (6.3). Lo que «Corregir» hace es **dejar nacer la siguiente**, y la pantalla
+ * lo dice con esas palabras: ver abajo.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * R-06 · «NO SE PUEDEN EDITAR LAS PLANTILLAS NI LAS FIRMAS» (16/10/2026)
+ *
+ * La cabecera de esta pantalla decía que enseñar un botón de editar «sería
+ * prometer algo que el modelo de datos impide a propósito». **Era falso en los
+ * dos casos**, y lo descubrió Dirección al necesitar arreglar una errata:
+ *
+ * - `nueva_version_de_plantilla` estaba en `arles-db` desde la 6.3, probada, y
+ *   sin nadie que la llamara ni registrada en la frontera. El modelo de datos
+ *   no impedía corregir una plantilla: **impedía reescribir lo ya enviado**,
+ *   que es otra cosa.
+ * - Una firma no tiene versiones, así que ahí no había ni siquiera eso: nadie
+ *   había escrito el `UPDATE`.
+ *
+ * Y la consecuencia era peor de lo que parece: una firma con una errata —o con
+ * un `{{nombre}}`, que es R-04— **no se podía arreglar nunca**.
+ *
+ * Los dos botones dicen cosas distintas a propósito. En una plantilla,
+ * «Corregir» nace una versión nueva y **lo que está en cola sigue saliendo con
+ * el texto anterior**: creerlo al revés es el error caro, así que se avisa
+ * antes de guardar. En una firma se reescribe encima, y no hay nada congelado.
  * ─────────────────────────────────────────────────────────────────────────
  */
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { resolverError } from '@/app/errores'
+import type { Firma, Plantilla } from '@/app/stores/campanas'
 import { useCampanasStore } from '@/app/stores/campanas'
 import {
   AAviso,
@@ -99,6 +121,18 @@ const ajenasEnLaFirma = computed(() =>
 type Cual = 'plantilla' | 'firma' | null
 const editando = ref<Cual>(null)
 
+/**
+ * El identificador de lo que se está corrigiendo, o `null` si es nuevo.
+ *
+ * Es lo único que distingue los cuatro caminos de guardado, y por eso se
+ * limpia en `abrir()`: dejarlo puesto crearía una versión de la plantilla que
+ * se corrigió la vez anterior.
+ */
+const idEditado = ref<string | null>(null)
+
+/** La versión vigente de la plantilla que se corrige, para decir cuál nace. */
+const versionVigente = ref<number | null>(null)
+
 const nombre = ref('')
 const asunto = ref('')
 const cuerpo = ref('')
@@ -154,14 +188,45 @@ const puedeGuardar = computed(
 
 function abrir(cual: Exclude<Cual, null>): void {
   editando.value = cual
+  idEditado.value = null
+  versionVigente.value = null
   nombre.value = ''
   asunto.value = ''
   cuerpo.value = ''
   porDefecto.value = false
 }
 
+/**
+ * Abre el editor con lo que la plantilla dice hoy.
+ *
+ * Precargarlo no es comodidad: corregir una errata de una frase sin tener el
+ * texto delante significa reescribirlo entero, y entonces «corregir» es
+ * «volver a redactar», que es lo que Dirección no podía hacer.
+ */
+function corregirPlantilla(p: Plantilla): void {
+  editando.value = 'plantilla'
+  idEditado.value = p.id
+  versionVigente.value = p.version?.numero ?? null
+  nombre.value = p.nombre
+  asunto.value = p.version?.asunto ?? ''
+  cuerpo.value = p.version?.cuerpoHtml ?? ''
+  porDefecto.value = false
+}
+
+function corregirFirma(f: Firma): void {
+  editando.value = 'firma'
+  idEditado.value = f.id
+  versionVigente.value = null
+  nombre.value = f.nombre
+  asunto.value = ''
+  cuerpo.value = f.cuerpoHtml
+  porDefecto.value = f.porDefecto
+}
+
 function cerrar(): void {
   editando.value = null
+  idEditado.value = null
+  versionVigente.value = null
 }
 
 /** Mete la variable donde está el cursor, no al final. */
@@ -196,12 +261,33 @@ function comoSeVen(variables: readonly string[]): string {
   return variables.map((v) => `${abre}${v}${cierra}`).join(' · ')
 }
 
+/** Cuatro caminos: crear o corregir, plantilla o firma. */
 async function guardar(): Promise<void> {
-  const hecho = esPlantilla.value
-    ? await store.guardarPlantilla(nombre.value, asunto.value, cuerpo.value)
-    : await store.guardarFirma(nombre.value, cuerpo.value, porDefecto.value)
+  const id = idEditado.value
+  let hecho: boolean
+  if (esPlantilla.value) {
+    hecho =
+      id === null
+        ? await store.guardarPlantilla(nombre.value, asunto.value, cuerpo.value)
+        : await store.nuevaVersionDePlantilla(id, asunto.value, cuerpo.value)
+  } else {
+    hecho =
+      id === null
+        ? await store.guardarFirma(nombre.value, cuerpo.value, porDefecto.value)
+        : await store.editarFirma(id, nombre.value, cuerpo.value, porDefecto.value)
+  }
   if (hecho) cerrar()
 }
+
+/** El rótulo del editor, que no es el mismo en los cuatro casos. */
+const tituloDelEditor = computed(() => {
+  if (esPlantilla.value) {
+    return idEditado.value === null
+      ? t('plantillas.nuevaPlantilla')
+      : t('plantillas.corregirPlantilla')
+  }
+  return idEditado.value === null ? t('plantillas.nuevaFirma') : t('plantillas.corregirFirma')
+})
 </script>
 
 <template>
@@ -246,13 +332,32 @@ async function guardar(): Promise<void> {
     <!-- ── El editor ── -->
     <AModulo
       v-if="editando !== null"
-      :titulo="esPlantilla ? t('plantillas.nuevaPlantilla') : t('plantillas.nuevaFirma')"
+      :titulo="tituloDelEditor"
     >
+      <!-- ── R-06 · lo que corregir una plantilla hace y lo que NO hace ──
+           Creer que esto arregla la campaña que está saliendo es el error
+           caro, y es el que la forma de los datos invita a cometer. Así que
+           se dice antes de guardar, con la cifra de la versión que nace. -->
+      <AAviso
+        v-if="esPlantilla && idEditado !== null"
+        tono="info"
+      >
+        <strong>{{
+          t('plantillas.naceUnaVersion', { numero: (versionVigente ?? 0) + 1 })
+        }}</strong>
+        <p>{{ t('plantillas.naceUnaVersionAyuda') }}</p>
+      </AAviso>
+
       <div class="campos">
         <AEntrada
           v-model="nombre"
           :etiqueta="t('plantillas.nombre')"
-          :ayuda="t('plantillas.nombreAyuda')"
+          :ayuda="
+            esPlantilla && idEditado !== null
+              ? t('plantillas.nombreNoCambia')
+              : t('plantillas.nombreAyuda')
+          "
+          :solo-lectura="esPlantilla && idEditado !== null"
         />
         <AEntrada
           v-if="esPlantilla"
@@ -391,6 +496,15 @@ async function guardar(): Promise<void> {
         >
           {{ t('plantillas.sinVersion') }}
         </p>
+        <div class="acciones">
+          <ABoton
+            variante="secundario"
+            :deshabilitado="p.version === null"
+            @click="corregirPlantilla(p)"
+          >
+            {{ t('plantillas.corregir') }}
+          </ABoton>
+        </div>
       </AModulo>
 
       <!-- ── Las firmas ── -->
@@ -411,6 +525,14 @@ async function guardar(): Promise<void> {
         >
           {{ t('plantillas.esLaPorDefecto') }}
         </AInsignia>
+        <div class="acciones">
+          <ABoton
+            variante="secundario"
+            @click="corregirFirma(f)"
+          >
+            {{ t('plantillas.corregir') }}
+          </ABoton>
+        </div>
       </AModulo>
     </template>
   </section>

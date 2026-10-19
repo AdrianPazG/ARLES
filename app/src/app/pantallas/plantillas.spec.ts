@@ -222,3 +222,169 @@ describe('el editor de firmas', () => {
     expect(guardar?.attributes('disabled')).toBeUndefined()
   })
 })
+
+/**
+ * R-06 · corregir una plantilla o una firma ya creadas · 17/10/2026
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * LO QUE LA CABECERA DE LA PANTALLA AFIRMABA, Y POR QUÉ ERA FALSO
+ *
+ * Decía que un botón de editar «sería prometer algo que el modelo de datos
+ * impide a propósito». Lo que el modelo impide es **reescribir lo ya
+ * enviado**; corregir una plantilla no es eso: es hacer nacer la versión
+ * siguiente, y `nueva_version_de_plantilla` llevaba desde la 6.3 en
+ * `arles-db`, probada y sin que nadie la llamara.
+ *
+ * Las cuatro pruebas de aquí son lo que corregir puede hacer mal:
+ *
+ * 1. Abrir el editor **vacío**, que convierte «corregir una errata» en
+ *    «volver a redactar el correo entero».
+ * 2. Mandar al comando de crear en vez del de corregir, que deja dos
+ *    plantillas con el mismo nombre.
+ * 3. No decir que lo que está en cola **no cambia**. Es el error caro, y es
+ *    el que la forma de los datos invita a cometer.
+ * 4. Arrastrar el identificador de lo corregido a la creación siguiente:
+ *    quien corrige una plantilla y después crea otra habría creado una
+ *    versión de la primera.
+ *
+ * **Vistas en rojo el 17/10/2026**, una ruptura por garantía: el editor sin
+ * precargar, el aviso de la versión fuera, y el guardado mandando siempre al
+ * comando de crear —en la plantilla y en la firma—.
+ *
+ * Y la quinta enseñó algo: `idEditado` se limpia en **dos** sitios, `abrir()`
+ * y `cerrar()`, así que quitar uno no deja ningún síntoma —cada uno tapa al
+ * otro— y la prueba seguía en verde. Hubo que quitar los dos para verla caer.
+ * Está bien que el código lo haga dos veces; lo que no vale es dar la
+ * verificación por hecha con una ruptura que la otra mitad tapa (la lección de
+ * la pasada D: una ruptura que deja el síntoma en pie no prueba nada).
+ */
+describe('corregir lo ya escrito', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  const UNA_PLANTILLA = {
+    id: 'p-1',
+    nombre: 'Bienvenida',
+    version: {
+      id: 'v-1',
+      numero: 2,
+      asunto: 'Hola',
+      cuerpoHtml: '<p>Hola {{nombre}}</p>',
+      variables: ['nombre'],
+    },
+  }
+
+  const UNA_FIRMA = {
+    id: 'f-1',
+    nombre: 'Ventas',
+    cuerpoHtml: '<p>Ana Ruiz</p>',
+    porDefecto: true,
+  }
+
+  /** Abre el editor pulsando «Corregir» en la enésima tarjeta que lo tenga. */
+  async function corregir(cual: number): Promise<ReturnType<typeof mount>> {
+    const pantalla = mount(PantallaPlantillas, entorno)
+    const botones = pantalla.findAll('button').filter((b) => b.text() === 'Corregir')
+    await botones[cual]?.trigger('click')
+    return pantalla
+  }
+
+  it('el editor se abre con el texto que la plantilla dice hoy', async () => {
+    const s = store()
+    s.plantillas = [UNA_PLANTILLA]
+
+    const p = await corregir(0)
+    const campos = p.findAll('input')
+    expect(campos[0]?.element.value).toBe('Bienvenida')
+    expect(campos[1]?.element.value).toBe('Hola')
+    expect(p.find('textarea').element.value).toBe('<p>Hola {{nombre}}</p>')
+  })
+
+  it('dice qué versión nace y que lo que está en cola no cambia', async () => {
+    const s = store()
+    s.plantillas = [UNA_PLANTILLA]
+
+    const texto = (await corregir(0)).text()
+    // §94: la cifra, no «una versión nueva». La vigente es la 2.
+    expect(texto).toContain('crear la versión 3')
+    expect(texto).toContain('lo que está en cola no cambia')
+  })
+
+  it('guardar una corrección llama al comando de versionar, no al de crear', async () => {
+    const s = store()
+    s.plantillas = [UNA_PLANTILLA]
+    const pedidos: string[] = []
+    s.nuevaVersionDePlantilla = async (id: string) => {
+      pedidos.push(`version:${id}`)
+      return true
+    }
+    s.guardarPlantilla = async () => {
+      pedidos.push('crear')
+      return true
+    }
+
+    const p = await corregir(0)
+    await p.find('textarea').setValue('<p>Hola otra vez</p>')
+    const guardar = p.findAll('button').find((b) => b.text() === 'Guardar')
+    await guardar?.trigger('click')
+
+    expect(pedidos).toEqual(['version:p-1'])
+  })
+
+  it('corregir una firma la reescribe, y no crea otra', async () => {
+    const s = store()
+    s.firmas = [UNA_FIRMA]
+    const pedidos: string[] = []
+    s.editarFirma = async (id: string) => {
+      pedidos.push(`editar:${id}`)
+      return true
+    }
+    s.guardarFirma = async () => {
+      pedidos.push('crear')
+      return true
+    }
+
+    const p = await corregir(0)
+    expect(p.find('textarea').element.value).toBe('<p>Ana Ruiz</p>')
+    const casilla = p.find('input[type="checkbox"]').element as HTMLInputElement
+    expect(casilla.checked, 'y la casilla llega marcada como está guardada').toBe(true)
+
+    const guardar = p.findAll('button').find((b) => b.text() === 'Guardar')
+    await guardar?.trigger('click')
+    expect(pedidos).toEqual(['editar:f-1'])
+  })
+
+  /**
+   * **Y lo de después de corregir.** `idEditado` se queda puesto si `abrir()`
+   * no lo limpia, y entonces «Nueva plantilla» crearía una versión de la que
+   * se acababa de corregir: una plantilla nueva que no aparece y una vieja que
+   * cambió sola.
+   */
+  it('después de corregir, crear una nueva vuelve a crear', async () => {
+    const s = store()
+    s.plantillas = [UNA_PLANTILLA]
+    const pedidos: string[] = []
+    s.nuevaVersionDePlantilla = async () => {
+      pedidos.push('version')
+      return true
+    }
+    s.guardarPlantilla = async () => {
+      pedidos.push('crear')
+      return true
+    }
+
+    const p = await corregir(0)
+    const cancelar = p.findAll('button').find((b) => b.text() === 'Cancelar')
+    await cancelar?.trigger('click')
+
+    const nueva = p.findAll('button').find((b) => b.text().includes('Nueva plantilla'))
+    await nueva?.trigger('click')
+    const campos = p.findAll('input')
+    await campos[0]?.setValue('Otra')
+    await campos[1]?.setValue('Asunto')
+    await p.find('textarea').setValue('<p>Texto</p>')
+    const guardar = p.findAll('button').find((b) => b.text() === 'Guardar')
+    await guardar?.trigger('click')
+
+    expect(pedidos).toEqual(['crear'])
+  })
+})
