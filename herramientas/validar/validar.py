@@ -4159,6 +4159,31 @@ def lo_que_se_construye_se_usa():
     Aquí se comprueba lo que ninguna de las dos capas puede comprobar sola: que
     cada función del store de Vue que invoca un comando **se llama desde alguna
     pantalla**, y que cada proveedor **se construye fuera de las pruebas**.
+
+    ───────────────────────────────────────────────────────────────────────────
+    SU TRAMO 1 VIGILABA **CERO** FUNCIONES, Y ASÍ PASÓ EL H-06 (17/10/2026)
+
+    El patrón decía `async function (\\w+)\\(…\\)[^{]*\\{(?:[^{}]|\\{[^{}]*\\})*?invocar`:
+    intentaba llegar de la llave de apertura hasta `invocar` admitiendo como
+    mucho **un** nivel de anidamiento. Y en este proyecto **todas** las
+    funciones de store envuelven la llamada en un `try { … }`, así que el
+    `invocar` está dos niveles dentro y el patrón no llega nunca.
+
+    Medido antes de cambiarlo: **0 funciones vigiladas de 52**. La comprobación
+    que existe para cazar el patrón del §9 en el tramo store → pantalla llevaba
+    desde la fase W afirmándolo y **no miraba ni una**.
+
+    Por eso el H-06 pasó en verde: `guardarVentana` envolvía un comando
+    probado, ninguna pantalla la llamaba, y lo encontró Dirección al quedarse
+    sin horario de envío en el paso 5 del asistente.
+
+    Ahora el texto se **trocea por `async function`** en vez de emparejar
+    llaves con una expresión regular, que es lo que no se puede hacer con una.
+
+    Y el uso se busca como `.nombre` y no como `nombre`: una función llamada
+    `cargar` aparece en cualquier pantalla por otros motivos. Se acepta sin
+    paréntesis a propósito —`@click="importacion.elegirArchivo"` pasa el
+    manejador por referencia—, que fue el primer falso positivo al escribirlo.
     """
     sueltas = []
 
@@ -4170,23 +4195,38 @@ def lo_que_se_construye_se_usa():
             if f.endswith(".vue"):
                 with open(os.path.join(base, f), encoding="utf-8") as fh:
                     pantallas += fh.read()
+    # Sin comentarios: nombrar una función al explicar algo no es llamarla. Es
+    # la lección que este proyecto lleva nueve veces aprendiendo.
+    pantallas = re.sub(r"/\*.*?\*/|//[^\n]*|<!--.*?-->", "", pantallas, flags=re.S)
 
+    vigiladas = 0
     if os.path.isdir(dir_stores):
         for f in sorted(os.listdir(dir_stores)):
             if not f.endswith(".ts") or f.endswith(".spec.ts"):
                 continue
             texto = leer("app/src/app/stores", f) or ""
-            # Las funciones que cruzan la frontera: las que llaman a `invocar`.
-            for m in re.finditer(
-                r"async function (\w+)\([^)]*\)[^{]*\{(?:[^{}]|\{[^{}]*\})*?invocar",
-                texto,
-                re.S,
-            ):
-                nombre = m.group(1)
+            # Troceado, no emparejado de llaves: una expresión regular no puede
+            # contar llaves, y la que lo intentaba se quedaba en el `try`.
+            for trozo in re.split(r"\n  async function ", texto)[1:]:
+                nombre = trozo[: trozo.index("(")]
+                cuerpo = re.split(r"\n  (?:async )?function ", trozo)[0]
+                # Sólo las que cruzan la frontera.
+                if "invocar" not in cuerpo:
+                    continue
+                vigiladas += 1
                 # Una función que solo usan otras del mismo store no es un hueco.
                 usos_internos = len(re.findall(rf"\b{nombre}\b", texto))
-                if nombre not in pantallas and usos_internos <= 2:
+                if f".{nombre}" not in pantallas and usos_internos <= 2:
                     sueltas.append(f"{f}: {nombre}() no se llama desde ninguna pantalla")
+
+    # Que el troceado siga encontrando funciones. Sin esto, el día que los
+    # stores cambien de forma —otra sangría, otra palabra— esta comprobación
+    # volvería a vigilar cero y seguiría saliendo en verde, que es exactamente
+    # lo que pasó hasta hoy. El umbral está medido: hay 52.
+    if vigiladas < 40:
+        sueltas.append(
+            f"sólo se leyeron {vigiladas} funciones de store: el troceado dejó de encontrarlas"
+        )
 
     # 2 · Los proveedores que nadie construye fuera de las pruebas.
     for crate, tipo in [("arles-email", "ProveedorSmtp"), ("arles-whatsapp", "ProveedorDeWhatsApp")]:

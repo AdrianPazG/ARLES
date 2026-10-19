@@ -1103,6 +1103,77 @@ verificación por hecha con una ruptura que la otra mitad tapa — es la lecció
 de la pasada D dicha de otra forma: **una ruptura que deja el síntoma en pie no
 prueba nada.**
 
+### H-13 · La comprobación del §9 vigilaba **cero** funciones, y por eso pasó el H-06
+
+Encontrado el 17/10/2026, arreglando lo de arriba. Es el hallazgo más grave de
+esta ronda y no está en el producto: está en el instrumento.
+
+`lo_que_se_construye_se_usa` existe desde la fase W para cazar el patrón del §9
+en el tramo **almacén → pantalla**, y su primer tramo decía vigilar «cada
+función del store que invoca un comando». Lo hacía con esta expresión regular:
+
+```
+async function (\w+)\(…\)[^{]*\{(?:[^{}]|\{[^{}]*\})*?invocar
+```
+
+Intenta llegar desde la llave de apertura hasta `invocar` admitiendo **un** nivel
+de anidamiento. Y en este proyecto **todas** las funciones de almacén envuelven
+la llamada en un `try { … }`, así que `invocar` está dos niveles dentro y el
+patrón no llega nunca.
+
+**Medido antes de tocar nada: 0 funciones vigiladas de 52.**
+
+Por eso el H-06 pasó en verde durante tres entregas: `guardarVentana` envolvía
+un comando probado, ninguna pantalla la llamaba, y lo encontró Dirección al
+quedarse sin horario de envío en el paso 5 del asistente.
+
+**Una expresión regular no puede contar llaves**, que es lo que esa intentaba.
+Ahora el texto se trocea por `async function`, y el uso se busca como `.nombre`
+—no como `nombre`— porque una función llamada `cargar` aparece en cualquier
+pantalla por otros motivos. Se acepta sin paréntesis a propósito:
+`@click="importacion.elegirArchivo"` pasa el manejador por referencia, y ése
+fue el primer falso positivo al reescribirla.
+
+**Y lleva un guardarraíl, que es lo que impide repetir hoy:** si el troceado
+encuentra menos de 40 funciones, **falla diciéndolo**. Sin eso, el día que los
+almacenes cambien de forma la comprobación volvería a vigilar cero y seguiría
+saliendo en verde. Verificado rompiéndole el troceado: «sólo se leyeron 0
+funciones de store».
+
+### H-14 · No se podía dar de baja a nadie a mano (arreglado el 17/10/2026)
+
+Lo encontró la comprobación de arriba el minuto en que empezó a mirar:
+**`suprimirContacto()` no se llamaba desde ninguna pantalla.** Patrón del §9
+por **vigésima vez**, y de los caros.
+
+`suprimir_contacto` estaba registrado en la frontera, con sus pruebas, y el
+almacén lo envolvía con motivo y notas. La pantalla de Bajas sólo **lista** y
+**levanta**. Así que si alguien pedía por teléfono que no le escribieran más,
+**desde ARLES no había dónde apuntarlo**.
+
+Y hay un detalle que lo confirma: `MOTIVOS_A_MANO` —la lista de los tres
+motivos que una persona puede elegir, con su explicación de por qué no son los
+seis— llevaba escrita desde la 3.4 **sin que nadie la usara**. Estaba diseñado
+el formulario que nunca se escribió.
+
+**Dar de baja y no volver a escribir son dos cosas distintas**, y la diferencia
+es la que había que decir en pantalla:
+
+| | Qué hace | Qué pasa si se reimporta el Excel |
+|---|---|---|
+| **Dar de baja** | Quita el contacto de la lista | **Vuelve a entrar**, y se le escribe |
+| **No volver a escribirle** | Apunta sus direcciones en la lista de supresión, que no depende del contacto | Sigue protegido |
+
+Va en el mismo diálogo, separado por una línea, con el **motivo preguntado y no
+supuesto**: marcar «lo pidió la persona» cuando lo decidimos nosotros falsea el
+registro que existe justo para contestar una reclamación dentro de un año. Y
+una nota opcional, para el «lo pidió por teléfono».
+
+**La supresión va antes de la baja, y si falla no se da de baja.** Al revés, un
+fallo al suprimir dejaría el contacto fuera de la lista con su dirección sin
+proteger — y desaparecido de la vista el único sitio donde se ve que quedó a
+medias. Hay una prueba de cada mitad, las dos vistas en rojo.
+
 ### H-12 · La firma no llega a ningún correo (encontrado el 17/10/2026)
 
 Mirando qué protege editar una firma salió esto: **`campaign_stage.signature_id`

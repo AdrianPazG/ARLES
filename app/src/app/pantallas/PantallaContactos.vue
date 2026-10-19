@@ -19,6 +19,30 @@
  * CSV o un XLSX (entrega 3.3) y el borrado definitivo con sus derechos ARCO
  * (entrega 3.4). El botón de baja de aquí es **lógico**: el contacto deja de
  * salir, y su rastro de envíos se conserva.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * DAR DE BAJA Y NO VOLVER A ESCRIBIR SON DOS COSAS (17/10/2026)
+ *
+ * Y hasta hoy sólo se podía hacer la primera. `suprimir_contacto` estaba
+ * registrado en la frontera, el almacén lo envolvía, y **ninguna pantalla lo
+ * llamaba**: el patrón del §9 por vigésima vez, encontrado al arreglar la
+ * comprobación que existe para cazarlo —que vigilaba cero funciones—.
+ *
+ * La diferencia importa y por eso van juntas en el mismo diálogo pero
+ * separadas:
+ *
+ * - **Dar de baja** quita el contacto de la lista. Si mañana se vuelve a
+ *   importar el mismo Excel, **vuelve a entrar**, y se le escribe.
+ * - **No volver a escribirle** apunta sus direcciones en la lista de
+ *   supresión, que no depende del contacto: sobrevive a la reimportación y es
+ *   lo único que cumple de verdad un «no me escriban más».
+ *
+ * Quien pide por teléfono que no le escriban necesita la segunda, y desde
+ * ARLES no había dónde apuntarlo.
+ *
+ * **El motivo se pregunta y no se supone.** Marcar «lo pidió la persona»
+ * cuando lo decidimos nosotros falsea el registro que existe justo para
+ * contestar una reclamación.
  */
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -34,12 +58,20 @@ import {
   type Contacto,
 } from '@/app/stores/contactos'
 import {
+  CLAVE_DEL_MOTIVO,
+  MOTIVOS_A_MANO,
+  useSupresionStore,
+  type MotivoDeSupresion,
+} from '@/app/stores/supresion'
+import {
   AAviso,
   ABoton,
+  AEntrada,
   AIcono,
   AInsignia,
   AModal,
   AModulo,
+  ASelector,
   ATabla,
   EstadoCargando,
   EstadoError,
@@ -50,7 +82,17 @@ import {
 import FormularioDeContacto from './FormularioDeContacto.vue'
 
 const contactos = useContactosStore()
+const supresion = useSupresionStore()
 const { t } = useI18n()
+
+/** ¿Además de la baja, apuntar que no se le vuelva a escribir? */
+const noEscribirNuncaMas = ref(false)
+const motivoDeLaBaja = ref<MotivoDeSupresion>('unsubscribe')
+const notasDeLaBaja = ref('')
+
+const opcionesDeMotivo = computed(() =>
+  MOTIVOS_A_MANO.map((m) => ({ valor: m, texto: t(CLAVE_DEL_MOTIVO[m]) })),
+)
 
 /** Qué diálogo está abierto. `null` es «ninguno». */
 const dialogo = ref<'alta' | 'edicion' | 'baja' | null>(null)
@@ -180,13 +222,21 @@ function abrirEdicion(c: Contacto): void {
 
 function abrirBaja(c: Contacto): void {
   contactos.limpiarErrores()
+  supresion.errorGeneral = null
   elegido.value = c
   dialogo.value = 'baja'
+  // En blanco cada vez. Dejar la casilla marcada de la baja anterior haría
+  // suprimir a quien sólo se quería quitar de la lista, y eso no se deshace
+  // con un botón cuando el motivo es «lo pidió la persona».
+  noEscribirNuncaMas.value = false
+  motivoDeLaBaja.value = 'unsubscribe'
+  notasDeLaBaja.value = ''
 }
 
 function cerrar(): void {
   dialogo.value = null
   contactos.limpiarErrores()
+  supresion.errorGeneral = null
 }
 
 /** Abre la ficha al activar una fila (doble clic o Intro). */
@@ -206,9 +256,31 @@ async function guardar(borrador: BorradorDeContacto): Promise<void> {
   if (bien) cerrar()
 }
 
+/**
+ * Da de baja, y —si se marcó— apunta además que no se le vuelva a escribir.
+ *
+ * **El orden no es indiferente: la supresión va primero.** Si fallara la baja
+ * después, queda apuntado que esa persona no quiere recibir, que es lo
+ * irreversible de verdad. Al revés, un fallo al suprimir dejaría el contacto
+ * fuera de la lista y su dirección **sin proteger**: la siguiente importación
+ * del mismo Excel lo devuelve y se le escribe.
+ *
+ * Y si la supresión falla, no se da de baja: con el error en pantalla, quien
+ * mire ve el contacto todavía ahí y sabe que no se hizo nada.
+ */
 async function confirmarBaja(): Promise<void> {
   const id = elegido.value?.id
   if (id === undefined) return
+
+  if (noEscribirNuncaMas.value) {
+    const resumen = await supresion.suprimirContacto(
+      id,
+      motivoDeLaBaja.value,
+      notasDeLaBaja.value,
+    )
+    if (resumen === null) return
+  }
+
   if (await contactos.borrar(id)) {
     elegido.value = null
     seleccionada.value = undefined
@@ -216,11 +288,18 @@ async function confirmarBaja(): Promise<void> {
   }
 }
 
-const errorDelDialogo = computed(() =>
-  contactos.errorGeneral && dialogo.value === 'baja'
-    ? resolverError({ clave: contactos.errorGeneral, detalle: '' })
-    : null,
-)
+/**
+ * El error del diálogo de baja, de cualquiera de los dos almacenes.
+ *
+ * La supresión va primero y puede fallar sola. Mirando sólo
+ * `contactos.errorGeneral`, ese fallo no diría nada: el diálogo se quedaría
+ * quieto al pulsar y se leería como una avería (§95).
+ */
+const errorDelDialogo = computed(() => {
+  if (dialogo.value !== 'baja') return null
+  const clave = supresion.errorGeneral ?? contactos.errorGeneral
+  return clave ? resolverError({ clave, detalle: '' }) : null
+})
 </script>
 
 <template>
@@ -494,6 +573,37 @@ const errorDelDialogo = computed(() =>
         {{ t('contactos.bajaDialogo.queSeConserva') }}
       </p>
 
+      <!-- ── La supresión, que es lo que cumple un «no me escriban más» ──
+           Dar de baja quita el contacto de la lista; si mañana se reimporta
+           el mismo Excel, vuelve a entrar. Esto apunta sus direcciones en la
+           lista de supresión, que no depende del contacto. -->
+      <div class="contactos__supresion">
+        <label class="contactos__casilla">
+          <input
+            v-model="noEscribirNuncaMas"
+            type="checkbox"
+          >
+          {{ t('contactos.bajaDialogo.noEscribirNuncaMas') }}
+        </label>
+        <p class="contactos__ayuda">
+          {{ t('contactos.bajaDialogo.noEscribirAyuda') }}
+        </p>
+
+        <template v-if="noEscribirNuncaMas">
+          <ASelector
+            v-model="motivoDeLaBaja"
+            :etiqueta="t('contactos.bajaDialogo.motivo')"
+            :opciones="opcionesDeMotivo"
+            :ayuda="t('contactos.bajaDialogo.motivoAyuda')"
+          />
+          <AEntrada
+            v-model="notasDeLaBaja"
+            :etiqueta="t('contactos.bajaDialogo.notas')"
+            :ayuda="t('contactos.bajaDialogo.notasAyuda')"
+          />
+        </template>
+      </div>
+
       <AAviso
         v-if="errorDelDialogo"
         tono="peligro"
@@ -551,6 +661,28 @@ const errorDelDialogo = computed(() =>
 .contactos__recuento,
 .contactos__salvo {
   margin: var(--arles-space-1) 0 0;
+  color: var(--arles-text-muted);
+  font-size: var(--arles-font-size-small);
+}
+
+/* La supresión, separada de lo anterior por una línea: es otra decisión, no
+   un detalle más de la baja. */
+.contactos__supresion {
+  display: grid;
+  gap: var(--arles-space-3);
+  margin-top: var(--arles-space-4);
+  padding-top: var(--arles-space-4);
+  border-top: var(--arles-border-width) solid var(--arles-border);
+}
+
+.contactos__casilla {
+  display: flex;
+  align-items: center;
+  gap: var(--arles-space-2);
+}
+
+.contactos__ayuda {
+  margin: calc(-1 * var(--arles-space-2)) 0 0;
   color: var(--arles-text-muted);
   font-size: var(--arles-font-size-small);
 }

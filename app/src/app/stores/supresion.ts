@@ -36,6 +36,28 @@ export const MOTIVOS_A_MANO: readonly MotivoDeSupresion[] = [
   'manual',
 ]
 
+/**
+ * La clave de texto de cada motivo (§139).
+ *
+ * Son **las mismas** que devuelve `MotivoDeSupresion::clave_i18n()` en Rust, y
+ * están aquí porque el selector de la ficha de un contacto tiene que nombrar
+ * los motivos **antes** de que exista ninguna fila que los traiga: lo que llega
+ * de la base ya viene con su clave puesta, pero lo que se va a crear no.
+ *
+ * Los seis y no sólo los tres de `MOTIVOS_A_MANO`: así este mapa es el enum
+ * entero, y el día que se añada un motivo el compilador de TypeScript exige
+ * darle su clave. Con sólo los tres elegibles, un motivo nuevo entraría sin
+ * texto y la lista lo enseñaría como «Motivo no reconocido».
+ */
+export const CLAVE_DEL_MOTIVO: Readonly<Record<MotivoDeSupresion, string>> = {
+  hard_bounce: 'supresion.motivo.rebotePermanente',
+  unsubscribe: 'supresion.motivo.baja',
+  manual: 'supresion.motivo.manual',
+  complaint: 'supresion.motivo.queja',
+  invalid_number: 'supresion.motivo.numeroInvalido',
+  channel_failure: 'supresion.motivo.falloDelCanal',
+}
+
 /** Coincide con `arles_core::Canal`. */
 export type Canal = 'email' | 'whatsapp'
 

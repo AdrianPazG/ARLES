@@ -2366,6 +2366,26 @@ export const es = {
         'es lo que permite responder a una reclamación. El borrado definitivo ' +
         'es otra cosa y llega en la entrega 3.4.',
       confirmar: 'Dar de baja',
+
+      // ── La supresión, añadida el 17/10/2026 ───────────────────────────
+      //
+      // Es lo que cumple de verdad un «no me escriban más», y hasta hoy el
+      // comando existía sin pantalla. La diferencia con la baja se dice sin
+      // rodeos porque es la que importa: una baja se deshace reimportando un
+      // Excel sin querer; una supresión, no.
+      noEscribirNuncaMas: 'Además, no volver a escribirle nunca',
+      noEscribirAyuda:
+        'Dar de baja lo quita de la lista, pero si mañana vuelves a importar ' +
+        'el mismo archivo entra otra vez y se le escribe. Esto apunta sus ' +
+        'direcciones aparte, y entonces ninguna campaña vuelve a usarlas — ' +
+        'aunque la persona vuelva a entrar en la lista.',
+      motivo: '¿Por qué?',
+      motivoAyuda:
+        'Queda apuntado. Es lo que permite explicar dentro de un año por qué ' +
+        'esa persona no recibe, así que conviene que diga lo que pasó de ' +
+        'verdad. Si lo pidió ella, ARLES no lo deshace después.',
+      notas: 'Nota (opcional)',
+      notasAyuda: 'Por ejemplo: «lo pidió por teléfono». Sólo la ves tú.',
     },
 
     error: {
