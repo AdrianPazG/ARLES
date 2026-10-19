@@ -101,7 +101,7 @@ mirando, no una comprobación automática.
 | **H-10** | 🟠 Grave | Nueva campaña | No dice **cuál es el máximo diario por defecto**, así que se deja en blanco sin saber qué se está aceptando | ✅ **Arreglado** 17/10/2026 |
 | **R-03** | 🔵 Requisito | Plantillas | Poder poner **negrita y cursiva** en el texto | ✅ **Arreglado 17/10/2026** |
 | **R-04** | 🔴 Requisito | Firmas | **Una firma no puede ofrecer variables del contacto.** Que la firma del remitente lleve el nombre de a quien se escribe es una tragedia | ✅ **Arreglado 17/10/2026** |
-| **R-05** | 🔵 Requisito | Firmas | Poder poner **una imagen** en la firma, como en Outlook | 📋 **Abierto** |
+| **R-05** | 🔵 Requisito | Firmas | Poder poner **una imagen** en la firma, como en Outlook | ⏸️ **Esperando decisión de Dirección** (ver H-15) |
 | **R-06** | 🟠 Requisito | Plantillas | **No se pueden editar** las plantillas ni las firmas ya creadas | ✅ **Arreglado 17/10/2026** |
 | **R-07** | 🔵 Requisito | Remitentes | El correo de prueba **llega a spam** — qué se puede hacer | 📋 **Abierto** · es la 7.5 |
 
@@ -1193,6 +1193,35 @@ una nota opcional, para el «lo pidió por teléfono».
 fallo al suprimir dejaría el contacto fuera de la lista con su dirección sin
 proteger — y desaparecido de la vista el único sitio donde se ve que quedó a
 medias. Hay una prueba de cada mitad, las dos vistas en rojo.
+
+### H-15 · El camino «plantilla → correo» no existe todavía (17/10/2026)
+
+Medido al preparar R-05, y es más grande que H-12. Tres cosas, las tres
+comprobadas en el código y no supuestas:
+
+1. **El mensaje se arma con un solo cuerpo de texto plano.**
+   `ProveedorSmtp::armar` llama a `.body(cuerpo)` sin `multipart` y sin
+   declarar `text/html`. Un cuerpo con `<strong>` llegaría **con las etiquetas
+   a la vista**.
+2. **El `Contenido` que llega al SMTP es fijo.** Los dos que existen son el del
+   correo de prueba —escrito en `comandos.rs`— y uno vacío. **Ninguna campaña
+   manda el texto de su plantilla.** La auditoría B ya lo había declarado; aquí
+   queda medido otra vez con el nombre de las funciones.
+3. **`<img>` no está en la lista blanca del saneado** (`sanear::ETIQUETAS`), ni
+   `src`, ni `style`. Hoy una imagen en una plantilla o en una firma se tira al
+   guardar.
+
+**Qué significa para lo que se acaba de entregar:** R-03 (negrita y cursiva) y
+R-04/R-06 están completos **en el editor y en la base**, que es donde Dirección
+los necesitaba para poder escribir y corregir. Lo que no existe es el último
+tramo, que es una entrega aparte y no un defecto de éstas: componer el correo
+de una campaña con el cuerpo de la plantilla, su firma y su versión en texto
+plano.
+
+**Es el patrón del §9 en su versión más larga:** el editor, el saneado, el
+versionado, el preflight, el motor, el adaptador SMTP y el envío de prueba
+están construidos y probados — y **entre la plantilla y el correo falta el
+cable**. Ninguna prueba de ninguna de esas piezas puede verlo.
 
 ### H-12 · La firma no llega a ningún correo (encontrado el 17/10/2026)
 
