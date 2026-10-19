@@ -103,7 +103,7 @@ mirando, no una comprobación automática.
 | **R-04** | 🔴 Requisito | Firmas | **Una firma no puede ofrecer variables del contacto.** Que la firma del remitente lleve el nombre de a quien se escribe es una tragedia | ✅ **Arreglado 17/10/2026** |
 | **R-05** | 🔵 Requisito | Firmas | Poder poner **una imagen** en la firma, como en Outlook | ⏸️ **Esperando decisión de Dirección** (ver H-15) |
 | **R-06** | 🟠 Requisito | Plantillas | **No se pueden editar** las plantillas ni las firmas ya creadas | ✅ **Arreglado 17/10/2026** |
-| **R-07** | 🔵 Requisito | Remitentes | El correo de prueba **llega a spam** — qué se puede hacer | 📋 **Abierto** · es la 7.5 |
+| **R-07** | 🔵 Requisito | Remitentes | El correo de prueba **llega a spam** — qué se puede hacer | 🔧 **En marcha** · paso 1 de 3 hecho 19/10/2026 |
 
 > Los hallazgos con **A** los encontré yo auditando, no Dirección probando. Van
 > en la misma tabla a propósito: separarlos en dos listas haría que una de las
@@ -1193,6 +1193,55 @@ una nota opcional, para el «lo pidió por teléfono».
 fallo al suprimir dejaría el contacto fuera de la lista con su dirección sin
 proteger — y desaparecido de la vista el único sitio donde se ve que quedó a
 medias. Hay una prueba de cada mitad, las dos vistas en rojo.
+
+### R-07 · El spam, paso 1 de 3: la cabecera de baja (19/10/2026)
+
+Dirección: *«el correo llega a spam, ¿hay alguna cosa que podamos hacer?»*. Hay
+tres cosas, y ésta es la primera porque es **la que más mueve con menos
+trabajo** y la única que está enteramente en nuestra mano.
+
+**Lo primero que hay que decir, porque cambia el diagnóstico:** la cuenta de
+pruebas es `@gmail.com`, así que **SPF, DKIM y DMARC no son el problema**. Esos
+registros son de Google y están perfectos. Lo que penaliza un correo de Gmail
+mandado en volumen es otra cosa, y la 7.5 —que es lo que el ROADMAP tiene
+escrito para esto— **no lo arregla mientras el remitente sea Gmail**.
+
+| | Qué | Estado |
+|---|---|---|
+| **1** | `List-Unsubscribe`: la salida de quien recibe | ✅ 19/10/2026 |
+| **2** | Correo con estructura: HTML **y** texto plano, con el cuerpo de la plantilla | 📋 Es el H-15 |
+| **3** | La 7.5 (SPF, DKIM, DMARC), que sirve **el día que se mande desde `@telemetrymx.com`** | 📋 Abierto |
+
+**Por qué la cabecera de baja es la primera.** Gmail y Outlook la **exigen**
+desde febrero de 2024 a quien manda correo en volumen: sin ella el correo entra
+con una penalización de salida que no compensa nada de lo demás. Y hay una
+segunda razón que no es de entregabilidad: **es la salida de quien recibe**. Sin
+ella, la única forma que tiene una persona de dejar de recibir es marcar el
+correo como no deseado — que es justo lo que más daño hace a la reputación del
+remitente. Dar una salida fácil es lo que evita la queja.
+
+**Es un `mailto:` y no un `https:`, y es una limitación declarada.** La versión
+de un clic (RFC 8058) necesita que alguien reciba un `POST` en una dirección
+web, y ARLES es una aplicación de escritorio: **no tiene servidor**. Poner
+`List-Unsubscribe-Post` sin ese `https` detrás sería anunciar una puerta que no
+existe, y los filtros lo comprueban: afirmar de más ahí perjudica. Hay una
+prueba dedicada a que **no** se prometa.
+
+**La baja llega al buzón de quien envía y se apunta a mano.** ARLES no lee
+buzones (ADR-0009/0014), así que esto no da de baja a nadie por su cuenta y la
+regla de la Fase 5 sigue entera: nada antes del `RCPT TO` puede dar de baja a
+nadie. Quien reciba el correo lo apunta en Contactos con «no volver a
+escribirle» — que es exactamente lo que el H-14 construyó dos días antes, sin
+saber que iba a hacer falta para esto.
+
+**Se comprueba desde el lado del servidor, y eso obligó a cambiar una decisión
+del servidor de mentira.** Tiraba el cuerpo entero a propósito —«no es un
+buzón»— y ahora **se queda con las cabeceras**, porque mirar lo que produce la
+función que arma el mensaje comprobaría que esa función está bien, no que el
+envío la use: el patrón del §9. El texto que alguien escribió se sigue tirando.
+
+Tres rupturas, las tres en rojo: sin la cabecera, sin los ángulos que pide el
+RFC 2369, y prometiendo el clic único.
 
 ### H-15 · El camino «plantilla → correo» no existe todavía (17/10/2026)
 

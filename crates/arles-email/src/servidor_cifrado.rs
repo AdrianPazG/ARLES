@@ -65,6 +65,7 @@ pub struct ServidorCifrado {
     pem: Vec<u8>,
     dicho: Arc<Mutex<Vec<String>>>,
     en_claro: Arc<Mutex<Vec<String>>>,
+    cabeceras: Arc<Mutex<Vec<String>>>,
     seguir: Arc<AtomicBool>,
     hilo: Option<JoinHandle<()>>,
 }
@@ -86,10 +87,12 @@ impl ServidorCifrado {
 
         let dicho = Arc::new(Mutex::new(Vec::new()));
         let en_claro = Arc::new(Mutex::new(Vec::new()));
+        let cabeceras = Arc::new(Mutex::new(Vec::new()));
         let seguir = Arc::new(AtomicBool::new(true));
 
         let dicho_del_hilo = Arc::clone(&dicho);
         let en_claro_del_hilo = Arc::clone(&en_claro);
+        let cabeceras_del_hilo = Arc::clone(&cabeceras);
         let seguir_del_hilo = Arc::clone(&seguir);
         let hilo = std::thread::spawn(move || {
             for conexion in escucha.incoming() {
@@ -104,6 +107,7 @@ impl ServidorCifrado {
                     &config,
                     &dicho_del_hilo,
                     &en_claro_del_hilo,
+                    &cabeceras_del_hilo,
                 );
             }
         });
@@ -113,6 +117,7 @@ impl ServidorCifrado {
             pem,
             dicho,
             en_claro,
+            cabeceras,
             seguir,
             hilo: Some(hilo),
         })
@@ -148,6 +153,17 @@ impl ServidorCifrado {
     }
 
     /// ¿Llegó a mandar un comando que empiece así? Sin distinguir mayúsculas.
+    /// Las cabeceras del correo que llegó, línea a línea.
+    ///
+    /// **Es el único sitio desde donde se puede afirmar que una cabecera
+    /// viaja de verdad.** Mirar lo que produce la función que arma el mensaje
+    /// comprueba que esa función está bien, no que el envío la use — que es el
+    /// patrón del §9, veinte veces visto en este proyecto.
+    #[must_use]
+    pub fn cabeceras_del_correo(&self) -> Vec<String> {
+        self.cabeceras.lock().map(|d| d.clone()).unwrap_or_default()
+    }
+
     #[must_use]
     pub fn dijo(&self, comando: &str) -> bool {
         empieza_por(&self.dicho(), comando)
@@ -188,6 +204,7 @@ fn atender(
     config: &Arc<ServerConfig>,
     dicho: &Mutex<Vec<String>>,
     en_claro: &Mutex<Vec<String>>,
+    cabeceras: &Mutex<Vec<String>>,
 ) {
     let mut socket = socket;
 
@@ -215,6 +232,7 @@ fn atender(
         ComoCifra::Directo => conversar(&mut cifrado, guion),
     };
     apuntar(dicho, segunda.dicho);
+    apuntar(cabeceras, segunda.cabeceras_del_correo);
 }
 
 fn apuntar(donde: &Mutex<Vec<String>>, lineas: Vec<String>) {

@@ -54,6 +54,66 @@ use crate::error::ErrorDeCorreo;
 use crate::prueba::{Diagnostico, DondeSeRompio};
 use crate::tls::{Cifrado, Modo};
 
+/// La cabecera `List-Unsubscribe` (RFC 2369).
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTO NO ES UN DETALLE DE PROTOCOLO
+///
+/// Es, medido por los propios filtros, **lo que más mueve** la probabilidad de
+/// acabar en spam de todo lo que está en nuestra mano. Gmail y Outlook la
+/// **exigen** desde febrero de 2024 a quien manda correo en volumen: un correo
+/// comercial sin ella entra con una penalización de salida, y ninguna otra cosa
+/// que hagamos la compensa.
+///
+/// Y hay una razón que no es de entregabilidad: **es la salida de quien
+/// recibe**. Sin esta cabecera, la única forma de dejar de recibir que tiene una
+/// persona es marcar el correo como no deseado — que es exactamente lo que más
+/// daño hace a la reputación del remitente. Dar una salida fácil no es ser
+/// amable: es lo que evita la queja.
+///
+/// `lettre` no la trae, así que se declara aquí. No hay nada que interpretar al
+/// leerla —ARLES nunca recibe correo— pero `Header` exige `parse`, y devolver el
+/// texto tal cual es lo honesto: inventarse un análisis que nadie ejercita sería
+/// código que no se puede ver fallar.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ListUnsubscribe(String);
+
+impl lettre::message::header::Header for ListUnsubscribe {
+    fn name() -> lettre::message::header::HeaderName {
+        lettre::message::header::HeaderName::new_from_ascii_str("List-Unsubscribe")
+    }
+
+    fn parse(valor: &str) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        Ok(Self(valor.to_owned()))
+    }
+
+    fn display(&self) -> lettre::message::header::HeaderValue {
+        lettre::message::header::HeaderValue::new(Self::name(), self.0.clone())
+    }
+}
+
+/// Cómo se escribe la cabecera de baja para una dirección de remitente.
+///
+/// ── `mailto:` Y NO `https:`, Y ES UNA LIMITACIÓN DECLARADA ────────────────
+///
+/// La versión de un clic (RFC 8058) necesita que alguien reciba un `POST` en
+/// una dirección web. **ARLES es una aplicación de escritorio y no tiene
+/// servidor**, así que no puede ofrecerla: poner `List-Unsubscribe-Post` sin un
+/// `https` detrás sería anunciar una puerta que no existe, y los filtros lo
+/// comprueban. Se pone sólo el `mailto:`, que es válido y cuenta.
+///
+/// **La baja llega al buzón de quien envía, y se apunta a mano.** ARLES no lee
+/// buzones (ADR-0009/0014: los rebotes asíncronos son de la v1.3), así que esto
+/// no da de baja a nadie por su cuenta — la regla de la Fase 5 sigue entera:
+/// nada antes del `RCPT TO` puede dar de baja a nadie. Quien reciba el correo
+/// de baja lo apunta en Contactos, con «no volver a escribirle».
+///
+/// El `subject` va dentro a propósito: sin él llega un correo en blanco y hay
+/// que adivinar qué pedía.
+fn cabecera_de_baja(remitente: &Mailbox) -> ListUnsubscribe {
+    ListUnsubscribe(format!("<mailto:{}?subject=Baja>", remitente.email))
+}
+
 /// Cuánto se espera a que el servidor conteste antes de darlo por perdido.
 ///
 /// Sesenta segundos. Sin tope, un servidor que acepta la conexión y calla deja
@@ -266,6 +326,10 @@ impl ProveedorSmtp {
             .from(self.de.clone())
             .to(para)
             .subject(self.contenido.asunto.clone())
+            // La salida de quien recibe, y lo que más pesa contra el spam de
+            // todo lo que está en nuestra mano. El porqué, en
+            // `cabecera_de_baja`.
+            .header(cabecera_de_baja(&self.de))
             // El `Message-Id` es la clave de idempotencia que se guardó ANTES
             // de esta llamada (`MOTOR_DE_EJECUCION.md` §2, capa 3). Viaja con
             // el correo para poder rastrearlo, y para poder deduplicar del lado
@@ -618,6 +682,68 @@ mod tests {
             "el certificado no lo firma nadie en quien confiemos"
         );
         assert!(!bueno.dijo("AUTH"), "y la contraseña no salió");
+    }
+
+    // ─── La salida de quien recibe (R-07, 19/10/2026) ───────────────────────
+
+    /// **El correo lleva su cabecera de baja, y se mira desde el servidor.**
+    ///
+    /// Es lo que más mueve la probabilidad de no acabar en spam de todo lo que
+    /// está en nuestra mano: Gmail y Outlook la exigen desde febrero de 2024 a
+    /// quien manda en volumen. Y es la salida de quien recibe: sin ella, la
+    /// única forma de dejar de recibir es marcar el correo como no deseado,
+    /// que es lo que más daño hace a la reputación del remitente.
+    ///
+    /// **Se mira lo que recibió el servidor**, no lo que produce `armar`. Mirar
+    /// `armar` comprobaría que esa función está bien; esto comprueba que el
+    /// envío la usa — que es el hueco del §9, veinte veces visto aquí.
+    #[test]
+    fn el_correo_lleva_la_salida_de_quien_recibe() {
+        let s =
+            ServidorCifrado::arrancar(Guion::todo_bien(), ComoCifra::Starttls).expect("arranca");
+        let p = adaptador(&s, ComoCifra::Starttls);
+        p.enviar(&mensaje("ana@ejemplo.mx", "clave-baja"))
+            .expect("va");
+
+        let cs = s.cabeceras_del_correo();
+        let baja = cs
+            .iter()
+            .find(|l| l.to_ascii_lowercase().starts_with("list-unsubscribe:"))
+            .unwrap_or_else(|| panic!("el correo salió sin cabecera de baja: {cs:?}"));
+
+        // La dirección es la del remitente, y va entre ángulos como pide el
+        // RFC 2369. Sin ellos, algunos filtros no la leen.
+        assert!(
+            baja.contains("<mailto:ventas@telemetry.mx?subject=Baja>"),
+            "la baja tiene que llevar a quien envía: {baja}"
+        );
+    }
+
+    /// **No se promete el clic único que ARLES no puede dar.**
+    ///
+    /// La versión de un clic (RFC 8058) necesita recibir un `POST` en una
+    /// dirección web, y ARLES es de escritorio: no tiene servidor. Anunciar
+    /// `List-Unsubscribe-Post` sin un `https` detrás es ofrecer una puerta que
+    /// no existe — y los filtros la comprueban, así que afirmar de más aquí
+    /// perjudica en vez de ayudar.
+    ///
+    /// Esta prueba existe porque el error es tentador: las dos cabeceras se
+    /// nombran juntas en toda la documentación de entregabilidad, y añadir la
+    /// segunda «porque la piden» no haría fallar nada.
+    #[test]
+    fn la_baja_no_promete_un_clic_que_no_existe() {
+        let s =
+            ServidorCifrado::arrancar(Guion::todo_bien(), ComoCifra::Starttls).expect("arranca");
+        let p = adaptador(&s, ComoCifra::Starttls);
+        p.enviar(&mensaje("ana@ejemplo.mx", "clave-post"))
+            .expect("va");
+
+        let cs = s.cabeceras_del_correo();
+        assert!(
+            !cs.iter()
+                .any(|l| l.to_ascii_lowercase().starts_with("list-unsubscribe-post:")),
+            "sin un https que reciba el POST, esto anuncia una puerta que no existe: {cs:?}"
+        );
     }
 
     // ─── De quién es la culpa ───────────────────────────────────────────────

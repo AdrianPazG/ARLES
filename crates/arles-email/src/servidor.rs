@@ -265,6 +265,12 @@ impl Drop for ServidorDeMentira {
 pub struct Conversacion {
     /// Todo lo que dijo el cliente, línea a línea y en orden.
     pub dicho: Vec<String>,
+    /// Las cabeceras del correo que llegó tras el `DATA`, si llegó alguno.
+    ///
+    /// **Sólo las cabeceras**: el texto del mensaje se sigue tirando. Están
+    /// aquí porque hay garantías —la cabecera de baja— que no se pueden
+    /// comprobar desde ningún otro sitio. Ver `tragar_el_cuerpo`.
+    pub cabeceras_del_correo: Vec<String>,
     /// El cliente pidió `STARTTLS` y ya se le contestó que adelante.
     ///
     /// Quien llama tiene que envolver el flujo en TLS y volver a entrar con
@@ -294,16 +300,19 @@ pub fn conversar_ya_saludado<S: Read + Write>(flujo: &mut S, guion: &Guion) -> C
 
 fn conversar_desde<S: Read + Write>(flujo: &mut S, guion: &Guion, saludar: bool) -> Conversacion {
     let mut dicho = Vec::new();
+    let mut cabeceras_del_correo: Vec<String> = Vec::new();
 
     if guion.cuelga_al_saludar {
         return Conversacion {
             dicho,
+            cabeceras_del_correo,
             hay_que_cifrar: false,
         };
     }
     if saludar && decir(flujo, &guion.saludo).is_err() {
         return Conversacion {
             dicho,
+            cabeceras_del_correo,
             hay_que_cifrar: false,
         };
     }
@@ -372,8 +381,9 @@ fn conversar_desde<S: Read + Write>(flujo: &mut S, guion: &Guion, saludar: bool)
                 // El cuerpo se traga entero hasta el punto solo. **Sus líneas
                 // no se guardan**: son el correo del cliente, y esto es una
                 // herramienta de pruebas, no un buzón.
-                if tragar_el_cuerpo(&mut lector).is_err() {
-                    break 'conversacion false;
+                match tragar_el_cuerpo(&mut lector) {
+                    Ok(cs) => cabeceras_del_correo.extend(cs),
+                    Err(_) => break 'conversacion false,
                 }
                 guion.al_cuerpo.clone()
             } else if mayusculas.starts_with("QUIT") {
@@ -391,20 +401,47 @@ fn conversar_desde<S: Read + Write>(flujo: &mut S, guion: &Guion, saludar: bool)
 
     Conversacion {
         dicho,
+        cabeceras_del_correo,
         hay_que_cifrar,
     }
 }
 
 /// Lee hasta el punto solo que cierra el cuerpo (RFC 5321 §4.1.1.4).
-fn tragar_el_cuerpo<S: Read>(lector: &mut BufReader<S>) -> std::io::Result<()> {
+/// Se traga el cuerpo hasta el punto solo, **quedándose con las cabeceras**.
+///
+/// ── POR QUÉ AHORA SÍ SE GUARDA ALGO, SI ANTES NO ──────────────────────────
+///
+/// Este servidor tiraba el cuerpo entero, y el motivo escrito era bueno: «son
+/// el correo del cliente, y esto es una herramienta de pruebas, no un buzón».
+///
+/// Lo que cambió es que hay una garantía que **sólo se puede comprobar desde
+/// este lado**: que el correo lleva su `List-Unsubscribe`. Mirar lo que produce
+/// la función que arma el mensaje comprobaría que esa función está bien, no que
+/// lo que sale por el cable la use — el patrón del §9, que en este proyecto ha
+/// aparecido veinte veces.
+///
+/// **Se queda con las cabeceras y nada más.** Terminan en la primera línea
+/// vacía, que es donde empieza el texto que alguien escribió: eso se sigue
+/// tirando, así que esto sigue sin ser un buzón.
+fn tragar_el_cuerpo<S: Read>(lector: &mut BufReader<S>) -> std::io::Result<Vec<String>> {
     let mut linea = String::new();
+    let mut cabeceras = Vec::new();
+    let mut en_cabeceras = true;
     loop {
         linea.clear();
         if lector.read_line(&mut linea)? == 0 {
-            return Ok(());
+            return Ok(cabeceras);
         }
-        if linea.trim_end_matches(['\r', '\n']) == "." {
-            return Ok(());
+        let limpia = linea.trim_end_matches(['\r', '\n']);
+        if limpia == "." {
+            return Ok(cabeceras);
+        }
+        if en_cabeceras {
+            if limpia.is_empty() {
+                en_cabeceras = false;
+            } else {
+                cabeceras.push(limpia.to_owned());
+            }
         }
     }
 }
