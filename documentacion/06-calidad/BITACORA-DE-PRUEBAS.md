@@ -86,7 +86,7 @@ mirando, no una comprobación automática.
 |---|---|---|---|---|
 | **H-01** | 🟠 Grave | Remitentes | Dice «todavía no has configurado los datos de tu empresa» **después** de haberla configurado | ✅ **Arreglado** 14/10/2026 |
 | **H-02** | 🟡 Molesto | Todas las que avisan | Las tres partes de un error salen **pegadas**: «…con el servidor.El servidor no ofrece…» | ✅ **Arreglado** 14/10/2026 |
-| **H-03** | 🔴 Bloqueante | Remitentes | **No se puede dar de alta una cuenta de Gmail.** «No se pudo cifrar la conexión con el servidor» | 🔎 **Investigando** · faltan datos |
+| **H-03** | 🔴 Bloqueante | Remitentes | **No se puede dar de alta una cuenta de Gmail.** «No se pudo cifrar la conexión con el servidor» | ✅ **Cerrado** 16/10/2026 · Dirección mandó un correo real; lo arreglaron A-05 y A-06 |
 | **R-01** | 🔵 Requisito | Remitentes | Dar de alta un correo es **demasiado complicado**. Tiene que ser sencillo e intuitivo | ✅ **Hecho** 14/10/2026 |
 | **R-02** | 🔵 Requisito | WhatsApp | Lo mismo con el alta de un número | ✅ **Hecho** 14/10/2026 · con un límite declarado |
 | **A-01** | 🟡 Molesto | Contactos | La cabecera de la tabla se leía **«Correo princip…»** y **«WhatsApp pri…»**: no cabían en su columna | ✅ **Arreglado** 14/10/2026 |
