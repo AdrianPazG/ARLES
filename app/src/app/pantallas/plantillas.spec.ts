@@ -388,3 +388,55 @@ describe('corregir lo ya escrito', () => {
     expect(pedidos).toEqual(['crear'])
   })
 })
+
+/**
+ * R-03 · negrita y cursiva · 17/10/2026
+ *
+ * Dirección: *«me gustaría tener la posibilidad de poder colocar texto en
+ * negrita o cursiva»*. El saneado del núcleo acepta `strong`, `em`, `b`, `i`,
+ * `u`, listas y enlaces **desde la 6.2**: lo que no había era forma de
+ * ponerlos sin escribir las etiquetas a mano.
+ *
+ * Las dos pruebas son los dos casos que un botón de formato puede equivocar, y
+ * el segundo es el que se olvida. **Vistas en rojo el 17/10/2026**: pegando
+ * las etiquetas al final en vez de envolver, y saliendo sin hacer nada cuando
+ * no hay nada seleccionado.
+ */
+describe('negrita y cursiva', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  it('envuelve lo que está seleccionado', async () => {
+    store()
+    const p = await abrirEditor()
+    const area = p.find('textarea')
+    await area.setValue('Hola Ana, qué tal')
+
+    const el = area.element as HTMLTextAreaElement
+    el.setSelectionRange(5, 8) // «Ana»
+    const negrita = p.findAll('button').find((b) => b.text() === 'Negrita')
+    await negrita?.trigger('click')
+
+    expect(el.value).toBe('Hola <strong>Ana</strong>, qué tal')
+  })
+
+  /**
+   * **Sin selección, inserta el par y no se queda quieto.**
+   *
+   * Es el caso que se olvida, y el que se lee como una avería: quien quiere
+   * *empezar* a escribir en cursiva pulsa el botón antes de escribir, y un
+   * botón que no hace nada parece roto (§95).
+   */
+  it('sin selección, deja el par de etiquetas para escribir dentro', async () => {
+    store()
+    const p = await abrirEditor()
+    const area = p.find('textarea')
+    await area.setValue('Hola')
+
+    const el = area.element as HTMLTextAreaElement
+    el.setSelectionRange(4, 4)
+    const cursiva = p.findAll('button').find((b) => b.text() === 'Cursiva')
+    await cursiva?.trigger('click')
+
+    expect(el.value).toBe('Hola<em></em>')
+  })
+})

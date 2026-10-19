@@ -3186,9 +3186,16 @@ export const es = {
     // que necesita enseñar una variable tal como se escribe.
     cuerpoMarcador: "Hola {'{{nombre}}'}, …",
     cuerpoAyuda:
-      'Puedes usar negritas y enlaces con HTML sencillo. ARLES limpia el ' +
-      'código antes de guardarlo, así que no hace falta que te preocupes por ' +
-      'lo que pegues desde otro sitio.',
+      'Selecciona un trozo y pulsa Negrita o Cursiva. También puedes escribir ' +
+      'HTML sencillo —enlaces, listas— si lo conoces. ARLES limpia el código ' +
+      'antes de guardarlo, así que no hace falta que te preocupes por lo que ' +
+      'pegues desde otro sitio.',
+
+    // R-03 · se dice «marcar lo seleccionado» y no «formato» a secas, porque
+    // lo primero que hay que saber es que el botón actúa sobre la selección.
+    formato: 'Marcar lo seleccionado:',
+    negrita: 'Negrita',
+    cursiva: 'Cursiva',
 
     insertar: 'Insertar dato del contacto:',
     usaVariables: 'Usa {cuantas} dato(s) de cada contacto',

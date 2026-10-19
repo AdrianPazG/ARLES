@@ -248,6 +248,49 @@ function insertar(variable: string): void {
 }
 
 /**
+ * Pone la selección en negrita o en cursiva · R-03 (17/10/2026)
+ *
+ * ── POR QUÉ UN BOTÓN Y NO UN EDITOR VISUAL ────────────────────────────────
+ *
+ * Dirección pidió «poder colocar texto en negrita o cursiva». El cuerpo es
+ * HTML y el saneado del núcleo ya acepta `strong`, `b`, `em`, `i`, `u`, listas
+ * y enlaces desde la 6.2 — lo que no había era **forma de ponerlos** sin
+ * escribir las etiquetas a mano, que es pedirle HTML a quien no lo escribe.
+ *
+ * Un editor visual (`contenteditable`) sería el camino largo: produce el HTML
+ * que le dé la gana el navegador —`<span style="font-weight:700">` en algunos—
+ * y eso el saneado lo tira, así que el texto se vería bien al escribirlo y
+ * saldría plano al guardarlo. El botón es la misma solución que las variables,
+ * por el mismo motivo: lo que acaba en el texto lo pone el programa.
+ *
+ * **Sin selección no hace nada en silencio**: inserta el par de etiquetas y
+ * deja el cursor dentro, que es lo que hace falta para empezar a escribir en
+ * negrita. Un botón que no responde se lee como una avería (§95).
+ */
+function envolver(etiqueta: 'strong' | 'em'): void {
+  const abre = `<${etiqueta}>`
+  const cierra = `</${etiqueta}>`
+  const area = areaDelCuerpo.value
+  if (!area) {
+    cuerpo.value += `${abre}${cierra}`
+    return
+  }
+  const desde = area.selectionStart
+  const hasta = area.selectionEnd
+  const dentro = cuerpo.value.slice(desde, hasta)
+  cuerpo.value =
+    cuerpo.value.slice(0, desde) + abre + dentro + cierra + cuerpo.value.slice(hasta)
+
+  // El cursor detrás de lo marcado, o en medio del par si no había nada
+  // seleccionado: en los dos casos se sigue escribiendo donde se espera.
+  const nuevo = desde + abre.length + dentro.length
+  void Promise.resolve().then(() => {
+    area.focus()
+    area.setSelectionRange(nuevo, nuevo)
+  })
+}
+
+/**
  * Las variables desconocidas, escritas como se ven en el texto.
  *
  * Vive aquí y no en la plantilla del componente porque **las dos llaves de
@@ -371,6 +414,24 @@ const tituloDelEditor = computed(() => {
             class="etiqueta"
             for="cuerpo-plantilla"
           >{{ t('plantillas.cuerpo') }}</label>
+
+          <!-- R-03 · negrita y cursiva. El saneado las acepta desde la 6.2;
+               lo que faltaba era cómo ponerlas sin escribir las etiquetas. -->
+          <div class="variables">
+            <span class="ayuda">{{ t('plantillas.formato') }}</span>
+            <ABoton
+              variante="sutil"
+              @click="envolver('strong')"
+            >
+              {{ t('plantillas.negrita') }}
+            </ABoton>
+            <ABoton
+              variante="sutil"
+              @click="envolver('em')"
+            >
+              {{ t('plantillas.cursiva') }}
+            </ABoton>
+          </div>
 
           <!-- Las variables, con botón. Escribirlas a mano es de donde salen
                los `{{nombe}}` que llegan impresos al correo de la gente. -->

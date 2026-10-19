@@ -99,7 +99,7 @@ mirando, no una comprobación automática.
 | **H-08** | 🟡 Molesto | Inicio | El paso «Conectar una cuenta remitente» **no se marca** aunque haya un remitente configurado | ✅ **Arreglado** 17/10/2026 |
 | **H-09** | 🟡 Molesto | Nueva campaña | El hueco entre «Déjalo en blanco para usar el de la cuenta» y lo que sigue es **demasiado estrecho** | ✅ **Arreglado** 17/10/2026 |
 | **H-10** | 🟠 Grave | Nueva campaña | No dice **cuál es el máximo diario por defecto**, así que se deja en blanco sin saber qué se está aceptando | ✅ **Arreglado** 17/10/2026 |
-| **R-03** | 🔵 Requisito | Plantillas | Poder poner **negrita y cursiva** en el texto | 📋 **Abierto** |
+| **R-03** | 🔵 Requisito | Plantillas | Poder poner **negrita y cursiva** en el texto | ✅ **Arreglado 17/10/2026** |
 | **R-04** | 🔴 Requisito | Firmas | **Una firma no puede ofrecer variables del contacto.** Que la firma del remitente lleve el nombre de a quien se escribe es una tragedia | ✅ **Arreglado 17/10/2026** |
 | **R-05** | 🔵 Requisito | Firmas | Poder poner **una imagen** en la firma, como en Outlook | 📋 **Abierto** |
 | **R-06** | 🟠 Requisito | Plantillas | **No se pueden editar** las plantillas ni las firmas ya creadas | ✅ **Arreglado 17/10/2026** |
@@ -1102,6 +1102,26 @@ Está bien que el código lo haga dos veces; lo que no vale es dar la
 verificación por hecha con una ruptura que la otra mitad tapa — es la lección
 de la pasada D dicha de otra forma: **una ruptura que deja el síntoma en pie no
 prueba nada.**
+
+### R-03 · Arreglado el 17/10/2026 — lo que faltaba no era el permiso
+
+El saneado del núcleo acepta `strong`, `b`, `em`, `i`, `u`, listas y enlaces
+**desde la 6.2**. Lo que no había era **forma de ponerlos** sin escribir las
+etiquetas a mano, que es pedirle HTML a quien no escribe HTML.
+
+Dos botones que envuelven lo seleccionado, por el mismo motivo que los de las
+variables: lo que acaba en el texto lo pone el programa.
+
+**Se consideró un editor visual (`contenteditable`) y se descartó.** Produce el
+HTML que decide el navegador —algunos escriben
+`<span style="font-weight:700">`— y eso el saneado lo tira: el texto se vería
+en negrita al escribirlo y saldría plano al guardarlo, sin un solo error. El
+botón escribe `<strong>`, que es lo que la lista blanca acepta.
+
+**Sin selección inserta el par y deja el cursor dentro**, que es el caso que se
+olvida: quien quiere *empezar* a escribir en negrita pulsa antes de escribir, y
+un botón que no responde se lee como una avería (§95). Las dos pruebas se
+vieron en rojo.
 
 ### H-13 · La comprobación del §9 vigilaba **cero** funciones, y por eso pasó el H-06
 
