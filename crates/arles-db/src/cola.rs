@@ -75,6 +75,35 @@ pub struct TrabajoTomado {
     pub clave_de_idempotencia: String,
     /// Cuántas veces se reintentó ya. Alimenta `arles_core::reintento`.
     pub reintentos_ya_hechos: u8,
+    /// Los datos de la persona, para poner las variables de la plantilla.
+    ///
+    /// ── VIENEN CON EL TRABAJO, Y NO SE PIDEN APARTE ────────────────────────
+    ///
+    /// Pedirlos en otra consulta abre un hueco: entre tomar el intento y leer
+    /// el contacto, alguien puede editarlo o borrarlo. Y además serían dos
+    /// idas a la base por cada envío.
+    ///
+    /// **Vacíos cuando el contacto ya no está.** `contact_id` es
+    /// `ON DELETE SET NULL` a propósito: borrar un contacto no puede borrar la
+    /// prueba de que se le escribió. Así que un intento puede sobrevivir a su
+    /// contacto, y entonces no hay nombre que poner — lo cual es correcto, y
+    /// lo resuelve el texto de reserva de la plantilla.
+    pub datos: DatosParaLaPlantilla,
+}
+
+/// Lo que se sabe de la persona a la que va este mensaje.
+///
+/// Son los tres datos que una plantilla puede nombrar de quien recibe
+/// (`arles_core::plantilla::Variable`). El cuarto, `mi_empresa`, es de quien
+/// envía y viaja con la campaña, no con cada persona.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DatosParaLaPlantilla {
+    pub nombre: String,
+    pub apellido: String,
+    /// La empresa **del contacto**. Vive en la columna `source` del esquema
+    /// V1 y no en una llamada `company_name`: es la trampa 1 de la Fase 6, y
+    /// no se ha renombrado porque hay datos escritos con ella.
+    pub empresa: String,
 }
 
 /// Lo que se encontró al arrancar.
@@ -552,13 +581,22 @@ fn siguiente_candidato(
     ahora: &str,
 ) -> Result<Option<TrabajoTomado>, rusqlite::Error> {
     conn.query_row(
-        "SELECT id, campaign_id, channel, contact_address, idempotency_key, attempt_count
-           FROM message_attempt
-          WHERE campaign_id = ?1
-            AND state IN (?2, ?3)
-            AND (scheduled_for IS NULL OR scheduled_for <= ?4)
-            AND (next_retry_at  IS NULL OR next_retry_at  <= ?4)
-          ORDER BY created_at, id
+        // El `LEFT JOIN` y no un `JOIN`: un intento puede haber sobrevivido a
+        // su contacto (`ON DELETE SET NULL`), y con un `JOIN` esa fila
+        // **desaparecería de la cola** — un envío que no sale y que nada
+        // explica. Con el `LEFT`, sale sin datos y la plantilla pone su texto
+        // de reserva.
+        "SELECT a.id, a.campaign_id, a.channel, a.contact_address,
+                a.idempotency_key, a.attempt_count,
+                COALESCE(c.first_name, ''), COALESCE(c.last_name, ''),
+                COALESCE(c.source, '')
+           FROM message_attempt a
+           LEFT JOIN contact c ON c.id = a.contact_id
+          WHERE a.campaign_id = ?1
+            AND a.state IN (?2, ?3)
+            AND (a.scheduled_for IS NULL OR a.scheduled_for <= ?4)
+            AND (a.next_retry_at  IS NULL OR a.next_retry_at  <= ?4)
+          ORDER BY a.created_at, a.id
           LIMIT 1",
         params![
             campana,
@@ -574,6 +612,11 @@ fn siguiente_candidato(
                 direccion: f.get(3)?,
                 clave_de_idempotencia: f.get(4)?,
                 reintentos_ya_hechos: u8::try_from(f.get::<_, i64>(5)?).unwrap_or(u8::MAX),
+                datos: DatosParaLaPlantilla {
+                    nombre: f.get(6)?,
+                    apellido: f.get(7)?,
+                    empresa: f.get(8)?,
+                },
             })
         },
     )

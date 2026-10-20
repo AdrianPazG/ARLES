@@ -92,6 +92,15 @@ impl Respuesta {
 pub struct Pedido {
     pub para: String,
     pub clave_de_idempotencia: String,
+    /// Lo que se pidió mandar, **tal como llegó**.
+    ///
+    /// Está aquí para poder afirmar que el cuerpo de la plantilla llega al
+    /// proveedor con los datos de esa persona puestos. Antes del paso 2b no
+    /// había nada que afirmar: el contenido lo guardaba el adaptador y el
+    /// mensaje no lo llevaba, así que **ninguna prueba podía ver** que una
+    /// campaña mandaba un cuerpo vacío (H-15).
+    pub asunto: String,
+    pub html: String,
 }
 
 /// El proveedor de mentira.
@@ -187,6 +196,8 @@ impl Proveedor for ProveedorSimulado {
             .push(Pedido {
                 para: mensaje.para.to_owned(),
                 clave_de_idempotencia: mensaje.clave_de_idempotencia.to_owned(),
+                asunto: mensaje.asunto.to_owned(),
+                html: mensaje.html.to_owned(),
             });
 
         let siguiente = {
@@ -211,6 +222,8 @@ mod tests {
     fn mensaje<'a>(para: &'a str) -> Mensaje<'a> {
         Mensaje {
             para,
+            asunto: "Aviso",
+            html: "<p>Hola</p>",
             clave_de_idempotencia: "clave-1",
         }
     }
@@ -341,6 +354,8 @@ mod tests {
         let p = ProveedorSimulado::que_siempre_acepta();
         p.enviar(&Mensaje {
             para: "ana@x.mx",
+            asunto: "Aviso",
+            html: "<p>Hola</p>",
             clave_de_idempotencia: "01J-abc",
         })
         .expect("acepta");

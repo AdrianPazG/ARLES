@@ -162,13 +162,15 @@ pub struct Cuenta {
 /// llegue.
 ///
 /// ─────────────────────────────────────────────────────────────────────────
-/// SIGUE SIENDO UNO POR CAMPAÑA, Y ESO ES LO SIGUIENTE
+/// SE CONSTRUYE POR MENSAJE, NO SE GUARDA EN EL ADAPTADOR
 ///
-/// El asunto y el cuerpo son los mismos para toda la campaña. Lo que falta es
-/// construirlos **por contacto** con la plantilla y sus variables, que es el
-/// paso 2b: ahí este tipo se le pasa a `enviar` en vez de guardarse en el
-/// adaptador. Está dicho porque `arles-app` todavía le pasa uno vacío al
-/// motor, y eso **no es un descuido**: es el cable que falta (H-15).
+/// Hasta el 20/10/2026 el adaptador guardaba uno fijo para toda la campaña, y
+/// de ahí venía el H-15: una campaña no tiene un texto, sino un texto por
+/// persona, así que `arles-app` le pasaba uno vacío y **el cuerpo de la
+/// plantilla no llegaba a ningún correo**.
+///
+/// Ahora el asunto y el HTML llegan con cada `Mensaje`, ya redactados, y este
+/// tipo se arma aquí dentro para derivar el texto plano de ese HTML.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Contenido {
     asunto: String,
@@ -190,21 +192,6 @@ impl Contenido {
             asunto: asunto.to_owned(),
             texto: arles_core::sanear::a_texto_plano(html),
             html: html.to_owned(),
-        }
-    }
-
-    /// Un correo sin contenido, para los caminos que **no mandan nada**.
-    ///
-    /// La prueba de conexión (§29) y el arranque del motor necesitan un
-    /// adaptador construido sin tener ningún correo que mandar. Existe para
-    /// que eso se diga con su nombre en vez de con dos cadenas vacías, que es
-    /// lo que había y se leía como un olvido.
-    #[must_use]
-    pub fn ninguno() -> Self {
-        Self {
-            asunto: String::new(),
-            html: String::new(),
-            texto: String::new(),
         }
     }
 
@@ -233,7 +220,6 @@ pub struct ProveedorSmtp {
     credenciales: Credentials,
     de: Mailbox,
     dominio_del_remitente: String,
-    contenido: Contenido,
     quien_dice_ser: ClientId,
 }
 
@@ -267,11 +253,7 @@ impl ProveedorSmtp {
     /// [`ErrorDeCorreo`] si la cuenta está mal configurada: el servidor no es
     /// un nombre, la dirección del remitente no es una dirección, o el cifrado
     /// no se puede preparar. **Ninguno de estos casos continúa sin cifrar.**
-    pub fn nuevo(
-        cuenta: &Cuenta,
-        contrasena: &str,
-        contenido: Contenido,
-    ) -> Result<Self, ErrorDeCorreo> {
+    pub fn nuevo(cuenta: &Cuenta, contrasena: &str) -> Result<Self, ErrorDeCorreo> {
         let servidor = cuenta.servidor.trim();
         if servidor.is_empty() || servidor.contains(char::is_whitespace) {
             return Err(ErrorDeCorreo::ElServidorNoVale);
@@ -305,7 +287,6 @@ impl ProveedorSmtp {
             credenciales: Credentials::new(cuenta.usuario.clone(), contrasena.to_owned()),
             de,
             dominio_del_remitente,
-            contenido,
             // Quién dice ser ARLES al saludar. El nombre de la máquina, que es
             // lo que espera cualquier servidor; `lettre` lo resuelve solo.
             quien_dice_ser: ClientId::default(),
@@ -387,10 +368,21 @@ impl ProveedorSmtp {
 
     /// Arma el correo en bytes, listo para mandar tras el `DATA`.
     fn armar(&self, mensaje: &Mensaje<'_>, para: Mailbox) -> Result<Vec<u8>, Fallo> {
+        // ── EL CONTENIDO VIENE CON EL MENSAJE, NO CON EL ADAPTADOR ────────
+        //
+        // Antes el adaptador guardaba uno fijo para toda la campaña, y por eso
+        // `arles-app` le pasaba uno vacío: una campaña no tiene un texto, sino
+        // un texto por persona. El resultado era que **ninguna campaña mandaba
+        // el cuerpo de su plantilla** (H-15).
+        //
+        // La versión en texto plano se deriva aquí del mismo HTML. Que la
+        // mandara el motor daría dos sitios donde pueden dejar de decir lo
+        // mismo.
+        let contenido = Contenido::de_html(mensaje.asunto, mensaje.html);
         let correo = Message::builder()
             .from(self.de.clone())
             .to(para)
-            .subject(self.contenido.asunto.clone())
+            .subject(contenido.asunto().to_owned())
             // La salida de quien recibe, y lo que más pesa contra el spam de
             // todo lo que está en nuestra mano. El porqué, en
             // `cabecera_de_baja`.
@@ -415,8 +407,8 @@ impl ProveedorSmtp {
             // declara `text/plain`, así que un cuerpo con `<strong>` llegaba
             // con las etiquetas a la vista.
             .multipart(lettre::message::MultiPart::alternative_plain_html(
-                self.contenido.texto.clone(),
-                self.contenido.html.clone(),
+                contenido.texto().to_owned(),
+                contenido.html().to_owned(),
             ))
             // Que el correo no se pueda armar es un fallo nuestro, no del
             // servidor ni de esa persona. Pasajero: se reintenta y, si sigue,
@@ -573,13 +565,6 @@ mod tests {
 
     const CONTRASENA: &str = "la-contrasena-de-la-empresa";
 
-    fn contenido() -> Contenido {
-        // Con negrita a propósito: es lo que distingue la parte HTML de la de
-        // texto, y sin ella las dos versiones serían iguales y una prueba de
-        // que van por separado no probaría nada.
-        Contenido::de_html("Aviso de ARLES", "<p>Buenas <strong>tardes</strong>.</p>")
-    }
-
     /// Un adaptador apuntando al servidor de mentira, confiando en **su**
     /// certificado y en ninguno más.
     fn adaptador(s: &ServidorCifrado, como: ComoCifra) -> ProveedorSmtp {
@@ -600,14 +585,21 @@ mod tests {
                 cifrado,
             },
             CONTRASENA,
-            contenido(),
         )
         .expect("la cuenta está bien formada")
     }
 
+    /// El asunto y el cuerpo viajan **con el mensaje** desde el paso 2b: antes
+    /// los guardaba el adaptador, uno para toda la campaña, y de ahí venía que
+    /// el cuerpo de una plantilla no llegara a ningún correo (H-15).
     fn mensaje<'a>(para: &'a str, clave: &'a str) -> Mensaje<'a> {
         Mensaje {
             para,
+            asunto: "Aviso de ARLES",
+            // Con negrita a propósito: es lo que distingue la parte HTML de la
+            // de texto, y sin ella las dos versiones serían iguales y una
+            // prueba de que van por separado no probaría nada.
+            html: "<p>Buenas <strong>tardes</strong>.</p>",
             clave_de_idempotencia: clave,
         }
     }
@@ -751,7 +743,6 @@ mod tests {
                 cifrado: Cifrado::starttls().confiando_ademas_en(otro.pem()),
             },
             CONTRASENA,
-            contenido(),
         )
         .expect("la cuenta está bien formada");
 
@@ -1029,7 +1020,6 @@ mod tests {
                     ..base.clone()
                 },
                 "x",
-                contenido()
             )
             .map(|_| ())
             .unwrap_err(),
@@ -1043,7 +1033,6 @@ mod tests {
                     ..base.clone()
                 },
                 "x",
-                contenido()
             )
             .map(|_| ())
             .unwrap_err(),
@@ -1051,7 +1040,7 @@ mod tests {
         );
 
         // Y sin puerto, el que le toca al cifrado.
-        let p = ProveedorSmtp::nuevo(&base, "x", contenido()).expect("bien formada");
+        let p = ProveedorSmtp::nuevo(&base, "x").expect("bien formada");
         assert_eq!(p.puerto, 587, "el de STARTTLS, que es el de Gmail");
     }
 
@@ -1219,7 +1208,6 @@ mod tests {
                     cifrado,
                 },
                 CONTRASENA,
-                contenido(),
             )
             .expect("la cuenta está bien formada");
 
@@ -1258,7 +1246,6 @@ mod tests {
                 cifrado: Cifrado::starttls(),
             },
             CONTRASENA,
-            contenido(),
         )
         .expect("la cuenta está bien formada");
 

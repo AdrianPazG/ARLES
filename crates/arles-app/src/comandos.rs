@@ -1329,11 +1329,6 @@ fn adaptador(
             cifrado,
         },
         contrasena,
-        // La prueba de conexión no manda ningún correo. El adaptador es el
-        // mismo que envía —que lo sea es lo que hace que la prueba signifique
-        // algo— así que hay que darle un contenido, y `ninguno()` dice con su
-        // nombre que no hay correo que mandar.
-        arles_email::Contenido::ninguno(),
     )
     .map_err(|e| ErrorIpc {
         clave: e.clave_i18n().to_owned(),
@@ -1596,7 +1591,6 @@ pub fn enviar_correo_de_prueba(
         estado.db(),
         &crate::fabrica::ElLlaveroDelSistema,
         cuenta,
-        contenido_de_prueba(),
     )?;
 
     enviar_la_prueba(estado.db(), &proveedor, &etapa, &destino, cuenta)
@@ -1730,8 +1724,15 @@ fn mandar_el_correo(
     // fila en `message_attempt` y no puede reutilizar la de nadie.
     let clave = format!("prueba-{}", arles_core::ids::MessageAttemptId::nuevo());
 
+    // El texto del correo de prueba viaja con el mensaje, igual que el de una
+    // campaña: es el mismo camino, y que lo sea es lo que hace que esta prueba
+    // signifique algo.
+    let contenido = contenido_de_prueba();
+
     match proveedor.enviar(&arles_motor::proveedor::Mensaje {
         para: destino.raw(),
+        asunto: contenido.asunto(),
+        html: contenido.html(),
         clave_de_idempotencia: &clave,
     }) {
         Ok(_) => ResultadoDelEnvioDePrueba {
@@ -1785,7 +1786,6 @@ pub fn probar_envio_de_la_cuenta(
         estado.db(),
         &crate::fabrica::ElLlaveroDelSistema,
         cuenta,
-        contenido_de_prueba(),
     )?;
 
     Ok(mandar_el_correo(&proveedor, &destino))
@@ -1942,8 +1942,7 @@ fn sondear_la_cuenta(
     secretos: &dyn crate::fabrica::FuenteDeContrasenas,
     cuenta: arles_core::ids::EmailAccountId,
 ) -> Sonda {
-    let proveedor =
-        crate::fabrica::proveedor_de_la_cuenta(db, secretos, cuenta, contenido_de_prueba());
+    let proveedor = crate::fabrica::proveedor_de_la_cuenta(db, secretos, cuenta);
 
     match proveedor {
         Ok(p) => {

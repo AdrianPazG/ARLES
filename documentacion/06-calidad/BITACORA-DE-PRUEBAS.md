@@ -1210,7 +1210,7 @@ escrito para esto— **no lo arregla mientras el remitente sea Gmail**.
 |---|---|---|
 | **1** | `List-Unsubscribe`: la salida de quien recibe | ✅ 19/10/2026 |
 | **2a** | Correo con estructura: HTML **y** texto plano, en `multipart/alternative` | ✅ 20/10/2026 |
-| **2b** | El cuerpo de la plantilla, por contacto, con sus variables y su firma | 📋 Es el H-15 |
+| **2b** | El cuerpo de la plantilla, por contacto, con sus variables y su firma | ✅ 20/10/2026 |
 | **3** | La 7.5 (SPF, DKIM, DMARC), que sirve **el día que se mande desde `@telemetrymx.com`** | 📋 Abierto |
 
 **Por qué la cabecera de baja es la primera.** Gmail y Outlook la **exigen**
@@ -1283,7 +1283,68 @@ falta, y ahora se lee como una decisión pendiente en vez de como un olvido.
 > etiquetas y la de HTML tiene que llevarlas. Rehecha así, las tres rupturas en
 > rojo.
 
-### H-15 · El camino «plantilla → correo» no existe todavía (17/10/2026)
+### R-07 · El spam, paso 2b: el correo manda la plantilla (20/10/2026)
+
+**Y con él se cierra el H-15: ARLES manda el texto que Dirección escribe.**
+
+El contenido lo guardaba **el adaptador**, uno para toda la campaña. Y una
+campaña no tiene un texto: tiene un texto por persona. Así que `arles-app` le
+pasaba uno vacío, y **ninguna campaña mandaba el cuerpo de su plantilla**.
+
+Ahora el contenido viaja con cada `Mensaje`, redactado para esa persona:
+
+| Pieza | Qué hace | Dónde |
+|---|---|---|
+| `plantilla::redactar` | Pone las variables, escapa los datos, pega la firma | `arles-core` (puro) |
+| `sanear::escapar_para_html` | Que un dato no se convierta en etiqueta | `arles-core` |
+| `DatosParaLaPlantilla` | Nombre, apellido y empresa **vienen con el trabajo** de la cola | `arles-db` |
+| `redaccion_de_la_campana` | La versión congelada, la firma por defecto y `{{mi_empresa}}` | `arles-db` |
+| `Ajustes.redaccion` | Se lee **una vez por vuelta**, no por envío | `arles-motor` |
+
+**La seguridad primero, porque la auditoría B la dejó escrita antes de que este
+camino existiera.** La plantilla se sanea **al guardarla**, y la sustitución
+ocurre **al enviar**: mete un dato de un XLSX ajeno dentro de un HTML que ya
+pasó su revisión. Una empresa llamada `<script>…` habría entrado como etiqueta.
+Los datos se escapan, y hay una prueba que lo mira.
+
+**El asunto NO se escapa**, y también es a propósito: no es HTML, viaja en una
+cabecera y se enseña tal cual. Escapándolo, `Pérez & Hijos` llegaría como
+`Pérez &amp; Hijos` a la bandeja de quien lee.
+
+**Los datos vienen con el trabajo de la cola, en la misma consulta.** Pedirlos
+aparte abre un hueco —entre tomar el intento y leer el contacto, alguien puede
+editarlo— y son dos idas a la base por envío. Y es un **`LEFT JOIN`**: un
+intento puede sobrevivir a su contacto (`ON DELETE SET NULL` protege la prueba
+de que se le escribió), y con un `JOIN` esa fila **desaparecería de la cola** —
+un envío que no sale y que nada explica.
+
+**La firma es la de por defecto, y es una limitación declarada.**
+`campaign_stage.signature_id` sigue sin que nada lo escriba (H-12), así que se
+usa la que la empresa marcó — que es literalmente lo que promete su casilla:
+«usar esta firma cuando no se elija otra». Hoy nunca se elige otra.
+
+**Si la base no contesta la redacción, se envía sin cuerpo en vez de no
+enviar.** Es la decisión incómoda de las dos y es la correcta: la audiencia está
+congelada y los permisos del día gastados, así que pararse ahí deja la campaña
+muda sin que nada lo explique. Un correo sin cuerpo se ve; una campaña que no
+avanza, no.
+
+> **La prueba que este proyecto no podía escribir hasta hoy.** «El cuerpo de la
+> plantilla llega al proveedor con los datos de esa persona» era imposible de
+> comprobar: **el mensaje no tenía dónde llevarlo**, así que no había nada que
+> mirar. Es el patrón del §9 en su versión más larga —siete piezas correctas y
+> el cable sin conectar— y lo encontró medir, no leer.
+>
+> Nueve rupturas, todas en rojo: no escapar los datos, escapar el asunto, la
+> firma sin rellenar, contar sólo lo que falta en el cuerpo, la raya de una
+> firma vacía, el motor sin redactar, el `JOIN` en vez del `LEFT JOIN`, leer la
+> versión vigente en vez de la congelada, y pegar una firma que no es la de por
+> defecto.
+
+**Lo que sigue sin existir:** que el asistente **pregunte** por la firma, y la
+imagen en la firma (R-05), que ahora sí tiene dónde verse.
+
+### H-15 · El camino «plantilla → correo» (17/10/2026) · ✅ cerrado el 20/10
 
 Medido al preparar R-05, y es más grande que H-12. Tres cosas, las tres
 comprobadas en el código y no supuestas:

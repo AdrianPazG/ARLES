@@ -72,6 +72,16 @@ pub struct Ajustes {
     /// dirigida a Madrid se envía en horario de Madrid, pero gasta del cupo
     /// diario de una cuenta que vive en México.
     pub zona_de_la_empresa: TimeZone,
+    /// Qué manda esta campaña: su plantilla congelada, su firma y su empresa.
+    ///
+    /// Se lee **una vez al arrancar** y no en cada envío: es lo mismo para
+    /// toda la campaña, y lo que cambia por persona son los datos que vienen
+    /// con cada trabajo de la cola.
+    ///
+    /// `None` cuando la campaña no tiene redacción que mandar, que en el
+    /// producto no ocurre —`crear_campana` exige una plantilla— y en las
+    /// pruebas del motor sí: ahí lo que se ejercita es el ritmo, no el texto.
+    pub redaccion: Option<arles_db::RedaccionDeLaCampana>,
 }
 
 /// De dónde salen el reloj y el azar.
@@ -382,8 +392,43 @@ impl<'a> Trabajador<'a> {
 
         self.db.marcar_enviando(&trabajo.id, &marca)?;
 
+        // ── LO QUE SE MANDA, REDACTADO PARA ESTA PERSONA ──────────────────
+        //
+        // El núcleo pone las variables y escapa los datos; aquí sólo se juntan
+        // los de la campaña con los de la fila. Sin redacción —que en el
+        // producto no pasa— va vacío, y eso es lo que hacía ARLES para todo el
+        // mundo hasta hoy (H-15).
+        let correo = self.ajustes.redaccion.as_ref().map(|r| {
+            let valores = arles_core::plantilla::Valores::nuevos()
+                .con(
+                    arles_core::plantilla::Variable::Nombre,
+                    &trabajo.datos.nombre,
+                )
+                .con(
+                    arles_core::plantilla::Variable::Apellido,
+                    &trabajo.datos.apellido,
+                )
+                .con(
+                    arles_core::plantilla::Variable::Empresa,
+                    &trabajo.datos.empresa,
+                )
+                .con(arles_core::plantilla::Variable::MiEmpresa, &r.mi_empresa);
+            arles_core::plantilla::redactar(
+                &r.asunto,
+                &r.cuerpo_html,
+                r.firma_html.as_deref(),
+                &valores,
+                // Sin texto de reserva: lo que falta se queda en blanco. Poner
+                // «cliente» por nuestra cuenta es escribir en nombre de quien
+                // redactó, y el preflight ya dice a cuántos les falta un dato.
+                arles_core::plantilla::SiFalta::Nada,
+            )
+        });
+
         let mensaje = Mensaje {
             para: &trabajo.direccion,
+            asunto: correo.as_ref().map_or("", |c| c.asunto.as_str()),
+            html: correo.as_ref().map_or("", |c| c.html.as_str()),
             clave_de_idempotencia: &trabajo.clave_de_idempotencia,
         };
         match self.proveedor.enviar(&mensaje) {
@@ -682,6 +727,11 @@ mod tests {
             ventana: Ventana::nueva(Dias::LABORABLES, 9, 18, mx.clone()).expect("ventana"),
             limites: Limites::nuevos(10, 50),
             zona_de_la_empresa: mx,
+            // Sin redacción: estas pruebas miden el ritmo, la cola y el
+            // freno. El texto se prueba donde se redacta —en el núcleo— y
+            // ponerlo aquí haría que cada aserción del bucle dependiera de
+            // una plantilla que no es lo que se está mirando.
+            redaccion: None,
         }
     }
 
@@ -1622,5 +1672,101 @@ mod tests {
                 "{quien} recibió más de un correo"
             );
         }
+    }
+
+    // ─── Lo que de verdad se manda (R-07 paso 2b, 20/10/2026) ──────────────
+
+    /// **La prueba que este proyecto no podía escribir hasta hoy: el cuerpo de
+    /// la plantilla llega al proveedor, con los datos de esa persona.**
+    ///
+    /// Hasta el 20/10/2026 el contenido lo guardaba el adaptador —uno para
+    /// toda la campaña— y el mensaje no lo llevaba, así que `arles-app` le
+    /// pasaba uno vacío y **ninguna campaña mandaba el texto de su
+    /// plantilla**. Ninguna prueba podía verlo: el mensaje no tenía dónde
+    /// llevarlo, así que no había nada que mirar. Es el patrón del §9 en su
+    /// versión más larga, y lo encontró medir, no leer.
+    ///
+    /// Se mira **lo que recibió el proveedor**, que es el único sitio donde
+    /// esto se puede afirmar.
+    #[test]
+    fn el_cuerpo_de_la_plantilla_llega_con_los_datos_de_cada_persona() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        // El contacto de la fila, para que haya datos que poner.
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(
+                "INSERT INTO contact (id, company_id, status, first_name, last_name,
+                                      source, created_at, updated_at)
+                 VALUES ('c-ana', '11111111-1111-4111-8111-111111111111', 'active',
+                         'Ana', 'Ruiz', 'Fábrica',
+                         '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z');
+                 UPDATE message_attempt SET contact_id = 'c-ana' WHERE id = 'a';",
+            )
+        })
+        .expect("contacto");
+
+        let mut a = ajustes();
+        a.redaccion = Some(arles_db::RedaccionDeLaCampana {
+            asunto: "Hola {{nombre}}".to_owned(),
+            cuerpo_html: "<p>Buenas, {{nombre}} de {{empresa}}.</p>".to_owned(),
+            firma_html: Some("<p>Equipo de {{mi_empresa}}</p>".to_owned()),
+            mi_empresa: "TELEMETRY".to_owned(),
+        });
+
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let t = Trabajador::nuevo(&db, &p, &e, &f, a);
+        t.un_paso().expect("paso");
+
+        let pedido = p.recibidos().into_iter().next().expect("se pidió un envío");
+        assert_eq!(pedido.asunto, "Hola Ana");
+        assert!(
+            pedido.html.contains("Buenas, Ana de Fábrica."),
+            "el cuerpo no llevaba sus datos: {}",
+            pedido.html
+        );
+        assert!(
+            pedido.html.contains("Equipo de TELEMETRY"),
+            "la firma no llegó: {}",
+            pedido.html
+        );
+    }
+
+    /// Y **sin contacto se manda igual**, con lo que falte en blanco.
+    ///
+    /// `contact_id` es `ON DELETE SET NULL` a propósito: borrar un contacto no
+    /// borra la prueba de que se le escribió. Así que un intento puede
+    /// sobrevivir a su contacto, y entonces no hay nombre que poner.
+    ///
+    /// Lo que **no** puede pasar es que esa fila desaparezca de la cola — con
+    /// un `JOIN` en vez de un `LEFT JOIN` sería un envío que no sale y que
+    /// nada explica.
+    #[test]
+    fn un_intento_sin_contacto_se_manda_con_los_huecos_en_blanco() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+
+        let mut a = ajustes();
+        a.redaccion = Some(arles_db::RedaccionDeLaCampana {
+            asunto: "Hola {{nombre}}".to_owned(),
+            cuerpo_html: "<p>Buenas, {{nombre}}.</p>".to_owned(),
+            firma_html: None,
+            mi_empresa: "TELEMETRY".to_owned(),
+        });
+
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let t = Trabajador::nuevo(&db, &p, &e, &f, a);
+        t.un_paso().expect("paso");
+
+        let pedido = p
+            .recibidos()
+            .into_iter()
+            .next()
+            .expect("la fila no puede desaparecer de la cola");
+        assert_eq!(pedido.asunto, "Hola ");
+        assert_eq!(pedido.html, "<p>Buenas, .</p>");
     }
 }

@@ -248,6 +248,12 @@ pub fn correr(pasos: u32, con_fuga: bool) -> Result<Corrida, Box<dyn std::error:
         // motor, y aquí estorba.
         limites: Limites::nuevos(1_000_000, 1_000_000),
         zona_de_la_empresa: mx,
+        // Sin redacción: lo que esta corrida mide es la memoria del motor a lo
+        // largo de 20 000 envíos, y redactar añadiría una cadena por envío que
+        // **no es del motor**. Medirla aquí haría parecer del motor un consumo
+        // que es del texto, que es justo el error que esta corrida existe para
+        // no cometer (ver la nota del proveedor que acumula).
+        redaccion: None,
     };
 
     let proveedor = SiempreAcepta {

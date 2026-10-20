@@ -393,6 +393,96 @@ fn recorrer(texto: &str) -> impl Iterator<Item = Trozo<'_>> {
     })
 }
 
+/// Un correo ya redactado para una persona concreta.
+///
+/// Las dos piezas que necesita el adaptador, y nada más: lo que lleva dentro
+/// el sobre. **No lleva la dirección** — ésa viene del intento de la cola, y
+/// mezclarlas aquí daría dos sitios de donde sacar a quién se escribe.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CorreoRedactado {
+    pub asunto: String,
+    /// Ya con las variables puestas y la firma pegada. **Los datos de la
+    /// persona van escapados**: ver [`redactar`].
+    pub html: String,
+    /// Qué variables no tenían valor para esta persona.
+    ///
+    /// Viaja para poder decirlo, no para decidir nada: quien quiera no
+    /// escribir a quien le falten datos lo decide antes, en el preflight.
+    pub faltaron: Vec<Variable>,
+}
+
+/// Redacta el correo de una persona: la plantilla con sus datos, y la firma
+/// detrás.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LOS DATOS DE LA PERSONA SE ESCAPAN, Y EL ASUNTO NO
+///
+/// Y es a propósito en los dos casos. El cuerpo es HTML, así que un nombre con
+/// un `<` tiene que entrar como `&lt;` — si no, una empresa llamada
+/// `<script>…` se convierte en etiqueta dentro de un HTML que ya pasó su
+/// saneado (ver [`crate::sanear::escapar_para_html`]).
+///
+/// El asunto **no es HTML**: viaja en una cabecera del correo y se enseña tal
+/// cual. Escaparlo ahí haría que una empresa llamada `Pérez & Hijos` apareciera
+/// como `Pérez &amp; Hijos` en la bandeja de quien recibe.
+///
+/// Son los mismos valores rellenando dos cosas distintas, y por eso se rellena
+/// dos veces con dos juegos: hacerlo con uno solo rompe una de las dos, y la
+/// que se rompe no falla en ninguna parte.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LA FIRMA SE PEGA DETRÁS, Y NO PASA POR LAS VARIABLES DEL CONTACTO
+///
+/// Una firma no puede llevar variables de quien recibe —es R-04, y lo impide
+/// `revisar_firma` antes de guardarla— así que aquí se rellena con **los
+/// mismos valores**, que es lo correcto: `{{mi_empresa}}` es de quien firma y
+/// tiene que funcionar también en la firma.
+///
+/// Va dentro de un `<p>` y separada por una regla: una firma pegada al último
+/// párrafo se lee como parte del mensaje.
+#[must_use]
+pub fn redactar(
+    asunto: &str,
+    cuerpo_html: &str,
+    firma_html: Option<&str>,
+    valores: &Valores,
+    si_falta: SiFalta,
+) -> CorreoRedactado {
+    // Los mismos valores, escapados para lo que va dentro del HTML.
+    let mut para_html = Valores::nuevos();
+    for v in Variable::TODAS {
+        if let Some(valor) = valores.de(*v) {
+            para_html = para_html.con(*v, &crate::sanear::escapar_para_html(valor));
+        }
+    }
+
+    let cuerpo = Plantilla::nueva(cuerpo_html, si_falta.clone()).rellenar(&para_html);
+    let asunto = Plantilla::nueva(asunto, si_falta.clone()).rellenar(valores);
+
+    let mut html = cuerpo.texto;
+    if let Some(firma) = firma_html.filter(|f| !f.trim().is_empty()) {
+        let firma = Plantilla::nueva(firma, si_falta).rellenar(&para_html);
+        html.push_str("<p>—</p>");
+        html.push_str(&firma.texto);
+    }
+
+    // Lo que faltó es de las dos: una variable que sólo está en el asunto
+    // también falta. Sin unirlas, un asunto con `{{nombre}}` y un cuerpo sin
+    // él diría que no faltó nada.
+    let mut faltaron = cuerpo.faltaron;
+    for v in asunto.faltaron {
+        if !faltaron.contains(&v) {
+            faltaron.push(v);
+        }
+    }
+
+    CorreoRedactado {
+        asunto: asunto.texto,
+        html,
+        faltaron,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -676,5 +766,152 @@ mod firmas_sin_datos_ajenos {
                 "{v:?} no cuadra entre las dos"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod redactar_un_correo {
+    //! R-07 paso 2b · el correo que se manda a una persona concreta.
+    //!
+    //! Hasta hoy el cuerpo de una campaña **no llegaba al correo**: el único
+    //! `Contenido` que veía el adaptador era un texto fijo (H-15). Esto es la
+    //! pieza pura de ese camino, y lo que se vigila aquí son las cosas que la
+    //! sustitución puede hacer mal — todas silenciosas.
+    //!
+    //! **Verificadas rompiéndolas el 20/10/2026**, cinco rupturas y cada una
+    //! cazada sólo por su prueba: no escapar los datos, escapar también el
+    //! asunto, pegar la firma sin rellenarla, contar sólo lo que falta en el
+    //! cuerpo, y dejar la raya de la firma cuando no hay firma.
+    use super::*;
+
+    fn ana() -> Valores {
+        Valores::nuevos()
+            .con(Variable::Nombre, "Ana")
+            .con(Variable::Empresa, "Fábrica")
+            .con(Variable::MiEmpresa, "TELEMETRY")
+    }
+
+    #[test]
+    fn la_plantilla_sale_con_los_datos_de_la_persona() {
+        let r = redactar(
+            "Hola {{nombre}}",
+            "<p>Buenas, {{nombre}} de {{empresa}}.</p>",
+            None,
+            &ana(),
+            SiFalta::Nada,
+        );
+        assert_eq!(r.asunto, "Hola Ana");
+        assert_eq!(r.html, "<p>Buenas, Ana de Fábrica.</p>");
+    }
+
+    /// **El dato de una persona no puede meter etiquetas en el correo.**
+    ///
+    /// Es el hallazgo que la auditoría B dejó escrito el 07/10/2026 antes de
+    /// que este camino existiera: la plantilla se sanea **al guardarla**, y la
+    /// sustitución ocurre después. Una empresa llamada `<script>…` —que pudo
+    /// venir de un XLSX ajeno— entraría como etiqueta en un HTML que ya pasó
+    /// su revisión, y el saneado no lo vio porque entonces no estaba.
+    #[test]
+    fn un_dato_con_etiquetas_no_se_convierte_en_etiquetas() {
+        let valores = Valores::nuevos()
+            .con(Variable::Nombre, "<script>alert(1)</script>")
+            .con(Variable::Empresa, "Pérez & Hijos");
+
+        let r = redactar(
+            "Para {{empresa}}",
+            "<p>Hola {{nombre}}, de {{empresa}}.</p>",
+            None,
+            &valores,
+            SiFalta::Nada,
+        );
+
+        assert!(
+            !r.html.contains("<script>"),
+            "entró una etiqueta en el correo: {}",
+            r.html
+        );
+        assert!(r.html.contains("&lt;script&gt;"), "{}", r.html);
+        // Y el nombre se sigue leyendo entero: escapar no es recortar.
+        assert!(r.html.contains("Pérez &amp; Hijos"), "{}", r.html);
+
+        // **El asunto no se escapa**: no es HTML, viaja en una cabecera y se
+        // enseña tal cual. Con el escapado, quien lo recibe leería
+        // «Pérez &amp; Hijos» en su bandeja.
+        assert_eq!(r.asunto, "Para Pérez & Hijos");
+    }
+
+    /// La firma va detrás, separada, y **con `{{mi_empresa}}` resuelto**.
+    ///
+    /// Una firma no puede llevar variables de quien recibe (R-04), pero sí la
+    /// de quien firma — y si no se rellenara, saldría `{{mi_empresa}}` impreso
+    /// al pie de cada correo de la campaña.
+    #[test]
+    fn la_firma_va_detras_y_con_sus_variables_puestas() {
+        let r = redactar(
+            "Hola",
+            "<p>El mensaje.</p>",
+            Some("<p>Ana Ruiz · {{mi_empresa}}</p>"),
+            &ana(),
+            SiFalta::Nada,
+        );
+        assert!(r.html.starts_with("<p>El mensaje.</p>"), "{}", r.html);
+        assert!(r.html.contains("TELEMETRY"), "{}", r.html);
+        assert!(
+            !r.html.contains("{{mi_empresa}}"),
+            "la firma salió sin rellenar: {}",
+            r.html
+        );
+        assert!(
+            r.html.contains("<p>—</p>"),
+            "sin separación, la firma se lee como parte del mensaje: {}",
+            r.html
+        );
+    }
+
+    /// Sin firma no se pega nada, **ni la separación**.
+    ///
+    /// Una firma vacía que deja su raya detrás del mensaje es una firma que
+    /// parece haberse perdido.
+    #[test]
+    fn sin_firma_no_queda_ninguna_raya() {
+        for firma in [None, Some(""), Some("   ")] {
+            let r = redactar("Hola", "<p>El mensaje.</p>", firma, &ana(), SiFalta::Nada);
+            assert_eq!(r.html, "<p>El mensaje.</p>", "con firma {firma:?}");
+        }
+    }
+
+    /// **Lo que faltó se cuenta del asunto Y del cuerpo.**
+    ///
+    /// Un asunto con `{{apellido}}` y un cuerpo sin él diría que no faltó
+    /// nada: la cifra de «a cuántos les falta un dato» saldría más baja de lo
+    /// que es, que es la que decide si una campaña se manda.
+    #[test]
+    fn lo_que_falta_en_el_asunto_tambien_cuenta() {
+        let r = redactar(
+            "Hola {{apellido}}",
+            "<p>Buenas, {{nombre}}.</p>",
+            None,
+            &ana(),
+            SiFalta::Nada,
+        );
+        assert!(
+            r.faltaron.contains(&Variable::Apellido),
+            "faltaron: {:?}",
+            r.faltaron
+        );
+    }
+
+    /// Y el texto de reserva se aplica en los dos sitios.
+    #[test]
+    fn el_texto_de_reserva_vale_para_el_asunto_y_para_el_cuerpo() {
+        let r = redactar(
+            "Hola {{apellido}}",
+            "<p>Buenas, {{apellido}}.</p>",
+            None,
+            &ana(),
+            SiFalta::Esto("cliente".to_owned()),
+        );
+        assert_eq!(r.asunto, "Hola cliente");
+        assert_eq!(r.html, "<p>Buenas, cliente.</p>");
     }
 }

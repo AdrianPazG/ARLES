@@ -11,13 +11,30 @@ use arles_core::texto::engana_al_que_mira;
 
 /// Lo que se le pide al proveedor que entregue.
 ///
-/// Es deliberadamente pobre. El asunto, el cuerpo y la firma llegan en la
-/// Fase 6, y meterlos ahora obligaría a inventarse su forma antes de que exista
-/// la pantalla que los produce — y a mantener esa invención hasta entonces.
+/// ─────────────────────────────────────────────────────────────────────────
+/// EL CONTENIDO VIAJA AQUÍ, Y ANTES NO VIAJABA EN NINGUNA PARTE
+///
+/// Hasta el 20/10/2026 esta estructura llevaba sólo la dirección y la clave:
+/// el asunto y el cuerpo los guardaba **el adaptador**, uno para toda la
+/// campaña. Como una campaña no tiene un texto, sino un texto por persona,
+/// `arles-app` le pasaba uno vacío y **ninguna campaña mandaba el cuerpo de su
+/// plantilla** (H-15).
+///
+/// Ahora el contenido va por mensaje porque es lo que cambia en cada mensaje.
+/// Lo redacta `arles_core::plantilla::redactar` antes de llamar aquí, con los
+/// datos de esa persona ya escapados.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mensaje<'a> {
     /// La dirección de destino, ya validada y normalizada por el núcleo.
     pub para: &'a str,
+    /// El asunto, **ya con las variables puestas**.
+    pub asunto: &'a str,
+    /// El cuerpo en HTML, ya redactado para esta persona y con su firma.
+    ///
+    /// La versión en texto plano no viaja: la deriva el adaptador del mismo
+    /// HTML. Mandar las dos desde aquí daría dos sitios donde pueden dejar de
+    /// decir lo mismo.
+    pub html: &'a str,
     /// El `Message-Id` del correo.
     ///
     /// Se generó y se guardó **antes** de esta llamada. Viaja con el mensaje

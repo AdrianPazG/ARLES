@@ -105,6 +105,50 @@ pub fn html(sucio: &str) -> String {
     saneador().clean(sucio).to_string()
 }
 
+/// Convierte un dato de una persona en algo que se puede meter dentro de un
+/// HTML sin cambiar su significado.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTO NO ES LO MISMO QUE [`html`], Y POR QUÉ HACEN FALTA LAS DOS
+///
+/// [`html`] limpia **un texto que es HTML**: se queda con las etiquetas de la
+/// lista blanca y tira el resto. Esto trata un texto que **no es HTML** —el
+/// nombre de alguien, su empresa— y que va a quedar dentro de uno.
+///
+/// La diferencia importa porque la plantilla se sanea **al guardarla**, y la
+/// sustitución de variables ocurre **después**, al enviar: mete un dato que
+/// vino de un XLSX ajeno dentro de un HTML que ya pasó su revisión. Sin
+/// escapar, una empresa llamada `<script>…` entra en el correo como etiqueta,
+/// y el saneado de la plantilla no lo vio porque entonces no estaba.
+///
+/// Es el hallazgo que la auditoría B del 07/10/2026 dejó escrito antes de que
+/// existiera este camino: *«entre guardar y enviar está la sustitución de
+/// variables, que mete datos de un XLSX ajeno dentro del HTML ya saneado»*.
+///
+/// **Y no vale pasar el dato por [`html`] en su lugar.** Ése lo dejaría
+/// intacto si no tiene etiquetas y le quitaría los `<` sueltos: una empresa
+/// llamada `Pérez < Hijos` perdería parte de su nombre, en silencio. Lo que
+/// hace falta aquí es que el dato **se vea tal como se escribió**.
+///
+/// Se escapan cinco: `&` primero —si no, reescribiría los `&` que las otras
+/// cuatro acaban de meter—, los dos ángulos, y las dos clases de comilla,
+/// porque un dato puede acabar dentro de un atributo.
+#[must_use]
+pub fn escapar_para_html(dato: &str) -> String {
+    let mut salida = String::with_capacity(dato.len());
+    for c in dato.chars() {
+        match c {
+            '&' => salida.push_str("&amp;"),
+            '<' => salida.push_str("&lt;"),
+            '>' => salida.push_str("&gt;"),
+            '"' => salida.push_str("&quot;"),
+            '\'' => salida.push_str("&#39;"),
+            otro => salida.push(otro),
+        }
+    }
+    salida
+}
+
 /// La versión en texto plano de un HTML ya saneado.
 ///
 /// ─────────────────────────────────────────────────────────────────────────

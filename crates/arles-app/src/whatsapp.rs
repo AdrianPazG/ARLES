@@ -387,6 +387,15 @@ pub fn prueba_con(
     let clave = format!("prueba-{}", numero);
     let mensaje = Mensaje {
         para: destino.normalized(),
+        // **En WhatsApp el contenido no viaja por aquí**, y no es un olvido:
+        // Meta no acepta texto libre en un primer mensaje. Lo que se manda es
+        // una plantilla que Meta aprobó, con sus valores, y eso va con el
+        // proveedor —arriba, en `contenido`— porque es lo que la API pide.
+        //
+        // El `Mensaje` es el mismo para los dos canales, así que estos dos
+        // campos van vacíos en este camino.
+        asunto: "",
+        html: "",
         clave_de_idempotencia: &clave,
     };
 

@@ -43,7 +43,7 @@ pub mod trabajo;
 pub mod ventanas;
 
 pub use campanas::ResumenDeAccion;
-pub use cola::{Recuperacion, TrabajoTomado};
+pub use cola::{DatosParaLaPlantilla, Recuperacion, TrabajoTomado};
 pub use conexion::{ClaveMaestra, abrir};
 pub use contactos::{
     ContactoGuardado, DatosDelLote, MAX_POR_PAGINA, PaginaDeContactos, ResumenDeImportacion,
@@ -54,6 +54,7 @@ pub use empresa::EmpresaGuardada;
 pub use error::DbError;
 pub use migraciones::ultima_version;
 pub use numero::{NumeroGuardado, NumeroNuevo};
+pub use plantillas::RedaccionDeLaCampana;
 pub use preferencias::CLAVES_DE_INTERFAZ;
 pub use respaldo::{
     ColumnasPorTabla, Destino, FILAS_POR_AVISO, Inventario, QueSeLleva, RecuentoPorTabla,

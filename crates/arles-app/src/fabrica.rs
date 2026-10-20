@@ -35,7 +35,7 @@
 use arles_core::correo::CifradoDeCorreo;
 use arles_core::ids::EmailAccountId;
 use arles_db::Db;
-use arles_email::{Cifrado, Contenido, Cuenta, ErrorDeCorreo, ProveedorSmtp};
+use arles_email::{Cifrado, Cuenta, ErrorDeCorreo, ProveedorSmtp};
 
 use crate::error::AppError;
 use crate::llavero::Llavero;
@@ -186,9 +186,11 @@ impl LaCuentaNoSirve {
 /// el sistema pregunte al usuario si autoriza el acceso — un cuadro de diálogo
 /// por una cuenta que no se iba a usar.
 ///
-/// El `contenido` entra como parámetro en vez de construirse aquí porque no es
-/// asunto de la fábrica: en la 5.5 será el correo de prueba y en la Fase 6 lo
-/// producirá la plantilla de la campaña.
+/// **El contenido ya no entra aquí.** Hasta el 20/10/2026 la fábrica recibía un
+/// `Contenido` y se lo guardaba el adaptador: uno para toda la campaña. Como
+/// una campaña tiene un texto por persona, el motor le pasaba uno vacío y el
+/// cuerpo de la plantilla no llegaba a ningún correo (H-15). Ahora viaja con
+/// cada mensaje.
 ///
 /// # Errores
 ///
@@ -201,7 +203,6 @@ pub fn proveedor_de_la_cuenta(
     db: &Db,
     secretos: &dyn FuenteDeContrasenas,
     id: EmailAccountId,
-    contenido: Contenido,
 ) -> Result<ProveedorSmtp, AppError> {
     let cuenta = db
         .cuenta_de_correo(id)
@@ -230,7 +231,6 @@ pub fn proveedor_de_la_cuenta(
             },
         },
         &contrasena,
-        contenido,
     )
     .map_err(LaCuentaNoSirve::NoSePudoPrepararElEnvio)?;
 
@@ -443,7 +443,6 @@ mod tests {
             db,
             llavero,
             CUENTA.parse::<EmailAccountId>().expect("id de cuenta"),
-            Contenido::de_html("Prueba", "<p>Hola</p>"),
         )
     }
 

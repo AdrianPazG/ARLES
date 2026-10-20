@@ -54,7 +54,6 @@ use std::time::Duration;
 use arles_db::Db;
 use arles_db::actividad::SucesoNuevo;
 use arles_db::trabajo::EtapaEnMarcha;
-use arles_email::Contenido;
 use arles_motor::bucle::{Ajustes, EntornoDelSistema, Paso, Trabajador, freno_de_la_base};
 use arles_motor::instancia::Cerrojo;
 
@@ -194,24 +193,22 @@ fn servir(
     empresa: arles_core::ids::CompanyId,
     etapa: &EtapaEnMarcha,
 ) -> bool {
-    let Ok(proveedor) = proveedor_de_la_cuenta(
-        db,
-        secretos,
-        etapa.cuenta,
-        // ── EL CABLE QUE FALTA, DICHO CON SU NOMBRE (H-15) ───────────────
-        //
-        // Aquí debería ir el contenido de la plantilla de la campaña,
-        // construido por contacto con sus variables sustituidas y su firma.
-        // Hoy va `ninguno()`, y eso significa que **una campaña no manda el
-        // texto de su plantilla**: es el paso 2b, y hasta entonces lo honesto
-        // es que se lea como lo que es.
-        //
-        // `ninguno()` y no dos cadenas vacías porque las cadenas vacías se
-        // leen como un olvido; esto se lee como una decisión pendiente.
-        Contenido::ninguno(),
-    ) else {
+    let Ok(proveedor) = proveedor_de_la_cuenta(db, secretos, etapa.cuenta) else {
         return false;
     };
+
+    // ── EL CABLE QUE FALTABA, CONECTADO (H-15, paso 2b del 20/10/2026) ─────
+    //
+    // Aquí se lee lo que la campaña manda: su versión de plantilla congelada,
+    // su firma y el nombre de la empresa. **Una vez por vuelta del motor**, no
+    // por envío: es lo mismo para toda la campaña.
+    //
+    // Si la base no contesta se envía **sin cuerpo** en vez de no enviar. Es
+    // la decisión incómoda de las dos, y es la correcta: la audiencia está
+    // congelada y los permisos del día gastados, así que pararse aquí deja la
+    // campaña muda sin que nada lo explique. Un correo sin cuerpo se ve; una
+    // campaña que no avanza, no.
+    let redaccion = db.redaccion_de_la_campana(&etapa.campana).unwrap_or(None);
 
     let freno = freno_de_la_base(db, empresa, &etapa.campana);
     let trabajador = Trabajador::nuevo(
@@ -227,6 +224,7 @@ fn servir(
             ventana: etapa.ventana.clone(),
             limites: etapa.limites,
             zona_de_la_empresa: etapa.zona_de_la_empresa.clone(),
+            redaccion,
         },
     );
 

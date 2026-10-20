@@ -57,7 +57,7 @@ use arles_core::EmailAddress;
 use arles_core::ids::EmailAccountId;
 use arles_db::{ClaveMaestra, Db};
 use arles_email::servidor_cifrado::{ComoCifra, NOMBRE_DE_PRUEBA, ServidorCifrado};
-use arles_email::{Cifrado, Contenido, Cuenta, Guion, ProveedorSmtp};
+use arles_email::{Cifrado, Cuenta, Guion, ProveedorSmtp};
 
 const EMPRESA: &str = "11111111-1111-4111-8111-111111111111";
 const CUENTA: &str = "01900000-0000-7000-8000-00000000000a";
@@ -124,10 +124,6 @@ fn adaptador(s: &ServidorCifrado) -> ProveedorSmtp {
             cifrado: Cifrado::starttls().confiando_ademas_en(s.pem()),
         },
         CONTRASENA,
-        Contenido::de_html(
-            "Correo de prueba de ARLES RELAY",
-            "<p>Si estás leyendo esto, la cuenta puede enviar.</p>",
-        ),
     )
     .expect("la cuenta está bien formada")
 }

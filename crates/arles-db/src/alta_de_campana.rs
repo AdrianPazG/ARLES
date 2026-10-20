@@ -615,6 +615,84 @@ mod tests {
         .id
     }
 
+    // ─── Qué manda la campaña (R-07 paso 2b, 20/10/2026) ───────────────────
+
+    /// **La campaña manda la versión que congeló, no la vigente.**
+    ///
+    /// Es la garantía entera del versionado vista desde el envío. La pantalla
+    /// promete, al corregir una plantilla, que «las campañas que ya estén
+    /// activas siguen enviando con la anterior» — y esto es lo único que puede
+    /// comprobarlo: leyendo la vigente, corregir una errata cambiaría el texto
+    /// de lo que está saliendo.
+    ///
+    /// Verificada rompiéndola el 20/10/2026: leyendo
+    /// `template.current_version_id` en vez de
+    /// `campaign_stage.template_version_id`, esta prueba falla con el asunto
+    /// corregido.
+    #[test]
+    fn la_campana_manda_la_version_que_congelo_y_no_la_de_despues() {
+        let (_d, db, version) = base();
+        let plantilla = db
+            .plantillas(empresa())
+            .expect("lista")
+            .first()
+            .expect("hay una")
+            .id;
+        let campana = una_campana(&db, version);
+
+        // Y después se corrige la plantilla, que es lo que R-06 permite.
+        db.nueva_version_de_plantilla(
+            plantilla,
+            &Redaccion {
+                asunto: "Hola de nuevo {{nombre}}".to_owned(),
+                cuerpo_html: "<p>Texto corregido</p>".to_owned(),
+            },
+        )
+        .expect("segunda versión");
+
+        let r = db
+            .redaccion_de_la_campana(&campana.to_string())
+            .expect("consulta")
+            .expect("la campaña tiene qué mandar");
+        assert_eq!(r.asunto, "Hola {{nombre}}", "mandó la versión corregida");
+        assert!(r.cuerpo_html.contains("Gracias"), "{}", r.cuerpo_html);
+        assert_eq!(r.mi_empresa, "TELEMETRY", "es {{mi_empresa}}");
+    }
+
+    /// La firma que se pega es **la que la empresa marcó por defecto**.
+    ///
+    /// `campaign_stage.signature_id` existe desde la V4 y nada lo escribe
+    /// (H-12), así que se usa la de por defecto — que es literalmente lo que
+    /// promete su casilla: «usar esta firma cuando no se elija otra».
+    #[test]
+    fn la_firma_por_defecto_es_la_que_se_pega() {
+        let (_d, db, version) = base();
+        let campana = una_campana(&db, version);
+
+        // Sin ninguna firma marcada, no se pega nada.
+        let sin = db
+            .redaccion_de_la_campana(&campana.to_string())
+            .expect("consulta")
+            .expect("existe");
+        assert_eq!(sin.firma_html, None, "sin firma no se inventa una");
+
+        db.crear_firma(empresa(), "Otra", "<p>No es la de por defecto</p>", false)
+            .expect("una sin marcar");
+        db.crear_firma(empresa(), "Ventas", "<p>Equipo de Ventas</p>", true)
+            .expect("la de por defecto");
+
+        let con = db
+            .redaccion_de_la_campana(&campana.to_string())
+            .expect("consulta")
+            .expect("existe");
+        let firma = con.firma_html.expect("hay firma");
+        assert!(firma.contains("Equipo de Ventas"), "{firma}");
+        assert!(
+            !firma.contains("No es la de por defecto"),
+            "se pegó la que no estaba marcada: {firma}"
+        );
+    }
+
     // ─── El desenlace, que hasta la 8.6 E nadie preguntaba ─────────────────
 
     /// **Una campaña que no termina nunca no se activa.**

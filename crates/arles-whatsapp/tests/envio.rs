@@ -47,6 +47,10 @@ fn mandar(guion: Guion) -> (ServidorDeMentira, Result<String, Fallo>) {
     let r = proveedor
         .enviar(&Mensaje {
             para: DESTINO,
+            // En WhatsApp el contenido va con el proveedor: es una plantilla
+            // aprobada por Meta, no texto libre.
+            asunto: "",
+            html: "",
             clave_de_idempotencia: "k-1",
         })
         .map(|a| a.id_del_proveedor.unwrap_or_default());
@@ -199,6 +203,10 @@ fn un_servidor_que_se_calla_no_da_de_baja_a_nadie() {
 
     let r = proveedor.enviar(&Mensaje {
         para: DESTINO,
+        // En WhatsApp el contenido va con el proveedor: es una plantilla
+        // aprobada por Meta, no texto libre.
+        asunto: "",
+        html: "",
         clave_de_idempotencia: "k-1",
     });
 

@@ -588,6 +588,91 @@ impl Db {
     }
 }
 
+/// Lo que una campaña manda, antes de ponerle los datos de cada persona.
+///
+/// Es **constante durante toda la campaña**: se lee una vez al arrancar el
+/// motor y no en cada envío. Lo que cambia por persona son los valores de las
+/// variables, y ésos vienen con el trabajo de la cola.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RedaccionDeLaCampana {
+    /// El asunto de la versión de plantilla **que la campaña congeló**.
+    pub asunto: String,
+    pub cuerpo_html: String,
+    /// La firma que se pega al final, si hay alguna.
+    pub firma_html: Option<String>,
+    /// El nombre comercial de la empresa: es `{{mi_empresa}}`.
+    pub mi_empresa: String,
+}
+
+impl Db {
+    /// Qué manda esta campaña: su plantilla congelada, su firma y su empresa.
+    ///
+    /// ── LA VERSIÓN ES LA QUE LA CAMPAÑA ELIGIÓ, NO LA VIGENTE ──────────────
+    ///
+    /// Se lee de `campaign_stage.template_version_id`, que apunta a **una
+    /// versión concreta** (§44). Leer la vigente de la plantilla haría que
+    /// corregir el texto cambiara lo que está saliendo de una campaña ya
+    /// activa — que es exactamente lo que el versionado existe para evitar, y
+    /// lo que la pantalla promete que no pasa.
+    ///
+    /// ── LA FIRMA ES LA DE POR DEFECTO, Y ESO ES UNA LIMITACIÓN ─────────────
+    ///
+    /// `campaign_stage.signature_id` existe desde la V4 y **nada lo escribe**
+    /// (H-12): el asistente no pregunta por una firma. Así que se usa la que
+    /// la empresa marcó por defecto, que es literalmente lo que su casilla
+    /// promete: «usar esta firma cuando no se elija otra». Hoy nunca se elige
+    /// otra.
+    ///
+    /// El día que el asistente la pregunte, esta consulta mira primero
+    /// `signature_id` y cae en la de por defecto — y entonces habrá que
+    /// decidir si la etapa congela una copia, como hace con la plantilla.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla. Devuelve `None` si la campaña
+    /// no tiene etapa de correo o su etapa no tiene plantilla, que es un
+    /// estado que `crear_campana` no produce.
+    pub fn redaccion_de_la_campana(
+        &self,
+        campana: &str,
+    ) -> Result<Option<RedaccionDeLaCampana>, DbError> {
+        self.con(|conn| {
+            conn.query_row(
+                "SELECT tv.subject, tv.body_html, co.commercial_name,
+                        COALESCE(
+                            (SELECT s.body_html FROM signature s
+                              WHERE s.id = cs.signature_id),
+                            (SELECT s.body_html FROM signature s
+                              WHERE s.company_id = co.id AND s.is_default = 1
+                              LIMIT 1)
+                        )
+                   FROM campaign_stage cs
+                   JOIN campaign ca ON ca.id = cs.campaign_id
+                   JOIN company co ON co.id = ca.company_id
+                   JOIN template_version tv ON tv.id = cs.template_version_id
+                  WHERE cs.campaign_id = ?1 AND cs.channel = 'email'
+                  ORDER BY cs.position
+                  LIMIT 1",
+                params![campana],
+                |f| {
+                    Ok(RedaccionDeLaCampana {
+                        asunto: f.get(0)?,
+                        cuerpo_html: f.get(1)?,
+                        mi_empresa: f.get(2)?,
+                        // Una firma vacía y «no hay firma» son lo mismo para
+                        // quien la pega, así que se unifican aquí en vez de
+                        // dejar que cada lado lo decida.
+                        firma_html: f
+                            .get::<_, Option<String>>(3)?
+                            .filter(|h| !h.trim().is_empty()),
+                    })
+                },
+            )
+            .optional()
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
