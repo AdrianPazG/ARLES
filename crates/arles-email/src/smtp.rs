@@ -110,6 +110,22 @@ impl lettre::message::header::Header for ListUnsubscribe {
 ///
 /// El `subject` va dentro a propósito: sin él llega un correo en blanco y hay
 /// que adivinar qué pedía.
+/// ── Y SÓLO EN UNA CAMPAÑA ──────────────────────────────────────────────────
+///
+/// Esta cabecera no es sólo una salida: **es una declaración**. Le dice al
+/// filtro «esto es correo de una lista», y a un correo de lista le exigen una
+/// reputación de dominio que una cuenta personal no tiene.
+///
+/// En una campaña es verdad y suma. En el envío de prueba es mentira y resta:
+/// un mensaje suelto que alguien se manda a sí mismo no pertenece a ninguna
+/// lista. Al escribir la cabecera (19/10/2026) iba en los dos; se corrigió al
+/// medir el correo entero un día después.
+///
+/// **No se pone vacía: se omite.** La primera versión de esto devolvía una
+/// cadena vacía cuando no tocaba, dando por hecho que `lettre` no escribiría
+/// una cabecera sin valor. **Lo escribe**: `List-Unsubscribe: ` a secas, que
+/// es peor que ninguna — un correo de lista cuya salida no lleva a ninguna
+/// parte. Lo cazó la prueba antes de entrar, midiendo en vez de suponer.
 fn cabecera_de_baja(remitente: &Mailbox) -> ListUnsubscribe {
     ListUnsubscribe(format!("<mailto:{}?subject=Baja>", remitente.email))
 }
@@ -379,14 +395,10 @@ impl ProveedorSmtp {
         // mandara el motor daría dos sitios donde pueden dejar de decir lo
         // mismo.
         let contenido = Contenido::de_html(mensaje.asunto, mensaje.html);
-        let correo = Message::builder()
+        let mut constructor = Message::builder()
             .from(self.de.clone())
             .to(para)
             .subject(contenido.asunto().to_owned())
-            // La salida de quien recibe, y lo que más pesa contra el spam de
-            // todo lo que está en nuestra mano. El porqué, en
-            // `cabecera_de_baja`.
-            .header(cabecera_de_baja(&self.de))
             // El `Message-Id` es la clave de idempotencia que se guardó ANTES
             // de esta llamada (`MOTOR_DE_EJECUCION.md` §2, capa 3). Viaja con
             // el correo para poder rastrearlo, y para poder deduplicar del lado
@@ -395,7 +407,15 @@ impl ProveedorSmtp {
                 "<{}@{}>",
                 limpiar_la_clave(mensaje.clave_de_idempotencia),
                 self.dominio_del_remitente
-            )))
+            )));
+
+        // La salida de quien recibe. **Sólo en los correos de campaña**: ver
+        // `Mensaje::de_una_campana` y `cabecera_de_baja`.
+        if mensaje.de_una_campana {
+            constructor = constructor.header(cabecera_de_baja(&self.de));
+        }
+
+        let correo = constructor
             // ── LAS DOS VERSIONES, EN `multipart/alternative` ──────────────
             //
             // El orden **no es indiferente y lo fija el RFC 2046**: de la
@@ -600,6 +620,7 @@ mod tests {
             // de texto, y sin ella las dos versiones serían iguales y una
             // prueba de que van por separado no probaría nada.
             html: "<p>Buenas <strong>tardes</strong>.</p>",
+            de_una_campana: true,
             clave_de_idempotencia: clave,
         }
     }
@@ -786,6 +807,38 @@ mod tests {
             baja.contains("<mailto:ventas@telemetry.mx?subject=Baja>"),
             "la baja tiene que llevar a quien envía: {baja}"
         );
+    }
+
+    /// **Un envío de prueba NO lleva la cabecera de baja.**
+    ///
+    /// No es pulcritud: esa cabecera declara «esto es correo de una lista», y
+    /// a un correo de lista los filtros le exigen una reputación de dominio
+    /// que una cuenta personal no tiene. Un mensaje suelto que alguien se
+    /// manda a sí mismo para probar la conexión no pertenece a ninguna lista,
+    /// y decir que sí lo empuja a la carpeta de no deseados.
+    ///
+    /// **Se comprueba que no aparece en absoluto**, ni siquiera vacía: una
+    /// `List-Unsubscribe:` sin valor es peor que ninguna — un correo de lista
+    /// cuya salida no lleva a ninguna parte. Que `lettre` omita las cabeceras
+    /// vacías es cosa de `lettre`, así que **se mide aquí** en vez de darlo
+    /// por bueno.
+    #[test]
+    fn un_envio_suelto_no_se_declara_correo_de_lista() {
+        let s =
+            ServidorCifrado::arrancar(Guion::todo_bien(), ComoCifra::Starttls).expect("arranca");
+        let p = adaptador(&s, ComoCifra::Starttls);
+        let mut m = mensaje("ana@ejemplo.mx", "clave-suelta");
+        m.de_una_campana = false;
+        p.enviar(&m).expect("va");
+
+        let cs = s.cabeceras_del_correo();
+        assert!(
+            !cs.iter()
+                .any(|l| l.to_ascii_lowercase().starts_with("list-unsubscribe")),
+            "un envío suelto no es correo de lista, ni siquiera con la cabecera vacía: {cs:?}"
+        );
+        // Y el correo salió: no se rompió nada por quitarla.
+        assert!(cs.iter().any(|l| l.starts_with("Subject:")), "{cs:?}");
     }
 
     /// **No se promete el clic único que ARLES no puede dar.**

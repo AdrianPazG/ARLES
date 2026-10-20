@@ -35,6 +35,21 @@ pub struct Mensaje<'a> {
     /// HTML. Mandar las dos desde aquí daría dos sitios donde pueden dejar de
     /// decir lo mismo.
     pub html: &'a str,
+    /// ¿Este mensaje sale de una campaña, o es un envío suelto?
+    ///
+    /// ── LO QUE DECIDE: SI LLEVA LA CABECERA DE BAJA ───────────────────────
+    ///
+    /// `List-Unsubscribe` es obligatoria para quien manda en volumen, y **es
+    /// también una declaración**: le dice al filtro «esto es correo de una
+    /// lista». Para una campaña es lo correcto y suma. Para el envío de
+    /// prueba —un mensaje suelto que alguien se manda a sí mismo— es falso y
+    /// **resta**: lo clasifica como masivo, y a un correo masivo los filtros
+    /// le exigen una reputación de dominio que una cuenta personal no tiene.
+    ///
+    /// Se puso siempre al escribir la cabecera (19/10/2026) y se corrigió al
+    /// medir el correo entero (20/10/2026). Una prueba de conexión no
+    /// pertenece a ninguna lista de la que darse de baja.
+    pub de_una_campana: bool,
     /// El `Message-Id` del correo.
     ///
     /// Se generó y se guardó **antes** de esta llamada. Viaja con el mensaje

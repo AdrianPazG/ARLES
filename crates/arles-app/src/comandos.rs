@@ -1733,6 +1733,10 @@ fn mandar_el_correo(
         para: destino.raw(),
         asunto: contenido.asunto(),
         html: contenido.html(),
+        // **Un envío de prueba no es una campaña**, así que no lleva la
+        // cabecera de baja: no pertenece a ninguna lista, y declararse correo
+        // masivo sin serlo lo empuja a la carpeta de no deseados.
+        de_una_campana: false,
         clave_de_idempotencia: &clave,
     }) {
         Ok(_) => ResultadoDelEnvioDePrueba {

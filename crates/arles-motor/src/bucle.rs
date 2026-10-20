@@ -427,6 +427,8 @@ impl<'a> Trabajador<'a> {
 
         let mensaje = Mensaje {
             para: &trabajo.direccion,
+            // Esto sale de una campaña: lleva su salida de baja.
+            de_una_campana: true,
             asunto: correo.as_ref().map_or("", |c| c.asunto.as_str()),
             html: correo.as_ref().map_or("", |c| c.html.as_str()),
             clave_de_idempotencia: &trabajo.clave_de_idempotencia,

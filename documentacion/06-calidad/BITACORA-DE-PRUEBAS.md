@@ -1283,6 +1283,67 @@ falta, y ahora se lee como una decisión pendiente en vez de como un olvido.
 > etiquetas y la de HTML tiene que llevarlas. Rehecha así, las tres rupturas en
 > rojo.
 
+### R-07 · El correo medido entero, y lo que el código ya no puede arreglar
+
+**20/10/2026. Dirección: «el correo sigue llegando a spam».** Antes de tocar
+nada se midió qué sale de ARLES hoy — el correo entero, cabecera por cabecera,
+armado por el adaptador de verdad:
+
+```text
+From: TELEMETRY <pruebas.telemetry@gmail.com>
+To: adm.telemetry@gmail.com
+Subject: Correo de prueba de ARLES RELAY
+List-Unsubscribe: <mailto:pruebas.telemetry@gmail.com?subject=Baja>
+Message-ID: <una-clave@gmail.com>
+MIME-Version: 1.0
+Date: Tue, 20 Oct 2026 23:30:55 +0000
+Content-Type: multipart/alternative; boundary="…"
+```
+
+**Está bien formado.** Las dos versiones, su fecha, su identificador, su salida
+de baja. No falta ninguna cabecera que un correo deba llevar.
+
+#### Un defecto, y es mío de ayer
+
+`List-Unsubscribe` **no es sólo una salida: es una declaración**. Le dice al
+filtro «esto es correo de una lista», y a un correo de lista le exigen una
+reputación de dominio que una cuenta personal no tiene.
+
+En una campaña es verdad y suma. En el **envío de prueba** —un mensaje suelto
+que alguien se manda a sí mismo— es mentira y **resta**. Se puso en los dos al
+escribirla (19/10) y se corrigió al medir (20/10): ahora la lleva sólo lo que
+sale de una campaña.
+
+> **Y la primera versión del arreglo tenía su propio defecto, cazado por la
+> prueba antes de entrar.** Devolvía una cabecera **vacía** cuando no tocaba,
+> dando por hecho que `lettre` no escribiría una cabecera sin valor. **La
+> escribe**: `List-Unsubscribe: ` a secas, que es peor que ninguna — un correo
+> de lista cuya salida no lleva a ninguna parte. Se midió en vez de suponerlo.
+
+#### Lo que el código **no** puede arreglar, dicho con todas las letras
+
+Con el correo bien formado, lo que queda no está en el código:
+
+| | Por qué pesa | Quién lo arregla |
+|---|---|---|
+| **El remitente es `@gmail.com`** | Una dirección personal mandando a desconocidos es el patrón que los filtros castigan por diseño. SPF, DKIM y DMARC de `gmail.com` **ya pasan** y no se pueden mejorar | Un dominio propio: `@telemetrymx.com` |
+| **Cuenta sin historial** | Una cuenta nueva que empieza a mandar no tiene reputación. Se construye con semanas de envío normal | El tiempo, y empezar despacio |
+| **Sin relación previa** | Un primer correo a alguien que nunca escribió al remitente entra con sospecha | La lista: a quién se le escribe |
+
+**La 7.5 —SPF, DKIM, DMARC— no arregla esto mientras el remitente sea Gmail**,
+y conviene no prometerlo: esos registros son de Google y están bien. Sirve el
+día que se mande desde el dominio propio.
+
+#### Lo que hace falta para seguir, y no se puede adivinar
+
+**Las cabeceras del correo que llegó a spam.** En Gmail: abrir el correo, los
+tres puntos, «Mostrar original». Ahí Gmail escribe su veredicto —`spf=`,
+`dkim=`, `dmarc=` y sus propias marcas— y es lo único que dice **por qué**.
+
+Es el mismo método que cerró el H-05 el mismo día: el detalle técnico que
+Dirección copió y pegó resolvió en minutos lo que cuatro días de suposiciones
+no resolvieron.
+
 ### H-05 · Arreglado el 20/10/2026 — un enum con dos nombres, y el detalle técnico que lo encontró
 
 **No se podía dar de alta ningún contacto, ni por correo ni por WhatsApp.** Lo

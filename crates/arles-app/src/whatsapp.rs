@@ -396,6 +396,7 @@ pub fn prueba_con(
         // campos van vacíos en este camino.
         asunto: "",
         html: "",
+        de_una_campana: false,
         clave_de_idempotencia: &clave,
     };
 

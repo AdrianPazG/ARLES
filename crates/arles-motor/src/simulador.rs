@@ -224,6 +224,7 @@ mod tests {
             para,
             asunto: "Aviso",
             html: "<p>Hola</p>",
+            de_una_campana: true,
             clave_de_idempotencia: "clave-1",
         }
     }
@@ -356,6 +357,7 @@ mod tests {
             para: "ana@x.mx",
             asunto: "Aviso",
             html: "<p>Hola</p>",
+            de_una_campana: true,
             clave_de_idempotencia: "01J-abc",
         })
         .expect("acepta");
