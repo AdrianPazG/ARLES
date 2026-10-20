@@ -33,10 +33,30 @@ use crate::error::CoreError;
 /// supresión, el consentimiento, los límites y la unicidad de los intentos; un
 /// canal que entrara como cadena libre se colaría en la base sin pasar por
 /// ninguna de esas cuatro decisiones.
+/// ─────────────────────────────────────────────────────────────────────────
+/// UN SOLO NOMBRE, Y ES EL DE LA BASE (H-05, 20/10/2026)
+///
+/// Los `rename` no son cosmética: **son el arreglo de un bloqueante**. Este
+/// enum tenía `rename_all = "snake_case"`, así que al cruzar la frontera se
+/// llamaba `correo` y `whats_app` — mientras que en la base, en el esquema y
+/// en toda la interfaz se llama `email` y `whatsapp`.
+///
+/// El resultado: **no se podía dar de alta ningún contacto**. La webview
+/// mandaba `email`, serde lo rechazaba con «unknown variant `email`, expected
+/// `correo` or `whats_app`», y el error salía como «algo falló de una forma
+/// que ARLES no esperaba». Lo encontró Dirección el 20/10/2026 y llevaba ahí
+/// desde la Fase 3.
+///
+/// Y rompía los dos sentidos: al salir, un canal llegaba a la pantalla como
+/// `correo` y las comparaciones con `'email'` no encontraban nada.
+///
+/// `como_texto()` es el contrato con las `CHECK` del esquema y es el nombre
+/// que gana. Lo fija `el_nombre_que_cruza_la_frontera_es_el_de_la_base`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum Canal {
+    #[serde(rename = "email")]
     Correo,
+    #[serde(rename = "whatsapp")]
     WhatsApp,
 }
 

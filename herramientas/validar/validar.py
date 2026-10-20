@@ -2385,6 +2385,70 @@ def las_listas_de_la_importacion_no_divergen():
     )
 
 
+def los_nombres_del_dominio_son_los_mismos_a_los_dos_lados():
+    """**El H-05: un enum con dos nombres bloqueó el producto entero.**
+
+    Dirección no podía dar de alta ni un contacto. El error era:
+
+        unknown variant `email`, expected `correo` or `whats_app`
+
+    `Canal` llevaba `rename_all = "snake_case"`, así que al cruzar la frontera
+    se llamaba `correo` y `whats_app`. En la base, en las `CHECK` del esquema y
+    en toda la interfaz se llama `email` y `whatsapp`. **Dos nombres para la
+    misma cosa, y la junta entre ellos era justo la frontera.**
+
+    Llevaba así desde la Fase 3 con las diez fases en verde, y ninguna prueba
+    podía verlo: las de Rust construyen los valores sin pasar por JSON y las
+    del frontend no cruzan la frontera. Lo mismo le pasaba a
+    `MotivoDeSupresion` y a otros cuatro enums.
+
+    ───────────────────────────────────────────────────────────────────────────
+    POR QUÉ HACEN FALTA DOS COMPROBACIONES Y NO UNA
+
+    `el_nombre_que_cruza_la_frontera_es_el_de_la_base` (una prueba de Rust) ata
+    **serde al nombre de la base**, ejecutando serde de verdad. Esto ata **el
+    nombre de la base a lo que la interfaz escribe**. Las dos juntas cierran el
+    camino entero; cualquiera de las dos sola deja un lado suelto.
+
+    Y los nombres se leen de `como_texto()`, no se derivan del nombre de la
+    variante: derivarlos es lo que hizo fallar la primera versión de
+    `las_listas_de_la_importacion_no_divergen`, que reproducía el fallo en vez
+    de cazarlo.
+    """
+    import re as _re
+
+    def del_nucleo(archivo, tipo):
+        """Los literales de `como_texto()` de ese enum."""
+        rust = leer("crates", "arles-core", "src", archivo) or ""
+        bloque = _re.search(
+            rf"impl {tipo} \{{.*?pub const fn como_texto\(self\) -> &'static str \{{(.*?)\n    \}}",
+            rust,
+            _re.S,
+        )
+        return set(_re.findall(r'=> "([^"]+)"', bloque.group(1))) if bloque else set()
+
+    def de_la_interfaz(archivo, tipo):
+        """Los literales de `export type X = 'a' | 'b'` del almacén."""
+        ts = leer("app", "src", "app", "stores", archivo) or ""
+        bloque = _re.search(rf"export type {tipo} =(.*?)\n\n", ts, _re.S)
+        return set(_re.findall(r"'([^']+)'", bloque.group(1))) if bloque else set()
+
+    for archivo_rs, tipo, archivo_ts in [
+        ("canal.rs", "Canal", "contactos.ts"),
+        ("canal.rs", "Canal", "supresion.ts"),
+        ("supresion.rs", "MotivoDeSupresion", "supresion.ts"),
+    ]:
+        rust = del_nucleo(archivo_rs, tipo)
+        ts = de_la_interfaz(archivo_ts, tipo)
+        check(
+            3,
+            f"«{tipo}» se llama igual en el núcleo y en {archivo_ts}",
+            bool(rust) and rust == ts,
+            los_nombres_del_dominio_son_los_mismos_a_los_dos_lados.__doc__,
+            detalle=f"núcleo: {sorted(rust)}\ninterfaz: {sorted(ts)}",
+        )
+
+
 def la_bomba_se_mide_antes_de_abrir_la_hoja():
     """El tope de descompresión va ANTES de abrir el XLSX, o no sirve de nada.
 
@@ -2945,6 +3009,7 @@ def fase_3(rapido):
     la_pantalla_de_contactos_no_reordena()
     el_tope_de_canales_no_se_duplica()
     las_listas_de_la_importacion_no_divergen()
+    los_nombres_del_dominio_son_los_mismos_a_los_dos_lados()
     la_bomba_se_mide_antes_de_abrir_la_hoja()
     una_supresion_pedida_no_se_levanta_con_un_boton()
     el_informe_de_importacion_consulta_las_supresiones()

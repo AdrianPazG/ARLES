@@ -47,7 +47,8 @@ use crate::error::CoreError;
 /// y el momento de enterarse no puede ser cuando alguien pulse «no escribirle
 /// más».
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+// Los `rename` fijan el nombre de la base como el único (H-05): ver la nota
+// de `arles_core::canal::Canal`.
 pub enum MotivoDeSupresion {
     /// El servidor del destinatario rechazó el correo de forma definitiva.
     ///
@@ -55,16 +56,22 @@ pub enum MotivoDeSupresion {
     /// asíncronos —los que llegan como un correo de vuelta— necesitan leer un
     /// buzón, y eso se difirió a la v1.3 (ADR-0009/0014). Que el motivo exista
     /// no significa que se detecte todo: lo honesto es decirlo.
+    #[serde(rename = "hard_bounce")]
     RebotePermanente,
     /// La persona pidió la baja.
+    #[serde(rename = "unsubscribe")]
     Baja,
     /// Alguien de la empresa la añadió a mano.
+    #[serde(rename = "manual")]
     Manual,
     /// La persona la marcó como correo no deseado.
+    #[serde(rename = "complaint")]
     Queja,
     /// El número no existe o no tiene WhatsApp.
+    #[serde(rename = "invalid_number")]
     NumeroInvalido,
     /// El canal falló de forma que no se va a arreglar reintentando.
+    #[serde(rename = "channel_failure")]
     FalloDelCanal,
 }
 
@@ -160,15 +167,19 @@ impl MotivoDeSupresion {
 /// `Manual` que viene de `Importacion` son la misma decisión tomada por dos
 /// manos distintas, y el día que haya que revisar una lista importa cuál fue.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+// Los `rename` fijan el nombre de la base como el único (H-05).
 pub enum OrigenDeSupresion {
     /// Lo dijo el servidor de correo, en la misma conversación SMTP.
+    #[serde(rename = "smtp_5xx")]
     RespuestaSmtp,
     /// Lo hizo una persona desde ARLES.
+    #[serde(rename = "user")]
     Usuario,
     /// Venía marcado en un archivo importado.
+    #[serde(rename = "import")]
     Importacion,
     /// Lo avisó Meta por el canal de WhatsApp.
+    #[serde(rename = "whatsapp_webhook")]
     AvisoDeWhatsApp,
 }
 
@@ -219,11 +230,13 @@ impl OrigenDeSupresion {
 /// deshacer la petición entera sin adivinar cuáles de sus filas eran.
 /// ─────────────────────────────────────────────────────────────────────────
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+// Los `rename` fijan el nombre de la base como el único (H-05).
 pub enum AlcanceDeSupresion {
     /// Sólo este canal. El resto sigue abierto.
+    #[serde(rename = "channel")]
     Canal,
     /// Todos los canales de esa persona. Se escribe una fila por cada uno.
+    #[serde(rename = "global")]
     Global,
 }
 

@@ -93,7 +93,7 @@ mirando, no una comprobación automática.
 | **A-05** | 🟠 Grave | Remitentes | La contraseña de aplicación de Gmail se mandaba **con los espacios** con que Google la enseña, y **nada avisaba** | ✅ **Arreglado** 15/10/2026 |
 | **A-06** | 🟡 Molesto | Remitentes | La guía del alta decía **«busca Contraseñas de aplicaciones»** — un sitio donde buscar, no una instrucción | ✅ **Arreglado** 15/10/2026 |
 | **H-04** | 🟡 Molesto | Configuración | No dejaba guardar `telemetrymx.com`: exigía escribir **`https://` a mano** | ✅ **Arreglado** 16/10/2026 |
-| **H-05** | 🔴 Bloqueante | Contactos | «Ocurrió un error al acceder a los datos. Cierra ARLES y vuelve a abrirlo» al dar de alta un contacto | 🔎 **El mensaje, arreglado** 17/10 · falta la causa |
+| **H-05** | 🔴 Bloqueante | Contactos | «Ocurrió un error al acceder a los datos. Cierra ARLES y vuelve a abrirlo» al dar de alta un contacto | ✅ **Arreglado 20/10/2026** · un enum con dos nombres |
 | **H-06** | 🔴 Bloqueante | Nueva campaña | **El horario de envío sale vacío** y no se puede avanzar del paso 5 | ✅ **Arreglado** 17/10/2026 |
 | **H-07** | 🟠 Grave | Remitentes | La ficha del remitente **se parte en vertical** cuando hay un panel al lado: «Cifrado / (STARTTLS, / puerto / 587» una palabra por línea | ✅ **Arreglado** 17/10/2026 |
 | **H-08** | 🟡 Molesto | Inicio | El paso «Conectar una cuenta remitente» **no se marca** aunque haya un remitente configurado | ✅ **Arreglado** 17/10/2026 |
@@ -1282,6 +1282,68 @@ falta, y ahora se lee como una decisión pendiente en vez de como un olvido.
 > las dos partes es **lo que llevan dentro**: la plana no puede llevar
 > etiquetas y la de HTML tiene que llevarlas. Rehecha así, las tres rupturas en
 > rojo.
+
+### H-05 · Arreglado el 20/10/2026 — un enum con dos nombres, y el detalle técnico que lo encontró
+
+**No se podía dar de alta ningún contacto, ni por correo ni por WhatsApp.** Lo
+que Dirección mandó, y que es lo que lo resolvió:
+
+```text
+invalid args `borrador` for command `crear_contacto`:
+unknown variant `email`, expected `correo` or `whats_app`
+```
+
+`Canal` llevaba `#[serde(rename_all = "snake_case")]`, así que **al cruzar la
+frontera IPC se llamaba `correo` y `whats_app`**. En la base, en las `CHECK`
+del esquema y en toda la interfaz se llama `email` y `whatsapp`. Dos nombres
+para la misma cosa, y la junta entre ellos era justo la frontera.
+
+**Rompía los dos sentidos**, y el segundo no se había visto porque nunca se
+llegó a crear un contacto: de salida, un canal llegaba a la pantalla como
+`correo` y las comparaciones con `'email'` no encontraban nada — la lista de
+bajas habría dicho «0 de correo» con la lista llena.
+
+**Y no era sólo `Canal`.** Al medirlo salieron **seis enums** con el mismo
+desajuste: `MotivoDeSupresion`, `OrigenDeSupresion`, `AlcanceDeSupresion`,
+`EstadoDeCampana` y `CondicionDeEtapa`. El botón de dar de baja a mano que se
+construyó el 17/10 (H-14) habría fallado igual, por el motivo exacto.
+
+**El arreglo es un solo nombre, y gana el de la base**, porque `como_texto()`
+es el contrato con las `CHECK` de las migraciones y hay datos escritos con él.
+Que serde inventara un tercer nombre no daba ninguna ventaja y costó un
+bloqueante.
+
+> **Por qué la reproducción del 17/10 pasó en verde, y qué enseña.**
+>
+> Ese día se escribieron pruebas que hacían *exactamente* lo de la captura
+> —empresa configurada, lista vacía, un contacto con su correo— y **pasaron
+> enteras**. Por eso el defecto se declaró «sin causa conocida» y lo único que
+> se arregló fue el mensaje, para que trajera el detalle técnico.
+>
+> Pasaron porque construían el borrador **en Rust**: el alta nunca llegaba a la
+> base, fallaba antes, deserializando. **Reproducir un fallo en la capa de
+> abajo no lo reproduce si lo que falla es la junta de arriba.**
+>
+> Y el mensaje arreglado fue lo que lo resolvió cuatro días después: sin ese
+> detalle técnico seguiríamos adivinando. El arreglo que parecía un consuelo
+> era el que hacía falta.
+
+> **Por qué ninguna de las 1 069 pruebas lo cazaba, y las dos que lo cazan
+> ahora.** Las de Rust construyen los valores directamente, sin pasar por JSON;
+> las del frontend no cruzan la frontera. El hueco vivía entre las dos, que es
+> el patrón del §9 otra vez. Y la demostración **funcionaba**, porque el
+> simulador no deserializa nada y usa los nombres de la base — la trampa que
+> este archivo ya tenía escrita: *«la demo esconde los caminos de quien
+> empieza»*.
+>
+> 1. `el_nombre_que_cruza_la_frontera_es_el_de_la_base` (Rust) ata **serde al
+>    nombre de la base**, ejecutando serde de verdad, en las dos direcciones.
+>    Verificada devolviendo el `rename_all`: falla con el mensaje exacto que
+>    vio Dirección.
+> 2. `los_nombres_del_dominio_son_los_mismos_a_los_dos_lados` (validador, fase
+>    3) ata **ese nombre a lo que la interfaz escribe**.
+>
+> Hacen falta las dos: cualquiera sola deja un lado suelto.
 
 ### R-07 · El spam, paso 2b: el correo manda la plantilla (20/10/2026)
 

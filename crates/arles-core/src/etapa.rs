@@ -55,15 +55,17 @@ pub const MAX_ESPERA_HORAS: u32 = 24 * 30;
 /// sería peor que no ofrecerla: la campaña se activaría y el filtro no filtraría
 /// nada, sin que nadie se entere.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+// Los `rename` fijan el nombre de la base como el único (H-05).
 pub enum CondicionDeEtapa {
     /// A todo el que tenga el canal y pase supresión y consentimiento.
+    #[serde(rename = "always")]
     Siempre,
     /// Sólo a quien el intento anterior **no** le falló de forma definitiva.
     ///
     /// Un correo rebotado con 5xx dice que esa persona no existe en ese canal;
     /// insistirle por WhatsApp después de eso es exactamente el patrón que hace
     /// que a uno lo reporten.
+    #[serde(rename = "previous_not_failed")]
     SoloSiLaAnteriorNoFallo,
 }
 

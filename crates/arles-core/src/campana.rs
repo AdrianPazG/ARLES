@@ -39,21 +39,28 @@ use crate::error::CoreError;
 /// Los identificadores son contrato con la `CHECK` de `campaign.status` en la
 /// migración V1. **No se cambian**: hay datos escritos con ellos.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+// Los `rename` fijan el nombre de la base como el único (H-05).
 pub enum EstadoDeCampana {
     /// Se está escribiendo. No tiene audiencia congelada ni nada que enviar.
+    #[serde(rename = "draft")]
     Borrador,
     /// Pasó el preflight (§63) y se puede activar.
+    #[serde(rename = "ready")]
     Lista,
     /// Activada con fecha futura. La audiencia ya está congelada.
+    #[serde(rename = "scheduled")]
     Programada,
     /// Enviando.
+    #[serde(rename = "running")]
     Enviando,
     /// En pausa. **La cola está intacta.**
+    #[serde(rename = "paused")]
     EnPausa,
     /// Detenida. Lo que no había salido se canceló. **Terminal.**
+    #[serde(rename = "stopped")]
     Detenida,
     /// Se envió todo lo que había. **Terminal.**
+    #[serde(rename = "completed")]
     Terminada,
 }
 

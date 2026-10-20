@@ -1791,11 +1791,34 @@ mod tests {
 mod reproduccion_h05 {
     //! Reproducción del H-05, reportado por Dirección el 16/10/2026: dar de
     //! alta un contacto a mano devolvió «Ocurrió un error al acceder a los
-    //! datos», que es `DbError::Sqlite` genérico — SQLite rechazó algo y
-    //! nadie tradujo qué.
+    //! datos».
     //!
     //! Hace EXACTAMENTE lo de la captura: empresa configurada, lista vacía, y
     //! un contacto con nombre, apellido, empresa y un solo correo.
+    //!
+    //! ─────────────────────────────────────────────────────────────────────
+    //! ESTAS PRUEBAS PASARON DESDE EL PRIMER DÍA, Y ÉSA ERA LA PISTA
+    //!
+    //! El 17/10/2026 se escribieron para reproducir el fallo y **pasaron
+    //! enteras**, así que el defecto se declaró «sin causa conocida» y se
+    //! arregló el mensaje para que trajera el detalle técnico.
+    //!
+    //! Ese detalle, que Dirección mandó el 20/10/2026, dijo dónde estaba:
+    //!
+    //! ```text
+    //! unknown variant `email`, expected `correo` or `whats_app`
+    //! ```
+    //!
+    //! **El alta nunca llegaba hasta aquí.** Fallaba al cruzar la frontera
+    //! IPC, deserializando el borrador: `Canal` se llamaba `email` en la
+    //! interfaz y `correo` en serde. Estas pruebas construyen el borrador en
+    //! Rust, así que se saltan exactamente el tramo que estaba roto — por eso
+    //! pasaban, y por eso tenían que pasar.
+    //!
+    //! La lección: **reproducir un fallo en la capa de abajo no lo reproduce**
+    //! si lo que falla es la junta de arriba. Lo que faltaba era una prueba
+    //! que serializara y deserializara, y es
+    //! `arles-core/tests/nombres_de_la_frontera.rs`.
     use super::tests::base;
     use arles_core::Canal;
     use arles_core::contacto::{BorradorDeCanal, BorradorDeContacto, DatosDeContacto};
