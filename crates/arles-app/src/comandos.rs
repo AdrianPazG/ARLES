@@ -1329,13 +1329,11 @@ fn adaptador(
             cifrado,
         },
         contrasena,
-        // La prueba de conexión no manda ningún correo, así que este contenido
-        // no llega a usarse. Está porque el adaptador es el mismo que envía, y
-        // que sea el mismo es lo que hace que la prueba signifique algo.
-        arles_email::Contenido {
-            asunto: String::new(),
-            cuerpo: String::new(),
-        },
+        // La prueba de conexión no manda ningún correo. El adaptador es el
+        // mismo que envía —que lo sea es lo que hace que la prueba signifique
+        // algo— así que hay que darle un contenido, y `ninguno()` dice con su
+        // nombre que no hay correo que mandar.
+        arles_email::Contenido::ninguno(),
     )
     .map_err(|e| ErrorIpc {
         clave: e.clave_i18n().to_owned(),
@@ -1614,16 +1612,18 @@ pub fn enviar_correo_de_prueba(
 /// contenido de un correo, no una cadena de la interfaz. Traducirlo exigiría
 /// saber en qué idioma lee quien lo recibe, y quien lo recibe es el propio
 /// usuario — que ya está viendo la aplicación en español.
+/// Se escribe en HTML y el texto plano **se deriva**, no se escribe dos veces:
+/// dos versiones escritas a mano acaban diciendo cosas distintas, y la que
+/// nadie mira es la que se queda vieja.
 fn contenido_de_prueba() -> arles_email::Contenido {
-    arles_email::Contenido {
-        asunto: "Correo de prueba de ARLES RELAY".to_owned(),
-        cuerpo: "Si estás leyendo esto, la cuenta de correo configurada en ARLES \
-                 puede enviar.\n\n\
-                 Este mensaje se mandó a mano desde ARLES RELAY para comprobar la \
-                 conexión antes de activar una campaña. No forma parte de ninguna \
-                 campaña y nadie más lo ha recibido."
-            .to_owned(),
-    }
+    arles_email::Contenido::de_html(
+        "Correo de prueba de ARLES RELAY",
+        "<p>Si estás leyendo esto, la cuenta de correo configurada en ARLES \
+         puede enviar.</p>\
+         <p>Este mensaje se mandó a mano desde ARLES RELAY para comprobar la \
+         conexión antes de activar una campaña. No forma parte de ninguna \
+         campaña y nadie más lo ha recibido.</p>",
+    )
 }
 
 /// La misma función, para las pruebas de integración.

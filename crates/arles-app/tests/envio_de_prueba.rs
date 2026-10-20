@@ -124,10 +124,10 @@ fn adaptador(s: &ServidorCifrado) -> ProveedorSmtp {
             cifrado: Cifrado::starttls().confiando_ademas_en(s.pem()),
         },
         CONTRASENA,
-        Contenido {
-            asunto: "Correo de prueba de ARLES RELAY".to_owned(),
-            cuerpo: "Si estás leyendo esto, la cuenta puede enviar.".to_owned(),
-        },
+        Contenido::de_html(
+            "Correo de prueba de ARLES RELAY",
+            "<p>Si estás leyendo esto, la cuenta puede enviar.</p>",
+        ),
     )
     .expect("la cuenta está bien formada")
 }

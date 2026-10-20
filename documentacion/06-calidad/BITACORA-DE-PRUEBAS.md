@@ -1209,7 +1209,8 @@ escrito para esto— **no lo arregla mientras el remitente sea Gmail**.
 | | Qué | Estado |
 |---|---|---|
 | **1** | `List-Unsubscribe`: la salida de quien recibe | ✅ 19/10/2026 |
-| **2** | Correo con estructura: HTML **y** texto plano, con el cuerpo de la plantilla | 📋 Es el H-15 |
+| **2a** | Correo con estructura: HTML **y** texto plano, en `multipart/alternative` | ✅ 20/10/2026 |
+| **2b** | El cuerpo de la plantilla, por contacto, con sus variables y su firma | 📋 Es el H-15 |
 | **3** | La 7.5 (SPF, DKIM, DMARC), que sirve **el día que se mande desde `@telemetrymx.com`** | 📋 Abierto |
 
 **Por qué la cabecera de baja es la primera.** Gmail y Outlook la **exigen**
@@ -1242,6 +1243,45 @@ envío la use: el patrón del §9. El texto que alguien escribió se sigue tiran
 
 Tres rupturas, las tres en rojo: sin la cabecera, sin los ángulos que pide el
 RFC 2369, y prometiendo el clic único.
+
+### R-07 · El spam, paso 2a: el correo bien formado (20/10/2026)
+
+El correo salía **en una sola parte de texto plano**: `lettre` la declara
+`text/plain`, así que un cuerpo con `<strong>` habría llegado **con las
+etiquetas a la vista**. Y un correo de una sola parte es una de las señales que
+miran los filtros de spam — además de que hay clientes y relojes que sólo
+enseñan el texto.
+
+Ahora sale en `multipart/alternative` con las dos versiones. **El orden lo fija
+el RFC 2046**, de la menos preferida a la más: el texto primero, el HTML
+después. Al revés, un cliente que respeta el orden enseñaría el texto plano a
+todo el mundo y nadie vería la negrita.
+
+**`Contenido` ya no deja mandar un correo sin su versión en texto.** Los campos
+son privados y sólo se llenan por sus constructores, por la misma razón que no
+existe forma de no cifrar (§29): si el texto plano fuera opcional, el camino
+«sólo HTML» existiría, alguien lo tomaría, y el correo saldría peor sin que
+nada fallara.
+
+**El texto plano se deriva del HTML y no se pide.** Pedirlo invita a escribirlo
+a mano, y dos versiones escritas a mano acaban diciendo cosas distintas — la
+que nadie mira es la que se queda vieja. Lo deriva el mismo convertidor del
+núcleo que usa `arles-db` al guardar una plantilla, así que para el mismo HTML
+el texto que viaja y el que se guarda son el mismo.
+
+**Y `Contenido::ninguno()` dice con su nombre lo que había escrito con dos
+cadenas vacías:** que ese camino —la prueba de conexión, el arranque del
+motor— no manda ningún correo. En el motor es además donde está el cable que
+falta, y ahora se lee como una decisión pendiente en vez de como un olvido.
+
+> **La prueba no cazaba una de sus tres rupturas, y la lección es la de
+> siempre.** Comparaba **dónde aparece** cada `Content-Type`, y el constructor
+> de `lettre` pone siempre la parte plana primero: ese orden no puede fallar.
+> Pasándole los argumentos al revés —el HTML etiquetado como texto y el texto
+> como HTML— la prueba seguía en verde sobre un correo roto. Lo que distingue
+> las dos partes es **lo que llevan dentro**: la plana no puede llevar
+> etiquetas y la de HTML tiene que llevarlas. Rehecha así, las tres rupturas en
+> rojo.
 
 ### H-15 · El camino «plantilla → correo» no existe todavía (17/10/2026)
 

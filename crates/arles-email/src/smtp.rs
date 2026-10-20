@@ -146,17 +146,82 @@ pub struct Cuenta {
     pub cifrado: Cifrado,
 }
 
-/// Lo que lleva el correo dentro.
+/// Lo que lleva el correo dentro: **las dos versiones, siempre**.
 ///
-/// **Provisional hasta la Fase 6.** Ahí llegan las plantillas y el asunto y el
-/// cuerpo pasan a construirse por contacto. Hoy son los mismos para toda la
-/// campaña, que es lo que hace falta para el envío de prueba de la 5.5, y está
-/// aquí en vez de inventado dentro del adaptador para que el cambio de la
-/// Fase 6 sea sustituir esta estructura y nada más.
+/// ─────────────────────────────────────────────────────────────────────────
+/// NO EXISTE NINGUNA FORMA DE MANDAR UN CORREO SIN SU VERSIÓN EN TEXTO
+///
+/// Los campos son privados y sólo se llenan por los constructores, igual que
+/// no hay forma de no cifrar (§29). El motivo es el mismo: si el texto plano
+/// fuera opcional, el camino «sólo HTML» existiría, alguien lo tomaría, y el
+/// correo saldría peor sin que nada fallara.
+///
+/// Un correo con una sola parte **puntúa peor en los filtros de spam** —es
+/// una de las señales que miran— y hay clientes y relojes que sólo enseñan el
+/// texto. Las dos versiones no son un adorno: son parte de que el correo
+/// llegue.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// SIGUE SIENDO UNO POR CAMPAÑA, Y ESO ES LO SIGUIENTE
+///
+/// El asunto y el cuerpo son los mismos para toda la campaña. Lo que falta es
+/// construirlos **por contacto** con la plantilla y sus variables, que es el
+/// paso 2b: ahí este tipo se le pasa a `enviar` en vez de guardarse en el
+/// adaptador. Está dicho porque `arles-app` todavía le pasa uno vacío al
+/// motor, y eso **no es un descuido**: es el cable que falta (H-15).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Contenido {
-    pub asunto: String,
-    pub cuerpo: String,
+    asunto: String,
+    html: String,
+    texto: String,
+}
+
+impl Contenido {
+    /// El contenido de un correo, **derivando el texto plano del HTML**.
+    ///
+    /// Se deriva y no se pide porque pedirlo invita a escribirlo a mano, y a
+    /// que las dos versiones digan cosas distintas. Lo deriva el mismo
+    /// convertidor del núcleo que usa `arles-db` al guardar una plantilla, así
+    /// que el texto que sale de aquí y el que se guarda en la base son el
+    /// mismo para el mismo HTML.
+    #[must_use]
+    pub fn de_html(asunto: &str, html: &str) -> Self {
+        Self {
+            asunto: asunto.to_owned(),
+            texto: arles_core::sanear::a_texto_plano(html),
+            html: html.to_owned(),
+        }
+    }
+
+    /// Un correo sin contenido, para los caminos que **no mandan nada**.
+    ///
+    /// La prueba de conexión (§29) y el arranque del motor necesitan un
+    /// adaptador construido sin tener ningún correo que mandar. Existe para
+    /// que eso se diga con su nombre en vez de con dos cadenas vacías, que es
+    /// lo que había y se leía como un olvido.
+    #[must_use]
+    pub fn ninguno() -> Self {
+        Self {
+            asunto: String::new(),
+            html: String::new(),
+            texto: String::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn asunto(&self) -> &str {
+        &self.asunto
+    }
+
+    #[must_use]
+    pub fn html(&self) -> &str {
+        &self.html
+    }
+
+    #[must_use]
+    pub fn texto(&self) -> &str {
+        &self.texto
+    }
 }
 
 /// El adaptador de SMTP.
@@ -339,7 +404,20 @@ impl ProveedorSmtp {
                 limpiar_la_clave(mensaje.clave_de_idempotencia),
                 self.dominio_del_remitente
             )))
-            .body(self.contenido.cuerpo.clone())
+            // ── LAS DOS VERSIONES, EN `multipart/alternative` ──────────────
+            //
+            // El orden **no es indiferente y lo fija el RFC 2046**: de la
+            // menos a la más preferida, así que el texto va primero y el HTML
+            // después. Al revés, un cliente que respeta el orden enseñaría el
+            // texto plano a todo el mundo — y nadie vería la negrita.
+            //
+            // Antes esto era `.body(cuerpo)`, una sola parte: `lettre` la
+            // declara `text/plain`, así que un cuerpo con `<strong>` llegaba
+            // con las etiquetas a la vista.
+            .multipart(lettre::message::MultiPart::alternative_plain_html(
+                self.contenido.texto.clone(),
+                self.contenido.html.clone(),
+            ))
             // Que el correo no se pueda armar es un fallo nuestro, no del
             // servidor ni de esa persona. Pasajero: se reintenta y, si sigue,
             // se da por fallido — pero **no da de baja a nadie**, que es lo que
@@ -496,10 +574,10 @@ mod tests {
     const CONTRASENA: &str = "la-contrasena-de-la-empresa";
 
     fn contenido() -> Contenido {
-        Contenido {
-            asunto: "Aviso de ARLES".to_owned(),
-            cuerpo: "Buenas tardes.".to_owned(),
-        }
+        // Con negrita a propósito: es lo que distingue la parte HTML de la de
+        // texto, y sin ella las dos versiones serían iguales y una prueba de
+        // que van por separado no probaría nada.
+        Contenido::de_html("Aviso de ARLES", "<p>Buenas <strong>tardes</strong>.</p>")
     }
 
     /// Un adaptador apuntando al servidor de mentira, confiando en **su**
@@ -743,6 +821,83 @@ mod tests {
             !cs.iter()
                 .any(|l| l.to_ascii_lowercase().starts_with("list-unsubscribe-post:")),
             "sin un https que reciba el POST, esto anuncia una puerta que no existe: {cs:?}"
+        );
+    }
+
+    // ─── El correo bien formado (R-07 paso 2a, 20/10/2026) ──────────────────
+
+    /// **El correo sale con sus dos versiones, y en el orden que dice el RFC.**
+    ///
+    /// Un correo de una sola parte es una de las señales que miran los filtros
+    /// de spam, y hay clientes y relojes que sólo enseñan el texto. Antes esto
+    /// era `.body(cuerpo)`: `lettre` la declara `text/plain`, así que un cuerpo
+    /// con `<strong>` llegaba **con las etiquetas a la vista**.
+    ///
+    /// El orden lo fija el RFC 2046 —de la menos preferida a la más— y por eso
+    /// se comprueba: al revés, un cliente que lo respeta enseñaría el texto
+    /// plano a todo el mundo y nadie vería la negrita. Es el tipo de cosa que
+    /// no falla en ninguna prueba y se ve en el correo de un cliente.
+    ///
+    /// **Verificada con tres rupturas el 20/10/2026**, y la primera versión de
+    /// la prueba no cazaba una de ellas: ver la nota de dentro. Las tres en
+    /// rojo con la prueba rehecha: volver a una sola parte, cambiar las dos
+    /// versiones de sitio, y dejar el texto plano sin derivar —con sus
+    /// etiquetas dentro—.
+    #[test]
+    fn el_correo_lleva_las_dos_versiones_y_el_html_de_ultimo() {
+        let s =
+            ServidorCifrado::arrancar(Guion::todo_bien(), ComoCifra::Starttls).expect("arranca");
+        let p = adaptador(&s, ComoCifra::Starttls);
+        p.enviar(&mensaje("ana@ejemplo.mx", "clave-partes"))
+            .expect("va");
+
+        let cs = s.cabeceras_del_correo();
+        let tipo = cs
+            .iter()
+            .find(|l| l.to_ascii_lowercase().starts_with("content-type:"))
+            .unwrap_or_else(|| panic!("el correo salió sin Content-Type: {cs:?}"));
+        assert!(
+            tipo.to_ascii_lowercase().contains("multipart/alternative"),
+            "una sola parte puntúa peor y pierde el formato: {tipo}"
+        );
+
+        // Las partes van en el cuerpo, que el servidor de mentira no guarda —
+        // es la decisión de no ser un buzón. El envoltorio se afirma desde
+        // aquí; **qué hay dentro de cada parte** se mira sobre los bytes que
+        // se mandan, que son los mismos que recibió el servidor.
+        let bytes = p
+            .armar(
+                &mensaje("ana@ejemplo.mx", "clave-partes"),
+                "ana@ejemplo.mx".parse().expect("destino"),
+            )
+            .expect("se arma");
+        let texto = String::from_utf8_lossy(&bytes);
+        let donde_plano = texto
+            .find("text/plain")
+            .unwrap_or_else(|| panic!("falta la versión en texto: {texto}"));
+        let donde_html = texto
+            .find("text/html")
+            .unwrap_or_else(|| panic!("falta la versión en HTML: {texto}"));
+
+        // ── LO QUE HAY QUE COMPROBAR ES EL CONTENIDO, NO EL ORDEN ─────────
+        //
+        // La primera versión de esta prueba comparaba dónde aparece cada
+        // `Content-Type`, y **no cazaba nada**: el constructor de `lettre`
+        // pone siempre la parte plana primero, así que ese orden no puede
+        // fallar. Pasándole los argumentos al revés —el HTML como texto y el
+        // texto como HTML— la prueba seguía en verde sobre un correo roto.
+        //
+        // Lo que distingue las dos partes es lo que llevan dentro: la plana no
+        // puede llevar etiquetas, y la de HTML tiene que llevarlas.
+        let parte_plana = &texto[donde_plano..donde_html];
+        assert!(
+            !parte_plana.contains("strong"),
+            "la versión en texto no puede llevar etiquetas: {parte_plana}"
+        );
+        let parte_html = &texto[donde_html..];
+        assert!(
+            parte_html.contains("strong") && parte_html.contains("tardes"),
+            "la negrita tiene que viajar en la parte HTML: {parte_html}"
         );
     }
 

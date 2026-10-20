@@ -443,10 +443,7 @@ mod tests {
             db,
             llavero,
             CUENTA.parse::<EmailAccountId>().expect("id de cuenta"),
-            Contenido {
-                asunto: "Prueba".to_owned(),
-                cuerpo: "Hola".to_owned(),
-            },
+            Contenido::de_html("Prueba", "<p>Hola</p>"),
         )
     }
 

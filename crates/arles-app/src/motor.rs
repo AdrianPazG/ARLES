@@ -198,14 +198,17 @@ fn servir(
         db,
         secretos,
         etapa.cuenta,
-        // Provisional hasta la Fase 6, donde el asunto y el cuerpo los produce
-        // la plantilla de la campaña por contacto. Está aquí y no inventado
-        // dentro del adaptador para que ese cambio sea sustituir esto y nada
-        // más.
-        Contenido {
-            asunto: String::new(),
-            cuerpo: String::new(),
-        },
+        // ── EL CABLE QUE FALTA, DICHO CON SU NOMBRE (H-15) ───────────────
+        //
+        // Aquí debería ir el contenido de la plantilla de la campaña,
+        // construido por contacto con sus variables sustituidas y su firma.
+        // Hoy va `ninguno()`, y eso significa que **una campaña no manda el
+        // texto de su plantilla**: es el paso 2b, y hasta entonces lo honesto
+        // es que se lea como lo que es.
+        //
+        // `ninguno()` y no dos cadenas vacías porque las cadenas vacías se
+        // leen como un olvido; esto se lee como una decisión pendiente.
+        Contenido::ninguno(),
     ) else {
         return false;
     };
