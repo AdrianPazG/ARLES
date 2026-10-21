@@ -859,6 +859,14 @@
           return Promise.resolve(pv);
         }
 
+        case 'borrar_plantilla': {
+          var pb = (e.plantillas || DEMO.plantillas).filter(function (p) {
+            return p.id !== String(args.plantilla);
+          });
+          e.plantillas = pb; escribir(e);
+          return Promise.resolve(pb);
+        }
+
         case 'firmas':
           return Promise.resolve(e.firmas || DEMO.firmas);
 
@@ -894,6 +902,14 @@
           });
           e.firmas = fe; escribir(e);
           return Promise.resolve(fe);
+        }
+
+        case 'borrar_firma': {
+          var fb = (e.firmas || DEMO.firmas).filter(function (f) {
+            return f.id !== String(args.firma);
+          });
+          e.firmas = fb; escribir(e);
+          return Promise.resolve(fb);
         }
 
         case 'ventanas':

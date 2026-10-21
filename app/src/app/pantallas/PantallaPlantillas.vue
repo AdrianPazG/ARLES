@@ -67,6 +67,7 @@ import {
   ABoton,
   AEntrada,
   AInsignia,
+  AModal,
   AModulo,
   EstadoCargando,
   EstadoVacio,
@@ -227,6 +228,32 @@ function cerrar(): void {
   editando.value = null
   idEditado.value = null
   versionVigente.value = null
+}
+
+/**
+ * Lo que se va a borrar, o `null`. · R-08 (21/10/2026)
+ *
+ * **Se pregunta antes, y no es ceremonia.** Una plantilla se lleva sus
+ * versiones; una firma puede ser la que usan las campañas por defecto. Las dos
+ * cosas se hacen en un clic y ninguna se deshace.
+ */
+const borrando = ref<{ cual: 'plantilla' | 'firma'; id: string; nombre: string } | null>(null)
+
+/** `true` si lo que se va a borrar es la firma marcada por defecto. */
+const esLaPorDefecto = computed(
+  () =>
+    borrando.value?.cual === 'firma' &&
+    store.firmas.some((f) => f.id === borrando.value?.id && f.porDefecto),
+)
+
+async function confirmarBorrado(): Promise<void> {
+  const q = borrando.value
+  if (q === null) return
+  const hecho =
+    q.cual === 'plantilla' ? await store.borrarPlantilla(q.id) : await store.borrarFirma(q.id)
+  // Sólo se cierra si se borró: con un error puesto, cerrar el diálogo haría
+  // desaparecer el aviso junto con la pregunta (§95).
+  if (hecho) borrando.value = null
 }
 
 /** Mete la variable donde está el cursor, no al final. */
@@ -565,6 +592,12 @@ const tituloDelEditor = computed(() => {
           >
             {{ t('plantillas.corregir') }}
           </ABoton>
+          <ABoton
+            variante="peligro"
+            @click="borrando = { cual: 'plantilla', id: p.id, nombre: p.nombre }"
+          >
+            {{ t('plantillas.borrar') }}
+          </ABoton>
         </div>
       </AModulo>
 
@@ -593,9 +626,72 @@ const tituloDelEditor = computed(() => {
           >
             {{ t('plantillas.corregir') }}
           </ABoton>
+          <ABoton
+            variante="peligro"
+            @click="borrando = { cual: 'firma', id: f.id, nombre: f.nombre }"
+          >
+            {{ t('plantillas.borrar') }}
+          </ABoton>
         </div>
       </AModulo>
     </template>
+
+    <!-- ── R-08 · borrar, con su pregunta ──────────────────────────────── -->
+    <AModal
+      :abierto="borrando !== null"
+      :titulo="
+        borrando?.cual === 'plantilla'
+          ? t('plantillas.borrarPlantillaTitulo')
+          : t('plantillas.borrarFirmaTitulo')
+      "
+      destructiva
+      @cerrar="borrando = null"
+    >
+      <p>{{ t('plantillas.borrarPregunta', { nombre: borrando?.nombre ?? '' }) }}</p>
+      <p class="ayuda">
+        {{
+          borrando?.cual === 'plantilla'
+            ? t('plantillas.borrarPlantillaAviso')
+            : t('plantillas.borrarFirmaAviso')
+        }}
+      </p>
+
+      <!-- La firma por defecto es la que usan las campañas cuando no se elige
+           otra, así que quitarla cambia lo que van a mandar. -->
+      <AAviso
+        v-if="esLaPorDefecto"
+        tono="aviso"
+      >
+        <strong>{{ t('plantillas.borrarLaPorDefecto') }}</strong>
+        <p>{{ t('plantillas.borrarLaPorDefectoAyuda') }}</p>
+      </AAviso>
+
+      <AAviso
+        v-if="problema"
+        tono="peligro"
+        urgente
+      >
+        <strong>{{ problema.que }}</strong>
+        <p>{{ problema.como }}</p>
+        <p>{{ problema.salvo }}</p>
+      </AAviso>
+
+      <template #acciones>
+        <ABoton
+          variante="secundario"
+          @click="borrando = null"
+        >
+          {{ t('plantillas.cancelar') }}
+        </ABoton>
+        <ABoton
+          variante="peligro"
+          :ocupado="store.trabajando"
+          @click="confirmarBorrado"
+        >
+          {{ t('plantillas.borrar') }}
+        </ABoton>
+      </template>
+    </AModal>
   </section>
 </template>
 

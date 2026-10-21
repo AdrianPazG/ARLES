@@ -245,6 +245,30 @@ function verFicha(c: Contacto): void {
   seleccionada.value = c.id
 }
 
+/**
+ * Y también **al elegirla con un solo clic**.
+ *
+ * ── POR QUÉ NO BASTABA CON DECIRLO (21/10/2026) ───────────────────────────
+ *
+ * El estado vacío de la columna lleva escrito desde la 7.7 *«haz doble clic
+ * en una fila para ver todos sus correos y WhatsApp, y para editarlo o darlo
+ * de baja»*. Dirección probó la aplicación y escribió: **«tampoco el
+ * modificar la información de contacto»**.
+ *
+ * El botón de editar existía, la instrucción estaba escrita, y aun así no se
+ * llegó a él. Un doble clic no es un gesto que nadie pruebe en una tabla, y
+ * **una instrucción que nadie sigue no es una instrucción: es una
+ * coartada**.
+ *
+ * Elegir una fila y ver su ficha es la misma intención, así que ahora basta
+ * un clic. El doble clic sigue valiendo —quien ya lo aprendió no tiene que
+ * desaprenderlo— y el teclado también, que es lo que `@activar` cubre.
+ */
+function alElegir(id: string | undefined): void {
+  seleccionada.value = id
+  elegido.value = contactos.contactos.find((c) => c.id === id) ?? null
+}
+
 async function guardar(borrador: BorradorDeContacto): Promise<void> {
   const id = enFicha.value?.id
   const bien =
@@ -430,11 +454,12 @@ const errorDelDialogo = computed(() => {
       class="contactos__cuerpo"
     >
       <ATabla
-        v-model:seleccionada="seleccionada"
+        :seleccionada="seleccionada"
         class="contactos__tabla"
         :filas="filas"
         :columnas="columnas"
         :etiqueta="t('contactos.tablaEtiqueta')"
+        @update:seleccionada="alElegir"
         @activar="verFicha"
       />
 

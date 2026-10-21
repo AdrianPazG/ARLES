@@ -440,3 +440,83 @@ describe('negrita y cursiva', () => {
     expect(el.value).toBe('Hola<em></em>')
   })
 })
+
+/**
+ * R-08 · eliminar una plantilla o una firma · 21/10/2026
+ *
+ * Dirección: *«tampoco me permite eliminar una plantilla ni una firma, donde
+ * también debería tener esa opción»*. Se creaban y se quedaban para siempre,
+ * así que una plantilla de prueba estorbaba en el paso 4 del asistente para
+ * siempre.
+ *
+ * Las tres pruebas son lo que un borrado puede hacer mal, y las tres duelen:
+ * borrar sin preguntar, borrar lo que no era, y no avisar de que la firma que
+ * se va es la que usan las campañas.
+ */
+describe('eliminar lo ya escrito', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  const UNA_PLANTILLA = {
+    id: 'p-1',
+    nombre: 'Bienvenida',
+    version: { id: 'v-1', numero: 1, asunto: 'Hola', cuerpoHtml: '<p>Hola</p>', variables: [] },
+  }
+
+  /** Pulsa el botón «Eliminar» de la enésima tarjeta que lo tenga. */
+  async function abrirBorrado(cual: number): Promise<ReturnType<typeof mount>> {
+    const pantalla = mount(PantallaPlantillas, entorno)
+    const botones = pantalla.findAll('button').filter((b) => b.text() === 'Eliminar')
+    await botones[cual]?.trigger('click')
+    return pantalla
+  }
+
+  it('pregunta antes de eliminar, y no elimina al abrir la pregunta', async () => {
+    const s = store()
+    s.plantillas = [UNA_PLANTILLA]
+    const pedidos: string[] = []
+    s.borrarPlantilla = async (id: string) => {
+      pedidos.push(id)
+      return true
+    }
+
+    const p = await abrirBorrado(0)
+    expect(p.text()).toContain('¿Eliminar «Bienvenida»?')
+    expect(pedidos, 'abrir la pregunta no borra nada').toEqual([])
+  })
+
+  it('al confirmar, elimina esa plantilla y no otra', async () => {
+    const s = store()
+    s.plantillas = [UNA_PLANTILLA, { ...UNA_PLANTILLA, id: 'p-2', nombre: 'Otra' }]
+    const pedidos: string[] = []
+    s.borrarPlantilla = async (id: string) => {
+      pedidos.push(id)
+      return true
+    }
+
+    const p = await abrirBorrado(1)
+    const botones = p.findAll('button').filter((b) => b.text() === 'Eliminar')
+    await botones[botones.length - 1]?.trigger('click')
+
+    expect(pedidos).toEqual(['p-2'])
+  })
+
+  /**
+   * **Y avisa si la firma que se va es la de por defecto.**
+   *
+   * Es la que usan las campañas cuando no se elige otra, así que quitarla
+   * cambia lo que van a mandar — en silencio, y sin que falle nada.
+   */
+  it('avisa cuando la firma que se elimina es la de por defecto', async () => {
+    const s = store()
+    s.firmas = [
+      { id: 'f-1', nombre: 'Ventas', cuerpoHtml: '<p>V</p>', porDefecto: true },
+      { id: 'f-2', nombre: 'Soporte', cuerpoHtml: '<p>S</p>', porDefecto: false },
+    ]
+
+    const conDefecto = await abrirBorrado(0)
+    expect(conDefecto.text()).toContain('Es la firma que se usa por defecto')
+
+    const sinDefecto = await abrirBorrado(1)
+    expect(sinDefecto.text()).not.toContain('Es la firma que se usa por defecto')
+  })
+})

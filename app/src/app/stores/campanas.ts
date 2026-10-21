@@ -315,6 +315,36 @@ export const useCampanasStore = defineStore('campanas', () => {
     }
   }
 
+  /** Borra una plantilla con todas sus versiones. */
+  async function borrarPlantilla(plantilla: string): Promise<boolean> {
+    trabajando.value = true
+    errorGeneral.value = null
+    try {
+      plantillas.value = await invocar<Plantilla[]>('borrar_plantilla', { plantilla })
+      return true
+    } catch (e) {
+      recordarError(e)
+      return false
+    } finally {
+      trabajando.value = false
+    }
+  }
+
+  /** Borra una firma. */
+  async function borrarFirma(firma: string): Promise<boolean> {
+    trabajando.value = true
+    errorGeneral.value = null
+    try {
+      firmas.value = await invocar<Firma[]>('borrar_firma', { firma })
+      return true
+    } catch (e) {
+      recordarError(e)
+      return false
+    } finally {
+      trabajando.value = false
+    }
+  }
+
   async function guardarVentana(
     nombre: string,
     dias: number,
@@ -544,8 +574,10 @@ export const useCampanasStore = defineStore('campanas', () => {
     cargar,
     guardarPlantilla,
     nuevaVersionDePlantilla,
+    borrarPlantilla,
     guardarFirma,
     editarFirma,
+    borrarFirma,
     guardarVentana,
     crearCampana,
     revisar,

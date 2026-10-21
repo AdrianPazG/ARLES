@@ -194,6 +194,44 @@ pub struct Contenido {
     texto: String,
 }
 
+/// Envuelve el cuerpo en un documento HTML de verdad.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ UN FRAGMENTO NO BASTA
+///
+/// Lo que escribe el editor es `<p>…</p>`: un trozo, sin `<html>`, sin
+/// `<head>` y sin declarar su idioma. Un cliente de correo lo pinta igual
+/// —los navegadores perdonan— pero **un filtro de spam no lo lee como un
+/// navegador**: puntúa la forma, y un correo comercial cuyo HTML no es un
+/// documento es una señal más en su contra.
+///
+/// Medido el 21/10/2026 sobre el correo que Outlook mandó a no deseados: su
+/// veredicto fue `SCL: 5` con **toda la autenticación en verde** —spf, dkim,
+/// dmarc y compauth, todo `pass`—, así que lo que lo empuja es la forma y la
+/// reputación, no quién lo firma.
+///
+/// Lleva lo que un correo necesita y nada más: el idioma —que los lectores de
+/// pantalla usan para elegir voz—, el juego de caracteres, el `viewport` para
+/// el móvil y el asunto como título.
+///
+/// **El asunto va escapado.** Entra en el `<title>` y puede llevar el nombre
+/// de una empresa con un `&` o un `<`: sin escapar, rompería el documento que
+/// esto existe para construir.
+fn documento_completo(asunto: &str, cuerpo: &str) -> String {
+    format!(
+        "<!DOCTYPE html>\n\
+         <html lang=\"es\">\n\
+         <head>\n\
+         <meta charset=\"utf-8\">\n\
+         <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\
+         <title>{}</title>\n\
+         </head>\n\
+         <body>\n{cuerpo}\n</body>\n\
+         </html>",
+        arles_core::sanear::escapar_para_html(asunto)
+    )
+}
+
 impl Contenido {
     /// El contenido de un correo, **derivando el texto plano del HTML**.
     ///
@@ -206,8 +244,10 @@ impl Contenido {
     pub fn de_html(asunto: &str, html: &str) -> Self {
         Self {
             asunto: asunto.to_owned(),
+            // **Del fragmento, antes de envolverlo**: el texto plano de un
+            // documento entero llevaría dentro el `<title>` y los `<meta>`.
             texto: arles_core::sanear::a_texto_plano(html),
-            html: html.to_owned(),
+            html: documento_completo(asunto, html),
         }
     }
 
@@ -869,6 +909,51 @@ mod tests {
     }
 
     // ─── El correo bien formado (R-07 paso 2a, 20/10/2026) ──────────────────
+
+    /// **La parte HTML es un documento, no un trozo.**
+    ///
+    /// Medido el 21/10/2026 sobre el correo que Outlook mandó a no deseados:
+    /// su veredicto fue `SCL: 5` con toda la autenticación en verde, así que
+    /// lo que lo empuja es la forma. Un cliente pinta un fragmento igual —los
+    /// navegadores perdonan— pero un filtro puntúa la forma.
+    ///
+    /// **Y el texto plano se deriva del cuerpo, no del documento**: si se
+    /// derivara de lo envuelto, la versión en texto empezaría con el asunto
+    /// repetido —que es el `<title>`— delante del saludo.
+    #[test]
+    fn la_parte_html_es_un_documento_entero() {
+        let c = Contenido::de_html("Hola {{nombre}}", "<p>Buenas <strong>tardes</strong>.</p>");
+
+        assert!(c.html().starts_with("<!DOCTYPE html>"), "{}", c.html());
+        for debe in [
+            "<html lang=\"es\">",
+            "<meta charset=\"utf-8\">",
+            "viewport",
+            "<body>",
+        ] {
+            assert!(c.html().contains(debe), "falta {debe}: {}", c.html());
+        }
+        assert!(c.html().contains("<p>Buenas <strong>tardes</strong>.</p>"));
+
+        // El texto plano, del cuerpo y sólo del cuerpo.
+        assert_eq!(c.texto(), "Buenas tardes.");
+    }
+
+    /// Y el asunto entra escapado en el título.
+    ///
+    /// Una empresa llamada `Pérez & Hijos` metería un `&` suelto en el
+    /// `<title>`, rompiendo el documento que esto existe para construir. Y una
+    /// con un `<` metería una etiqueta.
+    #[test]
+    fn el_asunto_no_puede_romper_el_documento() {
+        let c = Contenido::de_html("Pérez & <Hijos>", "<p>Hola</p>");
+        assert!(
+            c.html()
+                .contains("<title>Pérez &amp; &lt;Hijos&gt;</title>"),
+            "{}",
+            c.html()
+        );
+    }
 
     /// **El correo sale con sus dos versiones, y en el orden que dice el RFC.**
     ///

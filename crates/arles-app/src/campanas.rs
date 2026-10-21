@@ -299,6 +299,61 @@ pub fn editar_firma(
     firmas(estado)
 }
 
+/// Borra una plantilla con todas sus versiones, y devuelve la lista entera.
+///
+/// Se niega si alguna campaña la usó: ver
+/// `arles_db::plantillas::Db::borrar_plantilla`. La pantalla lo avisa antes
+/// con su cifra, y esto lo impide aunque no lo avisara.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si no hay empresa, la plantilla no es suya, alguna campaña la
+/// usa, o la escritura falla.
+#[tauri::command]
+pub fn borrar_plantilla(
+    estado: tauri::State<'_, EstadoApp>,
+    plantilla: String,
+) -> Result<Vec<PlantillaIpc>, ErrorIpc> {
+    let empresa = crate::comandos::empresa_actual(&estado)?;
+    let id = plantilla.parse().map_err(|_| {
+        ErrorIpc::from(crate::AppError::Db(arles_db::DbError::DatoInvalido {
+            motivo: "template.id",
+        }))
+    })?;
+
+    estado
+        .db()
+        .borrar_plantilla(empresa, id)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    plantillas(estado)
+}
+
+/// Borra una firma y devuelve la lista entera.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si no hay empresa, la firma no es suya, o la escritura falla.
+#[tauri::command]
+pub fn borrar_firma(
+    estado: tauri::State<'_, EstadoApp>,
+    firma: String,
+) -> Result<Vec<FirmaIpc>, ErrorIpc> {
+    let empresa = crate::comandos::empresa_actual(&estado)?;
+    let id = firma.parse().map_err(|_| {
+        ErrorIpc::from(crate::AppError::Db(arles_db::DbError::DatoInvalido {
+            motivo: "signature.id",
+        }))
+    })?;
+
+    estado
+        .db()
+        .borrar_firma(empresa, id)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    firmas(estado)
+}
+
 /// Los horarios de envío guardados.
 ///
 /// # Errores

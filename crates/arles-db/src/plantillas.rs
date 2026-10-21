@@ -548,6 +548,133 @@ impl Db {
         })
     }
 
+    /// Borra una plantilla con todas sus versiones.
+    ///
+    /// ── SE NIEGA SI ALGUNA CAMPAÑA LA USÓ, Y ESO ES LO IMPORTANTE ─────────
+    ///
+    /// Una campaña apunta a la **versión exacta** que envió (§44). Borrarla
+    /// dejaría el registro de envíos señalando un texto que ya no existe, y la
+    /// pregunta «¿qué decía el correo que recibió este cliente?» se quedaría
+    /// sin respuesta.
+    ///
+    /// El esquema ya lo impide —`ON DELETE RESTRICT`— pero fallar por una
+    /// clave foránea es, para quien pulsó, «algo falló». Aquí se cuenta antes
+    /// y se dice con su cifra (§94).
+    ///
+    /// **Cuenta campañas y no etapas**: dos etapas de la misma campaña son una
+    /// sola cosa para quien lee el aviso.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::LaPlantillaEstaEnUso`] con cuántas campañas la usan,
+    /// [`DbError::DatoInvalido`] si no es de esta empresa, y
+    /// [`DbError::Sqlite`] si la escritura falla.
+    pub fn borrar_plantilla(
+        &self,
+        empresa: CompanyId,
+        plantilla: TemplateId,
+    ) -> Result<(), DbError> {
+        self.con_dominio(|conn| {
+            let tx = conn.unchecked_transaction()?;
+
+            let suya: Option<i64> = tx
+                .query_row(
+                    "SELECT 1 FROM template WHERE id = ?1 AND company_id = ?2",
+                    params![plantilla.to_string(), empresa.to_string()],
+                    |f| f.get(0),
+                )
+                .optional()?;
+            if suya.is_none() {
+                return Err(DbError::DatoInvalido {
+                    motivo: "template.id",
+                });
+            }
+
+            let campanas: i64 = tx.query_row(
+                "SELECT COUNT(DISTINCT cs.campaign_id)
+                   FROM campaign_stage cs
+                   JOIN template_version tv ON tv.id = cs.template_version_id
+                  WHERE tv.template_id = ?1",
+                params![plantilla.to_string()],
+                |f| f.get(0),
+            )?;
+            if campanas > 0 {
+                return Err(DbError::LaPlantillaEstaEnUso {
+                    campanas: u32::try_from(campanas).unwrap_or(u32::MAX),
+                });
+            }
+
+            // Las versiones caen con ella: `template_version.template_id` es
+            // `ON DELETE CASCADE`. No hace falta borrarlas a mano, y hacerlo
+            // sería una segunda copia de esa regla.
+            tx.execute(
+                "DELETE FROM template WHERE id = ?1",
+                params![plantilla.to_string()],
+            )?;
+
+            auditar(
+                &tx,
+                &empresa.to_string(),
+                "borrar",
+                "template",
+                &plantilla.to_string(),
+            )?;
+            tx.commit()?;
+            Ok(())
+        })
+    }
+
+    /// Borra una firma.
+    ///
+    /// ── AQUÍ NO HAY NADA QUE PROTEGER, Y POR ESO NO SE NIEGA ──────────────
+    ///
+    /// A diferencia de una plantilla, una firma **no es lo que contesta «qué
+    /// decía el correo»**: no tiene versiones y hoy ninguna campaña apunta a
+    /// una (H-12). `campaign_stage.signature_id` es además `ON DELETE SET
+    /// NULL`, así que borrarla no rompe ninguna campaña.
+    ///
+    /// Lo que sí puede pasar es que fuera **la de por defecto**, y entonces
+    /// las campañas siguientes saldrían sin firma. Eso lo avisa la pantalla
+    /// antes de confirmar; aquí no se impide, porque es una decisión legítima.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::DatoInvalido`] si no es de esta empresa, y
+    /// [`DbError::Sqlite`] si la escritura falla.
+    pub fn borrar_firma(&self, empresa: CompanyId, firma: SignatureId) -> Result<(), DbError> {
+        self.con_dominio(|conn| {
+            let tx = conn.unchecked_transaction()?;
+
+            let suya: Option<i64> = tx
+                .query_row(
+                    "SELECT 1 FROM signature WHERE id = ?1 AND company_id = ?2",
+                    params![firma.to_string(), empresa.to_string()],
+                    |f| f.get(0),
+                )
+                .optional()?;
+            if suya.is_none() {
+                return Err(DbError::DatoInvalido {
+                    motivo: "signature.id",
+                });
+            }
+
+            tx.execute(
+                "DELETE FROM signature WHERE id = ?1",
+                params![firma.to_string()],
+            )?;
+
+            auditar(
+                &tx,
+                &empresa.to_string(),
+                "borrar",
+                "signature",
+                &firma.to_string(),
+            )?;
+            tx.commit()?;
+            Ok(())
+        })
+    }
+
     /// Las firmas de una empresa. La de por defecto, primero.
     ///
     /// # Errores
@@ -1069,5 +1196,140 @@ mod tests {
         let f = f.first().expect("sigue ahí");
         assert_eq!(f.nombre, "Mía", "intacta");
         assert!(!f.por_defecto, "y sin el por defecto que pedía la otra");
+    }
+
+    // ── R-08 · BORRAR UNA PLANTILLA O UNA FIRMA (21/10/2026) ──────────────
+    //
+    // Dirección: «tampoco me permite eliminar una plantilla ni una firma,
+    // donde también debería tener esa opción».
+
+    /// Una plantilla que nadie usó se borra, **con sus versiones**.
+    #[test]
+    fn una_plantilla_sin_campanas_se_borra_entera() {
+        let (_d, db) = base();
+        let (p, v) = db
+            .crear_plantilla(empresa(), "Borrable", &redaccion("A", "<p>a</p>"))
+            .expect("crea");
+        db.nueva_version_de_plantilla(p, &redaccion("B", "<p>b</p>"))
+            .expect("segunda");
+
+        db.borrar_plantilla(empresa(), p).expect("se borra");
+
+        assert!(db.plantillas(empresa()).expect("lista").is_empty());
+        // Y la versión se fue con ella: si quedara, el registro de envíos
+        // podría apuntar a un texto huérfano.
+        assert_eq!(
+            db.version_de_plantilla(v).expect("consulta"),
+            None,
+            "la versión sobrevivió a su plantilla"
+        );
+    }
+
+    /// **Una plantilla que una campaña usó NO se borra, y se dice con su
+    /// cifra.**
+    ///
+    /// El esquema lo impide igualmente (`ON DELETE RESTRICT`), pero fallar por
+    /// una clave foránea es, para quien pulsó, «algo falló». Lo que esta
+    /// prueba fija es que se diga **antes y con el número**.
+    #[test]
+    fn una_plantilla_que_una_campana_uso_no_se_borra() {
+        let (_d, db) = base();
+        let (p, v) = db
+            .crear_plantilla(empresa(), "En uso", &redaccion("A", "<p>a</p>"))
+            .expect("crea");
+
+        // Una campaña con su etapa apuntando a esa versión.
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO email_account (id, company_id, display_name, email_address,
+                                            provider_kind, credential_ref, status,
+                                            daily_limit, hourly_limit,
+                                            created_at, updated_at)
+                 VALUES ('c-1', '{EMPRESA}', 'Ventas', 'v@t.mx', 'smtp',
+                         'llavero://v', 'connected', 50, 10,
+                         '2026-10-21T00:00:00Z', '2026-10-21T00:00:00Z');
+                 INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                 VALUES ('k-1', '{EMPRESA}', 'Septiembre', 'draft',
+                         '2026-10-21T00:00:00Z', '2026-10-21T00:00:00Z');
+                 -- La `CHECK` de la V4 exige que una etapa de correo tenga su
+                 -- cuenta: sin ella la fila no entra, y la prueba mediría otra
+                 -- cosa.
+                 INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                             email_account_id, template_version_id,
+                                             status, created_at, updated_at)
+                 VALUES ('st-1', 'k-1', 1, 'email', 'c-1', '{v}', 'draft',
+                         '2026-10-21T00:00:00Z', '2026-10-21T00:00:00Z');"
+            ))
+        })
+        .expect("campaña");
+
+        let error = db
+            .borrar_plantilla(empresa(), p)
+            .expect_err("no se puede borrar");
+        assert_eq!(error.clave_i18n(), "error.db.la_plantilla_esta_en_uso");
+        assert!(
+            matches!(error, DbError::LaPlantillaEstaEnUso { campanas: 1 }),
+            "tiene que decir cuántas: {error:?}"
+        );
+        assert_eq!(
+            db.plantillas(empresa()).expect("lista").len(),
+            1,
+            "sigue ahí"
+        );
+    }
+
+    /// Una firma sí se borra: no es lo que contesta «qué decía el correo».
+    #[test]
+    fn una_firma_se_borra() {
+        let (_d, db) = base();
+        let f = db
+            .crear_firma(empresa(), "Ventas", "<p>Ventas</p>", true)
+            .expect("crea");
+
+        db.borrar_firma(empresa(), f).expect("se borra");
+        assert!(db.firmas(empresa()).expect("lista").is_empty());
+    }
+
+    /// Y **no se puede borrar lo de otra empresa**, ni plantilla ni firma.
+    ///
+    /// Un `DELETE … WHERE id = ?1` sin comprobar de quién es borra lo ajeno
+    /// sin un solo error. Es la misma guarda que `actualizar_firma`.
+    #[test]
+    fn no_se_borra_lo_de_otra_empresa() {
+        let (_d, db) = base();
+        let otra = "22222222-2222-4222-8222-222222222222";
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO company (id, commercial_name, country, timezone,
+                                      corporate_email, created_at, updated_at)
+                 VALUES ('{otra}', 'OTRA', 'MX', 'America/Monterrey',
+                         'h@o.mx', '2026-09-29T00:00:00Z', '2026-09-29T00:00:00Z');"
+            ))
+        })
+        .expect("segunda empresa");
+        let ajena: CompanyId = otra.parse().expect("id");
+
+        let (p, _) = db
+            .crear_plantilla(empresa(), "Mía", &redaccion("A", "<p>a</p>"))
+            .expect("crea");
+        let f = db
+            .crear_firma(empresa(), "Mía", "<p>Mía</p>", false)
+            .expect("crea");
+
+        assert_eq!(
+            db.borrar_plantilla(ajena, p)
+                .expect_err("no es suya")
+                .clave_i18n(),
+            "error.db.dato_invalido"
+        );
+        assert_eq!(
+            db.borrar_firma(ajena, f)
+                .expect_err("no es suya")
+                .clave_i18n(),
+            "error.db.dato_invalido"
+        );
+
+        assert_eq!(db.plantillas(empresa()).expect("lista").len(), 1, "intacta");
+        assert_eq!(db.firmas(empresa()).expect("lista").len(), 1, "intacta");
     }
 }

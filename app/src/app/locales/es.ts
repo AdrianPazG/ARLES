@@ -1730,6 +1730,16 @@ export const es = {
         como: 'Es un fallo nuestro, no de tus datos. Avisa a soporte con la versión de ARLES que tienes; mientras tanto, no borres nada.',
         salvo: 'No se escribió ningún archivo y tus datos están intactos. Se paró antes de empezar, a propósito: un respaldo a medias se descubre el día que hace falta.',
       },
+      // §95 · R-08. Dice cuántas campañas la usan, porque «no se puede» sin
+      // el número deja buscando cuál es.
+      la_plantilla_esta_en_uso: {
+        que: 'Esta plantilla la están usando otras campañas.',
+        como:
+          'Si ya no quieres usarla, deja de elegirla en las campañas nuevas. ' +
+          'Las que ya salieron tienen que poder consultarse, así que su texto ' +
+          'se conserva.',
+        salvo: 'No se eliminó nada.',
+      },
       sqlite: {
         que: 'Ocurrió un error al acceder a los datos.',
         como: 'Cierra ARLES y vuelve a abrirlo.',
@@ -2259,8 +2269,8 @@ export const es = {
     // un error.
     fichaVaciaTitulo: 'Elige un contacto',
     fichaVaciaCuerpo:
-      'Haz doble clic en una fila para ver todos sus correos y WhatsApp, y ' +
-      'para editarlo o darlo de baja.',
+      'Pulsa un contacto de la lista para ver todos sus correos y WhatsApp, ' +
+      'y para editarlo o darlo de baja.',
 
     tablaEtiqueta: 'Lista de contactos',
 
@@ -3243,6 +3253,21 @@ export const es = {
     corregir: 'Corregir',
     corregirPlantilla: 'Corregir la plantilla',
     corregirFirma: 'Corregir la firma',
+
+    // ── R-08 · borrar (21/10/2026) ──────────────────────────────────────
+    borrar: 'Eliminar',
+    borrarPlantillaTitulo: 'Eliminar la plantilla',
+    borrarFirmaTitulo: 'Eliminar la firma',
+    borrarPregunta: '¿Eliminar «{nombre}»?',
+    borrarPlantillaAviso:
+      'Se va con todas sus versiones y no se puede deshacer. Si alguna ' +
+      'campaña la usó, ARLES no la elimina: lo que ya se envió tiene que ' +
+      'poder consultarse.',
+    borrarFirmaAviso: 'No se puede deshacer. Las campañas que ya salieron no cambian.',
+    borrarLaPorDefecto: 'Es la firma que se usa por defecto',
+    borrarLaPorDefectoAyuda:
+      'Si la eliminas, las campañas que crees a partir de ahora saldrán sin ' +
+      'firma hasta que marques otra.',
 
     naceUnaVersion: 'Esto va a crear la versión {numero}',
     naceUnaVersionAyuda:

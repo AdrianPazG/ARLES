@@ -48,6 +48,8 @@ const CLAVES_DEL_NUCLEO = [
   'error.db.clave_mal_formada',
   'error.db.migracion',
   'error.db.sqlite',
+  // R-08 (21/10/2026): borrar una plantilla que una campaña usó.
+  'error.db.la_plantilla_esta_en_uso',
   // Entrega 8.2b · el esquema tiene algo que un respaldo no sabe llevar. Es un
   // defecto nuestro, no del usuario, y por eso el texto no le pide arreglarlo.
   'error.db.esquema_no_se_deja_respaldar',

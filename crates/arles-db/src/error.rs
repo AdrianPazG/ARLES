@@ -133,6 +133,22 @@ pub enum DbError {
     #[error("hace falta aceptar el aviso de volumen antes de crear esta campaña")]
     FaltaAceptarElVolumen,
 
+    /// Se pidió borrar una plantilla que alguna campaña usó.
+    ///
+    /// ── NO SE BORRA, Y NO ES UNA LIMITACIÓN TÉCNICA ──────────────────────
+    ///
+    /// `campaign_stage.template_version_id` es `ON DELETE RESTRICT`, así que
+    /// el borrado fallaría igualmente — pero con un error de clave foránea,
+    /// que para quien pulsa es «algo falló». Esto lo dice **antes de
+    /// intentarlo** y con su cifra.
+    ///
+    /// Y la regla de fondo: una campaña apunta a la versión exacta que envió.
+    /// Borrarla deja el registro de envíos apuntando a un texto que ya no
+    /// existe, y la pregunta «¿qué decía el correo que recibió este cliente?»
+    /// se queda sin respuesta — que es la mitad de lo que ARLES promete.
+    #[error("esa plantilla la usan {campanas} campaña(s)")]
+    LaPlantillaEstaEnUso { campanas: u32 },
+
     /// La ventana de ejecución no se abriría nunca.
     ///
     /// **Lleva el motivo dentro**, y no es adorno: sin días, con las horas al
@@ -236,6 +252,7 @@ impl DbError {
             Self::CuentaDeCorreoNoExiste => "error.db.cuenta_de_correo_no_existe",
             Self::AccionDeCampanaImposible { clave } => clave,
             Self::FaltaAceptarElVolumen => "error.db.falta_aceptar_el_volumen",
+            Self::LaPlantillaEstaEnUso { .. } => "error.db.la_plantilla_esta_en_uso",
             Self::VentanaInvalida(motivo) => motivo.clave_i18n(),
             Self::Nucleo(e) => e.clave_i18n(),
             Self::SupresionNoSeLevanta { .. } => "error.db.supresion_no_se_levanta",

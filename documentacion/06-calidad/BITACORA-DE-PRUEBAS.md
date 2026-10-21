@@ -103,7 +103,9 @@ mirando, no una comprobación automática.
 | **R-04** | 🔴 Requisito | Firmas | **Una firma no puede ofrecer variables del contacto.** Que la firma del remitente lleve el nombre de a quien se escribe es una tragedia | ✅ **Arreglado 17/10/2026** |
 | **R-05** | 🔵 Requisito | Firmas | Poder poner **una imagen** en la firma, como en Outlook | ⏸️ **Esperando decisión de Dirección** (ver H-15) |
 | **R-06** | 🟠 Requisito | Plantillas | **No se pueden editar** las plantillas ni las firmas ya creadas | ✅ **Arreglado 17/10/2026** |
-| **R-07** | 🔵 Requisito | Remitentes | El correo de prueba **llega a spam** — qué se puede hacer | 🔧 **En marcha** · paso 1 de 3 hecho 19/10/2026 |
+| **R-07** | 🔵 Requisito | Remitentes | El correo de prueba **llega a spam** — qué se puede hacer | 🔧 **Gmail ✅ · Outlook abierto** 21/10/2026 |
+| **R-08** | 🟠 Requisito | Plantillas | **No se pueden eliminar** plantillas ni firmas | ✅ **Arreglado 21/10/2026** |
+| **R-09** | 🟠 Requisito | Contactos | **No se encuentra cómo editar** un contacto | ✅ **Arreglado 21/10/2026** |
 
 > Los hallazgos con **A** los encontré yo auditando, no Dirección probando. Van
 > en la misma tabla a propósito: separarlos en dos listas haría que una de las
@@ -1282,6 +1284,82 @@ falta, y ahora se lee como una decisión pendiente en vez de como un olvido.
 > las dos partes es **lo que llevan dentro**: la plana no puede llevar
 > etiquetas y la de HTML tiene que llevarlas. Rehecha así, las tres rupturas en
 > rojo.
+
+### R-07 · Lo que dijeron las cabeceras de Outlook (21/10/2026)
+
+**Dirección mandó el «Mostrar original» del correo que cayó en no deseados, y
+contesta la pregunta entera.** Con Gmail ya llega a la bandeja principal; el que
+falla es Outlook.
+
+```text
+spf=pass          dkim=pass (signature was verified)
+dmarc=pass        compauth=pass reason=100
+BCL:0             ← no lo considera envío masivo problemático
+
+X-MS-Exchange-Organization-SCL: 5     ← esto es lo que lo manda a Junk
+RF:JunkEmail
+```
+
+**La autenticación está perfecta.** Las cuatro en verde, incluida `compauth`,
+que es la que Microsoft usa para decidir si el remitente es quien dice ser. Así
+que **SPF, DKIM y DMARC no son el problema** — y eso cierra una suposición que
+venía desde el ROADMAP: la 7.5 no iba a arreglar esto.
+
+Lo que lo manda a la carpeta es el `SCL: 5`, que Microsoft calcula del
+**contenido y la reputación**. De eso, lo que estaba en nuestra mano:
+
+| | Qué se hizo |
+|---|---|
+| `List-Unsubscribe` en un correo individual | Quitada: sólo va en lo que sale de una campaña (20/10) |
+| **El HTML era un fragmento**, sin `<html>`, sin `<head>`, sin idioma | Ahora es un documento entero, con su `<title>` y su `lang="es"` |
+
+> **Y una suposición mía, deshecha midiendo.** El correo recibido traía un
+> `<meta http-equiv="Content-Type">` al principio del HTML y lo di por nuestro.
+> **Lo añade Gmail al entregar**: el correo que arma ARLES no lo lleva. Estuve
+> a punto de «arreglar» algo que no hacemos — el error que la auditoría B
+> cometió dos veces, otra vez evitado por medir en vez de leer.
+
+**Lo que queda, y ya no es código:** el remitente es `@gmail.com` —una
+dirección personal con nombre de marca, que es el patrón que Outlook castiga—,
+la cuenta no tiene historial con ese buzón, y es un primer correo sin relación
+previa. Lo resuelve el dominio propio, y Dirección **lo tiene**:
+`telemetrymx.com` en HostGator, con acceso al DNS.
+
+### R-08 · Eliminar una plantilla o una firma (21/10/2026)
+
+*«Tampoco me permite eliminar una plantilla ni una firma, donde también debería
+tener esa opción.»* Se creaban y se quedaban para siempre: una plantilla de
+prueba estorbaba en el paso 4 del asistente para siempre.
+
+**Una plantilla que una campaña usó NO se elimina**, y eso es lo importante.
+Una campaña apunta a la versión exacta que envió, así que borrarla dejaría el
+registro de envíos señalando un texto que ya no existe — y «¿qué decía el
+correo que recibió este cliente?» se quedaría sin respuesta.
+
+El esquema ya lo impedía (`ON DELETE RESTRICT`), pero fallar por una clave
+foránea es, para quien pulsó, «algo falló». Ahora se cuenta antes y se dice con
+su cifra (§94).
+
+**Una firma sí se elimina**: no tiene versiones y no es lo que contesta esa
+pregunta. Lo que se avisa es que **fuera la de por defecto**, porque entonces
+las campañas siguientes saldrán sin firma — en silencio y sin que falle nada.
+
+Siete pruebas, y las rupturas en rojo: borrar sin preguntar, borrar la que no
+era, y quitar el aviso de la firma por defecto.
+
+### R-09 · No se encontraba cómo editar un contacto (21/10/2026)
+
+El botón de editar **existía**, en la ficha. Y el estado vacío de la columna
+lleva escrito desde la 7.7: *«haz doble clic en una fila para ver todos sus
+correos y WhatsApp, y para editarlo o darlo de baja»*.
+
+Dirección probó la aplicación y escribió: *«tampoco el modificar la información
+de contacto»*.
+
+**Una instrucción que nadie sigue no es una instrucción: es una coartada.** Un
+doble clic no es un gesto que nadie pruebe en una tabla. Ahora **un clic** abre
+la ficha —elegir una fila y verla es la misma intención— y el doble clic sigue
+valiendo, igual que el teclado.
 
 ### R-07 · El correo medido entero, y lo que el código ya no puede arreglar
 
