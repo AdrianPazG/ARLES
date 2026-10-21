@@ -13,6 +13,38 @@ pasos.
 
 ---
 
+## Paso 0 · Lo que `telemetrymx.com` tiene el 21/10/2026
+
+Leído de la captura del Editor de Zona que mandó Dirección. **Queda aquí para
+saber de dónde se parte**, porque dentro de un mes nadie se acordará.
+
+### Lo que está bien
+
+| Registro | Valor | |
+|---|---|---|
+| `MX` 10 | `mx1.titan.email` | ✅ |
+| `MX` 20 | `mx2.titan.email` | ✅ |
+| `titan3._domainkey` | `v=DKIM1; k=rsa; p=MIGfMA0…` | ✅ **El DKIM de Titan está puesto y entero** |
+| `_acme-challenge` | (cadena larga) | ✅ Es del certificado del sitio web |
+| `google-site-verification=…` | | ✅ Es de Search Console |
+
+### Lo que hay que arreglar
+
+| | Qué pasa | Gravedad |
+|---|---|---|
+| **Dos registros SPF** | `include:spf.titan.email` y `include:_spf.google.com`, por separado | 🔴 **El SPF no vale** |
+| **Dos registros DMARC** | uno con `p=none` y otro con `p=quarantine` | 🔴 **El DMARC no vale** |
+| El segundo DMARC, además, **empieza por `DMARC1;`** y no por `v=DMARC1;` | Sin la `v=` no es un DMARC, es texto | 🔴 Inválido por sí solo |
+| `dns.telemetrymx.com` → `titan3._domainkey` | Un registro con el **nombre** del DKIM como valor | 🟡 No hace nada. Sobra |
+
+> **La misma regla rompe el SPF y el DMARC, y conviene entenderla una vez:**
+> las dos normas (RFC 7208 y RFC 7489) dicen que si un dominio publica **más de
+> un registro** de ese tipo, quien recibe **no elige uno: los descarta todos**.
+>
+> No es «se queda con el último» ni «gana el más estricto». Es como no tener
+> ninguno. Por eso duplicar un registro es peor que no ponerlo: parece
+> configurado y no lo está.
+
 ## Paso 1 · Apuntar lo que hay ahora
 
 **Dónde:** [mxtoolbox.com/spf.aspx](https://mxtoolbox.com/spf.aspx) → escribe
@@ -45,22 +77,27 @@ En el buscador de esa página escribe `spf` para ver sólo lo que importa.
 
 ### 2.2 · Encontrar los dos
 
-Busca los registros de **tipo TXT** cuyo valor empiece por `v=spf1`. Vas a ver
-dos. Un ejemplo de lo que suele pasar:
+Busca los registros de **tipo TXT** cuyo valor empiece por `v=spf1`. En
+`telemetrymx.com`, el 21/10/2026, son exactamente estos dos:
 
 ```text
 TXT   telemetrymx.com   v=spf1 include:spf.titan.email ~all
-TXT   telemetrymx.com   v=spf1 a mx include:websitewelcome.com ~all
+TXT   telemetrymx.com   v=spf1 include:_spf.google.com ~all
 ```
 
 ### 2.3 · Juntarlos en uno
 
-Toma **todos los `include:`, las `a` y las `mx`** de los dos, y ponlos en una
-sola línea. Del ejemplo de arriba saldría:
+Toma **todos los `include:`, las `a` y las `mx`** de los dos y ponlos en una
+sola línea. Para este dominio, el valor que hay que dejar es:
 
 ```text
-v=spf1 a mx include:spf.titan.email include:websitewelcome.com ~all
+v=spf1 include:spf.titan.email include:_spf.google.com ~all
 ```
+
+**Titan primero**, porque es por donde va a mandar ARLES. El de Google se
+conserva —no estorba y ocupa uno de los diez permitidos— por si algún día se
+manda también desde Google Workspace con este dominio. Si se tiene la certeza
+de que eso no va a pasar, se puede dejar sólo el de Titan.
 
 **Las reglas al juntarlos:**
 
@@ -89,7 +126,55 @@ decir **un solo registro** y «Pass». Puede tardar hasta media hora.
 
 ---
 
+## Paso 2 bis · Dejar un solo DMARC
+
+El dominio tiene **dos**, y con dos no vale ninguno. Además, el segundo está
+mal escrito: empieza por `DMARC1;` en vez de `v=DMARC1;`, y sin esa `v=` no es
+un registro DMARC aunque lo parezca.
+
+**Qué hacer:**
+
+1. cPanel → Editor de Zona → busca `_dmarc`
+2. **Conserva este**, que es el válido y el correcto para empezar:
+
+   ```text
+   v=DMARC1;p=none;sp=none;adkim=r;aspf=r;pct=100;fo=0;rf=afrf;ri=86400;rua=mailto:enlace@telemetrymx.com
+   ```
+
+3. **Borra el otro**, el que empieza por `DMARC1; p=quarantine`
+
+> **Por qué se queda el de `p=none` y no el de `quarantine`.** No es por ser
+> conservador porque sí: `p=quarantine` le dice a quien recibe que mande a no
+> deseados todo lo que no cuadre — y mientras el SPF esté roto, **no cuadra
+> nada**. Arreglar primero, endurecer después.
+
+> **Comprueba que `enlace@telemetrymx.com` existe.** Es la dirección a donde
+> van los informes semanales. Si ese buzón no existe, los informes rebotan y te
+> quedas sin la información que justifica subir a `quarantine` más adelante.
+
+---
+
+## Paso 2 ter · Borrar el registro que sobra
+
+Hay un registro TXT llamado `dns.telemetrymx.com` cuyo valor es
+`titan3._domainkey`.
+
+Eso es **el nombre del DKIM metido como valor** en un sitio equivocado — pasa
+al copiar de un panel que enseña las dos columnas juntas. No hace daño y no
+hace nada. **Bórralo**, para que el día que alguien revise esto no pierda media
+hora preguntándose qué es.
+
+El DKIM de verdad —el que sí funciona— es el otro: el que se llama
+`titan3._domainkey.telemetrymx.com` y cuyo valor empieza por `v=DKIM1;`.
+
+---
+
 ## Paso 3 · El DKIM de Titan
+
+> **En `telemetrymx.com` esto YA ESTÁ HECHO** (21/10/2026): el registro
+> `titan3._domainkey` está puesto y su valor llega entero hasta `…IDAQAB`, que
+> es como termina una clave de este tipo. Este paso queda por si hay que
+> rehacerlo o añadir otro dominio.
 
 **Qué es:** la firma que demuestra que el correo salió de verdad de tu dominio.
 
