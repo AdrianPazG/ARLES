@@ -98,21 +98,31 @@ a punta.
 5. En ARLES, da de alta `contacto@telemetrymx.com` con su contraseña de
    aplicación — el alta reconoce Gmail y rellena el servidor sola
 
-### Opción B · El correo que ya pagas en HostGator — sin coste extra
+### Opción B · Titan, el correo que **ya tienes** — sin coste extra
 
-HostGator incluye buzones del dominio con el hosting. El buzón se gestiona en
-cPanel y se lee por webmail, no por la interfaz de Gmail.
+**Medido el 21/10/2026 con mxtoolbox:** los servidores de correo de
+`telemetrymx.com` son `mx1.titan.email` y `mx2.titan.email`. Es decir, el
+dominio **ya tiene correo profesional con Titan**, que es lo que HostGator
+vende como «correo del dominio».
+
+Eso cambia la recomendación: no hace falta contratar Google Workspace para
+tener un remitente con el dominio propio. Ya está.
 
 **Pasos:**
 
-1. cPanel → **Cuentas de correo** → Crear `contacto@telemetrymx.com`
-2. cPanel → **Email Deliverability**: HostGator genera **SPF y DKIM solo** y te
-   dice si están bien puestos. Ese botón hace la parte difícil
-3. Añade el DMARC de la §5 a mano
-4. En ARLES, da de alta la cuenta con:
-   - Servidor: `mail.telemetrymx.com`
-   - Puerto `465` con cifrado directo, o `587` con STARTTLS
+1. En el panel de Titan (desde HostGator, o en `app.titan.email`), crear el
+   buzón `contacto@telemetrymx.com`
+2. **Activar el acceso de terceros** en los ajustes de Titan. Sin eso, Titan
+   bloquea cualquier programa que no sea el suyo — y ARLES es uno
+3. Los registros SPF y DKIM de la §5
+4. En ARLES, dar de alta la cuenta con **Configuración avanzada**:
+   - Servidor: `smtp.titan.email`
+   - Puerto `465` con cifrado directo, **o** `587` con STARTTLS
    - Usuario: la dirección completa
+
+> **Aviso de Titan que conviene saber antes:** con la verificación en dos pasos
+> activada, Titan **bloquea** el acceso desde programas de terceros. Si ARLES
+> no consigue autenticarse, es lo primero que hay que mirar.
 
 ### Opción C · Seguir con `@gmail.com`
 
@@ -142,8 +152,14 @@ Esto no escala: cada destinatario nuevo vuelve a empezar de cero.
 |---|---|
 | Tipo | `TXT` |
 | Nombre | `telemetrymx.com` (o `@`) |
+| Valor (Titan) | `v=spf1 include:spf.titan.email ~all` |
 | Valor (Workspace) | `v=spf1 include:_spf.google.com ~all` |
-| Valor (HostGator) | el que genera *Email Deliverability* — **no lo escribas a mano** |
+
+Y si se manda desde los dos, **se unen en uno solo**, no se ponen dos:
+
+```text
+v=spf1 include:spf.titan.email include:_spf.google.com ~all
+```
 
 **Sólo puede haber un registro SPF.** Si ya hay uno, se **edita** para añadir el
 `include:`, no se crea otro: con dos, los dos dejan de valer.
@@ -152,8 +168,9 @@ Esto no escala: cada destinatario nuevo vuelve a empezar de cero.
 
 No se inventa: **lo genera quien manda**.
 
+- Titan: lo genera al configurar el dominio; está en su panel, en los ajustes
+  del dominio
 - Google Workspace: consola de administración → Gmail → Autenticar correo
-- HostGator: cPanel → Email Deliverability
 
 Te dan un nombre (algo como `google._domainkey`) y un valor largo. Se copian tal
 cual.
@@ -174,6 +191,48 @@ Poner `p=reject` el primer día es la forma más rápida de que tu propio correo
 deje de llegar.
 
 ---
+
+## 5 bis · Cómo leer un informe de mxtoolbox
+
+**Dirección pasó `telemetrymx.com` por mxtoolbox el 21/10/2026** y salieron
+«4 errores y 6 avisos». De los diez, **uno es un problema de verdad**. Conviene
+saber separarlos, porque una herramienta que marca en rojo lo que es una
+recomendación lleva a cambiar cosas que estaban bien.
+
+### El único que hay que arreglar
+
+| | |
+|---|---|
+| **`spf` · More than one record found** | 🔴 **Rompe el SPF entero** |
+
+**Dos registros SPF no son «SPF por duplicado»: son SPF roto.** La norma
+(RFC 7208) dice que un dominio con más de uno produce un `PermError`, y quien
+recibe el correo lo trata como si **no hubiera ninguno**. Es decir: hoy el
+dominio está peor que si no tuviera SPF.
+
+Se arregla **uniendo los dos en uno**, no borrando uno al azar: cada `include:`
+autoriza a un remitente distinto, y quitar el equivocado deja sin autorizar al
+que de verdad manda.
+
+```text
+v=spf1 include:spf.titan.email include:loDelOtro ~all
+```
+
+### Lo que NO es un error aunque salga en rojo
+
+| | Qué dice | Por qué está bien |
+|---|---|---|
+| `dmarc` | *Quarantine/Reject policy not enabled* | Es `p=none`, **a propósito**. Es el modo de observación, y subirlo antes de tiempo hace que tu propio correo deje de llegar (§5) |
+| `spf` / `mx` | *[SUPPLEMENTAL] …required to enable BIMI* | **BIMI es el logotipo** junto al remitente. Es cosmético, exige DMARC estricto y un certificado de marca de pago |
+
+### Lo que no es tuyo
+
+| | Qué dice | De quién es |
+|---|---|---|
+| `smtp` ×2 | *Reverse DNS does not match SMTP Banner* | De los servidores de **Titan**. No se puede cambiar desde el DNS del dominio |
+| `dns` ×3 | *Name Servers on the Same Subnet*, *SOA Refresh/Expire* | Del **hosting**. Son recomendaciones de robustez del DNS, sin efecto en que el correo llegue |
+
+**El resumen honesto: 194 comprobaciones pasadas y una cosa que arreglar.**
 
 ## 6 · Cuánto tarda en notarse
 
