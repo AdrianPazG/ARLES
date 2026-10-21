@@ -322,7 +322,10 @@ impl Db {
                         v.variables_used
                    FROM template t
                    LEFT JOIN template_version v ON v.id = t.current_version_id
-                  WHERE t.company_id = ?1
+                  -- Lo retirado no se ofrece. **Sigue en la tabla**: el
+                  -- registro de envíos apunta a sus versiones, y eso es lo que
+                  -- contesta qué decía el correo que alguien recibió.
+                  WHERE t.company_id = ?1 AND t.retired_at IS NULL
                   ORDER BY t.updated_at DESC",
             )?;
 
@@ -548,34 +551,41 @@ impl Db {
         })
     }
 
-    /// Borra una plantilla con todas sus versiones.
+    /// Retira una plantilla: **deja de ofrecerse, y no se borra**.
     ///
-    /// ── SE NIEGA SI ALGUNA CAMPAÑA LA USÓ, Y ESO ES LO IMPORTANTE ─────────
+    /// ── DECISIÓN DE DIRECCIÓN DEL 21/10/2026 ──────────────────────────────
     ///
-    /// Una campaña apunta a la **versión exacta** que envió (§44). Borrarla
-    /// dejaría el registro de envíos señalando un texto que ya no existe, y la
-    /// pregunta «¿qué decía el correo que recibió este cliente?» se quedaría
-    /// sin respuesta.
+    /// *«Que quede registrado en algo que no podamos ver […] prácticamente no
+    /// quedaría borrada, sólo no se muestra porque se decidió "borrar" la
+    /// plantilla que ya no se quiere utilizar.»*
     ///
-    /// El esquema ya lo impide —`ON DELETE RESTRICT`— pero fallar por una
-    /// clave foránea es, para quien pulsó, «algo falló». Aquí se cuenta antes
-    /// y se dice con su cifra (§94).
+    /// Y es mejor que el `DELETE` que sustituye, por una razón concreta: aquel
+    /// tenía que **negarse** cuando una campaña había usado la plantilla,
+    /// porque el registro de envíos apunta a una versión concreta y sin ella
+    /// «¿qué decía el correo que recibió este cliente?» se queda sin
+    /// respuesta. Retirando, esa negativa desaparece: **se puede retirar
+    /// cualquiera**, porque el texto sigue ahí para quien tenga que
+    /// consultarlo.
     ///
-    /// **Cuenta campañas y no etapas**: dos etapas de la misma campaña son una
-    /// sola cosa para quien lee el aviso.
+    /// Es la misma forma que el contacto dado de baja y la cuenta
+    /// deshabilitada: en ARLES lo que se deja de usar no se destruye.
+    ///
+    /// **Retirar dos veces no es un error.** Se escribe la fecha sólo si no
+    /// había una: la segunda vez no mueve la primera, que es la que dice
+    /// cuándo se dejó de usar de verdad.
     ///
     /// # Errores
     ///
-    /// [`DbError::LaPlantillaEstaEnUso`] con cuántas campañas la usan,
-    /// [`DbError::DatoInvalido`] si no es de esta empresa, y
-    /// [`DbError::Sqlite`] si la escritura falla.
-    pub fn borrar_plantilla(
+    /// [`DbError::DatoInvalido`] si no es de esta empresa — o no existe, que
+    /// desde fuera es lo mismo— y [`DbError::Sqlite`] si la escritura falla.
+    pub fn retirar_plantilla(
         &self,
         empresa: CompanyId,
         plantilla: TemplateId,
     ) -> Result<(), DbError> {
         self.con_dominio(|conn| {
             let tx = conn.unchecked_transaction()?;
+            let cuando = ahora();
 
             let suya: Option<i64> = tx
                 .query_row(
@@ -590,32 +600,16 @@ impl Db {
                 });
             }
 
-            let campanas: i64 = tx.query_row(
-                "SELECT COUNT(DISTINCT cs.campaign_id)
-                   FROM campaign_stage cs
-                   JOIN template_version tv ON tv.id = cs.template_version_id
-                  WHERE tv.template_id = ?1",
-                params![plantilla.to_string()],
-                |f| f.get(0),
-            )?;
-            if campanas > 0 {
-                return Err(DbError::LaPlantillaEstaEnUso {
-                    campanas: u32::try_from(campanas).unwrap_or(u32::MAX),
-                });
-            }
-
-            // Las versiones caen con ella: `template_version.template_id` es
-            // `ON DELETE CASCADE`. No hace falta borrarlas a mano, y hacerlo
-            // sería una segunda copia de esa regla.
             tx.execute(
-                "DELETE FROM template WHERE id = ?1",
-                params![plantilla.to_string()],
+                "UPDATE template SET retired_at = ?2, updated_at = ?2
+                  WHERE id = ?1 AND retired_at IS NULL",
+                params![plantilla.to_string(), cuando],
             )?;
 
             auditar(
                 &tx,
                 &empresa.to_string(),
-                "borrar",
+                "retirar",
                 "template",
                 &plantilla.to_string(),
             )?;
@@ -624,26 +618,21 @@ impl Db {
         })
     }
 
-    /// Borra una firma.
+    /// Retira una firma. Mismo criterio que [`Db::retirar_plantilla`].
     ///
-    /// ── AQUÍ NO HAY NADA QUE PROTEGER, Y POR ESO NO SE NIEGA ──────────────
-    ///
-    /// A diferencia de una plantilla, una firma **no es lo que contesta «qué
-    /// decía el correo»**: no tiene versiones y hoy ninguna campaña apunta a
-    /// una (H-12). `campaign_stage.signature_id` es además `ON DELETE SET
-    /// NULL`, así que borrarla no rompe ninguna campaña.
-    ///
-    /// Lo que sí puede pasar es que fuera **la de por defecto**, y entonces
-    /// las campañas siguientes saldrían sin firma. Eso lo avisa la pantalla
-    /// antes de confirmar; aquí no se impide, porque es una decisión legítima.
+    /// **Si era la de por defecto, deja de serlo.** Una firma retirada que
+    /// siguiera marcada volvería por la puerta de atrás: la redacción de una
+    /// campaña busca la de por defecto, no mira si está en uso, y acabaría
+    /// pegando al pie de cada correo justo la que se decidió no usar más.
     ///
     /// # Errores
     ///
     /// [`DbError::DatoInvalido`] si no es de esta empresa, y
     /// [`DbError::Sqlite`] si la escritura falla.
-    pub fn borrar_firma(&self, empresa: CompanyId, firma: SignatureId) -> Result<(), DbError> {
+    pub fn retirar_firma(&self, empresa: CompanyId, firma: SignatureId) -> Result<(), DbError> {
         self.con_dominio(|conn| {
             let tx = conn.unchecked_transaction()?;
+            let cuando = ahora();
 
             let suya: Option<i64> = tx
                 .query_row(
@@ -659,14 +648,16 @@ impl Db {
             }
 
             tx.execute(
-                "DELETE FROM signature WHERE id = ?1",
-                params![firma.to_string()],
+                "UPDATE signature
+                    SET retired_at = ?2, is_default = 0, updated_at = ?2
+                  WHERE id = ?1 AND retired_at IS NULL",
+                params![firma.to_string(), cuando],
             )?;
 
             auditar(
                 &tx,
                 &empresa.to_string(),
-                "borrar",
+                "retirar",
                 "signature",
                 &firma.to_string(),
             )?;
@@ -684,7 +675,8 @@ impl Db {
         self.con_dominio(|conn| {
             let mut c = conn.prepare(
                 "SELECT id, name, body_html, body_text, is_default
-                   FROM signature WHERE company_id = ?1
+                   FROM signature
+                  WHERE company_id = ?1 AND retired_at IS NULL
                   ORDER BY is_default DESC, name",
             )?;
             let filas = c.query_map(params![empresa.to_string()], |f| {
@@ -771,6 +763,7 @@ impl Db {
                               WHERE s.id = cs.signature_id),
                             (SELECT s.body_html FROM signature s
                               WHERE s.company_id = co.id AND s.is_default = 1
+                                AND s.retired_at IS NULL
                               LIMIT 1)
                         )
                    FROM campaign_stage cs
@@ -1198,47 +1191,50 @@ mod tests {
         assert!(!f.por_defecto, "y sin el por defecto que pedía la otra");
     }
 
-    // ── R-08 · BORRAR UNA PLANTILLA O UNA FIRMA (21/10/2026) ──────────────
+    // ── R-08 · RETIRAR UNA PLANTILLA O UNA FIRMA (21/10/2026) ─────────────
     //
-    // Dirección: «tampoco me permite eliminar una plantilla ni una firma,
-    // donde también debería tener esa opción».
+    // Dirección pidió primero «eliminar», y al ver cómo quedaba lo precisó:
+    // «que quede registrado en algo que no podamos ver […] prácticamente no
+    // quedaría borrada, sólo no se muestra». Eso es lo que se prueba aquí.
 
-    /// Una plantilla que nadie usó se borra, **con sus versiones**.
+    /// **Una plantilla retirada desaparece de la lista y NO de la base.**
+    ///
+    /// Las dos mitades importan, y la segunda es la que pidió Dirección: el
+    /// texto tiene que seguir ahí para contestar, dentro de un año, qué decía
+    /// el correo que alguien recibió.
     #[test]
-    fn una_plantilla_sin_campanas_se_borra_entera() {
+    fn una_plantilla_retirada_se_esconde_pero_no_se_pierde() {
         let (_d, db) = base();
         let (p, v) = db
-            .crear_plantilla(empresa(), "Borrable", &redaccion("A", "<p>a</p>"))
+            .crear_plantilla(empresa(), "Vieja", &redaccion("A", "<p>el texto</p>"))
             .expect("crea");
-        db.nueva_version_de_plantilla(p, &redaccion("B", "<p>b</p>"))
-            .expect("segunda");
 
-        db.borrar_plantilla(empresa(), p).expect("se borra");
+        db.retirar_plantilla(empresa(), p).expect("se retira");
 
-        assert!(db.plantillas(empresa()).expect("lista").is_empty());
-        // Y la versión se fue con ella: si quedara, el registro de envíos
-        // podría apuntar a un texto huérfano.
-        assert_eq!(
-            db.version_de_plantilla(v).expect("consulta"),
-            None,
-            "la versión sobrevivió a su plantilla"
+        assert!(
+            db.plantillas(empresa()).expect("lista").is_empty(),
+            "una plantilla retirada no se ofrece"
         );
+        // Y lo que de verdad se pidió: la versión sigue consultable.
+        let guardada = db
+            .version_de_plantilla(v)
+            .expect("consulta")
+            .expect("la versión NO se borró");
+        assert!(guardada.cuerpo_html.contains("el texto"), "{guardada:?}");
     }
 
-    /// **Una plantilla que una campaña usó NO se borra, y se dice con su
-    /// cifra.**
+    /// **Se puede retirar aunque una campaña la haya usado.**
     ///
-    /// El esquema lo impide igualmente (`ON DELETE RESTRICT`), pero fallar por
-    /// una clave foránea es, para quien pulsó, «algo falló». Lo que esta
-    /// prueba fija es que se diga **antes y con el número**.
+    /// Es la diferencia entera con el `DELETE` que esto sustituye: aquél tenía
+    /// que negarse —el esquema lo impide con `ON DELETE RESTRICT`— y obligaba
+    /// a convivir para siempre con una plantilla que ya no se quiere.
     #[test]
-    fn una_plantilla_que_una_campana_uso_no_se_borra() {
+    fn se_retira_aunque_una_campana_la_haya_usado() {
         let (_d, db) = base();
         let (p, v) = db
             .crear_plantilla(empresa(), "En uso", &redaccion("A", "<p>a</p>"))
             .expect("crea");
 
-        // Una campaña con su etapa apuntando a esa versión.
         db.ejecutar_en_pruebas(|c| {
             c.execute_batch(&format!(
                 "INSERT INTO email_account (id, company_id, display_name, email_address,
@@ -1251,9 +1247,7 @@ mod tests {
                  INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
                  VALUES ('k-1', '{EMPRESA}', 'Septiembre', 'draft',
                          '2026-10-21T00:00:00Z', '2026-10-21T00:00:00Z');
-                 -- La `CHECK` de la V4 exige que una etapa de correo tenga su
-                 -- cuenta: sin ella la fila no entra, y la prueba mediría otra
-                 -- cosa.
+                 -- La `CHECK` de la V4 exige la cuenta en una etapa de correo.
                  INSERT INTO campaign_stage (id, campaign_id, position, channel,
                                              email_account_id, template_version_id,
                                              status, created_at, updated_at)
@@ -1263,39 +1257,84 @@ mod tests {
         })
         .expect("campaña");
 
-        let error = db
-            .borrar_plantilla(empresa(), p)
-            .expect_err("no se puede borrar");
-        assert_eq!(error.clave_i18n(), "error.db.la_plantilla_esta_en_uso");
-        assert!(
-            matches!(error, DbError::LaPlantillaEstaEnUso { campanas: 1 }),
-            "tiene que decir cuántas: {error:?}"
-        );
-        assert_eq!(
-            db.plantillas(empresa()).expect("lista").len(),
-            1,
-            "sigue ahí"
-        );
+        db.retirar_plantilla(empresa(), p)
+            .expect("retirar no se niega nunca");
+        assert!(db.plantillas(empresa()).expect("lista").is_empty());
+        // La campaña sigue sabiendo qué mandó.
+        let r = db
+            .redaccion_de_la_campana("k-1")
+            .expect("consulta")
+            .expect("la campaña conserva su texto");
+        assert_eq!(r.asunto, "A");
     }
 
-    /// Una firma sí se borra: no es lo que contesta «qué decía el correo».
+    /// **Una firma retirada deja de ser la de por defecto.**
+    ///
+    /// Si siguiera marcada volvería por la puerta de atrás: la redacción de
+    /// una campaña busca la de por defecto, y acabaría pegando al pie de cada
+    /// correo justo la que se decidió no usar más.
     #[test]
-    fn una_firma_se_borra() {
+    fn una_firma_retirada_deja_de_ser_la_de_por_defecto() {
         let (_d, db) = base();
         let f = db
-            .crear_firma(empresa(), "Ventas", "<p>Ventas</p>", true)
+            .crear_firma(empresa(), "Vieja", "<p>La vieja</p>", true)
             .expect("crea");
 
-        db.borrar_firma(empresa(), f).expect("se borra");
+        db.retirar_firma(empresa(), f).expect("se retira");
+
         assert!(db.firmas(empresa()).expect("lista").is_empty());
+        // Y una campaña nueva no la pega.
+        let marcadas: i64 = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row(
+                    "SELECT COUNT(*) FROM signature WHERE is_default = 1",
+                    [],
+                    |f| f.get(0),
+                )
+            })
+            .expect("cuenta");
+        assert_eq!(marcadas, 0, "una firma retirada seguía marcada por defecto");
     }
 
-    /// Y **no se puede borrar lo de otra empresa**, ni plantilla ni firma.
+    /// Retirar dos veces **no mueve la primera fecha**.
     ///
-    /// Un `DELETE … WHERE id = ?1` sin comprobar de quién es borra lo ajeno
-    /// sin un solo error. Es la misma guarda que `actualizar_firma`.
+    /// Esa fecha es la que dice cuándo se dejó de usar de verdad; pisarla con
+    /// la del segundo clic contaría una historia falsa, y nada fallaría.
     #[test]
-    fn no_se_borra_lo_de_otra_empresa() {
+    fn retirar_dos_veces_conserva_la_primera_fecha() {
+        let (_d, db) = base();
+        let (p, _) = db
+            .crear_plantilla(empresa(), "X", &redaccion("A", "<p>a</p>"))
+            .expect("crea");
+
+        db.retirar_plantilla(empresa(), p).expect("primera");
+        let primera: String = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row(
+                    "SELECT retired_at FROM template WHERE id = ?1",
+                    params![p.to_string()],
+                    |f| f.get(0),
+                )
+            })
+            .expect("lee");
+
+        db.retirar_plantilla(empresa(), p).expect("segunda");
+        let segunda: String = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row(
+                    "SELECT retired_at FROM template WHERE id = ?1",
+                    params![p.to_string()],
+                    |f| f.get(0),
+                )
+            })
+            .expect("lee");
+
+        assert_eq!(primera, segunda, "la segunda vez movió la fecha");
+    }
+
+    /// Y **no se retira lo de otra empresa**, ni plantilla ni firma.
+    #[test]
+    fn no_se_retira_lo_de_otra_empresa() {
         let (_d, db) = base();
         let otra = "22222222-2222-4222-8222-222222222222";
         db.ejecutar_en_pruebas(|c| {
@@ -1317,13 +1356,13 @@ mod tests {
             .expect("crea");
 
         assert_eq!(
-            db.borrar_plantilla(ajena, p)
+            db.retirar_plantilla(ajena, p)
                 .expect_err("no es suya")
                 .clave_i18n(),
             "error.db.dato_invalido"
         );
         assert_eq!(
-            db.borrar_firma(ajena, f)
+            db.retirar_firma(ajena, f)
                 .expect_err("no es suya")
                 .clave_i18n(),
             "error.db.dato_invalido"

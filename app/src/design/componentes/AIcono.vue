@@ -77,6 +77,10 @@ const TRAZOS = {
   desplegar: 'm6 9 6 6 6-6',
   ordenar: 'm7 15 5 5 5-5M7 9l5-5 5 5',
   mas: 'M12 5v14M5 12h14',
+  // Acciones sobre una fila (R-09, 21/10/2026). Van al final de la fila de
+  // un contacto, que es donde se buscan: dentro de la ficha —detrás de un
+  // doble clic— no se encontraban.
+  editar: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z',
 } as const
 
 export type NombreDeIcono = keyof typeof TRAZOS

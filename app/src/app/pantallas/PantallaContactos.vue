@@ -188,6 +188,22 @@ const columnas = computed<readonly ColumnaDeTabla<Contacto>[]>(() => [
     ancho: '1.2fr',
     valor: (c) => celdaDeCanal(c, 'whatsapp'),
   },
+  {
+    // ── LAS ACCIONES, AL FINAL DE LA FILA (R-09, 21/10/2026) ─────────────
+    //
+    // Estaban dentro de la ficha, que se abre con un doble clic. Dirección
+    // probó la aplicación y no llegó a ellas: *«como no se visualiza que
+    // puedas tener esa opción, me gustaría que mejor se abriera esa opción
+    // con un icono al final de la fila»*.
+    //
+    // `valor` devuelve vacío porque lo que se pinta es el slot. No se puede
+    // quitar: es lo que toda columna promete, y una columna sin él rompería
+    // las demás tablas.
+    id: 'acciones',
+    titulo: t('contactos.columna.acciones'),
+    ancho: '5.5rem',
+    valor: () => '',
+  },
 ])
 
 /** Cuántos de la página tienen alguna dirección suprimida. */
@@ -461,7 +477,38 @@ const errorDelDialogo = computed(() => {
         :etiqueta="t('contactos.tablaEtiqueta')"
         @update:seleccionada="alElegir"
         @activar="verFicha"
-      />
+      >
+        <template #celda-acciones="{ fila }">
+          <div class="contactos__acciones">
+            <!-- `.stop` para que pulsar un icono no abra además la ficha
+                 detrás del diálogo: el clic en la fila ya la abre. -->
+            <button
+              class="contactos__icono"
+              type="button"
+              :title="t('contactos.editar')"
+              :aria-label="t('contactos.editarA', { nombre: nombreVisible(fila as Contacto) })"
+              @click.stop="abrirEdicion(fila as Contacto)"
+            >
+              <AIcono
+                nombre="editar"
+                :tamano="18"
+              />
+            </button>
+            <button
+              class="contactos__icono contactos__icono--peligro"
+              type="button"
+              :title="t('contactos.baja')"
+              :aria-label="t('contactos.bajaA', { nombre: nombreVisible(fila as Contacto) })"
+              @click.stop="abrirBaja(fila as Contacto)"
+            >
+              <AIcono
+                nombre="suprimido"
+                :tamano="18"
+              />
+            </button>
+          </div>
+        </template>
+      </ATabla>
 
       <!-- Sin contacto elegido, la columna decía nada. Ahora dice qué hacer:
            el hueco estaba, la pista no. -->
@@ -698,6 +745,36 @@ const errorDelDialogo = computed(() => {
   margin-top: var(--arles-space-4);
   padding-top: var(--arles-space-4);
   border-top: var(--arles-border-width) solid var(--arles-border);
+}
+
+.contactos__acciones {
+  display: flex;
+  gap: var(--arles-space-1);
+}
+
+/* El objetivo mínimo del §22: 32 px, más alto que el 24 del WCAG 2.2. Es lo
+   que la sonda de accesibilidad mide desde la pasada D. */
+.contactos__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--arles-objetivo-minimo);
+  min-height: var(--arles-objetivo-minimo);
+  padding: 0;
+  border: var(--arles-border-width) solid transparent;
+  border-radius: var(--arles-radius-sm);
+  background: transparent;
+  color: var(--arles-text-muted);
+  cursor: pointer;
+}
+
+.contactos__icono:hover {
+  background: var(--arles-surface-hover);
+  color: var(--arles-text);
+}
+
+.contactos__icono--peligro:hover {
+  color: var(--arles-danger);
 }
 
 .contactos__casilla {

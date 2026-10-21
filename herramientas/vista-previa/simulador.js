@@ -859,7 +859,7 @@
           return Promise.resolve(pv);
         }
 
-        case 'borrar_plantilla': {
+        case 'retirar_plantilla': {
           var pb = (e.plantillas || DEMO.plantillas).filter(function (p) {
             return p.id !== String(args.plantilla);
           });
@@ -904,7 +904,7 @@
           return Promise.resolve(fe);
         }
 
-        case 'borrar_firma': {
+        case 'retirar_firma': {
           var fb = (e.firmas || DEMO.firmas).filter(function (f) {
             return f.id !== String(args.firma);
           });

@@ -137,12 +137,13 @@ pub fn run() {
             // `arles-db` desde la 6.3, probada, y sin registrar aquí: una
             // plantilla se creaba y no se podía corregir nunca.
             campanas::nueva_version_de_plantilla,
-            // R-08 (21/10/2026): se creaban y no se podían quitar.
-            campanas::borrar_plantilla,
+            // R-08 (21/10/2026): se creaban y no se podían quitar. Se
+            // RETIRAN, no se borran — decisión de Dirección del mismo día.
+            campanas::retirar_plantilla,
             campanas::firmas,
             campanas::guardar_firma,
             campanas::editar_firma,
-            campanas::borrar_firma,
+            campanas::retirar_firma,
             campanas::ventanas,
             campanas::guardar_ventana,
             campanas::campanas,

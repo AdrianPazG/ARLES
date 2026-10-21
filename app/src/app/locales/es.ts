@@ -1730,16 +1730,6 @@ export const es = {
         como: 'Es un fallo nuestro, no de tus datos. Avisa a soporte con la versión de ARLES que tienes; mientras tanto, no borres nada.',
         salvo: 'No se escribió ningún archivo y tus datos están intactos. Se paró antes de empezar, a propósito: un respaldo a medias se descubre el día que hace falta.',
       },
-      // §95 · R-08. Dice cuántas campañas la usan, porque «no se puede» sin
-      // el número deja buscando cuál es.
-      la_plantilla_esta_en_uso: {
-        que: 'Esta plantilla la están usando otras campañas.',
-        como:
-          'Si ya no quieres usarla, deja de elegirla en las campañas nuevas. ' +
-          'Las que ya salieron tienen que poder consultarse, así que su texto ' +
-          'se conserva.',
-        salvo: 'No se eliminó nada.',
-      },
       sqlite: {
         que: 'Ocurrió un error al acceder a los datos.',
         como: 'Cierra ARLES y vuelve a abrirlo.',
@@ -2293,6 +2283,7 @@ export const es = {
       empresa: 'Empresa',
       email: 'Correo',
       whatsapp: 'WhatsApp',
+      acciones: 'Acciones',
     },
 
     canal: {
@@ -2364,6 +2355,12 @@ export const es = {
         'correos, uno o varios WhatsApp. Puedes cargar una tabla de Excel o ' +
         'CSV, o darlos de alta a mano de uno en uno.',
     },
+
+    // R-09 · los iconos del final de la fila van sin texto, así que su
+    // nombre accesible lleva de QUIÉN son: una lista de «Editar, Editar,
+    // Editar…» no dice nada a quien navega con lector de pantalla.
+    editarA: 'Editar a {nombre}',
+    bajaA: 'Dar de baja a {nombre}',
 
     bajaDialogo: {
       titulo: 'Dar de baja el contacto',
@@ -3255,19 +3252,24 @@ export const es = {
     corregirFirma: 'Corregir la firma',
 
     // ── R-08 · borrar (21/10/2026) ──────────────────────────────────────
-    borrar: 'Eliminar',
-    borrarPlantillaTitulo: 'Eliminar la plantilla',
-    borrarFirmaTitulo: 'Eliminar la firma',
-    borrarPregunta: '¿Eliminar «{nombre}»?',
+    borrar: 'Dejar de usar',
+    borrarPlantillaTitulo: 'Dejar de usar esta plantilla',
+    borrarFirmaTitulo: 'Dejar de usar esta firma',
+    borrarPregunta: '¿Dejar de usar «{nombre}»?',
+    // La tercera parte del §95: qué está a salvo. Y aquí es lo que distingue
+    // esto de un borrado, que es lo que Dirección pidió el 21/10/2026.
     borrarPlantillaAviso:
-      'Se va con todas sus versiones y no se puede deshacer. Si alguna ' +
-      'campaña la usó, ARLES no la elimina: lo que ya se envió tiene que ' +
-      'poder consultarse.',
-    borrarFirmaAviso: 'No se puede deshacer. Las campañas que ya salieron no cambian.',
+      'Desaparece de la lista y no se podrá elegir en campañas nuevas. El ' +
+      'texto se conserva: las campañas que ya salieron con ella siguen ' +
+      'pudiendo consultarse, que es lo que permite responder dentro de un ' +
+      'año a «¿qué decía el correo que recibió este cliente?».',
+    borrarFirmaAviso:
+      'Desaparece de la lista y se conserva. Las campañas que ya salieron no ' +
+      'cambian.',
     borrarLaPorDefecto: 'Es la firma que se usa por defecto',
     borrarLaPorDefectoAyuda:
-      'Si la eliminas, las campañas que crees a partir de ahora saldrán sin ' +
-      'firma hasta que marques otra.',
+      'Si dejas de usarla, las campañas que crees a partir de ahora saldrán ' +
+      'sin firma hasta que marques otra.',
 
     naceUnaVersion: 'Esto va a crear la versión {numero}',
     naceUnaVersionAyuda:

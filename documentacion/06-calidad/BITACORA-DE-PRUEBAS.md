@@ -104,7 +104,7 @@ mirando, no una comprobación automática.
 | **R-05** | 🔵 Requisito | Firmas | Poder poner **una imagen** en la firma, como en Outlook | ⏸️ **Esperando decisión de Dirección** (ver H-15) |
 | **R-06** | 🟠 Requisito | Plantillas | **No se pueden editar** las plantillas ni las firmas ya creadas | ✅ **Arreglado 17/10/2026** |
 | **R-07** | 🔵 Requisito | Remitentes | El correo de prueba **llega a spam** — qué se puede hacer | 🔧 **Gmail ✅ · Outlook abierto** 21/10/2026 |
-| **R-08** | 🟠 Requisito | Plantillas | **No se pueden eliminar** plantillas ni firmas | ✅ **Arreglado 21/10/2026** |
+| **R-08** | 🟠 Requisito | Plantillas | **No se pueden eliminar** plantillas ni firmas | ✅ **Arreglado 21/10/2026** · se retiran, no se borran |
 | **R-09** | 🟠 Requisito | Contactos | **No se encuentra cómo editar** un contacto | ✅ **Arreglado 21/10/2026** |
 
 > Los hallazgos con **A** los encontré yo auditando, no Dirección probando. Van
@@ -1325,41 +1325,84 @@ la cuenta no tiene historial con ese buzón, y es un primer correo sin relación
 previa. Lo resuelve el dominio propio, y Dirección **lo tiene**:
 `telemetrymx.com` en HostGator, con acceso al DNS.
 
-### R-08 · Eliminar una plantilla o una firma (21/10/2026)
+### R-08 · Retirar una plantilla o una firma (21/10/2026)
 
-*«Tampoco me permite eliminar una plantilla ni una firma, donde también debería
-tener esa opción.»* Se creaban y se quedaban para siempre: una plantilla de
-prueba estorbaba en el paso 4 del asistente para siempre.
+**Dirección pidió «eliminar», vio cómo quedaba, y lo precisó el mismo día:**
 
-**Una plantilla que una campaña usó NO se elimina**, y eso es lo importante.
-Una campaña apunta a la versión exacta que envió, así que borrarla dejaría el
-registro de envíos señalando un texto que ya no existe — y «¿qué decía el
-correo que recibió este cliente?» se quedaría sin respuesta.
+> *«Me gustaría que quede registrado en algo que no podamos ver al momento de
+> elegir ya no seguir utilizando esa plantilla, así que prácticamente no
+> quedaría borrada, sólo no se muestra porque se decidió "borrar" la plantilla
+> que ya no se quiere utilizar.»*
 
-El esquema ya lo impedía (`ON DELETE RESTRICT`), pero fallar por una clave
-foránea es, para quien pulsó, «algo falló». Ahora se cuenta antes y se dice con
-su cifra (§94).
+**Y es mejor diseño que el borrado que sustituye**, no sólo una preferencia. La
+primera versión borraba de verdad, y por eso tenía que **negarse** cuando una
+campaña había usado la plantilla: el registro de envíos apunta a una versión
+concreta y sin ella «¿qué decía el correo que recibió este cliente?» se queda
+sin respuesta.
 
-**Una firma sí se elimina**: no tiene versiones y no es lo que contesta esa
-pregunta. Lo que se avisa es que **fuera la de por defecto**, porque entonces
-las campañas siguientes saldrán sin firma — en silencio y sin que falle nada.
+Retirando, esa negativa **desaparece**: se puede retirar cualquiera, la haya
+usado una campaña o no, porque el texto sigue ahí. Lo único que cambia es que
+deja de ofrecerse.
 
-Siete pruebas, y las rupturas en rojo: borrar sin preguntar, borrar la que no
-era, y quitar el aviso de la firma por defecto.
+Es la misma forma que el contacto dado de baja y la cuenta deshabilitada: **en
+ARLES lo que se deja de usar no se destruye.**
 
-### R-09 · No se encontraba cómo editar un contacto (21/10/2026)
+**Migración V12**, con una columna `retired_at` y no una bandera: una bandera
+dice «sí o no»; una fecha dice además **cuándo**, que es lo que lo hace
+auditable. Y dos índices parciales, porque lo que la interfaz pide siempre es
+«lo que está en uso».
 
-El botón de editar **existía**, en la ficha. Y el estado vacío de la columna
-lleva escrito desde la 7.7: *«haz doble clic en una fila para ver todos sus
-correos y WhatsApp, y para editarlo o darlo de baja»*.
+**Una firma retirada deja de ser la de por defecto**, y eso no es limpieza: si
+siguiera marcada volvería por la puerta de atrás — la redacción de una campaña
+busca la de por defecto y no mira si está en uso, así que acabaría al pie de
+cada correo justo la que se decidió no usar más.
 
-Dirección probó la aplicación y escribió: *«tampoco el modificar la información
-de contacto»*.
+Cinco pruebas en la base y tres de pantalla. La que importa:
+`una_plantilla_retirada_se_esconde_pero_no_se_pierde` comprueba **las dos
+mitades** — desaparece de la lista **y** su versión sigue consultable.
 
-**Una instrucción que nadie sigue no es una instrucción: es una coartada.** Un
-doble clic no es un gesto que nadie pruebe en una tabla. Ahora **un clic** abre
-la ficha —elegir una fila y verla es la misma intención— y el doble clic sigue
-valiendo, igual que el teclado.
+### R-09 · Las acciones, al final de la fila (21/10/2026)
+
+Primero se hizo que **un clic** abriera la ficha, porque el doble clic no se
+encontraba. Dirección lo probó y fue más preciso:
+
+> *«Como no se visualiza que puedas tener esa opción, me gustaría que mejor se
+> abriera esa opción con un icono al final de la fila del contacto.»*
+
+Tiene razón: que un gesto funcione no es lo mismo que **que se vea que existe**.
+Ahora cada fila lleva sus dos iconos —editar y dar de baja— al final, de 32×32
+px, con el nombre de esa persona dentro: *«Editar a Ana Ruiz»*. Sin eso, quien
+navega con lector de pantalla oiría «Editar, Editar, Editar…» sin saber de
+quién.
+
+**`ATabla` no admitía nada más que texto en una celda**, así que ahora sirve un
+slot por columna. Cualquier otra pantalla sigue escribiendo su cadena sin
+enterarse.
+
+> **Lo que estas pruebas NO cubren, y dónde se comprobó.** `ATabla` es
+> virtualizada: en jsdom todo mide cero, no se pinta ni una fila, y el slot
+> **no llega a existir**. Se intentó fingir `clientHeight` y
+> `getBoundingClientRect` y no bastó — el virtualizador mide por su cuenta.
+> Seguir por ahí era pelearse con la biblioteca en vez de probar el código, y
+> acabar con una prueba en verde que no ejercita nada.
+>
+> Así que en jsdom se comprueba lo comprobable —que la columna existe y va al
+> final— y **lo demás se miró en Chromium**: 4 filas pintadas, 6 iconos de
+> 32×32 px, y los dos abriendo su diálogo.
+
+> **Y un hallazgo falso mío, el tercero de la serie.** La primera medición dijo
+> «al pulsar editar NO se abre el formulario», y estuve a punto de anotarlo.
+> Buscaba `[role="dialog"]` y `AModal` usa **`<dialog>` nativo**, cuyo rol es
+> implícito. El código estaba bien; mi sonda preguntaba mal. Es el mismo error
+> que las auditorías B y C cometieron, y la misma lección: **antes de anotar
+> que algo falta, comprobar cómo se llama de verdad.**
+
+> **Y la comprobación de slots tuvo que aprender algo.** `ningun_slot_se_escribe_a_ciegas`
+> leía sólo `<slot name="…">` literal, así que un slot con nombre calculado
+> salía siempre como error — y la salida tentadora habría sido apagarla. Ahora
+> entiende el **prefijo** de un nombre calculado (`celda-`), lo justo para
+> distinguir un `#celda-acciones` legítimo de un `#pie` inventado. Verificado
+> con las dos rupturas: `#pie` y `#fila-acciones` siguen saltando.
 
 ### R-07 · El correo medido entero, y lo que el código ya no puede arreglar
 

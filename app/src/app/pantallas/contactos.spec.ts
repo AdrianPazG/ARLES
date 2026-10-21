@@ -200,3 +200,51 @@ describe('dar de baja a un contacto', () => {
     expect(pantalla.text()).toContain('Ocurrió un error al acceder a los datos')
   })
 })
+
+/**
+ * R-09 · las acciones, al final de la fila · 21/10/2026
+ *
+ * Estaban dentro de la ficha, que se abre con un doble clic, y el estado
+ * vacío de la columna lo decía por escrito desde la 7.7. Dirección probó la
+ * aplicación y no llegó a ellas:
+ *
+ *   «como no se visualiza que puedas tener esa opción, me gustaría que mejor
+ *    se abriera esa opción con un icono al final de la fila del contacto»
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * LO QUE ESTA PRUEBA **NO** PUEDE COMPROBAR, Y DÓNDE SE COMPRUEBA
+ *
+ * `ATabla` es virtualizada: sólo pinta las filas que caben en su ventana, y en
+ * jsdom todo mide **cero**. No se pinta ni una fila, así que el slot de las
+ * acciones **no llega a existir** y los iconos no se pueden pulsar aquí.
+ *
+ * Se intentó fingir `clientHeight` y `getBoundingClientRect`, y no bastó: el
+ * virtualizador mide por su cuenta. Seguir por ahí sería pelearse con la
+ * biblioteca en vez de probar el código propio, y acabaría en una prueba que
+ * pasa sin ejercitar nada — que es justo lo que este proyecto persigue.
+ *
+ * Así que aquí se comprueba **lo que sí se puede**: que la columna existe con
+ * su título. Que los iconos se ven y se pulsan se verifica **en Chromium**,
+ * con la vista previa, que es como este proyecto mira lo visual desde la
+ * revisión del 29/09/2026.
+ */
+describe('la columna de acciones', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  it('la tabla tiene su columna de acciones al final', () => {
+    const contactos = useContactosStore()
+    contactos.cargada = true
+    contactos.cargando = false
+    contactos.contactos = [UN_CONTACTO]
+    contactos.total = 1
+
+    const p = mount(PantallaContactos, entorno)
+    const tabla = p.findComponent({ name: 'ATabla' })
+    expect(tabla.exists()).toBe(true)
+
+    const columnas = tabla.props('columnas') as readonly { id: string; titulo: string }[]
+    const ultima = columnas[columnas.length - 1]
+    expect(ultima?.id, 'la columna de acciones va al final de la fila').toBe('acciones')
+    expect(ultima?.titulo).toBe('Acciones')
+  })
+})

@@ -315,12 +315,17 @@ export const useCampanasStore = defineStore('campanas', () => {
     }
   }
 
-  /** Borra una plantilla con todas sus versiones. */
-  async function borrarPlantilla(plantilla: string): Promise<boolean> {
+  /**
+   * Retira una plantilla: deja de ofrecerse y **no se borra**.
+   *
+   * Decisión de Dirección del 21/10/2026. Lo que una campaña envió tiene que
+   * poder consultarse, así que el texto se queda en la base.
+   */
+  async function retirarPlantilla(plantilla: string): Promise<boolean> {
     trabajando.value = true
     errorGeneral.value = null
     try {
-      plantillas.value = await invocar<Plantilla[]>('borrar_plantilla', { plantilla })
+      plantillas.value = await invocar<Plantilla[]>('retirar_plantilla', { plantilla })
       return true
     } catch (e) {
       recordarError(e)
@@ -330,12 +335,12 @@ export const useCampanasStore = defineStore('campanas', () => {
     }
   }
 
-  /** Borra una firma. */
-  async function borrarFirma(firma: string): Promise<boolean> {
+  /** Retira una firma, y con ella su marca de «por defecto». */
+  async function retirarFirma(firma: string): Promise<boolean> {
     trabajando.value = true
     errorGeneral.value = null
     try {
-      firmas.value = await invocar<Firma[]>('borrar_firma', { firma })
+      firmas.value = await invocar<Firma[]>('retirar_firma', { firma })
       return true
     } catch (e) {
       recordarError(e)
@@ -574,10 +579,10 @@ export const useCampanasStore = defineStore('campanas', () => {
     cargar,
     guardarPlantilla,
     nuevaVersionDePlantilla,
-    borrarPlantilla,
+    retirarPlantilla,
     guardarFirma,
     editarFirma,
-    borrarFirma,
+    retirarFirma,
     guardarVentana,
     crearCampana,
     revisar,

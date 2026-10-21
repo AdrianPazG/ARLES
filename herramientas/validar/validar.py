@@ -1745,6 +1745,11 @@ MIGRACIONES_PUBLICADAS = {
     # No cambia ni un dato: sólo añade listas ordenadas. Entrega 8.6.
     "V11__indices_de_rendimiento.sql":
         "a97d3bddc184e9ba38cae4f3592c7242273999e9dda2bb3d33cb1f8f4c0db555",
+    # Retirar una plantilla o una firma sin borrarla, para que lo que una
+    # campaña envió siga pudiéndose consultar. Decisión de Dirección del
+    # 21/10/2026.
+    "V12__retirar_sin_borrar.sql":
+        "c06782f9e32da0d970985fc80a09e345436dc4d5b62e36fd441d6e712960397f",
 }
 
 
@@ -4887,11 +4892,26 @@ def ningun_slot_se_escribe_a_ciegas():
 
     comp = os.path.join(RAIZ, "app", "src", "design", "componentes")
     declarados = {}
+    prefijos: dict[str, set[str]] = {}
     for archivo in sorted(os.listdir(comp)):
         if not archivo.endswith(".vue"):
             continue
         fuente = open(os.path.join(comp, archivo), encoding="utf-8").read()
         declarados[archivo[:-4]] = set(_re.findall(r'<slot\s+name="([\w-]+)"', fuente))
+        # ── Y LOS SLOTS CON NOMBRE CALCULADO ──────────────────────────────
+        #
+        # `ATabla` sirve uno por columna: `:name="`celda-${columna.id}`"`. El
+        # nombre entero no se puede saber leyendo el componente —depende de
+        # quién lo use— pero **el prefijo sí**, y es lo que hace falta para
+        # distinguir un `#celda-acciones` legítimo de un `#pie` inventado.
+        #
+        # Se guarda el prefijo con su guion, así que `celda-` acepta
+        # `#celda-loquesea` y **sigue rechazando** cualquier otro nombre. Sin
+        # esto, un slot calculado saldría siempre como error y la salida
+        # tentadora sería apagar la comprobación entera.
+        prefijos[archivo[:-4]] = set(
+            _re.findall(r'<slot\s+:name="`([\w-]+-)\$\{', fuente)
+        )
 
     malos = []
     for carpeta, _, archivos in os.walk(os.path.join(RAIZ, "app", "src", "app")):
@@ -4932,10 +4952,17 @@ def ningun_slot_se_escribe_a_ciegas():
                 componente = pila[-1]
                 if componente not in declarados:
                     continue
-                if m.group(1) not in declarados[componente]:
+                usado = m.group(1)
+                vale = usado in declarados[componente] or any(
+                    usado.startswith(pre) for pre in prefijos.get(componente, set())
+                )
+                if not vale:
+                    sirve = sorted(declarados[componente]) + [
+                        f"{pre}…" for pre in sorted(prefijos.get(componente, set()))
+                    ]
                     malos.append(
-                        f"{archivo}: `#{m.group(1)}` sobre <{componente}>, que sirve "
-                        f"{sorted(declarados[componente]) or 'ningún slot con nombre'}"
+                        f"{archivo}: `#{usado}` sobre <{componente}>, que sirve "
+                        f"{sirve or 'ningún slot con nombre'}"
                     )
 
     check(

@@ -299,18 +299,17 @@ pub fn editar_firma(
     firmas(estado)
 }
 
-/// Borra una plantilla con todas sus versiones, y devuelve la lista entera.
+/// Retira una plantilla —deja de ofrecerse, no se borra— y devuelve la lista.
 ///
-/// Se niega si alguna campaña la usó: ver
-/// `arles_db::plantillas::Db::borrar_plantilla`. La pantalla lo avisa antes
-/// con su cifra, y esto lo impide aunque no lo avisara.
+/// El porqué está en `arles_db::plantillas::Db::retirar_plantilla`: lo que una
+/// campaña envió tiene que poder consultarse, así que el texto se queda.
 ///
 /// # Errores
 ///
-/// [`ErrorIpc`] si no hay empresa, la plantilla no es suya, alguna campaña la
-/// usa, o la escritura falla.
+/// [`ErrorIpc`] si no hay empresa, la plantilla no es suya, o la escritura
+/// falla.
 #[tauri::command]
-pub fn borrar_plantilla(
+pub fn retirar_plantilla(
     estado: tauri::State<'_, EstadoApp>,
     plantilla: String,
 ) -> Result<Vec<PlantillaIpc>, ErrorIpc> {
@@ -323,19 +322,19 @@ pub fn borrar_plantilla(
 
     estado
         .db()
-        .borrar_plantilla(empresa, id)
+        .retirar_plantilla(empresa, id)
         .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
 
     plantillas(estado)
 }
 
-/// Borra una firma y devuelve la lista entera.
+/// Retira una firma —y con ella la marca de «por defecto»— y devuelve la lista.
 ///
 /// # Errores
 ///
 /// [`ErrorIpc`] si no hay empresa, la firma no es suya, o la escritura falla.
 #[tauri::command]
-pub fn borrar_firma(
+pub fn retirar_firma(
     estado: tauri::State<'_, EstadoApp>,
     firma: String,
 ) -> Result<Vec<FirmaIpc>, ErrorIpc> {
@@ -348,7 +347,7 @@ pub fn borrar_firma(
 
     estado
         .db()
-        .borrar_firma(empresa, id)
+        .retirar_firma(empresa, id)
         .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
 
     firmas(estado)

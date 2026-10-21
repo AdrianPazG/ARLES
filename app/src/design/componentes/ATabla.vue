@@ -243,7 +243,19 @@ watch(
             :class="{ numerica: columna.numerica }"
             role="gridcell"
           >
-            {{ columna.valor(filas[item.index]!) }}
+            <!-- ── UNA CELDA PUEDE LLEVAR ALGO MÁS QUE TEXTO ──────────────
+                 El slot lleva el id de la columna, así que una pantalla
+                 decide celda a celda y las demás siguen escribiendo su
+                 cadena sin enterarse. Hizo falta el 21/10/2026 para poner
+                 las acciones de un contacto al final de su fila: estaban
+                 dentro de la ficha, que se abría con un doble clic, y
+                 Dirección no llegó a ellas. -->
+            <slot
+              :name="`celda-${columna.id}`"
+              :fila="filas[item.index]!"
+            >
+              {{ columna.valor(filas[item.index]!) }}
+            </slot>
           </div>
         </div>
       </div>

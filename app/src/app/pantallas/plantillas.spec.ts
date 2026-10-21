@@ -453,7 +453,7 @@ describe('negrita y cursiva', () => {
  * borrar sin preguntar, borrar lo que no era, y no avisar de que la firma que
  * se va es la que usan las campañas.
  */
-describe('eliminar lo ya escrito', () => {
+describe('dejar de usar lo ya escrito', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
   const UNA_PLANTILLA = {
@@ -465,36 +465,36 @@ describe('eliminar lo ya escrito', () => {
   /** Pulsa el botón «Eliminar» de la enésima tarjeta que lo tenga. */
   async function abrirBorrado(cual: number): Promise<ReturnType<typeof mount>> {
     const pantalla = mount(PantallaPlantillas, entorno)
-    const botones = pantalla.findAll('button').filter((b) => b.text() === 'Eliminar')
+    const botones = pantalla.findAll('button').filter((b) => b.text() === 'Dejar de usar')
     await botones[cual]?.trigger('click')
     return pantalla
   }
 
-  it('pregunta antes de eliminar, y no elimina al abrir la pregunta', async () => {
+  it('pregunta antes de retirar, y no retira al abrir la pregunta', async () => {
     const s = store()
     s.plantillas = [UNA_PLANTILLA]
     const pedidos: string[] = []
-    s.borrarPlantilla = async (id: string) => {
+    s.retirarPlantilla = async (id: string) => {
       pedidos.push(id)
       return true
     }
 
     const p = await abrirBorrado(0)
-    expect(p.text()).toContain('¿Eliminar «Bienvenida»?')
+    expect(p.text()).toContain('¿Dejar de usar «Bienvenida»?')
     expect(pedidos, 'abrir la pregunta no borra nada').toEqual([])
   })
 
-  it('al confirmar, elimina esa plantilla y no otra', async () => {
+  it('al confirmar, retira esa plantilla y no otra', async () => {
     const s = store()
     s.plantillas = [UNA_PLANTILLA, { ...UNA_PLANTILLA, id: 'p-2', nombre: 'Otra' }]
     const pedidos: string[] = []
-    s.borrarPlantilla = async (id: string) => {
+    s.retirarPlantilla = async (id: string) => {
       pedidos.push(id)
       return true
     }
 
     const p = await abrirBorrado(1)
-    const botones = p.findAll('button').filter((b) => b.text() === 'Eliminar')
+    const botones = p.findAll('button').filter((b) => b.text() === 'Dejar de usar')
     await botones[botones.length - 1]?.trigger('click')
 
     expect(pedidos).toEqual(['p-2'])
@@ -506,7 +506,7 @@ describe('eliminar lo ya escrito', () => {
    * Es la que usan las campañas cuando no se elige otra, así que quitarla
    * cambia lo que van a mandar — en silencio, y sin que falle nada.
    */
-  it('avisa cuando la firma que se elimina es la de por defecto', async () => {
+  it('avisa cuando la firma que se retira es la de por defecto', async () => {
     const s = store()
     s.firmas = [
       { id: 'f-1', nombre: 'Ventas', cuerpoHtml: '<p>V</p>', porDefecto: true },

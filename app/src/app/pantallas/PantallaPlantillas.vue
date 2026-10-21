@@ -231,11 +231,14 @@ function cerrar(): void {
 }
 
 /**
- * Lo que se va a borrar, o `null`. · R-08 (21/10/2026)
+ * Lo que se va a retirar, o `null`. · R-08 (21/10/2026)
  *
- * **Se pregunta antes, y no es ceremonia.** Una plantilla se lleva sus
- * versiones; una firma puede ser la que usan las campañas por defecto. Las dos
- * cosas se hacen en un clic y ninguna se deshace.
+ * **Se retira, no se borra.** Deja de ofrecerse al crear una campaña, y el
+ * texto se queda en la base: lo que una campaña envió tiene que poder
+ * consultarse dentro de un año.
+ *
+ * Se pregunta igualmente, porque una firma retirada deja de ser la de por
+ * defecto y eso cambia lo que van a mandar las campañas siguientes.
  */
 const borrando = ref<{ cual: 'plantilla' | 'firma'; id: string; nombre: string } | null>(null)
 
@@ -250,7 +253,7 @@ async function confirmarBorrado(): Promise<void> {
   const q = borrando.value
   if (q === null) return
   const hecho =
-    q.cual === 'plantilla' ? await store.borrarPlantilla(q.id) : await store.borrarFirma(q.id)
+    q.cual === 'plantilla' ? await store.retirarPlantilla(q.id) : await store.retirarFirma(q.id)
   // Sólo se cierra si se borró: con un error puesto, cerrar el diálogo haría
   // desaparecer el aviso junto con la pregunta (§95).
   if (hecho) borrando.value = null
