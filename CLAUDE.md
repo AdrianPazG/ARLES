@@ -1776,11 +1776,14 @@ este mismo informe**. Está contado en
 > día: *«si coloco en la campaña uno un límite de 50 al día y otra campaña dos
 > un límite de 50 al día con el mismo remitente, no se mandan 50 en ambas»*.
 >
-> Medido con el mecanismo real: salen **25 y 25**, y **por orden de llegada**,
-> que es peor que mitad y mitad porque no se puede predecir. Lo que **no** pasa
-> es lo que más le preocupaba: con 200 y 200 no salen 400 sino **200** — el
-> total de un día es el mayor de los límites, nunca la suma. Ésa es la defensa
-> que sustituyó al `min`, vista funcionar.
+> Medido con el mecanismo real: salían **25 y 25**, y **por orden de llegada**,
+> que es peor que mitad y mitad porque no se puede predecir.
+>
+> **Y esa misma tarde Dirección decidió lo contrario de lo que yo defendía, así
+> que las dos frases siguientes describen el producto de la mañana y no el de
+> hoy** (ver más abajo, D-13 a D-17): entonces con 200 y 200 no salían 400 sino
+> 200, porque el total de un día era el mayor de los límites y nunca la suma.
+> Ésa era la defensa que sustituyó al `min`. **Hoy sí salen 400.**
 >
 > Lo que sí se rompía es **la promesa de tiempo**: el paso 6 estima con el
 > límite de esa campaña como si el remitente fuera sólo suyo. El aviso va

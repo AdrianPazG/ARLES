@@ -374,7 +374,7 @@ que importa la tenga.**
 |---|---|---|
 | **D-WA** | Construir el adaptador de WhatsApp para el motor antes de la Fase 9, o entregar la v1.2.0 con campañas sólo por correo | `09-fases/FASE-05-PARA-DIRECCION.md` |
 | **R-05** | La imagen en la firma del correo: embebida —engorda cada envío y dispara filtros— o alojada, que hay que alojarla. El saneado del HTML tendría que admitir `<img>` con sus reglas | Pedido el 21/10/2026 |
-| **D-REM** | Dos campañas con el mismo remitente se reparten su cupo diario. Hoy **se avisa** en el paso 6 con las campañas nombradas; ¿se prefiere **impedirlo**? | `09-fases/AUDITORIA-G-FUNCIONALIDAD.md` §3 bis |
+| ✅ **D-REM** | **Cerrada el 22/10/2026 con D-13 y D-14**, y no como se planteó: en vez de impedirlo, los topes **se suman** —cada campaña manda lo suyo y el plazo se cumple— y el total del buzón sale en Remitentes con su semáforo. El agregado ya no tiene techo, a propósito (§154) | `01-producto/DECISIONES_DE_DIRECCION.md` D-13 y D-14 |
 
 ---
 
@@ -398,4 +398,4 @@ que importa la tenga.**
 **Y la auditoría de funcionalidad** (22/10/2026, `09-fases/AUDITORIA-G-FUNCIONALIDAD.md`): **siete hallazgos, siete arreglados**, con las diez fases en verde al empezar. El más grave y el séptimo los encontró Dirección, no la medición:
 
 - **El límite diario se escribía y no se aplicaba.** Se escribía 300, se leía el aviso de riesgo, se marcaba la casilla — **y salían 50**, porque el motor tomaba el menor entre la campaña y la cuenta, y toda cuenta nacía con 50 escritos en el código. **Peor que faltar la función: dejaba creer que se usó.**
-- **Dos campañas con el mismo remitente se reparten el cupo** —medido: 50 y 50 dan **25 y 25**, por orden de llegada—, así que el plazo que prometía el paso 6 no se cumplía. Ahora se avisa con las campañas nombradas.
+- **Dos campañas con el mismo remitente se repartían el cupo** —medido: 50 y 50 daban **25 y 25**, por orden de llegada—, así que el plazo del paso 6 no se cumplía. **Resuelto esa misma tarde con la D-13**: los topes se suman, las dos sacan 50, y el aviso del paso 6 pasó a avisar de lo otro — que de ese buzón salen 100 al día y el agregado ya no tiene techo.

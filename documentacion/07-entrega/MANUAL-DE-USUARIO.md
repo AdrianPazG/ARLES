@@ -148,9 +148,16 @@ sustituye por los datos de cada contacto.
 
 Tres cosas que te va a decir y conviene entender:
 
-**El ritmo.** Cuántos mensajes al día y cuántos por hora. Los dos campos vienen
-rellenos con lo que trae tu cuenta y **puedes cambiarlos**: el número que
-escribas es el que ARLES va a respetar.
+**El ritmo.** Pones **dos cosas**: el horario en el que quieres enviar y
+**cuántos correos al día**. Nada más.
+
+**Cuántos por hora lo calcula ARLES** y te lo dice: si pides 500 al día y tu
+horario es de nueve a dieciocho, reparte unos 56 por hora durante esas nueve
+horas. No hay que hacer esa división a mano, y por una razón concreta — hasta el
+22/10/2026 ese número **sí se pedía**, venía relleno con 10, y quien escribía 500
+al día recibía **90** sin que nada se lo dijera.
+
+El número de correos al día **es el que ARLES respeta**. Si pones 50, salen 50.
 
 Si pones más de 50 al día, ARLES te hace aceptar un aviso: por encima de esa
 cifra los proveedores de correo empiezan a tratarte como remitente masivo, y lo
@@ -158,11 +165,18 @@ que se pierde no es un mensaje, es la reputación de tu dominio. **Te avisa y no
 te lo impide** — la decisión es tuya, y queda registrada con su fecha.
 
 > **Si ese remitente ya está enviando otra campaña, ARLES te lo dice ahí
-> mismo.** El máximo al día es **de la cuenta de correo**, no de cada campaña:
-> dos campañas de 50 sobre el mismo remitente sacan **25 y 25**, no 50 cada
-> una, así que la tuya va a tardar más de lo que dice el plazo. **No salen más
-> correos en total: salen repartidos.** Si necesitas que cada campaña vaya a su
-> ritmo, usa un remitente distinto para cada una.
+> mismo** — y lo que te dice cambió el 22/10/2026, así que conviene leerlo con
+> cuidado.
+>
+> **Cada campaña manda su propio máximo**, así que el plazo que te promete el
+> paso 6 **se cumple**: dos campañas de 50 sobre el mismo remitente sacan 50 y
+> 50. Lo que hay que mirar es **el total del buzón**, porque esos máximos **se
+> suman** y de ahí van a salir 100 al día.
+>
+> Ese total lo tienes en **Remitentes**, con un semáforo: verde hasta 60 al día,
+> ámbar hasta 150, rojo por encima. **Míralo antes de activar**, porque desde el
+> 22/10 ARLES ya no te pone ningún techo ahí: te enseña la cifra y decides tú.
+> Si la suma te parece mucha, usa un remitente distinto para cada campaña.
 
 **La firma.** En el paso 4 eliges cuál va al pie. Si no eliges ninguna, se usa
 la que marcaste por defecto en Plantillas y firmas.

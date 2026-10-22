@@ -398,7 +398,7 @@ Lo demás que sigue abierto, con quién lo cierra:
 | 🟡 **P-17** | `consent_entry` es de sólo-añadir y guarda la dirección en claro, lo que roza el derecho de cancelación | Abogado · va dentro de P-09 |
 | 🟡 **D-WA** | ¿Se construye la campaña entera por WhatsApp, o la v1.2.0 ofrece sólo correo? | Dirección · planteado en [FASE-05-PARA-DIRECCION](documentacion/09-fases/FASE-05-PARA-DIRECCION.md) |
 | 🟡 **R-05** | Imagen en la firma del correo: ¿embebida —engorda cada envío y dispara filtros— o alojada, que hay que alojarla en algún sitio? El saneado del HTML tendría que admitir `<img>` con sus reglas | Dirección · pedido el 21/10/2026 |
-| 🟡 **D-REM** | Dos campañas con el mismo remitente se reparten su cupo diario (medido: 50 y 50 dan **25 y 25**, por orden de llegada). Hoy **se avisa** en el paso 6; ¿se prefiere **impedirlo**? | Dirección · planteado el 22/10/2026 en [AUDITORIA-G](documentacion/09-fases/AUDITORIA-G-FUNCIONALIDAD.md) |
+| ✅ **D-REM** | **Cerrada el 22/10/2026 con D-13 y D-14.** Se planteó porque dos campañas con el mismo remitente se repartían su cupo —50 y 50 daban 25 y 25— y eso rompía el plazo prometido. Dirección decidió que **los topes se sumen**: cada campaña manda lo suyo y el total del buzón sale en Remitentes con un semáforo (60 / 150). El agregado ya no tiene techo, a propósito | Resuelta · ver [DECISIONES_DE_DIRECCION](documentacion/01-producto/DECISIONES_DE_DIRECCION.md) D-13 |
 
 Detalle en [PREGUNTAS_ABIERTAS](documentacion/02-auditoria/PREGUNTAS_ABIERTAS.md).
 

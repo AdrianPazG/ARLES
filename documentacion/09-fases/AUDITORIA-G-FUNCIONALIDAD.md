@@ -174,6 +174,32 @@ de esa campaña, **como si el remitente fuera sólo suyo**. Con otra enviando, s
 — el patrón que esta auditoría entera persigue, encontrado por quien usa el
 producto y no por quien lo mide.
 
+> ## ⚠️ Esto dejó de ser verdad la misma tarde (D-13)
+>
+> **Este documento es el acta de la mañana del 22/10/2026 y se deja como está**,
+> pero quien lo lea hoy tiene que saber que su conclusión se invirtió unas horas
+> después, porque aquí hay dos frases que ya no describen el producto:
+>
+> - *«con 200 y 200 no salen 400»* — **ahora sí salen 400.**
+> - *«el total de un día es el mayor de los límites, nunca la suma»* — **ahora es
+>   la suma.**
+>
+> Dirección leyó este informe y decidió lo contrario de lo que yo defendía, con
+> un argumento que no es de volumen sino de promesa cumplida: *«el cliente está
+> colocando que se envíen 100 en cada campaña… para respetar el tiempo que el
+> cliente calculó»*. ARLES no puede prometer un plazo y entregar la mitad.
+>
+> Así que el presupuesto pasó a colgar de la **etapa** (V13), cada campaña manda
+> su propio máximo, y **el techo del agregado desapareció**. Lo que ocupa su
+> sitio es el semáforo de Remitentes (D-14): la suma a la vista antes de activar,
+> en verde hasta 60 al día, ámbar hasta 150 y rojo por encima.
+>
+> El detalle está en **D-13 y D-14** de
+> [`DECISIONES_DE_DIRECCION.md`](../01-producto/DECISIONES_DE_DIRECCION.md), y lo
+> que costó comprobarlo, en la
+> [auditoría H](AUDITORIA-H-EL-CUPO-DIARIO.md) — que encontró **siete sitios**
+> afirmando todavía lo de esta página, incluido un aviso que el usuario lee.
+
 ### El arreglo: decirlo donde se promete
 
 El preflight sabe ahora qué campañas **están enviando** con ese remitente y con

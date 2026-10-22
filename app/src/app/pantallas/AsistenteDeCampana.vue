@@ -125,6 +125,26 @@ const ventana = ref('')
 // promete su casilla en Plantillas (H-12).
 const firma = ref('')
 const limiteDiario = ref('')
+// ── EL POR HORA YA NO ES UN CAMPO: ES UNA CONSECUENCIA (D-17, 22/10/2026) ──
+//
+// Decisión de Dirección, con sus palabras: *«que calcule automáticamente ARLES
+// el número de correos por hora, yo sólo le asigno el horario con el que quiero
+// enviar la campaña… pero el valor de entrada que se respete es el de correos
+// por día»*.
+//
+// Pedir los dos números era la causa del defecto H-2 de la auditoría del cupo:
+// con el por hora de la cuenta —diez— y nueve horas de ventana, quien escribía
+// 500 al día recibía 90. El arreglo de esa auditoría fue calcularlo y avisar si
+// alguien lo bajaba; esto va un paso más allá y **quita la posibilidad de
+// bajarlo**, así que el defecto no puede volver por ninguna puerta.
+//
+// Y no se pierde nada: el cálculo REPARTE por definición. 500 en nueve horas
+// son 56 por hora, que es exactamente «repartido a lo largo del día» — lo que
+// el campo servía para conseguir, cuando alguien sabía hacer la división.
+//
+// Sigue siendo un `ref` y no un `computed` porque hay un caso en que no se
+// puede calcular: sin horario elegido no hay horas entre las que repartir. Ahí
+// vale lo que trae la cuenta, hasta que se elija uno.
 const limitePorHora = ref('')
 const aceptoElRiesgo = ref(false)
 const direccionDePrueba = ref('')
@@ -293,6 +313,8 @@ const avisaDelVolumen = computed(
 watch(cuentaElegida, (r) => {
   if (!r) return
   if (limiteDiario.value.trim() === '') limiteDiario.value = String(r.limiteDiario)
+  // El por hora de la cuenta sólo se usa mientras no haya horario elegido: en
+  // cuanto lo haya, el `watch` de abajo lo calcula del diario.
   if (limitePorHora.value.trim() === '') limitePorHora.value = String(r.limitePorHora)
 })
 
@@ -377,7 +399,24 @@ const techoRealDelDia = computed(() => {
   return Math.min(dia, hora * horas)
 })
 
-/** `true` cuando el tope de la hora deja el del día sin alcanzar. */
+/**
+ * `true` cuando el tope de la hora deja el del día sin alcanzar.
+ *
+ * ── ESTO YA NO DEBERÍA PODER PASAR, Y POR ESO SE QUEDA ───────────────────
+ *
+ * Desde la D-17 el por hora no se escribe: lo calcula ARLES del diario y del
+ * horario, así que siempre es el que hace falta. Este aviso, entonces, **no
+ * tiene que aparecer nunca**.
+ *
+ * Se queda por lo mismo que se queda una alarma en una puerta que ya está
+ * cerrada: si algún día vuelve a haber una forma de escribir el por hora —un
+ * campo avanzado, un valor que llegue de la base, una etapa creada por otro
+ * camino—, lo que no puede pasar es que **salgan menos correos de los pedidos y
+ * nadie lo diga**. Eso ya pasó una vez, con 90 de 500.
+ *
+ * Y mientras no pueda pasar, su prueba lo comprueba sembrando el valor a mano:
+ * una alarma que nunca se ha visto sonar no está verificada.
+ */
 const laHoraFrenaElDia = computed(
   () =>
     techoRealDelDia.value !== null &&
@@ -718,29 +757,44 @@ function rotulo(clave: string): string {
               : t('asistente.paso.limites.diarioAyudaConCifra', { n: topeDeLaCuenta })
           "
         />
-        <AEntrada
-          v-model="limitePorHora"
-          :etiqueta="t('asistente.paso.limites.porHora')"
-          :ayuda="
-            porHoraQueHaceFalta === null
-              ? ''
-              : t('asistente.paso.limites.porHoraCalculado', { n: porHoraQueHaceFalta })
-          "
-        />
+        <!--
+          EL REPARTO POR HORA, QUE YA NO SE PIDE (D-17, 22/10/2026).
+
+          Aquí había un segundo campo —«máximo por hora»— y era la causa del
+          defecto H-2: se rellenaba con el de la cuenta, diez, y con nueve
+          horas de ventana hacía que un tope diario de 500 entregara 90.
+
+          Dirección decidió que ARLES lo calcule: el valor de entrada es el de
+          correos por día, y el horario. Así que esto **no es un campo, es una
+          consecuencia**, y se enseña como tal — no se puede escribir, y por eso
+          el defecto no puede volver por ninguna puerta.
+
+          Se enseña y no se esconde porque es la cifra que explica el ritmo:
+          quien ve «unos 56 por hora» entiende que no sale todo de golpe, que
+          es justo lo que el campo servía para conseguir cuando alguien sabía
+          hacer la división.
+        -->
+        <p
+          v-if="porHoraQueHaceFalta !== null"
+          class="asistente__frase"
+        >
+          {{ t('asistente.paso.limites.repartoPorHora', {
+            n: porHoraQueHaceFalta.toLocaleString('es-MX'),
+            horas: (ventanaElegida?.hasta ?? 0) - (ventanaElegida?.desde ?? 0),
+          }) }}
+        </p>
 
         <!--
-          EL AVISO DE QUE SALDRÁN MENOS DE LOS QUE SE PIDIERON.
+          LA ALARMA DE LA PUERTA QUE YA ESTÁ CERRADA.
 
-          Medido el 22/10/2026: con diez por hora y una ventana de nueve horas,
-          quien escribía 500 al día recibía 90 y la pantalla no lo decía. El
-          por hora se calcula solo desde entonces, así que este aviso sólo
-          aparece si alguien lo baja a mano — y entonces hace falta, porque
-          bajarlo puede ser lo que se quiere y mandar menos de lo pedido sin
-          saberlo nunca lo es.
+          Desde la D-17 el por hora no se escribe, así que esto no tiene que
+          aparecer nunca. Se queda porque lo que no puede volver a pasar es que
+          salgan menos correos de los pedidos y nadie lo diga — ya pasó una vez,
+          con 90 de 500. Si algún día vuelve a haber una forma de fijarlo (un
+          campo avanzado, un valor que llegue de la base), el aviso está puesto.
 
-          Va pegado al campo que lo causa y no al final del paso: un aviso que
-          desmiente una cifra tiene que verse con la cifra delante, que es la
-          lección del aviso del remitente compartido.
+          Su prueba lo siembra a mano, porque una alarma que nunca se ha visto
+          sonar no está verificada.
         -->
         <AAviso
           v-if="laHoraFrenaElDia"

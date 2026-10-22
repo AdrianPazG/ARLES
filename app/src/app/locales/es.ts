@@ -2161,7 +2161,24 @@ export const es = {
         diarioAyudaConCifra:
           'Tu cuenta viene con {n} al día. Puedes subirlo o bajarlo: éste es ' +
           'el número que ARLES va a respetar.',
+        // ── EL CAMPO «MÁXIMO POR HORA» SE RETIRÓ (D-17, 22/10/2026) ──────
+        //
+        // Dirección: «que calcule automáticamente ARLES el número de correos
+        // por hora, yo sólo le asigno el horario… pero el valor de entrada que
+        // se respete es el de correos por día».
+        //
+        // La etiqueta se queda definida porque el aviso de abajo —la alarma de
+        // la puerta cerrada— la nombra al explicar qué número frena; quitarla
+        // dejaría ese texto sin su referencia.
         porHora: 'Máximo por hora',
+
+        // Lo que ARLES reparte, enseñado como consecuencia y no como campo.
+        // Cifras, no adjetivos (§94), y «unos» porque la última hora del día
+        // lleva el resto de la división: decir «56 por hora» exacto sería
+        // prometer una regularidad que el tope diario corta.
+        repartoPorHora:
+          'ARLES los repartirá a lo largo de tu horario: unos {n} por hora ' +
+          'durante las {horas} horas de envío.',
         // ── ESTE TEXTO SUSTITUYE A `porHoraAyuda` (22/10/2026) ───────────
         //
         // El anterior decía «tu cuenta viene con {n} por hora», y era verdad y
@@ -3474,6 +3491,37 @@ export const es = {
     nombreNoCambia:
       'El nombre no cambia al corregir el texto. Si necesitas otro nombre, ' +
       'crea una plantilla nueva.',
+  },
+
+  // ── LOS GRUPOS DE DESENLACE DEL NÚCLEO (22/10/2026) ────────────────────
+  //
+  // `GrupoDeDesenlace::clave_i18n()` en `arles-core/src/attempt.rs` devuelve
+  // estas cinco claves, y **el catálogo no las tenía**. Lo encontró la prueba
+  // nueva de este archivo, midiendo las claves que Rust emite contra el objeto
+  // compilado: el validador no podía verlo porque su comprobación del §139 sólo
+  // mira las que empiezan por `error.`.
+  //
+  // Nadie llama hoy a esa función —la pantalla de Actividad tiene sus propios
+  // textos arriba, en `actividad.salio` y compañía—, así que el hueco no se veía
+  // en ninguna pantalla. Es el patrón del §9 con la cola del i18n: cuando nadie
+  // usa una pieza, todo lo que la describe se desalinea sin que nada falle. Y
+  // es el mismo caso que `plantilla.variable.miEmpresa` de la Fase 6, que
+  // apuntaba a un texto inexistente.
+  //
+  // DEUDA DECLARADA: estos cinco textos y los de `actividad` dicen lo mismo con
+  // dos nombres. No se unifica hoy porque tocar Actividad es otra entrega y no
+  // está medido; lo que no podía quedarse es una clave del núcleo apuntando a
+  // nada. Si alguien usa la función mañana, hay texto; si se unifica, se borra
+  // uno de los dos bloques y la prueba dirá si se borró el que no tocaba.
+  envio: {
+    grupo: {
+      // §65: lo que el proveedor aceptó, que no es lo mismo que entregado.
+      salio: 'Aceptados',
+      pendiente: 'Por enviar',
+      fallo: 'Fallaron',
+      dadoDeBaja: 'Se dieron de baja',
+      cancelado: 'Cancelados',
+    },
   },
 
 } as const

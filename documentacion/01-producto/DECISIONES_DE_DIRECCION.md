@@ -632,6 +632,49 @@ razones por las que no sale nada.
 
 ---
 
+### D-17 · El número de correos por hora lo calcula ARLES
+
+**Fecha:** 22 de octubre de 2026 · **Pedida por:** Dirección · **Gobierna:** el
+paso 5 del asistente · **Cierra** el hallazgo H-2 de la auditoría del cupo
+
+> «Que calcule automáticamente ARLES el número de correos por hora, yo sólo le
+> asigno el horario con el que quiero enviar la campaña —ya decido si quiero que
+> sea de 9:00 a 19:00 hrs u otro horario—. Pero el valor de entrada que se
+> respete es el de correos por día.»
+
+**Por qué esto no es una comodidad.** El paso 5 pedía los dos números, y el de
+la hora podía frenar al del día. Medido el mismo día, con el por hora que la
+pantalla rellenaba sola —diez, el de la cuenta— y una ventana de nueve horas:
+
+| Lo que se pedía | Lo que salía |
+|---|---|
+| **500 al día** | **90** |
+| **100 al día** | **90** |
+| 50 al día | 50 |
+
+**Cualquier tope diario por encima de noventa no se cumplía.** La auditoría H lo
+arregló calculando el por hora y avisando si alguien lo bajaba; esta decisión va
+un paso más allá y **quita la posibilidad de escribirlo**, así que el defecto no
+puede volver por ninguna puerta.
+
+**Lo decidido:** en el paso 5 se piden **dos cosas** — el horario y los correos
+al día. El reparto por hora se calcula y **se enseña**: «ARLES los repartirá a
+lo largo de tu horario: unos 56 por hora durante las 9 horas de envío».
+
+**Y no se pierde nada**, que era la duda legítima: el cálculo **reparte por
+definición**. 500 en nueve horas son 56 por hora, que es exactamente lo que el
+campo servía para conseguir cuando alguien sabía hacer la división. Lo único que
+desaparece es la posibilidad de equivocarse en ella.
+
+> **El aviso de «con ese máximo por hora no saldrán todos» se queda puesto**, y
+> es deliberado: no tiene que aparecer nunca. Es la alarma de una puerta que ya
+> está cerrada — si algún día vuelve a haber una forma de fijar el por hora, lo
+> que no puede pasar es que salgan menos correos de los pedidos y nadie lo diga.
+> Su prueba lo siembra a mano, porque una alarma que nunca se ha visto sonar no
+> está verificada.
+
+---
+
 ## Decisiones pendientes
 
 Ver **`02-auditoria/PREGUNTAS_ABIERTAS.md`** para el registro completo.

@@ -776,9 +776,39 @@ describe('el paso 5 sin ningún horario guardado', () => {
     // 500 en nueve horas son 55.5 → 56, que es lo que hace que quepan los 500.
     // @ts-expect-error acceso al estado interno: el por hora que se calculó
     expect(p.vm.limitePorHora).toBe('56')
-    expect(p.text()).toContain('ARLES puso 56')
+    // Y se enseña como consecuencia, no como campo: desde la D-17 no se puede
+    // escribir, así que el defecto de los 90 de 500 no tiene por dónde volver.
+    expect(p.text()).toContain('unos 56 por hora')
+    expect(p.text()).toContain('durante las 9 horas de envío')
     // Y entonces no hay nada que avisar: el día se cumple.
     expect(p.text()).not.toContain('no saldrán todos')
+  })
+
+  /**
+   * **El campo «máximo por hora» ya no existe** (D-17, 22/10/2026).
+   *
+   * Dirección pidió asignar sólo el horario y los correos por día. Esta prueba
+   * no comprueba una cifra: comprueba que **no haya por dónde escribir** el por
+   * hora, que es lo que convierte el arreglo de la auditoría H en algo que no
+   * puede volver.
+   *
+   * Se mira la etiqueta del campo y no el número de entradas del paso: contar
+   * entradas se rompería al añadir cualquier otra cosa, y entonces esta prueba
+   * saldría en rojo sobre código correcto.
+   */
+  it('no hay un campo para escribir el máximo por hora', async () => {
+    const p = enElPaso5([
+      { id: 'v1', nombre: 'Laborables', dias: 31, desde: 9, hasta: 18, zona: 'America/Monterrey' },
+    ])
+    // @ts-expect-error acceso al estado interno: la cuenta
+    p.vm.cuenta = CUENTA.id
+    // @ts-expect-error acceso al estado interno: el horario
+    p.vm.ventana = 'v1'
+    await p.vm.$nextTick()
+
+    const etiquetas = p.findAll('label').map((l) => l.text())
+    expect(etiquetas.some((e) => e.includes('Máximo al día'))).toBe(true)
+    expect(etiquetas.some((e) => e.includes('Máximo por hora'))).toBe(false)
   })
 
   /**
