@@ -1371,4 +1371,82 @@ mod tests {
         assert_eq!(error.clave_i18n(), "error.db.dato_invalido");
         assert_eq!(cuantos(&db, "message_attempt", c), 0);
     }
+    /// **MEDICIÓN PARA DIRECCIÓN (22/10/2026): el mismo contacto en dos
+    /// campañas recibe DOS correos.**
+    ///
+    /// La pregunta era literal: «al colocar en dos campañas diferentes al mismo
+    /// contacto y el mismo remitente en ambas, ¿envía el correo 2 veces?».
+    ///
+    /// La respuesta es sí, y esta prueba la fija para que nadie la tenga que
+    /// volver a suponer. La audiencia se congela como «todos los contactos
+    /// activos de la empresa menos las bajas», sin mirar qué otras campañas
+    /// existen, y la clave de idempotencia es `IdempotencyKey::nueva()` — nace
+    /// distinta en cada fila, así que protege contra reenviar DOS VECES EL MISMO
+    /// intento (ADR-0004) y no contra dos intentos distintos a la misma persona.
+    ///
+    /// No es un defecto escondido: es lo que el producto hace hoy, y hace falta
+    /// que esté medido antes de decidir si debe cambiar.
+    #[test]
+    fn el_mismo_contacto_en_dos_campanas_recibe_dos_correos() {
+        let (_d, db, v) = base();
+        contacto(&db, "k1", "ana@x.mx");
+
+        let mut campanas = Vec::new();
+        for nombre in ["Primera", "Segunda"] {
+            let c = db
+                .crear_campana(
+                    empresa(),
+                    &CampanaNueva {
+                        nombre,
+                        cuenta: CUENTA.parse().expect("id"),
+                        version_de_plantilla: v,
+                        firma: None,
+                        ventana: "vent-1",
+                        limite_por_hora: None,
+                        limite_diario: Some(50),
+                        acepto_el_riesgo_del_volumen: false,
+                    },
+                )
+                .expect("se crea")
+                .id;
+            db.activar_campana(empresa(), c).expect("activa");
+            campanas.push(c);
+        }
+
+        // Lo que de verdad importa: cuántos envíos hay EN COLA para esa persona.
+        let para_ana: i64 = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row(
+                    "SELECT count(*) FROM message_attempt WHERE contact_address = ?1",
+                    params!["ana@x.mx"],
+                    |f| f.get(0),
+                )
+            })
+            .expect("cuenta");
+        assert_eq!(
+            para_ana, 2,
+            "ana está en las dos campañas, así que tiene dos correos en cola"
+        );
+
+        // Y con claves de idempotencia distintas: el motor no los reconoce como
+        // el mismo envío, y no hay nada que los junte.
+        let claves: i64 = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row(
+                    "SELECT count(DISTINCT idempotency_key) FROM message_attempt
+                      WHERE contact_address = ?1",
+                    params!["ana@x.mx"],
+                    |f| f.get(0),
+                )
+            })
+            .expect("cuenta");
+        assert_eq!(
+            claves, 2,
+            "dos claves distintas: la idempotencia no los une, y no está para eso"
+        );
+
+        // Las dos campañas comparten remitente, que es la otra mitad de la
+        // pregunta: el mismo buzón manda los dos.
+        assert_eq!(campanas.len(), 2);
+    }
 }
