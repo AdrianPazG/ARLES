@@ -100,6 +100,7 @@ const CLAVES_DEL_NUCLEO = [
   // Entrega 6.6 · el aviso de volumen del §48. No es un límite: es la
   // constancia de que se informó antes de crear la campaña.
   'error.db.falta_aceptar_el_volumen',
+  'error.db.limite_de_envios_en_cero',
   // Y los cuatro motivos de una ventana que no se abriría nunca. `DbError`
   // devuelve la clave del MOTIVO, no una suya, para que el texto diga qué
   // campo arreglar (§95).

@@ -451,6 +451,13 @@ pub fn crear_campana(
     nombre: String,
     cuenta: String,
     version_de_plantilla: String,
+    // La firma que se pega al pie, o `None` para la de por defecto (H-12).
+    // Llega como texto y no como `SignatureId` porque es lo que la webview
+    // tiene: el identificador que le dio la lista de firmas. Quien comprueba
+    // que existe es la clave ajena de `campaign_stage`, y un valor inventado
+    // hace fallar la creación entera en vez de crear una campaña que apunta a
+    // nada.
+    firma: Option<String>,
     ventana: String,
     limite_por_hora: Option<u32>,
     limite_diario: Option<u32>,
@@ -473,6 +480,7 @@ pub fn crear_campana(
                 nombre: &nombre,
                 cuenta,
                 version_de_plantilla: version,
+                firma: firma.as_deref(),
                 ventana: &ventana,
                 limite_por_hora,
                 limite_diario,

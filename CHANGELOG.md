@@ -12,6 +12,48 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### El límite de correos al día se fija al crear la campaña, y ahora se aplica
+
+Dirección: *«tampoco vi que pudiera modificar el límite de correos por día»*.
+
+El campo existía desde la Fase 6, en el paso 5, con su aviso de riesgo y su
+casilla de aceptación. **Lo que no existía era el efecto.** El motor tomaba el
+menor entre el límite de la campaña y el de la cuenta remitente, y toda cuenta
+nace con 50 diarios escritos en el código sin pantalla para cambiarlos:
+
+| Se escribe | La cuenta trae | **Sale de verdad** |
+|---|---|---|
+| 300 | 50 | **50** |
+| 500 | 50 | **50** |
+
+Se escribía 300, se leía el aviso, se marcaba la casilla — y salían 50 sin que
+nada lo dijera. Peor que faltar la función: dejaba creer que se había usado.
+
+**Decisión de Dirección (22/10/2026): el límite se fija al crear la campaña.**
+Lo que ocupa el sitio del `min` que se quitó: el presupuesto cuelga de la
+**cuenta**, así que dos campañas de 300 sobre el mismo remitente comparten
+contador y no suman; el aviso del §48 queda en `audit_log` con su fecha; y
+ADR-0008 sigue intacto — no hay rotación de remitentes.
+
+Y los dos campos se rellenan al elegir cuenta, en vez de quedarse vacíos con un
+texto que decía «déjalo en blanco». Un `0`, un negativo o letras se rechazan
+**en el paso 5 y en la frontera**, porque un cero creaba una campaña que se
+activa y no manda nunca nada.
+
+### La firma se elige al crear la campaña
+
+`campaign_stage.signature_id` existía desde la V4 y la consulta que arma el
+correo ya la miraba, con su caída a la firma por defecto. **Nada la escribía**,
+así que todas las campañas salían con la misma firma. Ahora hay desplegable en
+el paso 4, con «la firma marcada por defecto» como primera opción.
+
+### Y el paso 4 ya no deja sin salida
+
+Sin ninguna plantilla guardada, el desplegable salía vacío y «Continuar»
+apagado, sin decir que las plantillas se escriben en otra pantalla. El paso 3
+avisa cuando no hay cuentas y el 5 cuando no hay horarios; éste no avisaba de
+nada. Es el H-06 en el paso de al lado.
+
 ### La tabla del cliente entra tal como está, y «Teléfono» ya no se pierde
 
 Dirección preguntó el 22/10/2026 si ARLES podía cargar la tabla de un cliente

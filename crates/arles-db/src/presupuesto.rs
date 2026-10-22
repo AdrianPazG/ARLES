@@ -447,6 +447,49 @@ mod tests {
             "una fila para la ventana horaria y otra para la diaria, y nada más"
         );
     }
+
+    /// **La defensa que sustituye al `min` que se quitó el 22/10/2026.**
+    ///
+    /// Desde esa fecha el límite de la campaña manda y puede superar el valor
+    /// de la cuenta (ver la cabecera de `trabajo.rs`). La pregunta que eso
+    /// abre: si dos campañas de 300 comparten remitente, ¿salen 600 de esa
+    /// cuenta en un día?
+    ///
+    /// **No, y es por esto:** el presupuesto cuelga del `email_account_id`, no
+    /// de la campaña. Las dos escriben en el mismo contador, así que el total
+    /// de una cuenta en un día es el mayor de los límites de sus campañas —
+    /// nunca la suma.
+    ///
+    /// Se prueba desde los envíos y no leyendo el esquema: lo que hay que poder
+    /// afirmar es que **el contador que las dos consultan es uno solo**, y eso
+    /// se ve sumando por los dos lados y leyendo una vez.
+    ///
+    /// Verificada rompiéndola: dando a cada campaña su propia cuenta
+    /// —`anotar_un_envio("cuenta-b", …)` en el segundo bucle—, el contador de
+    /// «cuenta» se queda en 4 y la prueba cae con «el presupuesto no es
+    /// compartido».
+    #[test]
+    fn dos_campanas_sobre_una_cuenta_no_suman_sus_topes() {
+        let (_d, db) = base();
+
+        // Cuatro envíos de la campaña A y tres de la B, misma cuenta.
+        for _ in 0..4 {
+            db.anotar_un_envio("cuenta", "2026-09-23T14", DIA, AHORA)
+                .expect("campaña A");
+        }
+        for _ in 0..3 {
+            db.anotar_un_envio("cuenta", "2026-09-23T14", DIA, AHORA)
+                .expect("campaña B");
+        }
+
+        let gastado = db
+            .gastado_de("cuenta", "2026-09-23T14", DIA)
+            .expect("lectura");
+        assert_eq!(
+            gastado.en_este_dia, 7,
+            "el presupuesto no es compartido: cada campaña estaría contando aparte"
+        );
+    }
 }
 
 #[cfg(test)]

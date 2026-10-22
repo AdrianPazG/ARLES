@@ -515,6 +515,103 @@ describe('el asistente de campaña', () => {
 })
 
 /**
+ * ── LA FIRMA SE ELIGE AL CREAR LA CAMPAÑA (H-12, 22/10/2026) ───────────────
+ *
+ * `campaign_stage.signature_id` existía desde la V4 y la consulta del envío ya
+ * la miraba — con su caída a la de por defecto— **meses antes de que nada la
+ * escribiera**. Nada fallaba: simplemente todas las campañas salían con la
+ * misma firma y el asistente ni preguntaba.
+ *
+ * Esto comprueba la punta que es del frontend: que el desplegable exista con
+ * la opción de por defecto delante, y que un vacío viaje como `null` y no como
+ * cadena vacía — la clave ajena de `campaign_stage` rechazaría la cadena.
+ */
+describe('la firma del pie en el asistente', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  function enElPaso4(firmas: unknown[]) {
+    const remitentes = useRemitentesStore()
+    remitentes.remitentes = [CUENTA]
+    remitentes.cargada = true
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    // @ts-expect-error se fija el estado del store para el caso bajo prueba
+    campanas.firmas = firmas
+    const p = mount(AsistenteDeCampana, entorno)
+    // @ts-expect-error acceso al estado interno para situarse en el paso 4
+    p.vm.paso = 4
+    return p
+  }
+
+  /**
+   * ── SIN PLANTILLAS, EL PASO 4 DEJABA SIN SALIDA ────────────────────────
+   *
+   * El paso 3 avisa cuando no hay cuentas y el 5 cuando no hay horarios; éste
+   * dejaba un desplegable vacío, «Continuar» apagado y ninguna pista de que
+   * la plantilla se escribe en otra pantalla. Es el H-06 en el paso de al
+   * lado, encontrado mirando la demostración con las diez fases en verde.
+   */
+  it('NO deja a nadie sin salida: dice dónde se escriben las plantillas', async () => {
+    const p = enElPaso4([])
+    await p.vm.$nextTick()
+    expect(p.text()).toContain('Todavía no has escrito ninguna plantilla')
+    expect(p.text()).toContain('Ir a Plantillas y firmas')
+  })
+
+  it('con plantillas guardadas no estorba con el aviso', async () => {
+    const campanas = useCampanasStore()
+    const p = enElPaso4([])
+    campanas.plantillas = [
+      {
+        id: 'p1',
+        nombre: 'Oferta',
+        version: {
+          id: 'v1',
+          numero: 1,
+          asunto: 'A',
+          cuerpoHtml: '<p>Hola</p>',
+          variables: [],
+        },
+      },
+    ]
+    await p.vm.$nextTick()
+    expect(p.text()).not.toContain('Todavía no has escrito ninguna plantilla')
+  })
+
+  it('ofrece las firmas, con la de por defecto delante', async () => {
+    const p = enElPaso4([
+      { id: 'f1', nombre: 'La de ventas', cuerpoHtml: '<p>a</p>', porDefecto: true },
+      { id: 'f2', nombre: 'La de soporte', cuerpoHtml: '<p>b</p>', porDefecto: false },
+    ])
+    await p.vm.$nextTick()
+    expect(p.text()).toContain('Firma del pie')
+    // @ts-expect-error estado interno
+    const opciones = p.vm.opcionesDeFirma as { valor: string; texto: string }[]
+    expect(opciones[0]).toEqual({
+      valor: '',
+      texto: 'La firma marcada por defecto',
+    })
+    expect(opciones.map((o) => o.texto)).toContain('La de soporte')
+  })
+
+  /**
+   * **Vacío viaja como `null`, no como cadena vacía.** Una cadena vacía no es
+   * una firma que exista: la clave ajena de `campaign_stage` la rechazaría y
+   * la campaña entera fallaría al crearse, después de nueve pasos.
+   */
+  it('sin elegir firma manda null y no una cadena vacía', async () => {
+    const p = enElPaso4([])
+    // @ts-expect-error estado interno
+    expect(p.vm.firma).toBe('')
+    // @ts-expect-error estado interno
+    const comoViaja = p.vm.firma === '' ? null : p.vm.firma
+    expect(comoViaja).toBeNull()
+  })
+})
+
+/**
  * El paso 5, que dejaba la campaña sin salida · H-06 y H-10, 16/10/2026
  *
  * ─────────────────────────────────────────────────────────────────────────
@@ -579,15 +676,89 @@ describe('el paso 5 sin ningún horario guardado', () => {
     // @ts-expect-error se elige la cuenta, que es de donde sale la cifra
     p.vm.cuenta = CUENTA.id
     await p.vm.$nextTick()
-    expect(p.text()).toContain(`se usan ${CUENTA.limiteDiario} al día`)
-    expect(p.text()).toContain(`se usan ${CUENTA.limitePorHora} por hora`)
+    expect(p.text()).toContain(`Tu cuenta viene con ${CUENTA.limiteDiario} al día`)
+    expect(p.text()).toContain(`Tu cuenta viene con ${CUENTA.limitePorHora} por hora`)
   })
 
   it('y sin cuenta elegida no se inventa una cifra', async () => {
     const p = enElPaso5([])
     await p.vm.$nextTick()
-    // Sin cuenta no hay tope que nombrar, y decir uno sería inventarlo.
+    // Sin cuenta no hay cifra que nombrar, y decir una sería inventarla.
     expect(p.text()).toContain('Déjalo en blanco para usar el de la cuenta')
-    expect(p.text()).not.toMatch(/se usan \d+ al día/)
+    expect(p.text()).not.toMatch(/Tu cuenta viene con \d+ al día/)
+  })
+
+  /**
+   * ── EL LÍMITE SE FIJA AL CREAR LA CAMPAÑA (Dirección, 22/10/2026) ───────
+   *
+   * El campo arrancaba vacío con un texto que decía «déjalo en blanco para
+   * usar el de la cuenta». Eso esconde detrás de una frase la cifra que de
+   * verdad se va a aplicar — y es lo contrario de lo que Dirección pidió.
+   * Ahora el número está delante, se ve y se cambia.
+   */
+  it('al elegir cuenta, los dos campos se rellenan con lo que trae', async () => {
+    const p = enElPaso5([])
+    // @ts-expect-error se elige la cuenta
+    p.vm.cuenta = CUENTA.id
+    await p.vm.$nextTick()
+    // @ts-expect-error estado interno
+    expect(p.vm.limiteDiario).toBe(String(CUENTA.limiteDiario))
+    // @ts-expect-error estado interno
+    expect(p.vm.limitePorHora).toBe(String(CUENTA.limitePorHora))
+  })
+
+  /**
+   * **Y no se pisa lo que alguien ya escribió.** Volver al paso 3 a cambiar de
+   * remitente no puede borrarle el 300 que puso: sería quitarle una decisión
+   * sin avisar, que es el defecto que esta entrega vino a arreglar.
+   */
+  it('no pisa un límite ya escrito al cambiar de remitente', async () => {
+    const p = enElPaso5([])
+    // @ts-expect-error estado interno
+    p.vm.limiteDiario = '300'
+    // @ts-expect-error se elige la cuenta después
+    p.vm.cuenta = CUENTA.id
+    await p.vm.$nextTick()
+    // @ts-expect-error estado interno
+    expect(p.vm.limiteDiario).toBe('300')
+  })
+
+  /**
+   * ── UN «0» ACTIVABA UNA CAMPAÑA QUE NO MANDABA NADA ────────────────────
+   *
+   * Se guardaba tal cual, y un negativo lo descartaba Rust para caer en el de
+   * la cuenta. Las dos, en silencio. Ahora se dice y no se deja seguir.
+   */
+  it('no deja seguir con un límite que no puede ser un máximo', async () => {
+    for (const malo of ['0', '-5', 'muchos']) {
+      const p = enElPaso5([
+        { id: 'v1', nombre: 'Laborables', dias: 31, desde: 9, hasta: 18, zona: 'America/Monterrey' },
+      ])
+      // La ventana se elige: sin ella `sePuedeSeguir` ya es false por su
+      // cuenta, y esta prueba pasaría sin que el límite bloqueara nada. Es el
+      // falso verde que la cazó al escribir la prueba gemela de debajo.
+      // @ts-expect-error estado interno
+      p.vm.ventana = 'v1'
+      // @ts-expect-error estado interno
+      p.vm.limiteDiario = malo
+      await p.vm.$nextTick()
+      expect(p.text(), malo).toContain('Ese número no puede ser un máximo de envíos')
+      // @ts-expect-error estado interno
+      expect(p.vm.sePuedeSeguir, malo).toBe(false)
+    }
+  })
+
+  it('y con un número válido no estorba', async () => {
+    const p = enElPaso5([
+      { id: 'v1', nombre: 'Laborables', dias: 31, desde: 9, hasta: 18, zona: 'America/Monterrey' },
+    ])
+    // @ts-expect-error estado interno
+    p.vm.ventana = 'v1'
+    // @ts-expect-error estado interno
+    p.vm.limiteDiario = '40'
+    await p.vm.$nextTick()
+    expect(p.text()).not.toContain('Ese número no puede ser un máximo de envíos')
+    // @ts-expect-error estado interno
+    expect(p.vm.sePuedeSeguir).toBe(true)
   })
 })

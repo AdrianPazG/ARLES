@@ -35,7 +35,7 @@
  *    lo diga: es uno de los ocho puntos del preflight, y sin ella el punto
  *    falla.
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
@@ -121,6 +121,9 @@ const nombre = ref('')
 const cuenta = ref('')
 const versionDePlantilla = ref('')
 const ventana = ref('')
+// La firma del pie. Vacío es «la de por defecto de la empresa», que es lo que
+// promete su casilla en Plantillas (H-12).
+const firma = ref('')
 const limiteDiario = ref('')
 const limitePorHora = ref('')
 const aceptoElRiesgo = ref(false)
@@ -151,6 +154,18 @@ const opcionesDeCuenta = computed(() =>
     .filter((r) => r.estado === 'connected')
     .map((r) => ({ valor: r.id, texto: r.remitente })),
 )
+
+/**
+ * Las firmas, con «la de por defecto» la primera.
+ *
+ * Se ofrece la opción vacía y no se obliga a elegir: `campaign_stage` admite
+ * `NULL` y eso significa exactamente lo que la casilla de Plantillas promete.
+ * Obligar a elegir convertiría «por defecto» en una palabra sin uso.
+ */
+const opcionesDeFirma = computed(() => [
+  { valor: '', texto: t('asistente.paso.mensaje.firmaPorDefecto') },
+  ...campanas.firmas.map((f) => ({ valor: f.id, texto: f.nombre })),
+])
 
 const opcionesDePlantilla = computed(() =>
   campanas.plantillas
@@ -262,6 +277,44 @@ const avisaDelVolumen = computed(
   () => diarioComoNumero.value !== null && diarioComoNumero.value > AVISO_DIARIO,
 )
 
+/**
+ * Al elegir cuenta, los dos campos se rellenan con lo que esa cuenta trae.
+ *
+ * ── POR QUÉ SE RELLENAN Y NO SE DEJAN EN BLANCO (22/10/2026) ──────────────
+ *
+ * Dirección pidió fijar el límite **al crear la campaña**, y un campo vacío
+ * con un texto que dice «déjalo en blanco para usar el de la cuenta» es lo
+ * contrario de eso: esconde la cifra que de verdad se va a aplicar detrás de
+ * una frase. Con el número delante se ve, se compara y se cambia.
+ *
+ * Sólo se rellena lo que esté vacío: si alguien escribió 300 y después vuelve
+ * al paso 3 a cambiar de remitente, pisarle el 300 le quitaría su decisión sin
+ * avisar.
+ */
+watch(cuentaElegida, (r) => {
+  if (!r) return
+  if (limiteDiario.value.trim() === '') limiteDiario.value = String(r.limiteDiario)
+  if (limitePorHora.value.trim() === '') limitePorHora.value = String(r.limitePorHora)
+})
+
+/**
+ * Un límite escrito que no es un número de envíos.
+ *
+ * Cero, negativo o con letras. **No es cosmética**: hasta hoy un «0» se
+ * guardaba tal cual y la campaña se activaba sin mandar nunca nada, y un «-5»
+ * se descartaba en Rust y se usaba el de la cuenta — las dos cosas en
+ * silencio, que es lo que esta pantalla tiene que dejar de hacer.
+ */
+function esUnLimiteImposible(texto: string): boolean {
+  if (texto.trim() === '') return false
+  const n = Number.parseInt(texto, 10)
+  return !Number.isFinite(n) || n < 1
+}
+
+const limiteImposible = computed(
+  () => esUnLimiteImposible(limiteDiario.value) || esUnLimiteImposible(limitePorHora.value),
+)
+
 // ── Qué hace falta para poder seguir ──
 
 /**
@@ -281,7 +334,9 @@ const sePuedeSeguir = computed(() => {
       return versionDePlantilla.value.length > 0
     case 5:
       return (
-        ventana.value.length > 0 && (!avisaDelVolumen.value || aceptoElRiesgo.value)
+        ventana.value.length > 0 &&
+        !limiteImposible.value &&
+        (!avisaDelVolumen.value || aceptoElRiesgo.value)
       )
     case 6: {
       // ── NO SE DEJA AVANZAR SI LA CAMPAÑA NO VA A PODER ACTIVARSE ──
@@ -328,6 +383,9 @@ async function siguiente(): Promise<void> {
       nombre: nombre.value.trim(),
       cuenta: cuenta.value,
       versionDePlantilla: versionDePlantilla.value,
+      // Vacío es «la de por defecto»: `null`, no una cadena vacía, que la
+      // clave ajena rechazaría.
+      firma: firma.value === '' ? null : firma.value,
       ventana: ventana.value,
       limitePorHora: Number.parseInt(limitePorHora.value, 10) || null,
       limiteDiario: diarioComoNumero.value,
@@ -458,6 +516,37 @@ function rotulo(clave: string): string {
           :etiqueta="t('asistente.paso.mensaje.plantilla')"
           :opciones="opcionesDePlantilla"
         />
+        <!--
+          ── SIN PLANTILLAS, EL PASO 4 DEJABA SIN SALIDA (22/10/2026) ──────
+          El paso 3 avisa cuando no hay cuentas y el 5 cuando no hay horarios;
+          **éste no avisaba de nada**: un desplegable vacío, «Continuar»
+          apagado, y ninguna pista de que hay que crear la plantilla en otra
+          pantalla. Es el H-06 en el paso de al lado, y se encontró mirando la
+          demostración con las diez fases en verde.
+        -->
+        <AAviso
+          v-if="opcionesDePlantilla.length === 0"
+          tono="aviso"
+          :titulo="t('asistente.paso.mensaje.sinPlantillas')"
+        >
+          <p>{{ t('asistente.paso.mensaje.sinPlantillasComo') }}</p>
+          <ABoton
+            variante="secundario"
+            @click="router.push({ name: 'plantillas' })"
+          >
+            {{ t('asistente.paso.mensaje.sinPlantillasIr') }}
+          </ABoton>
+        </AAviso>
+        <!--
+          La firma, que hasta el 22/10/2026 no se podía elegir: la columna
+          existía desde la V4, la consulta del envío ya la miraba, y nadie la
+          escribía — así que todas las campañas salían con la de por defecto.
+        -->
+        <ASelector
+          v-model="firma"
+          :etiqueta="t('asistente.paso.mensaje.firma')"
+          :opciones="opcionesDeFirma"
+        />
         <div
           v-if="plantillaElegida?.version"
           class="asistente__variables"
@@ -550,6 +639,19 @@ function rotulo(clave: string): string {
               : t('asistente.paso.limites.porHoraAyuda', { n: topePorHoraDeLaCuenta })
           "
         />
+
+        <!--
+          Un 0, un negativo o letras. Antes se guardaba tal cual: con «0» la
+          campaña se activaba y no mandaba nunca nada, y con «-5» Rust lo
+          descartaba y usaba el de la cuenta. Las dos, en silencio.
+        -->
+        <AAviso
+          v-if="limiteImposible"
+          tono="aviso"
+          :titulo="t('asistente.paso.limites.imposible.titulo')"
+        >
+          <p>{{ t('asistente.paso.limites.imposible.cuerpo') }}</p>
+        </AAviso>
 
         <!-- §48: en línea, no en un modal. Informar, no dictar (§154). -->
         <AAviso

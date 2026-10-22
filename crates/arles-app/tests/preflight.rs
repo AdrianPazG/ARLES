@@ -135,6 +135,7 @@ fn base() -> (tempfile::TempDir, Db, CampaignId) {
                 nombre: "Septiembre",
                 cuenta: CUENTA.parse().expect("id"),
                 version_de_plantilla: version,
+                firma: None,
                 ventana: "vent-1",
                 limite_por_hora: None,
                 limite_diario: None,

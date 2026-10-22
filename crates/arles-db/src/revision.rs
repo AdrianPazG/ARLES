@@ -43,7 +43,7 @@ use time::OffsetDateTime;
 use crate::db::Db;
 use crate::empresa::ahora;
 use crate::error::DbError;
-use crate::trabajo::el_mas_bajo;
+use crate::trabajo::el_limite_que_manda;
 
 /// Los cinco puntos que se contestan sin salir del disco.
 #[derive(Debug, Clone)]
@@ -187,8 +187,8 @@ impl FilaDeRevision {
     /// prometer un ritmo que el proveedor no acepta.
     pub(crate) fn limites(&self) -> Limites {
         Limites::nuevos(
-            el_mas_bajo(self.hora_etapa, self.hora_cuenta),
-            el_mas_bajo(self.dia_etapa, self.dia_cuenta),
+            el_limite_que_manda(self.hora_etapa, self.hora_cuenta),
+            el_limite_que_manda(self.dia_etapa, self.dia_cuenta),
         )
     }
 
@@ -484,6 +484,7 @@ mod tests {
                 nombre: "Septiembre",
                 cuenta: CUENTA.parse().expect("id"),
                 version_de_plantilla: version,
+                firma: None,
                 ventana: "vent-1",
                 limite_por_hora: None,
                 limite_diario: None,
@@ -625,16 +626,26 @@ mod tests {
         );
     }
 
-    /// **La estimación usa el tope más bajo de los dos, no el de la etapa.**
+    /// **La estimación usa el mismo límite que el envío, sea cual sea.**
     ///
-    /// Con la cuenta a 50 diarios y la etapa a 500, estimar con 500 prometería
-    /// terminar diez veces antes de lo que el proveedor va a dejar.
+    /// Lo que esta prueba protege no es un número concreto: es que **las dos
+    /// respuestas no se separen**. Una estima lo que va a tardar y la otra
+    /// decide cuánto sale de verdad; si divergieran, el paso 6 prometería
+    /// terminar en un plazo que el motor no va a cumplir, y la diferencia se
+    /// descubriría contando correos semanas después. Por eso las dos llaman a
+    /// `el_limite_que_manda` y no a dos copias de la misma regla.
     ///
-    /// Verificada rompiéndola el 29/09/2026: dejando ganar al de la etapa
-    /// cuando existe —`etapa.unwrap_or(cuenta)`—, esta prueba falla con
-    /// «500 en vez de 50».
+    /// **La cifra cambió el 22/10/2026** y la prueba con ella: con la cuenta a
+    /// 50 y la etapa a 500, antes se esperaba 50 —mandaba el más bajo— y ahora
+    /// se esperan 500, porque el límite de la campaña manda (ver la cabecera de
+    /// `trabajo.rs`). Lo que no cambió es lo que se está comprobando.
+    ///
+    /// Verificada rompiéndola: haciendo que la estimación lea `self.dia_cuenta`
+    /// directamente en vez de pasar por `el_limite_que_manda` —que es
+    /// exactamente cómo se separarían las dos—, esta prueba cae con «50 en vez
+    /// de 500».
     #[test]
-    fn la_estimacion_usa_el_tope_mas_bajo() {
+    fn la_estimacion_usa_el_mismo_limite_que_el_envio() {
         let (_d, db, v) = base();
         contacto(&db, "c1", "uno@t.mx", "Ana");
 
@@ -645,6 +656,7 @@ mod tests {
                     nombre: "Con prisa",
                     cuenta: CUENTA.parse().expect("id"),
                     version_de_plantilla: v,
+                    firma: None,
                     ventana: "vent-1",
                     limite_por_hora: Some(500),
                     limite_diario: Some(500),
@@ -658,8 +670,8 @@ mod tests {
 
         assert_eq!(
             revisar(&db, c).estimacion.techo_diario,
-            50,
-            "manda el de la cuenta"
+            500,
+            "la estimación tiene que decir lo mismo que va a salir"
         );
     }
 
@@ -735,12 +747,24 @@ mod tests {
     /// diciendo «enviando».
     ///
     /// Lo que lo caza no es una validación del formulario —que se salta por
-    /// cualquier otro camino— sino la cadena entera: el tope más bajo es 0, el
-    /// techo diario es 0, la estimación dice que no avanza, y el punto «el
-    /// horario alcanza» del preflight falla y bloquea la activación.
+    /// cualquier otro camino— sino la cadena entera: el tope es 0, el techo
+    /// diario es 0, la estimación dice que no avanza, y el punto «el horario
+    /// alcanza» del preflight falla y bloquea la activación.
     ///
     /// Esta prueba existe porque **esa cadena nunca se había visto funcionar
     /// entera**, y son cuatro piezas de cuatro entregas distintas.
+    ///
+    /// ── EL CERO ENTRA AHORA POR OTRA PUERTA, Y POR ESO SIGUE HACIENDO FALTA ─
+    ///
+    /// Desde el 22/10/2026 `crear_campana` rechaza un cero con
+    /// `LimiteDeEnviosEnCero`, así que esta prueba **ya no puede sembrarlo
+    /// creando la campaña**: lo escribe en la etapa después, que es el camino
+    /// que queda abierto —una base de antes de esa guarda, o una fila tocada a
+    /// mano—.
+    ///
+    /// Haberla borrado al añadir la guarda habría sido el error: una
+    /// validación de entrada no protege a las filas que ya estaban dentro, y
+    /// ésta es la red que las caza.
     #[test]
     fn un_tope_de_cero_lo_caza_la_estimacion() {
         let (_d, db, v) = base();
@@ -753,14 +777,25 @@ mod tests {
                     nombre: "Parada",
                     cuenta: CUENTA.parse().expect("id"),
                     version_de_plantilla: v,
+                    firma: None,
                     ventana: "vent-1",
-                    limite_por_hora: Some(0),
-                    limite_diario: Some(0),
+                    limite_por_hora: Some(1),
+                    limite_diario: Some(1),
                     acepto_el_riesgo_del_volumen: false,
                 },
             )
             .expect("crea")
             .id;
+
+        // El cero se siembra en la etapa, que es por donde puede llegar hoy.
+        db.ejecutar_en_pruebas(|conn| {
+            conn.execute(
+                "UPDATE campaign_stage SET hourly_limit = 0, daily_limit = 0
+                  WHERE campaign_id = ?1",
+                rusqlite::params![c.to_string()],
+            )
+        })
+        .expect("siembra el cero");
 
         let sabido = revisar(&db, c);
         assert_eq!(sabido.estimacion.techo_diario, 0, "no cabe ni uno");

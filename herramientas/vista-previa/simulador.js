@@ -958,9 +958,29 @@
           // simulador tiene que exigirlo igual: si aquí fuera más blando, la
           // demostración enseñaría una campaña de alto volumen creada sin que
           // conste el aviso, que es justo lo que el núcleo impide.
+          //
+          // ── Y NO LO EXIGÍA, por un nombre que nadie manda (22/10/2026) ──
+          //
+          // Preguntaba por `args.avisoAceptado`; el asistente manda
+          // `aceptoElRiesgoDelVolumen`. Así que la condición no se cumplía
+          // nunca y el decorado dejaba crear lo que el núcleo rechaza — con
+          // este mismo comentario encima diciendo lo contrario. Es el defecto
+          // de la 8.6 E —un tipo que nadie lee se desalinea en silencio— en el
+          // simulador, donde no hay compilador que mire.
           var tope = Number(args.limiteDiario || 0);
-          if (tope > 50 && !args.avisoAceptado) {
-            return Promise.reject({ clave: 'error.app.falta_aceptar_el_aviso', detalle: '' });
+          if (tope > 50 && !args.aceptoElRiesgoDelVolumen) {
+            return Promise.reject({
+              clave: 'error.db.falta_aceptar_el_volumen',
+              detalle: '',
+            });
+          }
+          // Un cero deja una campaña que se activa y no manda nada: Rust lo
+          // rechaza desde el 22/10/2026 y el decorado tiene que hacer igual.
+          if (tope === 0 || Number(args.limitePorHora) === 0) {
+            return Promise.reject({
+              clave: 'error.db.limite_de_envios_en_cero',
+              detalle: '',
+            });
           }
           var nueva = {
             id: nuevoId(),

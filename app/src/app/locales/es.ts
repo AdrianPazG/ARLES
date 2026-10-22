@@ -1455,6 +1455,24 @@ export const es = {
       como: "Revisa que tenga la forma nombre{'@'}dominio.com.",
       salvo: 'No se guardó ningún cambio.',
     },
+    // ── DOS CLAVES QUE SÓLO EXISTÍAN EN EL SIMULADOR (22/10/2026) ──────────
+    //
+    // La demostración rechazaba con `error.canal_vacio` y `error.sin_canales`
+    // y ninguna de las dos tenía texto, así que al dejar un canal en blanco se
+    // veía la clave cruda en pantalla. Las caza
+    // `el_simulador_rechaza_con_claves_que_existen`, escrita el mismo día: el
+    // §139 no llegaba aquí porque recorre los `clave_i18n()` de Rust y el
+    // simulador es JavaScript.
+    canal_vacio: {
+      que: 'Dejaste una forma de contacto en blanco.',
+      como: 'Escribe el correo o el teléfono, o quita esa línea.',
+      salvo: 'No se guardó ningún cambio.',
+    },
+    sin_canales: {
+      que: 'Este contacto no tiene ninguna forma de contacto.',
+      como: 'Añade al menos un correo o un teléfono: sin uno no hay a quién escribirle.',
+      salvo: 'No se guardó ningún cambio.',
+    },
     // L-1 · las etapas de una campaña. No los puede provocar quien usa ARLES a
     // ciegas: el asistente ofrece lo que se puede elegir. Están porque el
     // núcleo valida igualmente, y un error sin texto se pinta como su clave.
@@ -1819,6 +1837,13 @@ export const es = {
           'diario a 50.',
         salvo: 'No se creó ninguna campaña y no se envió nada.',
       },
+      limite_de_envios_en_cero: {
+        que: 'Pusiste 0 como máximo de envíos.',
+        como:
+          'Vuelve al paso del ritmo y escribe un número de 1 en adelante. ' +
+          'Con 0 la campaña se activaría y no saldría ni un correo.',
+        salvo: 'No se creó ninguna campaña y no se envió nada.',
+      },
       dato_invalido: {
         que: 'Un dato guardado no tiene la forma que ARLES espera.',
         como:
@@ -2091,6 +2116,21 @@ export const es = {
       },
 
       mensaje: {
+        // ── SIN PLANTILLAS NO HABÍA SALIDA (22/10/2026) ──────────────────
+        //
+        // El paso 3 avisa cuando no hay cuentas y el 5 cuando no hay horarios;
+        // éste dejaba un desplegable vacío y «Continuar» apagado, sin decir
+        // que la plantilla se escribe en otra pantalla. Es el H-06 en el paso
+        // de al lado.
+        sinPlantillas: 'Todavía no has escrito ninguna plantilla',
+        sinPlantillasComo:
+          'Una plantilla es el texto del correo: el asunto y el cuerpo, con ' +
+          'los huecos que se rellenan con el nombre de cada persona. Se ' +
+          'escriben en Plantillas y firmas, y aquí eliges cuál mandar.',
+        sinPlantillasIr: 'Ir a Plantillas y firmas',
+        // La firma del pie, que hasta el 22/10/2026 no se podía elegir.
+        firma: 'Firma del pie',
+        firmaPorDefecto: 'La firma marcada por defecto',
         titulo: 'Qué se manda',
         plantilla: 'Plantilla',
         asunto: 'Asunto',
@@ -2110,12 +2150,31 @@ export const es = {
         // aceptando al dejarlo en blanco. Y es un número que importa: por
         // encima de 50 ARLES exige aceptar un aviso (§48), porque es donde los
         // proveedores empiezan a tratarte como remitente masivo.
+        //
+        // ── Y DEJÓ DE SER UN TOPE EL 22/10/2026 ──────────────────────────
+        //
+        // Hasta esa fecha el motor tomaba el menor entre éste y el de la
+        // campaña, así que quien escribía 300 recibía 50 sin que nada se lo
+        // dijera. Ahora manda el de la campaña y esta cifra es lo que la
+        // cuenta trae puesto: un punto de partida, no un techo. El texto tiene
+        // que decirlo, o describiría un comportamiento que ya no existe.
         diarioAyudaConCifra:
-          'Déjalo en blanco y se usan {n} al día, que es el tope de la cuenta ' +
-          'que elegiste.',
+          'Tu cuenta viene con {n} al día. Puedes subirlo o bajarlo: éste es ' +
+          'el número que ARLES va a respetar.',
         porHora: 'Máximo por hora',
         porHoraAyuda:
-          'En blanco se usan {n} por hora, el tope de esa cuenta.',
+          'Tu cuenta viene con {n} por hora. Repartir el envío a lo largo ' +
+          'del día levanta menos sospecha que mandarlo todo de golpe.',
+
+        // Un 0, un negativo o letras. Antes se guardaba tal cual: con «0» la
+        // campaña se activaba y no mandaba nunca nada. Las tres partes del §95.
+        imposible: {
+          titulo: 'Ese número no puede ser un máximo de envíos',
+          cuerpo:
+            'Tiene que ser un número entero de 1 en adelante. Con un 0 la ' +
+            'campaña se activaría y no saldría ni un correo. No se ha ' +
+            'guardado nada todavía: corrige el número y sigue.',
+        },
 
         // ── EL HORARIO, QUE DEJABA LA CAMPAÑA SIN SALIDA (H-06) ──────────
         //

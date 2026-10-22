@@ -1268,6 +1268,103 @@ mod tests {
         assert_eq!(r.asunto, "A");
     }
 
+    /// **La firma que elige la campaña gana a la de por defecto** (H-12).
+    ///
+    /// `campaign_stage.signature_id` existía desde la V4 y la consulta de
+    /// `redaccion_de_la_campana` ya la miraba — con su caída a la de por
+    /// defecto— **meses antes de que nada la escribiera**. El patrón del §9 en
+    /// su forma más silenciosa: nada fallaba, simplemente todas las campañas
+    /// salían con la misma firma, y la pantalla no ofrecía elegir.
+    ///
+    /// Esta prueba recorre las dos ramas del `COALESCE`, que es lo que ninguna
+    /// podía recorrer antes: con `signature_id` puesto gana esa firma, y con
+    /// `NULL` sigue ganando la de por defecto.
+    ///
+    /// **Lo que esta prueba NO cubre, y se dice porque se dio por hecho.** La
+    /// primera versión de este comentario afirmaba estar verificada quitando
+    /// `signature_id` del `INSERT` de `crear_campana`. Es falso: la etapa se
+    /// siembra aquí con SQL a mano, así que romper `crear_campana` la deja en
+    /// verde — se probó. Lo que cubre es **la consulta**, sus dos ramas; que la
+    /// columna se escriba lo cubre `la_firma_elegida_llega_hasta_el_correo` en
+    /// `alta_de_campana.rs`, que sí pasa por ahí.
+    ///
+    /// Es el patrón del §9 aplicado a sus propias pruebas: cada una pasa lo
+    /// suyo y el hueco vive entre las dos.
+    #[test]
+    fn la_campana_usa_la_firma_que_eligio_y_no_la_de_por_defecto() {
+        let (_d, db) = base();
+        let (_p, v) = db
+            .crear_plantilla(empresa(), "Oferta", &redaccion("A", "<p>a</p>"))
+            .expect("crea");
+        let por_defecto = db
+            .crear_firma(
+                empresa(),
+                "La de siempre",
+                "<p>Atentamente, Ventas</p>",
+                true,
+            )
+            .expect("firma por defecto");
+        let otra = db
+            .crear_firma(
+                empresa(),
+                "La de soporte",
+                "<p>Un saludo, Soporte</p>",
+                false,
+            )
+            .expect("otra firma");
+        assert_ne!(por_defecto, otra);
+
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO email_account (id, company_id, display_name, email_address,
+                                            provider_kind, credential_ref, status,
+                                            daily_limit, hourly_limit,
+                                            created_at, updated_at)
+                 VALUES ('c-1', '{EMPRESA}', 'Ventas', 'v@t.mx', 'smtp',
+                         'llavero://v', 'connected', 50, 10,
+                         '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');
+                 INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                 VALUES ('k-1', '{EMPRESA}', 'Con firma elegida', 'draft',
+                         '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');
+                 INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                             email_account_id, template_version_id,
+                                             signature_id, status, created_at, updated_at)
+                 VALUES ('st-1', 'k-1', 1, 'email', 'c-1', '{v}', '{otra}', 'draft',
+                         '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');
+
+                 INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                 VALUES ('k-2', '{EMPRESA}', 'Sin elegir', 'draft',
+                         '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');
+                 INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                             email_account_id, template_version_id,
+                                             signature_id, status, created_at, updated_at)
+                 VALUES ('st-2', 'k-2', 1, 'email', 'c-1', '{v}', NULL, 'draft',
+                         '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');"
+            ))
+        })
+        .expect("las dos campañas");
+
+        let elegida = db
+            .redaccion_de_la_campana("k-1")
+            .expect("consulta")
+            .expect("hay redacción");
+        assert_eq!(
+            elegida.firma_html.as_deref(),
+            Some("<p>Un saludo, Soporte</p>"),
+            "la campaña eligió una firma y se usó la de por defecto"
+        );
+
+        let sin_elegir = db
+            .redaccion_de_la_campana("k-2")
+            .expect("consulta")
+            .expect("hay redacción");
+        assert_eq!(
+            sin_elegir.firma_html.as_deref(),
+            Some("<p>Atentamente, Ventas</p>"),
+            "sin elegir tiene que seguir cayendo en la de por defecto"
+        );
+    }
+
     /// **Una firma retirada deja de ser la de por defecto.**
     ///
     /// Si siguiera marcada volvería por la puerta de atrás: la redacción de

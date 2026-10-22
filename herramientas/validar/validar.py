@@ -2639,6 +2639,69 @@ def una_supresion_pedida_no_se_levanta_con_un_boton():
     )
 
 
+def el_simulador_rechaza_con_claves_que_existen():
+    """Las claves de error del simulador tienen que estar en el catálogo.
+
+    ─────────────────────────────────────────────────────────────────────────
+    DOS DEFECTOS EN CUATRO LÍNEAS, ENCONTRADOS EL 22/10/2026
+
+    El `case 'crear_campana'` del simulador rechazaba con
+    `error.app.falta_aceptar_el_aviso`, y pasaba las dos cosas a la vez:
+
+    1. **La condición no se cumplía nunca.** Preguntaba por `args.avisoAceptado`
+       y el asistente manda `aceptoElRiesgoDelVolumen`, así que la demostración
+       dejaba crear una campaña de alto volumen sin aceptar el aviso — con un
+       comentario encima diciendo que lo exigía igual que el núcleo.
+    2. **Y la clave no existía.** Si la condición se hubiera cumplido, la
+       pantalla habría enseñado la cadena cruda en vez de un error en español.
+
+    Esto caza el segundo, que es el que se puede medir leyendo. El primero no
+    tiene comprobación: una condición que nunca es cierta no deja rastro. Lo
+    que sí deja rastro es **rechazar con un nombre que nadie va a entender**,
+    y eso es lo que se mira aquí.
+
+    El §139 no lo cubría: su comprobación recorre los `clave_i18n()` de Rust, y
+    el simulador es JavaScript — ninguna de las dos listas se mira entre sí.
+
+    ───────────────────────────────────────────────────────────────────────────
+    Verificada volviendo a poner `error.app.falta_aceptar_el_aviso`: en rojo,
+    nombrándola. Y verificada al revés, con una clave buena: en verde.
+    """
+    import re as _re
+
+    sim = leer("herramientas", "vista-previa", "simulador.js") or ""
+    sim_sin_comentarios = _re.sub(r"^\s*//.*$", "", sim, flags=_re.M)
+    claves = sorted(set(_re.findall(r"clave:\s*'(error\.[\w.]+)'", sim_sin_comentarios)))
+
+    textos = leer("app", "src", "app", "locales", "es.ts") or ""
+
+    def existe(clave):
+        """La RUTA entera, no la hoja: `error.db.x` vive en `db: { x: {` ."""
+        partes = clave.split(".")
+        resto = textos
+        for p in partes:
+            m = _re.search(rf"\b{_re.escape(p)}:\s*\{{", resto)
+            if not m:
+                return False
+            resto = resto[m.end():]
+        return True
+
+    faltan = [c for c in claves if not existe(c)]
+    # Fase 3 y no 7: es donde se ejecuta —la llamada vive en ese bloque, al
+    # lado de las demás del simulador—, y una etiqueta que no coincide con la
+    # fase que la corre manda a buscarla donde no está.
+    check(
+        3,
+        f"las {len(claves)} claves con las que rechaza el simulador existen en es.ts",
+        bool(claves) and not faltan,
+        el_simulador_rechaza_con_claves_que_existen.__doc__,
+        detalle=(
+            f"claves del simulador: {claves}\n"
+            f"sin texto en el catálogo: {faltan or 'ninguna'}"
+        ),
+    )
+
+
 def la_vista_previa_no_miente_sobre_las_rutas():
     """El simulador de la vista previa lleva a donde lleva el núcleo.
 
@@ -3133,6 +3196,7 @@ def fase_3(rapido):
     una_supresion_pedida_no_se_levanta_con_un_boton()
     el_informe_de_importacion_consulta_las_supresiones()
     la_vista_previa_no_miente_sobre_las_rutas()
+    el_simulador_rechaza_con_claves_que_existen()
     el_informe_de_acceso_no_deja_cruzar_una_ruta()
     ajustes_es_de_la_aplicacion_y_no_del_negocio()
     la_barra_dice_en_que_seccion_estas()

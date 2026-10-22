@@ -75,8 +75,27 @@ pub struct CampanaNueva<'a> {
     /// entre campañas.
     pub ventana: &'a str,
     /// Los topes de esta etapa. `None` deja mandar el de la cuenta.
+    ///
+    /// **Y mandan ellos desde el 22/10/2026**, también cuando piden más que la
+    /// cuenta: ver la cabecera de `trabajo.rs`.
     pub limite_por_hora: Option<u32>,
     pub limite_diario: Option<u32>,
+    /// La firma que se pega al final de cada correo de esta campaña.
+    ///
+    /// ── LA COLUMNA EXISTÍA DESDE LA V4 Y NADIE LA ESCRIBÍA (H-12) ─────────
+    ///
+    /// `campaign_stage.signature_id` lleva ahí desde la V4, y
+    /// `redaccion_de_la_campana` ya la consultaba —con caída a la de por
+    /// defecto— **meses antes de que nada la rellenara**. El patrón del §9 en
+    /// su forma más silenciosa: la consulta correcta, la columna correcta, y el
+    /// cable sin conectar; nada fallaba, simplemente todas las campañas salían
+    /// con la misma firma.
+    ///
+    /// `None` sigue significando «la de por defecto de la empresa», que es
+    /// literalmente lo que promete la casilla de Plantillas: «usar esta firma
+    /// cuando no se elija otra». La diferencia es que ahora **se puede elegir
+    /// otra**.
+    pub firma: Option<&'a str>,
     /// ¿Se aceptó el riesgo de pasar de 50 diarios (§48)?
     ///
     /// ─────────────────────────────────────────────────────────────────────
@@ -153,6 +172,14 @@ impl Db {
             return Err(DbError::FaltaAceptarElVolumen);
         }
 
+        // Un cero crea una campaña que se activa y no manda nunca nada. Se
+        // comprueba aquí además de en la pantalla porque la frontera no se fía
+        // de la webview, y porque los dos campos valen: con cero por hora
+        // tampoco sale nada, aunque el diario sea generoso.
+        if nueva.limite_diario == Some(0) || nueva.limite_por_hora == Some(0) {
+            return Err(DbError::LimiteDeEnviosEnCero);
+        }
+
         let id = CampaignId::nuevo();
         let etapa = format!("st-1-{id}");
 
@@ -177,14 +204,16 @@ impl Db {
             tx.execute(
                 "INSERT INTO campaign_stage (id, campaign_id, position, channel,
                                              email_account_id, template_version_id,
-                                             execution_window_id, hourly_limit, daily_limit,
+                                             signature_id, execution_window_id,
+                                             hourly_limit, daily_limit,
                                              status, created_at, updated_at)
-                 VALUES (?1, ?2, 1, 'email', ?3, ?4, ?5, ?6, ?7, 'draft', ?8, ?8)",
+                 VALUES (?1, ?2, 1, 'email', ?3, ?4, ?5, ?6, ?7, ?8, 'draft', ?9, ?9)",
                 params![
                     etapa,
                     id.to_string(),
                     nueva.cuenta.to_string(),
                     nueva.version_de_plantilla.to_string(),
+                    nueva.firma,
                     nueva.ventana,
                     nueva.limite_por_hora,
                     nueva.limite_diario,
@@ -604,6 +633,7 @@ mod tests {
                 nombre: "Septiembre",
                 cuenta: CUENTA.parse().expect("id"),
                 version_de_plantilla: version,
+                firma: None,
                 ventana: "vent-1",
                 limite_por_hora: None,
                 limite_diario: None,
@@ -866,6 +896,94 @@ mod tests {
     /// Verificada rompiéndola el 29/09/2026: quitando la comprobación del
     /// `de_alto_volumen`, la campaña de 120 diarios se crea sin aceptación y
     /// esta prueba falla.
+    /// **La firma que elige la campaña llega al correo** (H-12).
+    ///
+    /// `campaign_stage.signature_id` existía desde la V4 y **nada la
+    /// escribía**: `redaccion_de_la_campana` ya la consultaba —con caída a la
+    /// de por defecto— meses antes de que hubiera nada que consultar, así que
+    /// todas las campañas salían con la misma firma y el asistente ni
+    /// preguntaba. El patrón del §9 en su forma más silenciosa: nada falla.
+    ///
+    /// Va por el camino real, `crear_campana`, que es la mitad que la prueba
+    /// de `plantillas.rs` no puede cubrir — allí la etapa se siembra con SQL a
+    /// mano y romper esto la deja en verde (se probó).
+    ///
+    /// Verificada rompiéndola: quitando `nueva.firma` del `INSERT`, cae con
+    /// «Atentamente, Ventas» en vez de «Un saludo, Soporte».
+    #[test]
+    fn la_firma_elegida_llega_hasta_el_correo() {
+        let (_d, db, v) = base();
+        db.crear_firma(
+            empresa(),
+            "La de siempre",
+            "<p>Atentamente, Ventas</p>",
+            true,
+        )
+        .expect("firma por defecto");
+        let otra = db
+            .crear_firma(
+                empresa(),
+                "La de soporte",
+                "<p>Un saludo, Soporte</p>",
+                false,
+            )
+            .expect("otra firma");
+
+        let con_firma = db
+            .crear_campana(
+                empresa(),
+                &CampanaNueva {
+                    nombre: "Con firma propia",
+                    cuenta: CUENTA.parse().expect("id"),
+                    firma: Some(&otra.to_string()),
+                    version_de_plantilla: v,
+                    ventana: "vent-1",
+                    limite_por_hora: None,
+                    limite_diario: Some(40),
+                    acepto_el_riesgo_del_volumen: false,
+                },
+            )
+            .expect("crea")
+            .id;
+
+        assert_eq!(
+            db.redaccion_de_la_campana(&con_firma.to_string())
+                .expect("consulta")
+                .expect("hay redacción")
+                .firma_html
+                .as_deref(),
+            Some("<p>Un saludo, Soporte</p>"),
+            "la firma elegida en el asistente no llegó al correo"
+        );
+
+        // Y sin elegir ninguna sigue ganando la de por defecto, que es lo que
+        // promete su casilla en Plantillas.
+        let sin_firma = db
+            .crear_campana(
+                empresa(),
+                &CampanaNueva {
+                    nombre: "Sin elegir",
+                    cuenta: CUENTA.parse().expect("id"),
+                    firma: None,
+                    version_de_plantilla: v,
+                    ventana: "vent-1",
+                    limite_por_hora: None,
+                    limite_diario: Some(40),
+                    acepto_el_riesgo_del_volumen: false,
+                },
+            )
+            .expect("crea")
+            .id;
+        assert_eq!(
+            db.redaccion_de_la_campana(&sin_firma.to_string())
+                .expect("consulta")
+                .expect("hay redacción")
+                .firma_html
+                .as_deref(),
+            Some("<p>Atentamente, Ventas</p>")
+        );
+    }
+
     #[test]
     fn mas_de_cincuenta_diarios_exige_aceptar_el_aviso() {
         let (_d, db, v) = base();
@@ -876,6 +994,7 @@ mod tests {
                 nombre: "Deprisa",
                 cuenta: CUENTA.parse().expect("id"),
                 version_de_plantilla: v,
+                firma: None,
                 ventana: "vent-1",
                 limite_por_hora: None,
                 limite_diario: Some(120),
@@ -892,12 +1011,48 @@ mod tests {
             "y no quedó una campaña a medias"
         );
 
+        // ── UN CERO NO CREA UNA CAMPAÑA MUDA (22/10/2026) ──────────────────
+        //
+        // Se activaría, pondría «en marcha» en la pantalla, y no mandaría nunca
+        // nada: sin error que mirar y sin cola que explique la espera. Los dos
+        // campos valen — con cero por hora tampoco sale nada aunque el diario
+        // sea generoso.
+        //
+        // Se comprueba aquí y no sólo en el asistente porque la frontera no se
+        // fía de la webview. Verificada rompiéndola: quitando la guarda de
+        // `crear_campana`, las dos ramas devuelven `Ok` y esto cae.
+        for (por_hora, diario) in [(None, Some(0)), (Some(0), Some(40))] {
+            let en_cero = db.crear_campana(
+                empresa(),
+                &CampanaNueva {
+                    nombre: "Muda",
+                    cuenta: CUENTA.parse().expect("id"),
+                    version_de_plantilla: v,
+                    firma: None,
+                    ventana: "vent-1",
+                    limite_por_hora: por_hora,
+                    limite_diario: diario,
+                    acepto_el_riesgo_del_volumen: true,
+                },
+            );
+            assert!(
+                matches!(en_cero, Err(DbError::LimiteDeEnviosEnCero)),
+                "con {por_hora:?} por hora y {diario:?} al día se creó una campaña que no envía"
+            );
+        }
+        assert_eq!(
+            db.campanas(empresa()).expect("lista").len(),
+            0,
+            "y tampoco quedó una campaña a medias"
+        );
+
         let aceptando = db.crear_campana(
             empresa(),
             &CampanaNueva {
                 nombre: "Deprisa",
                 cuenta: CUENTA.parse().expect("id"),
                 version_de_plantilla: v,
+                firma: None,
                 ventana: "vent-1",
                 limite_por_hora: None,
                 limite_diario: Some(120),
@@ -934,6 +1089,7 @@ mod tests {
                 nombre: "Al filo",
                 cuenta: CUENTA.parse().expect("id"),
                 version_de_plantilla: v,
+                firma: None,
                 ventana: "vent-1",
                 limite_por_hora: None,
                 limite_diario: Some(arles_core::ritmo::Limites::AVISO_DIARIO),

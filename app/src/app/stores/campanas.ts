@@ -381,6 +381,14 @@ export const useCampanasStore = defineStore('campanas', () => {
     nombre: string
     cuenta: string
     versionDePlantilla: string
+    /**
+     * La firma del pie, o `null` para la de por defecto de la empresa (H-12).
+     *
+     * `campaign_stage.signature_id` existía desde la V4 y nada la escribía, así
+     * que todas las campañas salían con la misma firma. Ahora se elige en el
+     * paso 4 del asistente.
+     */
+    firma: string | null
     ventana: string
     limitePorHora: number | null
     limiteDiario: number | null

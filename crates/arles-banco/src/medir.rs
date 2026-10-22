@@ -476,6 +476,9 @@ fn activacion(
             nombre: "Campaña del banco",
             cuenta: CUENTA.parse().map_err(|e| format!("cuenta: {e:?}"))?,
             version_de_plantilla: version,
+            // El banco mide tiempos, no redacción: sin firma es un correo
+            // menos que armar y una variable menos en la medida.
+            firma: None,
             ventana: "vent-banco",
             limite_por_hora: Some(500),
             limite_diario: Some(5_000),

@@ -1676,6 +1676,83 @@ de las que usa tres— y quedarse con lo que necesita. **Podía, menos una.**
 > en dos componentes con `scoped`, así que el design system no podía usar
 > ninguna y la tercera copia habría sido la de pedir.
 
+### La auditoría de funcionalidad · 22/10/2026
+
+Dirección pidió revisar la aplicación entera buscando **errores de
+funcionalidad**. Las cuatro auditorías del §140 miden arquitectura, seguridad,
+rendimiento y accesibilidad; ésta mide otra cosa: **si lo que el usuario escribe
+llega a donde tiene que llegar.** Seis hallazgos, seis arreglados, con las diez
+fases en verde al empezar. Está contado en
+[`AUDITORIA-G-FUNCIONALIDAD.md`](documentacion/09-fases/AUDITORIA-G-FUNCIONALIDAD.md).
+
+> **El límite diario se escribía y no se aplicaba.** El campo existe desde la
+> Fase 6 con su aviso de riesgo y su casilla; lo que no existía era el efecto.
+> El motor tomaba **el menor** entre el límite de la campaña y el de la cuenta,
+> y toda cuenta nace con 50 escritos en el código sin ninguna pantalla para
+> cambiarlos. Medido: se escribe 300, se lee el aviso, se marca la casilla —
+> **y salen 50**. Peor que faltar la función, porque deja creer que se usó.
+>
+> **Decisión de Dirección: el límite se fija al crear la campaña.** El `min` se
+> quitó, y lo que ocupa su sitio está escrito en la cabecera de `trabajo.rs`:
+> el presupuesto cuelga de la **cuenta** —dos campañas de 300 sobre el mismo
+> remitente comparten contador, no suman—, el aviso del §48 queda en
+> `audit_log`, y ADR-0008 sigue intacto. El techo que se quitó no era el del
+> proveedor: era una constante.
+
+> **Un `0` creaba una campaña que se activa y no manda nada**, y un negativo se
+> descartaba en Rust para caer en el de la cuenta: las dos en silencio. Se
+> rechaza en los dos sitios a propósito — en el paso 5, que dice qué pasa y
+> deja corregir, y en `crear_campana`, porque la frontera no se fía de la
+> webview. **La red que ya existía se quedó**: una validación de entrada no
+> protege a las filas que ya están dentro, así que la prueba que cazaba el cero
+> por la cadena entera ahora lo siembra en la etapa.
+
+> **La firma elegida nunca se guardaba.** `campaign_stage.signature_id` existe
+> desde la V4 y `redaccion_de_la_campana` ya la consultaba —con su caída a la
+> de por defecto— **meses antes de que nada la escribiera**. Todas las campañas
+> salían con la misma firma y nada fallaba. El §9 en su forma más silenciosa:
+> aquí ni siquiera faltaba una pantalla, faltaba **un valor**.
+>
+> Y **dos pruebas, no una**: la de `plantillas.rs` recorre las dos ramas del
+> `COALESCE` sembrando con SQL; la de `alta_de_campana.rs` pasa por
+> `crear_campana`. La primera versión del comentario afirmaba estar verificada
+> quitando el `INSERT`, y **era falso** —se probó y pasó en verde—, porque
+> siembra la etapa a mano. El hueco vivía entre las dos pruebas.
+
+> **El simulador no exigía el aviso de volumen, con el comentario encima
+> diciendo que sí.** Preguntaba por `args.avisoAceptado` y el asistente manda
+> `aceptoElRiesgoDelVolumen`, así que la condición no se cumplía nunca. **Y la
+> clave con la que rechazaba tampoco existía** en el catálogo, así que de
+> cumplirse habría enseñado la cadena cruda. Dos defectos en cuatro líneas.
+>
+> Lo caza `el_simulador_rechaza_con_claves_que_existen`, que encontró **dos
+> más** el día que se escribió: `error.canal_vacio` y `error.sin_canales`,
+> ninguna con texto. El §139 no llegaba ahí porque recorre los `clave_i18n()`
+> de Rust y el simulador es JavaScript.
+
+> **Y el paso 4 dejaba sin salida.** El paso 3 avisa cuando no hay cuentas y el
+> 5 cuando no hay horarios; el de la plantilla dejaba un desplegable vacío,
+> «Continuar» apagado y ninguna pista de que se escribe en otra pantalla. Es el
+> **H-06 en el paso de al lado**, y lo encontró mirar la demostración con todo
+> en verde.
+
+> **Lo que se midió y salió limpio, que es la mitad del valor:** los 37
+> argumentos que las pantallas mandan a los 67 comandos, comparados uno a uno
+> con lo que cada comando declara —**ningún desajuste**, y era la familia del
+> H-05—; ningún comando sin quien lo llame; ninguna tabla sin escritor; y las
+> dieciocho pantallas a cuatro tamaños sin un texto encimado.
+>
+> **La primera medición de esos argumentos dio 130 hallazgos, todos falsos:** la
+> expresión regular capturaba hasta el `return {` del final de cada store. Se
+> rehízo contando llaves. Cuarta vez que hace falta la lección de las pasadas
+> B, C y D — **comprobar antes de anotar**.
+
+> **Lo que sigue sin poder hacerse, y no es un defecto:** lanzar una campaña por
+> WhatsApp. Sólo el envío de prueba. Medido otra vez: el camino está cableado a
+> `channel = 'email'` en **siete sitios**. No es un cable suelto, es una fase.
+> Y **R-05 —imagen en la firma—** espera una decisión: embebida dispara filtros
+> de spam, alojada hay que alojarla, y el saneado tendría que admitir `<img>`.
+
 ### La ronda de correcciones de Dirección · 13 y 14/10/2026
 
 Dirección abrió ARLES por primera vez y probó. **Lo que encontró en dos tardes

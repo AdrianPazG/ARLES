@@ -14,22 +14,47 @@
 //! programa en un sitio donde se pueden leer de una sentada (ADR-0002).
 //!
 //! ─────────────────────────────────────────────────────────────────────────
-//! LOS LÍMITES: SE TOMA EL MÁS BAJO, SIEMPRE
+//! LOS LÍMITES: MANDA EL DE LA CAMPAÑA (decisión de Dirección, 22/10/2026)
 //!
-//! Hay dos topes para el mismo envío y **no se suman ni se eligen**: se toma el
-//! menor de los dos.
+//! Hay dos topes para el mismo envío y **no se suman**: decide el de la etapa
+//! si lo fija, y sólo si no lo fija se usa el de la cuenta.
 //!
 //! - **La etapa** puede tener el suyo, y puede no tenerlo. Es donde vive el
 //!   ritmo desde la V4, y existe ahí porque WhatsApp empieza mucho más lento
 //!   que el correo: un tope compartido obligaría a elegir entre frenar el
 //!   correo o quemar el número (L-6).
-//! - **La cuenta** tiene el suyo siempre. Y es el que no se puede saltar: quien
-//!   cuenta los correos de verdad es el proveedor, y pasarse de su límite no da
-//!   un error claro — da una cuenta marcada como spam, que no se arregla
-//!   bajando el número después.
+//! - **La cuenta** tiene el suyo siempre, y es **el que se propone** al crear
+//!   la campaña. Ya no es un techo.
 //!
-//! Dejar ganar al de la etapa cuando fuera mayor que el de la cuenta sería
-//! exactamente ese error, y no fallaría nada: los correos saldrían.
+//! ── POR QUÉ CAMBIÓ, Y QUÉ PROTEGE AHORA EN SU LUGAR ──
+//!
+//! Hasta hoy se tomaba el menor de los dos, para que nadie se pasara del
+//! límite del proveedor sin darse cuenta. Pero una cuenta nace con 50 diarios
+//! **escritos en el código** y no había ninguna pantalla para cambiarlos, así
+//! que el techo no era el del proveedor: era una constante. El resultado,
+//! medido el 22/10/2026: quien escribía 300 en el asistente, leía el aviso de
+//! riesgo y marcaba la casilla de aceptación… **recibía 50, y nada se lo
+//! decía**. Peor que no tener el campo, porque le deja creer que lo usó.
+//!
+//! Y el techo tampoco era el correcto: Titan o Workspace admiten muchos más de
+//! 50; ése es el suelo de una cuenta de Gmail personal. Quien sabe cuánto
+//! admite su proveedor es el usuario.
+//!
+//! Lo que sigue impidiendo quemar una cuenta **no es este `min`**, y por eso se
+//! puede quitar:
+//!
+//! 1. **El presupuesto cuelga de la CUENTA, no de la campaña** (`rate_budget`,
+//!    ver `presupuesto.rs`). Dos campañas con 300 sobre la misma cuenta no
+//!    gastan 600: comparten el contador. El total de una cuenta en un día es
+//!    el mayor de sus campañas, nunca la suma.
+//! 2. **El aviso del §48 con su casilla**, que se registra en `audit_log` con
+//!    su fecha — el rastro de que se informó y de que alguien dijo que sí.
+//! 3. **ADR-0008 sigue intacto**: no hay rotación de remitentes. Repartir un
+//!    envío entre cuentas para superar el agregado es lo que no se hace, y eso
+//!    no lo toca este cambio.
+//!
+//! El §154 pide informar, no dictar. Un tope que no se puede ver ni cambiar no
+//! informa de nada.
 //!
 //! **La campaña no tiene límites propios.** Los tuvo hasta la V4, que los movió
 //! a la etapa junto con la ventana, el remitente y la plantilla. Se dice aquí
@@ -224,16 +249,19 @@ impl FilaDeEtapa {
             canal: Canal::Correo,
             ventana,
             limites: Limites::nuevos(
-                el_mas_bajo(self.hora_etapa, self.hora_cuenta),
-                el_mas_bajo(self.dia_etapa, self.dia_cuenta),
+                el_limite_que_manda(self.hora_etapa, self.hora_cuenta),
+                el_limite_que_manda(self.dia_etapa, self.dia_cuenta),
             ),
             zona_de_la_empresa: zona_de_la_empresa.clone(),
         })
     }
 }
 
-/// El menor de los topes que haya. El de la cuenta no es opcional y siempre
-/// entra en la comparación: ver la nota de la cabecera.
+/// El límite que de verdad se aplica: **el de la campaña si lo fija**, y el de
+/// la cuenta sólo cuando no lo fija.
+///
+/// Ver la nota de la cabecera para por qué la campaña manda desde el
+/// 22/10/2026 y qué protege ahora en lugar del `min` que había aquí.
 ///
 /// Lo comparte la revisión de una campaña (`revision.rs`), y se comparte en vez
 /// de copiarse porque las dos respuestas tienen que ser la misma: una estima lo
@@ -241,48 +269,65 @@ impl FilaDeEtapa {
 /// podría cambiar sin la otra y la estimación mentiría sin que nada fallara.
 ///
 /// Un valor negativo o desmesurado en la base se trata como «sin tope propio»
-/// en vez de reventar: el de la cuenta sigue ahí, y es el que importa.
-pub(crate) fn el_mas_bajo(etapa: Option<i64>, cuenta: i64) -> u32 {
-    [etapa, Some(cuenta)]
-        .into_iter()
-        .flatten()
-        .filter_map(|v| u32::try_from(v).ok())
-        .min()
-        .unwrap_or(0)
+/// en vez de reventar: entonces manda el de la cuenta, que es el que siempre
+/// existe.
+pub(crate) fn el_limite_que_manda(etapa: Option<i64>, cuenta: i64) -> u32 {
+    etapa
+        .and_then(|v| u32::try_from(v).ok())
+        .unwrap_or_else(|| u32::try_from(cuenta).unwrap_or(0))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// Dos topes para el mismo envío: manda el más bajo, venga de donde venga.
+    /// La campaña fija el ritmo, hacia arriba o hacia abajo.
     #[test]
-    fn de_dos_topes_manda_el_mas_bajo() {
-        assert_eq!(el_mas_bajo(Some(5), 50), 5, "el de la etapa");
-        assert_eq!(
-            el_mas_bajo(None, 50),
-            50,
-            "el de la cuenta, si la etapa no fija"
-        );
+    fn manda_el_de_la_campana() {
+        assert_eq!(el_limite_que_manda(Some(5), 50), 5, "menos que la cuenta");
+        assert_eq!(el_limite_que_manda(Some(500), 50), 500, "más que la cuenta");
     }
 
-    /// **Y el de la cuenta no se puede superar aunque la etapa pida más.**
+    /// **El caso que esta función existía para impedir, y que ahora permite.**
     ///
-    /// Es el caso que no falla si se hace mal: los correos salen, y lo que se
-    /// rompe es la reputación de la cuenta ante el proveedor.
+    /// Hasta el 22/10/2026 esto devolvía 50: se tomaba el menor de los dos para
+    /// que nadie se pasara del límite del proveedor sin darse cuenta. Lo que
+    /// medir enseñó es que el techo no era el del proveedor sino **una
+    /// constante del código** —toda cuenta nace con 50 y no había pantalla para
+    /// cambiarlo—, así que quien escribía 300 en el asistente, leía el aviso y
+    /// marcaba la casilla recibía 50 **sin que nada se lo dijera**.
     ///
-    /// Verificada rompiéndola el 28/09/2026: dejando que la etapa gane cuando
-    /// existe —`etapa.unwrap_or(cuenta)`—, esta prueba falla y la de arriba
-    /// sigue pasando.
+    /// Está escrito aquí y no sólo en la cabecera porque esta prueba afirmaba
+    /// lo contrario con su propia nota de verificación: quien la lea tiene que
+    /// poder ver que el cambio fue deliberado y de quién salió, no un descuido.
+    /// Lo que impide quemar la cuenta son las tres defensas de la cabecera, y
+    /// la primera —el presupuesto compartido por cuenta— la ejercita
+    /// `dos_campanas_sobre_una_cuenta_no_suman_sus_topes`.
     #[test]
-    fn la_etapa_no_puede_pedir_mas_de_lo_que_admite_la_cuenta() {
-        assert_eq!(el_mas_bajo(Some(500), 50), 50);
+    fn la_campana_puede_pedir_mas_que_el_valor_de_la_cuenta() {
+        assert_eq!(el_limite_que_manda(Some(500), 50), 500);
     }
 
-    /// Un número imposible en la base no revienta: queda el tope de la cuenta.
+    /// Y si la campaña no fija nada, el de la cuenta: es el que siempre existe.
+    #[test]
+    fn sin_limite_de_campana_queda_el_de_la_cuenta() {
+        assert_eq!(el_limite_que_manda(None, 50), 50);
+    }
+
+    /// Un número imposible en la base no revienta: queda el de la cuenta.
     #[test]
     fn un_tope_imposible_no_revienta_y_deja_el_de_la_cuenta() {
-        assert_eq!(el_mas_bajo(Some(-1), 50), 50);
+        assert_eq!(el_limite_que_manda(Some(-1), 50), 50);
+    }
+
+    /// **Cero es parado, y no «sin límite».**
+    ///
+    /// Importa porque el camino de arriba trata el negativo como «no fija», y
+    /// un cero mal tratado dejaría salir correo de una campaña que alguien paró
+    /// escribiendo 0 — el error cae del lado que no se ve.
+    #[test]
+    fn cero_para_la_campana_en_vez_de_soltarla() {
+        assert_eq!(el_limite_que_manda(Some(0), 50), 0);
     }
 }
 
@@ -420,13 +465,20 @@ mod contra_la_base {
         assert!(db.etapas_en_marcha(empresa()).expect("consulta").is_empty());
     }
 
-    /// **Los dos topes, de punta a punta: manda el más bajo de cada uno.**
+    /// **Lo que la campaña escribe es lo que llega al motor, de punta a punta.**
     ///
-    /// Con la etapa pidiendo 3 por hora y 500 al día, y la cuenta admitiendo 10
-    /// y 50: por hora gana la etapa, por día gana la cuenta. Un envío no puede
-    /// heredar el tope alto de ninguno de los dos lados.
+    /// Es la prueba que de verdad contesta la pregunta de Dirección: lo que se
+    /// teclea en el paso 5 del asistente, ¿sale? Las de `tests` de arriba miran
+    /// la función sola; ésta recorre la base, la consulta y la traducción a
+    /// `Limites` — que es donde cabía el error, y donde estuvo.
+    ///
+    /// Con la etapa pidiendo 3 por hora y 500 al día sobre una cuenta de 10 y
+    /// 50: llegan **3 y 500**. Hasta el 22/10/2026 llegaban 3 y 50.
+    ///
+    /// Verificada rompiéndola: volviendo `el_limite_que_manda` a tomar el
+    /// mínimo, esto cae con `Limites { por_hora: 3, por_dia: 50 }`.
     #[test]
-    fn el_tope_mas_bajo_de_cada_lado_es_el_que_llega() {
+    fn el_limite_que_escribe_la_campana_es_el_que_llega() {
         let (_dir, db) = base();
         sql(
             &db,
@@ -434,7 +486,21 @@ mod contra_la_base {
         );
         let etapas = db.etapas_en_marcha(empresa()).expect("consulta");
         let e = etapas.first().expect("la etapa sembrada");
-        assert_eq!(e.limites, Limites::nuevos(3, 50));
+        assert_eq!(e.limites, Limites::nuevos(3, 500));
+    }
+
+    /// Y una etapa sin límites propios hereda los de la cuenta, que es el
+    /// valor que el asistente propone cuando nadie lo cambia.
+    #[test]
+    fn una_etapa_sin_limites_propios_usa_los_de_la_cuenta() {
+        let (_dir, db) = base();
+        sql(
+            &db,
+            "UPDATE campaign_stage SET hourly_limit=NULL, daily_limit=NULL WHERE id='etapa-1';",
+        );
+        let etapas = db.etapas_en_marcha(empresa()).expect("consulta");
+        let e = etapas.first().expect("la etapa sembrada");
+        assert_eq!(e.limites, Limites::nuevos(10, 50));
     }
 
     /// **Una ventana mal guardada detiene la lectura; no se salta la etapa.**

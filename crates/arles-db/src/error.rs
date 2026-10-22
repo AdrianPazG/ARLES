@@ -133,6 +133,26 @@ pub enum DbError {
     #[error("hace falta aceptar el aviso de volumen antes de crear esta campaña")]
     FaltaAceptarElVolumen,
 
+    /// Se pidió un máximo de envíos de cero.
+    ///
+    /// ── POR QUÉ ES UN ERROR Y NO UN «SIN LÍMITE» ───────────────────────────
+    ///
+    /// Un cero se guarda sin protestar y produce una campaña que se activa, se
+    /// pone «en marcha» en la pantalla, y **no manda nunca nada**. No hay
+    /// ningún error que mirar, ningún correo en la cola que explique la espera:
+    /// sólo una campaña muda. Es la misma clase de fallo que `VentanaInvalida`
+    /// —una ventana que no se abre jamás— y se trata igual.
+    ///
+    /// Se comprueba **aquí y no sólo en la pantalla** porque la frontera no se
+    /// fía de la webview: quien decide qué entra en la base es esta capa. El
+    /// paso 5 del asistente lo dice antes, que es donde se puede corregir sin
+    /// perder lo escrito.
+    ///
+    /// Un negativo no puede llegar: el campo es `u32` y serde lo rechaza al
+    /// cruzar. Si pudiera, caería en el mismo sitio.
+    #[error("un máximo de envíos de cero deja la campaña sin mandar nada")]
+    LimiteDeEnviosEnCero,
+
     /// La ventana de ejecución no se abriría nunca.
     ///
     /// **Lleva el motivo dentro**, y no es adorno: sin días, con las horas al
@@ -236,6 +256,7 @@ impl DbError {
             Self::CuentaDeCorreoNoExiste => "error.db.cuenta_de_correo_no_existe",
             Self::AccionDeCampanaImposible { clave } => clave,
             Self::FaltaAceptarElVolumen => "error.db.falta_aceptar_el_volumen",
+            Self::LimiteDeEnviosEnCero => "error.db.limite_de_envios_en_cero",
             Self::VentanaInvalida(motivo) => motivo.clave_i18n(),
             Self::Nucleo(e) => e.clave_i18n(),
             Self::SupresionNoSeLevanta { .. } => "error.db.supresion_no_se_levanta",
