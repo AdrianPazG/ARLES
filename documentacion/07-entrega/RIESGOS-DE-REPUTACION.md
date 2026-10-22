@@ -52,24 +52,46 @@ spam»* — y la tasa de quejas es la cifra que más pesa en tu reputación (§2
 Un padrón de 5 000 personas recibiendo doble puede generar en una tarde más
 quejas de las que el dominio aguanta en un mes.
 
-**Lo que ARLES sí hace bien, y conviene saberlo**: el cupo diario **no se
-suma**. Dos campañas de 200 al día sobre el mismo remitente mandan **200 en
-total, no 400** — medido. El techo protege al dominio. Lo que no protege es de
-mandar esos 200 a 100 personas dos veces.
+**Y una defensa que esta misma ronda quitó a propósito, porque no se puede
+contar como defensa si ya no está.** Hasta el 22/10/2026 el cupo diario **no se
+sumaba**: dos campañas de 200 sobre el mismo remitente mandaban 200 en total, no
+400 — medido. Eso era un techo real para el dominio, **y escondía un plazo
+roto**: el paso 6 le prometía al cliente los días calculados con su límite, y
+activar una segunda campaña los duplicaba en silencio.
 
-**Qué habría que construir** (tres opciones, para decidir):
+**La D-13 lo cambia: ahora se suma.** 200 y 200 son 400 al día, y cada campaña
+cumple el plazo que prometió. El techo del agregado desaparece, y lo que ocupa
+su sitio es **el semáforo de la D-14** en Remitentes: la suma real a la vista,
+en verde hasta 60, ámbar hasta 150 y rojo por encima.
 
-| Opción | Qué hace | Precio |
-|---|---|---|
-| **A · Supresión por campaña activa** | Al activar, excluye a quien ya tiene un envío en cola de otra campaña activa | Es lo correcto en el 95 % de los casos. Cambia el significado de «audiencia»: la segunda campaña sale más pequeña, y hay que decirlo en el paso 6 con su cifra |
-| **B · Aviso y que decida quien activa** | El paso 6 dice «1 842 de estas personas ya están en la campaña *Primera*. Recibirán dos correos» | Respeta el §154 (informar, no dictar), pero deja el disparo cargado |
-| **C · Ventana de descanso** | Nadie recibe dos correos de ARLES en menos de N días, sea de la campaña que sea | Es la defensa de verdad, y la que usan las plataformas serias. Es más trabajo: hay que leer el historial de envíos, que ya existe |
+> **Esto sube el riesgo de este documento, y hay que leerlo así.** Cinco
+> campañas de 200 son mil correos al día desde un buzón, y ARLES ya no lo
+> impide: lo enseña en rojo y te deja decidir (§154). **Mirar el semáforo deja
+> de ser opcional**, y mirar tu tasa de quejas en Postmaster, más todavía.
 
-**Recomendación: A + B juntas, y C cuando exista el filtro de audiencia.**
-Excluir por defecto y **decir la cifra de a quién se excluyó**, porque una
-audiencia que encoge sin explicación se lee como un error. Si de verdad quieres
-mandar dos veces, se desmarca una casilla y se acepta — como el aviso de los 50
-diarios.
+**DECIDIDO POR DIRECCIÓN EL 22/10/2026**, y no como yo lo había propuesto. Las
+dos decisiones están en
+[`DECISIONES_DE_DIRECCION.md`](../01-producto/DECISIONES_DE_DIRECCION.md):
+
+**D-15 · Cada campaña carga su propia lista.** Yo propuse excluir a quien ya
+está en otra campaña. Dirección fue al problema de fondo: una campaña de
+videovigilancia y otra de desarrollo de software **no deberían tener la misma
+audiencia**, y hoy la tienen porque no hay filtro. Al cargar su tabla, cada
+campaña escribe a quien le interesa — y la relevancia es una defensa de
+reputación de las fuertes: quien recibe una oferta que no pidió no se da de
+baja, marca spam.
+
+**D-16 · Y si un contacto cae en dos campañas, recibe las dos — pero no en la
+misma semana.** Con plantillas distintas los dos correos tienen sentido; lo que
+hostiga es la coincidencia en el tiempo. **Ventana de descanso de 14 días por
+defecto**, mínimo 7, leída del registro de envíos. El envío **espera, no se
+cancela**, y Actividad lo dice con su cifra — un envío que desaparece en
+silencio es el defecto que este proyecto lleva nueve entregas aprendiendo a no
+repetir.
+
+> **Las dos juntas son mejor que lo que yo propuse.** Excluir a quien ya está en
+> otra campaña resolvía el duplicado y dejaba intacta la causa: que todas las
+> campañas escriben a todo el mundo.
 
 ---
 

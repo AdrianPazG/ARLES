@@ -449,6 +449,189 @@ dominio.
 
 ---
 
+### D-13 · El tope diario de un remitente **se suma** entre campañas
+
+**Fecha:** 22 de octubre de 2026 · **Pedida por:** Dirección · **Gobierna:**
+`arles-db/src/trabajo.rs`, `presupuesto.rs` y la pantalla de Remitentes ·
+**Sustituye** la defensa nº 1 que D-REM había dejado en pie
+
+Hasta hoy, dos campañas con el mismo remitente **compartían** el cupo: con 100
+y 100, salían **100 en total** — medido. El total de un día era el mayor de los
+límites, nunca la suma.
+
+**Lo que se propuso**, y era yo quien lo proponía: dejarlo así, porque es lo que
+protege al dominio de que cinco campañas sumen mil correos diarios desde un
+buzón que nunca ha mandado doscientos.
+
+**Lo que Dirección respondió**, y tiene razón en el porqué:
+
+> «Si en una campaña coloco 100 mensajes por día, y en otra campaña coloco 100
+> también con el mismo remitente, tengo que respetar esa solicitud, ya que el
+> cliente está colocando que se envíen 100 en cada campaña, por lo tanto sí se
+> tienen que sumar… para respetar el tiempo que el cliente calculó para su
+> campaña de correos.»
+
+El argumento no es de volumen, es de **promesa cumplida**. El paso 6 del
+asistente le dice al cliente cuántos días va a tardar su campaña, y esa cifra
+se calcula con el límite que él escribió. Compartir el cupo hacía que el plazo
+prometido se **duplicara en silencio** en cuanto alguien activaba una segunda
+campaña. ARLES no puede prometer un plazo y entregar la mitad.
+
+**Lo decidido:**
+
+| | Antes | Desde el 22/10/2026 |
+|---|---|---|
+| Campaña A: 100/día · Campaña B: 100/día | **100** al día en total | **200** al día: 100 de cada una |
+| Y una tercera con 50 | 100 | **250** |
+| Cada campaña cumple su propio plazo | ❌ no | ✅ sí |
+
+**Y no es sólo sumar, que es lo que hace esta decisión difícil.** Un solo
+contador de 200 compartido dejaría que la campaña que llegue primero se gaste
+los 200 y la otra no mande nada — el plazo de la segunda seguiría roto, y el
+total cuadraría. Para que sean «100 de una y 100 de otra» hace falta que **cada
+campaña lleve su propio recuento**, y entonces el total es la suma por
+construcción.
+
+**El riesgo que esto abre, declarado:** el agregado de un remitente **ya no
+tiene techo**. Cinco campañas de 200 son mil correos al día desde un buzón, y
+eso es el patrón que marca una cuenta como spam. Era exactamente lo que el cupo
+compartido impedía.
+
+**Lo que ocupa su lugar** (y lo pidió Dirección en la misma frase, que es lo
+que hace que la decisión se sostenga):
+
+1. **El semáforo de la D-14**, que enseña la suma real antes de que nadie
+   active nada.
+2. **El aviso del §48** sigue en cada campaña que pase de 50.
+3. **ADR-0008 intacto**: no hay rotación de remitentes. Repartir para esquivar
+   el agregado es lo que no se hace.
+
+Es el §154 llevado a su consecuencia: **informar, no dictar.** Quien decide
+cuánto aguanta su buzón es quien lo paga, y ARLES tiene que enseñarle la cifra
+con la que está decidiendo.
+
+---
+
+### D-14 · El semáforo del cupo real en Remitentes
+
+**Fecha:** 22 de octubre de 2026 · **Pedida por:** Dirección · **Gobierna:** la
+pantalla de Remitentes · **Cierra** D-REM
+
+Si el tope se suma (D-13), la cifra que importa deja de estar en la campaña y
+pasa a estar en el remitente. Dirección lo pidió así:
+
+> «En la pestaña de remitentes tiene que venir una ficha o algo que notifique
+> que ese remitente está enviando 200 correos por día. Y si se crea una tercera
+> campaña y se agrega ese remitente y que envíe 50 correos, tiene que
+> actualizarse e indicar que está enviando 250.»
+
+**Lo decidido:** cada remitente enseña **la suma de los límites diarios de las
+campañas en marcha que lo usan**, con las campañas nombradas, y un semáforo:
+
+| Correos al día del remitente | Semáforo |
+|---|---|
+| **hasta 60** | verde — dentro de lo que un buzón nuevo aguanta |
+| **de 61 a 150** | ámbar — hay que estar mirando la tasa de quejas |
+| **más de 150** | rojo — se está arriesgando el dominio |
+
+Los umbrales son de Dirección. Los colores se dejaron a criterio del proyecto, y
+salen de los tokens del sistema de diseño (§17): ninguno es un hex escrito en el
+componente.
+
+**Y el semáforo lleva texto, no sólo color.** Es la regla que la auditoría D
+dejó escrita: *ningún estado se distingue sólo por color*. Un semáforo que sólo
+es un punto de color no lo puede leer quien no distingue el rojo del verde, y es
+justo la persona a la que hay que avisar.
+
+**Lo que este indicador NO hace: no impide nada.** Es un aviso. Si alguien
+quiere mandar 400 al día desde un buzón, ARLES se lo enseña en rojo y lo deja.
+
+---
+
+### D-15 · Cada campaña carga su propia lista de contactos
+
+**Fecha:** 22 de octubre de 2026 · **Pedida por:** Dirección · **Gobierna:** el
+asistente de campaña y `arles-import` · **Resuelve** el riesgo R-1 del reporte
+de reputación
+
+Hoy, al activar una campaña, la audiencia se congela como **todos los contactos
+activos de la empresa menos las bajas**. No hay filtro — y eso significa que dos
+campañas activas mandan el correo dos veces a todo el padrón (medido el
+22/10/2026).
+
+**Lo que Dirección pidió**, y es la solución correcta y no el parche:
+
+> «Al iniciar una campaña podemos colocar una opción para cargar los contactos
+> en un archivo xls o csv… Así cuando creen una campaña por ejemplo
+> "Videovigilancia" y carguen todos los contactos donde podrían tener interés de
+> contratar videovigilancia. Pero si se crea otra campaña de "Desarrollo de
+> aplicaciones" puedan cargar su tabla de contactos que imagino sería totalmente
+> diferente porque son dos intereses diferentes, y no mezclar contactos donde no
+> sean de interés del público y así arriesgar el dominio de que le den spam.»
+
+**Por qué esto es más importante que parecer una comodidad.** La relevancia **es**
+una defensa de reputación, y de las fuertes: quien recibe una oferta de
+videovigilancia cuando pidió información de software no se da de baja, marca
+spam. El duplicado y la irrelevancia son las dos causas principales de una queja,
+y esta decisión ataca las dos a la vez.
+
+**Lo decidido:** la campaña tiene su propia audiencia, cargada desde un XLS o un
+CSV en el asistente. La tabla pasa por el mismo lector que la importación general
+—con sus choques enseñados antes de entrar (D-9) y el reconocimiento de columnas
+en cualquier orden—, los contactos entran también en la lista general de
+Contactos, y la campaña se queda con **los de esa tabla**.
+
+**Lo que hay que resolver al construirlo**, y se escribe aquí para que no se
+decida por descuido:
+
+- **Qué pasa con una campaña ya creada sin lista.** La audiencia de «toda la
+  empresa» sigue existiendo, y tiene que seguir siendo elegible a propósito, no
+  por omisión.
+- **Las bajas y la supresión siguen por encima de todo.** Una lista cargada que
+  traiga a alguien que pidió la baja **no se le escribe**, y se dice cuántos se
+  quedaron fuera.
+- **La ventana de descanso de la D-16** se aplica igual: una lista propia no
+  autoriza a escribir dos veces en la misma semana.
+
+---
+
+### D-16 · Un contacto en dos campañas recibe las dos, pero no en la misma semana
+
+**Fecha:** 22 de octubre de 2026 · **Pedida por:** Dirección · **Gobierna:** la
+activación de campañas
+
+Dirección cerró la pregunta del contacto repetido así:
+
+> «Ya si en ambas campañas o más se repite un contacto, como son dos plantillas
+> diferentes de dos o más campañas diferentes, se le envía el correo de las dos
+> campañas, sólo que me gustaría tener cuidado que no se envíen en el mismo día,
+> si es posible que pase un lapso de 1 o 2 semanas para no hostigar.»
+
+**Lo decidido:** **no se excluye** a quien ya está en otra campaña — si las
+plantillas son distintas, los dos correos tienen sentido. Lo que se impone es
+una **ventana de descanso**: nadie recibe dos correos de ARLES antes de que pase
+el lapso.
+
+| | |
+|---|---|
+| **Lapso por defecto** | **14 días** — el extremo alto de lo que pidió Dirección |
+| **Mínimo** | **7 días** |
+| **De dónde sale el dato** | del registro de envíos, que no se borra nunca (7.4) |
+| **Qué hace** | el envío **espera**, no se cancela: sale cuando pasa el lapso |
+
+**Por qué 14 por defecto y no 7.** Quedarse corto es el único error que importa:
+un lapso de más retrasa un correo, uno de menos produce la queja que esta
+decisión existe para evitar. El mínimo de 7 está para que se pueda bajar a
+sabiendas, no por descuido.
+
+**Y esperar, no descartar**, porque descartar silenciosamente volvería a dejar
+una campaña que dice «enviando» y no envía a parte de su gente — el defecto que
+este proyecto lleva nueve entregas aprendiendo a no repetir. Si un envío está
+esperando su lapso, **Actividad tiene que decirlo con su cifra**: es una de las
+razones por las que no sale nada.
+
+---
+
 ## Decisiones pendientes
 
 Ver **`02-auditoria/PREGUNTAS_ABIERTAS.md`** para el registro completo.
@@ -459,5 +642,11 @@ Ver **`02-auditoria/PREGUNTAS_ABIERTAS.md`** para el registro completo.
 | P-03 | Origen y consentimiento de los contactos | Fase 3 |
 | P-09 | Marco de protección de datos vigente | ~~Entrega 3.3~~ → **apartado del camino crítico por D-7.** Frena los textos legales visibles y el primer envío real a terceros, no la construcción |
 | P-05 | Dominio y aviso de privacidad para Google | Fase 5 |
+| **R-05** | **¿Una imagen en la firma y en la plantilla va adjunta en línea o alojada en un servidor?** La adjunta no delata nada y pesa más; la alojada pesa menos y **le dice a tu servidor cuándo se abrió el correo**, que es lo que ARLES promete no saber (§65). **Recomendación: adjunta en línea, con topes duros de peso.** Ver `07-entrega/RIESGOS-DE-REPUTACION.md` §4 | Las imágenes en los correos |
 
 **Ya no hay bloqueantes de la Fase 2.**
+
+**Dos pendientes que se cerraron el 22/10/2026:** **D-REM** —cómo se reparte el
+cupo entre campañas del mismo remitente— con **D-13 y D-14**, y la pregunta del
+contacto repetido con **D-16**. **D-WA** —la campaña entera por WhatsApp— sigue
+abierta, y Dirección la puso después de blindar el dominio.
