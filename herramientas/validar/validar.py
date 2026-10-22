@@ -14,6 +14,7 @@ Sin dependencias externas: solo stdlib de Python 3.
 
 import argparse
 import datetime
+import difflib
 import hashlib
 import json
 import os
@@ -22,6 +23,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import tempfile
 import time
 
 RAIZ = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -570,12 +572,33 @@ def fase_1(rapido):
               [sys.executable, "herramientas/design-tokens/generar.py", "--verificar"],
               "La accesibilidad AA es requisito (§19), y una regresión de color es invisible a ojo.")
 
-    codigo, _, _ = corre([sys.executable, "herramientas/design-tokens/generar.py", "--css"])
-    codigo_diff, salida_diff, _ = corre(["git", "diff", "--exit-code",
-                                         "herramientas/design-tokens/dist/"])
-    check(1, "El CSS generado coincide con tokens.json", codigo == 0 and codigo_diff == 0,
-          "§17: si el CSS se edita a mano, deja de haber una fuente única de color.",
-          salida_diff)
+    # Se genera a un directorio temporal y se comparan CONTENIDOS. La versión
+    # anterior escribía dentro del repositorio y preguntaba a `git diff`, y eso
+    # tenía dos problemas: medir ensuciaba el árbol de trabajo, y dos corridas
+    # del validador a la vez se pisaban el archivo — una escribía mientras la
+    # otra comparaba, y salía en ROJO sobre unos tokens perfectamente
+    # correctos. Medido el 22/10/2026: 1 falso de 40 con dos escritores.
+    # Un validador no puede necesitar ser el único proceso del equipo.
+    temporal = tempfile.mkdtemp(prefix="arles-tokens-")
+    try:
+        codigo, _, _ = corre([sys.executable, "herramientas/design-tokens/generar.py",
+                              "--css", "--salida", temporal])
+        recien = os.path.join(temporal, "arles-tokens.css")
+        enelrepo = os.path.join(RAIZ, "herramientas/design-tokens/dist/arles-tokens.css")
+        iguales, detalle = False, "No se pudo generar el CSS."
+        if codigo == 0 and os.path.exists(recien) and os.path.exists(enelrepo):
+            a = open(enelrepo, encoding="utf-8").read().splitlines()
+            b = open(recien, encoding="utf-8").read().splitlines()
+            iguales = a == b
+            if not iguales:
+                detalle = "\n".join(difflib.unified_diff(
+                    a, b, "dist/arles-tokens.css", "generado desde tokens.json",
+                    lineterm="", n=1))
+        check(1, "El CSS generado coincide con tokens.json", codigo == 0 and iguales,
+              "§17: si el CSS se edita a mano, deja de haber una fuente única de color.",
+              detalle)
+    finally:
+        shutil.rmtree(temporal, ignore_errors=True)
 
     # ── Iconos ──
     faltan_iconos = [

@@ -1559,7 +1559,7 @@ simulador con el núcleo se inventaba el nombre de una clave y su patrón no
 sabía leer una fila que contuviera `[]`, así que llevaba tiempo sin mirar el
 paso de Contactos **sin decirlo**. Es el §2 otra vez.
 
-### Dos trampas de las herramientas
+### Tres trampas de las herramientas
 
 1. **`generar.py --sin-mont` reescribe `tipografia.css`.** Desde el 29/09/2026
    lo restaura al terminar, pase lo que pase. Antes lo dejaba reescrito y la
@@ -1568,6 +1568,24 @@ paso de Contactos **sin decirlo**. Es el §2 otra vez.
    disco.** Una sonda que no comprueba su código de salida mide **otra versión
    del código**. La del recorrido ya lo comprueba; cualquier sonda nueva debe
    hacerlo.
+3. **Una comprobación que escribe en el repositorio para medirlo da rojo sobre
+   código correcto.** La del CSS de los tokens generaba `dist/arles-tokens.css`
+   y después preguntaba a `git diff`: dos validadores a la vez se pisaban el
+   archivo —uno escribía mientras el otro comparaba— y la fase 1 salía **52 de
+   53** sin que nada estuviera roto. **Medido el 22/10/2026: 1 falso de 40**
+   con dos escritores, y **0 de 120** después de generar a un temporal y
+   comparar contenidos. Un validador no puede exigir ser el único proceso del
+   equipo, porque nadie se lo va a conceder: alguien lo correrá mientras hace
+   otra cosa, y lo que verá es un rojo que no existe.
+
+> **Y lo que aquí no se pudo hacer, que es la mitad de la lección.** El 52/1 se
+> vio **una vez**, con tres validadores a la vez, y la salida no se guardó: así
+> que **no se sabe qué comprobación fue** y no se va a decir. Lo que sí se
+> midió es el mecanismo —esa comprobación escribe en el repositorio, y bajo
+> concurrencia falla— y eso es un hallazgo; «fue ésa» habría sido un hallazgo
+> falso de los que la auditoría B dejó dicho que cuestan más que uno ausente.
+> **Una corrida que no se guarda no se puede diagnosticar.** Las cifras que se
+> publican salen de una corrida **secuencial**, de una en una.
 
 **Seis trampas del código de la Fase 6**, por si se toca:
 

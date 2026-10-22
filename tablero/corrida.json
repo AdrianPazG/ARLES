@@ -1,5 +1,5 @@
 {
-  "cuando": "2026-10-14T12:36",
+  "cuando": "2026-10-22T10:45",
   "modo": "--rapido (las sondas se omiten)",
   "fases": {
     "0": {
@@ -21,16 +21,16 @@
       "total": 38
     },
     "3": {
-      "pasan": 76,
+      "pasan": 85,
       "fallan": 0,
       "omitidos": 10,
-      "total": 86
+      "total": 95
     },
     "4": {
-      "pasan": 41,
+      "pasan": 42,
       "fallan": 0,
       "omitidos": 0,
-      "total": 41
+      "total": 42
     },
     "5": {
       "pasan": 36,
@@ -51,10 +51,10 @@
       "total": 21
     },
     "7": {
-      "pasan": 10,
+      "pasan": 11,
       "fallan": 0,
       "omitidos": 0,
-      "total": 10
+      "total": 11
     },
     "8": {
       "pasan": 19,

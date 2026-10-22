@@ -3,6 +3,7 @@
 
     ./generar.py --verificar   comprueba contratos y advertencias WCAG (para CI)
     ./generar.py --css         escribe dist/arles-tokens.css
+    ./generar.py --css --salida DIR   lo escribe en DIR, sin tocar el repositorio
     ./generar.py --lamina      renderiza la lámina PNG con Chromium
     ./generar.py --todo        las tres cosas
 
@@ -170,8 +171,13 @@ def verificar(d):
 
 # ─── CSS ──────────────────────────────────────────────────────────────────────
 
-def generar_css(d):
-    os.makedirs(DIST, exist_ok=True)
+def generar_css(d, dist=None):
+    # `dist` existe para que quien sólo quiera COMPARAR el CSS no tenga que
+    # escribirlo dentro del repositorio: el validador generaba a `dist/` y
+    # después preguntaba a `git diff`, así que dos corridas a la vez se pisaban
+    # el archivo y una salía en rojo sobre tokens correctos — medido 1 vez de 40.
+    dist = dist or DIST
+    os.makedirs(dist, exist_ok=True)
     m = d["meta"]
     out = [
         "/* Generado por herramientas/design-tokens/generar.py — NO EDITAR A MANO.",
@@ -208,7 +214,7 @@ def generar_css(d):
         "",
     ]
 
-    destino = os.path.join(DIST, "arles-tokens.css")
+    destino = os.path.join(dist, "arles-tokens.css")
     with open(destino, "w", encoding="utf-8") as f:
         f.write("\n".join(out))
     print(f"✓ {os.path.relpath(destino, REPO)}")
@@ -442,6 +448,8 @@ def main():
     p.add_argument("--css", action="store_true", help="escribe dist/arles-tokens.css")
     p.add_argument("--lamina", action="store_true", help="renderiza la lámina PNG")
     p.add_argument("--todo", action="store_true", help="las tres cosas")
+    p.add_argument("--salida", metavar="DIR",
+                   help="escribe el CSS en otro directorio, sin tocar el repositorio")
     a = p.parse_args()
     if not any([a.verificar, a.css, a.lamina, a.todo]):
         p.print_help()
@@ -452,7 +460,7 @@ def main():
     if a.verificar or a.todo:
         codigo = verificar(d)
     if (a.css or a.todo) and codigo == 0:
-        generar_css(d)
+        generar_css(d, a.salida)
     if (a.lamina or a.todo) and codigo == 0:
         generar_lamina(d)
     return codigo

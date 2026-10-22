@@ -12,6 +12,36 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Una comprobación que escribía en el repositorio para medirlo
+
+Al medir las diez fases para poner la cifra al día, la fase 1 dio **52 de 53**.
+Corrida sola, **53 de 53**. En el momento del rojo había **tres validadores a
+la vez**.
+
+La causa no era la que parecía estar buscándose. La comprobación «El CSS
+generado coincide con `tokens.json`» ejecutaba `generar.py --css` —que escribe
+`herramientas/design-tokens/dist/arles-tokens.css` **dentro del repositorio**—
+y después preguntaba a `git diff`. Dos procesos: uno escribe mientras el otro
+compara, y el segundo ve un archivo a medias. **Medido: 1 falso de 40** con dos
+escritores.
+
+Arreglado generando a un directorio temporal y comparando **contenidos**, con
+un `--salida` nuevo en el generador. **0 falsos de 120** con tres a la vez, y
+el árbol de trabajo deja de ensuciarse al medir: antes, comprobar modificaba el
+repositorio. Verificada rompiéndola —un token renombrado a mano en el CSS— y
+vista en rojo nombrando la línea exacta.
+
+> **Lo que no se pudo hacer, y es la mitad de la lección.** El 52/1 se vio una
+> vez y **la salida no se guardó**, así que **no se sabe qué comprobación
+> falló** y no se dice. Lo que se midió es el mecanismo. Afirmar «fue ésa»
+> habría sido un hallazgo falso de los que la auditoría B dejó dicho que cuestan
+> más que uno ausente — y para medirlo no hacía falta saberlo: hacía falta
+> encontrar una comprobación que escribiera donde mide.
+>
+> Las cifras que se publican salen ahora de una corrida **secuencial**. Un
+> validador que exige ser el único proceso del equipo no lo va a conseguir:
+> alguien lo correrá mientras hace otra cosa, y verá un rojo que no existe.
+
 ### R-24 cerrado · ARLES manda correo de verdad, a la bandeja principal
 
 **El bloqueo más viejo del proyecto**, abierto desde la Fase 5. Todo lo de esa

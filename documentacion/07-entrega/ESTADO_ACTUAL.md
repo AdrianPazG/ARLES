@@ -44,11 +44,15 @@
 | **F8 · Respaldos y endurecimiento** | **✅ cerrada** | **Respaldo cifrado con dos alcances, restauración que reemplaza y une las bajas, archivado del historial verificado antes de borrar, la pantalla de recuperación del llavero perdido, el banco de pruebas con las trece cifras, la migración V11 y las cinco auditorías (8.0 a 8.7, más la 8.3 bis). Ver `09-fases/FASE-08-RESPALDOS.md`** |
 | F9 · Release v1.2.0 | ⬜ sin empezar | Instaladores firmados, updater, despliegue interno |
 
-**Cifras del 13/10/2026:** las **diez** fases del validador **con las sondas corriendo de verdad** — **325 comprobaciones, 0 fallos y 0 omitidas** (5·53·37·84·41·36·20·21·9·19). `fmt`, `clippy`, `eslint` y `vue-tsc` limpios.
+**Cifras del 22/10/2026:** las **diez** fases del validador **con las sondas corriendo de verdad** y corridas **de una en una** — **340 comprobaciones, 0 fallos y 0 omitidas** (5·53·38·95·42·36·20·21·11·19). `fmt`, `clippy`, `eslint` y `vue-tsc` limpios.
 
 > **El denominador encoge en silencio si falta algo del entorno.** Ese mismo día, en un contenedor recién creado, la fase 1 dio «45 pasan, 0 fallan» **de 49**: sin `node_modules` ni llavero, cuatro comprobaciones se marcaron omitidas y el total bajó solo. Nada en rojo. Con `npm ci` y `gnome-keyring dbus-x11` puestos son **53 de 53**, y el arranque con llavero se ejercita de verdad en vez de declararse.
 >
 > **Se lee la cifra entera** —pasan, fallan, omitidas y total—, nunca sólo el «0 fallan».
+
+> **Y el validador se corre de una en una, por un defecto suyo que se arregló el 22/10/2026.** Midiendo estas cifras la fase 1 dio **52 de 53** con tres validadores a la vez, y **53 de 53** corrida sola. La comprobación del CSS de los tokens ejecutaba `generar.py --css` —que escribe **dentro del repositorio**— y después preguntaba a `git diff`: uno escribía mientras el otro comparaba. **Medido: 1 falso de 40.** Ahora genera a un temporal y compara contenidos: **0 de 120**, y comprobar ya no ensucia el árbol de trabajo.
+>
+> **No se sabe qué comprobación dio aquel 52/1**, porque la salida no se guardó, y no se afirma: lo que se midió es el mecanismo. Un hallazgo falso en un instrumento cuesta más que uno ausente (auditoría B).
 
 > **El bucle son diez fases, no nueve**, y correr sólo la tuya no basta: en la 5.2 y la 5.3 se rompieron cuatro comprobaciones de las fases 2, 3 y 4 sin que nadie lo viera (§8 bis).
 >

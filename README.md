@@ -68,24 +68,24 @@ python3 herramientas/avance/calcular.py --escribir
 
 ## Estado
 
-**Al 08/10/2026.** Cada fase cerrada tiene su documento técnico y su resumen
+**Al 22/10/2026.** Cada fase cerrada tiene su documento técnico y su resumen
 para Dirección, sin tecnicismos.
 
 | Fase | | Validación |
 |---|---|---|
 | [00 · Discovery y auditoría](documentacion/09-fases/FASE-00-DISCOVERY.md) | ✅ cerrada | 5/5 |
 | [01 · Cimientos](documentacion/09-fases/FASE-01-CIMIENTOS.md) · [↳ Dirección](documentacion/09-fases/FASE-01-PARA-DIRECCION.md) | ✅ cerrada y revisada | 53/53 |
-| [02 · Design System](documentacion/09-fases/FASE-02-DESIGN-SYSTEM.md) · [↳ Dirección](documentacion/09-fases/FASE-02-PARA-DIRECCION.md) | ✅ cerrada y revisada | 37/37 |
-| [03 · Empresa y contactos](documentacion/09-fases/FASE-03-EMPRESA-Y-CONTACTOS.md) · [↳ Dirección](documentacion/09-fases/FASE-03-PARA-DIRECCION.md) | ✅ cerrada | 84/84 |
-| [04 · Motor de ejecución](documentacion/09-fases/FASE-04-MOTOR-DE-EJECUCION.md) · [↳ Dirección](documentacion/09-fases/FASE-04-PARA-DIRECCION.md) | ✅ cerrada | 41/41 |
+| [02 · Design System](documentacion/09-fases/FASE-02-DESIGN-SYSTEM.md) · [↳ Dirección](documentacion/09-fases/FASE-02-PARA-DIRECCION.md) | ✅ cerrada y revisada | 38/38 |
+| [03 · Empresa y contactos](documentacion/09-fases/FASE-03-EMPRESA-Y-CONTACTOS.md) · [↳ Dirección](documentacion/09-fases/FASE-03-PARA-DIRECCION.md) | ✅ cerrada | 95/95 |
+| [04 · Motor de ejecución](documentacion/09-fases/FASE-04-MOTOR-DE-EJECUCION.md) · [↳ Dirección](documentacion/09-fases/FASE-04-PARA-DIRECCION.md) | ✅ cerrada | 42/42 |
 | [05 · Proveedores de envío](documentacion/09-fases/FASE-05-PROVEEDORES-DE-ENVIO.md) · [↳ Dirección](documentacion/09-fases/FASE-05-PARA-DIRECCION.md) | 🟨 la parte de correo cerrada | 36/36 |
 | [06 · Campañas y mensajes](documentacion/09-fases/FASE-06-CAMPANAS-Y-MENSAJES.md) · [↳ Dirección](documentacion/09-fases/FASE-06-PARA-DIRECCION.md) | ✅ cerrada | 20/20 |
 | [Canal W · WhatsApp](documentacion/09-fases/FASE-W-CANAL-WHATSAPP.md) · [↳ Dirección](documentacion/09-fases/FASE-W-PARA-DIRECCION.md) | 🟨 manda mensajes de prueba, **no campañas** | 21/21 |
-| [07 · Actividad](documentacion/09-fases/FASE-07-ACTIVIDAD.md) · [↳ Dirección](documentacion/09-fases/FASE-07-PARA-DIRECCION.md) | 🟨 92 % · falta sólo SPF/DKIM/DMARC | 9/9 |
+| [07 · Actividad](documentacion/09-fases/FASE-07-ACTIVIDAD.md) · [↳ Dirección](documentacion/09-fases/FASE-07-PARA-DIRECCION.md) | 🟨 92 % · falta sólo SPF/DKIM/DMARC | 11/11 |
 | [08 · Respaldos y endurecimiento](documentacion/09-fases/FASE-08-RESPALDOS.md) · [↳ Dirección](documentacion/09-fases/FASE-08-PARA-DIRECCION.md) | ✅ cerrada | 19/19 |
 | 09 · Release v1.2.0 | ⬜ sin empezar | — |
 
-**325 comprobaciones, 0 fallos y 0 omitidas** (13/10/2026), con las sondas
+**340 comprobaciones, 0 fallos y 0 omitidas** (22/10/2026), con las sondas
 abriendo un navegador de verdad. Una sonda que no se puede correr se marca
 **omitida**, que no es lo mismo que pasada, y así se dice.
 
@@ -97,6 +97,14 @@ abriendo un navegador de verdad. Una sonda que no se puede correr se marca
 >
 > Por eso la cifra se lee entera —pasan, fallan, omitidas **y total**— y nunca
 > sólo el «0 fallan».
+
+> **Y las diez se corren de una en una.** Midiendo estas cifras, la fase 1 dio
+> **52 de 53** con tres validadores a la vez y **53 de 53** corrida sola: la
+> comprobación del CSS de los tokens escribía dentro del repositorio y después
+> preguntaba a `git diff`, así que dos corridas se pisaban el archivo. **Medido
+> el 22/10/2026: 1 falso de 40**, y **0 de 120** una vez que genera a un
+> temporal y compara contenidos. Un instrumento que exige ser el único proceso
+> del equipo no lo va a conseguir.
 
 ```bash
 # Las diez fases. Correr sólo la fase en curso no basta: en la 5.2 y la 5.3
@@ -276,15 +284,20 @@ Lo que se verá distinto en ella: **la tipografía**, porque va sin Mont. Los
 tamaños, los pesos y el ritmo sí son los definitivos — salen de los tokens. Un
 hallazgo del tipo «la letra no es la de la marca» en esa versión es esperado.
 
-**Qué se puede hacer ya con una versión de prueba** (actualizado el 08/10/2026 —
+**Qué se puede hacer ya con una versión de prueba** (actualizado el 22/10/2026 —
 este párrafo decía «la aplicación todavía no envía correos ni carga contactos», y
 llevaba meses sin ser cierto):
 
 - Configurar la empresa, **cargar contactos** desde CSV o XLSX con sus choques
-  revisados antes de importar, y gestionar bajas y derechos ARCO.
-- Dar de alta una cuenta de correo y **mandarse un correo de prueba de verdad**.
+  revisados antes de importar, y gestionar bajas y derechos ARCO. La tabla puede
+  venir con las columnas en cualquier orden y con las que no hacen falta dentro:
+  ARLES reconoce las tres que necesita y **descarga una plantilla** para el caso
+  en que no reconozca ninguna.
+- Dar de alta una cuenta de correo **con dos campos** —dirección y contraseña— y
+  **mandarse un correo de prueba de verdad**, que desde el 22/10/2026 llega a la
+  **bandeja principal** de Outlook, Gmail y un corporativo.
 - Escribir plantillas y firmas, crear una campaña con el asistente de nueve
-  pasos y **activarla**.
+  pasos —**eligiendo su firma y su máximo de correos al día**— y **activarla**.
 - Verla enviar en Actividad, con sus cifras y **por qué no sale nada**, y
   **pararla** en cualquier momento.
 - Dar de alta un número de WhatsApp y **mandarse un WhatsApp de prueba**.
