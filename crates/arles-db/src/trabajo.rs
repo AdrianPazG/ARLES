@@ -43,15 +43,27 @@
 //! Lo que sigue impidiendo quemar una cuenta **no es este `min`**, y por eso se
 //! puede quitar:
 //!
-//! 1. **El presupuesto cuelga de la CUENTA, no de la campaña** (`rate_budget`,
-//!    ver `presupuesto.rs`). Dos campañas con 300 sobre la misma cuenta no
-//!    gastan 600: comparten el contador. El total de una cuenta en un día es
-//!    el mayor de sus campañas, nunca la suma.
+//! 1. **El presupuesto compartido por cuenta** — *esta defensa se retiró esa
+//!    misma tarde, y se deja escrita porque entenderla es entender el riesgo
+//!    de hoy.* Decía: dos campañas con 300 sobre la misma cuenta no gastan 600,
+//!    comparten el contador, y el total de un día es el mayor de sus campañas y
+//!    nunca la suma. Era un techo real **y escondía un plazo roto**: el paso 6
+//!    promete los días calculados con el límite de cada campaña, y compartir el
+//!    cupo los duplicaba en silencio.
+//!
+//!    Dirección eligió el plazo cumplido (**D-13**): el presupuesto pasó a
+//!    colgar de la **etapa** y los topes **se suman**. Así que **el agregado de
+//!    un buzón ya no tiene techo**, y lo que ocupa su sitio es el semáforo de
+//!    Remitentes (D-14), que enseña la suma antes de que nadie active nada.
 //! 2. **El aviso del §48 con su casilla**, que se registra en `audit_log` con
 //!    su fecha — el rastro de que se informó y de que alguien dijo que sí.
 //! 3. **ADR-0008 sigue intacto**: no hay rotación de remitentes. Repartir un
 //!    envío entre cuentas para superar el agregado es lo que no se hace, y eso
 //!    no lo toca este cambio.
+//! 4. **Y el tope de la hora ya no puede frenar al del día** (auditoría H).
+//!    Medido el 22/10/2026: con diez por hora y nueve horas de ventana, quien
+//!    pedía 500 al día recibía **90**. El por hora se calcula ahora del diario,
+//!    y si alguien lo baja a mano se le dice cuántos van a salir.
 //!
 //! El §154 pide informar, no dictar. Un tope que no se puede ver ni cambiar no
 //! informa de nada.

@@ -188,6 +188,52 @@ pub fn techo_diario(limites: Limites, ventana: &Ventana) -> (u32, QuienManda) {
     (por_el_horario.min(por_el_dia), quien)
 }
 
+/// Cuántos por hora hacen falta para que el tope del día se cumpla de verdad.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// EL DEFECTO QUE ESTA FUNCIÓN EXISTE PARA CERRAR, MEDIDO EL 22/10/2026
+///
+/// Los dos topes se piden por separado, y el de la hora **puede impedir que el
+/// del día se alcance**. Con los valores que el asistente rellena solo —el
+/// límite de la cuenta, diez por hora— y la ventana de nueve a dieciocho:
+///
+/// | Lo que se pide | Lo que sale |
+/// |---|---|
+/// | 500 al día | **90** |
+/// | 100 al día | **90** |
+/// | 50 al día | 50 |
+///
+/// Así que **cualquier tope diario por encima de noventa no se cumplía**, y la
+/// pantalla no lo decía: el paso 6 enseñaba el techo real —90— sin decir de
+/// dónde salía ni que no era el número que se había escrito. Dirección lo pidió
+/// en una frase: *«si pone 50 al día en una campaña y 50 en otra, no pueden
+/// salir ni más ni menos al día»*.
+///
+/// Es la pareja de [`techo_diario`], al revés: aquélla dice cuántos caben, ésta
+/// cuántos por hora hacen falta para que quepan los que se pidieron.
+///
+/// ── POR QUÉ REDONDEA HACIA ARRIBA ──
+///
+/// 500 en nueve horas son 55.5 por hora. Con 55 salen 495 y faltan cinco; con
+/// 56 caben 504 y **el tope del día corta en 500**, que es el número que se
+/// pidió. Redondear hacia abajo dejaría el tope diario sin alcanzar por poco,
+/// que es el defecto de arriba en pequeño y más difícil de ver.
+///
+/// ── Y POR QUÉ NO DEVUELVE CERO NUNCA ──
+///
+/// Una ventana de cero horas —guardada mal, o un `desde` igual al `hasta`— daría
+/// una división por cero. Devuelve el tope del día entero: no hay horas entre
+/// las que repartir, así que el de la hora no puede ser el freno. Quien avisa de
+/// una ventana vacía es la ventana, no esto.
+#[must_use]
+pub fn por_hora_que_hace_falta(por_dia: u32, ventana: &Ventana) -> u32 {
+    let horas = u32::from(ventana.hasta.saturating_sub(ventana.desde));
+    if horas == 0 {
+        return por_dia;
+    }
+    por_dia.div_ceil(horas)
+}
+
 /// Cuándo terminará esta campaña.
 ///
 /// `desde` es cuándo empieza a enviar: ahora, si se activa ya, o la fecha
@@ -674,5 +720,94 @@ mod tests {
     fn el_horizonte_son_cinco_anios_y_el_detalle_dos_semanas() {
         assert_eq!(HORIZONTE_DIAS, 1_825);
         assert_eq!(DIAS_QUE_SE_DETALLAN, 14);
+    }
+    /// **La medición que destapó el defecto, convertida en prueba** (22/10/2026).
+    ///
+    /// Con los valores que el asistente rellena solo —diez por hora, el de la
+    /// cuenta— cualquier tope diario por encima de noventa **no se cumplía**, y
+    /// la pantalla no lo decía. Esta prueba fija las cifras que se midieron:
+    /// quien pide 500 recibe 90.
+    ///
+    /// Está aquí y no sólo en la cabecera porque una cifra en un comentario no
+    /// vuelve a comprobarse nunca.
+    #[test]
+    fn el_tope_de_la_hora_impedia_alcanzar_el_del_dia() {
+        let v = laborable();
+        assert_eq!(
+            techo_diario(Limites::nuevos(10, 500), &v),
+            (90, QuienManda::ElTopeDeLaHora),
+            "quien pide 500 al día con diez por hora recibe 90"
+        );
+        assert_eq!(
+            techo_diario(Limites::nuevos(10, 100), &v),
+            (90, QuienManda::ElTopeDeLaHora)
+        );
+        // Y por debajo de noventa sí se cumple, que es por lo que el defecto
+        // no se veía: con los 50 del §48 todo cuadra.
+        assert_eq!(
+            techo_diario(Limites::nuevos(10, 50), &v),
+            (50, QuienManda::ElTopeDelDia)
+        );
+    }
+
+    /// **Y con el por hora que hace falta, sale exactamente lo que se pidió.**
+    ///
+    /// Es la garantía que Dirección pidió con estas palabras: «si pone 50 al
+    /// día en una campaña y 50 en otra campaña, no pueden salir ni más ni
+    /// menos al día».
+    ///
+    /// Se comprueban varios números y no uno, porque lo que se puede romper es
+    /// el redondeo: con `/` en vez de `div_ceil`, 500 entre nueve horas da 55 y
+    /// salen 495 — cinco de menos, y en una cifra que nadie mira dos veces.
+    #[test]
+    fn con_el_por_hora_calculado_sale_lo_que_se_pidio() {
+        let v = laborable();
+        for pedido in [1, 7, 49, 50, 90, 91, 100, 500, 1_000, 9_999] {
+            let por_hora = por_hora_que_hace_falta(pedido, &v);
+            let (techo, quien) = techo_diario(Limites::nuevos(por_hora, pedido), &v);
+            assert_eq!(
+                techo, pedido,
+                "pidiendo {pedido} al día con {por_hora} por hora salen {techo}"
+            );
+            assert_ne!(
+                quien,
+                QuienManda::ElTopeDeLaHora,
+                "con {pedido} al día, el freno no puede ser la hora"
+            );
+        }
+    }
+
+    /// Una ventana más larga reparte lo mismo en menos por hora.
+    ///
+    /// Importa porque el cálculo depende de la ventana, y la ventana se elige
+    /// **después** del tope en el asistente: si no se recalculara al cambiarla,
+    /// quien pasa de nueve a dieciséis horas se quedaría con un por hora de más
+    /// —inofensivo— y quien hace lo contrario, con uno de menos, que es el
+    /// defecto de arriba otra vez.
+    #[test]
+    fn la_ventana_cambia_cuantos_por_hora_hacen_falta() {
+        let corta = Ventana::nueva(Dias::LABORABLES, 9, 18, mexico()).expect("ventana");
+        let larga = Ventana::nueva(Dias::LABORABLES, 6, 22, mexico()).expect("ventana");
+        assert_eq!(por_hora_que_hace_falta(500, &corta), 56, "nueve horas");
+        assert_eq!(por_hora_que_hace_falta(500, &larga), 32, "dieciséis horas");
+    }
+
+    /// **Una ventana de cero horas no revienta.**
+    ///
+    /// `Ventana::nueva` no deja construir una así, pero una guardada en la base
+    /// por una versión anterior o tocada a mano sí podría llegar. Una división
+    /// por cero en el camino de activar una campaña sería un cierre de la
+    /// aplicación delante de quien pulsó el botón.
+    #[test]
+    fn una_ventana_sin_horas_no_divide_por_cero() {
+        // Se construye saltándose el validador a propósito: es el caso que no
+        // se puede crear por la puerta y sí llegar desde el disco.
+        let v = Ventana {
+            dias: Dias::LABORABLES,
+            desde: 9,
+            hasta: 9,
+            zona: mexico(),
+        };
+        assert_eq!(por_hora_que_hace_falta(500, &v), 500);
     }
 }

@@ -208,12 +208,40 @@ pub fn cabe_uno_mas(
 }
 
 /// Qué hacer con el presupuesto al volver de una pausa.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// ESTO NO LO LLAMA NADIE, Y NO HAY QUE CONECTARLO (22/10/2026)
+///
+/// Es un vestigio de un diseño anterior en el que el presupuesto era un cubo
+/// de fichas que se rellenaba con el tiempo. En un cubo así, volver de ocho
+/// horas de suspensión acredita ocho horas de fichas y **suelta una ráfaga**,
+/// y por eso hacía falta saber si el equipo había dormido.
+///
+/// **El presupuesto de ARLES no es un cubo**: es un contador con la etiqueta
+/// de su ventana (`rate_budget.window_start`, ver `arles-db/src/presupuesto.rs`).
+/// Dormir no cambia la etiqueta del día, así que el contador sobrevive a la
+/// suspensión **sin que nadie haga nada**. El caso que esto venía a cubrir no
+/// existe.
+///
+/// Se deja escrito porque la variante de abajo dice «el presupuesto se
+/// reinicia», y eso es exactamente lo que **no** debe pasar: reiniciarlo al
+/// despertar haría que un portátil que se abre por la tarde mandara el cupo
+/// del día otra vez. Quien encuentre esta función y la conecte creyendo que
+/// arregla algo introduce ese defecto. Dirección lo dijo en una frase el
+/// 22/10/2026: *«me preocupa que salgan más correos del que se asignó en el
+/// día»*.
+///
+/// Lo que sí existe y sí se vigila es el **reloj movido hacia atrás**, que es
+/// el otro camino al mismo sitio: lo tapa el `MAX(window_start, …)` de
+/// `sumar_uno`, con su prueba.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", tag = "clase")]
 pub enum Despertar {
     /// No pasó nada raro: el tiempo corrió como debía.
     SinNovedad,
-    /// El equipo estuvo suspendido. **El presupuesto se reinicia.**
+    /// El equipo estuvo suspendido. En el diseño de cubo, el presupuesto se
+    /// reiniciaba aquí. **Con el contador por etiqueta no hay nada que hacer**
+    /// — ver la nota del tipo.
     ///
     /// `segundos_dormido` es aproximado a propósito: sale de restar dos
     /// relojes que no se leen en el mismo instante, así que lleva el error de

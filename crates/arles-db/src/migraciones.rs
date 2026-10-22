@@ -684,14 +684,43 @@ mod tests {
         // El precio está declarado en la cabecera de la V13: quien actualice a
         // media tarde habiendo gastado parte del cupo de hoy puede mandar más
         // de lo previsto ESE día. Una vez, y se dice en vez de callarlo.
-        let cubos: i64 = conn
-            .query_row("SELECT count(*) FROM rate_budget", [], |f| f.get(0))
+        // ── EL CUPO GASTADO SE HEREDA, NO SE PIERDE ──────────────────
+        //
+        // La primera versión de la V13, del mismo día, los vaciaba — y eso
+        // hacía que quien actualizara a media tarde mandara DE MÁS ese día, que
+        // es justo lo que Dirección señaló. Ahora cada etapa del buzón hereda
+        // el contador entero: falso en el reparto y verdadero en lo que
+        // importa, porque el total del día no sube. El error cae del lado de
+        // enviar de menos.
+        let (cubos, consumido): (i64, i64) = conn
+            .query_row(
+                "SELECT count(*), COALESCE(MAX(consumed), -1) FROM rate_budget
+                  WHERE window_kind = 'daily'",
+                [],
+                |f| Ok((f.get(0)?, f.get(1)?)),
+            )
             .expect("cuenta");
         assert_eq!(
-            cubos, 0,
-            "la V13 vacía los cubos de ritmo: cuelgan del buzón y no se pueden \
-             repartir entre sus campañas (ver su cabecera)"
+            cubos, 1,
+            "la campaña que la V4 creó hereda el cubo diario de su buzón"
         );
+        assert_eq!(
+            consumido, 7,
+            "y hereda los SIETE que el buzón llevaba gastados: con cero, quien \
+             actualice a media tarde manda de más ese día"
+        );
+
+        // Y ningún cubo se queda colgando del buzón sin etapa: esos son los que
+        // la lectura ya no mira, así que dejarlos sería guardar un número que
+        // nadie consulta y que el respaldo tendría que explicar.
+        let huerfanos: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM rate_budget WHERE stage_id IS NULL",
+                [],
+                |f| f.get(0),
+            )
+            .expect("cuenta");
+        assert_eq!(huerfanos, 0, "no quedan cubos sin etapa");
 
         // Y la columna que la V13 añade existe, porque es de lo que cuelga el
         // presupuesto desde la D-13. Sin ella, `anotar_un_envio` fallaría en

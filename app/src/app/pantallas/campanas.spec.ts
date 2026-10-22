@@ -431,17 +431,24 @@ describe('el asistente de campaña', () => {
    * en una espera explicada (§95).
    */
   /**
-   * ── EL PLAZO NO VALE SI EL REMITENTE SE COMPARTE (22/10/2026) ──────────
+   * ── EL AVISO DEL REMITENTE COMPARTIDO, Y LO QUE CAMBIÓ EN UN DÍA ───────
    *
-   * Lo vio Dirección: *«si coloco en la campaña uno un límite de 50 al día y
-   * otra campaña dos un límite de 50 al día con el mismo remitente... no se
-   * mandan 50 en ambas»*. Medido: salen **25 y 25**, y por orden de llegada.
+   * Lo vio Dirección la mañana del 22/10/2026: *«si coloco en la campaña uno un
+   * límite de 50 al día y otra campaña dos un límite de 50 al día con el mismo
+   * remitente... no se mandan 50 en ambas»*. Medido entonces: **25 y 25**, por
+   * orden de llegada. El aviso nació para decir que el plazo no valía.
    *
-   * El total del día sigue siendo el mayor de los límites y nunca la suma, así
-   * que el dominio no corre más riesgo. Lo que se rompe es el plazo que esta
-   * misma pantalla promete dos líneas más arriba, y por eso el aviso va
-   * pegado a él: un aviso que desmiente una cifra tiene que verse con la cifra
-   * delante.
+   * Esa misma tarde Dirección decidió que los topes **se sumen** (D-13), así
+   * que ahora salen 50 y 50 y el plazo se cumple. El aviso no se quitó: cambió
+   * de sentido. Lo que avisa es que **de ese buzón van a salir 100 al día**, y
+   * que el total es lo que arriesga el dominio — y hace más falta que antes,
+   * porque antes el agregado tenía un techo y ahora no.
+   *
+   * Esta prueba comprueba las tres cosas que el aviso necesita: que nombre la
+   * otra campaña, que explique que los topes se suman y que diga qué hacer
+   * (§95). La frase que exigía antes —«se reparten ese máximo»— describía un
+   * comportamiento retirado: si se hubiera dejado, la prueba habría seguido en
+   * verde protegiendo un texto falso.
    */
   it('avisa de que el plazo no vale si el remitente ya está enviando otra', async () => {
     const campanas = useCampanasStore()
@@ -454,9 +461,10 @@ describe('el asistente de campaña', () => {
     p.vm.paso = 6
     await p.vm.$nextTick()
     expect(p.text()).toContain('Este remitente ya está enviando «La de octubre»')
-    expect(p.text()).toContain('se reparten ese máximo')
+    expect(p.text()).toContain('esos máximos se suman')
+    expect(p.text()).toContain('El plazo de arriba se cumple')
     // Y dice qué hacer, que es la tercera parte del §95.
-    expect(p.text()).toContain('usa un remitente distinto')
+    expect(p.text()).toContain('un remitente distinto para cada campaña')
   })
 
   it('nombra las dos cuando son dos, y lo dice en plural', async () => {
@@ -738,7 +746,69 @@ describe('el paso 5 sin ningún horario guardado', () => {
     p.vm.cuenta = CUENTA.id
     await p.vm.$nextTick()
     expect(p.text()).toContain(`Tu cuenta viene con ${CUENTA.limiteDiario} al día`)
-    expect(p.text()).toContain(`Tu cuenta viene con ${CUENTA.limitePorHora} por hora`)
+  })
+
+  /**
+   * ── Y EL POR HORA YA NO ES EL DE LA CUENTA, SINO EL QUE HACE FALTA ──────
+   *
+   * Esta prueba exigía «Tu cuenta viene con 10 por hora», y ese número era
+   * exactamente el defecto: medido el 22/10/2026, con diez por hora y una
+   * ventana de nueve horas, un tope diario de 500 entregaba **90**, y la
+   * pantalla no lo decía. Cualquier tope por encima de noventa se quedaba sin
+   * cumplir.
+   *
+   * Ahora el campo se rellena con lo que hace falta para que el día se cumpla,
+   * y la ayuda dice de dónde sale. **Dejar la prueba vieja habría protegido el
+   * defecto**: estaba en verde sobre él.
+   */
+  it('el por hora se calcula para que el máximo del día se cumpla', async () => {
+    const p = enElPaso5([
+      { id: 'v1', nombre: 'Laborables', dias: 31, desde: 9, hasta: 18, zona: 'America/Monterrey' },
+    ])
+    // @ts-expect-error acceso al estado interno: la cuenta
+    p.vm.cuenta = CUENTA.id
+    // @ts-expect-error acceso al estado interno: el horario
+    p.vm.ventana = 'v1'
+    // @ts-expect-error acceso al estado interno: el tope diario
+    p.vm.limiteDiario = '500'
+    await p.vm.$nextTick()
+
+    // 500 en nueve horas son 55.5 → 56, que es lo que hace que quepan los 500.
+    // @ts-expect-error acceso al estado interno: el por hora que se calculó
+    expect(p.vm.limitePorHora).toBe('56')
+    expect(p.text()).toContain('ARLES puso 56')
+    // Y entonces no hay nada que avisar: el día se cumple.
+    expect(p.text()).not.toContain('no saldrán todos')
+  })
+
+  /**
+   * **Y si alguien lo baja a mano, se le dice cuántos saldrán de verdad.**
+   *
+   * §154: bajarlo puede ser lo que se quiere —repartir más despacio levanta
+   * menos sospecha—, así que no se bloquea. Lo que no vale es que salgan 90 de
+   * 500 sin que nadie lo diga.
+   */
+  it('avisa con las dos cifras si el por hora deja el día sin cumplir', async () => {
+    const p = enElPaso5([
+      { id: 'v1', nombre: 'Laborables', dias: 31, desde: 9, hasta: 18, zona: 'America/Monterrey' },
+    ])
+    // @ts-expect-error acceso al estado interno: la cuenta
+    p.vm.cuenta = CUENTA.id
+    // @ts-expect-error acceso al estado interno: el horario
+    p.vm.ventana = 'v1'
+    // @ts-expect-error acceso al estado interno: el tope diario
+    p.vm.limiteDiario = '500'
+    await p.vm.$nextTick()
+    // Lo baja a mano DESPUÉS, que es el único caso en que esto puede pasar.
+    // @ts-expect-error acceso al estado interno: el por hora, bajado a mano
+    p.vm.limitePorHora = '10'
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto).toContain('no saldrán todos')
+    expect(texto).toContain('Pediste 500 al día')
+    expect(texto).toContain('sólo caben 90')
+    expect(texto).toContain('pon 56 por hora')
   })
 
   it('y sin cuenta elegida no se inventa una cifra', async () => {

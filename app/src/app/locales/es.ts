@@ -2162,9 +2162,32 @@ export const es = {
           'Tu cuenta viene con {n} al día. Puedes subirlo o bajarlo: éste es ' +
           'el número que ARLES va a respetar.',
         porHora: 'Máximo por hora',
-        porHoraAyuda:
-          'Tu cuenta viene con {n} por hora. Repartir el envío a lo largo ' +
-          'del día levanta menos sospecha que mandarlo todo de golpe.',
+        // ── ESTE TEXTO SUSTITUYE A `porHoraAyuda` (22/10/2026) ───────────
+        //
+        // El anterior decía «tu cuenta viene con {n} por hora», y era verdad y
+        // no servía: ese número es justo el que hacía que un tope diario de
+        // 500 entregara 90. Ahora el campo se rellena con lo que hace falta
+        // para que el día se cumpla, así que la ayuda tiene que explicar de
+        // dónde sale la cifra que la persona está viendo.
+        porHoraCalculado:
+          'ARLES puso {n}, que es lo que hace falta para que el máximo del ' +
+          'día se cumpla dentro de tu horario. Puedes bajarlo, y te dirá ' +
+          'cuántos saldrían entonces.',
+
+        // Si alguien baja el por hora a mano, saldrán menos de los que pidió.
+        // Las tres partes del §95: qué pasa, cómo se arregla, y la cifra —
+        // nunca un adjetivo (§94).
+        laHoraFrena: {
+          titulo: 'Con ese máximo por hora no saldrán todos',
+          cuerpo:
+            'Pediste {pedido} al día, pero con {porHora} por hora y {horas} ' +
+            'horas de envío sólo caben {salen}. Los demás se quedan para el ' +
+            'día siguiente, así que la campaña va a tardar más de lo que dice ' +
+            'el paso del resumen.',
+          comoSeArregla:
+            'Si quieres que salgan los {pedido}, pon {n} por hora. Y si lo ' +
+            'dejas así es porque lo prefieres: ARLES no te lo va a cambiar.',
+        },
 
         // Un 0, un negativo o letras. Antes se guardaba tal cual: con «0» la
         // campaña se activaba y no mandaba nunca nada. Las tres partes del §95.
@@ -2219,14 +2242,28 @@ export const es = {
         remitenteCompartido:
           'Este remitente ya está enviando «{campanas}» | ' +
           'Este remitente ya está enviando {n} campañas: {campanas}',
+        // ── ESTE TEXTO DECÍA LO CONTRARIO HASTA LA D-13 ─────────────────
+        //
+        // Decía: «las que comparten remitente se reparten ese máximo, así que
+        // ésta va a tardar más… No saldrán más correos en total: saldrán
+        // repartidos». Era verdad el 22/10 por la mañana y dejó de serlo esa
+        // misma tarde, cuando Dirección decidió que los topes se sumen para
+        // que cada campaña cumpla el plazo que prometió.
+        //
+        // Ahora el plazo de arriba **se cumple**, y lo que hay que avisar es lo
+        // otro: que el buzón va a mandar la suma de las dos, y que eso es lo
+        // que arriesga el dominio. El aviso no cambió de sitio, cambió de
+        // sentido — y un aviso que describe un comportamiento retirado es peor
+        // que ninguno, porque hace desconfiar de la cifra que sí es buena.
         remitenteCompartidoDetalle:
-          'El máximo al día es de la cuenta de correo, no de cada campaña. ' +
-          'Las que comparten remitente se reparten ese máximo, así que ésta ' +
-          'va a tardar más de lo que dice el plazo de arriba. No saldrán más ' +
-          'correos en total: saldrán repartidos.',
+          'El plazo de arriba se cumple: cada campaña manda su propio máximo ' +
+          'al día. Lo que hay que mirar es el total del remitente, porque ' +
+          'esos máximos se suman y de ese buzón va a salir la suma de todas.',
         remitenteCompartidoQueHacer:
-          'Si necesitas que cada campaña vaya a su ritmo, usa un remitente ' +
-          'distinto para cada una, o espera a que la otra termine.',
+          'Mira el total en Remitentes antes de activar: ahí sale cuántos ' +
+          'correos al día manda este buzón entre todas sus campañas, con un ' +
+          'aviso si es demasiado. Si la suma te parece mucha, usa un ' +
+          'remitente distinto para cada campaña.',
         titulo: 'Cuánto va a tardar',
         calculando:
           'Comprobando la cuenta contra el servidor de correo. Puede tardar ' +

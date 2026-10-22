@@ -154,6 +154,7 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Auditoría D · UX y accesibilidad](09-fases/AUDITORIA-D-UX.md) | §140, pasada 4 de 4 · las dieciocho pantallas medidas en Chromium |
 | [Auditoría F · la Fase 8 entera](09-fases/AUDITORIA-F-FASE-08.md) | Las once entregas como un sistema · el respaldo cifrado que no se podía restaurar |
 | [Auditoría G · funcionalidad](09-fases/AUDITORIA-G-FUNCIONALIDAD.md) | Si lo que se escribe llega · el límite diario que no se aplicaba y la firma que nunca se guardaba |
+| [Auditoría H · el cupo diario](09-fases/AUDITORIA-H-EL-CUPO-DIARIO.md) | **Si la cifra que se pide es la que se cumple**, de punta a punta · el tope por hora que dejaba el del día sin alcanzar —500 pedidos, 90 reales— y la migración que reiniciaba el contador |
 | [Fase 8 · Respaldos y endurecimiento](09-fases/FASE-08-RESPALDOS.md) | Lo construido, las cinco auditorías y las doce cifras |
 | [Fase 8 · para Dirección](09-fases/FASE-08-PARA-DIRECCION.md) | El informe en términos de Dirección |
 | [Manual de usuario](07-entrega/MANUAL-DE-USUARIO.md) | **Qué puedes hacer con ARLES y en qué orden**, en español llano — y la lista de lo que todavía no hace, para no prometerlo |

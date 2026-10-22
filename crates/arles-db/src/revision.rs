@@ -75,19 +75,24 @@ pub struct LoQueSabeLaBase {
     /// campaña uno un límite de 50 al día y otra campaña dos un límite de 50
     /// al día con el mismo remitente... no se mandan 50 en ambas»*.
     ///
-    /// Tenía razón, y está medido: el presupuesto cuelga de la **cuenta**, así
-    /// que dos campañas de 50 sobre un remitente sacan **25 y 25**. Y no por
-    /// mitades: por **orden de llegada**, que es peor, porque no se puede
-    /// predecir cuál se queda con qué.
+    /// Tenía razón, y estaba medido: el presupuesto colgaba de la **cuenta**,
+    /// así que dos campañas de 50 sobre un remitente sacaban **25 y 25**, y no
+    /// por mitades sino por **orden de llegada**. Lo que rompía era la promesa
+    /// de tiempo del paso 6.
     ///
-    /// Lo que eso rompe no es el dominio —el total sigue siendo el mayor de
-    /// los límites, nunca la suma— sino **la promesa de tiempo**: el paso 6
-    /// dice «termina en X días» con el límite de esta campaña, ignorando que
-    /// lo comparte. Una cifra que la pantalla promete y el motor no cumple es
-    /// exactamente lo que este proyecto persigue.
+    /// ── Y ESA MISMA TARDE DIRECCIÓN LO CAMBIÓ (D-13) ──────────────────
     ///
-    /// Va vacío cuando el remitente es sólo de esta campaña, que es el caso
-    /// en el que la estimación sí se puede creer.
+    /// El presupuesto pasó a colgar de la **etapa** y los topes **se suman**:
+    /// las dos campañas sacan 50 cada una y el plazo se cumple. Lo que este
+    /// campo avisa, entonces, ya no es que la estimación mienta — es que **de
+    /// ese buzón van a salir 100 al día**, y lo que arriesga el dominio es el
+    /// total y no cada campaña por separado.
+    ///
+    /// Sigue haciendo falta, y más que antes: antes el agregado tenía un techo
+    /// y ahora no lo tiene. La cifra entera está en Remitentes con su semáforo
+    /// (D-14); esto es lo que lo pone delante de quien está a punto de activar.
+    ///
+    /// Va vacío cuando el remitente es sólo de esta campaña.
     pub comparten_remitente: Vec<CampanaQueComparte>,
 }
 
@@ -709,13 +714,12 @@ mod tests {
     ///
     /// *«si coloco en la campaña uno un límite de 50 al día y otra campaña dos
     /// un límite de 50 al día con el mismo remitente... no se mandan 50 en
-    /// ambas campañas»*. Medido: salen **25 y 25**, y no por mitades sino por
-    /// orden de llegada, que no se puede predecir.
+    /// ambas campañas»*. Medido entonces: **25 y 25**, por orden de llegada.
     ///
-    /// El total del día sigue siendo el mayor de los dos límites —nunca la
-    /// suma—, así que el dominio no corre más riesgo. Lo que se rompe es la
-    /// promesa de tiempo del paso 6, que estima con el límite de esta campaña
-    /// como si el remitente fuera sólo suyo.
+    /// Esa misma tarde Dirección decidió que los topes **se sumen** (D-13), y
+    /// ahora salen 50 y 50. Así que lo que esta lista sostiene ya no es «el
+    /// plazo miente» sino «el buzón va a mandar la suma», que es el riesgo que
+    /// la D-13 abrió al quitar el techo del agregado.
     ///
     /// Esta prueba fija las tres cosas que el aviso necesita para no mentir:
     /// que sólo cuenten las que **de verdad están enviando**, que no se cuente

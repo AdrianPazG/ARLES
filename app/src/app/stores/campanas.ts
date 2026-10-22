@@ -119,11 +119,16 @@ export interface Revision {
   /**
    * Las campañas que **ya están enviando** con este mismo remitente.
    *
-   * Si hay alguna, la `estimacion` de arriba miente: el cupo de envío cuelga
-   * de la cuenta, así que dos campañas de 50 al día sacan 25 y 25 —y por
-   * orden de llegada, no por mitades—. El total del día sigue siendo el mayor
-   * de los límites y nunca la suma, así que lo que se rompe no es el dominio:
-   * es el plazo que el paso 6 promete.
+   * ── LO QUE ESTO SIGNIFICA CAMBIÓ EL 22/10/2026 POR LA TARDE (D-13) ──────
+   *
+   * Hasta esa tarde el cupo colgaba de la cuenta: dos campañas de 50 sacaban
+   * 25 y 25 **por orden de llegada**, y lo que se rompía era el plazo que el
+   * paso 6 promete. Por eso existe este campo.
+   *
+   * Desde la D-13 el cupo cuelga de la campaña y **los topes se suman**: las
+   * dos sacan 50, y el plazo se cumple. Así que el aviso ya no desmiente la
+   * estimación — avisa de lo otro: que de ese buzón van a salir 100 al día, y
+   * el que arriesga el dominio es el total, no cada campaña.
    */
   readonly compartenRemitente: readonly {
     readonly nombre: string

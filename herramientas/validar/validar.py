@@ -373,6 +373,26 @@ def sin_comentarios_toml(texto):
     return "\n".join(l.split("#", 1)[0] for l in texto.splitlines())
 
 
+def sin_comentarios_de_barras(texto):
+    """Quita los comentarios `//` y `/* … */` de Rust, TypeScript o Vue.
+
+    La misma razón que `sin_comentarios_toml`, y en este proyecto es la novena
+    vez: una comprobación que busca una cadena en un archivo **se caza a sí
+    misma** en la explicación de por qué existe. Aquí los comentarios citan las
+    operaciones enteras —`por_dia.div_ceil(horas)`, `Math.ceil(dia / horas)`—
+    para explicar el defecto que vigilan, así que buscarlas sin quitarlos
+    pasaría en verde con el código borrado.
+
+    Sólo quita las líneas que **empiezan** por `//`, no el `//` a media línea:
+    así una URL dentro de una cadena no parte la línea en dos. Para lo que esto
+    mide es de sobra, y lo que se buscaba era no perder código por accidente.
+    """
+    sin_bloques = re.sub(r"/\*.*?\*/", "", texto, flags=re.S)
+    return "\n".join(
+        "" if l.lstrip().startswith("//") else l for l in sin_bloques.splitlines()
+    )
+
+
 def fase_1(rapido):
     titulo("FASE 1 · Cimientos")
 
@@ -401,6 +421,7 @@ def fase_1(rapido):
     el_nucleo_no_toca_el_mundo()
     el_grafo_de_crates_solo_apunta_hacia_dentro()
     las_cifras_del_nucleo_son_las_mismas_en_la_pantalla()
+    el_techo_del_dia_se_calcula_igual_en_los_dos_lados()
 
     cap = json.loads(leer("crates/arles-app", "capabilities/principal.json") or "{}")
     permisos = cap.get("permissions", [])
@@ -810,6 +831,80 @@ def las_cifras_del_nucleo_son_las_mismas_en_la_pantalla():
           las_cifras_del_nucleo_son_las_mismas_en_la_pantalla.__doc__,
           detalle="\n      ".join(problemas))
 
+
+
+def el_techo_del_dia_se_calcula_igual_en_los_dos_lados():
+    """**El tope de la hora no puede dejar el del día sin cumplir, y la
+    pantalla y el núcleo tienen que estar de acuerdo en cuántos caben.**
+
+    ── EL DEFECTO QUE ESTA COMPROBACIÓN VIGILA, MEDIDO EL 22/10/2026 ──
+
+    Los dos topes se piden por separado en el paso 5, y el de la hora puede
+    frenar al del día. Con lo que la pantalla rellenaba sola —el por hora de la
+    cuenta, diez— y la ventana de nueve a dieciocho:
+
+        se pide 500 al día  →  salían  90
+        se pide 100 al día  →  salían  90
+
+    o sea que **cualquier tope por encima de noventa no se cumplía**, y nadie lo
+    decía. No se veía porque con los 50 del §48 todo cuadra: el defecto empezaba
+    justo donde Dirección quiere trabajar. Lo arregla `por_hora_que_hace_falta`
+    en el núcleo y el cálculo gemelo del asistente, que rellena el campo.
+
+    ── POR QUÉ HAY DOS CÁLCULOS Y NO UNO ──
+
+    Igual que `AVISO_DIARIO`: **la pantalla tiene que avisar antes de llamar a
+    nadie**, así que no puede preguntárselo al núcleo. La duplicación es
+    deliberada y lo que faltaba era que alguien comprobara que las dos dicen lo
+    mismo.
+
+    Si se separan, pasa una de dos y las dos son malas:
+
+    - la pantalla rellena **de menos** → se vuelve al defecto de arriba, y el
+      aviso tampoco salta porque usa el mismo cálculo;
+    - la pantalla rellena **de más** → el campo propone un por hora que el
+      núcleo no necesita, y quien lo lea pensará que ARLES no sabe sumar.
+
+    Esto no compara cifras —no hay ninguna que comparar— sino **que las dos
+    operaciones existan y redondeen igual**: `div_ceil` en Rust y `Math.ceil` en
+    la pantalla. Un `/` o un `Math.floor` en cualquiera de los dos lados deja el
+    tope diario sin alcanzar por poco, que es el mismo defecto en pequeño y más
+    difícil de ver.
+
+    Verificada el 22/10/2026 por los dos lados: cambiando `div_ceil` por `/` en
+    el núcleo y `Math.ceil` por `Math.floor` en el asistente.
+    """
+    nucleo = leer("crates", "arles-core", "src", "duracion.rs") or ""
+    asistente = leer("app", "src", "app", "pantallas", "AsistenteDeCampana.vue") or ""
+
+    # Sin comentarios antes de medir. Es la lección que este proyecto ha
+    # aprendido ocho veces: una comprobación que busca una cadena en un archivo
+    # se caza a sí misma en la explicación de por qué existe.
+    nucleo_codigo = sin_comentarios_de_barras(nucleo)
+    asistente_codigo = sin_comentarios_de_barras(asistente)
+
+    problemas = []
+    if "por_dia.div_ceil(horas)" not in nucleo_codigo:
+        problemas.append(
+            "el núcleo ya no redondea hacia arriba en `por_hora_que_hace_falta`: "
+            "con una división entera, 500 en nueve horas da 55 y salen 495"
+        )
+    if "Math.ceil(dia / horas)" not in asistente_codigo:
+        problemas.append(
+            "el asistente ya no redondea hacia arriba al rellenar el por hora: "
+            "el campo propondrá un número con el que el tope diario no se cumple"
+        )
+    if "laHoraFrenaElDia" not in asistente_codigo:
+        problemas.append(
+            "el asistente ya no avisa de que el tope de la hora frena al del día: "
+            "quien baje el por hora a mano mandará menos de lo que pidió y nadie "
+            "se lo dirá"
+        )
+
+    check(1, "el techo del día se calcula igual en el núcleo y en la pantalla",
+          not problemas,
+          el_techo_del_dia_se_calcula_igual_en_los_dos_lados.__doc__,
+          detalle="\n      ".join(problemas))
 
 def nada_sale_por_correo_sin_pasar_por_el_saneado():
     """**El saneado «al usar» del §8: hoy no aplica, y el día que aplique no
@@ -1834,7 +1929,7 @@ MIGRACIONES_PUBLICADAS = {
     # campañas de 100 sobre el mismo remitente manden 200 y cada una cumpla el
     # plazo que prometió. Decisión de Dirección del 22/10/2026 (D-13).
     "V13__cupo_por_campana.sql":
-        "d353a3018bac75a7153b038bc4605114c189ea8bce17df3112eafd13fef89fef",
+        "1bccf390993d00f7f144a0100a9b57c9d7dd4d19394edf7efcd0db82e1261f36",
 }
 
 

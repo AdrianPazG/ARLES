@@ -253,7 +253,6 @@ async function crearHorario(nombre: string, desde: number, hasta: number): Promi
 // «El de la cuenta» es un adjetivo; «50» es una cifra (§94).
 const cuentaElegida = computed(() => remitentes.remitentes.find((r) => r.id === cuenta.value))
 const topeDeLaCuenta = computed(() => cuentaElegida.value?.limiteDiario ?? null)
-const topePorHoraDeLaCuenta = computed(() => cuentaElegida.value?.limitePorHora ?? null)
 
 /** La plantilla elegida, para poder enseñar sus variables en el paso 4. */
 const plantillaElegida = computed(() =>
@@ -296,6 +295,95 @@ watch(cuentaElegida, (r) => {
   if (limiteDiario.value.trim() === '') limiteDiario.value = String(r.limiteDiario)
   if (limitePorHora.value.trim() === '') limitePorHora.value = String(r.limitePorHora)
 })
+
+// ──────────────────────────────────────────────────────────────────────────
+// EL TOPE DE LA HORA NO PUEDE IMPEDIR QUE EL DEL DÍA SE CUMPLA
+//
+// Medido el 22/10/2026, y es el defecto que más caro salía de los cinco de esa
+// auditoría: con lo que esta misma pantalla rellena sola —diez por hora, el de
+// la cuenta— y la ventana de nueve a dieciocho,
+//
+//     se pide 500 al día  →  salen 90
+//     se pide 100 al día  →  salen 90
+//     se pide  50 al día  →  salen 50
+//
+// o sea que CUALQUIER TOPE POR ENCIMA DE NOVENTA no se cumplía. Y no se veía
+// porque con los 50 del §48 todo cuadra: el defecto empieza justo donde
+// Dirección quiere trabajar.
+//
+// Se cierra por los dos lados, porque uno solo no basta:
+//
+//   · el por hora **se calcula** del diario y de la ventana, para que no haya
+//     que saberse esta aritmética para usar el producto;
+//   · y si alguien lo deja por debajo a mano, **se avisa con las dos cifras**
+//     (§154: informar, no dictar — bajarlo puede ser lo que se quiere, mandar
+//     menos de lo que se pidió sin saberlo nunca lo es).
+
+/** La ventana elegida, para saber cuántas horas de envío tiene al día. */
+const ventanaElegida = computed(() =>
+  campanas.ventanas.find((v) => v.id === ventana.value),
+)
+
+/**
+ * Cuántos por hora hacen falta para que el tope del día se alcance.
+ *
+ * **Redondea hacia arriba**, igual que `por_hora_que_hace_falta` en el núcleo:
+ * 500 en nueve horas son 55.5, y con 55 salen 495. La cifra viaja por la
+ * frontera en `techoDiario`, así que el día que las dos cuentas no coincidan
+ * lo dirá el propio paso 6 — no hay una segunda regla que mantener a mano.
+ */
+const porHoraQueHaceFalta = computed(() => {
+  const v = ventanaElegida.value
+  const dia = diarioComoNumero.value
+  if (!v || dia === null || dia < 1) return null
+  const horas = Math.max(0, v.hasta - v.desde)
+  if (horas === 0) return dia
+  return Math.ceil(dia / horas)
+})
+
+/**
+ * Al cambiar el tope diario o la ventana, el por hora se recalcula.
+ *
+ * ── POR QUÉ PISA LO QUE HAYA, AL CONTRARIO QUE EL `watch` DE ARRIBA ──
+ *
+ * Aquél no pisa porque el número que hay es **una decisión**: alguien escribió
+ * 300. Éste sí pisa porque lo que hay es **una consecuencia**: el por hora de
+ * la cuenta, que ya no cuadra con el diario nuevo. Dejarlo quieto es lo que
+ * producía los 90 de 500.
+ *
+ * Quien de verdad quiera un por hora más bajo lo escribe después y se queda:
+ * este `watch` sólo reacciona a que cambie el diario o la ventana, no a que se
+ * toque el por hora. Y entonces salta el aviso.
+ */
+watch([diarioComoNumero, ventanaElegida], () => {
+  const hace_falta = porHoraQueHaceFalta.value
+  if (hace_falta !== null) limitePorHora.value = String(hace_falta)
+})
+
+/**
+ * El techo real del día, cruzando los dos topes con las horas de la ventana.
+ *
+ * Es la misma cuenta que `techo_diario` en el núcleo. Se hace aquí para poder
+ * avisar **antes** de llamar a nadie, que es la misma razón por la que
+ * `AVISO_DIARIO` está duplicado — y, como aquél, hay una comprobación del
+ * validador que falla si las dos cuentas se separan.
+ */
+const techoRealDelDia = computed(() => {
+  const v = ventanaElegida.value
+  const dia = diarioComoNumero.value
+  const hora = Number.parseInt(limitePorHora.value, 10)
+  if (!v || dia === null || !Number.isFinite(hora) || hora < 1) return null
+  const horas = Math.max(0, v.hasta - v.desde)
+  return Math.min(dia, hora * horas)
+})
+
+/** `true` cuando el tope de la hora deja el del día sin alcanzar. */
+const laHoraFrenaElDia = computed(
+  () =>
+    techoRealDelDia.value !== null &&
+    diarioComoNumero.value !== null &&
+    techoRealDelDia.value < diarioComoNumero.value,
+)
 
 /**
  * Un límite escrito que no es un número de envíos.
@@ -634,11 +722,46 @@ function rotulo(clave: string): string {
           v-model="limitePorHora"
           :etiqueta="t('asistente.paso.limites.porHora')"
           :ayuda="
-            topePorHoraDeLaCuenta === null
+            porHoraQueHaceFalta === null
               ? ''
-              : t('asistente.paso.limites.porHoraAyuda', { n: topePorHoraDeLaCuenta })
+              : t('asistente.paso.limites.porHoraCalculado', { n: porHoraQueHaceFalta })
           "
         />
+
+        <!--
+          EL AVISO DE QUE SALDRÁN MENOS DE LOS QUE SE PIDIERON.
+
+          Medido el 22/10/2026: con diez por hora y una ventana de nueve horas,
+          quien escribía 500 al día recibía 90 y la pantalla no lo decía. El
+          por hora se calcula solo desde entonces, así que este aviso sólo
+          aparece si alguien lo baja a mano — y entonces hace falta, porque
+          bajarlo puede ser lo que se quiere y mandar menos de lo pedido sin
+          saberlo nunca lo es.
+
+          Va pegado al campo que lo causa y no al final del paso: un aviso que
+          desmiente una cifra tiene que verse con la cifra delante, que es la
+          lección del aviso del remitente compartido.
+        -->
+        <AAviso
+          v-if="laHoraFrenaElDia"
+          tono="aviso"
+          :titulo="t('asistente.paso.limites.laHoraFrena.titulo')"
+        >
+          <p>
+            {{ t('asistente.paso.limites.laHoraFrena.cuerpo', {
+              pedido: (diarioComoNumero ?? 0).toLocaleString('es-MX'),
+              salen: (techoRealDelDia ?? 0).toLocaleString('es-MX'),
+              porHora: limitePorHora,
+              horas: (ventanaElegida?.hasta ?? 0) - (ventanaElegida?.desde ?? 0),
+            }) }}
+          </p>
+          <p>
+            {{ t('asistente.paso.limites.laHoraFrena.comoSeArregla', {
+              n: (porHoraQueHaceFalta ?? 0).toLocaleString('es-MX'),
+              pedido: (diarioComoNumero ?? 0).toLocaleString('es-MX'),
+            }) }}
+          </p>
+        </AAviso>
 
         <!--
           Un 0, un negativo o letras. Antes se guardaba tal cual: con «0» la

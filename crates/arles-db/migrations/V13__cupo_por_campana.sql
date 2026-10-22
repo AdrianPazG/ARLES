@@ -42,18 +42,37 @@
 -- iguales; el día que no lo sean, esto ya estará bien.
 --
 -- ────────────────────────────────────────────────────────────────────────
--- QUÉ SE PIERDE AL MIGRAR, Y SE DICE EN VEZ DE CALLARLO
+-- EL CUPO YA GASTADO NO SE PIERDE, Y SE COPIA ENTERO A CADA CAMPAÑA
 --
--- Los cubos que había cuelgan del buzón y **no se pueden repartir**: un
--- contador de 37 envíos de una cuenta que sirve a tres campañas no sabe
--- cuántos puso cada una. Inventar un reparto sería peor que vaciarlo.
+-- La primera versión de esta migración, del mismo día, **vaciaba los cubos**
+-- con este motivo escrito: cuelgan del buzón y no se pueden repartir, porque
+-- un contador de 37 envíos de una cuenta que sirve a tres campañas no sabe
+-- cuántos puso cada una.
 --
--- Así que se vacían, y lo que eso significa es concreto: **si alguien
--- actualiza ARLES a media tarde habiendo enviado ya parte del cupo de hoy, el
--- contador vuelve a cero y ese día puede salir más correo del previsto.** Una
--- vez, el día de la actualización. Es el precio, está medido en lo que es, y
--- la alternativa —conservar un número que no se sabe de quién es— dejaría
--- campañas con un cupo gastado que nunca gastaron.
+-- El motivo era cierto y la conclusión estaba mal. Dirección lo señaló con una
+-- frase: *«me preocupa que salgan más correos del que se asignó en el día»*. Y
+-- vaciar hace exactamente eso: quien actualiza a media tarde habiendo gastado
+-- parte del cupo vuelve a cero y ese día manda de más.
+--
+-- No hace falta saber el reparto. Basta con no inventárselo:
+--
+--   **cada etapa del buzón hereda el contador ENTERO.**
+--
+-- Si el buzón gastó 37, las tres campañas arrancan con 37 gastados cada una.
+-- Es falso en el reparto y **verdadero en lo que importa**: ninguna puede
+-- mandar más de lo que le queda, y el total del día nunca sube. El error cae
+-- del lado de enviar de menos — la misma asimetría de ADR-0004 y la del orden
+-- en que el motor anota el presupuesto antes del estado.
+--
+-- El día de la actualización, entonces, sale **menos** de lo previsto y no
+-- más. Se recoloca solo a la mañana siguiente, cuando la etiqueta del día
+-- cambia y los contadores vuelven a cero por su cuenta.
+--
+-- Y esta migración se corrigió en vez de parchearse con una V14 porque
+-- **ninguna base la tiene aplicada**: se escribió y se corrigió el mismo día,
+-- sin instalador publicado en medio. La regla de no editar una migración
+-- publicada protege de tener dos esquemas con el mismo número; aquí no hay
+-- ninguno todavía.
 --
 -- ────────────────────────────────────────────────────────────────────────
 -- Y LO QUE ESTA MIGRACIÓN CUESTA FUERA DE AQUÍ
@@ -82,13 +101,17 @@
 ALTER TABLE rate_budget
     ADD COLUMN stage_id TEXT REFERENCES campaign_stage(id) ON DELETE CASCADE;
 
--- ─── Los cubos viejos ───────────────────────────────────────────────────
+-- ─── Los índices viejos, ANTES de copiar ────────────────────────────────
 --
--- Se vacían por lo dicho arriba: cuelgan del buzón y no se pueden repartir
--- entre las campañas que lo usan.
-DELETE FROM rate_budget;
-
--- ─── Los índices ────────────────────────────────────────────────────────
+-- EL ORDEN DE ESTA MIGRACIÓN NO ES COSMÉTICO, y la primera versión lo tenía
+-- mal: copiaba los cubos con los índices viejos todavía puestos, y el único
+-- de `(cuenta, ventana)` rechazaba la segunda etapa del mismo buzón con un
+-- `UNIQUE constraint failed`. La migración entera fallaba, así que ARLES no
+-- arrancaba. Lo cazó la prueba de la V4 al correrla sobre datos reales.
+--
+-- Así que primero se suelta lo que estorba, después se copia, y los índices
+-- nuevos se crean al final — cuando ya no queda ninguna fila sin etapa que
+-- pudiera chocar con ellos.
 --
 -- Los de la V4 eran `(cuenta, ventana)` únicos, que es exactamente lo que
 -- ahora impide que dos campañas tengan su propio cubo sobre el mismo buzón.
@@ -102,6 +125,33 @@ DELETE FROM rate_budget;
 -- esto viene a ordenar.
 DROP INDEX idx_rate_budget_email;
 DROP INDEX idx_rate_budget_whatsapp;
+
+
+-- ─── Los cubos viejos ───────────────────────────────────────────────────
+--
+-- Cada etapa del buzón hereda el contador entero, por lo dicho arriba. Van los
+-- dos canales: una cuenta de WhatsApp tiene su propio cubo desde la V4, y
+-- dejarla fuera reiniciaría el suyo — el defecto que esto viene a corregir,
+-- escondido en el canal que todavía no lanza campañas.
+INSERT INTO rate_budget (channel, email_account_id, whatsapp_account_id,
+                         stage_id, window_kind, window_start, consumed, updated_at)
+SELECT b.channel, b.email_account_id, NULL, e.id,
+       b.window_kind, b.window_start, b.consumed, b.updated_at
+  FROM rate_budget b
+  JOIN campaign_stage e ON e.email_account_id = b.email_account_id
+ WHERE b.email_account_id IS NOT NULL AND b.stage_id IS NULL;
+
+INSERT INTO rate_budget (channel, email_account_id, whatsapp_account_id,
+                         stage_id, window_kind, window_start, consumed, updated_at)
+SELECT b.channel, NULL, b.whatsapp_account_id, e.id,
+       b.window_kind, b.window_start, b.consumed, b.updated_at
+  FROM rate_budget b
+  JOIN campaign_stage e ON e.whatsapp_account_id = b.whatsapp_account_id
+ WHERE b.whatsapp_account_id IS NOT NULL AND b.stage_id IS NULL;
+
+-- Y los que colgaban del buzón se van, ya copiados. Un buzón sin ninguna etapa
+-- no deja descendencia, y está bien: sin campaña no hay nada que contar.
+DELETE FROM rate_budget WHERE stage_id IS NULL;
 
 CREATE UNIQUE INDEX idx_rate_budget_email
     ON rate_budget(email_account_id, stage_id, window_kind)
