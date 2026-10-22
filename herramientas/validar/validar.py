@@ -2454,6 +2454,119 @@ def los_nombres_del_dominio_son_los_mismos_a_los_dos_lados():
         )
 
 
+def la_plantilla_dice_las_columnas_que_lleva():
+    """El texto que enumera las columnas de la plantilla las nombra TODAS.
+
+    Dirección pidió la plantilla descargable el 22/10/2026 con tres columnas, y
+    hay **tres sitios** que las nombran: la constante del núcleo
+    (`PLANTILLA_DE_CONTACTOS`), que es la que acaba dentro del XLSX; el texto
+    del acuse, que le dice al usuario qué va a encontrar al abrirla; y la
+    entradilla del paso 1, que le dice qué debe decir la primera fila de su
+    archivo.
+
+    Si se añade una cuarta columna, los dos textos siguen diciendo tres. No
+    falla nada: el archivo sale con cuatro, la pantalla promete tres, y quien lo
+    abre cree que la de más sobra. **Un texto que enumera y se queda corto es
+    peor que uno que no enumera**, porque se lee como la lista completa.
+
+    Se lee la constante y no una lista de aquí: con una lista a mano, esto sería
+    el cuarto sitio que hay que acordarse de tocar. Es el defecto que las cuatro
+    auditorías del §140 encontraron once veces.
+
+    ───────────────────────────────────────────────────────────────────────────
+    VERIFICADA AÑADIENDO UNA CUARTA COLUMNA al núcleo —`(Apellido, "Apellido")`—
+    sin tocar los textos: en rojo, nombrando «Apellido» como la que falta en los
+    dos.
+
+    LO QUE NO CUBRE, Y SE DICE PORQUE LA PRIMERA VERSIÓN DE ESTE COMENTARIO
+    AFIRMABA LO CONTRARIO: **la dirección inversa.** Quitar «Teléfono» de la
+    constante deja los textos prometiendo una columna que el archivo no lleva, y
+    esto **pasa en verde** — se probó. Mide que cada columna del núcleo esté
+    nombrada, no que lo nombrado exista.
+
+    Cubrirla exigiría sacar de una frase en prosa «qué columnas nombra», y las
+    palabras «Correo» y «Nombre» aparecen en esos textos por otros motivos: el
+    instrumento daría hallazgos falsos. La dirección que queda sin medir es
+    además la improbable —se añaden columnas, no se quitan— y la que sí deja
+    rastro: la que se quitara seguiría saliendo en el XLSX de la prueba de ida y
+    vuelta de `arles-import`.
+
+    Está escrito porque en este proyecto **las afirmaciones de verificación son
+    las que más veces resultan falsas**, y ésta lo era: se dio por hecha una
+    ruptura en vez de correrla.
+    """
+    import re as _re
+
+    rust = leer("crates", "arles-core", "src", "importacion.rs") or ""
+    bloque = _re.search(
+        r"pub const PLANTILLA_DE_CONTACTOS: &\[\(CampoImportable, &str\)\] = &\[(.*?)\n\];",
+        rust,
+        _re.S,
+    )
+    columnas = _re.findall(r'"([^"]+)"', bloque.group(1)) if bloque else []
+
+    check(
+        3,
+        "la plantilla declara sus columnas en el núcleo",
+        len(columnas) >= 1,
+        la_plantilla_dice_las_columnas_que_lleva.__doc__,
+        detalle=f"columnas leídas: {columnas}",
+    )
+
+    # Los comentarios se quitan ANTES de buscar. Es el defecto que este proyecto
+    # ha cometido nueve veces: una comprobación que se caza a sí misma en el
+    # comentario que explica por qué existe — y aquí el bloque `plantilla:` de
+    # `es.ts` lleva encima un comentario que nombra las tres columnas.
+    textos = leer("app", "src", "app", "locales", "es.ts") or ""
+    sin_comentarios = _re.sub(r"^\s*//.*$", "", textos, flags=_re.M)
+
+    def bloque_de(texto, clave, sangria):
+        """El cuerpo de `clave: { … }`, acotado por su sangría.
+
+        Por la RUTA y no por la hoja. `es.ts` tiene varias `cuerpo:` y varias
+        `guardadaDetalle:` —una por pantalla—, así que buscar la clave suelta
+        mide el primer bloque del archivo y no el que importa. La primera
+        versión de esto hizo exactamente eso y **salió en rojo sobre dos textos
+        correctos**: es el mismo defecto que la 7.7 arregló en la comprobación
+        del §139, repetido aquí.
+
+        La sangría basta porque `es.ts` lo formatea prettier y no hay dos
+        anidamientos del mismo nombre al mismo nivel.
+        """
+        m = _re.search(
+            rf"^{' ' * sangria}{clave}: \{{\n(.*?)^{' ' * sangria}\}},?$",
+            texto,
+            _re.S | _re.M,
+        )
+        return m.group(1) if m else ""
+
+    dentro = bloque_de(sin_comentarios, "importacion", 2)
+    check(
+        3,
+        "el bloque de textos de la importación se encuentra",
+        bool(dentro),
+        la_plantilla_dice_las_columnas_que_lleva.__doc__,
+        detalle="no se localizó `importacion: {` en es.ts",
+    )
+
+    # Dos textos y no uno: el acuse dice qué trae el archivo que acabas de
+    # guardar, y la entradilla del paso 1 dice qué debe decir la primera fila
+    # del tuyo. Los dos enumeran, y los dos se quedarían cortos igual.
+    for sub, clave in [("plantilla", "guardadaDetalle"), ("elegir", "cuerpo")]:
+        frase = bloque_de(dentro, sub, 4)
+        faltan = [c for c in columnas if c not in frase]
+        check(
+            3,
+            f"el texto «{sub}.{clave}» nombra las {len(columnas)} columnas de la plantilla",
+            bool(frase) and not faltan,
+            la_plantilla_dice_las_columnas_que_lleva.__doc__,
+            detalle=(
+                f"columnas del núcleo: {columnas}\n"
+                f"no aparecen en «importacion.{sub}»: {faltan or 'ninguna'}"
+            ),
+        )
+
+
 def la_bomba_se_mide_antes_de_abrir_la_hoja():
     """El tope de descompresión va ANTES de abrir el XLSX, o no sirve de nada.
 
@@ -3016,6 +3129,7 @@ def fase_3(rapido):
     las_listas_de_la_importacion_no_divergen()
     los_nombres_del_dominio_son_los_mismos_a_los_dos_lados()
     la_bomba_se_mide_antes_de_abrir_la_hoja()
+    la_plantilla_dice_las_columnas_que_lleva()
     una_supresion_pedida_no_se_levanta_con_un_boton()
     el_informe_de_importacion_consulta_las_supresiones()
     la_vista_previa_no_miente_sobre_las_rutas()

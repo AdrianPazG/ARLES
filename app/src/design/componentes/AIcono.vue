@@ -81,6 +81,11 @@ const TRAZOS = {
   // un contacto, que es donde se buscan: dentro de la ficha —detrás de un
   // doble clic— no se encontraban.
   editar: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z',
+  // Guardar un archivo que ARLES escribe: hoy la plantilla de contactos
+  // (22/10/2026). Flecha hacia abajo **con suelo**, no una flecha suelta: sin
+  // la línea de abajo el mismo dibujo es el de «ordenar descendente», y en esta
+  // pantalla las dos cosas podrían convivir.
+  descargar: 'M12 3.5v12m-4.5-4.5L12 15.5l4.5-4.5M4.5 20.5h15',
 } as const
 
 export type NombreDeIcono = keyof typeof TRAZOS

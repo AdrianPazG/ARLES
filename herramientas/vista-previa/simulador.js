@@ -381,8 +381,17 @@
         // archivo de muestra con las trampas que importan —encabezados en
         // español, el «1» del móvil mexicano, una fila sin contacto y una
         // repetida— para que la pantalla se pueda recorrer entera.
+        case 'descargar_plantilla_de_contactos':
+          // En la demostración no hay disco ni diálogo del sistema: se acusa el
+          // nombre que el comando de verdad propone. Lo que se puede ver aquí
+          // es el acuse y su texto, que es lo que la revisión a ojo mira.
+          return Promise.resolve('ARLES-plantilla-de-contactos.xlsx');
+
         case 'elegir_archivo_para_importar': {
-          var enc = ['Nombre', 'Apellidos', 'Razón social', 'Correo electrónico', 'Teléfono móvil'];
+          // «Teléfono» a secas y no «Teléfono móvil» a propósito: es el
+          // encabezado que dispara el aviso del 22/10/2026, y un decorado que
+          // sólo trae el caso bueno deja el aviso sin verse nunca.
+          var enc = ['Nombre', 'Apellidos', 'Razón social', 'Correo electrónico', 'Teléfono'];
           var filas = [
             ['Ana', 'Ruiz', 'Empresa SA', 'Ana@Empresa.MX', '+52 1 81 1234 5678'],
             ['Luis', 'Pérez', 'Otra SA', 'luis@empresa.mx', ''],
@@ -398,6 +407,11 @@
             muestra: filas,
             mapeo: ['nombre', 'apellido', 'empresa', 'correo', 'whatsapp'],
             totalDeFilas: filas.length,
+            // Qué columnas van a WhatsApp sin que su nombre diga que son
+            // móviles. La regla de verdad vive en el núcleo
+            // (`el_telefono_no_dice_si_es_movil`); aquí se nombra la posición,
+            // que es lo único que la pantalla necesita.
+            telefonosSinAclarar: [4],
           });
         }
 

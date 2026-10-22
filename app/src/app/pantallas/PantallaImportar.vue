@@ -131,14 +131,46 @@ async function terminar(): Promise<void> {
         error ni aviso — y la pantalla queda sin forma de avanzar.
       -->
       <template #accion>
-        <ABoton
-          variante="primario"
-          icono="mas"
-          :ocupado="importacion.leyendo"
-          @click="importacion.elegirArchivo"
+        <div class="importar__acciones">
+          <ABoton
+            variante="primario"
+            icono="mas"
+            :ocupado="importacion.leyendo"
+            @click="importacion.elegirArchivo"
+          >
+            {{ t('importacion.elegir.accion') }}
+          </ABoton>
+          <!--
+            La plantilla va **al lado** del botón de elegir y no en otra
+            pantalla: quien llega aquí con la tabla del cliente delante es
+            justo quien la necesita, y mandarle a buscarla a otro sitio es
+            perderle.
+          -->
+          <ABoton
+            variante="secundario"
+            icono="descargar"
+            :ocupado="importacion.descargandoPlantilla"
+            @click="importacion.descargarPlantilla"
+          >
+            {{ t('importacion.plantilla.accion') }}
+          </ABoton>
+        </div>
+        <p class="importar__plantilla-porque">
+          {{ t('importacion.plantilla.porQue') }}
+        </p>
+        <!-- Acuse de un final (§97). Sin esto, el diálogo se cierra y nada
+             dice si el archivo se escribió. -->
+        <AAviso
+          v-if="importacion.plantillaGuardada"
+          tono="exito"
+          :titulo="
+            t('importacion.plantilla.guardada', {
+              archivo: importacion.plantillaGuardada,
+            })
+          "
         >
-          {{ t('importacion.elegir.accion') }}
-        </ABoton>
+          <p>{{ t('importacion.plantilla.guardadaDetalle') }}</p>
+        </AAviso>
       </template>
     </EstadoVacio>
 
@@ -202,6 +234,26 @@ async function terminar(): Promise<void> {
         :titulo="t('importacion.mapear.sinCanales')"
       >
         <p>{{ t('importacion.mapear.sinCanalesDetalle') }}</p>
+      </AAviso>
+
+      <!--
+        Una columna «Teléfono» se reconoce desde el 22/10/2026 —antes se
+        ignoraba y la tabla entraba sin un número, sin decirlo—, pero su
+        encabezado no dice si ese número recibe WhatsApp. Un fijo al que se le
+        manda un mensaje se paga en calidad del número ante Meta, que es de lo
+        poco que no se puede deshacer. Así que se acierta Y se avisa.
+      -->
+      <AAviso
+        v-if="importacion.columnasPorAclarar.length > 0"
+        tono="aviso"
+        :titulo="
+          t('importacion.mapear.telefonoSinAclarar', {
+            columnas: importacion.columnasPorAclarar.join(', '),
+            n: importacion.columnasPorAclarar.length,
+          })
+        "
+      >
+        <p>{{ t('importacion.mapear.telefonoSinAclararDetalle') }}</p>
       </AAviso>
 
       <div class="importar__pie">
@@ -422,6 +474,25 @@ async function terminar(): Promise<void> {
 .importar__recuento,
 .importar__salvo {
   margin: var(--arles-space-1) 0 0;
+  color: var(--arles-text-muted);
+  font-size: var(--arles-font-size-small);
+}
+
+/* Elegir archivo y descargar la plantilla, en la misma fila. Envuelven en
+   vertical cuando no caben: a 960×540 —el portátil al 200 %, que la sonda
+   mide— dos botones y su texto no entran de ancho. */
+.importar__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--arles-space-3);
+}
+
+/* El porqué de la plantilla, debajo de los botones y acotado: una línea de
+   texto que cruza toda la pantalla no se lee, y aquí es una explicación de
+   cuatro renglones dentro de un estado vacío centrado. */
+.importar__plantilla-porque {
+  margin: var(--arles-space-4) 0 0;
+  max-width: var(--arles-ancho-lectura);
   color: var(--arles-text-muted);
   font-size: var(--arles-font-size-small);
 }

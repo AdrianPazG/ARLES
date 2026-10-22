@@ -1618,6 +1618,64 @@ Ante un contacto repetido, ARLES **enseña los choques antes de importar**. No
 los salta ni fusiona solo: una importación de diez mil filas es irreversible en
 la práctica.
 
+### La tabla del cliente · 22/10/2026
+
+Dirección preguntó si ARLES podía cargar la tabla de un cliente —nueve columnas,
+de las que usa tres— y quedarse con lo que necesita. **Podía, menos una.**
+
+> **«Teléfono» se ignoraba, y los contactos entraban sin un solo número.** Ocho
+> de las nueve columnas se reconocían. La lista de sinónimos tenía «teléfono
+> móvil» y «teléfono celular» pero no «teléfono» a secas, y la prueba que decía
+> cubrirlo probaba **«Teléfono móvil»**, que es el caso que no falla. El patrón
+> de siempre: la comprobación cubría la parte que nadie había roto.
+>
+> Estaba así **a propósito** y por un motivo bueno —«Teléfono» no dice si ese
+> número recibe WhatsApp, y mandar a fijos se paga en calidad del número ante
+> Meta—, pero **resolver una ambigüedad callando no es prudente, es silencioso**
+> y pierde el dato igual. Ahora se reconoce **y se avisa**, con la columna
+> nombrada. Lo que dice a las claras no ser un móvil —«Teléfono fijo»,
+> «Conmutador», «Lada», «Fax»— se sigue dejando fuera, y va **antes** de los
+> sinónimos porque «telefonofijo» empieza por «telefono».
+
+> **La plantilla descargable, y el único archivo que ARLES escribe para volver a
+> leerlo él mismo.** Por eso lleva su propia comprobación:
+> `la_plantilla_que_arles_da_entra_en_arles` —escrita antes y vista en rojo— más
+> la ida y vuelta de `arles-import`, que la escribe y la relee con el **mismo**
+> `leer()` que lee el archivo del cliente. Una plantilla con una columna que la
+> importación ignora es peor que no tenerla: quien la rellena ve su dato escrito
+> y ese dato no entra.
+>
+> **XLSX y no CSV**, porque un CSV no dice con qué separador se escribió y Excel
+> en México espera punto y coma: se abriría con las tres columnas dentro de la A.
+> Cero dependencias nuevas — `zip` ya estaba para medir la descompresión.
+> **Y sin fila de ejemplo**: una fila que nadie borra se importa, y es un
+> contacto inventado recibiendo un envío real.
+
+> **Tres defectos de mis propias comprobaciones, los tres cazados antes de
+> entrar**, y vale la pena el recuento porque el proyecto lleva nueve:
+>
+> 1. El aviso usaba el prefijo de los genéricos, así que **«Teléfono móvil»
+>    avisaba** — y ésa dice exactamente de qué número habla. Lo cazó la prueba.
+> 2. La del validador buscaba `guardadaDetalle:` y `cuerpo:` **en todo `es.ts`**,
+>    donde hay una de cada por pantalla: midió el primer bloque del archivo y
+>    salió **en rojo sobre dos textos correctos**. Es la hoja y no la ruta, el
+>    mismo defecto que la 7.7 arregló en la del §139.
+> 3. Y su comentario afirmaba estar verificada **en las dos direcciones**. Era
+>    falso: quitar una columna del núcleo pasa en verde, y se dio por hecho en
+>    vez de correrlo. Está escrito en el docstring, con por qué esa dirección no
+>    se puede medir sin hallazgos falsos.
+
+> **Y lo que encontró mirar la pantalla**, con todo en verde: a 1024 px —un
+> portátil al 150 %— **las cinco cabeceras de Contactos no caben**, y la columna
+> «Acciones» de la entrega anterior cortaba su propio rótulo a las cuatro
+> ventanas. Repartir los `fr` no lo arregla: reparten el espacio, no lo crean, y
+> cada ajuste robaba a una columna y cortaba otra — tres rondas persiguiendo
+> cuatro píxeles, que es **ajustar el instrumento** con otra cara. Se arregló
+> estructuralmente: `tituloOculto` en `ATabla` deja el rótulo para el lector de
+> pantalla y libera 96 px. Y eso sacó `.sr-only` a `base.css`: estaba duplicada
+> en dos componentes con `scoped`, así que el design system no podía usar
+> ninguna y la tercera copia habría sido la de pedir.
+
 ### La ronda de correcciones de Dirección · 13 y 14/10/2026
 
 Dirección abrió ARLES por primera vez y probó. **Lo que encontró en dos tardes

@@ -2657,6 +2657,28 @@ export const es = {
       accion: 'Elegir archivo',
     },
 
+    // ── La plantilla descargable (pedida por Dirección el 22/10/2026) ──
+    //
+    // El caso que la justifica: la tabla la trae el cliente, con sus columnas,
+    // en su orden y con nueve campos de los que ARLES usa tres. Esto le da
+    // dónde pegar las que sirven.
+    //
+    // El texto dice que no hace falta usarla, y eso es a propósito: ARLES
+    // reconoce las columnas de una tabla cualquiera, y una plantilla que se
+    // lee como obligatoria haría reorganizar a mano un archivo que ya servía.
+    plantilla: {
+      accion: 'Descargar la plantilla',
+      porQue:
+        'Si la tabla de tu cliente trae las columnas en otro orden, o muchas ' +
+        'que no necesitas, descarga la plantilla y pega dentro lo que sirve. ' +
+        'No es obligatoria: ARLES también reconoce las columnas de tu tabla ' +
+        'tal como está.',
+      guardada: 'Se guardó {archivo}',
+      guardadaDetalle:
+        'Tiene tres columnas: Nombre, Correo y Teléfono. Pega debajo tus ' +
+        'datos, guarda el archivo y vuelve aquí para cargarlo.',
+    },
+
     mapear: {
       recuento: '{filas} filas · {columnas} columnas',
       ayuda:
@@ -2670,6 +2692,18 @@ export const es = {
       sinCanalesDetalle:
         'Sin al menos una de las dos no hay a quién escribir, y no entraría ' +
         'ningún contacto. Marca la columna que tenga los correos o los móviles.',
+      // Una columna «Teléfono» se reconoce desde el 22/10/2026 —antes se
+      // ignoraba y la tabla entraba sin un número, sin decirlo—, pero su
+      // encabezado no dice si ese número recibe WhatsApp. Se acierta Y se
+      // avisa. El texto no bloquea nada: dice qué mirar.
+      telefonoSinAclarar:
+        'La columna «{columnas}» se va a usar para WhatsApp | ' +
+        'Estas columnas se van a usar para WhatsApp: {columnas}',
+      telefonoSinAclararDetalle:
+        'Su nombre no dice si son números de celular. Si ahí hay teléfonos ' +
+        'fijos, WhatsApp no los va a alcanzar y los intentos fallidos bajan ' +
+        'la calificación de tu número ante Meta. Si no estás seguro, ponla ' +
+        'en «No importar» y cárgalos después.',
       accion: 'Ver qué va a pasar',
     },
 

@@ -194,6 +194,14 @@
      filas— lo pide poniéndose `--arles-ancho-pagina: none`. */
   --arles-ancho-pagina: 1160px;
 
+  /* Ancho de un párrafo que se lee seguido, no de una pantalla.
+     `--arles-ancho-pagina` acota la columna; esto acota un texto **dentro** de
+     ella, y son dos cosas: una explicación de cuatro renglones a 1160 px pasa
+     de las 140 letras por línea y el ojo pierde el renglón al volver. 68 ch
+     deja entre 55 y 75 letras, que es el rango que se lee sin esfuerzo.
+     En `ch` y no en píxeles: así sigue a la tipografía si cambia de tamaño. */
+  --arles-ancho-lectura: 68ch;
+
   --arles-nav-width: 240px;
   /* Barra lateral plegada (P-11): 24 px de icono más 20 px de holgura a cada
      lado.
@@ -353,4 +361,32 @@ a:hover {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ── Visible para el lector de pantalla, invisible para la vista ────────────
+ *
+ * Global desde el 22/10/2026, cuando `ATabla` la necesitó para el rótulo de la
+ * columna de acciones. Hasta entonces **había dos copias** —`.sr-only` dentro
+ * de `PantallaSupresion.vue` y `.solo-lectores` en `App.vue`, las dos con
+ * `scoped`—, así que un componente del design system no podía usar ninguna y
+ * la tercera copia habría sido la de pedir.
+ *
+ * El `1px` va literal y no sale de un token: no es una medida de diseño, es el
+ * mínimo que mantiene el nodo en el árbol de accesibilidad. La copia de
+ * `PantallaSupresion` llegó a decir `var(--borde-1)`, un token que no existe,
+ * así que la declaración era inválida, el ancho caía en `auto` y el texto para
+ * lectores de pantalla **se veía**.
+ *
+ * `clip-path: inset(50%)` y no `display: none` ni `visibility: hidden`: esos
+ * dos lo sacan del árbol de accesibilidad, que es justo lo contrario de lo que
+ * esto existe para hacer. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

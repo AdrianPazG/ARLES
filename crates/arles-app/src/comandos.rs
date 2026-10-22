@@ -577,6 +577,21 @@ pub struct ArchivoLeido {
     /// enseña y el usuario la puede cambiar.
     pub mapeo: Vec<arles_core::CampoImportable>,
     pub total_de_filas: usize,
+    /// Qué columnas van a WhatsApp **sin que su encabezado diga que es un
+    /// móvil**, por su posición.
+    ///
+    /// ── POR QUÉ LA PANTALLA TIENE QUE AVISAR DE ESTO ──
+    ///
+    /// Desde el 22/10/2026 una columna «Teléfono» se reconoce: antes se ignoraba,
+    /// y la tabla real de Dirección entraba sin un solo número sin que nada lo
+    /// dijera. Pero «Teléfono» no dice si ese número recibe WhatsApp, y un fijo
+    /// al que se le manda un mensaje se paga en **calidad del número ante
+    /// Meta**, que es de lo poco que no se puede deshacer.
+    ///
+    /// Así que se acierta y se avisa, en vez de callar y perder el dato. Van las
+    /// posiciones y no los nombres porque la pantalla ya tiene los encabezados y
+    /// dos columnas pueden llamarse igual.
+    pub telefonos_sin_aclarar: Vec<usize>,
 }
 
 /// Abre el diálogo del sistema, lee la tabla y la deja lista para analizar.
@@ -630,12 +645,74 @@ pub fn elegir_archivo_para_importar(
             .to_owned(),
         encabezados: tabla.encabezados.clone(),
         muestra: tabla.muestra.clone(),
+        // Se calcula del encabezado y **no** del mapeo propuesto: si el usuario
+        // cambia una columna a mano, el aviso sigue hablando de lo que el
+        // archivo dice, que es lo único que ARLES sabe del número.
+        telefonos_sin_aclarar: tabla
+            .encabezados
+            .iter()
+            .enumerate()
+            .filter(|(_, h)| arles_core::importacion::el_telefono_no_dice_si_es_movil(h))
+            .map(|(i, _)| i)
+            .collect(),
         mapeo,
         total_de_filas: tabla.total_de_filas,
     };
 
     estado.guardar_importacion(tabla);
     Ok(Some(leido))
+}
+
+/// Escribe la plantilla de contactos donde diga el usuario.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// PEDIDA POR DIRECCIÓN EL 22/10/2026
+///
+/// El caso: la tabla la trae el cliente, con sus nueve columnas y en su orden.
+/// Esto le da dónde pegar las tres que ARLES usa.
+///
+/// El diálogo lo abre **Rust**, igual que al importar y por la misma razón: la
+/// ruta nace y muere en esta capa (regla 4 de la frontera). La webview no tiene
+/// el permiso para pedir un archivo por su cuenta.
+/// ─────────────────────────────────────────────────────────────────────────
+///
+/// Devuelve `None` si cerró el diálogo sin elegir sitio: cancelar es una
+/// decisión, no un fallo.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] con `error.import.no_se_pudo_leer` si no se puede escribir donde
+/// se eligió — carpeta de sólo lectura, disco lleno, o el archivo abierto en
+/// Excel, que en Windows lo deja bloqueado.
+#[tauri::command]
+pub fn descargar_plantilla_de_contactos(app: tauri::AppHandle) -> Result<Option<String>, ErrorIpc> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let Some(elegido) = app
+        .dialog()
+        .file()
+        .set_file_name(arles_import::plantilla::NOMBRE_SUGERIDO)
+        .add_filter("Hoja de cálculo", &["xlsx"])
+        .blocking_save_file()
+    else {
+        return Ok(None);
+    };
+    let ruta = elegido
+        .into_path()
+        .map_err(|_| ErrorIpc::from(crate::AppError::ArchivoNoSePudoLeer))?;
+
+    arles_import::plantilla::escribir(&ruta)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Lectura(e)))?;
+
+    // Sólo el nombre, nunca la ruta (regla 4, y THREAT_MODEL.md §4.1): la
+    // carpeta donde guardó dice dónde vive el usuario y no le aporta nada a la
+    // pantalla, que sólo necesita decir «se guardó esto».
+    Ok(Some(
+        ruta.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_owned(),
+    ))
 }
 
 /// Qué pasaría al importar, **sin escribir nada**.

@@ -167,25 +167,32 @@ const columnas = computed<readonly ColumnaDeTabla<Contacto>[]>(() => [
   {
     id: 'nombre',
     titulo: t('contactos.columna.nombre'),
-    ancho: '1.4fr',
+    ancho: '1.2fr',
     valor: (c) => nombreVisible(c) || t('contactos.sinNombre'),
   },
   {
     id: 'empresa',
     titulo: t('contactos.columna.empresa'),
-    ancho: '1fr',
+    // Los pesos de las cuatro columnas de texto están MEDIDOS con
+    // `sonda:encimado` a las cuatro ventanas, no elegidos a ojo: a 1024 px
+    // —que es el portátil al 150 %— «Empresa» y «WhatsApp» cortaban su propia
+    // cabecera. Cortar un dato está bien, la ficha lo enseña entero; cortar un
+    // rótulo deja «WhatsApp pri…», que es lo que esa sonda existe para cazar.
+    ancho: '1.25fr',
     valor: (c) => c.empresa || '—',
   },
   {
     id: 'email',
     titulo: t('contactos.columna.email'),
-    ancho: '1.6fr',
+    // La que cede: su rótulo es corto y su dato es el que mejor aguanta el
+    // recorte —una dirección entera se lee al abrir la ficha—.
+    ancho: '1.1fr',
     valor: (c) => celdaDeCanal(c, 'email'),
   },
   {
     id: 'whatsapp',
     titulo: t('contactos.columna.whatsapp'),
-    ancho: '1.2fr',
+    ancho: '1.45fr',
     valor: (c) => celdaDeCanal(c, 'whatsapp'),
   },
   {
@@ -201,7 +208,15 @@ const columnas = computed<readonly ColumnaDeTabla<Contacto>[]>(() => [
     // las demás tablas.
     id: 'acciones',
     titulo: t('contactos.columna.acciones'),
-    ancho: '5.5rem',
+    // El rótulo se guarda para el lector de pantalla y no se dibuja: dos
+    // iconos al final de la fila se entienden sin cabecera, y «Acciones»
+    // ocupaba 96 px para decir lo que el dibujo ya dice. Medido: a 1024 px
+    // —un portátil al 150 %— las cinco cabeceras con su icono de ordenar no
+    // caben, y repartir los `fr` no lo arregla porque reparten el espacio en
+    // vez de crearlo: cada ajuste robaba a una columna y cortaba otra.
+    tituloOculto: true,
+    // 4.5rem: dos botones de 32 px y el hueco de 8 entre ellos.
+    ancho: '4.5rem',
     valor: () => '',
   },
 ])

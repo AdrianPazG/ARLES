@@ -39,6 +39,23 @@ export interface ColumnaDeTabla<F> {
   /** Cifras: alinea a la derecha y usa figuras tabulares. */
   numerica?: boolean
   ordenable?: boolean
+  /**
+   * El rótulo se guarda para quien lee con lector de pantalla y no se dibuja.
+   *
+   * ── PARA QUÉ, Y POR QUÉ NO ES «UNA COLUMNA SIN TÍTULO» ──────────────────
+   *
+   * Para la columna de acciones de Contactos, donde dos iconos al final de la
+   * fila se entienden sin cabecera. Medido el 22/10/2026: a 1024 px —un
+   * portátil al 150 %— cinco cabeceras con su icono de ordenar **no caben**, y
+   * «Acciones» ocupaba 96 px para decir algo que el dibujo ya dice. Repartir
+   * los `fr` no lo arregla: reparten el espacio, no lo crean, y cada ajuste
+   * robaba a una columna y cortaba otra.
+   *
+   * El título **sigue existiendo**: es el nombre accesible de la columna, y una
+   * columna sin él deja a quien navega con lector sin saber qué hay en esa
+   * celda. Esto lo esconde del dibujo, no del árbol de accesibilidad.
+   */
+  tituloOculto?: boolean
   valor: (fila: F) => string
 }
 
@@ -205,7 +222,12 @@ watch(
             :tamano="14"
           />
         </button>
-        <span v-else>{{ columna.titulo }}</span>
+        <span
+          v-else
+          :class="{ 'sr-only': columna.tituloOculto }"
+        >{{
+          columna.titulo
+        }}</span>
       </div>
     </div>
 

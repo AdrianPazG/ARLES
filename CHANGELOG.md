@@ -12,6 +12,57 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### La tabla del cliente entra tal como está, y «Teléfono» ya no se pierde
+
+Dirección preguntó el 22/10/2026 si ARLES podía cargar la tabla de un cliente
+—nueve columnas: Nombre, Razón Social, Giro, Actividad, Tamaño, Teléfono,
+Correo, Sitio Web, Ubicación— y quedarse sólo con lo que necesita.
+
+Podía. **Con un agujero: la columna «Teléfono» se ignoraba.** Medido:
+
+| Columna | Qué hacía ARLES |
+|---|---|
+| Nombre, Razón Social, Correo | ✅ se reconocían |
+| Giro, Actividad, Tamaño, Sitio Web, Ubicación | ✅ se dejaban fuera |
+| **Teléfono** | 🔴 **se dejaba fuera** |
+
+Ocho de nueve aciertos y **los contactos entraban sin un solo número**, sin un
+error, sin una cifra en rojo, sin nada. La lista de sinónimos tenía «teléfono
+móvil» y «teléfono celular», pero no «teléfono» a secas — y la prueba que decía
+cubrirlo probaba «Teléfono móvil», que es el caso que no falla.
+
+Estaba así a propósito, y el motivo era bueno: «Teléfono» no dice si ese número
+recibe WhatsApp, y mandar mensajes a fijos se paga en calidad del número ante
+Meta. Pero **resolver la ambigüedad callando no es prudente: es silencioso**, y
+pierde el dato igual. Ahora se reconoce **y se avisa** en la pantalla, con la
+columna nombrada y qué hacer si no se está seguro. Lo que dice a las claras no
+ser un móvil —«Teléfono fijo», «Conmutador», «Lada», «Fax»— se sigue dejando
+fuera.
+
+### Una plantilla de contactos que se descarga
+
+En el paso 1 de Importar, al lado de «Elegir archivo». Un `.xlsx` con tres
+columnas —Nombre, Correo, Teléfono— para pegar dentro lo que sirva de la tabla
+del cliente. No es obligatoria y el texto lo dice: ARLES reconoce las columnas
+de una tabla cualquiera.
+
+Tres decisiones que no son de forma:
+
+- **XLSX y no CSV.** Un CSV no dice con qué separador se escribió, y Excel con
+  la configuración regional de México espera punto y coma: la plantilla se
+  abriría con las tres columnas dentro de la A. No costó dependencia: `zip` ya
+  estaba en `arles-import` para medir la descompresión de los XLSX que lee.
+- **Sin ninguna fila de ejemplo.** Una fila que nadie borra **se importa**: un
+  contacto inventado dentro de la primera campaña, con su correo falso
+  recibiendo un envío real y un fallo de entrega que nadie sabría explicar.
+- **Las columnas salen del núcleo**, no de una lista del generador.
+
+Y con ellas, la comprobación que esto necesitaba:
+`la_plantilla_que_arles_da_entra_en_arles` —escrita **antes** y vista en rojo
+nombrando «Teléfono»— más la ida y vuelta de `arles-import`, que escribe el
+archivo y lo relee con el **mismo** `leer()` que lee el del cliente. Es el §9 en
+la única junta nueva: el único archivo que ARLES escribe para volver a leerlo.
+
 ### El error que mandaba a un bucle infinito, arreglado
 
 Dirección instaló el primer instalador descargable el 13/10/2026 sobre una base

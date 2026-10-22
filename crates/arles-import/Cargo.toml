@@ -21,9 +21,11 @@ csv = "1"
 encoding_rs = "0.8"
 serde.workspace = true
 thiserror.workspace = true
-# Sólo para **medir** la descompresión de un XLSX antes de abrirlo, contando y
-# tirando los bytes. No se usa para leer el contenido: de eso se encarga
-# `calamine`. Ver `MAX_BYTES_DESCOMPRIMIDOS`.
+# Para dos cosas. Una: **medir** la descompresión de un XLSX antes de abrirlo,
+# contando y tirando los bytes — no se usa para leer el contenido, de eso se
+# encarga `calamine`. Ver `MAX_BYTES_DESCOMPRIMIDOS`. Y dos, desde el
+# 22/10/2026: **escribir** la plantilla de contactos (`plantilla.rs`), que es un
+# XLSX de cinco partes y no necesitó dependencia nueva por estar esto ya aquí.
 zip = { version = "2", default-features = false, features = ["deflate", "deflate-miniz"] }
 
 [dev-dependencies]

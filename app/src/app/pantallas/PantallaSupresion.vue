@@ -480,20 +480,9 @@ function pagina(delta: number): void {
   margin-top: var(--arles-space-4);
 }
 
-/* Visible para el lector de pantalla, invisible para la vista. Igual que
-   `.solo-lectores` de App.vue, y con el mismo `1px` literal: no es una medida
-   de diseño que deba salir de un token, es el mínimo que mantiene el nodo en
-   el árbol de accesibilidad. Antes decía `var(--borde-1)`, un token que **no
-   existe**, así que la declaración era inválida, el ancho caía en `auto` y el
-   texto para lectores de pantalla **se veía**. */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
+/* `.sr-only` vive en `base.css` desde el 22/10/2026, global: `ATabla` la
+   necesitó y una clase `scoped` no sale de su componente. La copia que estaba
+   aquí se quitó para que no se separen — dos definiciones de «esconder sin
+   sacar del árbol de accesibilidad» es el sitio donde una se queda con un
+   `display: none` y nadie lo nota. */
 </style>

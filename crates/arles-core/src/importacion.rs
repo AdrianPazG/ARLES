@@ -101,6 +101,33 @@ impl CampoImportable {
     ];
 }
 
+/// Las columnas de la plantilla que ARLES entrega para rellenar.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// PEDIDA POR DIRECCIÓN EL 22/10/2026, Y CON UNA CONDICIÓN QUE NO ES OBVIA
+///
+/// El caso que la justifica: la tabla la trae el cliente, con sus columnas y
+/// en su orden. La plantilla es dónde pegar las que sirven.
+///
+/// Tres columnas y no siete: Dirección pidió **Nombre, Correo y Teléfono**, y
+/// añadir «Apellido» o «Empresa» a una plantilla que existe para no perder a
+/// nadie delante de una hoja ajena sería devolver el problema. El resto de los
+/// campos siguen reconociéndose si la tabla los trae — esto es el suelo, no el
+/// techo.
+///
+/// **La condición: cada encabezado de aquí tiene que volver a entrar.** Una
+/// plantilla con una columna que [`adivinar_campo`] ignora es peor que no
+/// tenerla: quien la rellena ve su dato escrito, importa, y ese dato no está —
+/// sin un solo error. Lo vigila `la_plantilla_que_arles_da_entra_en_arles`,
+/// y ya cazó una: **«Teléfono» a secas no se reconocía** (medido el
+/// 22/10/2026), así que la tabla real de Dirección entraba sin un teléfono.
+/// ─────────────────────────────────────────────────────────────────────────
+pub const PLANTILLA_DE_CONTACTOS: &[(CampoImportable, &str)] = &[
+    (CampoImportable::Nombre, "Nombre"),
+    (CampoImportable::Correo, "Correo"),
+    (CampoImportable::WhatsApp, "Teléfono"),
+];
+
 /// De dónde salió una lista importada (ADR-0013 §1).
 ///
 /// ─────────────────────────────────────────────────────────────────────────
@@ -272,6 +299,76 @@ impl Default for HuellaEnCurso {
     }
 }
 
+/// Encabezados de teléfono que **no dicen si ese número recibe WhatsApp**.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTA LISTA EXISTE APARTE, Y NO DENTRO DE LOS SINÓNIMOS
+///
+/// Porque sirve para dos cosas, y separarlas en dos listas sería dejarlas
+/// divergir: **se reconocen como WhatsApp** —una columna «Teléfono» ignorada
+/// pierde el dato sin decirlo— **y se avisan en la pantalla**, porque un fijo
+/// mandado a WhatsApp se paga en calidad del número ante Meta, que es de lo poco
+/// que no se puede deshacer.
+///
+/// La cabecera de este módulo explica por qué el mapeo se adivina pero no se
+/// impone; esto es el caso que más lo necesita. Hasta el 22/10/2026 el módulo
+/// resolvía la ambigüedad **ignorando la columna**, y eso no era prudente: era
+/// silencioso. La tabla real de Dirección —nueve columnas, una de ellas
+/// «Teléfono»— entraba con ocho reconocidas y sin un solo número, sin que nada
+/// lo dijera. Perder el dato callando es peor que acertar con un aviso.
+/// ─────────────────────────────────────────────────────────────────────────
+/// Encabezados que **sí** dicen que el número es un móvil.
+///
+/// Está aparte de [`TELEFONO_SIN_DECIR_CUAL`] porque la pregunta del aviso es
+/// «¿se reconoció por uno de éstos?», no «¿se parece a un genérico?».
+///
+/// La diferencia no es cosmética, y lo cazó una prueba antes de entrar: la
+/// primera versión del aviso miraba sólo los genéricos y «Teléfono móvil»
+/// **empieza por** «telefono», así que avisaba de una columna que dice
+/// exactamente de qué número habla. Un aviso que salta donde no hace falta
+/// enseña a ignorar los que sí.
+const SI_ES_MOVIL: &[&str] = &[
+    "whatsapp",
+    "wa",
+    "movil",
+    "celular",
+    "celulares",
+    "cel",
+    "telefonomovil",
+    "telefonocelular",
+    "numerowhatsapp",
+    "movilcontacto",
+];
+
+const TELEFONO_SIN_DECIR_CUAL: &[&str] = &[
+    "telefono",
+    "telefonos",
+    "tel",
+    "numerodetelefono",
+    "numero",
+    "numeros",
+    "phone",
+    "telephone",
+];
+
+/// Encabezados que dicen a las claras que el número **no** es un móvil.
+///
+/// Se comprueba **antes** que los sinónimos, porque «telefonofijo» empieza por
+/// «telefono» y si no ganaría la lista de arriba. Van a [`CampoImportable::Ignorar`]:
+/// un conmutador no recibe WhatsApp y nadie quiere que lo intente.
+const NO_RECIBE_WHATSAPP: &[&str] = &[
+    "telefonofijo",
+    "fijo",
+    "telefonooficina",
+    "telefonodeoficina",
+    "oficina",
+    "conmutador",
+    "lada",
+    "extension",
+    "ext",
+    "fax",
+];
+
 /// Encabezados que se reconocen, por campo.
 ///
 /// Es una **lista cerrada y escrita a mano**, no una heurística de parecido.
@@ -298,21 +395,11 @@ const SINONIMOS: &[(CampoImportable, &[&str])] = &[
             "e",
         ],
     ),
-    (
-        CampoImportable::WhatsApp,
-        &[
-            "whatsapp",
-            "wa",
-            "movil",
-            "celular",
-            "cel",
-            "telefonomovil",
-            "telefonocelular",
-            "numerowhatsapp",
-            "numero",
-            "movilcontacto",
-        ],
-    ),
+    (CampoImportable::WhatsApp, SI_ES_MOVIL),
+    // Los genéricos van **después** de los que dicen «móvil»: los dos acaban en
+    // WhatsApp, pero así el que se reconoce por su nombre exacto nunca depende
+    // del prefijo de otro.
+    (CampoImportable::WhatsApp, TELEFONO_SIN_DECIR_CUAL),
     (
         CampoImportable::NombreCompleto,
         &[
@@ -397,6 +484,13 @@ pub fn adivinar_campo(encabezado: &str) -> CampoImportable {
         return CampoImportable::Ignorar;
     }
 
+    // Lo que dice no ser un móvil se ignora antes de mirar nada más:
+    // «telefonofijo» empieza por «telefono» y la búsqueda por prefijo de abajo
+    // lo daría por WhatsApp.
+    if NO_RECIBE_WHATSAPP.iter().any(|s| n.starts_with(s)) {
+        return CampoImportable::Ignorar;
+    }
+
     // Coincidencia exacta primero. El orden de `SINONIMOS` importa: el correo
     // va antes que el nombre, y «nombre completo» antes que «nombre», porque
     // «nombrecompleto» contiene «nombre» y con la búsqueda parcial de abajo
@@ -417,6 +511,34 @@ pub fn adivinar_campo(encabezado: &str) -> CampoImportable {
     }
 
     CampoImportable::Ignorar
+}
+
+/// Si un encabezado normalizado coincide con alguno de **una** lista: exacto, o
+/// empezando por un sinónimo de cuatro letras o más.
+///
+/// No es toda la regla de [`adivinar_campo`], y conviene no creerlo: aquélla
+/// hace **dos pasadas** sobre todas las listas —primero los exactos de todas,
+/// luego los prefijos— porque el orden entre campos decide los empates
+/// («nombrecompleto» contra «nombre»). Aquí no hay empate que resolver: la
+/// pregunta es si este encabezado está en esta lista.
+fn casa_con(n: &str, lista: &[&str]) -> bool {
+    lista
+        .iter()
+        .any(|s| n == *s || (s.len() >= 4 && n.starts_with(s)))
+}
+
+/// Si una columna se va a mandar por WhatsApp **sin que su encabezado lo diga**.
+///
+/// Es lo que la pantalla necesita para avisar. Devuelve `true` cuando el campo
+/// adivinado es WhatsApp y el encabezado **no** es uno de los que dicen que el
+/// número es un móvil ([`SI_ES_MOVIL`]). Una columna que dice «Celular» o
+/// «WhatsApp» no se avisa — avisar de todo es no avisar de nada.
+#[must_use]
+pub fn el_telefono_no_dice_si_es_movil(encabezado: &str) -> bool {
+    if adivinar_campo(encabezado) != CampoImportable::WhatsApp {
+        return false;
+    }
+    !casa_con(&normalizar_encabezado(encabezado), SI_ES_MOVIL)
 }
 
 /// El mapeo propuesto para un archivo: un campo por columna.
@@ -651,6 +773,54 @@ mod tests {
         );
     }
 
+    /// **La plantilla que ARLES entrega tiene que entrar en ARLES.**
+    ///
+    /// Es el patrón del §9 —dos piezas correctas y el cable sin conectar—
+    /// aplicado al único sitio donde el producto escribe un archivo que después
+    /// él mismo lee. Si una columna de la plantilla cae en `Ignorar`, quien la
+    /// rellena ve su dato en la hoja, importa, y el dato no está: ningún error,
+    /// ninguna cifra en rojo, nada.
+    ///
+    /// **Se escribió antes del arreglo y se vio en rojo**: «Teléfono» a secas no
+    /// estaba en ningún sinónimo —sólo «teléfono móvil» y «teléfono celular»—,
+    /// así que la plantilla habría salido con una columna muerta. El mensaje fue
+    /// «la columna «Teléfono» de la plantilla se ignora al importar».
+    #[test]
+    fn la_plantilla_que_arles_da_entra_en_arles() {
+        for (campo, encabezado) in PLANTILLA_DE_CONTACTOS {
+            assert_eq!(
+                adivinar_campo(encabezado),
+                *campo,
+                "la columna «{encabezado}» de la plantilla no vuelve a entrar como {campo:?}"
+            );
+        }
+
+        // Y el mapeo completo de la plantilla no ignora ninguna columna: lo
+        // anterior comprueba cada encabezado por su cuenta, y `proponer_mapeo`
+        // además descarta los campos de identidad repetidos. Una plantilla con
+        // dos columnas que adivinan lo mismo pasaría la primera mitad.
+        let encabezados: Vec<String> = PLANTILLA_DE_CONTACTOS
+            .iter()
+            .map(|(_, h)| (*h).to_owned())
+            .collect();
+        let propuesta = proponer_mapeo(&encabezados);
+        assert!(
+            !propuesta.contains(&CampoImportable::Ignorar),
+            "el mapeo de la plantilla ignora alguna columna: {propuesta:?}"
+        );
+    }
+
+    /// Las tres columnas que Dirección pidió el 22/10/2026, por su nombre.
+    ///
+    /// Escrita a mano a propósito: derivarla de la constante haría que la prueba
+    /// se moviera con el cambio, y lo que se está fijando es un acuerdo con
+    /// Dirección, no una propiedad del código.
+    #[test]
+    fn la_plantilla_lleva_las_tres_columnas_acordadas() {
+        let nombres: Vec<&str> = PLANTILLA_DE_CONTACTOS.iter().map(|(_, h)| *h).collect();
+        assert_eq!(nombres, vec!["Nombre", "Correo", "Teléfono"]);
+    }
+
     #[test]
     fn reconoce_los_encabezados_normales() {
         for (encabezado, esperado) in [
@@ -670,6 +840,86 @@ mod tests {
                 adivinar_campo(encabezado),
                 esperado,
                 "«{encabezado}» no se reconoció"
+            );
+        }
+    }
+
+    /// **El defecto que encontró Dirección el 22/10/2026.** Su tabla real traía
+    /// nueve columnas y ARLES reconocía ocho: «Teléfono» caía en `Ignorar`, así
+    /// que los contactos entraban sin un solo número y nada lo decía.
+    ///
+    /// La prueba que existía probaba «Teléfono móvil», que es el caso que no
+    /// falla. Es el patrón de este proyecto: la comprobación cubría la parte que
+    /// nadie había roto.
+    #[test]
+    fn un_telefono_a_secas_es_un_telefono() {
+        for h in [
+            "Teléfono",
+            "TELEFONO",
+            "Telefono",
+            "teléfonos",
+            "Tel",
+            "Teléfono de contacto",
+            "Número",
+            "Phone",
+            "Telephone",
+        ] {
+            assert_eq!(
+                adivinar_campo(h),
+                CampoImportable::WhatsApp,
+                "«{h}» se ignoró, y con ella el número de cada contacto"
+            );
+        }
+    }
+
+    /// Y lo que dice a las claras **no** ser un móvil se sigue ignorando: un
+    /// conmutador mandado a WhatsApp se paga en calidad del número ante Meta.
+    ///
+    /// Van por prefijo y antes que los sinónimos a propósito: «telefonofijo»
+    /// empieza por «telefono». Verificada quitando la comprobación de
+    /// [`NO_RECIBE_WHATSAPP`] de `adivinar_campo`: «Teléfono fijo» pasó a
+    /// `WhatsApp` y esta prueba cayó nombrándolo.
+    #[test]
+    fn un_fijo_declarado_no_se_manda_por_whatsapp() {
+        for h in [
+            "Teléfono fijo",
+            "Fijo",
+            "Teléfono de oficina",
+            "Conmutador",
+            "Lada",
+            "Extensión",
+            "Fax",
+        ] {
+            assert_eq!(
+                adivinar_campo(h),
+                CampoImportable::Ignorar,
+                "«{h}» se dio por móvil"
+            );
+        }
+    }
+
+    /// El aviso se da **sólo** cuando el encabezado no dice de qué número habla.
+    /// Avisar de una columna que ya dice «WhatsApp» es ruido, y el ruido enseña
+    /// a ignorar los avisos de verdad.
+    #[test]
+    fn solo_se_avisa_del_telefono_que_no_se_sabe_que_es() {
+        for h in ["Teléfono", "Tel", "Número", "teléfonos", "Phone"] {
+            assert!(el_telefono_no_dice_si_es_movil(h), "«{h}» no avisó");
+        }
+        for h in [
+            "WhatsApp",
+            "Celular",
+            "Teléfono móvil",
+            "Móvil",
+            // Ni de lo que no es un teléfono, ni de lo que se ignora.
+            "Correo",
+            "Nombre",
+            "Teléfono fijo",
+            "Notas",
+        ] {
+            assert!(
+                !el_telefono_no_dice_si_es_movil(h),
+                "«{h}» avisó sin hacer falta"
             );
         }
     }

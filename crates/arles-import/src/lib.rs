@@ -42,6 +42,8 @@
 #![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 #![forbid(unsafe_code)]
 
+pub mod plantilla;
+
 use std::io::Read;
 use std::path::Path;
 

@@ -84,6 +84,17 @@ export interface ArchivoLeido {
   readonly muestra: readonly (readonly string[])[]
   readonly mapeo: readonly CampoImportable[]
   readonly totalDeFilas: number
+  /**
+   * Las columnas que van a WhatsApp **sin que su encabezado diga que es un
+   * móvil**, por su posición.
+   *
+   * Desde el 22/10/2026 una columna «Teléfono» se reconoce — antes se ignoraba,
+   * y la tabla entraba sin un solo número sin que nada lo dijera. Pero
+   * «Teléfono» no dice si ese número recibe WhatsApp, y un fijo al que se le
+   * manda un mensaje se paga en calidad del número ante Meta. Así que se
+   * acierta y se avisa.
+   */
+  readonly telefonosSinAclarar: readonly number[]
 }
 
 /** Una fila que no se va a importar. Coincide con `FilaRechazada`. */
@@ -147,6 +158,9 @@ export const useImportacionStore = defineStore('importacion', () => {
   const resumen = ref<ResumenDeImportacion | null>(null)
 
   const leyendo = ref(false)
+  const descargandoPlantilla = ref(false)
+  /** El nombre del archivo guardado, para acusar recibo (§97). */
+  const plantillaGuardada = ref<string | null>(null)
   const analizando = ref(false)
   const importando = ref(false)
   const errorGeneral = ref<string | null>(null)
@@ -174,6 +188,23 @@ export const useImportacionStore = defineStore('importacion', () => {
   )
 
   /**
+   * Los encabezados de las columnas que **hoy** van a WhatsApp sin decir que su
+   * número sea un móvil.
+   *
+   * Cruza dos cosas y no una: lo que el archivo dijo —que no cambia— y el mapeo
+   * **actual**, que el usuario puede corregir. Si cambia esa columna a
+   * «Ignorar», el aviso desaparece: un aviso que sigue ahí después de hacer lo
+   * que pedía enseña a no leerlos.
+   */
+  const columnasPorAclarar = computed(() => {
+    const a = archivo.value
+    if (!a) return []
+    return a.telefonosSinAclarar.filter((i) => mapeo.value[i] === 'whatsapp').map(
+      (i) => a.encabezados[i] ?? '',
+    )
+  })
+
+  /**
    * ¿Se puede confirmar?
    *
    * Tres condiciones, y las tres tienen que decirse en pantalla cuando faltan:
@@ -197,6 +228,38 @@ export const useImportacionStore = defineStore('importacion', () => {
 
   function fallo(e: unknown): void {
     errorGeneral.value = claveDelError(e)
+  }
+
+  /**
+   * Guarda la plantilla vacía donde diga el usuario.
+   *
+   * Pedida por Dirección el 22/10/2026: la tabla la trae el cliente con sus
+   * columnas y en su orden, y esto le da dónde pegar las tres que ARLES usa.
+   *
+   * No toca el paso del asistente: descargar la plantilla no empieza ninguna
+   * importación, y mover al usuario de paso le quitaría de donde estaba.
+   */
+  async function descargarPlantilla(): Promise<void> {
+    descargandoPlantilla.value = true
+    errorGeneral.value = null
+    plantillaGuardada.value = null
+    try {
+      if (!hayNucleo()) {
+        errorGeneral.value = 'error.app.sin_nucleo'
+        return
+      }
+      const nombre = await invocar<string | null>(
+        'descargar_plantilla_de_contactos',
+      )
+      // `null` es que cerró el diálogo sin elegir sitio. Cancelar es una
+      // decisión, y no se acusa nada.
+      if (nombre === null) return
+      plantillaGuardada.value = nombre
+    } catch (e) {
+      fallo(e)
+    } finally {
+      descargandoPlantilla.value = false
+    }
   }
 
   /** Abre el diálogo del sistema. La ruta no llega hasta aquí: la elige Rust. */
@@ -299,6 +362,8 @@ export const useImportacionStore = defineStore('importacion', () => {
     analisis,
     resumen,
     leyendo,
+    descargandoPlantilla,
+    plantillaGuardada,
     analizando,
     importando,
     errorGeneral,
@@ -306,6 +371,8 @@ export const useImportacionStore = defineStore('importacion', () => {
     cuantasSeQuedanFuera,
     hayAlgunCanal,
     sePuedeConfirmar,
+    columnasPorAclarar,
+    descargarPlantilla,
     elegirArchivo,
     analizar,
     confirmar,
