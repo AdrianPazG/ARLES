@@ -1681,8 +1681,9 @@ de las que usa tres— y quedarse con lo que necesita. **Podía, menos una.**
 Dirección pidió revisar la aplicación entera buscando **errores de
 funcionalidad**. Las cuatro auditorías del §140 miden arquitectura, seguridad,
 rendimiento y accesibilidad; ésta mide otra cosa: **si lo que el usuario escribe
-llega a donde tiene que llegar.** Seis hallazgos, seis arreglados, con las diez
-fases en verde al empezar. Está contado en
+llega a donde tiene que llegar.** **Siete hallazgos, siete arreglados**, con las
+diez fases en verde al empezar — y **el séptimo lo encontró Dirección leyendo
+este mismo informe**. Está contado en
 [`AUDITORIA-G-FUNCIONALIDAD.md`](documentacion/09-fases/AUDITORIA-G-FUNCIONALIDAD.md).
 
 > **El límite diario se escribía y no se aplicaba.** El campo existe desde la

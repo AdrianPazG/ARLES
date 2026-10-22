@@ -489,7 +489,17 @@ def pintar(avance: dict, hallazgos: dict, tropiezos: list[str],
     lista = hallazgos.get("hallazgos", [])
     abiertos = [h for h in lista if esta_abierto(h["estado"])]
     bloqueantes = [h for h in abiertos if "Bloqueante" in h["gravedad"]]
-    bloqueos = avance["bloqueos"]
+    # ── UN BLOQUEO CERRADO NO CUENTA COMO PENDIENTE (22/10/2026) ──────────
+    #
+    # R-24 se cerró el 22/10/2026 y el tablero seguía diciendo «5 bloqueos»
+    # porque contaba la lista entera. Es justo el defecto que este tablero
+    # existe para no tener: una cifra en grande, en color, que no es la que
+    # hay — y en un panel con colores se cree más que en una tabla.
+    #
+    # Se separan, y los cerrados se siguen enseñando con su fecha: desaparecer
+    # haría parecer que nadie los resolvió.
+    bloqueos = [b for b in avance["bloqueos"] if "cerrado" not in b]
+    cerrados = [b for b in avance["bloqueos"] if "cerrado" in b]
 
     total_pasan = total_fallan = total_omit = 0
     if corrida:
@@ -662,7 +672,7 @@ def pintar(avance: dict, hallazgos: dict, tropiezos: list[str],
 
     # ── Lo que espera a alguien de fuera ─────────────────────────────
     A("<h2>Esperan a alguien de fuera</h2>")
-    A("<p class='sub'>Ninguno impide construir. Los cuatro primeros impiden "
+    A("<p class='sub'>Ninguno impide construir. Todos impiden "
       "entregar la versión.</p>")
     A("<div class='rejilla r2'>")
     for b in bloqueos:
@@ -671,6 +681,18 @@ def pintar(avance: dict, hallazgos: dict, tropiezos: list[str],
           f"<p style='margin-top:8px'><span class='quien'>{e(b['quien'])}</span> — "
           f"{e(b['bloquea'])}</p></div>")
     A("</div>")
+
+    if cerrados:
+        A("<h2>Ya no frenan nada</h2>")
+        A("<p class='sub'>Se dejan escritos con su fecha: un bloqueo que "
+          "desaparece parece uno que nadie resolvio.</p>")
+        A("<div class='rejilla r2'>")
+        for b in cerrados:
+            A(f"<div class='panel alarma bien'><h3>{e(b['id'])} ✓ "
+              f"{e(b['cerrado']['fecha'])}</h3>"
+              f"<p>{e(b['que'])}</p>"
+              f"<p style='margin-top:8px'>{e(b['cerrado']['como'])}</p></div>")
+        A("</div>")
 
     # ── Tropiezos ya documentados ────────────────────────────────────
     A("<h2>Tropiezos de instalación ya documentados</h2>")
@@ -742,7 +764,8 @@ def main() -> int:
     if "falta" not in avance:
         print(f"  avance {avance['porcentaje']} % · "
               f"{len(hallazgos.get('hallazgos', []))} hallazgos · "
-              f"{len(avance['bloqueos'])} bloqueos · {len(tropiezos)} tropiezos · "
+              f"{len([b for b in avance['bloqueos'] if 'cerrado' not in b])} "
+              f"bloqueos · {len(tropiezos)} tropiezos · "
               f"{len(pantallas)} pantallas")
     return 0
 

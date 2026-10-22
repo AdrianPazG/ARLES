@@ -330,3 +330,11 @@ No son defectos: son límites conocidos, y conviene no buscarles solución.
 | **No se puede filtrar la audiencia ni editar una campaña creada** | No están construidos |
 | **Activar una campaña grande congela la ventana** | 73,5 s con 451 196 destinatarios; se nota desde unos 30 000. Está en la Fase 9 |
 | **Nada se ha probado en un Mac** | Es el riesgo R-07, sigue abierto |
+| **Dos campañas con el mismo remitente tardan el doble** | El máximo al día es **de la cuenta**, no de cada campaña: se reparten ese cupo, y por orden de llegada. No salen más correos en total — salen repartidos. ARLES te lo avisa en el paso 6, con las campañas nombradas. La salida: un remitente distinto para cada una |
+| **Una firma no puede llevar imagen** | Sólo texto, con negrita y cursiva. Falta decidir cómo (R-05) |
+
+> **Y uno que dejó de pasar el 22/10/2026:** el correo caía en no deseados de
+> Outlook mandando desde una dirección `@gmail.com`, con toda la autenticación
+> en verde. **No se arregló: se dejó de hacer.** Se manda desde una dirección
+> del dominio propio y llega a la bandeja principal — ver
+> [`QUE-HACER-CON-EL-SPAM.md`](QUE-HACER-CON-EL-SPAM.md) §9.

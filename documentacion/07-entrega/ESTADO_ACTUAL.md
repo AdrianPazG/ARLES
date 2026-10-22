@@ -1,7 +1,7 @@
 # Estado actual · dónde está ARLES y qué sigue
 
 **Proyecto:** ARLES RELAY I · v1.2.0
-**Última actualización:** 8 de octubre de 2026 (Fase 8 cerrada; el arranque de la aplicación)
+**Última actualización:** 22 de octubre de 2026 (R-24 cerrado · la auditoría de funcionalidad · el límite diario que se aplica)
 **Para qué sirve este documento:** que quien retome el trabajo —otra sesión, otra persona, otro equipo— sepa en una lectura qué está construido, qué decisiones ya están tomadas, qué **no** hay que volver a discutir y qué es lo siguiente.
 
 > Se actualiza **al cerrar cada entrega**, no al empezarla. Un documento de estado que describe intenciones en vez de hechos es peor que no tenerlo: se lee como si fuera cierto.
@@ -19,6 +19,10 @@
 **El canal de WhatsApp (W.1 a W.8) está construido**, y desde la 7.7 **se puede mandar un WhatsApp de prueba desde la aplicación** — hasta entonces el comando existía sin botón. Lo que WhatsApp **no** hace es lanzar una campaña entera: el motor sólo recorre `Canal::Correo`. Es la decisión que espera a Dirección en `09-fases/FASE-05-PARA-DIRECCION.md`.
 
 **Y ARLES ya sabe guardar y recuperar todo lo que tiene.** La Fase 8 está cerrada entera (8.0 a 8.7, más la 8.3 bis y las cinco auditorías): respaldo cifrado con dos alcances, restauración que reemplaza y une las bajas, archivado del historial a un disco externo verificado antes de borrar, la pantalla de recuperación para el día que se pierda la llave del llavero, y la migración V11 que dejó la lista de contactos en 357 ms y la búsqueda por correo en menos de 1.
+
+**Y el 22/10/2026 ARLES mandó su primer correo real, a tres bandejas principales de tres.** R-24 —el bloqueo más viejo del proyecto, abierto desde la Fase 5— **está cerrado**: Dirección dio de alta `enlace@telemetrymx.com` (Titan, SMTP real con TLS) y el correo llegó a la bandeja principal de Outlook, de Gmail y de un corporativo. Hasta entonces todo lo de la Fase 5 estaba probado contra un servidor de mentira.
+
+> **Lo que costó no fue el código.** Desde una dirección `@gmail.com` el correo caía en no deseados de Outlook **con toda la autenticación en verde** —`spf=pass`, `dkim=pass`, `dmarc=pass`, `compauth=pass`, y aun así `SCL: 5`—. Lo que pesaba era el patrón «nombre de marca + dirección personal de Gmail», que para un filtro es la firma de una suplantación y **no se arregla con código**: se arregla mandando desde el dominio propio. Está contado en [`QUE-HACER-CON-EL-SPAM.md`](QUE-HACER-CON-EL-SPAM.md) y los pasos en [`PASO-A-PASO-DEL-CORREO.md`](PASO-A-PASO-DEL-CORREO.md).
 
 **Y desde el 08/10/2026 la aplicación arranca de verdad.** Hasta ese día ARLES compilaba, abría su ventana y **dentro no había nada**: faltaba la característica `custom-protocol` de Tauri, sin la que la interfaz no viaja dentro del ejecutable. **Se abre con `cargo arles`**, nunca con `cargo run --release` a secas. Está en [`COMO-ABRIR-ARLES.md`](COMO-ABRIR-ARLES.md), con los cuatro tropiezos ya vistos en Windows.
 
@@ -218,27 +222,52 @@ Y el validador comprueba, sobre el árbol entero **con las pruebas incluidas**, 
 
 ## 6. Lo que está bloqueado esperando a alguien de fuera
 
-Ninguno impide construir. Los cuatro primeros impiden **entregar** la v1.2.0.
+Ninguno impide construir. Los cuatro impiden **entregar** la v1.2.0.
 
 | Qué | Quién | Qué bloquea exactamente |
 |---|---|---|
 | **P-01 · Licencia de Mont** | Dirección | Distribuir el instalador con la tipografía dentro. Plan B: tipografía del sistema |
 | **P-09 · Revisión jurídica** | Abogado | Los textos legales visibles. **No** frena la construcción (ADR-0013) |
-| **META · Cuenta con Coexistencia** | Operaciones | P-14 no se puede probar contra nada real |
-| **R-07 · Revisión en macOS** | Quien tenga un Mac | Nadie ha abierto ARLES en WKWebView |
-| **R-24 · Ningún servidor de correo real** | Dirección | Ver §7 |
+| **META · Cuenta con Coexistencia** | Operaciones | El alta del número contra una cuenta real. Y por debajo hay un límite mayor que no depende de Meta: el motor sólo recorre `Canal::Correo` |
+| **R-07 · Revisión en macOS** | Quien tenga un Mac | Nadie ha abierto ARLES en WKWebView. La fecha que decía «antes de la F6» caducó: la F6, el canal W, la F7 y la F8 cerraron sin eso |
+
+**Eran cinco.** `R-24` se cerró el 22/10/2026 — ver §7.
 
 ---
 
-## 7. R-24 · ARLES nunca ha hablado con un servidor de correo real
+## 7. R-24 · cerrado el 22/10/2026 · ARLES manda correo de verdad
 
-**Es el riesgo abierto más importante de la fase.** Todo lo de la Fase 5 está probado contra un servidor de mentira que habla el protocolo de verdad y que sabe fallar de seis maneras distintas. Eso cubre las ramas de error mucho mejor que una prueba manual contra Gmail — pero no cubre lo que sólo aparece con un servidor real: un saludo inesperado, una extensión que no habíamos visto, un límite de tasa, una peculiaridad del certificado.
+**Era el riesgo abierto más viejo del proyecto**, desde la Fase 5. Todo lo de esa fase estaba probado contra un servidor de mentira que habla el protocolo de verdad y sabe fallar de seis maneras — eso cubre las ramas de error mucho mejor que una prueba manual, pero no cubría lo que sólo aparece con un servidor real.
 
-**No se puede comprobar desde un contenedor de desarrollo**, y se midió: la política de red de la sesión bloquea los tres puertos de correo (587, 465 y 25 dan tiempo de espera agotado; el nombre sí resuelve). Aunque se abriera la red, faltaría lo esencial: **ARLES exige el llavero del sistema y no arranca sin él**, y un Linux sin escritorio no tiene ninguno.
+**Cómo se cerró.** Dirección dio de alta `enlace@telemetrymx.com` (Titan, SMTP real con TLS) y ARLES mandó un correo de prueba a tres destinos: Outlook, Gmail y un corporativo. **Los tres llegaron a la bandeja principal.**
 
-**Cómo se cierra:** en la máquina de quien vaya a usar ARLES —Windows o macOS—, con una cuenta de Gmail con verificación en dos pasos y una **contraseña de aplicación**, y **con una cuenta desechable**, no la de trabajo: mientras el producto no esté cerrado, una credencial que se pueda tirar sin consecuencias vale más que la comodidad.
+### Lo que costó, y por qué conviene no olvidarlo
 
-**Lo que se comprueba:** que la prueba de conexión da «la cuenta funciona», y —ya con 5.4 cerrada— que una campaña activada manda un correo que llega.
+**No fue el código.** Durante días el correo salía desde una dirección `@gmail.com` y Outlook lo mandaba a no deseados **con toda la autenticación en verde**. Las cabeceras reales que mandó Dirección lo dicen:
+
+```text
+spf=pass          la IP que envió está autorizada
+dkim=pass         la firma del mensaje verifica
+dmarc=pass        el dominio del remitente cuadra con la firma
+compauth=pass     reason=100 — la autenticación compuesta, perfecta
+BCL:0             no lo considera envío masivo problemático
+
+X-MS-Exchange-Organization-SCL: 5     ← esto es lo que lo mandaba a Junk
+```
+
+Lo que pesaba era el patrón **«nombre de marca + dirección personal de Gmail»**, que para un filtro es la firma de una suplantación. **Eso no se arregla con código**: se arregla mandando desde el dominio propio.
+
+> **Y tiene una consecuencia que afecta a lo que se construye:** la entrega 7.5 (SPF, DKIM y DMARC desde ARLES) **no iba a resolver esto**, porque las tres ya pasaban. El ROADMAP la tenía apuntada como la solución al spam y no lo era.
+
+### Lo que ARLES ganó por el camino
+
+- **El alta de una cuenta son dos campos** desde el 14/10 (R-01): correo y contraseña. `PROVEEDORES` relaciona cinco dominios con su servidor, puerto y cifrado, y el par **nunca se cruza** — 587 con STARTTLS, 465 con TLS directo, y ningún tercer puerto.
+- **La cabecera `List-Unsubscribe`** en los correos de campaña, y **fuera** de los envíos sueltos, que no son de ninguna lista.
+- **Las dos versiones del mensaje**, HTML y texto plano, con el HTML como documento entero con su idioma y su título.
+
+### Lo que sigue sin probarse contra algo real
+
+**El número de WhatsApp** (META). El adaptador de Cloud API, su servidor de mentira, la pantalla y el envío de prueba están construidos, pero nunca han hablado con Meta.
 
 ---
 
@@ -333,5 +362,36 @@ que importa la tenga.**
 | **2** | **El filtro del registro** (C-2): buscar texto tarda 3 709 ms. Declarado con su cifra, no arreglado | Auditoría C |
 | **3** | **La 7.5 · SPF, DKIM y DMARC**, que Dirección movió al final el 30/09/2026: es lo único que necesita red y una dependencia nueva | Fase 7 |
 | **4** | **El mensaje de «fallo al migrar el esquema» no cumple el §95**: manda a cerrar y reabrir —que da el mismo error siempre— y a restaurar un respaldo que puede no existir, y no dice dónde vive la base. La salida real está hoy sólo en la guía de arranque | 08/10/2026, primer intento real |
+| **5** | **La 7.5 ya se puede verificar de verdad.** Su condición era cerrar R-24, y se cerró el 22/10/2026: el dominio `telemetrymx.com` tiene SPF, DKIM de Titan y DMARC en `p=none`, comprobados con mxtoolbox. Ojo con lo que **no** arregla: el spam de Outlook no venía de ahí (§7) | 22/10/2026 |
 
-**Y la decisión que sigue esperando:** construir el adaptador de WhatsApp para el motor antes de la Fase 9, o entregar la v1.2.0 con campañas sólo por correo. Está planteada en `09-fases/FASE-05-PARA-DIRECCION.md`.
+**Y tres decisiones que esperan a Dirección:**
+
+| | Qué | Dónde está planteada |
+|---|---|---|
+| **D-WA** | Construir el adaptador de WhatsApp para el motor antes de la Fase 9, o entregar la v1.2.0 con campañas sólo por correo | `09-fases/FASE-05-PARA-DIRECCION.md` |
+| **R-05** | La imagen en la firma del correo: embebida —engorda cada envío y dispara filtros— o alojada, que hay que alojarla. El saneado del HTML tendría que admitir `<img>` con sus reglas | Pedido el 21/10/2026 |
+| **D-REM** | Dos campañas con el mismo remitente se reparten su cupo diario. Hoy **se avisa** en el paso 6 con las campañas nombradas; ¿se prefiere **impedirlo**? | `09-fases/AUDITORIA-G-FUNCIONALIDAD.md` §3 bis |
+
+---
+
+## 11. Las dos rondas de Dirección usando ARLES · 13 al 22/10/2026
+
+**Lo que encontró usando el producto no lo había encontrado ninguna de las cinco auditorías**, y conviene saber por qué: las auditorías miden, y lo que falló es lo que sólo se ve usando.
+
+| | Qué pasaba | Estado |
+|---|---|---|
+| **H-01** | Remitentes decía «todavía no has configurado tu empresa» **después** de configurarla | ✅ |
+| **H-02** | Las tres partes de un error salían **pegadas**: «…con el servidor.El servidor no ofrece…» | ✅ |
+| **H-05** | **No se podía dar de alta ni un contacto.** `Canal` cruzaba la frontera como `correo`/`whats_app` y la base lo llama `email`/`whatsapp`: un enum con dos nombres, y la junta era justo la frontera | ✅ |
+| **H-06** | El horario de envío salía vacío y **ninguna pantalla podía crear uno** | ✅ |
+| **R-01** | Dar de alta un correo era «demasiado complicado»: siete campos, tres técnicos | ✅ dos campos |
+| **R-03** | Negrita y cursiva en las plantillas | ✅ |
+| **R-04** | La firma no puede llevar datos de quien recibe | ✅ |
+| **R-06** | Borrar plantillas y firmas sin perderlas: se retiran, no se borran | ✅ |
+| **R-09** | Editar y dar de baja desde la fila del contacto, con iconos | ✅ |
+| **R-05** | **Imagen en la firma** | ⬜ espera decisión |
+
+**Y la auditoría de funcionalidad** (22/10/2026, `09-fases/AUDITORIA-G-FUNCIONALIDAD.md`): **siete hallazgos, siete arreglados**, con las diez fases en verde al empezar. El más grave y el séptimo los encontró Dirección, no la medición:
+
+- **El límite diario se escribía y no se aplicaba.** Se escribía 300, se leía el aviso de riesgo, se marcaba la casilla — **y salían 50**, porque el motor tomaba el menor entre la campaña y la cuenta, y toda cuenta nacía con 50 escritos en el código. **Peor que faltar la función: dejaba creer que se usó.**
+- **Dos campañas con el mismo remitente se reparten el cupo** —medido: 50 y 50 dan **25 y 25**, por orden de llegada—, así que el plazo que prometía el paso 6 no se cumplía. Ahora se avisa con las campañas nombradas.

@@ -85,10 +85,39 @@ def bloque_readme(datos: dict, pct: int) -> str:
         f"{round(f['hecho'] * 100)} % |"
         for f in datos["fases"]
     )
+    # ── UN BLOQUEO CERRADO NO SE BORRA, SE TACHA (22/10/2026) ──────────────
+    #
+    # R-24 —«probar ARLES contra un servidor de correo real»— estuvo abierto
+    # desde la Fase 5 y se cerró el 22/10/2026. Borrarlo de la lista dejaría el
+    # README diciendo la verdad de hoy y **perdiendo por qué costó tanto**: que
+    # desde una dirección de Gmail el correo caía en no deseados de Outlook con
+    # toda la autenticación en verde, y que lo que lo arregló fue mandar desde
+    # el dominio propio. Quien lea esto dentro de un año tiene que poder saberlo
+    # sin bucear en el historial de git.
+    #
+    # Y hay una razón más práctica: un bloqueo que desaparece parece un bloqueo
+    # que nadie resolvió.
+    abiertos = [b for b in datos["bloqueos"] if "cerrado" not in b]
+    cerrados = [b for b in datos["bloqueos"] if "cerrado" in b]
+
     bloqueos = "\n".join(
         f"| **{b['id']}** | {b['que']} | {b['quien']} | {b['bloquea']} |"
-        for b in datos["bloqueos"]
-    )
+        for b in abiertos
+    ) or "| — | Ninguno: los cinco están cerrados | — | — |"
+
+    ya_no = ""
+    if cerrados:
+        filas_cerradas = "\n".join(
+            f"| **{b['id']}** | {b['que']} | {b['cerrado']['fecha']} | "
+            f"{b['cerrado']['como']} |"
+            for b in cerrados
+        )
+        ya_no = (
+            "\n**Ya no frenan nada** (se dejan escritos: un bloqueo que "
+            "desaparece parece uno que nadie resolvió):\n\n"
+            "| | Qué era | Cerrado el | Cómo se cerró |\n"
+            "|---|---|---|---|\n" + filas_cerradas + "\n"
+        )
     return f"""{INICIO}
 ![Avance de la v1.2.0](https://img.shields.io/badge/avance_v1.2.0-{pct}%25-{color(pct)}?style=flat-square)
 
@@ -117,7 +146,7 @@ son trabajo pendiente nuestro: van aparte.
 | | Qué | Quién | Qué frena |
 |---|---|---|---|
 {bloqueos}
-
+{ya_no}
 El número se genera; no se escribe a mano en dos sitios:
 
 ```bash
@@ -162,10 +191,18 @@ def main() -> int:
         barra = "█" * round(f["hecho"] * 20) + "·" * (20 - round(f["hecho"] * 20))
         print(f"  {f['id']:<4} {barra} {round(f['hecho'] * 100):>3} %  "
               f"peso {f['peso']:>2}  {f['nombre']}")
-    if datos["bloqueos"]:
+    # Los cerrados van aparte también aquí: una salida que los lista como
+    # pendientes miente igual que lo haría el README.
+    abiertos = [b for b in datos["bloqueos"] if "cerrado" not in b]
+    cerrados = [b for b in datos["bloqueos"] if "cerrado" in b]
+    if abiertos:
         print("\n  esperando a alguien de fuera:")
-        for b in datos["bloqueos"]:
+        for b in abiertos:
             print(f"    {b['id']:<6} {b['que']}  →  {b['quien']}")
+    if cerrados:
+        print("\n  ya cerrados:")
+        for b in cerrados:
+            print(f"    {b['id']:<6} {b['que']}  ✓ {b['cerrado']['fecha']}")
 
     if args.escribir:
         cambios = []

@@ -112,7 +112,7 @@
 | [ESTADO_ACTUAL](07-entrega/ESTADO_ACTUAL.md) | **Dónde está el trabajo hoy y qué sigue.** Por aquí se empieza al retomar |
 | [PROMPT_DE_ARRANQUE](07-entrega/PROMPT_DE_ARRANQUE.md) | El mensaje con el que se abre una sesión nueva de Claude Code sobre este proyecto |
 | [GUIA_DE_CONEXION_REAL](07-entrega/GUIA-DE-CONEXION-REAL.md) | **Cómo conectar ARLES a Gmail y a Meta** para mandar de verdad, y qué se puede demostrar hoy |
-| [QUE-HACER-CON-EL-SPAM](07-entrega/QUE-HACER-CON-EL-SPAM.md) | **Por qué un correo cae en no deseados y qué se hace**, medido sobre las cabeceras reales que devolvió Outlook |
+| [QUE-HACER-CON-EL-SPAM](07-entrega/QUE-HACER-CON-EL-SPAM.md) | **Por qué un correo cae en no deseados y qué se hace**, medido sobre las cabeceras reales que devolvió Outlook — **resuelto el 22/10/2026**, con qué funcionó y qué no |
 | [PASO-A-PASO-DEL-CORREO](07-entrega/PASO-A-PASO-DEL-CORREO.md) | **Qué pulsar y qué escribir** para dejar el correo del dominio listo, de cPanel a ARLES |
 
 ### 08 · Legal

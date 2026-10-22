@@ -161,7 +161,22 @@ enviar mientras esto falte; hay una decisión pendiente de Dirección sobre si s
 construye antes o después (ver el informe, «WhatsApp · lo que hay que
 decidir»).
 
-**R-24 sigue abierto:** ARLES **no ha hablado nunca con un servidor real**. No se puede cerrar desde el entorno de desarrollo —la red bloquea los puertos de correo y no hay llavero del sistema—; se cierra en la máquina del usuario, con una cuenta desechable. **Lo que la 5.5 cambia es que ahora se puede cerrar entero**: antes sólo se podía comprobar que la cuenta conectaba, y ahora se manda un correo y se mira si llega. Ver `ESTADO_ACTUAL.md` §7.
+> **R-24 · CERRADO el 22/10/2026.** Esta línea decía «ARLES no ha hablado nunca
+> con un servidor real», y dejó de ser cierta: Dirección dio de alta
+> `enlace@telemetrymx.com` (Titan, SMTP real con TLS) y el correo llegó a la
+> **bandeja principal** de Outlook, Gmail y un corporativo — tres de tres.
+>
+> **Lo que costó no fue el código, y conviene que quede en el plan.** Desde una
+> dirección `@gmail.com` el correo caía en no deseados de Outlook con **toda la
+> autenticación en verde** (`spf`, `dkim`, `dmarc` y `compauth`, todos `pass`,
+> y aun así `SCL: 5`). Lo que pesaba era el patrón «marca + gmail personal».
+>
+> **Y eso corrige una suposición de este roadmap:** la entrega **7.5** (SPF,
+> DKIM y DMARC desde ARLES) estaba apuntada como la solución al spam, y **no lo
+> era** — las tres ya pasaban. Lo que la 7.5 sigue aportando es comprobar esos
+> registros desde la aplicación y decir qué poner si faltan, que es útil pero es
+> otra cosa. Su condición de verificación, en cambio, **ya se cumple**: hacía
+> falta R-24. Ver `ESTADO_ACTUAL.md` §7.
 
 ---
 

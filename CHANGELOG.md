@@ -12,6 +12,36 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### R-24 cerrado · ARLES manda correo de verdad, a la bandeja principal
+
+**El bloqueo más viejo del proyecto**, abierto desde la Fase 5. Todo lo de esa
+fase estaba probado contra un servidor de mentira.
+
+El 22/10/2026 Dirección dio de alta `enlace@telemetrymx.com` (Titan, SMTP real
+con TLS) y el correo de prueba de ARLES llegó a la **bandeja principal** de
+Outlook, de Gmail y de un corporativo — **tres de tres**.
+
+**Lo que costó no fue el código.** Desde una dirección `@gmail.com` el correo
+caía en no deseados de Outlook con **toda la autenticación en verde**:
+`spf=pass`, `dkim=pass`, `dmarc=pass`, `compauth=pass`… y aun así `SCL: 5`. Lo
+que pesaba era el patrón «nombre de marca + dirección personal de Gmail», que
+para un filtro es la firma de una suplantación, y **eso no se arregla con
+código**.
+
+Tiene una consecuencia para el plan: la entrega **7.5** (SPF, DKIM y DMARC desde
+ARLES) estaba apuntada como la solución al spam y **no lo era** — las tres ya
+pasaban. Lo que sí hace la 7.5 es comprobar esos registros desde la aplicación,
+que es otra cosa; y su condición de verificación ya se cumple.
+
+Documentación actualizada en consecuencia: el README y su insignia (a
+2026-10-22), `ESTADO_ACTUAL.md` §6 y §7, el ROADMAP, el manual de usuario y la
+guía del spam, que ahora cuenta **qué funcionó y qué no**.
+
+> **Un bloqueo cerrado no se borra, se tacha.** El README lo sigue listando en
+> una tabla aparte, con su fecha y cómo se cerró: borrarlo dejaría el documento
+> diciendo la verdad de hoy y perdiendo por qué costó tanto — y un bloqueo que
+> desaparece parece uno que nadie resolvió.
+
 ### El límite de correos al día se fija al crear la campaña, y ahora se aplica
 
 Dirección: *«tampoco vi que pudiera modificar el límite de correos por día»*.

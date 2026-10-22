@@ -35,7 +35,7 @@
     "  python3 herramientas/avance/calcular.py --escribir"
   ],
   "version": "1.2.0",
-  "actualizado": "2026-10-07",
+  "actualizado": "2026-10-22",
   "fases": [
     {
       "id": "F0",
@@ -84,7 +84,7 @@
       "nombre": "Proveedores de envío",
       "peso": 7,
       "hecho": 0.7,
-      "porque": "La PARTE DE CORREO cerrada entera: 5.1 a 5.6. Traducción de códigos SMTP, servidor de mentira que habla el protocolo y sabe fallar de seis maneras, adaptador con cifrado obligatorio y sin forma de desactivarlo, «Probar conexión» con seis diagnósticos, migraciones V7 y V8, repositorio de cuentas sin contraseñas, llavero por cuenta, pantalla de Remitentes, el motor encendido en su propio hilo (§51), y el envío de prueba: ARLES manda un correo entero contra un servidor que habla cifrado, comprobado por lo que el servidor RECIBIÓ. validar.py --fase 5 en 35/35, 720 pruebas de Rust y 120 del frontend el 29/09/2026. NO está el adaptador de WhatsApp Cloud API, que el ROADMAP pone en esta misma fase (P-15): es el 30 % que falta, y está sin empezar. Por eso la fase no se declara cerrada. R-24 sigue abierto —ARLES no ha hablado con un servidor real— pero desde la 5.5 ya se puede cerrar entero en la máquina del usuario: antes sólo se podía comprobar que la cuenta conectaba."
+      "porque": "La PARTE DE CORREO cerrada entera: 5.1 a 5.6. Traducción de códigos SMTP, servidor de mentira que habla el protocolo y sabe fallar de seis maneras, adaptador con cifrado obligatorio y sin forma de desactivarlo, «Probar conexión» con seis diagnósticos, migraciones V7 y V8, repositorio de cuentas sin contraseñas, llavero por cuenta, pantalla de Remitentes, el motor encendido en su propio hilo (§51), y el envío de prueba. R-24 CERRADO el 22/10/2026: Dirección dio de alta una cuenta real de Titan (enlace@telemetrymx.com) y ARLES mandó un correo que llegó a la BANDEJA PRINCIPAL de Outlook, Gmail y un corporativo — tres de tres. Ya no es un servidor de mentira: es SMTP real con TLS real. El alta son dos campos desde la ronda del 14/10 (R-01), con el par puerto+cifrado que nunca se cruza. NO está el adaptador de WhatsApp Cloud API, que el ROADMAP pone en esta misma fase (P-15): es el 30 % que falta. El canal W construyó el adaptador y su envío de prueba, pero el motor sólo recorre Canal::Correo —medido el 22/10/2026: el camino de campañas está atado a channel='email' en siete sitios—, así que no se puede lanzar una campaña entera por WhatsApp. Por eso la fase no se declara cerrada."
     },
     {
       "id": "F6",
@@ -98,7 +98,7 @@
       "nombre": "Actividad y entregabilidad",
       "peso": 9,
       "hecho": 0.92,
-      "porque": "Siete de las ocho entregas cerradas (30/09 y 01/10 de 2026). 7.0: el freno completo, con la parada de emergencia enchufada. 7.1: el registro de actividad, con el motor anotando los once sucesos que antes tiraba. 7.2: las cifras de cada campana y el cupo de cada remitente, de un solo sitio. 7.3: la pantalla de Actividad, con una tarjeta por campana (D-7A) y POR QUE no sale nada. 7.4: el registro con seis filtros que viajan en la direccion, 500 filas con el total al lado, y el recorte bimestral que no toca ni un envio (D-7C). 7.6: el resumen exportable, un archivo de texto por campana con el metodo de cada cifra y sin una sola direccion de correo. 7.7: la auditoria de cierre, que con todo en verde encontro siete defectos: el envio de prueba de WhatsApp sin boton y sin sus seis textos, el boton Detener con 2.41 de contraste cuando el minimo es 4.5, tres pantallas de catorce sin titulo de pagina, tres comandos registrados que nadie llamaba, una clave de i18n que apuntaba a un texto inexistente, y dos defectos visibles solo en la captura. Las dos comprobaciones que debian cazarlos tenian listas escritas a mano y estan reescritas para leer del codigo. Las nueve fases CON SONDAS en 298 comprobaciones, 0 fallos, 0 omitidas. Falta solo la 7.5 (SPF/DKIM/DMARC), que Direccion movio al final el 30/09/2026 porque necesita red y una dependencia nueva y solo se puede verificar cuando se cierre R-24."
+      "porque": "Siete de las ocho entregas cerradas (30/09 y 01/10 de 2026). 7.0: el freno completo, con la parada de emergencia enchufada. 7.1: el registro de actividad, con el motor anotando los once sucesos que antes tiraba. 7.2: las cifras de cada campana y el cupo de cada remitente, de un solo sitio. 7.3: la pantalla de Actividad, con una tarjeta por campana (D-7A) y POR QUE no sale nada. 7.4: el registro con seis filtros que viajan en la direccion, 500 filas con el total al lado, y el recorte bimestral que no toca ni un envio (D-7C). 7.6: el resumen exportable, un archivo de texto por campana con el metodo de cada cifra y sin una sola direccion de correo. 7.7: la auditoria de cierre, que con todo en verde encontro siete defectos: el envio de prueba de WhatsApp sin boton y sin sus seis textos, el boton Detener con 2.41 de contraste cuando el minimo es 4.5, tres pantallas de catorce sin titulo de pagina, tres comandos registrados que nadie llamaba, una clave de i18n que apuntaba a un texto inexistente, y dos defectos visibles solo en la captura. Las dos comprobaciones que debian cazarlos tenian listas escritas a mano y estan reescritas para leer del codigo. Las nueve fases CON SONDAS en 298 comprobaciones, 0 fallos, 0 omitidas. Falta solo la 7.5 (SPF/DKIM/DMARC), que Direccion movio al final el 30/09/2026 porque necesita red y una dependencia nueva. Su condicion ya se cumple: R-24 se cerro el 22/10/2026 y el dominio telemetrymx.com tiene SPF, DKIM de Titan y DMARC en p=none, verificados con mxtoolbox. Asi que la 7.5 ya se puede construir Y verificar de verdad."
     },
     {
       "id": "F8",
@@ -132,19 +132,23 @@
       "id": "META",
       "que": "Cuenta de empresa en Meta, verificada y con Coexistencia activada (L-11)",
       "quien": "Operaciones",
-      "bloquea": "F3W · el alta del número, y con ella toda campaña de WhatsApp"
+      "bloquea": "El alta del número de WhatsApp contra una cuenta real. El adaptador de Cloud API, su servidor de mentira, la pantalla y el envío de prueba están construidos (canal W), pero nunca han hablado con Meta. Y por debajo hay un límite mayor que no depende de Meta: el motor sólo recorre Canal::Correo, así que hoy no se puede lanzar una campaña entera por WhatsApp — sólo el envío de prueba."
     },
     {
       "id": "R-07",
       "que": "Revisión visual en macOS (WKWebView)",
       "quien": "Quien tenga un Mac",
-      "bloquea": "Nada todavía; la fecha límite acordada es antes de la F6"
+      "bloquea": "Nada de la construcción, y por eso lleva abierto desde la Fase 2. La fecha que decía «antes de la F6» caducó: la F6, el canal W, la F7 y la F8 se cerraron sin que nadie abriera ARLES en WKWebView. Lo que frena es poder AFIRMAR que las dieciocho pantallas se ven bien en macOS: todo lo medido —contraste, foco, objetivos, textos encimados— sale de Chromium, y la vista previa no cuenta porque ahí el motor es el del navegador. Se cierra antes de la F9."
     },
     {
       "id": "R-24",
       "que": "Probar ARLES contra un servidor de correo real, con una cuenta desechable",
       "quien": "Dirección",
-      "bloquea": "Nada de la construcción: la Fase 5 se prueba contra un servidor de mentira que habla el protocolo de verdad. No se puede cerrar desde el entorno de desarrollo —la red bloquea los puertos de correo y no hay llavero del sistema—, así que se hace en la máquina del usuario antes de la F6"
+      "bloquea": "Nada de la construcción: la Fase 5 se prueba contra un servidor de mentira que habla el protocolo de verdad. No se puede cerrar desde el entorno de desarrollo —la red bloquea los puertos de correo y no hay llavero del sistema—, así que se hace en la máquina del usuario antes de la F6",
+      "cerrado": {
+        "fecha": "2026-10-22",
+        "como": "Dirección dio de alta enlace@telemetrymx.com (Titan, SMTP real con TLS) y ARLES mandó un correo de prueba a tres destinos: Outlook, Gmail y un corporativo. Los tres llegaron a la BANDEJA PRINCIPAL. Antes, desde una dirección @gmail.com, Outlook lo mandaba a no deseados con SCL 5 — la autenticación pasaba (spf, dkim, dmarc y compauth) y lo que pesaba era el patrón «marca + gmail personal», que no se arregla con código."
+      }
     }
   ]
 }

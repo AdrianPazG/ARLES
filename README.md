@@ -10,7 +10,7 @@ Desarrollado por **TELEMETRY INSIGHT**
 <!-- AVANCE:INICIO -->
 ![Avance de la v1.2.0](https://img.shields.io/badge/avance_v1.2.0-89%25-brightgreen?style=flat-square)
 
-**89 % de la versión 1.2.0 construido y verificado**, a 2026-10-07.
+**89 % de la versión 1.2.0 construido y verificado**, a 2026-10-22.
 
 <details>
 <summary>Cómo sale ese número, y qué no mide</summary>
@@ -46,9 +46,14 @@ son trabajo pendiente nuestro: van aparte.
 |---|---|---|---|
 | **P-01** | Licencia de Mont para incrustarla en la aplicación distribuida | Dirección | El primer instalador descargable. Hay plan B: tipografía del sistema, una línea de CSS |
 | **P-09** | Revisión jurídica: dieciocho preguntas en 08-legal/CONSULTA-JURIDICA.md | Abogado | Ya NO bloquea la construcción (ADR-0013). Frena los textos legales visibles y el primer envío real a alguien de fuera de TELEMETRY. Incluye P-17: consent_entry es de sólo-añadir y guarda la dirección en claro, lo que contradice el derecho de cancelación. |
-| **META** | Cuenta de empresa en Meta, verificada y con Coexistencia activada (L-11) | Operaciones | F3W · el alta del número, y con ella toda campaña de WhatsApp |
-| **R-07** | Revisión visual en macOS (WKWebView) | Quien tenga un Mac | Nada todavía; la fecha límite acordada es antes de la F6 |
-| **R-24** | Probar ARLES contra un servidor de correo real, con una cuenta desechable | Dirección | Nada de la construcción: la Fase 5 se prueba contra un servidor de mentira que habla el protocolo de verdad. No se puede cerrar desde el entorno de desarrollo —la red bloquea los puertos de correo y no hay llavero del sistema—, así que se hace en la máquina del usuario antes de la F6 |
+| **META** | Cuenta de empresa en Meta, verificada y con Coexistencia activada (L-11) | Operaciones | El alta del número de WhatsApp contra una cuenta real. El adaptador de Cloud API, su servidor de mentira, la pantalla y el envío de prueba están construidos (canal W), pero nunca han hablado con Meta. Y por debajo hay un límite mayor que no depende de Meta: el motor sólo recorre Canal::Correo, así que hoy no se puede lanzar una campaña entera por WhatsApp — sólo el envío de prueba. |
+| **R-07** | Revisión visual en macOS (WKWebView) | Quien tenga un Mac | Nada de la construcción, y por eso lleva abierto desde la Fase 2. La fecha que decía «antes de la F6» caducó: la F6, el canal W, la F7 y la F8 se cerraron sin que nadie abriera ARLES en WKWebView. Lo que frena es poder AFIRMAR que las dieciocho pantallas se ven bien en macOS: todo lo medido —contraste, foco, objetivos, textos encimados— sale de Chromium, y la vista previa no cuenta porque ahí el motor es el del navegador. Se cierra antes de la F9. |
+
+**Ya no frenan nada** (se dejan escritos: un bloqueo que desaparece parece uno que nadie resolvió):
+
+| | Qué era | Cerrado el | Cómo se cerró |
+|---|---|---|---|
+| **R-24** | Probar ARLES contra un servidor de correo real, con una cuenta desechable | 2026-10-22 | Dirección dio de alta enlace@telemetrymx.com (Titan, SMTP real con TLS) y ARLES mandó un correo de prueba a tres destinos: Outlook, Gmail y un corporativo. Los tres llegaron a la BANDEJA PRINCIPAL. Antes, desde una dirección @gmail.com, Outlook lo mandaba a no deseados con SCL 5 — la autenticación pasaba (spf, dkim, dmarc y compauth) y lo que pesaba era el patrón «marca + gmail personal», que no se arregla con código. |
 
 El número se genera; no se escribe a mano en dos sitios:
 
@@ -302,6 +307,7 @@ Lo que define el producto no es enviar correo —eso lo hace cualquier cosa— s
 
 - Límites que el cliente fija, no que le imponemos
 - Una simulación que dice cuánto tardará la campaña de verdad, antes de activarla
+
 - Un motor que respeta esos límites incluso cuando el equipo se suspende y despierta
 - Idempotencia que garantiza que nadie reciba dos veces el mismo correo
 - Métricas que no mienten
@@ -309,6 +315,16 @@ Lo que define el producto no es enviar correo —eso lo hace cualquier cosa— s
 ### Los tres principios
 
 **Honestidad.** Si el proveedor sólo confirmó «aceptado», la interfaz dice *aceptado*. Nunca «entregado». Y si el producto no sabe algo, lo declara.
+
+> **Y el principio se aplica a esta misma página.** «Límites que el cliente
+> fija» estuvo escrito aquí durante semanas mientras el producto **no lo
+> cumplía**: el campo del límite diario existía, con su aviso y su casilla, y el
+> motor aplicaba el menor entre lo escrito y un 50 fijo en el código. Se
+> escribía 300, se aceptaba el riesgo, y salían 50 sin que nada lo dijera. Lo
+> encontró Dirección usando ARLES el 22/10/2026 y está corregido — pero la línea
+> de arriba era una promesa, no una descripción, y conviene saber distinguirlas.
+> Está contado en
+> [AUDITORIA-G](documentacion/09-fases/AUDITORIA-G-FUNCIONALIDAD.md).
 
 **Seguridad sobre comodidad.** Ante la duda entre un flujo cómodo y uno seguro, gana el seguro, y se documenta el coste.
 
@@ -368,6 +384,8 @@ Lo demás que sigue abierto, con quién lo cierra:
 | 🟡 **P-05** | Dominio y aviso de privacidad para la verificación de Google | Dirección · sólo hace falta el día que se use OAuth de Google (ADR-0003); con SMTP no |
 | 🟡 **P-17** | `consent_entry` es de sólo-añadir y guarda la dirección en claro, lo que roza el derecho de cancelación | Abogado · va dentro de P-09 |
 | 🟡 **D-WA** | ¿Se construye la campaña entera por WhatsApp, o la v1.2.0 ofrece sólo correo? | Dirección · planteado en [FASE-05-PARA-DIRECCION](documentacion/09-fases/FASE-05-PARA-DIRECCION.md) |
+| 🟡 **R-05** | Imagen en la firma del correo: ¿embebida —engorda cada envío y dispara filtros— o alojada, que hay que alojarla en algún sitio? El saneado del HTML tendría que admitir `<img>` con sus reglas | Dirección · pedido el 21/10/2026 |
+| 🟡 **D-REM** | Dos campañas con el mismo remitente se reparten su cupo diario (medido: 50 y 50 dan **25 y 25**, por orden de llegada). Hoy **se avisa** en el paso 6; ¿se prefiere **impedirlo**? | Dirección · planteado el 22/10/2026 en [AUDITORIA-G](documentacion/09-fases/AUDITORIA-G-FUNCIONALIDAD.md) |
 
 Detalle en [PREGUNTAS_ABIERTAS](documentacion/02-auditoria/PREGUNTAS_ABIERTAS.md).
 

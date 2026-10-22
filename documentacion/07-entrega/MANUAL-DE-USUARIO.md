@@ -73,6 +73,22 @@ Tres cosas que conviene saber antes de soltar el archivo:
 - **Un contacto puede tener varios correos y varios WhatsApp.** Se agrupan solos
   en su ficha; haz doble clic en una fila para verlos todos.
 
+**No hace falta ordenar la tabla antes.** ARLES reconoce las columnas por su
+nombre —«Nombre», «Razón social», «Correo», «Teléfono», «Celular»…— y deja
+fuera las que no necesita, estén donde estén. Si la tabla del cliente trae
+nueve columnas y ARLES usa tres, se cargan las tres.
+
+> **Y si viene hecha un desastre, hay plantilla.** En ese mismo paso, al lado
+> de «Elegir archivo», está **«Descargar la plantilla»**: un Excel con tres
+> columnas —Nombre, Correo y Teléfono— donde pegar lo que sirva. No es
+> obligatoria.
+
+**Si una columna se llama «Teléfono» a secas, ARLES te avisa.** La va a usar
+para WhatsApp, y ese nombre no dice si son celulares: si ahí hay teléfonos
+fijos, WhatsApp no los alcanza y los intentos fallidos bajan la calificación de
+tu número ante Meta. Lo que dice a las claras no ser un móvil —«Teléfono fijo»,
+«Conmutador», «Lada», «Fax»— se deja fuera sin preguntar.
+
 ### Paso 3 · Tu cuenta de correo
 
 **Remitentes → Agregar cuenta.** Desde el 14/10/2026 son **dos campos**: tu
@@ -100,6 +116,19 @@ botón de ARLES puede volver a enseñarla. Es a propósito.
 Antes de seguir, usa **«Mandar un correo de prueba»**: te manda uno a ti mismo.
 Si llega, la cuenta está lista.
 
+> **Si el correo te cae en «no deseados», lee esto antes de tocar nada.**
+>
+> Medido el 22/10/2026 con cabeceras reales: mandando desde una dirección
+> `@gmail.com`, Outlook lo manda a no deseados **aunque toda la autenticación
+> esté perfecta**. Lo que pesa es el patrón «nombre de tu marca + dirección
+> personal de Gmail», que para un filtro es la firma de una suplantación.
+>
+> **No se arregla con configuración.** Se arregla mandando desde una dirección
+> de tu propio dominio. El mismo día, desde `enlace@telemetrymx.com`, el correo
+> llegó a la **bandeja principal** de Outlook, Gmail y un corporativo — tres de
+> tres. Los pasos están en
+> [`PASO-A-PASO-DEL-CORREO.md`](PASO-A-PASO-DEL-CORREO.md).
+
 ### Paso 4 · Tu mensaje
 
 **Campañas → Plantillas y firmas.**
@@ -119,10 +148,24 @@ sustituye por los datos de cada contacto.
 
 Tres cosas que te va a decir y conviene entender:
 
-**El ritmo.** Cuántos mensajes al día. Si pones más de 50, ARLES te hace
-aceptar un aviso: por encima de esa cifra los proveedores de correo empiezan a
-tratarte como remitente masivo, y lo que se pierde no es un mensaje, es la
-reputación de tu dominio.
+**El ritmo.** Cuántos mensajes al día y cuántos por hora. Los dos campos vienen
+rellenos con lo que trae tu cuenta y **puedes cambiarlos**: el número que
+escribas es el que ARLES va a respetar.
+
+Si pones más de 50 al día, ARLES te hace aceptar un aviso: por encima de esa
+cifra los proveedores de correo empiezan a tratarte como remitente masivo, y lo
+que se pierde no es un mensaje, es la reputación de tu dominio. **Te avisa y no
+te lo impide** — la decisión es tuya, y queda registrada con su fecha.
+
+> **Si ese remitente ya está enviando otra campaña, ARLES te lo dice ahí
+> mismo.** El máximo al día es **de la cuenta de correo**, no de cada campaña:
+> dos campañas de 50 sobre el mismo remitente sacan **25 y 25**, no 50 cada
+> una, así que la tuya va a tardar más de lo que dice el plazo. **No salen más
+> correos en total: salen repartidos.** Si necesitas que cada campaña vaya a su
+> ritmo, usa un remitente distinto para cada una.
+
+**La firma.** En el paso 4 eliges cuál va al pie. Si no eliges ninguna, se usa
+la que marcaste por defecto en Plantillas y firmas.
 
 **Si la campaña puede terminar.** En el paso 6, ARLES calcula cuánto va a
 tardar con el ritmo que elegiste. Si no termina en cinco años, **no te deja
@@ -223,6 +266,13 @@ nada que no se pueda cumplir.
 | **Una campaña creada no se puede editar** | Hay que crear otra |
 | **No se puede restaurar un respaldo de una versión anterior** | Se rechaza con un error claro en vez de restaurar algo a medias |
 | **Nadie ha abierto ARLES en un Mac** | Está construido para macOS y **no se ha probado ahí**. Hasta que alguien lo haga, no se puede afirmar que funcione |
+| **Una firma no puede llevar una imagen** | Sólo texto, con negrita y cursiva. Está pendiente de decidir cómo: embebida engorda cada correo y dispara filtros de spam; alojada hay que alojarla en algún sitio |
+| **El número de WhatsApp nunca ha hablado con Meta** | Todo lo de WhatsApp está probado contra un servidor de mentira. Falta una cuenta de empresa verificada con Coexistencia |
+
+> **Y una que dejó de ser cierta el 22/10/2026, porque conviene saberlo:**
+> hasta ese día ARLES **nunca había hablado con un servidor de correo real**.
+> Ahora sí: manda desde una cuenta de Titan por SMTP con TLS, y el correo llega
+> a la bandeja principal de Outlook, Gmail y un corporativo.
 
 ---
 

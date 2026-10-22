@@ -264,7 +264,41 @@ cambian, y deciden por buzón. Lo que sí se puede afirmar es lo que hoy está
 medido:
 
 - El correo que ARLES construye **pasa las cuatro comprobaciones de identidad**
-- Con Gmail como destino **ya llega a la bandeja principal** (21/10/2026)
-- Con Outlook como destino y `@gmail.com` como remitente, **no**
-- Lo que falta por probar es el mismo correo desde `@telemetrymx.com`, y eso
-  depende de los pasos de la §4
+- Con Gmail como destino **llega a la bandeja principal** (21/10/2026)
+- Con Outlook como destino y `@gmail.com` como remitente, **no** — y eso **no
+  se arregló**: se evitó cambiando de remitente
+
+---
+
+## 9 · Resuelto el 22/10/2026 · funcionó, y así quedó
+
+**Desde `enlace@telemetrymx.com` (Titan), el correo de prueba de ARLES llegó a
+la BANDEJA PRINCIPAL de los tres destinos: Outlook, Gmail y un corporativo.**
+
+Se tomó la **opción B** de la §4 —Titan, el correo que el dominio ya tenía—, sin
+contratar nada. Lo que hizo falta, por orden:
+
+| | Qué | Dónde |
+|---|---|---|
+| 1 | Crear el buzón `enlace@` y ponerle contraseña | Panel de Titan, desde HostGator |
+| 2 | Unir los **dos SPF** en uno — dos registros no son «SPF duplicado», son **SPF roto** (RFC 7208: `PermError`, y quien recibe lo trata como si no hubiera ninguno) | Zone Editor de HostGator |
+| 3 | Dejar **un solo DMARC**, el que empieza por `v=DMARC1` | Zone Editor |
+| 4 | Dar de alta la cuenta en ARLES — dos campos desde el 14/10 | Remitentes |
+
+**El DKIM de Titan ya estaba** y entero, que es lo que más falla: pegarlo
+cortado no da error, simplemente no firma.
+
+### Qué cambió de verdad, y qué no
+
+**Lo que cambió:** el remitente. Nada del código de ARLES, que ya construía el
+correo bien desde el 21/10 — las dos versiones del mensaje, el HTML como
+documento entero y la cabecera de baja.
+
+**Lo que NO cambió:** mandar desde `@gmail.com` sigue cayendo en no deseados de
+Outlook. No se arregló; se dejó de hacer.
+
+> **Y la lección que vale para la próxima campaña:** el dominio no se arriesga
+> por usarlo, se arriesga por el **volumen**. Un dominio nuevo que arranca con
+> dos mil correos en un día es el caso malo; cincuenta al día durante dos
+> semanas es el bueno. Ese freno es el límite diario de la campaña, que desde el
+> 22/10/2026 se fija al crearla y **se aplica de verdad**.
