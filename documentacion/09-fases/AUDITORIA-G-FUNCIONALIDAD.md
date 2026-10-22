@@ -14,7 +14,8 @@ ver, porque todas sus comprobaciones pasaban.
 
 ## 0 · El resultado, en una línea
 
-**Seis hallazgos. Seis arreglados.** Las diez fases del validador estaban en
+**Siete hallazgos. Siete arreglados.** El séptimo lo encontró Dirección leyendo
+este mismo informe. Las diez fases del validador estaban en
 verde al empezar, y siguen en verde.
 
 | | Qué | Gravedad |
@@ -25,6 +26,7 @@ verde al empezar, y siguen en verde.
 | **G-4** | La demostración no exigía aceptar el aviso de volumen | 🟡 Baja |
 | **G-5** | Dos claves de error sin texto: se veía la clave cruda en pantalla | 🟡 Baja |
 | **G-6** | Cinco cabeceras de Contactos no caben a 1024 px | 🟡 Baja |
+| **G-7** | Dos campañas con un remitente: el plazo prometido no se cumplía | 🟠 Media |
 
 Y **un límite declarado, que no es un defecto sino una fase que falta**: §4.
 
@@ -133,6 +135,66 @@ Arreglado de punta a punta: desplegable en el paso 4 → store → comando →
 > falso**: se probó, y pasó en verde, porque siembra la etapa a mano. El hueco
 > vivía justo entre las dos pruebas, que es el patrón del §9 aplicado a sus
 > propias pruebas.
+
+---
+
+## 3 bis · G-7 · El plazo no valía si dos campañas comparten remitente
+
+**Lo encontró Dirección leyendo el informe de esta auditoría**, el mismo día:
+
+> *«Si coloco en la campaña uno un límite de 50 al día y otra campaña dos un
+> límite de 50 al día con el mismo remitente, no se mandan 50 en ambas
+> campañas... no se respetaría el tiempo que se propuso al iniciar la
+> campaña»*.
+
+Tenía razón, y está medido con el mecanismo real (`cabe_uno_mas` y un contador
+compartido, no una cuenta a mano):
+
+| Campaña A pide | Campaña B pide | Sale de A | Sale de B | **Total del día** |
+|---|---|---|---|---|
+| 50 | 50 | **25** | **25** | 50 |
+| 200 | 200 | 100 | 100 | **200** |
+| 200 | 300 | 100 | 200 | **300** |
+| 50 | 500 | 25 | 475 | **500** |
+
+**Y es peor que mitad y mitad: el reparto va por orden de llegada**, así que no
+se puede predecir cuál se queda con qué.
+
+### Las dos mitades, separadas
+
+**Lo que NO pasa**, y era lo que más le preocupaba: con 200 y 200 **no salen
+400**. El total de un día es el **mayor** de los límites, nunca la suma, porque
+el contador es de la cuenta. El dominio no corre más riesgo por tener dos
+campañas — ésa es exactamente la defensa que sustituyó al `min` de G-1, y aquí
+se la ve funcionar.
+
+**Lo que sí pasa**: el paso 6 dice «termina en 27 días» calculado con el límite
+de esa campaña, **como si el remitente fuera sólo suyo**. Con otra enviando, son
+54 o los que salgan. Es una cifra que la pantalla promete y el motor no cumple
+— el patrón que esta auditoría entera persigue, encontrado por quien usa el
+producto y no por quien lo mide.
+
+### El arreglo: decirlo donde se promete
+
+El preflight sabe ahora qué campañas **están enviando** con ese remitente y con
+qué límite, y el aviso va **pegado a la frase del plazo**, no al final de la
+pantalla: un aviso que desmiente una cifra tiene que verse con la cifra
+delante, o se lee la cifra y se ignora el aviso.
+
+> **Tres cosas que el aviso necesita para no mentir, y las tres tienen prueba
+> con su ruptura verificada:** que sólo cuenten las que de verdad están
+> enviando —una pausada no consume cupo—, que la campaña no se cuente a sí
+> misma, y que el límite salga por **el mismo camino que usa el motor**
+> (`el_limite_que_manda`), porque leyendo `daily_limit` a secas una etapa sin
+> límite propio saldría con cero y el aviso diría que la otra campaña no
+> consume nada.
+
+> **Y se avisa en vez de impedir, que es el §154.** Dos campañas desde un mismo
+> correo corporativo es un caso legítimo: lo que no es legítimo es prometer un
+> plazo que no se va a cumplir. Quien necesite que cada campaña vaya a su ritmo
+> tiene la salida escrita en el propio aviso — un remitente distinto para cada
+> una — y eso es justo lo que ADR-0008 dice desde el 11/09: *«el usuario puede
+> registrar varias cuentas y asignarlas a campañas distintas»*.
 
 ---
 

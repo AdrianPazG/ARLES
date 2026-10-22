@@ -1904,6 +1904,32 @@ pub struct RevisionDeCampana {
     /// fallan los puntos de conexión y autenticación. `None` si no se llegó a
     /// sondear porque la cuenta ya estaba descartada.
     pub diagnostico: Option<String>,
+    /// Las campañas que **ya están enviando** con este mismo remitente.
+    ///
+    /// ── POR QUÉ LA PANTALLA TIENE QUE ENSEÑARLAS ──────────────────────────
+    ///
+    /// Porque si no, la cifra de arriba miente. El presupuesto de envío cuelga
+    /// de la **cuenta**: dos campañas de 50 al día sobre un remitente sacan
+    /// **25 y 25**, y por orden de llegada, no por mitades. La `estimacion`
+    /// calcula con el límite de esta campaña como si el remitente fuera sólo
+    /// suyo, así que promete un plazo que no se va a cumplir.
+    ///
+    /// Lo vio Dirección el 22/10/2026, y lo que **no** pasa es lo que más le
+    /// preocupaba: el total del día sigue siendo el mayor de los límites,
+    /// nunca la suma, así que el dominio no corre más riesgo por tener dos
+    /// campañas. Lo que se rompe es la promesa de tiempo.
+    ///
+    /// Vacío cuando el remitente es sólo de esta campaña — el único caso en el
+    /// que la estimación se puede creer tal cual.
+    pub comparten_remitente: Vec<CampanaQueComparteIpc>,
+}
+
+/// Una campaña que ya envía con el mismo remitente.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CampanaQueComparteIpc {
+    pub nombre: String,
+    pub limite_diario: u32,
 }
 
 /// Revisa una campaña contra los ocho puntos, hablando con el servidor.
@@ -1998,6 +2024,14 @@ pub fn revision_de(
     });
 
     Ok(RevisionDeCampana {
+        comparten_remitente: sabido
+            .comparten_remitente
+            .iter()
+            .map(|c| CampanaQueComparteIpc {
+                nombre: c.nombre.clone(),
+                limite_diario: c.limite_diario,
+            })
+            .collect(),
         preflight,
         audiencia: sabido.audiencia,
         contactos_con_huecos: sabido.contactos_con_huecos,

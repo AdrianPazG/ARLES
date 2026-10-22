@@ -2210,6 +2210,23 @@ export const es = {
       },
 
       simulacion: {
+        // ── EL PLAZO NO VALE SI EL REMITENTE SE COMPARTE (22/10/2026) ──
+        //
+        // El cupo de envío cuelga de la CUENTA, no de la campaña: dos de 50 al
+        // día sobre un remitente sacan 25 y 25, y por orden de llegada. El
+        // total del día sigue siendo el mayor de los límites y nunca la suma,
+        // así que lo que se rompe no es el dominio — es el plazo de arriba.
+        remitenteCompartido:
+          'Este remitente ya está enviando «{campanas}» | ' +
+          'Este remitente ya está enviando {n} campañas: {campanas}',
+        remitenteCompartidoDetalle:
+          'El máximo al día es de la cuenta de correo, no de cada campaña. ' +
+          'Las que comparten remitente se reparten ese máximo, así que ésta ' +
+          'va a tardar más de lo que dice el plazo de arriba. No saldrán más ' +
+          'correos en total: saldrán repartidos.',
+        remitenteCompartidoQueHacer:
+          'Si necesitas que cada campaña vaya a su ritmo, usa un remitente ' +
+          'distinto para cada una, o espera a que la otra termine.',
         titulo: 'Cuánto va a tardar',
         calculando:
           'Comprobando la cuenta contra el servidor de correo. Puede tardar ' +

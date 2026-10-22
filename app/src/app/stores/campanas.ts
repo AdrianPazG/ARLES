@@ -116,6 +116,19 @@ export interface Revision {
   readonly estimacion: Estimacion
   /** Clave del diagnóstico de la sonda, o `null` si no se sondeó. */
   readonly diagnostico: string | null
+  /**
+   * Las campañas que **ya están enviando** con este mismo remitente.
+   *
+   * Si hay alguna, la `estimacion` de arriba miente: el cupo de envío cuelga
+   * de la cuenta, así que dos campañas de 50 al día sacan 25 y 25 —y por
+   * orden de llegada, no por mitades—. El total del día sigue siendo el mayor
+   * de los límites y nunca la suma, así que lo que se rompe no es el dominio:
+   * es el plazo que el paso 6 promete.
+   */
+  readonly compartenRemitente: readonly {
+    readonly nombre: string
+    readonly limiteDiario: number
+  }[]
 }
 
 /**

@@ -88,6 +88,9 @@ function revision(sobreescribe: Partial<Revision> = {}): Revision {
       diasConEnvio: 27,
     },
     diagnostico: 'correo.prueba.correcto',
+    // Vacío por defecto: el remitente es sólo de esta campaña, que es el caso
+    // en el que el plazo de la estimación se puede creer tal cual.
+    compartenRemitente: [],
     ...sobreescribe,
   }
 }
@@ -427,6 +430,64 @@ describe('el asistente de campaña', () => {
    * 136 000 que termina en nueve meses es razonable— es convertir un cuelgue
    * en una espera explicada (§95).
    */
+  /**
+   * ── EL PLAZO NO VALE SI EL REMITENTE SE COMPARTE (22/10/2026) ──────────
+   *
+   * Lo vio Dirección: *«si coloco en la campaña uno un límite de 50 al día y
+   * otra campaña dos un límite de 50 al día con el mismo remitente... no se
+   * mandan 50 en ambas»*. Medido: salen **25 y 25**, y por orden de llegada.
+   *
+   * El total del día sigue siendo el mayor de los límites y nunca la suma, así
+   * que el dominio no corre más riesgo. Lo que se rompe es el plazo que esta
+   * misma pantalla promete dos líneas más arriba, y por eso el aviso va
+   * pegado a él: un aviso que desmiente una cifra tiene que verse con la cifra
+   * delante.
+   */
+  it('avisa de que el plazo no vale si el remitente ya está enviando otra', async () => {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.revision = revision({
+      compartenRemitente: [{ nombre: 'La de octubre', limiteDiario: 50 }],
+    })
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 6
+    p.vm.paso = 6
+    await p.vm.$nextTick()
+    expect(p.text()).toContain('Este remitente ya está enviando «La de octubre»')
+    expect(p.text()).toContain('se reparten ese máximo')
+    // Y dice qué hacer, que es la tercera parte del §95.
+    expect(p.text()).toContain('usa un remitente distinto')
+  })
+
+  it('nombra las dos cuando son dos, y lo dice en plural', async () => {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.revision = revision({
+      compartenRemitente: [
+        { nombre: 'La de octubre', limiteDiario: 50 },
+        { nombre: 'La de soporte', limiteDiario: 200 },
+      ],
+    })
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 6
+    p.vm.paso = 6
+    await p.vm.$nextTick()
+    expect(p.text()).toContain('ya está enviando 2 campañas')
+    expect(p.text()).toContain('La de octubre, La de soporte')
+  })
+
+  /** Con el remitente para ella sola, el plazo se puede creer y no se estorba. */
+  it('no avisa cuando el remitente es sólo de esta campaña', async () => {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.revision = revision()
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 6
+    p.vm.paso = 6
+    await p.vm.$nextTick()
+    expect(p.text()).not.toContain('Este remitente ya está enviando')
+  })
+
   it('avisa de cuánto va a tardar en prepararse una campaña grande', async () => {
     const p = await enLaSimulacion(
       revision({

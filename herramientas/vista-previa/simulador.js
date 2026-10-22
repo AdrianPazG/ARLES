@@ -1060,6 +1060,17 @@
               diasConEnvio: 1303,
             },
             diagnostico: null,
+            // Las campañas que ya envían con este remitente. El decorado enseña
+            // el caso interesante —una, compartiendo— porque es el que el aviso
+            // del 22/10/2026 vino a contar y en la demostración hay que poder
+            // verlo. Con la lista vacía el aviso no se vería nunca.
+            compartenRemitente: (e.campanas || [])
+              .filter(function (c) {
+                return c.estado === 'campana.estado.enviando';
+              })
+              .map(function (c) {
+                return { nombre: c.nombre, limiteDiario: 50 };
+              }),
           });
 
         case 'probar_envio_de_la_cuenta':

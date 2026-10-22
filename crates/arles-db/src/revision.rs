@@ -67,6 +67,36 @@ pub struct LoQueSabeLaBase {
     pub estimacion: Estimacion,
     /// ¿Consta el envío de prueba del §45, hecho con **este** remitente?
     pub se_hizo_el_envio_de_prueba: bool,
+    /// Las campañas que **ya están enviando** con este mismo remitente.
+    ///
+    /// ── POR QUÉ ESTO SALE DEL PREFLIGHT Y NO ES UN DETALLE ────────────────
+    ///
+    /// Dirección lo vio el 22/10/2026 antes que nadie: *«si coloco en la
+    /// campaña uno un límite de 50 al día y otra campaña dos un límite de 50
+    /// al día con el mismo remitente... no se mandan 50 en ambas»*.
+    ///
+    /// Tenía razón, y está medido: el presupuesto cuelga de la **cuenta**, así
+    /// que dos campañas de 50 sobre un remitente sacan **25 y 25**. Y no por
+    /// mitades: por **orden de llegada**, que es peor, porque no se puede
+    /// predecir cuál se queda con qué.
+    ///
+    /// Lo que eso rompe no es el dominio —el total sigue siendo el mayor de
+    /// los límites, nunca la suma— sino **la promesa de tiempo**: el paso 6
+    /// dice «termina en X días» con el límite de esta campaña, ignorando que
+    /// lo comparte. Una cifra que la pantalla promete y el motor no cumple es
+    /// exactamente lo que este proyecto persigue.
+    ///
+    /// Va vacío cuando el remitente es sólo de esta campaña, que es el caso
+    /// en el que la estimación sí se puede creer.
+    pub comparten_remitente: Vec<CampanaQueComparte>,
+}
+
+/// Una campaña que ya está enviando con el mismo remitente.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CampanaQueComparte {
+    pub nombre: String,
+    /// Su límite diario efectivo, por el mismo camino que usa el motor.
+    pub limite_diario: u32,
 }
 
 impl Db {
@@ -139,6 +169,12 @@ impl Db {
                 _ => false,
             };
 
+            // Las que ya envían con este remitente. Se excluye la propia:
+            // una campaña ya en marcha que se vuelve a revisar no comparte
+            // consigo misma, y decirlo asustaría sin motivo.
+            let comparten_remitente =
+                otras_campanas_del_remitente(conn, &fila.cuenta, &campana.to_string())?;
+
             Ok(LoQueSabeLaBase {
                 cuenta,
                 credencial_sirve,
@@ -146,9 +182,50 @@ impl Db {
                 contactos_con_huecos,
                 estimacion: estimar(audiencia, limites, &ventana, ahora_utc),
                 se_hizo_el_envio_de_prueba,
+                comparten_remitente,
             })
         })
     }
+}
+
+/// Las campañas **en marcha** que envían con este mismo remitente.
+///
+/// `running` y sólo `running`, en la campaña **y** en la etapa: es el mismo
+/// filtro que usa `etapas_en_marcha` para decidir a quién le toca enviar, y
+/// tiene que serlo. Contar una pausada diría que el cupo se reparte cuando no
+/// se reparte; dejar fuera una que sí envía es el error que no se ve.
+///
+/// El límite se resuelve con `el_limite_que_manda`, el mismo que aplica el
+/// motor. Si aquí se leyera `daily_limit` a secas, una etapa sin límite propio
+/// saldría con cero y el aviso diría que la otra campaña no consume nada.
+fn otras_campanas_del_remitente(
+    conn: &Connection,
+    cuenta: &str,
+    excepto: &str,
+) -> Result<Vec<CampanaQueComparte>, DbError> {
+    let mut consulta = conn.prepare(
+        "SELECT c.name, e.daily_limit, a.daily_limit
+           FROM campaign_stage e
+           JOIN campaign c ON c.id = e.campaign_id
+           JOIN email_account a ON a.id = e.email_account_id
+          WHERE e.email_account_id = ?1
+            AND e.campaign_id <> ?2
+            AND e.channel = 'email'
+            AND c.status = 'running'
+            AND e.status = 'running'
+          ORDER BY c.name",
+    )?;
+    let filas = consulta.query_map(params![cuenta, excepto], |f| {
+        Ok(CampanaQueComparte {
+            nombre: f.get(0)?,
+            limite_diario: el_limite_que_manda(f.get(1)?, f.get(2)?),
+        })
+    })?;
+    let mut fuera = Vec::new();
+    for fila in filas {
+        fuera.push(fila?);
+    }
+    Ok(fuera)
 }
 
 /// La etapa de correo de la campaña, cruda.
@@ -623,6 +700,122 @@ mod tests {
         assert!(
             revisar(&db, c).se_hizo_el_envio_de_prueba,
             "y con la suya sí vale"
+        );
+    }
+
+    /// **Las campañas que comparten remitente se nombran, con su límite.**
+    ///
+    /// ── LO QUE DIRECCIÓN VIO ANTES QUE NADIE (22/10/2026) ─────────────────
+    ///
+    /// *«si coloco en la campaña uno un límite de 50 al día y otra campaña dos
+    /// un límite de 50 al día con el mismo remitente... no se mandan 50 en
+    /// ambas campañas»*. Medido: salen **25 y 25**, y no por mitades sino por
+    /// orden de llegada, que no se puede predecir.
+    ///
+    /// El total del día sigue siendo el mayor de los dos límites —nunca la
+    /// suma—, así que el dominio no corre más riesgo. Lo que se rompe es la
+    /// promesa de tiempo del paso 6, que estima con el límite de esta campaña
+    /// como si el remitente fuera sólo suyo.
+    ///
+    /// Esta prueba fija las tres cosas que el aviso necesita para no mentir:
+    /// que sólo cuenten las que **de verdad están enviando**, que no se cuente
+    /// a sí misma, y que el límite salga por el **mismo camino que el motor**.
+    ///
+    /// Verificada rompiéndola por los tres lados: quitando el filtro de
+    /// `status = 'running'` aparece la pausada; quitando `e.campaign_id <> ?2`
+    /// se nombra a sí misma; y leyendo `e.daily_limit` a secas en vez de
+    /// `el_limite_que_manda`, la que no fija límite propio sale con 0.
+    #[test]
+    fn se_nombra_a_las_campanas_que_comparten_remitente() {
+        let (_d, db, v) = base();
+        contacto(&db, "c1", "uno@t.mx", "Ana");
+
+        let mia = db
+            .crear_campana(
+                empresa(),
+                &CampanaNueva {
+                    nombre: "La mía",
+                    cuenta: CUENTA.parse().expect("id"),
+                    firma: None,
+                    version_de_plantilla: v,
+                    ventana: "vent-1",
+                    limite_por_hora: None,
+                    limite_diario: Some(50),
+                    acepto_el_riesgo_del_volumen: false,
+                },
+            )
+            .expect("crea")
+            .id;
+
+        // Sin nadie más enviando, el remitente es sólo suyo.
+        assert!(
+            revisar(&db, mia).comparten_remitente.is_empty(),
+            "no hay con quién compartir todavía"
+        );
+
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                // Una que SÍ envía, con su propio límite.
+                "INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                 VALUES ('k-env', '{EMPRESA}', 'La de octubre', 'running',
+                         '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');
+                 INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                             email_account_id, template_version_id,
+                                             execution_window_id, daily_limit,
+                                             status, created_at, updated_at)
+                 VALUES ('st-env', 'k-env', 1, 'email', '{CUENTA}', '{v}', 'vent-1', 50,
+                         'running', '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');
+
+                 -- Una PAUSADA: no consume cupo, así que no se nombra.
+                 INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                 VALUES ('k-pau', '{EMPRESA}', 'La pausada', 'paused',
+                         '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');
+                 INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                             email_account_id, template_version_id,
+                                             execution_window_id, daily_limit,
+                                             status, created_at, updated_at)
+                 VALUES ('st-pau', 'k-pau', 1, 'email', '{CUENTA}', '{v}', 'vent-1', 50,
+                         'paused', '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');
+
+                 -- Una de OTRO remitente: no comparte nada.
+                 INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                 VALUES ('k-otr', '{EMPRESA}', 'La de soporte', 'running',
+                         '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');
+                 INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                             email_account_id, template_version_id,
+                                             execution_window_id, daily_limit,
+                                             status, created_at, updated_at)
+                 VALUES ('st-otr', 'k-otr', 1, 'email', '{OTRA_CUENTA}', '{v}', 'vent-1', 50,
+                         'running', '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');
+
+                 -- Y una que NO fija límite propio: hereda el de la cuenta.
+                 INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                 VALUES ('k-her', '{EMPRESA}', 'La heredada', 'running',
+                         '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');
+                 INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                             email_account_id, template_version_id,
+                                             execution_window_id, daily_limit,
+                                             status, created_at, updated_at)
+                 VALUES ('st-her', 'k-her', 1, 'email', '{CUENTA}', '{v}', 'vent-1', NULL,
+                         'running', '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');"
+            ))
+        })
+        .expect("siembra");
+
+        let comparten = revisar(&db, mia).comparten_remitente;
+        let nombres: Vec<&str> = comparten.iter().map(|c| c.nombre.as_str()).collect();
+        assert_eq!(
+            nombres,
+            vec!["La de octubre", "La heredada"],
+            "sólo las que de verdad están enviando con este remitente"
+        );
+        assert_eq!(
+            comparten
+                .iter()
+                .map(|c| c.limite_diario)
+                .collect::<Vec<_>>(),
+            vec![50, 50],
+            "la heredada tiene que traer el de la cuenta, no un cero"
         );
     }
 

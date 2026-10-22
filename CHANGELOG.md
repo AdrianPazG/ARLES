@@ -40,6 +40,26 @@ texto que decía «déjalo en blanco». Un `0`, un negativo o letras se rechazan
 **en el paso 5 y en la frontera**, porque un cero creaba una campaña que se
 activa y no manda nunca nada.
 
+### Y el plazo ya no miente cuando dos campañas comparten remitente
+
+Dirección, el mismo día: *«si coloco en la campaña uno un límite de 50 al día y
+otra campaña dos un límite de 50 al día con el mismo remitente, no se mandan 50
+en ambas»*. Medido:
+
+| A pide | B pide | Sale de A | Sale de B | Total del día |
+|---|---|---|---|---|
+| 50 | 50 | **25** | **25** | 50 |
+| 200 | 200 | 100 | 100 | **200** |
+
+El cupo cuelga de la cuenta, así que se reparte — y **por orden de llegada**,
+no por mitades. Lo que no pasa es lo que más preocupaba: con 200 y 200 no salen
+400 sino 200, porque el total de un día es el mayor de los límites y nunca la
+suma. Lo que sí se rompía era la promesa de tiempo del paso 6.
+
+Ahora el preflight sabe qué campañas están enviando con ese remitente, y el
+aviso va pegado a la frase del plazo, con la salida escrita: un remitente
+distinto para cada campaña.
+
 ### La firma se elige al crear la campaña
 
 `campaign_stage.signature_id` existía desde la V4 y la consulta que arma el

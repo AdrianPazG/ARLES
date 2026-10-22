@@ -716,6 +716,34 @@ function rotulo(clave: string): string {
             }}
           </p>
 
+          <!--
+            ── EL PLAZO DE ARRIBA NO VALE SI EL REMITENTE SE COMPARTE ──────
+            Lo vio Dirección el 22/10/2026: el cupo de envío cuelga de la
+            CUENTA, así que dos campañas de 50 al día sobre un remitente sacan
+            25 y 25 — y por orden de llegada, no por mitades. La estimación
+            calcula con el límite de esta campaña como si el remitente fuera
+            sólo suyo, así que promete un plazo que no se cumple.
+
+            Va JUSTO DEBAJO de la frase del ritmo, no al final de la pantalla:
+            un aviso que desmiente una cifra tiene que verse con la cifra
+            delante, o se lee la cifra y se ignora el aviso.
+          -->
+          <AAviso
+            v-if="campanas.revision.compartenRemitente.length > 0"
+            tono="aviso"
+            :titulo="
+              t('asistente.paso.simulacion.remitenteCompartido', {
+                campanas: campanas.revision.compartenRemitente
+                  .map((c) => c.nombre)
+                  .join(', '),
+                n: campanas.revision.compartenRemitente.length,
+              })
+            "
+          >
+            <p>{{ t('asistente.paso.simulacion.remitenteCompartidoDetalle') }}</p>
+            <p>{{ t('asistente.paso.simulacion.remitenteCompartidoQueHacer') }}</p>
+          </AAviso>
+
           <!-- ── EL DESENLACE, QUE EL NÚCLEO CALCULABA Y NADIE ENSEÑABA ──
                `estimar` devuelve tres desenlaces desde la Fase 4 y los tres
                textos estaban escritos desde entonces. La pantalla pintaba el

@@ -1753,6 +1753,26 @@ fases en verde al empezar. Está contado en
 > Y **R-05 —imagen en la firma—** espera una decisión: embebida dispara filtros
 > de spam, alojada hay que alojarla, y el saneado tendría que admitir `<img>`.
 
+> **Y el séptimo hallazgo lo encontró Dirección leyendo el informe**, el mismo
+> día: *«si coloco en la campaña uno un límite de 50 al día y otra campaña dos
+> un límite de 50 al día con el mismo remitente, no se mandan 50 en ambas»*.
+>
+> Medido con el mecanismo real: salen **25 y 25**, y **por orden de llegada**,
+> que es peor que mitad y mitad porque no se puede predecir. Lo que **no** pasa
+> es lo que más le preocupaba: con 200 y 200 no salen 400 sino **200** — el
+> total de un día es el mayor de los límites, nunca la suma. Ésa es la defensa
+> que sustituyó al `min`, vista funcionar.
+>
+> Lo que sí se rompía es **la promesa de tiempo**: el paso 6 estima con el
+> límite de esa campaña como si el remitente fuera sólo suyo. El aviso va
+> **pegado a la frase del plazo** y no al final de la pantalla — un aviso que
+> desmiente una cifra tiene que verse con la cifra delante.
+>
+> **Se avisa en vez de impedir** (§154): dos campañas desde un mismo correo
+> corporativo es legítimo; prometer un plazo falso no lo es. La salida —un
+> remitente por campaña— está en el propio aviso, y es lo que ADR-0008 dice
+> desde el 11/09.
+
 ### La ronda de correcciones de Dirección · 13 y 14/10/2026
 
 Dirección abrió ARLES por primera vez y probó. **Lo que encontró en dos tardes
