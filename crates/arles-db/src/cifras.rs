@@ -106,10 +106,22 @@ pub struct CupoDeCuenta {
     pub cuenta: String,
     pub nombre: String,
     pub direccion: String,
-    /// Lo gastado hoy y su tope, si hay tope.
+    /// Lo gastado hoy por este buzón, **sumando todas sus campañas**.
     pub gastado_hoy: u32,
+    /// Cuántos correos al día va a mandar este buzón: **la suma de los límites
+    /// de las campañas en marcha que lo usan** (D-13, 22/10/2026).
+    ///
+    /// Hasta el 22/10 era el límite de la cuenta y era un techo compartido: dos
+    /// campañas de 100 mandaban 100 entre las dos. Ahora cada una lleva su
+    /// cuenta y se suman, así que dos campañas de 100 son **200 al día de este
+    /// buzón** — y ésa es la cifra que hay que poder ver antes de activar nada,
+    /// porque ya no hay ningún techo que la frene.
+    ///
+    /// `None` cuando ninguna campaña en marcha usa este buzón: no manda nada,
+    /// que no es lo mismo que mandar cero por decisión.
     pub tope_diario: Option<u32>,
     pub gastado_esta_hora: u32,
+    /// Lo mismo por hora.
     pub tope_por_hora: Option<u32>,
     /// Los nombres de las campañas en marcha que tiran de esta cuenta.
     pub campanas: Vec<String>,
@@ -345,14 +357,47 @@ impl Db {
                 }
             }
 
+            // ── `SUM` Y NO `SELECT consumed`, DESDE LA V13 ────────────────
+            //
+            // El cubo pasó a colgar de la etapa (D-13), así que una cuenta con
+            // tres campañas tiene TRES filas en `rate_budget` por ventana. El
+            // `SELECT consumed` que había aquí devolvía **la primera que
+            // encontrara**: con 80, 60 y 40 enviados habría dicho «80 de 250»
+            // en la pantalla del semáforo, sin un error y sin una fila de más.
+            // Es el defecto más silencioso que podía dejar este cambio, porque
+            // el número es plausible.
+            //
+            // Y el TOPE también se suma: es lo que Dirección pidió ver —«que se
+            // vea en realidad cuántos correos está enviando por día»—, y es la
+            // suma de los límites de las etapas en marcha, con el de la cuenta
+            // como caída cuando la etapa no fija ninguno. `a.daily_limit` solo
+            // ya no es el tope de nada: desde el 22/10 es la propuesta que el
+            // asistente enseña al crear la campaña.
+            //
+            // `MAX(…, 0)` sobre cada término porque un límite negativo guardado
+            // en la base cuenta como «no fija» en `el_limite_que_manda`, y
+            // sumarlo en crudo restaría del total del buzón.
             let mut cuentas = conn.prepare(
                 "SELECT a.id, a.display_name, a.email_address,
-                        a.daily_limit, a.hourly_limit,
-                        (SELECT consumed FROM rate_budget b
+                        (SELECT SUM(MAX(COALESCE(e.daily_limit, a.daily_limit, 0), 0))
+                           FROM campaign_stage e
+                           JOIN campaign c ON c.id = e.campaign_id
+                          WHERE e.email_account_id = a.id
+                            AND c.status = 'running'
+                            AND e.status = 'running'
+                            AND e.channel = 'email'),
+                        (SELECT SUM(MAX(COALESCE(e.hourly_limit, a.hourly_limit, 0), 0))
+                           FROM campaign_stage e
+                           JOIN campaign c ON c.id = e.campaign_id
+                          WHERE e.email_account_id = a.id
+                            AND c.status = 'running'
+                            AND e.status = 'running'
+                            AND e.channel = 'email'),
+                        (SELECT SUM(b.consumed) FROM rate_budget b
                           WHERE b.email_account_id = a.id
                             AND b.window_kind = 'daily'
                             AND b.window_start >= ?2),
-                        (SELECT consumed FROM rate_budget b
+                        (SELECT SUM(b.consumed) FROM rate_budget b
                           WHERE b.email_account_id = a.id
                             AND b.window_kind = 'hourly'
                             AND b.window_start >= ?3)
@@ -372,6 +417,10 @@ impl Db {
                         tope_por_hora: f.get(4)?,
                         gastado_hoy: f.get::<_, Option<u32>>(5)?.unwrap_or(0),
                         gastado_esta_hora: f.get::<_, Option<u32>>(6)?.unwrap_or(0),
+                        // Un buzón sin ninguna campaña en marcha no manda
+                        // nada, y las dos sumas de arriba vienen en NULL. Eso
+                        // es `None` —«no hay tope porque no hay nada»— y no
+                        // cero, que se leería como «parado a propósito».
                         campanas: Vec::new(),
                     })
                 },
@@ -664,12 +713,27 @@ mod tests {
     }
 
     /// El cupo gastado se lee de verdad, y lo que queda se calcula.
+    ///
+    /// ── ESTA PRUEBA DECÍA `Some(500)` HASTA LA D-13 ──────────────────────
+    ///
+    /// Y el cambio de cifra **es** la decisión del 22/10/2026, así que vale la
+    /// pena que quede escrito aquí y no sólo en la cabecera del presupuesto.
+    ///
+    /// La base de pruebas tiene dos campañas en marcha —`e-1` y `e-2`— sobre el
+    /// mismo buzón `c-1`, y ninguna de las dos fija límite propio, así que las
+    /// dos caen al de la cuenta: 500. Antes eso era **un techo compartido** y el
+    /// buzón mandaba 500 entre las dos. Ahora cada una lleva su recuento y
+    /// **se suman: 1 000 al día**.
+    ///
+    /// Es la cifra que el semáforo de Remitentes (D-14) tiene que enseñar en
+    /// rojo, porque ya no hay nada que la frene.
     #[test]
     fn el_cupo_gastado_sale_del_presupuesto_persistido() {
         let (_d, db) = base();
 
         for _ in 0..480 {
-            db.anotar_un_envio("c-1", HORA, DIA, AHORA).expect("gasta");
+            db.anotar_un_envio("c-1", "e-1", HORA, DIA, AHORA)
+                .expect("gasta");
         }
 
         let cupos = db
@@ -678,12 +742,92 @@ mod tests {
         let ventas = cupos.iter().find(|c| c.cuenta == "c-1").expect("ventas");
 
         assert_eq!(ventas.gastado_hoy, 480);
-        assert_eq!(ventas.tope_diario, Some(500));
+        assert_eq!(
+            ventas.tope_diario,
+            Some(1_000),
+            "dos campañas de 500 sobre un buzón son 1 000 al día desde la D-13, \
+             no 500 compartidos"
+        );
         assert_eq!(
             ventas.quedan_hoy(),
-            Some(20),
-            "quedan 20 para las dos campañas: es la cifra que explica por qué \
-             una se va a parar"
+            Some(520),
+            "y lo que queda es del buzón entero: es la cifra que explica por qué \
+             una campaña se va a parar"
+        );
+    }
+
+    /// **Lo gastado por un buzón SUMA sus campañas, y esto es lo que una
+    /// `SELECT consumed` habría dejado pasar.**
+    ///
+    /// Desde la V13 hay una fila de `rate_budget` por etapa, así que la cifra
+    /// del buzón es una suma. La consulta que había aquí leía **la primera fila
+    /// que encontrara**: con 300 enviados por una campaña y 100 por la otra
+    /// habría dicho «300 de 1 000» — un número plausible, sin error, sin una
+    /// fila de más y sin ninguna prueba en rojo.
+    ///
+    /// Por eso las dos campañas gastan cantidades **distintas**: con 200 y 200,
+    /// un `SELECT consumed` daría 200 y la suma 400, y ninguna de las dos se
+    /// podría confundir con la otra por casualidad. Con 100 y 100 un error de
+    /// «leer una y doblarla» pasaría en verde.
+    #[test]
+    fn lo_gastado_por_un_buzon_suma_sus_campanas() {
+        let (_d, db) = base();
+
+        for _ in 0..300 {
+            db.anotar_un_envio("c-1", "e-1", HORA, DIA, AHORA)
+                .expect("gasta la primera");
+        }
+        for _ in 0..100 {
+            db.anotar_un_envio("c-1", "e-2", HORA, DIA, AHORA)
+                .expect("gasta la segunda");
+        }
+
+        let cupos = db
+            .cupo_de_los_remitentes(empresa(), HORA, DIA)
+            .expect("cupos");
+        let ventas = cupos.iter().find(|c| c.cuenta == "c-1").expect("ventas");
+
+        assert_eq!(
+            ventas.gastado_hoy, 400,
+            "300 de una campaña y 100 de la otra son 400 del buzón"
+        );
+        assert_eq!(
+            ventas.gastado_esta_hora, 400,
+            "y la hora se suma igual, que es la ventana que primero se llena"
+        );
+    }
+
+    /// **Y cada campaña respeta SU número, que es el motivo de la D-13.**
+    ///
+    /// Sumar los topes no bastaba: con un cubo único de 1 000, la campaña que el
+    /// motor atendiera primero podía gastárselo entero y dejar a la otra en
+    /// cero. El total cuadraría y el plazo que el paso 6 prometió a la segunda
+    /// seguiría siendo falso — que es el problema que esta decisión resuelve,
+    /// no el número agregado.
+    ///
+    /// Así que lo que hay que poder ver es que los dos recuentos **no se
+    /// contaminan**: 300 en una campaña dejan la otra a cero.
+    #[test]
+    fn una_campana_no_gasta_del_recuento_de_la_otra() {
+        let (_d, db) = base();
+
+        for _ in 0..300 {
+            db.anotar_un_envio("c-1", "e-1", HORA, DIA, AHORA)
+                .expect("gasta");
+        }
+
+        assert_eq!(
+            db.gastado_de("c-1", "e-1", HORA, DIA)
+                .expect("lee")
+                .en_este_dia,
+            300
+        );
+        assert_eq!(
+            db.gastado_de("c-1", "e-2", HORA, DIA)
+                .expect("lee")
+                .en_este_dia,
+            0,
+            "la segunda campaña no ha gastado nada, aunque comparta el buzón"
         );
     }
 

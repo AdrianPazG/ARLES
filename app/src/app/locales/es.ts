@@ -2999,7 +2999,55 @@ export const es = {
       disabled: 'Desactivada',
     },
     // §65 aplicado al alta: que la cuenta conecte no dice que un correo llegue.
-    limites: 'Hasta {diario} al día · {porHora} por hora',
+    //
+    // «Propone» y no «Hasta», desde la D-13 del 22/10/2026. Este número DEJÓ
+    // de ser un techo: es lo que el asistente rellena al elegir esta cuenta, y
+    // cada campaña puede subirlo o bajarlo. Llamarlo «hasta» prometía un
+    // límite que ya no existe, y el que manda es el de abajo.
+    limites: 'Propone {diario} al día · {porHora} por hora',
+
+    // ── EL CUPO REAL DEL BUZÓN (D-14, 22/10/2026) ───────────────────────
+    //
+    // Esto es lo que Dirección pidió ver: «que en la pestaña de remitentes se
+    // viera en realidad cuántos correos está enviando por día, sumando los
+    // correos que se envían en ambas campañas».
+    //
+    // Es la cifra que importa desde que los cupos se suman (D-13), porque es la
+    // única que ya no tiene techo.
+    cupo: {
+      titulo: 'Lo que manda al día',
+      // Cifras, no adjetivos (§94). Y con separador de miles, que es el
+      // defecto que este proyecto ha tenido siete veces.
+      alDia: '{total} correos al día',
+      gastadoHoy: '{gastado} enviados hoy',
+      // Sin ninguna campaña en marcha no manda nada. Decir «0 correos al día»
+      // se leería como un tope puesto a cero, que es otra cosa.
+      quieto: 'Ninguna campaña en marcha lo usa',
+      // Las campañas que se lo reparten, por nombre: sin ellos, «250 al día»
+      // no dice de dónde sale ni qué habría que bajar.
+      reparto: 'Se lo reparten: {campanas}',
+      unaSola: 'De la campaña {campana}',
+    },
+
+    // El semáforo. Umbrales de Dirección: 60 y 150.
+    //
+    // LLEVA TEXTO Y NO SÓLO COLOR, que es la regla de la auditoría D del §140:
+    // un punto de color no lo lee quien no distingue el rojo del verde, y es
+    // justo la persona a la que hay que avisar.
+    //
+    // Y cada uno dice QUÉ HACER, no sólo cómo está (§95): un semáforo en ámbar
+    // que no dice qué mirar es un susto sin salida.
+    riesgo: {
+      tranquilo: 'Volumen tranquilo',
+      tranquiloDetalle:
+        'Hasta 60 correos al día es lo que un buzón aguanta sin llamar la atención.',
+      vigilar: 'Conviene vigilarlo',
+      vigilarDetalle:
+        'Entre 61 y 150 al día ya conviene mirar cada semana cuánta gente te marca como no deseado, en Google Postmaster Tools. Si sube, baja el número.',
+      arriesgado: 'Estás arriesgando el dominio',
+      arriesgadoDetalle:
+        'Por encima de 150 al día desde un solo buzón es el patrón que los filtros leen como correo masivo. Baja el límite de alguna campaña, o reparte las campañas entre remitentes distintos.',
+    },
 
     seEstaProbando: 'Esto puede tardar unos segundos.',
 

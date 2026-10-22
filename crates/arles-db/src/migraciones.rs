@@ -660,17 +660,51 @@ mod tests {
             .expect("el intento conserva su etapa");
         assert_eq!(etapa_del_intento, id);
 
-        // Y el cubo de ritmo conserva lo consumido, ahora sabiendo de qué canal es.
-        let (canal_cubo, consumido): (String, i64) = conn
-            .query_row("SELECT channel, consumed FROM rate_budget", [], |f| {
-                Ok((f.get(0)?, f.get(1)?))
-            })
-            .expect("consulta");
-        assert_eq!(canal_cubo, "email");
+        // ── EL CUBO DE RITMO, Y POR QUÉ ESTA PRUEBA CAMBIÓ EL 22/10/2026 ──
+        //
+        // Hasta la V13, aquí se comprobaba que la V4 **conserva lo consumido**
+        // —siete envíos antes de migrar, siete después— con este motivo
+        // escrito: «se reinició el cubo al migrar: la campaña enviaría de más
+        // hoy». Y era correcto.
+        //
+        // La V13 vacía `rate_budget` a propósito, y por eso esta prueba salió
+        // en rojo al escribirla: los cubos viejos cuelgan del BUZÓN y no se
+        // pueden repartir entre las campañas que lo usan. Un contador de 37 de
+        // una cuenta que sirve a tres campañas no sabe cuántos puso cada una, y
+        // repartirlo a ojo dejaría campañas con un cupo gastado que nunca
+        // gastaron.
+        //
+        // Así que lo que esta prueba afirma ahora son dos cosas distintas, y
+        // las dos hacen falta:
+        //
+        //   · que la V4 hace su trabajo —el canal, la etapa, la audiencia y el
+        //     registro de envíos siguen ahí—, que es de lo que esta prueba va;
+        //   · y que el cubo queda vacío **por la V13**, no por un descuido.
+        //
+        // El precio está declarado en la cabecera de la V13: quien actualice a
+        // media tarde habiendo gastado parte del cupo de hoy puede mandar más
+        // de lo previsto ESE día. Una vez, y se dice en vez de callarlo.
+        let cubos: i64 = conn
+            .query_row("SELECT count(*) FROM rate_budget", [], |f| f.get(0))
+            .expect("cuenta");
         assert_eq!(
-            consumido, 7,
-            "se reinició el cubo al migrar: la campaña enviaría de más hoy"
+            cubos, 0,
+            "la V13 vacía los cubos de ritmo: cuelgan del buzón y no se pueden \
+             repartir entre sus campañas (ver su cabecera)"
         );
+
+        // Y la columna que la V13 añade existe, porque es de lo que cuelga el
+        // presupuesto desde la D-13. Sin ella, `anotar_un_envio` fallaría en
+        // cada envío y no al migrar — un fallo que llegaría al usuario.
+        let tiene_etapa: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM pragma_table_info('rate_budget')
+                  WHERE name = 'stage_id'",
+                [],
+                |f| f.get(0),
+            )
+            .expect("cuenta");
+        assert_eq!(tiene_etapa, 1, "la V13 añade `stage_id` a `rate_budget`");
     }
 
     #[test]

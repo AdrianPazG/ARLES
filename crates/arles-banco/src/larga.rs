@@ -182,6 +182,7 @@ pub fn correr(pasos: u32, con_fuga: bool) -> Result<Corrida, Box<dyn std::error:
     const EMPRESA: &str = "11111111-1111-4111-8111-111111111111";
     const CUENTA: &str = "cuenta-larga";
     const CAMPANA: &str = "camp-larga";
+    const ETAPA_DE_LA_CORRIDA: &str = "etapa-larga";
     /// Un miércoles a las 10 de la mañana en México: dentro de la ventana.
     const EN_HORARIO: time::OffsetDateTime = time::macros::datetime!(2026-09-23 16:00:00 UTC);
 
@@ -239,6 +240,12 @@ pub fn correr(pasos: u32, con_fuga: bool) -> Result<Corrida, Box<dyn std::error:
         empresa: EMPRESA.parse().map_err(|e| format!("empresa: {e:?}"))?,
         campana: CAMPANA.to_owned(),
         cuenta: CUENTA.to_owned(),
+        // Desde la V13 el presupuesto cuelga de la etapa. Aquí da igual cuál
+        // sea —los topes están por encima de la corrida a propósito—, pero
+        // tiene que ser una y la misma en los 20 000 pasos: con una distinta
+        // por paso, cada envío abriría su propio cubo y esta corrida mediría
+        // además el crecimiento de `rate_budget`.
+        etapa: ETAPA_DE_LA_CORRIDA.to_owned(),
         canal: arles_core::Canal::Correo,
         ventana: Ventana::nueva(Dias::LABORABLES, 9, 18, mx.clone())
             .map_err(|e| format!("ventana: {e:?}"))?,

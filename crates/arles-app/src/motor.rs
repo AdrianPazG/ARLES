@@ -220,6 +220,7 @@ fn servir(
             empresa,
             campana: etapa.campana.clone(),
             cuenta: etapa.cuenta.to_string(),
+            etapa: etapa.etapa.clone(),
             canal: etapa.canal,
             ventana: etapa.ventana.clone(),
             limites: etapa.limites,

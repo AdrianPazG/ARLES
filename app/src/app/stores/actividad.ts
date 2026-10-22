@@ -58,6 +58,18 @@ export interface Cupo {
   /** Las campañas en marcha que tiran de esta cuenta, por nombre. */
   readonly campanas: readonly string[]
   readonly hayReparto: boolean
+  /**
+   * El semáforo del buzón (D-14), ya como clave de i18n.
+   *
+   * **Lo decide el núcleo**, no la pantalla: los umbrales —60 y 150— los puso
+   * Dirección y viven en `arles_core::ritmo::RiesgoDelBuzon`. Aquí llega
+   * resuelto para que no haya una segunda copia de una regla de producto, que
+   * es el defecto que la auditoría A del §140 encontró con `AVISO_DIARIO`.
+   *
+   * Es una clave y no un color porque un estado **no se distingue sólo por
+   * color** (auditoría D): el texto lo pone el catálogo.
+   */
+  readonly riesgo: string
 }
 
 /** Lo que devuelve el comando `actividad`. Coincide con `ActividadIpc`. */

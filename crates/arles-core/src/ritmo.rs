@@ -63,6 +63,79 @@ impl Limites {
     }
 }
 
+/// Cuánto riesgo corre un buzón con los correos que va a mandar al día.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTO EXISTE, Y POR QUÉ EN EL NÚCLEO
+///
+/// Desde la D-13 (22/10/2026) los límites de las campañas que comparten un
+/// remitente **se suman**: dos de 100 son 200 al día de ese buzón. Eso cumple
+/// el plazo que el paso 6 le prometió a cada una, y **quita el único techo que
+/// había** para el agregado de un buzón. Cinco campañas de 200 son mil correos
+/// diarios, que es el patrón que marca una cuenta como spam.
+///
+/// Lo que ocupa el sitio de ese techo es este semáforo (D-14): la cifra a la
+/// vista en Remitentes, antes de activar nada. **No impide nada** — §154:
+/// informar, no dictar.
+///
+/// Vive en el núcleo y no en el componente porque es una **regla de producto**,
+/// no una decisión de estilo: los umbrales los puso Dirección. Y porque la
+/// pantalla necesita el mismo juicio que cualquier otra parte que lo pregunte;
+/// con la regla escrita en el `.vue`, la primera vez que otro sitio la necesite
+/// habrá dos.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RiesgoDelBuzon {
+    /// Hasta `TRANQUILO_HASTA` al día: lo que un buzón nuevo aguanta sin
+    /// llamar la atención.
+    Tranquilo,
+    /// Por encima de eso y hasta `VIGILAR_HASTA`: hay que estar mirando la
+    /// tasa de quejas en Postmaster.
+    Vigilar,
+    /// Por encima de `VIGILAR_HASTA`: se está arriesgando el dominio.
+    Arriesgado,
+}
+
+impl RiesgoDelBuzon {
+    /// Hasta aquí, tranquilo. Umbral de Dirección (D-14).
+    pub const TRANQUILO_HASTA: u32 = 60;
+    /// Hasta aquí, vigilar. Por encima, arriesgado.
+    pub const VIGILAR_HASTA: u32 = 150;
+
+    /// El semáforo para un buzón que va a mandar `al_dia` correos.
+    ///
+    /// Los dos umbrales son **inclusivos**, tal como los pidió Dirección:
+    /// «menor o igual a 60», «menor o igual a 150 y mayor a 60». Escrito con
+    /// `<` en vez de `<=`, justo 60 saldría en ámbar y justo 150 en rojo — un
+    /// error de un correo que nadie vería hasta tenerlo delante, y que caería
+    /// del lado de asustar sin motivo.
+    #[must_use]
+    pub const fn de(al_dia: u32) -> Self {
+        if al_dia <= Self::TRANQUILO_HASTA {
+            Self::Tranquilo
+        } else if al_dia <= Self::VIGILAR_HASTA {
+            Self::Vigilar
+        } else {
+            Self::Arriesgado
+        }
+    }
+
+    /// La clave de i18n de lo que dice el semáforo (§139).
+    ///
+    /// **El semáforo lleva texto y no sólo color**, que es la regla que dejó
+    /// escrita la auditoría D del §140: *ningún estado se distingue sólo por
+    /// color*. Un punto de color no lo puede leer quien no distingue el rojo
+    /// del verde, y es justo la persona a la que hay que avisar.
+    #[must_use]
+    pub const fn clave_i18n(self) -> &'static str {
+        match self {
+            Self::Tranquilo => "remitentes.riesgo.tranquilo",
+            Self::Vigilar => "remitentes.riesgo.vigilar",
+            Self::Arriesgado => "remitentes.riesgo.arriesgado",
+        }
+    }
+}
+
 /// Lo gastado hasta ahora en cada ventana.
 ///
 /// Esto es lo que vive en `rate_budget` y sobrevive a cerrar la aplicación. Un

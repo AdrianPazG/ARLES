@@ -33,10 +33,35 @@
 //! LAS ETIQUETAS SE LEEN EN LA ZONA DE LA EMPRESA
 //!
 //! `arles_core::ventana::clave_de_dia` las calcula, y explica ahí por qué la
-//! zona es la de la empresa y no la de cada campaña: el presupuesto cuelga de
-//! la **cuenta remitente**, y una cuenta puede servir a varias campañas. Si
-//! cada una midiera su propio «hoy», la misma cuenta tendría dos días en curso
-//! a la vez y el límite diario se podría gastar dos veces.
+//! zona es la de la empresa y no la de cada campaña: si cada campaña midiera su
+//! propio «hoy», el mismo buzón tendría dos días en curso a la vez y los cupos
+//! se solaparían. Eso **no cambia** con la V13: el cubo pasó a ser de la
+//! campaña, pero el calendario con el que se cuenta sigue siendo uno solo.
+//!
+//! ─────────────────────────────────────────────────────────────────────────
+//! UN CUBO POR CAMPAÑA, NO POR BUZÓN (D-13, 22/10/2026)
+//!
+//! Hasta la V13 el cubo colgaba de la **cuenta remitente**: dos campañas sobre
+//! el mismo buzón compartían los cincuenta diarios. Era un techo real para el
+//! dominio, **y escondía un plazo roto**: el paso 6 le promete al cliente los
+//! días calculados con el límite que él escribió, y activar una segunda
+//! campaña los duplicaba en silencio.
+//!
+//! Dirección decidió que se sumen, y la razón no es de volumen: *«el cliente
+//! está colocando que se envíen 100 en cada campaña… para respetar el tiempo
+//! que el cliente calculó»*. ARLES no puede prometer un plazo y entregar la
+//! mitad.
+//!
+//! **Y no bastaba con sumar los límites.** Un cubo único de 200 deja que la
+//! campaña que el motor atienda primero se gaste los 200 y la otra se quede en
+//! cero: el total cuadra y el plazo de la segunda sigue roto, que es el
+//! problema de verdad. Con un cubo por etapa, cada campaña respeta su número y
+//! **el total es la suma por construcción** — nadie tiene que calcularla.
+//!
+//! Lo que esto quita está dicho en la V13 y en el reporte de reputación: el
+//! agregado de un buzón **ya no tiene techo**. Lo que ocupa su sitio es el
+//! semáforo de Remitentes (D-14), que para eso existe
+//! [`Db::gastado_hoy_por_el_buzon`].
 
 use arles_core::ritmo::Gastado;
 use rusqlite::{Connection, OptionalExtension, params};
@@ -65,14 +90,48 @@ impl Db {
     pub fn gastado_de(
         &self,
         cuenta: &str,
+        etapa: &str,
         clave_de_hora: &str,
         clave_de_dia: &str,
     ) -> Result<Gastado, DbError> {
         self.con(|conn| {
             Ok(Gastado {
-                en_esta_hora: leer(conn, cuenta, HORARIA, clave_de_hora)?,
-                en_este_dia: leer(conn, cuenta, DIARIA, clave_de_dia)?,
+                en_esta_hora: leer(conn, cuenta, etapa, HORARIA, clave_de_hora)?,
+                en_este_dia: leer(conn, cuenta, etapa, DIARIA, clave_de_dia)?,
             })
+        })
+    }
+
+    /// Cuánto lleva gastado **un buzón hoy, entre todas sus campañas**.
+    ///
+    /// Es la cifra del semáforo de Remitentes (D-14), y es la suma de los cubos
+    /// de sus etapas: desde la V13 cada campaña lleva el suyo, así que el gasto
+    /// del buzón ya no se lee, se suma.
+    ///
+    /// Las filas de una ventana que ya pasó **no se cuentan**, con el mismo
+    /// `>=` que usa [`leer`] y por la misma razón.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla.
+    pub fn gastado_hoy_por_el_buzon(
+        &self,
+        cuenta: &str,
+        clave_de_dia: &str,
+    ) -> Result<u32, DbError> {
+        self.con(|conn| {
+            let total: Option<i64> = conn.query_row(
+                "SELECT SUM(consumed)
+                   FROM rate_budget
+                  WHERE email_account_id = ?1
+                    AND window_kind = ?2
+                    AND window_start >= ?3",
+                params![cuenta, DIARIA, clave_de_dia],
+                |f| f.get(0),
+            )?;
+            Ok(total
+                .map(|c| u32::try_from(c).unwrap_or(u32::MAX))
+                .unwrap_or(0))
         })
     }
 
@@ -94,14 +153,15 @@ impl Db {
     pub fn anotar_un_envio(
         &self,
         cuenta: &str,
+        etapa: &str,
         clave_de_hora: &str,
         clave_de_dia: &str,
         ahora: &str,
     ) -> Result<Gastado, DbError> {
         self.con(|conn| {
             let tx = conn.unchecked_transaction()?;
-            let en_esta_hora = sumar_uno(&tx, cuenta, HORARIA, clave_de_hora, ahora)?;
-            let en_este_dia = sumar_uno(&tx, cuenta, DIARIA, clave_de_dia, ahora)?;
+            let en_esta_hora = sumar_uno(&tx, cuenta, etapa, HORARIA, clave_de_hora, ahora)?;
+            let en_este_dia = sumar_uno(&tx, cuenta, etapa, DIARIA, clave_de_dia, ahora)?;
             tx.commit()?;
             Ok(Gastado {
                 en_esta_hora,
@@ -118,15 +178,22 @@ impl Db {
 /// movió hacia atrás—, se devuelve lo que hay en vez de cero. Devolver cero
 /// diría que el presupuesto está entero cuando no lo está, y sería la misma
 /// puerta por el lado de la lectura.
-fn leer(conn: &Connection, cuenta: &str, clase: &str, clave: &str) -> Result<u32, rusqlite::Error> {
+fn leer(
+    conn: &Connection,
+    cuenta: &str,
+    etapa: &str,
+    clase: &str,
+    clave: &str,
+) -> Result<u32, rusqlite::Error> {
     let consumido: Option<i64> = conn
         .query_row(
             "SELECT consumed
                FROM rate_budget
               WHERE email_account_id = ?1
-                AND window_kind = ?2
-                AND window_start >= ?3",
-            params![cuenta, clase, clave],
+                AND stage_id = ?2
+                AND window_kind = ?3
+                AND window_start >= ?4",
+            params![cuenta, etapa, clase, clave],
             |f| f.get(0),
         )
         .optional()?;
@@ -165,17 +232,18 @@ fn leer(conn: &Connection, cuenta: &str, clase: &str, clave: &str) -> Result<u32
 fn sumar_uno(
     conn: &Connection,
     cuenta: &str,
+    etapa: &str,
     clase: &str,
     clave: &str,
     ahora: &str,
 ) -> Result<u32, rusqlite::Error> {
     conn.execute(
         "INSERT INTO rate_budget
-             (channel, email_account_id, whatsapp_account_id,
+             (channel, email_account_id, whatsapp_account_id, stage_id,
               window_kind, window_start, consumed, updated_at)
-         VALUES ('email', ?1, NULL, ?2, ?3, 1, ?4)
-         ON CONFLICT(email_account_id, window_kind)
-            WHERE email_account_id IS NOT NULL
+         VALUES ('email', ?1, NULL, ?2, ?3, ?4, 1, ?5)
+         ON CONFLICT(email_account_id, stage_id, window_kind)
+            WHERE email_account_id IS NOT NULL AND stage_id IS NOT NULL
          DO UPDATE SET
              consumed     = CASE WHEN excluded.window_start > window_start
                                  THEN 1
@@ -186,9 +254,9 @@ fn sumar_uno(
              -- «más nueva» y reiniciaría el contador.
              window_start = MAX(window_start, excluded.window_start),
              updated_at   = excluded.updated_at",
-        params![cuenta, clase, clave, ahora],
+        params![cuenta, etapa, clase, clave, ahora],
     )?;
-    leer(conn, cuenta, clase, clave)
+    leer(conn, cuenta, etapa, clase, clave)
 }
 
 #[cfg(test)]
@@ -199,6 +267,11 @@ mod tests {
     const AHORA: &str = "2026-09-23T20:00:00Z";
     const HORA: &str = "2026-09-23T14";
     const DIA: &str = "2026-09-23";
+    /// Las dos etapas que comparten el buzón `cuenta`, y la del buzón `otra`.
+    /// Desde la V13 el presupuesto cuelga de la etapa (D-13).
+    const ETAPA_A: &str = "etapa-a";
+    const ETAPA_B: &str = "etapa-b";
+    const ETAPA_C: &str = "etapa-c";
 
     fn base() -> (tempfile::TempDir, Db) {
         let dir = tempfile::tempdir().expect("temporal");
@@ -220,7 +293,30 @@ mod tests {
                  VALUES ('cuenta', 'emp', 'Envíos', 'envios@t.mx', 'smtp',
                          'llavero:cuenta', 'connected', 50, 10, ?1, ?1)",
                 params![AHORA],
-            )
+            )?;
+            // ── DOS CAMPAÑAS SOBRE EL MISMO BUZÓN ─────────────────────────
+            //
+            // Desde la V13 el cubo cuelga de la etapa, con clave ajena, así que
+            // sembrarlas no es decorado: sin ellas, anotar un envío falla con
+            // `FOREIGN KEY constraint failed` y ninguna prueba de este módulo
+            // correría. Y son DOS porque lo que hay que poder ver de la D-13 es
+            // que cada campaña lleva su cuenta aparte sobre el mismo remitente.
+            for (campana, etapa) in [("camp-a", ETAPA_A), ("camp-b", ETAPA_B)] {
+                c.execute(
+                    "INSERT INTO campaign (id, company_id, name, status,
+                                           created_at, updated_at)
+                     VALUES (?1, 'emp', ?1, 'running', ?2, ?2)",
+                    params![campana, AHORA],
+                )?;
+                c.execute(
+                    "INSERT INTO campaign_stage
+                         (id, campaign_id, position, channel, email_account_id,
+                          status, created_at, updated_at)
+                     VALUES (?1, ?2, 1, 'email', 'cuenta', 'running', ?3, ?3)",
+                    params![etapa, campana, AHORA],
+                )?;
+            }
+            Ok(1)
         })
         .expect("siembra");
         (dir, db)
@@ -230,7 +326,7 @@ mod tests {
     fn una_cuenta_nueva_no_ha_gastado_nada() {
         let (_d, db) = base();
         assert_eq!(
-            db.gastado_de("cuenta", HORA, DIA).expect("lee"),
+            db.gastado_de("cuenta", ETAPA_A, HORA, DIA).expect("lee"),
             Gastado::default()
         );
     }
@@ -239,7 +335,7 @@ mod tests {
     fn cada_envio_gasta_de_las_dos_ventanas() {
         let (_d, db) = base();
         let g = db
-            .anotar_un_envio("cuenta", HORA, DIA, AHORA)
+            .anotar_un_envio("cuenta", ETAPA_A, HORA, DIA, AHORA)
             .expect("anota");
         assert_eq!(
             g,
@@ -251,13 +347,13 @@ mod tests {
         );
 
         let g = db
-            .anotar_un_envio("cuenta", HORA, DIA, AHORA)
+            .anotar_un_envio("cuenta", ETAPA_A, HORA, DIA, AHORA)
             .expect("anota");
         assert_eq!(g.en_esta_hora, 2);
         assert_eq!(g.en_este_dia, 2);
 
         // Y se lee igual desde fuera.
-        assert_eq!(db.gastado_de("cuenta", HORA, DIA).expect("lee"), g);
+        assert_eq!(db.gastado_de("cuenta", ETAPA_A, HORA, DIA).expect("lee"), g);
     }
 
     /// **Lo gastado sobrevive a cerrar y volver a abrir el programa.**
@@ -291,19 +387,33 @@ mod tests {
                      VALUES ('cuenta', 'emp', 'E', 'e@t.mx', 'smtp',
                              'llavero:cuenta', 'connected', 50, 10, ?1, ?1)",
                     params![AHORA],
+                )?;
+                // Su campaña y su etapa: el cubo cuelga de la etapa (V13).
+                c.execute(
+                    "INSERT INTO campaign (id, company_id, name, status,
+                                           created_at, updated_at)
+                     VALUES ('camp-a', 'emp', 'camp-a', 'running', ?1, ?1)",
+                    params![AHORA],
+                )?;
+                c.execute(
+                    "INSERT INTO campaign_stage
+                         (id, campaign_id, position, channel, email_account_id,
+                          status, created_at, updated_at)
+                     VALUES (?1, 'camp-a', 1, 'email', 'cuenta', 'running', ?2, ?2)",
+                    params![ETAPA_A, AHORA],
                 )
             })
             .expect("siembra");
 
             for _ in 0..7 {
-                db.anotar_un_envio("cuenta", HORA, DIA, AHORA)
+                db.anotar_un_envio("cuenta", ETAPA_A, HORA, DIA, AHORA)
                     .expect("anota");
             }
         } // aquí se cierra la base, como al cerrar la ventana
 
         let db = Db::abrir(&ruta, &clave).expect("reabre");
         assert_eq!(
-            db.gastado_de("cuenta", HORA, DIA).expect("lee"),
+            db.gastado_de("cuenta", ETAPA_A, HORA, DIA).expect("lee"),
             Gastado {
                 en_esta_hora: 7,
                 en_este_dia: 7
@@ -322,13 +432,13 @@ mod tests {
     fn al_cambiar_de_hora_se_reinicia_la_hora_pero_no_el_dia() {
         let (_d, db) = base();
         for _ in 0..5 {
-            db.anotar_un_envio("cuenta", HORA, DIA, AHORA)
+            db.anotar_un_envio("cuenta", ETAPA_A, HORA, DIA, AHORA)
                 .expect("anota");
         }
 
         const HORA_SIGUIENTE: &str = "2026-09-23T15";
         let g = db
-            .anotar_un_envio("cuenta", HORA_SIGUIENTE, DIA, AHORA)
+            .anotar_un_envio("cuenta", ETAPA_A, HORA_SIGUIENTE, DIA, AHORA)
             .expect("anota");
 
         assert_eq!(
@@ -347,12 +457,12 @@ mod tests {
     fn al_cambiar_de_dia_se_reinician_las_dos() {
         let (_d, db) = base();
         for _ in 0..9 {
-            db.anotar_un_envio("cuenta", HORA, DIA, AHORA)
+            db.anotar_un_envio("cuenta", ETAPA_A, HORA, DIA, AHORA)
                 .expect("anota");
         }
 
         let g = db
-            .anotar_un_envio("cuenta", "2026-09-24T09", "2026-09-24", AHORA)
+            .anotar_un_envio("cuenta", ETAPA_A, "2026-09-24T09", "2026-09-24", AHORA)
             .expect("anota");
         assert_eq!(
             g,
@@ -372,11 +482,11 @@ mod tests {
     #[test]
     fn una_ventana_pasada_se_lee_como_cero() {
         let (_d, db) = base();
-        db.anotar_un_envio("cuenta", HORA, DIA, AHORA)
+        db.anotar_un_envio("cuenta", ETAPA_A, HORA, DIA, AHORA)
             .expect("anota");
 
         assert_eq!(
-            db.gastado_de("cuenta", "2026-09-23T15", "2026-09-24")
+            db.gastado_de("cuenta", ETAPA_A, "2026-09-23T15", "2026-09-24")
                 .expect("lee"),
             Gastado::default(),
             "las etiquetas no coinciden: esa hora y ese día empiezan de cero"
@@ -399,22 +509,38 @@ mod tests {
                  VALUES ('otra', 'emp', 'Otra', 'otra@t.mx', 'smtp',
                          'llavero:otra', 'connected', 50, 10, ?1, ?1)",
                 params![AHORA],
+            )?;
+            // Su etapa, porque desde la V13 el cubo cuelga de ella.
+            c.execute(
+                "INSERT INTO campaign (id, company_id, name, status,
+                                       created_at, updated_at)
+                 VALUES ('camp-c', 'emp', 'camp-c', 'running', ?1, ?1)",
+                params![AHORA],
+            )?;
+            c.execute(
+                "INSERT INTO campaign_stage
+                     (id, campaign_id, position, channel, email_account_id,
+                      status, created_at, updated_at)
+                 VALUES (?1, 'camp-c', 1, 'email', 'otra', 'running', ?2, ?2)",
+                params![ETAPA_C, AHORA],
             )
         })
         .expect("otra cuenta");
 
         for _ in 0..4 {
-            db.anotar_un_envio("cuenta", HORA, DIA, AHORA)
+            db.anotar_un_envio("cuenta", ETAPA_A, HORA, DIA, AHORA)
                 .expect("anota");
         }
 
         assert_eq!(
-            db.gastado_de("otra", HORA, DIA).expect("lee"),
+            db.gastado_de("otra", ETAPA_C, HORA, DIA).expect("lee"),
             Gastado::default(),
             "el gasto de una cuenta no puede restarle permisos a otra"
         );
         assert_eq!(
-            db.gastado_de("cuenta", HORA, DIA).expect("lee").en_este_dia,
+            db.gastado_de("cuenta", ETAPA_A, HORA, DIA)
+                .expect("lee")
+                .en_este_dia,
             4
         );
     }
@@ -429,7 +555,8 @@ mod tests {
         let (_d, db) = base();
         for h in ["2026-09-23T14", "2026-09-23T15", "2026-09-23T16"] {
             for _ in 0..3 {
-                db.anotar_un_envio("cuenta", h, DIA, AHORA).expect("anota");
+                db.anotar_un_envio("cuenta", ETAPA_A, h, DIA, AHORA)
+                    .expect("anota");
             }
         }
 
@@ -474,16 +601,16 @@ mod tests {
 
         // Cuatro envíos de la campaña A y tres de la B, misma cuenta.
         for _ in 0..4 {
-            db.anotar_un_envio("cuenta", "2026-09-23T14", DIA, AHORA)
+            db.anotar_un_envio("cuenta", ETAPA_A, "2026-09-23T14", DIA, AHORA)
                 .expect("campaña A");
         }
         for _ in 0..3 {
-            db.anotar_un_envio("cuenta", "2026-09-23T14", DIA, AHORA)
+            db.anotar_un_envio("cuenta", ETAPA_A, "2026-09-23T14", DIA, AHORA)
                 .expect("campaña B");
         }
 
         let gastado = db
-            .gastado_de("cuenta", "2026-09-23T14", DIA)
+            .gastado_de("cuenta", ETAPA_A, "2026-09-23T14", DIA)
             .expect("lectura");
         assert_eq!(
             gastado.en_este_dia, 7,
@@ -498,6 +625,10 @@ mod tests_de_la_auditoria_de_la_fase_4 {
     use crate::conexion::ClaveMaestra;
 
     const AHORA: &str = "2026-09-23T20:00:00Z";
+    /// Las mismas dos etapas del buzón compartido que el módulo de arriba:
+    /// desde la V13 el presupuesto cuelga de la etapa (D-13).
+    const ETAPA_A: &str = "etapa-a";
+    const ETAPA_B: &str = "etapa-b";
 
     fn base() -> (tempfile::TempDir, Db) {
         let dir = tempfile::tempdir().expect("temporal");
@@ -519,7 +650,30 @@ mod tests_de_la_auditoria_de_la_fase_4 {
                  VALUES ('cuenta', 'emp', 'Envíos', 'envios@t.mx', 'smtp',
                          'llavero:cuenta', 'connected', 50, 10, ?1, ?1)",
                 params![AHORA],
-            )
+            )?;
+            // ── DOS CAMPAÑAS SOBRE EL MISMO BUZÓN ─────────────────────────
+            //
+            // Desde la V13 el cubo cuelga de la etapa, con clave ajena, así que
+            // sembrarlas no es decorado: sin ellas, anotar un envío falla con
+            // `FOREIGN KEY constraint failed` y ninguna prueba de este módulo
+            // correría. Y son DOS porque lo que hay que poder ver de la D-13 es
+            // que cada campaña lleva su cuenta aparte sobre el mismo remitente.
+            for (campana, etapa) in [("camp-a", ETAPA_A), ("camp-b", ETAPA_B)] {
+                c.execute(
+                    "INSERT INTO campaign (id, company_id, name, status,
+                                           created_at, updated_at)
+                     VALUES (?1, 'emp', ?1, 'running', ?2, ?2)",
+                    params![campana, AHORA],
+                )?;
+                c.execute(
+                    "INSERT INTO campaign_stage
+                         (id, campaign_id, position, channel, email_account_id,
+                          status, created_at, updated_at)
+                     VALUES (?1, ?2, 1, 'email', 'cuenta', 'running', ?3, ?3)",
+                    params![etapa, campana, AHORA],
+                )?;
+            }
+            Ok(1)
         })
         .expect("siembra");
         (dir, db)
@@ -551,18 +705,18 @@ mod tests_de_la_auditoria_de_la_fase_4 {
 
         // A las 10:00 de México se agota el cupo del día.
         for _ in 0..50 {
-            db.anotar_un_envio("cuenta", "2026-09-23T10", "2026-09-23", AHORA)
+            db.anotar_un_envio("cuenta", ETAPA_A, "2026-09-23T10", "2026-09-23", AHORA)
                 .expect("gasta");
         }
         let antes = db
-            .gastado_de("cuenta", "2026-09-23T10", "2026-09-23")
+            .gastado_de("cuenta", ETAPA_A, "2026-09-23T10", "2026-09-23")
             .expect("lee");
         assert_eq!(antes.en_este_dia, 50);
 
         // El equipo duerme ocho horas. Al despertar son las 18:00 **del mismo
         // día**: hora nueva, día viejo.
         let despues = db
-            .gastado_de("cuenta", "2026-09-23T18", "2026-09-23")
+            .gastado_de("cuenta", ETAPA_A, "2026-09-23T18", "2026-09-23")
             .expect("lee");
 
         assert_eq!(
@@ -583,11 +737,11 @@ mod tests_de_la_auditoria_de_la_fase_4 {
     fn al_dia_siguiente_el_cupo_vuelve_entero() {
         let (_d, db) = base();
         for _ in 0..50 {
-            db.anotar_un_envio("cuenta", "2026-09-23T10", "2026-09-23", AHORA)
+            db.anotar_un_envio("cuenta", ETAPA_A, "2026-09-23T10", "2026-09-23", AHORA)
                 .expect("gasta");
         }
         let manana = db
-            .gastado_de("cuenta", "2026-09-24T09", "2026-09-24")
+            .gastado_de("cuenta", ETAPA_A, "2026-09-24T09", "2026-09-24")
             .expect("lee");
         assert_eq!(manana.en_este_dia, 0);
     }
@@ -612,13 +766,13 @@ mod tests_de_la_auditoria_de_la_fase_4 {
     fn atrasar_el_reloj_no_regala_el_cupo_del_dia() {
         let (_d, db) = base();
         for _ in 0..50 {
-            db.anotar_un_envio("cuenta", "2026-09-23T10", "2026-09-23", AHORA)
+            db.anotar_un_envio("cuenta", ETAPA_A, "2026-09-23T10", "2026-09-23", AHORA)
                 .expect("gasta");
         }
 
         // Alguien mueve el reloj un día hacia atrás.
         let gastado = db
-            .anotar_un_envio("cuenta", "2026-09-22T10", "2026-09-22", AHORA)
+            .anotar_un_envio("cuenta", ETAPA_A, "2026-09-22T10", "2026-09-22", AHORA)
             .expect("anota");
 
         assert_eq!(
@@ -632,13 +786,13 @@ mod tests_de_la_auditoria_de_la_fase_4 {
     #[test]
     fn recolocar_el_reloj_no_deja_el_presupuesto_roto() {
         let (_d, db) = base();
-        db.anotar_un_envio("cuenta", "2026-09-23T10", "2026-09-23", AHORA)
+        db.anotar_un_envio("cuenta", ETAPA_A, "2026-09-23T10", "2026-09-23", AHORA)
             .expect("gasta");
-        db.anotar_un_envio("cuenta", "2026-09-22T10", "2026-09-22", AHORA)
+        db.anotar_un_envio("cuenta", ETAPA_A, "2026-09-22T10", "2026-09-22", AHORA)
             .expect("con el reloj atrasado");
 
         let hoy = db
-            .gastado_de("cuenta", "2026-09-23T10", "2026-09-23")
+            .gastado_de("cuenta", ETAPA_A, "2026-09-23T10", "2026-09-23")
             .expect("lee");
         assert_eq!(
             hoy.en_este_dia, 2,

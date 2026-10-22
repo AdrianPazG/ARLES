@@ -57,10 +57,16 @@ pub struct Ajustes {
     pub empresa: CompanyId,
     /// La campaña de la que se toma trabajo.
     pub campana: String,
-    /// La cuenta remitente. **El presupuesto cuelga de ella**, no de la
-    /// campaña: dos campañas de la misma cuenta comparten los cincuenta
-    /// diarios, porque quien los cuenta es el proveedor de correo.
+    /// La cuenta remitente: el buzón por el que sale el correo.
     pub cuenta: String,
+    /// La etapa, que es **de quien cuelga el presupuesto** desde la V13.
+    ///
+    /// Antes colgaba de la cuenta, y dos campañas del mismo buzón compartían
+    /// los cincuenta diarios. Desde la D-13 (22/10/2026) cada campaña lleva su
+    /// propio recuento y los cupos **se suman**, para que el plazo que el paso
+    /// 6 le prometió al cliente se cumpla aunque haya otra campaña en marcha.
+    /// El porqué entero está en la cabecera de `arles-db/src/presupuesto.rs`.
+    pub etapa: String,
     /// Por qué medio se manda.
     pub canal: Canal,
     /// Los días y horas en que esta campaña puede enviar, con su zona (D-10).
@@ -362,7 +368,9 @@ impl<'a> Trabajador<'a> {
 
         let hora = clave_de_hora(&self.ajustes.zona_de_la_empresa, ahora);
         let dia = clave_de_dia(&self.ajustes.zona_de_la_empresa, ahora);
-        let gastado = self.db.gastado_de(&self.ajustes.cuenta, &hora, &dia)?;
+        let gastado = self
+            .db
+            .gastado_de(&self.ajustes.cuenta, &self.ajustes.etapa, &hora, &dia)?;
         if let Err(motivo) = cabe_uno_mas(self.ajustes.limites, gastado, dentro_de_ventana) {
             // Se **pausa y se avisa**. No se busca otra cuenta: la rotación
             // automática de remitentes está prohibida (T-1, ADR-0008).
@@ -450,8 +458,13 @@ impl<'a> Trabajador<'a> {
                 // Enviar de menos se ve y se arregla; pasarse del límite de
                 // Gmail cuesta la cuenta. Es la misma asimetría de ADR-0004,
                 // aplicada aquí.
-                self.db
-                    .anotar_un_envio(&self.ajustes.cuenta, &hora, &dia, &marca)?;
+                self.db.anotar_un_envio(
+                    &self.ajustes.cuenta,
+                    &self.ajustes.etapa,
+                    &hora,
+                    &dia,
+                    &marca,
+                )?;
 
                 let id_del_proveedor = aceptado.id_del_proveedor.as_deref().map(recortar_respuesta);
                 self.db
@@ -664,6 +677,10 @@ mod tests {
     const EMPRESA: &str = "11111111-1111-4111-8111-111111111111";
     const CUENTA: &str = "cuenta-1";
     const CAMPANA: &str = "camp";
+    /// La etapa de la campaña de pruebas. Desde la V13 el presupuesto cuelga de
+    /// ella (D-13), y su clave ajena obliga a que exista: sin sembrarla, anotar
+    /// un envío falla con `FOREIGN KEY constraint failed`.
+    const ETAPA: &str = "etapa-1";
 
     fn base() -> (tempfile::TempDir, Db) {
         let dir = tempfile::tempdir().expect("temporal");
@@ -693,6 +710,14 @@ mod tests {
                  VALUES (?1, ?2, 'Prueba', 'running',
                          '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
                 params![CAMPANA, EMPRESA],
+            )?;
+            c.execute(
+                "INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                             email_account_id, status,
+                                             created_at, updated_at)
+                 VALUES (?1, ?2, 1, 'email', ?3, 'running',
+                         '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
+                params![ETAPA, CAMPANA, CUENTA],
             )
         })
         .expect("siembra");
@@ -725,6 +750,7 @@ mod tests {
             empresa: EMPRESA.parse().expect("id válido"),
             campana: CAMPANA.to_owned(),
             cuenta: CUENTA.to_owned(),
+            etapa: ETAPA.to_owned(),
             canal: Canal::Correo,
             ventana: Ventana::nueva(Dias::LABORABLES, 9, 18, mx.clone()).expect("ventana"),
             limites: Limites::nuevos(10, 50),
@@ -769,6 +795,7 @@ mod tests {
         let gastado = db
             .gastado_de(
                 CUENTA,
+                ETAPA,
                 &clave_de_hora(&ajustes().zona_de_la_empresa, EN_HORARIO),
                 &clave_de_dia(&ajustes().zona_de_la_empresa, EN_HORARIO),
             )
@@ -846,7 +873,7 @@ mod tests {
         let hora = clave_de_hora(&ajustes().zona_de_la_empresa, EN_HORARIO);
         let dia = clave_de_dia(&ajustes().zona_de_la_empresa, EN_HORARIO);
         for _ in 0..2 {
-            db.anotar_un_envio(CUENTA, &hora, &dia, "2026-09-23T16:00:00Z")
+            db.anotar_un_envio(CUENTA, ETAPA, &hora, &dia, "2026-09-23T16:00:00Z")
                 .expect("gasta");
         }
 
@@ -1027,6 +1054,7 @@ mod tests {
         let gastado = db
             .gastado_de(
                 CUENTA,
+                ETAPA,
                 &clave_de_hora(&ajustes().zona_de_la_empresa, EN_HORARIO),
                 &clave_de_dia(&ajustes().zona_de_la_empresa, EN_HORARIO),
             )

@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { i18n } from '@/app/i18n'
+import { useActividadStore, type Cupo } from '@/app/stores/actividad'
 import { useRemitentesStore, type Remitente } from '@/app/stores/remitentes'
 
 import PantallaRemitentes from './PantallaRemitentes.vue'
@@ -28,6 +29,30 @@ const CUENTA: Remitente = {
   estado: 'connected',
   limiteDiario: 50,
   limitePorHora: 10,
+}
+
+/**
+ * Un cupo de remitente para la pantalla, con lo que se quiera cambiar encima.
+ *
+ * La dirección **tiene que ser la de `CUENTA`**: la pantalla cruza las dos
+ * listas por dirección, porque el identificador de la cuenta no cruza la
+ * frontera en la de remitentes. Con otra dirección la ficha no se pinta y la
+ * prueba pasaría en verde sin mirar nada.
+ */
+function cupo(sobre: Partial<Cupo> = {}): Cupo {
+  return {
+    nombre: 'TELEMETRY',
+    direccion: CUENTA.remitente,
+    gastadoHoy: 0,
+    topeDiario: 200,
+    quedanHoy: 200,
+    gastadoEstaHora: 0,
+    topePorHora: 20,
+    campanas: ['Clientes de agosto', 'Promoción de octubre'],
+    hayReparto: true,
+    riesgo: 'remitentes.riesgo.arriesgado',
+    ...sobre,
+  }
 }
 
 function sembrar(cuentas: Remitente[]): ReturnType<typeof useRemitentesStore> {
@@ -316,5 +341,118 @@ describe('mandar un correo de prueba desde Remitentes', () => {
     const texto = p.text()
     expect(texto).not.toContain('El servidor aceptó el correo')
     expect(texto).not.toContain('No se dio de baja a nadie')
+  })
+  // ──────────────────────────────────────────────────────────────────────
+  // EL CUPO REAL DEL BUZÓN Y SU SEMÁFORO (D-13 y D-14, 22/10/2026)
+  // ──────────────────────────────────────────────────────────────────────
+
+  /**
+   * **La cifra que Dirección pidió ver: lo que el buzón manda al día, sumado.**
+   *
+   * Lo pidió así: «que en la pestaña de remitentes se viera en realidad cuántos
+   * correos está enviando por día, sumando los correos que se envían en ambas
+   * campañas». Desde la D-13 esa suma es la única cifra sin techo, así que es
+   * la que tiene que estar delante antes de activar nada.
+   *
+   * Y con separador de miles, que es el defecto que este proyecto ha tenido
+   * siete veces —«12536 filas», «1303 días»— sobre números perfectamente
+   * correctos.
+   */
+  it('enseña lo que el buzón manda al día, con las campañas que se lo reparten', async () => {
+    sembrar([CUENTA])
+    const cifras = useActividadStore()
+    cifras.remitentes = [cupo({ topeDiario: 1200, gastadoHoy: 340 })]
+
+    const p = mount(PantallaRemitentes, entorno)
+    await p.vm.$nextTick()
+    const texto = p.text()
+
+    expect(texto).toContain('1,200 correos al día')
+    expect(texto).toContain('340 enviados hoy')
+    expect(texto).toContain('Clientes de agosto')
+    expect(texto).toContain('Promoción de octubre')
+  })
+
+  /**
+   * **El semáforo lleva TEXTO, no sólo color.**
+   *
+   * Es la regla que dejó escrita la auditoría D del §140: *ningún estado se
+   * distingue sólo por color*. Un punto rojo no lo lee quien no distingue el
+   * rojo del verde, y es justo la persona a la que hay que avisar.
+   *
+   * Y dice **qué hacer** (§95), no sólo cómo está: un semáforo en rojo sin
+   * salida es un susto, no un aviso. La salida que da es la de ADR-0008 —un
+   * remitente por campaña—, que es la que de verdad resuelve.
+   */
+  it('el semáforo dice en palabras que se está arriesgando el dominio', async () => {
+    sembrar([CUENTA])
+    const cifras = useActividadStore()
+    cifras.remitentes = [
+      cupo({ topeDiario: 400, riesgo: 'remitentes.riesgo.arriesgado' }),
+    ]
+
+    const p = mount(PantallaRemitentes, entorno)
+    await p.vm.$nextTick()
+    const texto = p.text()
+
+    expect(texto).toContain('Estás arriesgando el dominio')
+    expect(texto).toContain('remitentes distintos')
+  })
+
+  /**
+   * **Y en verde no asusta.** Un indicador que siempre está en rojo se deja de
+   * mirar a los dos días, así que hay que poder ver que el verde existe.
+   */
+  it('con poco volumen el semáforo está tranquilo', async () => {
+    sembrar([CUENTA])
+    const cifras = useActividadStore()
+    cifras.remitentes = [
+      cupo({ topeDiario: 50, riesgo: 'remitentes.riesgo.tranquilo' }),
+    ]
+
+    const p = mount(PantallaRemitentes, entorno)
+    await p.vm.$nextTick()
+    const texto = p.text()
+
+    expect(texto).toContain('Volumen tranquilo')
+    expect(texto).not.toContain('Estás arriesgando el dominio')
+  })
+
+  /**
+   * **Un buzón sin ninguna campaña en marcha no manda nada, y eso no es cero.**
+   *
+   * `topeDiario` llega en `null` y la pantalla tiene que decirlo con palabras.
+   * «0 correos al día» se leería como un tope puesto a cero —una campaña
+   * parada a propósito—, que es otra cosa y llevaría a buscar un problema que
+   * no existe.
+   */
+  it('un buzón que ninguna campaña usa lo dice, en vez de enseñar un cero', async () => {
+    sembrar([CUENTA])
+    const cifras = useActividadStore()
+    cifras.remitentes = [cupo({ topeDiario: null, campanas: [] })]
+
+    const p = mount(PantallaRemitentes, entorno)
+    await p.vm.$nextTick()
+    const texto = p.text()
+
+    expect(texto).toContain('Ninguna campaña en marcha lo usa')
+    expect(texto).not.toContain('0 correos al día')
+  })
+
+  /**
+   * **Y «Propone 50 al día» dejó de decir «Hasta».**
+   *
+   * El límite de la cuenta ya no es un techo desde la D-13: es lo que el
+   * asistente rellena al elegirla, y cada campaña puede subirlo. Llamarlo
+   * «hasta» prometía un límite que no existe — y justo al lado está la cifra
+   * que sí manda.
+   */
+  it('el límite de la cuenta se presenta como una propuesta y no como un techo', () => {
+    sembrar([CUENTA])
+    const p = mount(PantallaRemitentes, entorno)
+    const texto = p.text()
+
+    expect(texto).toContain('Propone 50 al día')
+    expect(texto).not.toContain('Hasta 50 al día')
   })
 })

@@ -100,6 +100,19 @@ pub struct CupoIpc {
     pub campanas: Vec<String>,
     /// `true` si más de una campaña tira de ella.
     pub hay_reparto: bool,
+    /// El semáforo del buzón (D-14): cuánto riesgo corre con lo que va a
+    /// mandar al día.
+    ///
+    /// **Lo decide el núcleo y no la pantalla**, porque los umbrales son una
+    /// regla de producto que puso Dirección —60 y 150— y no una elección de
+    /// estilo. Con la regla escrita en el componente, la primera vez que otro
+    /// sitio la necesitara habría dos copias, y es exactamente el defecto que
+    /// la auditoría A del §140 encontró con `AVISO_DIARIO`.
+    ///
+    /// Viaja como su clave de i18n (§139) y no como un color: el texto lo pone
+    /// el catálogo, y el color lo decide la pantalla con sus tokens. **Un
+    /// estado no se distingue sólo por color** (auditoría D).
+    pub riesgo: String,
 }
 
 /// Todo lo que la pantalla de Actividad necesita para pintarse.
@@ -229,6 +242,13 @@ pub fn actividad(estado: tauri::State<'_, EstadoApp>) -> Result<ActividadIpc, Er
         .map(|c| CupoIpc {
             quedan_hoy: c.quedan_hoy(),
             hay_reparto: c.hay_reparto(),
+            // Sin ninguna campaña en marcha no manda nada, así que el semáforo
+            // es el de cero: tranquilo. Enseñarlo en rojo por no tener tope
+            // sería avisar de un riesgo que no existe, y un semáforo que se
+            // pone rojo sin motivo deja de leerse.
+            riesgo: arles_core::ritmo::RiesgoDelBuzon::de(c.tope_diario.unwrap_or(0))
+                .clave_i18n()
+                .to_owned(),
             nombre: c.nombre,
             direccion: c.direccion,
             gastado_hoy: c.gastado_hoy,

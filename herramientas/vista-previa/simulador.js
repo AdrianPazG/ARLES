@@ -1526,18 +1526,37 @@
     // El cupo de cada remitente. El primero lo comparten dos campañas, que es
     // lo que explica por qué una de ellas está quieta: sin los nombres, «100 de
     // 100 esta hora» no dice de quién se lo comió.
+    // ── Y SU SEMÁFORO (D-14), QUE TIENE QUE CUADRAR CON SU CIFRA ────────
+    //
+    // El `riesgo` lo calcula el núcleo con los umbrales de Dirección —60 y
+    // 150—, así que aquí va el que de verdad corresponde a `topeDiario`: 500 y
+    // 300 están los dos por encima de 150, o sea «arriesgado». Poner el verde
+    // porque se ve mejor en la demostración enseñaría una pantalla que la
+    // aplicación nunca pinta, y es justo lo que la 8.6 E encontró en el paso 6.
     cupos: [
       {
         nombre: 'Ventas', direccion: 'ventas@telemetry.mx',
         gastadoHoy: 460, topeDiario: 500, quedanHoy: 40,
         gastadoEstaHora: 100, topePorHora: 100,
+        riesgo: 'remitentes.riesgo.arriesgado',
         campanas: ['Clientes de agosto', 'Promoción de octubre'], hayReparto: true,
       },
       {
         nombre: 'Contacto', direccion: 'contacto@telemetry.mx',
         gastadoHoy: 89, topeDiario: 300, quedanHoy: 211,
         gastadoEstaHora: 12, topePorHora: 60,
+        riesgo: 'remitentes.riesgo.arriesgado',
         campanas: ['Reactivación'], hayReparto: false,
+      },
+      // Un tercero en verde, para que la demostración enseñe los dos extremos
+      // del semáforo y no sólo el rojo: un indicador que siempre está en rojo
+      // se deja de mirar a los dos días.
+      {
+        nombre: 'Avisos', direccion: 'avisos@telemetry.mx',
+        gastadoHoy: 18, topeDiario: 50, quedanHoy: 32,
+        gastadoEstaHora: 4, topePorHora: 10,
+        riesgo: 'remitentes.riesgo.tranquilo',
+        campanas: ['Avisos de servicio'], hayReparto: false,
       },
     ],
 

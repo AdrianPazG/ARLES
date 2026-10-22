@@ -682,6 +682,33 @@ def fase_1(rapido):
     informe_para_direccion(1, "FASE-01-PARA-DIRECCION")
 
 
+def bloque_de(texto, clave, sangria):
+    """El cuerpo de `clave: { … }` en un catálogo de textos, por su sangría.
+
+    Por la RUTA y no por la hoja. `es.ts` tiene varias `cuerpo:` y varias
+    `guardadaDetalle:` —una por pantalla—, así que buscar la clave suelta mide
+    el primer bloque del archivo y no el que importa. La primera versión de la
+    comprobación de la plantilla hizo exactamente eso y **salió en rojo sobre
+    dos textos correctos**: es el mismo defecto que la 7.7 arregló en la
+    comprobación del §139, repetido.
+
+    La sangría basta porque `es.ts` lo formatea prettier y no hay dos
+    anidamientos del mismo nombre al mismo nivel.
+
+    Está a nivel de módulo desde el 22/10/2026, cuando la comprobación de los
+    umbrales del semáforo la necesitó: era una función local de otra
+    comprobación, y copiarla habría dejado dos sitios donde arreglar el mismo
+    defecto de acotación — que es exactamente la clase de duplicado que este
+    validador persigue.
+    """
+    m = re.search(
+        rf"^{' ' * sangria}{clave}: \{{\n(.*?)^{' ' * sangria}\}},?$",
+        texto,
+        re.S | re.M,
+    )
+    return m.group(1) if m else ""
+
+
 def las_cifras_del_nucleo_son_las_mismas_en_la_pantalla():
     """**Dos números de negocio viven en Rust y en TypeScript, y nada los
     mantenía iguales.**
@@ -722,6 +749,14 @@ def las_cifras_del_nucleo_son_las_mismas_en_la_pantalla():
     respaldo = leer("crates", "arles-core", "src", "respaldo.rs")
     archivado = leer("app", "src", "app", "stores", "archivado.ts")
 
+    # Acotado al bloque `riesgo:` y no a todo `es.ts`: «Hasta 60» puede
+    # aparecer en cualquier otro texto del catálogo, y entonces esto mediría la
+    # hoja equivocada. Es el defecto que la 7.7 arregló en la comprobación del
+    # §139 y que volvió a aparecer el 22/10 con `cuerpo:`.
+    bloque_del_semaforo = bloque_de(
+        leer("app", "src", "app", "locales", "es.ts") or "", "riesgo", 4
+    )
+
     parejas = [
         (
             "el aviso de envíos diarios",
@@ -732,6 +767,28 @@ def las_cifras_del_nucleo_son_las_mismas_en_la_pantalla():
             "los meses de historial que se quedan",
             numero(respaldo, r"MESES_EN_EL_ESENCIAL:\s*u32\s*=\s*(\d+)"),
             numero(archivado, r"MESES_QUE_SE_OFRECEN\s*=\s*\[\s*(\d+)"),
+        ),
+        # ── LOS UMBRALES DEL SEMÁFORO (D-14, 22/10/2026) ─────────────────
+        #
+        # Aquí la cifra NO está duplicada en TypeScript: el juicio lo hace
+        # `RiesgoDelBuzon` en el núcleo y la pantalla recibe su clave de i18n.
+        # Lo que sí puede separarse son **los textos**, que nombran los
+        # umbrales con todas sus letras —«Hasta 60 correos al día», «Por encima
+        # de 150»— porque un semáforo que no dice dónde están sus rayas no
+        # sirve para decidir.
+        #
+        # Si Dirección mueve un umbral y los textos se quedan, el aviso dice un
+        # número y el color obedece a otro. Nada falla, y lo que se rompe es lo
+        # único que esa pantalla existe para dar: una cifra en la que confiar.
+        (
+            "el umbral verde del semáforo de remitentes",
+            numero(ritmo, r"TRANQUILO_HASTA:\s*u32\s*=\s*(\d+)"),
+            numero(bloque_del_semaforo, r"Hasta\s+(\d+)\s+correos al día"),
+        ),
+        (
+            "el umbral ámbar del semáforo de remitentes",
+            numero(ritmo, r"VIGILAR_HASTA:\s*u32\s*=\s*(\d+)"),
+            numero(bloque_del_semaforo, r"Por encima de\s+(\d+)\s+al día"),
         ),
     ]
 
@@ -1773,6 +1830,11 @@ MIGRACIONES_PUBLICADAS = {
     # 21/10/2026.
     "V12__retirar_sin_borrar.sql":
         "c06782f9e32da0d970985fc80a09e345436dc4d5b62e36fd441d6e712960397f",
+    # El cupo diario pasa a contarse por campaña y no por buzón, para que dos
+    # campañas de 100 sobre el mismo remitente manden 200 y cada una cumpla el
+    # plazo que prometió. Decisión de Dirección del 22/10/2026 (D-13).
+    "V13__cupo_por_campana.sql":
+        "d353a3018bac75a7153b038bc4605114c189ea8bce17df3112eafd13fef89fef",
 }
 
 
@@ -2542,26 +2604,6 @@ def la_plantilla_dice_las_columnas_que_lleva():
     # `es.ts` lleva encima un comentario que nombra las tres columnas.
     textos = leer("app", "src", "app", "locales", "es.ts") or ""
     sin_comentarios = _re.sub(r"^\s*//.*$", "", textos, flags=_re.M)
-
-    def bloque_de(texto, clave, sangria):
-        """El cuerpo de `clave: { … }`, acotado por su sangría.
-
-        Por la RUTA y no por la hoja. `es.ts` tiene varias `cuerpo:` y varias
-        `guardadaDetalle:` —una por pantalla—, así que buscar la clave suelta
-        mide el primer bloque del archivo y no el que importa. La primera
-        versión de esto hizo exactamente eso y **salió en rojo sobre dos textos
-        correctos**: es el mismo defecto que la 7.7 arregló en la comprobación
-        del §139, repetido aquí.
-
-        La sangría basta porque `es.ts` lo formatea prettier y no hay dos
-        anidamientos del mismo nombre al mismo nivel.
-        """
-        m = _re.search(
-            rf"^{' ' * sangria}{clave}: \{{\n(.*?)^{' ' * sangria}\}},?$",
-            texto,
-            _re.S | _re.M,
-        )
-        return m.group(1) if m else ""
 
     dentro = bloque_de(sin_comentarios, "importacion", 2)
     check(

@@ -71,6 +71,11 @@ function campana(sobre: Partial<CifrasDeCampana> = {}): CifrasDeCampana {
 const CUPO: Cupo = {
   nombre: 'Ventas',
   direccion: 'ventas@telemetry.mx',
+  // 500 al día es «arriesgado» en el semáforo de la D-14 (más de 150), y el
+  // fixture lo dice en vez de poner la clave del verde: un decorado que no
+  // concuerda con sus propias cifras es lo que dejó al paso 6 pintando huecos
+  // en la 8.6 E.
+  riesgo: 'remitentes.riesgo.arriesgado',
   gastadoHoy: 460,
   topeDiario: 500,
   quedanHoy: 40,

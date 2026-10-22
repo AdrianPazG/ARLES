@@ -43,6 +43,7 @@ import {
   type BorradorDeCuenta,
   type Remitente,
 } from '@/app/stores/remitentes'
+import { useActividadStore, type Cupo } from '@/app/stores/actividad'
 import {
   AAviso,
   ABoton,
@@ -55,11 +56,68 @@ import {
 } from '@/design/componentes'
 
 const store = useRemitentesStore()
+// ── EL CUPO SALE DEL COMANDO DE ACTIVIDAD, Y NO DE UNO NUEVO ──────────────
+//
+// `actividad` ya devuelve el cupo de cada remitente con las campañas que se lo
+// reparten — lo construyó la 7.3. Añadir un comando sólo para esta pantalla
+// sería un cruce más de la frontera y, sobre todo, **superficie de ataque**:
+// cada comando registrado es una puerta, y una que casi nadie usa es una que
+// nadie vigila. La regla 1 de la frontera pide comandos gruesos.
+const cifras = useActividadStore()
 const { t, te } = useI18n()
 
 onMounted(() => {
   void store.cargar()
+  void cifras.cargar()
 })
+
+/**
+ * El cupo real de un remitente, o `undefined` mientras no haya cargado.
+ *
+ * Se busca por dirección porque es lo que las dos listas comparten: la de
+ * remitentes trae `remitente` y la de cupos trae `direccion`, y el
+ * identificador de la cuenta **no cruza la frontera** en la primera.
+ */
+function cupoDe(direccion: string): Cupo | undefined {
+  return cifras.remitentes.find((c) => c.direccion === direccion)
+}
+
+/**
+ * Lo que el buzón manda al día, ya sumado.
+ *
+ * `topeDiario` es `null` cuando ninguna campaña en marcha usa esta cuenta: no
+ * manda nada, que no es lo mismo que mandar cero por decisión (D-13).
+ */
+function alDia(c: Cupo): string {
+  return c.topeDiario === null
+    ? t('remitentes.cupo.quieto')
+    : t('remitentes.cupo.alDia', {
+        total: c.topeDiario.toLocaleString('es-MX'),
+      })
+}
+
+/** De dónde sale esa cifra: las campañas que se reparten el buzón. */
+function deQuienEs(c: Cupo): string {
+  if (c.campanas.length === 0) return ''
+  return c.hayReparto
+    ? t('remitentes.cupo.reparto', { campanas: c.campanas.join(', ') })
+    : t('remitentes.cupo.unaSola', { campana: c.campanas[0] })
+}
+
+/**
+ * El tono del semáforo. **El juicio lo trae el núcleo**, aquí sólo se traduce
+ * a un tono del sistema de diseño.
+ *
+ * Los umbrales —60 y 150— los puso Dirección y viven en
+ * `arles_core::ritmo::RiesgoDelBuzon`. Escribirlos aquí habría creado la
+ * segunda copia de una regla de producto, que es el defecto que la auditoría A
+ * del §140 encontró con `AVISO_DIARIO`.
+ */
+function tonoDelRiesgo(clave: string): 'exito' | 'aviso' | 'peligro' {
+  if (clave.endsWith('arriesgado')) return 'peligro'
+  if (clave.endsWith('vigilar')) return 'aviso'
+  return 'exito'
+}
 
 /** El formulario abierto: `null` cuando no hay ninguno. */
 const borrador = ref<BorradorDeCuenta | null>(null)
@@ -438,6 +496,45 @@ async function probarGuardada(r: Remitente): Promise<void> {
               </span>
             </div>
 
+            <!--
+              EL CUPO REAL DEL BUZÓN (D-14). Es la cifra que Dirección pidió
+              ver, y desde la D-13 es la única que ya no tiene techo: los
+              límites de las campañas que comparten un remitente se suman.
+
+              Va en su propia columna y no junto a «Propone …» a propósito: son
+              dos números parecidos que dicen cosas distintas —lo que el
+              asistente propone y lo que de verdad sale—, y uno al lado del
+              otro se leen como una repetición.
+            -->
+            <div
+              v-if="cupoDe(r.remitente)"
+              class="remitentes__cupo"
+            >
+              <span class="remitentes__cupo-rotulo">
+                {{ t('remitentes.cupo.titulo') }}
+              </span>
+              <span class="remitentes__cupo-cifra">
+                {{ alDia(cupoDe(r.remitente)!) }}
+              </span>
+              <AInsignia :tono="tonoDelRiesgo(cupoDe(r.remitente)!.riesgo)">
+                {{ t(cupoDe(r.remitente)!.riesgo) }}
+              </AInsignia>
+              <span class="remitentes__cupo-detalle">
+                {{ t(`${cupoDe(r.remitente)!.riesgo}Detalle`) }}
+              </span>
+              <span
+                v-if="deQuienEs(cupoDe(r.remitente)!)"
+                class="remitentes__cupo-campanas"
+              >
+                {{ deQuienEs(cupoDe(r.remitente)!) }}
+              </span>
+              <span class="remitentes__cupo-hoy">
+                {{ t('remitentes.cupo.gastadoHoy', {
+                  gastado: cupoDe(r.remitente)!.gastadoHoy.toLocaleString('es-MX'),
+                }) }}
+              </span>
+            </div>
+
             <div class="remitentes__estado">
               <AInsignia :tono="r.estado === 'connected' ? 'exito' : 'aviso'">
                 {{ estado(r.estado) }}
@@ -807,6 +904,52 @@ async function probarGuardada(r: Remitente): Promise<void> {
 .remitentes__limites {
   font-size: var(--arles-font-size-caption);
   color: var(--arles-text-muted);
+}
+
+/* ── LA FICHA DEL CUPO (D-14) ─────────────────────────────────────────────
+   Misma base de 18rem que `__quien`, para que las dos columnas bajen a la
+   línea siguiente en el mismo punto en vez de quedar una estrujada: es la
+   lección del H-07, que a 1024 px dejaba una palabra por renglón. */
+.remitentes__cupo {
+  flex: 1 1 18rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-1);
+  min-width: 0;
+  padding-left: var(--arles-space-4);
+  border-left: var(--arles-border-width) solid var(--arles-border);
+}
+
+.remitentes__cupo-rotulo {
+  font-size: var(--arles-font-size-caption);
+  color: var(--arles-text-muted);
+  /* Sólo mayúsculas, sin `letter-spacing`: la primera versión de esto usaba un
+     `var(--arles-letter-spacing-wide)` **que no existe** —séptima vez de este
+     defecto en el proyecto, y lo cazó el validador—. No se arregla
+     inventándole un token al sistema de diseño por un rótulo, ni copiando el
+     `0.08em` literal que tiene otra pantalla, que es una infracción del §17
+     que ya está ahí. Un rótulo corto en mayúsculas se lee igual de bien. */
+  text-transform: uppercase;
+}
+
+/* La cifra es lo que se viene a leer, así que pesa más que lo que la rodea. */
+.remitentes__cupo-cifra {
+  font-weight: var(--arles-font-weight-semibold);
+  color: var(--arles-text);
+}
+
+.remitentes__cupo-detalle,
+.remitentes__cupo-campanas,
+.remitentes__cupo-hoy {
+  font-size: var(--arles-font-size-caption);
+  color: var(--arles-text-muted);
+}
+
+/* El qué-hacer del semáforo se lee entero: es lo que lo separa de un susto
+   sin salida (§95). Con el ancho de lectura acotado no se estira a toda la
+   fila en una pantalla grande. */
+.remitentes__cupo-detalle {
+  max-width: var(--arles-ancho-lectura);
 }
 
 .remitentes__envio {
