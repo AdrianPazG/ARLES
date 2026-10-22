@@ -721,6 +721,13 @@ pub struct RedaccionDeLaCampana {
     pub firma_html: Option<String>,
     /// El nombre comercial de la empresa: es `{{mi_empresa}}`.
     pub mi_empresa: String,
+    /// La dirección del remitente de esta etapa, para la frase de `{{baja}}`.
+    ///
+    /// Sale de la etapa y no de la empresa a propósito: la salida tiene que
+    /// llevar **el buzón que mandó este correo**, porque es el que va a recibir
+    /// la respuesta. Con el corporativo de la empresa, la baja llegaría a un
+    /// sitio donde nadie la está esperando.
+    pub remitente: String,
 }
 
 impl Db {
@@ -755,9 +762,31 @@ impl Db {
         &self,
         campana: &str,
     ) -> Result<Option<RedaccionDeLaCampana>, DbError> {
-        self.con(|conn| {
-            conn.query_row(
-                "SELECT tv.subject, tv.body_html, co.commercial_name,
+        self.con(|conn| redaccion_en(conn, campana))
+    }
+}
+
+/// Lo mismo que [`Db::redaccion_de_la_campana`], **sobre una conexión ya
+/// abierta**.
+///
+/// ── POR QUÉ EXISTE, Y NO ES UN GUSTO DE ESTILO ────────────────────────────
+///
+/// `activar_campana` necesita esta consulta **dentro de su transacción**, para
+/// decidir si la campaña tiene salida de baja antes de llenar la cola. Y el
+/// cerrojo de la conexión **no es reentrante**: llamar a un método público de
+/// `Db` desde dentro de `con` o `con_dominio` cuelga el programa sin error y
+/// sin traza — es la trampa 2 de la Fase 6, y por ella existe también
+/// `cuentas::salud_en`.
+///
+/// # Errores
+///
+/// [`DbError::Sqlite`] si la consulta falla.
+pub(crate) fn redaccion_en(
+    conn: &rusqlite::Connection,
+    campana: &str,
+) -> Result<Option<RedaccionDeLaCampana>, rusqlite::Error> {
+    conn.query_row(
+        "SELECT tv.subject, tv.body_html, co.commercial_name,
                         COALESCE(
                             (SELECT s.body_html FROM signature s
                               WHERE s.id = cs.signature_id),
@@ -765,32 +794,33 @@ impl Db {
                               WHERE s.company_id = co.id AND s.is_default = 1
                                 AND s.retired_at IS NULL
                               LIMIT 1)
-                        )
+                        ),
+                        ea.email_address
                    FROM campaign_stage cs
                    JOIN campaign ca ON ca.id = cs.campaign_id
                    JOIN company co ON co.id = ca.company_id
                    JOIN template_version tv ON tv.id = cs.template_version_id
+                   JOIN email_account ea ON ea.id = cs.email_account_id
                   WHERE cs.campaign_id = ?1 AND cs.channel = 'email'
                   ORDER BY cs.position
                   LIMIT 1",
-                params![campana],
-                |f| {
-                    Ok(RedaccionDeLaCampana {
-                        asunto: f.get(0)?,
-                        cuerpo_html: f.get(1)?,
-                        mi_empresa: f.get(2)?,
-                        // Una firma vacía y «no hay firma» son lo mismo para
-                        // quien la pega, así que se unifican aquí en vez de
-                        // dejar que cada lado lo decida.
-                        firma_html: f
-                            .get::<_, Option<String>>(3)?
-                            .filter(|h| !h.trim().is_empty()),
-                    })
-                },
-            )
-            .optional()
-        })
-    }
+        params![campana],
+        |f| {
+            Ok(RedaccionDeLaCampana {
+                asunto: f.get(0)?,
+                cuerpo_html: f.get(1)?,
+                mi_empresa: f.get(2)?,
+                // Una firma vacía y «no hay firma» son lo mismo para
+                // quien la pega, así que se unifican aquí en vez de
+                // dejar que cada lado lo decida.
+                firma_html: f
+                    .get::<_, Option<String>>(3)?
+                    .filter(|h| !h.trim().is_empty()),
+                remitente: f.get(4)?,
+            })
+        },
+    )
+    .optional()
 }
 
 #[cfg(test)]

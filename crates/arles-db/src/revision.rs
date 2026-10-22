@@ -443,7 +443,20 @@ fn cuantos_tienen_huecos(fila: &FilaDeRevision, contactos: &[Destinatario]) -> u
             // La empresa propia no falta nunca: es la que envía, y sin ella
             // configurada no se llega a crear una campaña. Se da por presente
             // para que no cuente como hueco de todos los contactos a la vez.
-            .con(Variable::MiEmpresa, "la empresa");
+            .con(Variable::MiEmpresa, "la empresa")
+            // ── Y LA SALIDA DE BAJA, POR LO MISMO (22/10/2026) ───────────
+            //
+            // La rellena ARLES con la dirección del remitente, así que no le
+            // falta a nadie. Sin esta línea el preflight diría que **a todos**
+            // les falta un dato en cuanto la plantilla lleve `{{baja}}` — que
+            // es ahora la única forma de poder activar la campaña.
+            //
+            // Lo cazó una prueba de este módulo al añadir la exigencia:
+            // «3 en vez de 1». Con medio millón de contactos habría dicho que a
+            // 451 196 personas les falta algo, en una campaña perfecta, y esa
+            // cifra es justo la que el preflight existe para que se pueda
+            // creer.
+            .con(Variable::Baja, "la salida de baja");
 
         if !del_asunto.rellenar(&valores).faltaron.is_empty()
             || !del_cuerpo.rellenar(&valores).faltaron.is_empty()
@@ -515,7 +528,13 @@ mod tests {
                 "Bienvenida",
                 &Redaccion {
                     asunto: "Hola {{nombre}}".to_owned(),
-                    cuerpo_html: "<p>Gracias</p>".to_owned(),
+                    // Con `{{baja}}`: `activar_campana` rechaza desde el
+                    // 22/10/2026 una campaña cuyo correo no dé una salida
+                    // (R-7). Sin esto caen dos pruebas de este módulo, y
+                    // verlas caer fue la comprobación de que la exigencia
+                    // alcanza TODOS los caminos de activación y no sólo el que
+                    // se escribió mirando.
+                    cuerpo_html: "<p>Gracias</p><p>{{baja}}</p>".to_owned(),
                 },
             )
             .expect("plantilla");

@@ -80,8 +80,21 @@ onMounted(() => {
   void store.cargar()
 })
 
-/** Las cuatro variables del núcleo (`arles_core::plantilla::Variable`). */
-const VARIABLES = ['nombre', 'apellido', 'empresa', 'mi_empresa'] as const
+/**
+ * Las cinco variables del núcleo (`arles_core::plantilla::Variable`).
+ *
+ * `baja` entró el 22/10/2026 con el pie de baja obligatorio (R-7): es la única
+ * forma de que el correo le dé a quien lo recibe una salida con **la dirección
+ * del remitente de esa campaña**, y `activar_campana` rechaza una campaña cuyo
+ * correo no la tenga ni en la plantilla ni en la firma.
+ *
+ * Esta lista está escrita a mano y es el duplicado que el validador vigila: la
+ * comprobación del §139 ata `clave()` con `clave_i18n()` en Rust, y el catálogo
+ * tiene que tener texto para las cinco — lo comprueba `catalogo.spec.ts`
+ * leyendo las claves **del código Rust**, así que una variante nueva sin texto
+ * sale en rojo.
+ */
+const VARIABLES = ['nombre', 'apellido', 'empresa', 'mi_empresa', 'baja'] as const
 
 /**
  * Las que habla de **quien recibe** el correo.
@@ -109,6 +122,24 @@ const variablesQueSeOfrecen = computed(() =>
     ? VARIABLES.filter((v) => !DE_QUIEN_RECIBE.includes(v as (typeof DE_QUIEN_RECIBE)[number]))
     : VARIABLES,
 )
+
+/**
+ * `true` si lo que se está escribiendo **no** da una salida de baja.
+ *
+ * ── AVISA Y NO BLOQUEA, Y LA RAZÓN ESTÁ EN DÓNDE SE DECIDE ────────────────
+ *
+ * Quien **impide** es `activar_campana`, que es el único sitio donde se saben
+ * las dos cosas: la plantilla y la firma que esa campaña va a usar. La salida
+ * puede venir de cualquiera de las dos, así que exigirla aquí obligaría a
+ * repetirla en todas las plantillas aunque la firma ya la traiga — y entonces
+ * cada correo diría dos veces lo mismo.
+ *
+ * Esto es la mitad de arriba: que no se descubra al activar, después de nueve
+ * pasos. Es el mismo reparto que R-04 (`ajenasEnLaFirma` ayuda,
+ * `revisar_firma` impide) y la misma razón: sin la de aquí se tropieza, sin la
+ * de allí se cuela.
+ */
+const sinSalidaDeBaja = computed(() => !variablesUsadas.value.includes('baja'))
 
 /** Las de quien recibe que se hayan escrito a mano en una firma. */
 const ajenasEnLaFirma = computed(() =>
@@ -523,6 +554,22 @@ const tituloDelEditor = computed(() => {
         <strong>{{ t('plantillas.firmaConDatosAjenos') }}</strong>
         <p>{{ comoSeVen(ajenasEnLaFirma) }}</p>
         <p>{{ t('plantillas.firmaConDatosAjenosAyuda') }}</p>
+      </AAviso>
+
+      <!-- ── R-7 · la salida de quien recibe ────────────────────────────
+           Avisa y no bloquea: la salida puede venir de la firma, y aquí no se
+           sabe cuál se va a usar. Quien impide es `activar_campana`, que sí lo
+           sabe. Esto es para que no se descubra al final de nueve pasos.
+
+           Tono de aviso y no de peligro: lo que hay delante no está roto —
+           puede que la firma lo traiga—. El peligro es el error del activado,
+           que sí lo es. -->
+      <AAviso
+        v-if="sinSalidaDeBaja"
+        tono="aviso"
+      >
+        <strong>{{ t('plantillas.sinSalidaDeBaja') }}</strong>
+        <p>{{ t('plantillas.sinSalidaDeBajaAyuda') }}</p>
       </AAviso>
 
       <AAviso

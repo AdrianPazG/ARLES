@@ -58,6 +58,27 @@ pub enum Variable {
     /// El nombre comercial de **quien envía**. Sale de la configuración, no
     /// del contacto: es el mismo para toda la campaña.
     MiEmpresa,
+    /// **La salida de quien recibe**: cómo dejar de recibir estos correos.
+    ///
+    /// ── POR QUÉ ES UNA VARIABLE Y NO UN TEXTO QUE SE ESCRIBE ─────────────
+    ///
+    /// Porque la frase no la puede escribir quien redacta: lleva **la
+    /// dirección del remitente de esta campaña**, y esa dirección la elige el
+    /// asistente en un paso posterior al de la plantilla. Una plantilla con la
+    /// dirección escrita a mano queda mintiendo en cuanto se use con otro
+    /// remitente — y la baja llegaría a un buzón que nadie vacía.
+    ///
+    /// ── Y POR QUÉ IMPORTA MÁS QUE LAS OTRAS TRES ──────────────────────────
+    ///
+    /// Medido el 22/10/2026: la cabecera `List-Unsubscribe` sí se manda, pero
+    /// **el cuerpo del correo no llevaba ninguna salida y nada lo exigía**. La
+    /// cabecera la leen los filtros y los clientes que la soportan; **la
+    /// persona que está leyendo el correo busca en el cuerpo**, y quien no la
+    /// encuentra usa el botón de spam — que es la señal que más daño hace a la
+    /// reputación del dominio.
+    ///
+    /// Así que dar una salida fácil no es ser amable: es lo que evita la queja.
+    Baja,
 }
 
 impl Variable {
@@ -65,8 +86,13 @@ impl Variable {
     ///
     /// Primero las del contacto, que son las que se usan; la de la empresa
     /// propia al final, porque casi siempre ya está escrita en la firma.
-    pub const TODAS: &'static [Self] =
-        &[Self::Nombre, Self::Apellido, Self::Empresa, Self::MiEmpresa];
+    pub const TODAS: &'static [Self] = &[
+        Self::Nombre,
+        Self::Apellido,
+        Self::Empresa,
+        Self::MiEmpresa,
+        Self::Baja,
+    ];
 
     /// Cómo se escribe dentro de `{{ }}`.
     ///
@@ -81,6 +107,7 @@ impl Variable {
             Self::Apellido => "apellido",
             Self::Empresa => "empresa",
             Self::MiEmpresa => "mi_empresa",
+            Self::Baja => "baja",
         }
     }
 
@@ -104,7 +131,11 @@ impl Variable {
     pub const fn es_de_quien_recibe(self) -> bool {
         match self {
             Self::Nombre | Self::Apellido | Self::Empresa => true,
-            Self::MiEmpresa => false,
+            // `Baja` habla de quien recibe —es SU salida— pero el valor sale
+            // del remitente, que es lo que esta pregunta decide: si una firma
+            // puede usarla. Y debe poder, porque el pie de baja en la firma es
+            // justo donde la gente lo espera.
+            Self::MiEmpresa | Self::Baja => false,
         }
     }
 
@@ -151,8 +182,68 @@ impl Variable {
             Self::Apellido => "plantilla.variable.apellido",
             Self::Empresa => "plantilla.variable.empresa",
             Self::MiEmpresa => "plantilla.variable.mi_empresa",
+            Self::Baja => "plantilla.variable.baja",
         }
     }
+}
+
+/// La frase de baja que sustituye a `{{baja}}`, con la dirección a la que
+/// escribir.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ES UNA RESPUESTA Y NO UN ENLACE
+///
+/// La baja de un clic (RFC 8058) necesita que alguien reciba un `POST` en una
+/// dirección web, y **ARLES es una aplicación de escritorio sin servidor** —
+/// la misma razón por la que `List-Unsubscribe` va como `mailto:` y no como
+/// `https:` (ver `arles-email/src/smtp.rs`). Prometer un botón que no existe
+/// lo comprueban los filtros, y quien lo pulsara no se daría de baja.
+///
+/// Así que se dice lo que de verdad funciona: **responder a este correo**. La
+/// respuesta llega al buzón del remitente y alguien la apunta en Contactos.
+///
+/// ── Y ESO ES UNA OBLIGACIÓN QUE SE HEREDA ─────────────────────────────────
+///
+/// Si ese buzón no se vacía, la persona pidió la baja y ARLES le sigue
+/// escribiendo — que es peor que no haber dado la salida, porque la pidió
+/// creyendo que servía. Está declarado en `RIESGOS-DE-REPUTACION.md` §R-7 como
+/// una tarea semanal de quien envía, no como una función del producto.
+///
+/// ── EL TEXTO VIVE EN RUST, Y ESO NO CONTRADICE EL §139 ────────────────────
+///
+/// El §139 saca los textos de Rust porque **la interfaz** se traduce y se
+/// revisa. Esto no es interfaz: es el cuerpo de un correo que sale en español
+/// de México, igual que el `subject=Baja` de la cabecera. Ponerlo en el
+/// catálogo de la webview obligaría a que un texto del correo cruzara la
+/// frontera para volver, y el motor envía sin ventana abierta (§51).
+#[must_use]
+pub fn frase_de_baja(remitente: &str) -> String {
+    format!(
+        "Si no quieres recibir más correos nuestros, responde a este mensaje \
+         con la palabra BAJA y te quitamos de la lista. También puedes \
+         escribirnos a {}.",
+        crate::sanear::escapar_para_html(remitente)
+    )
+}
+
+/// ¿Este texto le da a quien lo recibe una forma de darse de baja?
+///
+/// Mira si usa la variable [`Variable::Baja`], que es la única forma de que la
+/// frase lleve la dirección correcta del remitente de **esta** campaña.
+///
+/// ── NO BUSCA PALABRAS, Y ES LA DIFERENCIA ENTRE MEDIR Y CONFIAR ───────────
+///
+/// La otra forma de escribir esto sería buscar «baja», «unsubscribe» o un
+/// `mailto:` en el cuerpo. Y pasaría en verde con una plantilla que dice «este
+/// mes damos de baja los precios» — sin ninguna salida, con una comprobación
+/// contenta. Lo que se puede afirmar de una variable es que **ARLES la
+/// sustituye por una salida que funciona**; de una palabra no se puede afirmar
+/// nada.
+#[must_use]
+pub fn tiene_salida_de_baja(cuerpo_html: &str) -> bool {
+    Plantilla::nueva(cuerpo_html, SiFalta::Nada)
+        .variables()
+        .contains(&Variable::Baja)
 }
 
 impl fmt::Display for Variable {
@@ -643,7 +734,8 @@ mod tests {
         assert_eq!(Variable::Apellido.clave(), "apellido");
         assert_eq!(Variable::Empresa.clave(), "empresa");
         assert_eq!(Variable::MiEmpresa.clave(), "mi_empresa");
-        assert_eq!(Variable::TODAS.len(), 4);
+        assert_eq!(Variable::Baja.clave(), "baja");
+        assert_eq!(Variable::TODAS.len(), 5);
     }
 
     /// La clave de i18n se deriva de la clave, y no se escribe por separado.
@@ -755,10 +847,24 @@ mod firmas_sin_datos_ajenos {
     ///
     /// Dos listas de lo mismo se separan en cuanto alguien añada una variable,
     /// y la que se quedaría atrás es justo la que protege.
+    /// Las que una firma puede usar son **las que no hablan del destinatario**.
+    ///
+    /// ── Y DESDE EL 22/10/2026 SON DOS, NO UNA ─────────────────────────────
+    ///
+    /// `Baja` entró con el pie de baja obligatorio (R-7), y entra aquí **a
+    /// propósito**: el pie de baja en la firma es justo donde la gente lo
+    /// espera, y `activar_campana` acepta que la salida venga de la plantilla o
+    /// de la firma. Dejarla fuera habría obligado a repetirla en todas las
+    /// plantillas aunque la firma ya la trajera.
+    ///
+    /// Su valor sale del remitente —como el de `MiEmpresa`—, que es lo que esta
+    /// pregunta decide. Que la frase hable de quien recibe no la convierte en un
+    /// dato suyo: R-04 existe para que una firma no ponga el nombre del
+    /// destinatario donde debería ir el de quien firma.
     #[test]
     fn de_quien_firma_sale_de_es_de_quien_recibe() {
         let permitidas = Variable::de_quien_firma();
-        assert_eq!(permitidas, vec![Variable::MiEmpresa]);
+        assert_eq!(permitidas, vec![Variable::MiEmpresa, Variable::Baja]);
         for v in Variable::TODAS {
             assert_eq!(
                 permitidas.contains(v),

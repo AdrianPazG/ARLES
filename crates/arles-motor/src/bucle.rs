@@ -420,7 +420,17 @@ impl<'a> Trabajador<'a> {
                     arles_core::plantilla::Variable::Empresa,
                     &trabajo.datos.empresa,
                 )
-                .con(arles_core::plantilla::Variable::MiEmpresa, &r.mi_empresa);
+                .con(arles_core::plantilla::Variable::MiEmpresa, &r.mi_empresa)
+                // La salida de quien recibe, con la dirección de ESTE
+                // remitente. Se arma aquí y no se guarda en la plantilla
+                // porque el remitente se elige después de escribirla: una
+                // plantilla con la dirección dentro queda mintiendo en cuanto
+                // se use con otra cuenta, y la baja llegaría a un buzón donde
+                // nadie la espera.
+                .con(
+                    arles_core::plantilla::Variable::Baja,
+                    &arles_core::plantilla::frase_de_baja(&r.remitente),
+                );
             arles_core::plantilla::redactar(
                 &r.asunto,
                 &r.cuerpo_html,
@@ -1737,6 +1747,10 @@ mod tests {
 
         let mut a = ajustes();
         a.redaccion = Some(arles_db::RedaccionDeLaCampana {
+            // La dirección de ESTE remitente, que es la que la frase de
+            // `{{baja}}` lleva dentro: la respuesta tiene que llegar al buzón
+            // que mandó el correo.
+            remitente: "ventas@t.mx".to_owned(),
             asunto: "Hola {{nombre}}".to_owned(),
             cuerpo_html: "<p>Buenas, {{nombre}} de {{empresa}}.</p>".to_owned(),
             firma_html: Some("<p>Equipo de {{mi_empresa}}</p>".to_owned()),
@@ -1779,6 +1793,10 @@ mod tests {
 
         let mut a = ajustes();
         a.redaccion = Some(arles_db::RedaccionDeLaCampana {
+            // La dirección de ESTE remitente, que es la que la frase de
+            // `{{baja}}` lleva dentro: la respuesta tiene que llegar al buzón
+            // que mandó el correo.
+            remitente: "ventas@t.mx".to_owned(),
             asunto: "Hola {{nombre}}".to_owned(),
             cuerpo_html: "<p>Buenas, {{nombre}}.</p>".to_owned(),
             firma_html: None,

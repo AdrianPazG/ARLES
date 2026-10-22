@@ -101,6 +101,7 @@ const CLAVES_DEL_NUCLEO = [
   // constancia de que se informó antes de crear la campaña.
   'error.db.falta_aceptar_el_volumen',
   'error.db.limite_de_envios_en_cero',
+  'error.db.sin_salida_de_baja',
   // Y los cuatro motivos de una ventana que no se abriría nunca. `DbError`
   // devuelve la clave del MOTIVO, no una suya, para que el texto diga qué
   // campo arreglar (§95).

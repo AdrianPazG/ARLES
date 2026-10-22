@@ -1837,6 +1837,23 @@ export const es = {
           'diario a 50.',
         salvo: 'No se creó ninguna campaña y no se envió nada.',
       },
+      // ── R-7: un correo sin salida es el que termina en el botón de spam ──
+      //
+      // Las tres partes del §95, y el «cómo» dice los DOS sitios donde puede
+      // ir, porque la plantilla y la firma valen igual — y repetirlo en las dos
+      // haría que el correo lo dijera dos veces.
+      sin_salida_de_baja: {
+        que:
+          'Ni la plantilla ni la firma de esta campaña dicen cómo dejar de ' +
+          'recibir los correos.',
+        como:
+          'Abre Plantillas y firmas y añade la variable «Cómo darse de baja» ' +
+          'al final de la plantilla o de la firma. ARLES la cambia por una ' +
+          'frase con la dirección del remitente de esta campaña.',
+        salvo:
+          'No se creó ninguna audiencia y no se envió nada. La campaña sigue ' +
+          'en borrador, con todo lo que escribiste.',
+      },
       limite_de_envios_en_cero: {
         que: 'Pusiste 0 como máximo de envíos.',
         como:
@@ -3379,6 +3396,12 @@ export const es = {
       // La de quien envía, no la del contacto. La distinción importa: son dos
       // datos distintos y el nombre corto los confunde.
       mi_empresa: 'Mi empresa',
+      // ── LA SALIDA DE QUIEN RECIBE (R-7, 22/10/2026) ──────────────────
+      //
+      // Se llama «Cómo darse de baja» y no «Baja» porque lo que inserta es una
+      // frase entera, no un dato: quien lea «Baja» en la lista esperaría el
+      // nombre de un campo.
+      baja: 'Cómo darse de baja',
     },
   },
 
@@ -3421,6 +3444,19 @@ export const es = {
 
     // §95: qué pasó, cómo se arregla, y qué está a salvo.
     // ── R-04 · una firma con datos de quien recibe (16/10/2026) ─────────
+    // ── R-7 · la salida de quien recibe (22/10/2026) ──────────────────────
+    //
+    // Avisa, no bloquea: la firma puede traerla y aquí no se sabe cuál se usará.
+    // Y dice las DOS cosas que hacen falta — por qué importa y qué hacer—,
+    // porque un aviso sin salida sólo molesta.
+    sinSalidaDeBaja: 'Este texto no dice cómo darse de baja',
+    sinSalidaDeBajaAyuda:
+      'Pulsa «Cómo darse de baja» para añadirlo al final. ARLES lo cambia por ' +
+      'una frase con la dirección del remitente. Puede ir aquí o en la firma, ' +
+      'pero sin ella en una de las dos la campaña no se podrá activar: quien ' +
+      'no encuentra cómo dejar de recibir los correos los marca como no ' +
+      'deseados, y eso daña la reputación de tu dominio.',
+
     firmaConDatosAjenos: 'Esto no va en una firma',
     firmaConDatosAjenosAyuda:
       'Esas variables se rellenan con los datos de cada contacto, así que en ' +

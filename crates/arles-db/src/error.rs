@@ -153,6 +153,32 @@ pub enum DbError {
     #[error("un máximo de envíos de cero deja la campaña sin mandar nada")]
     LimiteDeEnviosEnCero,
 
+    /// Ni la plantilla ni la firma le dan a quien recibe una forma de darse de
+    /// baja.
+    ///
+    /// ── POR QUÉ SE COMPRUEBA AL ACTIVAR Y NO AL GUARDAR LA PLANTILLA ───────
+    ///
+    /// Porque al guardarla **no se sabe todavía**: la salida puede venir de la
+    /// plantilla o de la firma, y la firma se elige en otro paso. Rechazar una
+    /// plantilla sin `{{baja}}` obligaría a repetirla en todas aunque la firma
+    /// ya la lleve, y entonces cada correo diría dos veces lo mismo.
+    ///
+    /// Aquí se conocen las dos, así que la pregunta tiene respuesta. El paso 6
+    /// del asistente la hace antes —igual que con el desenlace— para no dejar
+    /// que alguien rellene nueve pasos y el preflight para encontrarse esto al
+    /// final.
+    ///
+    /// ── Y POR QUÉ IMPIDE ACTIVAR EN VEZ DE AVISAR ─────────────────────────
+    ///
+    /// El §154 pide informar y no dictar, y casi todo en ARLES avisa. Esto no,
+    /// y la diferencia es de quién es el riesgo: un volumen alto lo paga quien
+    /// envía, y es su decisión. Un correo sin salida lo paga **quien lo
+    /// recibe**, que no está en la conversación — y lo paga también el dominio,
+    /// porque quien no encuentra cómo darse de baja usa el botón de spam, que
+    /// es la señal que más daño hace (`RIESGOS-DE-REPUTACION.md` §R-7).
+    #[error("ni la plantilla ni la firma dicen cómo darse de baja")]
+    SinSalidaDeBaja,
+
     /// La ventana de ejecución no se abriría nunca.
     ///
     /// **Lleva el motivo dentro**, y no es adorno: sin días, con las horas al
@@ -257,6 +283,7 @@ impl DbError {
             Self::AccionDeCampanaImposible { clave } => clave,
             Self::FaltaAceptarElVolumen => "error.db.falta_aceptar_el_volumen",
             Self::LimiteDeEnviosEnCero => "error.db.limite_de_envios_en_cero",
+            Self::SinSalidaDeBaja => "error.db.sin_salida_de_baja",
             Self::VentanaInvalida(motivo) => motivo.clave_i18n(),
             Self::Nucleo(e) => e.clave_i18n(),
             Self::SupresionNoSeLevanta { .. } => "error.db.supresion_no_se_levanta",

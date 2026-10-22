@@ -51,6 +51,7 @@ use arles_core::campana::EstadoDeCampana;
 use arles_core::ids::{
     CampaignId, CompanyId, EmailAccountId, IdempotencyKey, MessageAttemptId, TemplateVersionId,
 };
+use arles_core::plantilla::tiene_salida_de_baja;
 use rusqlite::{OptionalExtension, params};
 
 use arles_core::ritmo::Limites;
@@ -464,6 +465,25 @@ impl Db {
                     OffsetDateTime::now_utc(),
                 );
 
+                // ── Y LA SALIDA DE BAJA, ANTES DEL BUCLE DE LA COLA ────
+                //
+                // Se pregunta aquí por la misma razón que el desenlace: es el
+                // único sitio donde se conocen **la plantilla y la firma** que
+                // esta campaña va a usar, y la salida puede venir de
+                // cualquiera de las dos.
+                //
+                // Devolver el error en este punto deshace la transacción
+                // entera —audiencia incluida— y ahorra las inserciones de la
+                // cola. **Entero o nada lo mantiene la transacción, no el
+                // orden**, igual que con el desenlace.
+                if let Some(r) = crate::plantillas::redaccion_en(&tx, &id.to_string())? {
+                    let en_el_cuerpo = tiene_salida_de_baja(&r.cuerpo_html);
+                    let en_la_firma = r.firma_html.as_deref().is_some_and(tiene_salida_de_baja);
+                    if !en_el_cuerpo && !en_la_firma {
+                        return Err(DbError::SinSalidaDeBaja);
+                    }
+                }
+
                 match estimacion.desenlace {
                     Desenlace::NoAvanza => return Err(DbError::LaCampanaNoAvanza),
                     Desenlace::NoCabeEnElHorizonte { faltan } => {
@@ -582,7 +602,12 @@ mod tests {
                 "Bienvenida",
                 &Redaccion {
                     asunto: "Hola {{nombre}}".to_owned(),
-                    cuerpo_html: "<p>Gracias</p>".to_owned(),
+                    // Con `{{baja}}`: desde el 22/10/2026 `activar_campana`
+                    // rechaza una campaña cuyo correo no le dé a quien recibe
+                    // una forma de darse de baja. Sin esto, SEIS pruebas de
+                    // este módulo caen — y verlas caer fue la comprobación de
+                    // que la exigencia llega hasta donde importa.
+                    cuerpo_html: "<p>Gracias</p><p>{{baja}}</p>".to_owned(),
                 },
             )
             .expect("plantilla");
@@ -1448,5 +1473,86 @@ mod tests {
         // Las dos campañas comparten remitente, que es la otra mitad de la
         // pregunta: el mismo buzón manda los dos.
         assert_eq!(campanas.len(), 2);
+    }
+    /// **Una campaña cuyo correo no dice cómo darse de baja no se activa.**
+    ///
+    /// ── EL RIESGO QUE ESTO CIERRA (R-7, 22/10/2026) ──────────────────────
+    ///
+    /// La cabecera `List-Unsubscribe` sí se mandaba, y está bien hecha. Lo que
+    /// no existía era una salida **en el cuerpo**, y nada la exigía: se podía
+    /// crear, activar y mandar una campaña entera sin una línea que dijera cómo
+    /// dejar de recibirla.
+    ///
+    /// La cabecera la leen los filtros; **la persona busca en el cuerpo**, y
+    /// quien no la encuentra usa el botón de spam — la señal que más daño hace
+    /// a la reputación del dominio.
+    ///
+    /// Esto **impide** en vez de avisar, al contrario que casi todo en ARLES, y
+    /// la razón es de quién es el riesgo: un volumen alto lo paga quien envía y
+    /// es su decisión; un correo sin salida lo paga quien lo recibe, que no
+    /// está en la conversación.
+    #[test]
+    fn sin_salida_de_baja_la_campana_no_se_activa() {
+        let (_d, db, v) = base();
+        contacto(&db, "k1", "ana@x.mx");
+        let c = una_campana(&db, v);
+
+        // Se le quita la salida a la versión que la campaña congeló.
+        db.ejecutar_en_pruebas(|conn| {
+            conn.execute(
+                "UPDATE template_version SET body_html = '<p>Gracias</p>'",
+                [],
+            )
+        })
+        .expect("quita la salida");
+
+        let r = db.activar_campana(empresa(), c);
+        assert!(
+            matches!(r, Err(DbError::SinSalidaDeBaja)),
+            "se activó una campaña sin salida de baja: {r:?}"
+        );
+
+        // Y **no queda nada a medias**: ni audiencia congelada ni cola. Entero
+        // o nada lo mantiene la transacción, no el orden de las comprobaciones.
+        assert_eq!(cuantos(&db, "campaign_audience", c), 0, "sin audiencia");
+        assert_eq!(cuantos(&db, "message_attempt", c), 0, "sin cola");
+    }
+
+    /// **Y basta con que la lleve la FIRMA.**
+    ///
+    /// Es la razón de que esto se compruebe al activar y no al guardar la
+    /// plantilla: al guardarla no se sabe qué firma se va a usar. Exigirla en
+    /// la plantilla obligaría a repetirla aunque la firma ya la traiga, y
+    /// entonces cada correo diría dos veces lo mismo.
+    #[test]
+    fn la_salida_de_baja_puede_venir_de_la_firma() {
+        let (_d, db, v) = base();
+        contacto(&db, "k1", "ana@x.mx");
+        let c = una_campana(&db, v);
+
+        // Sin salida en el cuerpo, y con salida en la firma de por defecto.
+        db.ejecutar_en_pruebas(|conn| {
+            conn.execute(
+                "UPDATE template_version SET body_html = '<p>Gracias</p>'",
+                [],
+            )?;
+            // Se INSERTA: la base de estas pruebas no siembra ninguna firma,
+            // así que un `UPDATE` no habría tocado nada y la prueba habría
+            // salido en rojo diciendo que la firma no vale — cuando lo que no
+            // existía era la firma.
+            conn.execute(
+                "INSERT INTO signature
+                     (id, company_id, name, body_html, body_text, is_default,
+                      created_at, updated_at)
+                 VALUES ('firma-1', ?1, 'Por defecto',
+                         '<p>TELEMETRY · {{baja}}</p>', 'TELEMETRY', 1,
+                         '2026-09-29T00:00:00Z', '2026-09-29T00:00:00Z')",
+                params![empresa().to_string()],
+            )
+        })
+        .expect("mueve la salida a la firma");
+
+        db.activar_campana(empresa(), c)
+            .expect("con la salida en la firma sí se activa");
     }
 }

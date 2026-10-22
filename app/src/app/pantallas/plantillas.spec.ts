@@ -519,4 +519,65 @@ describe('dejar de usar lo ya escrito', () => {
     const sinDefecto = await abrirBorrado(1)
     expect(sinDefecto.text()).not.toContain('Es la firma que se usa por defecto')
   })
+  // ────────────────────────────────────────────────────────────────────────
+  // R-7 · LA SALIDA DE QUIEN RECIBE (22/10/2026)
+  // ────────────────────────────────────────────────────────────────────────
+
+  /**
+   * **Un texto sin salida de baja lo dice, y dice qué hacer.**
+   *
+   * El riesgo está medido en `RIESGOS-DE-REPUTACION.md` §R-7: la cabecera
+   * `List-Unsubscribe` sí se mandaba y el **cuerpo no llevaba ninguna salida**,
+   * así que se podía mandar una campaña entera sin una línea que dijera cómo
+   * dejar de recibirla. La cabecera la leen los filtros; la persona busca en el
+   * cuerpo, y quien no la encuentra pulsa «no deseado».
+   *
+   * Esto **avisa** y no bloquea, porque la salida puede venir de la firma y
+   * aquí no se sabe cuál se usará. Quien impide es `activar_campana`.
+   */
+  it('avisa cuando el texto no dice cómo darse de baja', async () => {
+    const p = await abrirEditor()
+    const texto = p.text()
+    expect(texto).toContain('Este texto no dice cómo darse de baja')
+    // Y dice qué hacer y por qué importa, que es lo que separa un aviso de una
+    // molestia.
+    expect(texto).toContain('Cómo darse de baja')
+    expect(texto).toContain('no deseados')
+  })
+
+  /**
+   * **Y en cuanto está, el aviso se va.**
+   *
+   * Es la mitad que de verdad prueba el aviso: uno que no se apaga nunca se
+   * aprende a ignorar, y entonces no avisa de nada.
+   */
+  it('con la salida puesta, el aviso desaparece', async () => {
+    const p = await abrirEditor()
+    const cuerpo = p.findAll('textarea')
+    const editor = cuerpo[cuerpo.length - 1]
+    await editor?.setValue('<p>Hola {{nombre}}</p><p>{{baja}}</p>')
+    await p.vm.$nextTick()
+    expect(p.text()).not.toContain('Este texto no dice cómo darse de baja')
+  })
+
+  /**
+   * **La variable se ofrece también al escribir una FIRMA.**
+   *
+   * Es deliberado y no un descuido de `DE_QUIEN_RECIBE`: el pie de baja en la
+   * firma es donde la gente lo espera, y `activar_campana` acepta que la salida
+   * venga de ahí. Su valor sale del remitente, como el de «Mi empresa», que es
+   * lo que decide si una firma puede usarla (R-04).
+   */
+  it('la salida de baja se puede poner en una firma', async () => {
+    // Se abre aquí y no con el ayudante `abrirFirma`: ése vive dentro de otro
+    // `describe` y no se ve desde aquí. La primera versión lo usaba y salió en
+    // rojo por el ámbito, no por el producto.
+    const p = mount(PantallaPlantillas, entorno)
+    const nueva = p.findAll('button').find((b) => b.text().includes('Nueva firma'))
+    await nueva?.trigger('click')
+
+    const botones = p.findAll('button').map((b) => b.text())
+    expect(botones.some((t) => t.includes('Cómo darse de baja'))).toBe(true)
+  })
+
 })
