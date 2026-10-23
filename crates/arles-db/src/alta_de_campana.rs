@@ -49,7 +49,8 @@
 
 use arles_core::campana::EstadoDeCampana;
 use arles_core::ids::{
-    CampaignId, CompanyId, EmailAccountId, IdempotencyKey, MessageAttemptId, TemplateVersionId,
+    CampaignId, CompanyId, ContactListId, EmailAccountId, IdempotencyKey, MessageAttemptId,
+    TemplateVersionId,
 };
 use arles_core::plantilla::tiene_salida_de_baja;
 use rusqlite::{OptionalExtension, params};
@@ -72,6 +73,14 @@ pub struct CampanaNueva<'a> {
     pub nombre: &'a str,
     pub cuenta: EmailAccountId,
     pub version_de_plantilla: TemplateVersionId,
+    /// **A quién va dirigida** (D-15, 23/10/2026).
+    ///
+    /// `None` significa «toda la empresa», que es lo que hacían todas las
+    /// campañas hasta hoy. Sigue siendo una opción legítima —un aviso que va a
+    /// todo el padrón existe— pero **la pantalla la ofrece con esas palabras**:
+    /// elegida a propósito y nunca por omisión, que es justo lo que llevaba a
+    /// mandar una campaña de videovigilancia a quien pidió una aplicación.
+    pub lista: Option<ContactListId>,
     /// La ventana de ejecución ya guardada. Es de la empresa, y se reutiliza
     /// entre campañas.
     pub ventana: &'a str,
@@ -189,13 +198,15 @@ impl Db {
             let cuando = ahora();
 
             tx.execute(
-                "INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, 'draft', ?4, ?4)",
+                "INSERT INTO campaign (id, company_id, name, status, contact_list_id,
+                                       created_at, updated_at)
+                 VALUES (?1, ?2, ?3, 'draft', ?5, ?4, ?4)",
                 params![
                     id.to_string(),
                     empresa.to_string(),
                     nueva.nombre.trim(),
-                    cuando
+                    cuando,
+                    nueva.lista.map(|l| l.to_string()),
                 ],
             )?;
 
@@ -363,6 +374,26 @@ impl Db {
                 });
             };
 
+            // 2 bis · A quién va dirigida (D-15).
+            //
+            // ── POR QUÉ SE LEE AQUÍ Y NO SE PASA COMO PARÁMETRO ──────────
+            //
+            // Porque la lista es un dato **de la campaña**, elegido al
+            // crearla, y leerlo de la base es lo que impide que la webview
+            // mande otro distinto del que se guardó. Es la misma razón por la
+            // que `suprimir_contacto` lee las direcciones aquí en vez de
+            // recibirlas.
+            //
+            // `None` significa «toda la empresa», que es lo que hicieron todas
+            // las campañas hasta el 23/10/2026 y lo que siguen haciendo las ya
+            // creadas. Es una opción legítima; lo que no puede ser es la que
+            // ocurre sin que nadie la elija, y de eso se encarga la pantalla.
+            let lista: Option<String> = tx.query_row(
+                "SELECT contact_list_id FROM campaign WHERE id = ?1",
+                params![id],
+                |f| f.get(0),
+            )?;
+
             // 3 · La audiencia. Se congela con la dirección NORMALIZADA, que es
             // la forma con la que se compara todo lo demás —la deduplicación y
             // la supresión—, y la que el motor usa para escribir.
@@ -373,32 +404,85 @@ impl Db {
             // `un_canal_dado_de_baja_no_entra`: un contacto puede seguir activo
             // y haber borrado uno de sus correos, y escribir a una dirección
             // que su dueño quitó es exactamente lo que ARLES promete no hacer.
+            // Y desde el 23/10/2026 un cuarto: **estar en la lista de la
+            // campaña**, si tiene (D-15).
+            //
+            // ── POR QUÉ CAMBIA EL ORIGEN Y NO SÓLO EL `WHERE` ────────────
+            //
+            // La forma obvia es dejar el `FROM contact c` de siempre y añadir
+            // un `EXISTS` sobre `contact_list_member`. Funciona, y se escribió
+            // así primero. **Medido con `EXPLAIN QUERY PLAN` el 23/10/2026**,
+            // su plan empieza con `SCAN ch`: recorre `contact_channel` entera
+            // aunque la lista tenga trescientas personas. Una campaña pequeña
+            // costaría lo mismo que una a todo el padrón —73.5 s con 451 196
+            // contactos, medido en la auditoría C— y el aviso de espera de la
+            // 8.6 E, que estima por número de destinatarios, prometería un
+            // segundo.
+            //
+            // Entrando por `contact_list_member` el plan **no tiene ningún
+            // `SCAN`**: `SEARCH m (list_id=?)` → `SEARCH c (id=?)` →
+            // `SEARCH ch USING idx_channel_contact`. Proporcional a la lista y
+            // no al padrón. Lo vigila `planes_de_consulta.rs`.
+            //
+            // Así que cambia **el origen**, y los filtros siguen escritos una
+            // sola vez: son los que no se pueden olvidar, y dos copias de
+            // ellos serían dos sitios donde arreglar uno y dejar el otro. El
+            // `format!` interpola **constantes de este archivo**, nunca un
+            // dato — que es lo único que SQLite no sabe parametrizar.
+            //
+            // Sin lista, `?4` entra igual y vale `NULL`: así las dos formas
+            // llevan los mismos cuatro parámetros y nadie tiene que acordarse
+            // de cambiarlos al tocar una.
+            let (origen, filtro_lista) = if lista.is_some() {
+                (
+                    "contact_list_member m
+                       JOIN contact c ON c.id = m.contact_id
+                       JOIN contact_channel ch ON ch.contact_id = c.id",
+                    "m.list_id = ?4",
+                )
+            } else {
+                (
+                    "contact c
+                       JOIN contact_channel ch ON ch.contact_id = c.id",
+                    "?4 IS NULL",
+                )
+            };
+
+            // El recuento de los que quedan fuera por baja usa **el mismo
+            // origen**. Sin eso diría «450 fuera por baja» contando a gente
+            // que ni siquiera estaba invitada a esta campaña: una cifra
+            // correcta sobre otra pregunta, que es la peor clase de cifra
+            // (§94).
             let fuera: i64 = tx.query_row(
-                "SELECT count(*)
-                   FROM contact c
-                   JOIN contact_channel ch ON ch.contact_id = c.id
-                  WHERE c.company_id = ?1 AND c.status = 'active'
-                    AND ch.channel = 'email' AND ch.status = 'active'
-                    AND EXISTS (SELECT 1 FROM suppression_entry s
-                                 WHERE s.company_id = ?1 AND s.channel = 'email'
-                                   AND s.address_normalized = ch.value_normalized)",
-                params![empresa.to_string()],
+                &format!(
+                    "SELECT count(*)
+                       FROM {origen}
+                      WHERE {filtro_lista}
+                        AND c.company_id = ?2 AND c.status = 'active'
+                        AND ch.channel = 'email' AND ch.status = 'active'
+                        AND EXISTS (SELECT 1 FROM suppression_entry s
+                                     WHERE s.company_id = ?2 AND s.channel = 'email'
+                                       AND s.address_normalized = ch.value_normalized)"
+                ),
+                params![id, empresa.to_string(), cuando, lista],
                 |f| f.get(0),
             )?;
 
             let metidos = tx.execute(
-                "INSERT INTO campaign_audience (campaign_id, channel, contact_address,
-                                                contact_id, added_at)
-                 SELECT ?1, 'email', ch.value_normalized, c.id, ?3
-                   FROM contact c
-                   JOIN contact_channel ch ON ch.contact_id = c.id
-                  WHERE c.company_id = ?2 AND c.status = 'active'
-                    AND ch.channel = 'email' AND ch.status = 'active'
-                    AND NOT EXISTS (SELECT 1 FROM suppression_entry s
-                                     WHERE s.company_id = ?2 AND s.channel = 'email'
-                                       AND s.address_normalized = ch.value_normalized)
-                  GROUP BY ch.value_normalized",
-                params![id, empresa.to_string(), cuando],
+                &format!(
+                    "INSERT INTO campaign_audience (campaign_id, channel, contact_address,
+                                                    contact_id, added_at)
+                     SELECT ?1, 'email', ch.value_normalized, c.id, ?3
+                       FROM {origen}
+                      WHERE {filtro_lista}
+                        AND c.company_id = ?2 AND c.status = 'active'
+                        AND ch.channel = 'email' AND ch.status = 'active'
+                        AND NOT EXISTS (SELECT 1 FROM suppression_entry s
+                                         WHERE s.company_id = ?2 AND s.channel = 'email'
+                                           AND s.address_normalized = ch.value_normalized)
+                      GROUP BY ch.value_normalized"
+                ),
+                params![id, empresa.to_string(), cuando, lista],
             )?;
 
             if metidos == 0 {
@@ -655,6 +739,7 @@ mod tests {
         db.crear_campana(
             empresa(),
             &CampanaNueva {
+                lista: None,
                 nombre: "Septiembre",
                 cuenta: CUENTA.parse().expect("id"),
                 version_de_plantilla: version,
@@ -958,6 +1043,7 @@ mod tests {
             .crear_campana(
                 empresa(),
                 &CampanaNueva {
+                    lista: None,
                     nombre: "Con firma propia",
                     cuenta: CUENTA.parse().expect("id"),
                     firma: Some(&otra.to_string()),
@@ -987,6 +1073,7 @@ mod tests {
             .crear_campana(
                 empresa(),
                 &CampanaNueva {
+                    lista: None,
                     nombre: "Sin elegir",
                     cuenta: CUENTA.parse().expect("id"),
                     firma: None,
@@ -1016,6 +1103,7 @@ mod tests {
         let sin_aceptar = db.crear_campana(
             empresa(),
             &CampanaNueva {
+                lista: None,
                 nombre: "Deprisa",
                 cuenta: CUENTA.parse().expect("id"),
                 version_de_plantilla: v,
@@ -1050,6 +1138,7 @@ mod tests {
             let en_cero = db.crear_campana(
                 empresa(),
                 &CampanaNueva {
+                    lista: None,
                     nombre: "Muda",
                     cuenta: CUENTA.parse().expect("id"),
                     version_de_plantilla: v,
@@ -1074,6 +1163,7 @@ mod tests {
         let aceptando = db.crear_campana(
             empresa(),
             &CampanaNueva {
+                lista: None,
                 nombre: "Deprisa",
                 cuenta: CUENTA.parse().expect("id"),
                 version_de_plantilla: v,
@@ -1111,6 +1201,7 @@ mod tests {
         db.crear_campana(
             empresa(),
             &CampanaNueva {
+                lista: None,
                 nombre: "Al filo",
                 cuenta: CUENTA.parse().expect("id"),
                 version_de_plantilla: v,
@@ -1357,6 +1448,175 @@ mod tests {
         assert_eq!(quien, "ana@x.mx");
     }
 
+    /// **Una campaña con lista sólo alcanza a los de su lista (D-15).**
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// LO QUE ESTO IMPIDE, Y NO ES UN DETALLE
+    ///
+    /// Hasta el 23/10/2026 **toda campaña iba a todo el padrón**: la consulta
+    /// de la audiencia recorría `contact` por `company_id` y nada más. Mandar
+    /// una campaña de videovigilancia a quien pidió una aplicación no es sólo
+    /// ruido — es la vía más rápida a que marquen el correo como no deseado, y
+    /// la tasa de quejas es la cifra que más pesa en la reputación del dominio.
+    ///
+    /// Se siembran **dos** contactos y sólo uno entra en la lista. Con uno no
+    /// se prueba nada: la audiencia saldría de 1 con el filtro y sin él, que es
+    /// el defecto de la prueba de contactos con un solo contacto que este
+    /// proyecto ya documenta.
+    ///
+    /// Verificada rompiéndola: quitando el `EXISTS` de `contact_list_member`
+    /// —que es como estaba escrita la consulta— sale
+    /// `left: 2, right: 1` y nombra a `beto@x.mx`, que no estaba invitado.
+    #[test]
+    fn una_campana_con_lista_solo_alcanza_a_su_lista() {
+        let (_d, db, v) = base();
+        contacto(&db, "k1", "ana@x.mx");
+        contacto(&db, "k2", "beto@x.mx");
+
+        let c = una_campana(&db, v);
+        db.ejecutar_en_pruebas(|conn| {
+            conn.execute_batch(&format!(
+                "INSERT INTO contact_list (id, company_id, name, created_at, updated_at)
+                 VALUES ('lst-1', '{e}', 'Videovigilancia', '{t}', '{t}');
+                 INSERT INTO contact_list_member (list_id, contact_id, added_at)
+                 VALUES ('lst-1', 'k1', '{t}');
+                 UPDATE campaign SET contact_list_id = 'lst-1' WHERE id = '{c}';",
+                e = empresa(),
+                t = "2026-10-23T10:00:00Z",
+                c = c,
+            ))
+        })
+        .expect("siembra la lista");
+
+        let r = db.activar_campana(empresa(), c).expect("activa");
+        assert_eq!(r.en_la_audiencia, 1, "sólo quien está en la lista");
+
+        let quien: String = db
+            .ejecutar_en_pruebas(|conn| {
+                conn.query_row(
+                    "SELECT contact_address FROM message_attempt WHERE campaign_id = ?1",
+                    params![c.to_string()],
+                    |f| f.get(0),
+                )
+            })
+            .expect("lee");
+        assert_eq!(quien, "ana@x.mx", "beto@x.mx no estaba invitado");
+    }
+
+    /// **Con lista, una baja sigue mandando sobre la invitación.**
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ ESTA PRUEBA EXISTE, HABIENDO YA `quien_pidio_la_baja_no_entra`
+    ///
+    /// Porque ésa corre **sin lista**, y desde el 23/10/2026 la consulta de la
+    /// audiencia tiene dos orígenes: uno entra por `contact` y el otro por
+    /// `contact_list_member`. Los filtros se escriben una sola vez —van en el
+    /// trozo compartido— pero eso es una propiedad del código de hoy, no una
+    /// garantía: el día que alguien separe las dos consultas, **la rama con
+    /// lista podría perder el filtro de bajas y las demás pruebas seguirían en
+    /// verde**. Es el hueco que vive entre dos caminos que cada uno pasa lo
+    /// suyo.
+    ///
+    /// Y lo que estaría en juego no es una función: es escribirle a quien
+    /// pidió no recibir, que es lo peor que ARLES puede hacer.
+    ///
+    /// Verificada rompiéndola: quitando el `NOT EXISTS` de supresión sale
+    /// `left: 2, right: 1`.
+    #[test]
+    fn una_baja_manda_mas_que_estar_en_la_lista() {
+        let (_d, db, v) = base();
+        contacto(&db, "k1", "ana@x.mx");
+        contacto(&db, "k2", "beto@x.mx");
+
+        let c = una_campana(&db, v);
+        db.ejecutar_en_pruebas(|conn| {
+            conn.execute_batch(&format!(
+                "INSERT INTO contact_list (id, company_id, name, created_at, updated_at)
+                 VALUES ('lst-1', '{e}', 'Videovigilancia', '{t}', '{t}');
+                 INSERT INTO contact_list_member (list_id, contact_id, added_at)
+                 VALUES ('lst-1', 'k1', '{t}'), ('lst-1', 'k2', '{t}');
+                 UPDATE campaign SET contact_list_id = 'lst-1' WHERE id = '{c}';",
+                e = empresa(),
+                t = "2026-10-23T10:00:00Z",
+                c = c,
+            ))
+        })
+        .expect("siembra la lista con los dos");
+
+        // Beto está invitado **y** pidió no recibir. Gana la baja.
+        db.suprimir_direccion(
+            empresa(),
+            arles_core::Canal::Correo,
+            "beto@x.mx",
+            arles_core::MotivoDeSupresion::Baja,
+            arles_core::OrigenDeSupresion::Usuario,
+            None,
+        )
+        .expect("suprime");
+
+        let r = db.activar_campana(empresa(), c).expect("activa");
+        assert_eq!(
+            r.en_la_audiencia, 1,
+            "la baja saca a Beto de su propia lista"
+        );
+        assert_eq!(r.fuera_por_baja, 1, "y se cuenta, con la lista por delante");
+    }
+
+    /// **Y sin lista va a toda la empresa, que es lo que hacía siempre.**
+    ///
+    /// No es compatibilidad por inercia: un aviso que va a todo el padrón es
+    /// una campaña legítima, y las ya creadas no tienen lista. Lo que no puede
+    /// pasar es que sea **lo que ocurre por omisión sin que nadie lo elija**,
+    /// y de eso se encarga la pantalla.
+    ///
+    /// Esta prueba es la pareja de la de arriba, y sin ella el filtro podría
+    /// estar escrito al revés —sólo con lista se envía— sin que nada fallara.
+    #[test]
+    fn sin_lista_la_campana_va_a_toda_la_empresa() {
+        let (_d, db, v) = base();
+        contacto(&db, "k1", "ana@x.mx");
+        contacto(&db, "k2", "beto@x.mx");
+
+        let c = una_campana(&db, v);
+        let r = db.activar_campana(empresa(), c).expect("activa");
+        assert_eq!(r.en_la_audiencia, 2, "sin lista entran los dos");
+    }
+
+    /// **Una lista vacía no es una campaña a todo el padrón.**
+    ///
+    /// Es el caso que convierte este filtro en un peligro si se escribe mal:
+    /// alguien crea «Videovigilancia», no le mete a nadie todavía, y activa.
+    /// Con un `EXISTS` mal puesto —o con el `SET NULL` que esta migración
+    /// descartó— la campaña saldría **a los 450 000**.
+    ///
+    /// Lo correcto es `AudienciaVacia`, el mismo error que ya existe: dice que
+    /// no hay a quién escribir y no deja nada detrás.
+    #[test]
+    fn una_lista_vacia_no_se_convierte_en_toda_la_empresa() {
+        let (_d, db, v) = base();
+        contacto(&db, "k1", "ana@x.mx");
+        contacto(&db, "k2", "beto@x.mx");
+
+        let c = una_campana(&db, v);
+        db.ejecutar_en_pruebas(|conn| {
+            conn.execute_batch(&format!(
+                "INSERT INTO contact_list (id, company_id, name, created_at, updated_at)
+                 VALUES ('lst-1', '{e}', 'Vacía', '{t}', '{t}');
+                 UPDATE campaign SET contact_list_id = 'lst-1' WHERE id = '{c}';",
+                e = empresa(),
+                t = "2026-10-23T10:00:00Z",
+                c = c,
+            ))
+        })
+        .expect("siembra la lista vacía");
+
+        let r = db.activar_campana(empresa(), c);
+        assert!(
+            matches!(r, Err(DbError::AudienciaVacia)),
+            "una lista vacía tiene que parar, no salir a todo el padrón: {r:?}"
+        );
+    }
+
     /// **Cada envío de la cola nace con su clave de idempotencia, y todas son
     /// distintas.**
     ///
@@ -1422,6 +1682,7 @@ mod tests {
                 .crear_campana(
                     empresa(),
                     &CampanaNueva {
+                        lista: None,
                         nombre,
                         cuenta: CUENTA.parse().expect("id"),
                         version_de_plantilla: v,

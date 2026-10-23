@@ -41,6 +41,7 @@ import { useRouter } from 'vue-router'
 
 import { resolverError } from '@/app/errores'
 import { AVISO_DIARIO, useCampanasStore } from '@/app/stores/campanas'
+import { useListasStore } from '@/app/stores/listas'
 import { useEmpresaStore } from '@/app/stores/empresa'
 import { useRemitentesStore } from '@/app/stores/remitentes'
 import {
@@ -99,6 +100,7 @@ function segundosDePreparacion(audiencia: number): number {
   return Math.max(5, Math.ceil(estimados / 5) * 5)
 }
 const router = useRouter()
+const listasStore = useListasStore()
 const { t, te } = useI18n()
 
 /** Los nueve pasos, en orden. El índice es el paso menos uno. */
@@ -121,6 +123,9 @@ const nombre = ref('')
 const cuenta = ref('')
 const versionDePlantilla = ref('')
 const ventana = ref('')
+// A quién va dirigida (D-15). Vacío es «toda la empresa», que es lo que
+// hacían todas las campañas hasta el 23/10/2026.
+const lista = ref('')
 // La firma del pie. Vacío es «la de por defecto de la empresa», que es lo que
 // promete su casilla en Plantillas (H-12).
 const firma = ref('')
@@ -159,6 +164,8 @@ onMounted(() => {
   void remitentes.cargar()
   // Hace falta su zona horaria para crear un horario (H-06).
   void empresa.cargar()
+  // Y las listas, para el paso 2 (D-15).
+  void listasStore.cargar()
 })
 
 const error = computed(() =>
@@ -166,6 +173,33 @@ const error = computed(() =>
 )
 
 // ── Las opciones de los desplegables ──
+
+/**
+ * A quién va dirigida, con «toda la empresa» la primera (D-15).
+ *
+ * ── POR QUÉ SÓLO LAS QUE TIENEN GENTE ───────────────────────────────────
+ *
+ * Una lista vacía activa una campaña que para con `AudienciaVacia` nueve pasos
+ * después. Ofrecerla es construir un camino que termina en un rechazo, que es
+ * el defecto que este asistente ya tuvo con las cuentas rotas en el paso 3 y
+ * con la plantilla en el paso 4.
+ *
+ * Y el nombre **nunca va solo**: lleva su cifra (§94). «Videovigilancia» puede
+ * tener trescientos o doce, y elegirla sin saberlo es elegir a ciegas justo en
+ * la decisión de a cuánta gente se le escribe.
+ */
+const listasConGente = computed(() => listasStore.conGente)
+
+const opcionesDeLista = computed(() => [
+  { valor: '', texto: t('asistente.paso.audiencia.todaLaEmpresa') },
+  ...listasConGente.value.map((l) => ({
+    valor: l.id,
+    texto: t('asistente.paso.audiencia.conGente', {
+      nombre: l.nombre,
+      n: l.cuantos.toLocaleString('es-MX'),
+    }),
+  })),
+])
 
 const opcionesDeCuenta = computed(() =>
   remitentes.remitentes
@@ -513,6 +547,9 @@ async function siguiente(): Promise<void> {
       // Vacío es «la de por defecto»: `null`, no una cadena vacía, que la
       // clave ajena rechazaría.
       firma: firma.value === '' ? null : firma.value,
+      // Vacío es «toda la empresa»: `null`, no una cadena vacía, que la clave
+      // ajena rechazaría. Mismo trato que la firma.
+      lista: lista.value === '' ? null : lista.value,
       ventana: ventana.value,
       limitePorHora: Number.parseInt(limitePorHora.value, 10) || null,
       limiteDiario: diarioComoNumero.value,
@@ -605,11 +642,45 @@ function rotulo(clave: string): string {
         />
       </template>
 
-      <!-- 2 · Audiencia -->
+      <!-- ── 2 · A quién va dirigida (D-15) ──────────────────────────────
+           Este paso existía desde la 6.6 y no se podía elegir nada: decía «en
+           esta versión no hay listas ni filtros» y toda campaña iba a todo el
+           padrón. Ahora se elige, y «toda la empresa» sigue estando — como una
+           opción que se toma, no como lo que pasa por omisión. -->
       <template v-else-if="paso === 2">
         <p>{{ t('asistente.paso.audiencia.explicacion') }}</p>
+
+        <ASelector
+          v-model="lista"
+          :etiqueta="t('asistente.paso.audiencia.campo')"
+          :opciones="opcionesDeLista"
+          :ayuda="t('asistente.paso.audiencia.ayuda')"
+        />
+
+        <!-- Sin ninguna lista cargada, el desplegable tiene una sola opción y
+             ninguna pista de dónde salen las demás. Es el H-06 en otro paso, y
+             lo que lo arregla es decir dónde se hace Y llevar allí. -->
         <AAviso
+          v-if="!listasConGente.length"
           tono="info"
+          :titulo="t('asistente.paso.audiencia.sinListas')"
+        >
+          <p>{{ t('asistente.paso.audiencia.sinListasDetalle') }}</p>
+          <ABoton
+            variante="sutil"
+            tamano="compacto"
+            @click="router.push('/contactos/importar')"
+          >
+            {{ t('asistente.paso.audiencia.irAImportar') }}
+          </ABoton>
+        </AAviso>
+
+        <!-- Y si se elige «toda la empresa» habiendo listas, se dice lo que
+             eso significa. Elegirlo tiene que ser una decisión, no un
+             descuido. -->
+        <AAviso
+          v-else-if="lista === ''"
+          tono="aviso"
           :titulo="t('asistente.paso.audiencia.alcance')"
         >
           <p>{{ t('asistente.paso.audiencia.alcanceDetalle') }}</p>

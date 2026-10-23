@@ -458,6 +458,15 @@ pub fn crear_campana(
     // hace fallar la creación entera en vez de crear una campaña que apunta a
     // nada.
     firma: Option<String>,
+    // ── A quién va dirigida (D-15) ───────────────────────────────────────
+    //
+    // Llega el identificador de una lista que ya existe, no un archivo: la
+    // carga del XLSX vive en Contactos › Importar, con su revisión de choques
+    // —que es la decisión de Dirección del 18/09/2026 y no se puede saltar—.
+    // Aquí sólo se elige a cuál de las listas cargadas va esta campaña.
+    //
+    // `None` es «toda la empresa», y la pantalla lo ofrece con esas palabras.
+    lista: Option<String>,
     ventana: String,
     limite_por_hora: Option<u32>,
     limite_diario: Option<u32>,
@@ -472,11 +481,22 @@ pub fn crear_campana(
         .parse::<arles_core::ids::TemplateVersionId>()
         .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
 
+    // Una lista inventada hace fallar la creación entera —es una clave ajena—
+    // en vez de crear una campaña que apunta a nada. Mismo trato que la firma.
+    let lista = match lista.as_deref().map(str::trim).filter(|l| !l.is_empty()) {
+        Some(l) => Some(
+            l.parse::<arles_core::ids::ContactListId>()
+                .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?,
+        ),
+        None => None,
+    };
+
     let creada = estado
         .db()
         .crear_campana(
             empresa,
             &arles_db::alta_de_campana::CampanaNueva {
+                lista,
                 nombre: &nombre,
                 cuenta,
                 version_de_plantilla: version,

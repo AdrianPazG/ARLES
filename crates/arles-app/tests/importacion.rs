@@ -147,6 +147,8 @@ fn importar_un_archivo_de_verdad_de_punta_a_punta() {
         total_de_filas: tabla.total_de_filas,
         choques: informe.choques.len(),
         invalidas: informe.invalidas.len() + informe.rechazadas.len(),
+        lista: None,
+        direcciones: Vec::new(),
     };
     let resumen = db
         .importar_contactos(empresa, &lote, &informe.listas)
@@ -221,6 +223,8 @@ fn reimportar_el_mismo_archivo_no_duplica_a_nadie() {
         total_de_filas: tabla.total_de_filas,
         choques: informe.choques.len(),
         invalidas: informe.invalidas.len() + informe.rechazadas.len(),
+        lista: None,
+        direcciones: Vec::new(),
     };
 
     // Primera vez: entran los dos.

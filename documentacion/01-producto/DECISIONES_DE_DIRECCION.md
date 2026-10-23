@@ -548,11 +548,51 @@ quiere mandar 400 al día desde un buzón, ARLES se lo enseña en rojo y lo deja
 
 ---
 
-### D-15 · Cada campaña carga su propia lista de contactos
+### D-15 · Cada campaña carga su propia lista de contactos · ✅ **construida el 23/10/2026**
 
 **Fecha:** 22 de octubre de 2026 · **Pedida por:** Dirección · **Gobierna:** el
 asistente de campaña y `arles-import` · **Resuelve** el riesgo R-1 del reporte
 de reputación
+
+> **Cómo quedó, y las cuatro decisiones que no son obvias.**
+>
+> La lista se le pone a un archivo **al importarlo**, en Contactos › Importar,
+> y la campaña la elige en su paso 2. No se carga el archivo dentro del
+> asistente, y es a propósito: la importación tiene su revisión de choques
+> —**la decisión de Dirección del 18/09/2026**, que los enseña antes y nunca
+> fusiona sola—, y meter un cargador aparte dentro del asistente la saltaría.
+>
+> 1. **Los repetidos entran en la lista igual.** Una tabla de trescientas filas
+>    con cincuenta que ya estaban en ARLES crea doscientos cincuenta contactos;
+>    si la lista se armara con «los que acabo de crear», la campaña saldría a
+>    250 de las 300 que se cargaron **sin un solo error**. Y las cincuenta que
+>    faltan son las que más importan, porque con ellas ya hay relación. Así que
+>    la pertenencia se resuelve **por dirección**.
+> 2. **«Toda la empresa» sigue existiendo**, y sigue siendo lo que hacen las
+>    campañas ya creadas. Lo que cambia es que ahora **se elige**: el paso 2 lo
+>    ofrece con esas palabras y avisa de lo que significa.
+> 3. **Una lista vacía no se convierte en toda la empresa.** Es el error que
+>    convertiría esto en un peligro: alguien crea «Videovigilancia», no le mete
+>    a nadie todavía, y activa. Para con `AudienciaVacia`, y hay una prueba.
+> 4. **Una campaña pequeña cuesta lo que cuesta ser pequeña.** La forma obvia
+>    —dejar el `FROM contact` de siempre y añadir un `EXISTS`— recorre
+>    `contact_channel` entera aunque la lista tenga trescientos: medido con
+>    `EXPLAIN QUERY PLAN`, su plan empieza con `SCAN ch`, y eso son los 73.5 s
+>    que la auditoría C midió al activar con 451 196 contactos. Entrando por
+>    `contact_list_member` **no queda ningún `SCAN`**. Lo vigila
+>    `planes_de_consulta.rs`.
+>
+> **Las tablas ya estaban desde la V1** —`contact_list` y
+> `contact_list_member`—, en la lista de «pendientes conocidos» del validador
+> desde la Fase 6 con su motivo escrito. Por eso la migración V14 es **una
+> columna**, no dos tablas.
+>
+> Lo vigila `la_lista_de_la_campana_llega_desde_el_archivo_hasta_el_envio` en
+> `--fase 6`, escrita antes y vista en rojo en sus cinco tramos.
+>
+> **Lo que esto cuesta:** un respaldo `.arles` tomado con el esquema V13 ya no
+> se puede restaurar — la limitación que la 8.3b dejó declarada. Dirección
+> confirmó el 23/10/2026 que no tiene ninguno, así que hoy el coste es cero.
 
 Hoy, al activar una campaña, la audiencia se congela como **todos los contactos
 activos de la empresa menos las bajas**. No hay filtro — y eso significa que dos

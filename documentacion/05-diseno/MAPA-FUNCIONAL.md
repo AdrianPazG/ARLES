@@ -160,8 +160,8 @@ usa** — extraídos de los almacenes, no supuestos.
 |---|---|
 | **`/contactos/importar`** | CSV o XLSX, con **los choques revisados antes** de importar |
 | Necesita | Empresa |
-| Comandos | `elegir_archivo_para_importar`, `analizar_importacion`, `confirmar_importacion`, `cancelar_importacion` |
-| Qué verificar | Que enseña los repetidos **antes** y deja cancelar. Que un archivo con acentos, BOM o Excel raro entra bien |
+| Comandos | `elegir_archivo_para_importar`, `analizar_importacion`, `confirmar_importacion`, `cancelar_importacion`, `listas_de_contactos` |
+| Qué verificar | Que enseña los repetidos **antes** y deja cancelar. Que un archivo con acentos, BOM o Excel raro entra bien. Y que al poner nombre de lista (D-15) **los repetidos entran en ella igual que los nuevos** |
 | Lleva a | `/contactos` al terminar |
 
 | | |

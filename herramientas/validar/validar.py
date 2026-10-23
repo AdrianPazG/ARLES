@@ -1930,6 +1930,12 @@ MIGRACIONES_PUBLICADAS = {
     # plazo que prometió. Decisión de Dirección del 22/10/2026 (D-13).
     "V13__cupo_por_campana.sql":
         "1bccf390993d00f7f144a0100a9b57c9d7dd4d19394edf7efcd0db82e1261f36",
+    # A quién va dirigida una campaña (D-15, 22/10/2026). Hasta aquí toda
+    # campaña iba a todo el padrón, que es la vía más rápida a que marquen el
+    # correo como no deseado. Las tablas de listas ya estaban en la V1: esto
+    # sólo las ata a la campaña.
+    "V14__lista_de_la_campana.sql":
+        "eab9cd6f92c811847f2af47151cc8a1445a8435ffeb173e92914872552b23507",
 }
 
 
@@ -4626,6 +4632,7 @@ def fase_6(rapido):
     el_aviso_de_volumen_lo_exige_el_nucleo()
     la_pantalla_no_dice_entregado()
     el_boton_de_activar_lo_apaga_el_preflight()
+    la_lista_de_la_campana_llega_desde_el_archivo_hasta_el_envio()
 
 
 # ─── Fase W · El canal de WhatsApp ───────────────────────────────────────────
@@ -4870,13 +4877,17 @@ def ninguna_tabla_se_queda_sin_escritor():
     #
     # Cada una se quita de aquí el día que se construya lo suyo.
     PENDIENTES_CONOCIDOS = {
-        # Etiquetas, listas y campos propios: §40, declarado fuera del alcance
-        # de la Fase 6 en su documento de cierre. Enseñar un filtro que no
-        # filtra sería peor que no tenerlo.
+        # Etiquetas y campos propios: §40, declarado fuera del alcance de la
+        # Fase 6 en su documento de cierre. Enseñar un filtro que no filtra
+        # sería peor que no tenerlo.
+        #
+        # `contact_list` y `contact_list_member` SALIERON DE AQUÍ el
+        # 23/10/2026: D-15 les dio escritor —la importación— y lector —la
+        # audiencia de una campaña—. Llevaban desde la V1 en el esquema sin que
+        # nadie las tocara, que es por lo que esta migración fue una columna y
+        # no dos tablas.
         "tag",
         "contact_tag",
-        "contact_list",
-        "contact_list_member",
         "contact_field",
         # El registro de consentimiento (P-17): la tabla existe y se LEE para
         # decidir si alguien dio permiso, pero todavía no hay pantalla que
@@ -6495,6 +6506,131 @@ def el_banco_no_viaja_en_el_instalador():
         "el banco de pruebas no viaja en el instalador, y lo medido lleva fecha",
         not faltan,
         el_banco_no_viaja_en_el_instalador.__doc__,
+        detalle="\n      ".join(faltan),
+    )
+
+
+def la_lista_de_la_campana_llega_desde_el_archivo_hasta_el_envio():
+    """**El cable entero de D-15, de punta a punta.**
+
+    ─────────────────────────────────────────────────────────────────────────
+    QUÉ SE ESTÁ VIGILANDO, Y POR QUÉ NO BASTA CON UNA PRUEBA
+
+    Que una campaña vaya sólo a su público atraviesa **cinco piezas** en tres
+    capas: el archivo que se carga, la lista que se crea, la columna de la
+    campaña, la consulta de la audiencia y el desplegable que la elige. Cada
+    una tiene sus pruebas y todas pueden pasar con el cable suelto en medio —
+    es el patrón que este proyecto lleva veintitrés veces, y la última, dos
+    días antes de ésta, fue `Db::suprimir_direccion`: probada desde la Fase 4
+    y sin ningún comando.
+
+    Aquí lo que se perdería no es una función: es que una campaña de
+    videovigilancia salga igualmente a todo el padrón, que es exactamente el
+    riesgo que D-15 viene a quitar y lo que más rápido quema un dominio.
+
+    ─────────────────────────────────────────────────────────────────────────
+    LOS CINCO TRAMOS
+
+      1. `importar_contactos` escribe en la lista.
+      2. `crear_campana` guarda `contact_list_id`.
+      3. `activar_campana` filtra la audiencia por ella.
+      4. El comando que enseña las listas está registrado.
+      5. **Alguien en la pantalla lo llama**, y el asistente manda la lista.
+
+    El quinto es el único que el usuario pisa, y el que ninguna prueba de Rust
+    alcanza.
+
+    Escrita **antes** de la pantalla y vista en rojo nombrando sus tramos el
+    23/10/2026.
+    """
+    faltan = []
+
+    def solo_el_codigo(t):
+        """Sin comentarios **y sin las pruebas**.
+
+        ── LOS DOS DEFECTOS QUE ESTA FUNCIÓN ARREGLA, VISTOS EL 23/10/2026 ──
+
+        La primera versión leía el archivo entero y **dos de las cinco
+        rupturas salieron en verde**:
+
+        1. Romper el filtro de la audiencia no la cazaba, porque las pruebas
+           del mismo módulo siembran `INSERT INTO contact_list_member`. La
+           cadena seguía estando, en código que no es el que corre en
+           producción. Es «la hoja y no la ruta» con otra cara, y la enésima
+           vez que una comprobación se caza a sí misma — aquí no en un
+           comentario, sino en una siembra.
+        2. Romper el `INSERT` de la campaña tampoco, y ése fue **error de la
+           ruptura, no de la comprobación**: `contact_list_id` aparece también
+           en el `SELECT` que lee la lista al activar, así que cambiar la
+           primera aparición dejaba la segunda en pie. *Una ruptura que deja el
+           síntoma en pie no prueba nada.*
+
+        Se corta por `mod tests`, igual que `ninguna_tabla_se_queda_sin_escritor`.
+        """
+        t = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", t, flags=re.S))
+        corte = t.find("mod tests")
+        return t[:corte] if corte != -1 else t
+
+    # ── 1 · la importación escribe en la lista ──
+    cont = solo_el_codigo(leer("crates", "arles-db", "src", "contactos.rs") or "")
+    if "meter_en_la_lista" not in cont:
+        faltan.append(
+            "importar_contactos no mete a nadie en la lista: el archivo se carga "
+            "y la lista sale vacía"
+        )
+
+    # ── 2 y 3 · la campaña la guarda y la audiencia la respeta ──
+    alta = solo_el_codigo(leer("crates", "arles-db", "src", "alta_de_campana.rs") or "")
+    # Por el INSERT y no por el nombre de la columna a secas: `contact_list_id`
+    # aparece también en el SELECT que la lee al activar, así que buscarlo
+    # suelto daría por escrita una columna que sólo se lee.
+    if "INSERT INTO campaign (" not in alta or "contact_list_id" not in alta.split(
+        "INSERT INTO campaign ("
+    )[1][:400]:
+        faltan.append(
+            "crear_campana no guarda `contact_list_id`: la lista elegida no se "
+            "escribiría en ninguna parte"
+        )
+    if "contact_list_member" not in alta:
+        faltan.append(
+            "activar_campana no filtra la audiencia por la lista: toda campaña "
+            "seguiría yendo a todo el padrón"
+        )
+
+    # ── 4 · el comando registrado ──
+    lib = solo_el_codigo(leer("crates", "arles-app", "src", "lib.rs") or "")
+    if "listas_de_contactos," not in lib:
+        faltan.append(
+            "`listas_de_contactos` no está en generate_handler!: la pantalla no "
+            "puede saber qué listas hay"
+        )
+
+    # ── 5 · el tramo que el usuario pisa ──
+    #
+    # Sin comentarios otra vez: las pantallas explican en su cabecera para qué
+    # sirve la lista, nombrando el comando. Es la trampa de siempre.
+    front = ""
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "app", "src")):
+        for f in ficheros:
+            if f.endswith((".ts", ".vue")) and not f.endswith(".spec.ts"):
+                with open(os.path.join(carpeta, f), encoding="utf-8") as fh:
+                    front += fh.read()
+    assert front, "no se leyó el código de app/src"
+    front = sin_comentarios_de_barras(front)
+
+    if "'listas_de_contactos'" not in front:
+        faltan.append(
+            "ninguna pantalla pide las listas: el desplegable de «a quién va "
+            "dirigida» no existiría"
+        )
+    if "crear_campana" in front and "lista" not in front:
+        faltan.append("el asistente no manda la lista al crear la campaña")
+
+    check(
+        6,
+        "la lista de la campaña llega desde el archivo hasta el envío",
+        not faltan,
+        la_lista_de_la_campana_llega_desde_el_archivo_hasta_el_envio.__doc__,
         detalle="\n      ".join(faltan),
     )
 

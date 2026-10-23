@@ -776,6 +776,17 @@ pub fn confirmar_importacion(
     mapeo: Vec<arles_core::CampoImportable>,
     origen: arles_core::OrigenDeLaLista,
     texto_del_consentimiento: String,
+    // ── A qué lista van estos contactos (D-15) ───────────────────────────
+    //
+    // Llega el **nombre** y no un identificador, a propósito: así la pantalla
+    // puede ofrecer las listas que hay y además dejar escribir una nueva sin
+    // dos comandos ni dos caminos. `crear_lista` devuelve la existente si ya
+    // se llamaba así, que es el caso real —dos archivos del mismo público, en
+    // enero y en marzo—.
+    //
+    // Vacío o ausente significa «sin lista»: los contactos entran a la empresa
+    // y ya, que es lo que hacían todas las importaciones hasta hoy.
+    lista: Option<String>,
 ) -> Result<ResumenParaLaPantalla, ErrorIpc> {
     let empresa = empresa_actual(&estado)?;
     let pais = pais_de_la_empresa(&estado)?;
@@ -795,6 +806,18 @@ pub fn confirmar_importacion(
         .motivos_de_supresion(empresa, &direcciones)
         .map_err(crate::AppError::Db)?;
 
+    // La lista se resuelve **antes** de importar: si el nombre no vale, es
+    // mejor saberlo ahora que después de meter trescientos contactos.
+    let lista = match lista.as_deref().map(str::trim).filter(|n| !n.is_empty()) {
+        Some(nombre) => Some(
+            estado
+                .db()
+                .crear_lista(empresa, nombre)
+                .map_err(crate::AppError::Db)?,
+        ),
+        None => None,
+    };
+
     let datos = estado
         .con_importacion(|t| {
             let informe = arles_core::analizar(&mapeo, &t.filas, &pais, &duenos, &suprimidas);
@@ -809,6 +832,17 @@ pub fn confirmar_importacion(
                 total_de_filas: t.total_de_filas,
                 choques: informe.choques.len(),
                 invalidas: informe.invalidas.len() + informe.rechazadas.len(),
+                lista,
+                // Las direcciones del ARCHIVO ENTERO, no las de los contactos
+                // que se van a crear: los repetidos no se importan y tienen
+                // que entrar en la lista igual, o la campaña saldría corta
+                // justo en la gente con la que ya hay relación.
+                //
+                // Se clonan aquí porque `direcciones` se usó antes para
+                // consultar dueños y bajas. Es un `Vec<String>` del tamaño del
+                // archivo; con medio millón son unos 15 MB de los 500 del
+                // presupuesto, y sólo durante la importación.
+                direcciones: direcciones.clone(),
             };
             (lote, informe)
         })
@@ -830,6 +864,48 @@ pub fn confirmar_importacion(
         invalidas: resumen.invalidas,
         total_de_filas: resumen.total_de_filas,
     })
+}
+
+/// Una lista de contactos, para el desplegable del asistente.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListaParaLaPantalla {
+    pub id: String,
+    pub nombre: String,
+    /// Cuánta gente tiene dentro. **Va siempre con el nombre** (§94): una
+    /// lista llamada «Videovigilancia» puede tener trescientos o doce, y
+    /// elegirla sin esa cifra es elegir a ciegas.
+    pub cuantos: u32,
+    /// Cuántas campañas la usan ya.
+    pub campanas: u32,
+}
+
+/// Las listas de contactos de la empresa (D-15).
+///
+/// Las pide el asistente de campaña para preguntar **a quién va dirigida**, y
+/// la pantalla de importar para ofrecer las que ya hay en vez de obligar a
+/// teclear el nombre otra vez —y crear «Videovigilancia 2» sin querer—.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si la consulta falla.
+#[tauri::command]
+pub fn listas_de_contactos(
+    estado: tauri::State<'_, EstadoApp>,
+) -> Result<Vec<ListaParaLaPantalla>, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    Ok(estado
+        .db()
+        .listar_listas(empresa)
+        .map_err(crate::AppError::Db)?
+        .into_iter()
+        .map(|l| ListaParaLaPantalla {
+            id: l.id.to_string(),
+            nombre: l.nombre,
+            cuantos: l.cuantos,
+            campanas: l.campanas,
+        })
+        .collect())
 }
 
 /// Descarta la importación en curso.

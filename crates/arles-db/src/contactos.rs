@@ -86,6 +86,27 @@ pub struct DatosDelLote {
     pub total_de_filas: usize,
     pub choques: usize,
     pub invalidas: usize,
+    /// A qué lista van estos contactos, si el usuario eligió una (D-15).
+    ///
+    /// `None` es lo que hacían todas las importaciones hasta el 23/10/2026:
+    /// los contactos entran a la empresa y ya. Sigue siendo lo correcto cuando
+    /// se carga el padrón general.
+    pub lista: Option<arles_core::ids::ContactListId>,
+    /// **Las direcciones normalizadas que traía el archivo**, todas: las que
+    /// se importan y las que chocaron con alguien que ya estaba.
+    ///
+    /// ── POR QUÉ VIAJAN AQUÍ Y NO SE DEDUCEN DE LOS CONTACTOS ────────────
+    ///
+    /// Porque los repetidos **no se importan**. Una tabla de trescientas filas
+    /// con cincuenta que ya estaban crea doscientos cincuenta contactos, y si
+    /// la lista se armara con «los que acabo de crear», esos cincuenta
+    /// quedarían fuera: la campaña saldría a 250 de las 300 que se cargaron,
+    /// sin un solo error. Y son los que más importan, porque con ellos ya hay
+    /// relación.
+    ///
+    /// Se mueven, no se copian: con medio millón de filas, duplicarlas sería
+    /// la mitad del presupuesto de memoria.
+    pub direcciones: Vec<String>,
 }
 
 /// Lo que pasó al importar. Cifras, no adjetivos (§94).
@@ -458,6 +479,16 @@ impl Db {
                     ],
                 )?;
                 escribir_canales(&tx, empresa, id, &datos.canales, &cuando)?;
+            }
+
+            // ── La lista, DENTRO de la misma transacción (D-15) ───────────
+            //
+            // Y no en una llamada aparte después, que es lo cómodo: si la
+            // importación saliera bien y la asignación fallara, los contactos
+            // estarían dentro y **fuera de su lista**, y la campaña saldría
+            // corta sin que nada lo dijera. Entero o nada.
+            if let Some(lista) = lote.lista {
+                crate::listas::meter_en_la_lista(&tx, empresa, lista, &lote.direcciones, &cuando)?;
             }
 
             tx.commit()?;
@@ -1108,7 +1139,86 @@ mod tests {
             total_de_filas: 3,
             choques: 0,
             invalidas: 0,
+            lista: None,
+            direcciones: Vec::new(),
         }
+    }
+
+    /// **Importar a una lista mete también a los que ya estaban (D-15).**
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// EL CASO QUE DECIDE SI ESTO SIRVE O NO
+    ///
+    /// Dirección carga la tabla de «Videovigilancia»: trescientas filas, de
+    /// las que cincuenta ya están en la base de otra campaña. Los repetidos
+    /// **no se importan** —es la decisión del 18/09/2026, los choques se
+    /// enseñan y no se fusionan solos—, así que la forma obvia de armar la
+    /// lista, «los contactos que acabo de crear», la dejaría en doscientos
+    /// cincuenta.
+    ///
+    /// La campaña saldría a 250 de las 300 que se cargaron, **sin un solo
+    /// error y sin ninguna prueba en rojo**. Y las cincuenta que faltan son
+    /// las que más importan: con ellas ya hay relación.
+    ///
+    /// Aquí se siembra a propósito el caso extremo: el archivo trae dos
+    /// direcciones y **las dos ya existen**, así que no se importa a nadie y
+    /// la lista tiene que salir con dos. Con una sola dirección repetida no se
+    /// probaría nada — la lista podría venir de cualquiera de los dos sitios.
+    ///
+    /// Verificada rompiéndola: quitando la llamada a `meter_en_la_lista` de
+    /// `importar_contactos`, `cuantos` sale 0 en vez de 2.
+    #[test]
+    fn importar_a_una_lista_mete_tambien_a_los_que_ya_estaban() {
+        let (_d, db, empresa) = base();
+
+        // Primera importación, sin lista: la gente entra a la empresa.
+        let gente = [
+            contacto(&[(Canal::Correo, "ana@empresa.mx")]),
+            contacto(&[(Canal::Correo, "beto@empresa.mx")]),
+        ];
+        db.importar_contactos(empresa, &lote_de_prueba(), &gente)
+            .expect("primera importación");
+
+        // Segunda: el archivo de «Videovigilancia» trae a los DOS mismos, así
+        // que no se importa nadie nuevo.
+        let lista = db.crear_lista(empresa, "Videovigilancia").expect("crea");
+        let lote = DatosDelLote {
+            lista: Some(lista),
+            direcciones: vec!["ana@empresa.mx".into(), "beto@empresa.mx".into()],
+            choques: 2,
+            ..lote_de_prueba()
+        };
+        let resumen = db
+            .importar_contactos(empresa, &lote, &[])
+            .expect("segunda importación");
+
+        assert_eq!(resumen.importados, 0, "los dos ya estaban");
+
+        let listas = db.listar_listas(empresa).expect("listas");
+        assert_eq!(listas.len(), 1);
+        let primera = listas.first().expect("hay una lista");
+        assert_eq!(
+            primera.cuantos, 2,
+            "la lista tiene a los dos repetidos, que es lo que el archivo pedía"
+        );
+    }
+
+    /// **Y sin lista, importar no crea ninguna.**
+    ///
+    /// La pareja de la de arriba. Sin ella, el filtro podría estar escrito al
+    /// revés —crear siempre una lista con el nombre del archivo— y la de
+    /// arriba seguiría en verde.
+    #[test]
+    fn importar_sin_lista_no_crea_ninguna() {
+        let (_d, db, empresa) = base();
+        let gente = [contacto(&[(Canal::Correo, "ana@empresa.mx")])];
+        db.importar_contactos(empresa, &lote_de_prueba(), &gente)
+            .expect("importa");
+
+        assert!(
+            db.listar_listas(empresa).expect("listas").is_empty(),
+            "sin lista elegida no se inventa ninguna"
+        );
     }
 
     #[test]

@@ -415,6 +415,8 @@ fn importar(
             total_de_filas: tabla.filas.len(),
             choques: analisis.choques.len(),
             invalidas: analisis.invalidas.len() + analisis.rechazadas.len(),
+            lista: None,
+            direcciones: Vec::new(),
         },
         &analisis.listas,
     )?;
@@ -473,6 +475,7 @@ fn activacion(
     let creada = db.crear_campana(
         empresa,
         &CampanaNueva {
+            lista: None,
             nombre: "Campaña del banco",
             cuenta: CUENTA.parse().map_err(|e| format!("cuenta: {e:?}"))?,
             version_de_plantilla: version,

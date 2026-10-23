@@ -92,17 +92,73 @@ const CRITICAS: &[(&str, &str, &str)] = &[
           WHERE campaign_id = ?1 AND state = 'queued' LIMIT 50",
         "idx_attempt_campaign_state",
     ),
+    (
+        // alta_de_campana.rs · la audiencia de una campaña CON LISTA (D-15).
+        //
+        // ── POR QUÉ ÉSTA Y NO LA DE SIN LISTA ────────────────────────────
+        //
+        // Porque son dos consultas distintas y sólo una se puede exigir hoy.
+        // La de sin lista empieza con `SCAN ch` —recorre `contact_channel`
+        // entera— y es parte de los 73.5 s que la auditoría C midió al activar
+        // con 451 196 contactos: un problema declarado, con su cifra, que se
+        // arregla sacando la activación al hilo del motor (Fase 9). Meterla
+        // aquí dejaría esta prueba en rojo permanente, que es como se apaga
+        // una comprobación.
+        //
+        // La de CON lista sí se puede exigir, y es la que importa: es la que
+        // Dirección va a usar, y la que hace que una campaña de trescientas
+        // personas cueste lo que cuestan trescientas. Medido el 23/10/2026
+        // antes de escribirla: la forma obvia —`FROM contact` con un `EXISTS`
+        // sobre la lista— daba `SCAN ch`; entrando por `contact_list_member`
+        // no queda ningún `SCAN`.
+        "la audiencia de una campaña con lista",
+        "SELECT ch.value_normalized, c.id
+           FROM contact_list_member m
+           JOIN contact c ON c.id = m.contact_id
+           JOIN contact_channel ch ON ch.contact_id = c.id
+          WHERE m.list_id = ?4 AND c.company_id = ?2 AND c.status = 'active'
+            AND ch.channel = 'email' AND ch.status = 'active'
+            AND NOT EXISTS (SELECT 1 FROM suppression_entry s
+                             WHERE s.company_id = ?2 AND s.channel = 'email'
+                               AND s.address_normalized = ch.value_normalized)
+          GROUP BY ch.value_normalized",
+        "sqlite_autoindex_contact_list_member_1",
+    ),
 ];
 
 /// El plan que SQLite va a seguir para esta consulta.
 ///
 /// Los parámetros van como nulos: el plan no depende del valor, sólo de la
 /// forma de la consulta y de los índices que haya.
+///
+/// ── CUÁNTOS PARÁMETROS, Y POR QUÉ NO SE CUENTAN LAS INTERROGACIONES ─────
+///
+/// Porque SQLite no cuenta huecos: reserva **hasta el índice más alto**. Una
+/// consulta que usa `?2` dos veces y `?4` una tiene tres interrogaciones y
+/// necesita cuatro parámetros, y la versión anterior de esto fallaba con
+/// `InvalidParameterCount(3, 4)`.
+///
+/// No se vio nunca porque las nueve consultas de la lista usaban `?1 ?2 ?3`
+/// seguidos y sin repetir. La primera que no lo hizo —la audiencia con lista,
+/// 23/10/2026— rompió el instrumento, no la consulta. Es la forma más barata
+/// del defecto de siempre: la comprobación cubría la parte que nadie había
+/// roto.
 fn plan(conn: &Connection, consulta: &str) -> Vec<String> {
     let mut s = conn
         .prepare(&format!("EXPLAIN QUERY PLAN {consulta}"))
         .expect("prepara");
-    let huecos = consulta.matches('?').count();
+    let huecos = consulta
+        .match_indices('?')
+        .filter_map(|(i, _)| {
+            consulta[i + 1..]
+                .chars()
+                .take_while(char::is_ascii_digit)
+                .collect::<String>()
+                .parse::<usize>()
+                .ok()
+        })
+        .max()
+        .unwrap_or(0);
     s.query_map(
         rusqlite::params_from_iter(std::iter::repeat_n(rusqlite::types::Null, huecos)),
         |f| f.get::<_, String>(3),

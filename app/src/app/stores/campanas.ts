@@ -407,6 +407,15 @@ export const useCampanasStore = defineStore('campanas', () => {
      * paso 4 del asistente.
      */
     firma: string | null
+    /**
+     * **A quién va dirigida** (D-15), o `null` para toda la empresa.
+     *
+     * `null` es lo que hacían todas las campañas hasta el 23/10/2026, y sigue
+     * siendo legítimo —un aviso que va a todo el padrón existe—. Lo que no
+     * puede ser es lo que ocurre sin que nadie lo elija: el paso 2 del
+     * asistente lo pregunta con esas palabras.
+     */
+    lista: string | null
     ventana: string
     limitePorHora: number | null
     limiteDiario: number | null

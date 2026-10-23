@@ -631,6 +631,8 @@ mod tests {
                 total_de_filas: 1,
                 choques: 0,
                 invalidas: 0,
+                lista: None,
+                direcciones: Vec::new(),
             },
             &[contacto(&[(Canal::Correo, "ana@empresa.mx")])],
         )

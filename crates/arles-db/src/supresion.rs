@@ -1013,6 +1013,8 @@ mod tests {
                 total_de_filas: 1,
                 choques: 0,
                 invalidas: 0,
+                lista: None,
+                direcciones: Vec::new(),
             },
             std::slice::from_ref(&de_nuevo),
         )

@@ -2105,18 +2105,51 @@ export const es = {
         ayuda: 'Sólo lo ves tú. No sale en el correo.',
       },
 
+      // ── D-15 · a quién va dirigida ────────────────────────────────────
+      //
+      // Hasta el 23/10/2026 este paso decía «en esta versión no hay listas ni
+      // filtros» y no había nada que elegir: toda campaña iba a todo el
+      // padrón. Ahora se elige, y «toda la empresa» sigue estando — pero como
+      // una opción que se toma, no como lo que pasa por omisión.
       audiencia: {
         titulo: 'A quién',
         explicacion:
-          'ARLES escribirá a todos tus contactos activos que tengan correo, ' +
-          'menos los que pidieron no recibir.',
-        // Se dice el alcance real de esta versión en vez de enseñar filtros que
-        // no hacen nada: una opción que no filtra es peor que no tenerla.
-        alcance: 'En esta versión no hay listas ni filtros',
+          'Elige la lista a la que va esta campaña. Mandar una oferta a gente ' +
+          'que no la pidió es lo que más rápido hace que marquen tus correos ' +
+          'como no deseados.',
+        campo: 'A quién va dirigida',
+        // La opción de siempre, nombrada. Se queda la primera porque es la que
+        // hacían todas las campañas hasta hoy, y esconderla haría pensar que
+        // ya no se puede.
+        todaLaEmpresa: 'Toda la empresa · todos tus contactos con correo',
+        // §94: el nombre nunca va solo. «Videovigilancia» puede tener
+        // trescientos o doce, y elegirla sin la cifra es elegir a ciegas.
+        conGente: '{nombre} · {n} contactos',
+        ayuda:
+          'De cualquier lista salen fuera quienes pidieron no recibir. En el ' +
+          'paso 6 verás la cifra exacta.',
+        // Cuando no hay ninguna lista cargada todavía. Es el H-06 en otro
+        // paso: un desplegable con una sola opción y ninguna pista de dónde
+        // se crean las demás.
+        sinListas: 'Todavía no has cargado ninguna lista',
+        sinListasDetalle:
+          'Las listas se cargan al importar un archivo de contactos, en ' +
+          'Contactos › Importar: ahí le pones nombre a la lista y los ' +
+          'contactos de ese archivo entran en ella. Mientras tanto, esta ' +
+          'campaña puede ir a toda la empresa.',
+        // §95 · se dice qué se pierde ANTES de pulsar, no después. Salir del
+        // asistente lo deja a medias, y aquí lo único tecleado es el nombre
+        // porque éste es el paso 2 de 9 — eso es lo que hay que decir, en vez
+        // de esconder la salida o dejar que sorprenda.
+        irAImportar: 'Ir a importar contactos (perderás el nombre que escribiste)',
+        // El aviso de la opción que no filtra nada, para que elegirla sea una
+        // decisión y no un descuido.
+        alcance: 'Esta campaña irá a todos tus contactos',
         alcanceDetalle:
-          'Llegan todos los contactos con correo. Para dejar a alguien fuera, ' +
-          'archiva su contacto o añádelo a la lista de bajas antes de ' +
-          'continuar. En el paso 6 verás la cifra exacta.',
+          'Llegan todos los contactos con correo, menos quienes pidieron no ' +
+          'recibir. Si esta campaña es de un tema concreto, carga su lista en ' +
+          'Contactos › Importar y vuelve: escribir a quien no le interesa es ' +
+          'lo que arriesga tu dominio.',
       },
 
       remitente: {
@@ -2916,6 +2949,26 @@ export const es = {
       choques: '{n} ya estaban en tus contactos y no se duplicaron.',
       fuera: '{n} no se pudieron importar.',
       accion: 'Ver mis contactos',
+    },
+
+    // ── D-15 · a qué lista entran estos contactos ──────────────────────────
+    lista: {
+      titulo: 'A qué lista entran',
+      porQue:
+        'Una lista es el público de una campaña. Si estos contactos son de un ' +
+        'tema concreto, ponles nombre aquí: así puedes mandarles una campaña ' +
+        'de ese tema sin escribir a todos los demás.',
+      campo: 'Nombre de la lista (opcional)',
+      marcador: 'Videovigilancia',
+      // Se dicen las dos cosas que no son obvias: que los repetidos entran
+      // igual —es lo que hace que la lista cuadre con el archivo— y que
+      // dejarlo vacío no es un error.
+      ayuda:
+        'Si ya existe una lista con ese nombre, estos contactos se añaden a ' +
+        'ella. Los que ya estaban en ARLES también entran en la lista. ' +
+        'Déjalo vacío si estos contactos no son de ningún tema concreto.',
+      queHay: 'Listas que ya tienes:',
+      conGente: '{nombre} · {n}',
     },
 
     origen: {

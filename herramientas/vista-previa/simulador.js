@@ -593,6 +593,18 @@
           });
         }
 
+        // ── D-15 · las listas de contactos ───────────────────────────
+        //
+        // La demostración trae dos para que el paso 2 del asistente se pueda
+        // **recorrer**, no sólo mirar: con una sola opción el desplegable no
+        // enseña nada, y con ninguna el aviso de «todavía no has cargado»
+        // taparía el caso normal.
+        case 'listas_de_contactos':
+          return Promise.resolve(e.listas || (e.listas = [
+            { id: 'lst-1', nombre: 'Videovigilancia', cuantos: 312, campanas: 1 },
+            { id: 'lst-2', nombre: 'Desarrollo de aplicaciones', cuantos: 148, campanas: 0 },
+          ]));
+
         case 'suprimir_contacto':
           return Promise.resolve({ nuevas: 1, yaEstaban: 0 });
 

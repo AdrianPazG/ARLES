@@ -12,6 +12,69 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Cada campaña va a su propia lista (D-15)
+
+Hasta hoy **toda campaña iba a todo el padrón**: la audiencia se congelaba como
+«todos los contactos activos de la empresa menos las bajas», sin filtro. Mandar
+una campaña de videovigilancia a quien pidió una aplicación no es ruido — es la
+vía más rápida a que marquen el correo como no deseado, y la tasa de quejas es
+la cifra que más pesa en la reputación de un dominio.
+
+- **Al importar** se le pone nombre a la lista, en Contactos › Importar. Si ya
+  existe una con ese nombre, los contactos se añaden a ella.
+- **El paso 2 del asistente** —que existía desde la 6.6 diciendo «en esta
+  versión no hay listas ni filtros»— ahora elige a quién va dirigida, con la
+  cifra de cada lista al lado del nombre.
+- **La migración V14** ata la lista a la campaña. Las dos tablas de listas
+  estaban en el esquema **desde la V1**, sin nadie que las escribiera: llevaban
+  desde la Fase 6 en los «pendientes conocidos» del validador.
+
+> **Cuatro decisiones que no son obvias, y una medición que cambió el diseño:**
+>
+> 1. **Los repetidos entran en la lista igual.** Trescientas filas con cincuenta
+>    que ya estaban crean doscientos cincuenta contactos; armar la lista con
+>    «los que acabo de crear» dejaría la campaña en 250 de 300 **sin un solo
+>    error**, y las cincuenta que faltan son con las que ya hay relación. La
+>    pertenencia se resuelve por dirección.
+> 2. **Una lista vacía no se convierte en toda la empresa.** Para con
+>    `AudienciaVacia`, con su prueba.
+> 3. **«Toda la empresa» sigue estando**, como opción que se elige y no como lo
+>    que pasa por omisión.
+> 4. **Borrar una lista que una campaña usa no se permite** (`ON DELETE
+>    RESTRICT`). `SET NULL` habría convertido una campaña de 300 en una de
+>    450 000 en silencio; `CASCADE` se habría llevado la campaña.
+>
+> **Y la medición:** la forma obvia de filtrar —un `EXISTS` sobre la lista
+> dejando el `FROM contact` de siempre— recorre `contact_channel` entera aunque
+> la lista tenga trescientos. Medido con `EXPLAIN QUERY PLAN` antes de
+> escribirlo: su plan empieza con `SCAN ch`. Entrando por
+> `contact_list_member` **no queda ningún `SCAN`**, y lo vigila
+> `planes_de_consulta.rs`.
+
+> **Tres defectos propios, los tres vistos rompiendo y no suponiendo:**
+>
+> - **La comprobación nueva leía las pruebas del propio módulo**, así que una
+>   siembra de `INSERT INTO contact_list_member` la satisfacía: romper el
+>   filtro de la audiencia salía en verde. Ahora corta por `mod tests`.
+> - **Una ruptura mal elegida** dio otro falso verde: `contact_list_id` aparece
+>   también en el `SELECT` que lee la lista, así que cambiar la primera
+>   aparición dejaba el síntoma en pie. *Una ruptura que deja el síntoma en pie
+>   no prueba nada.*
+> - **Un comentario afirmaba una verificación imposible** en `listas.rs`:
+>   decía estar verificado «metiendo sólo los recién creados», y esa función no
+>   sabe quién se acaba de crear. La garantía vive un piso más arriba, y ahí
+>   está comprobada.
+
+> **Y el instrumento de los planes de consulta estaba roto para consultas con
+> parámetros repetidos.** Contaba interrogaciones en vez del índice más alto,
+> así que `?2 … ?2 … ?4` pedía tres parámetros cuando SQLite reserva cuatro.
+> Nunca se vio porque las nueve consultas de la lista usaban `?1 ?2 ?3` seguidos
+> y sin repetir: la comprobación cubría la parte que nadie había roto.
+
+> **Lo que esto cuesta:** un respaldo `.arles` tomado con el esquema V13 ya no
+> se puede restaurar. Dirección confirmó que no tiene ninguno, así que hoy el
+> coste real es cero.
+
 ### Una dirección que no es un contacto ya se puede dar de baja
 
 Medir cuánto cuesta apuntar una baja a mano —para saber de qué tamaño es el

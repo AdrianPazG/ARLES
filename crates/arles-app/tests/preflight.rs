@@ -132,6 +132,7 @@ fn base() -> (tempfile::TempDir, Db, CampaignId) {
         .crear_campana(
             empresa(),
             &CampanaNueva {
+                lista: None,
                 nombre: "Septiembre",
                 cuenta: CUENTA.parse().expect("id"),
                 version_de_plantilla: version,

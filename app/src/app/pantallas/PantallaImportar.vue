@@ -24,7 +24,7 @@
  * mantener iguales.
  * ─────────────────────────────────────────────────────────────────────────
  */
-import { computed, onBeforeUnmount } from 'vue'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
@@ -36,9 +36,11 @@ import {
   useImportacionStore,
   type OrigenDeLaLista,
 } from '@/app/stores/importacion'
+import { useListasStore } from '@/app/stores/listas'
 import {
   AAviso,
   ABoton,
+  AEntrada,
   AInsignia,
   AModulo,
   ASelector,
@@ -46,6 +48,7 @@ import {
 } from '@/design/componentes'
 
 const importacion = useImportacionStore()
+const listasStore = useListasStore()
 const router = useRouter()
 const { t, te } = useI18n()
 
@@ -54,6 +57,15 @@ const { t, te } = useI18n()
 onBeforeUnmount(() => {
   if (importacion.paso !== 'hecho') void importacion.cancelar()
 })
+
+// Las listas que ya hay, para poder pulsar una en vez de teclear su nombre
+// (D-15). Se piden al abrir y no al llegar al paso de la lista: así el botón
+// está puesto cuando se llega, en vez de aparecer medio segundo después.
+onMounted(() => {
+  void listasStore.cargar()
+})
+
+const listas = computed(() => listasStore.listas)
 
 const opcionesDeCampo = computed(() =>
   CAMPOS.map((valor) => ({ valor, texto: t(`importacion.campo.${valor}`) })),
@@ -353,6 +365,48 @@ async function terminar(): Promise<void> {
             </li>
           </ul>
         </template>
+      </AModulo>
+
+      <!-- ── A qué lista van (D-15) ─────────────────────────────────────
+           Va ANTES de la declaración de origen y no después: la lista es una
+           decisión sobre estos contactos, y la declaración es el último paso
+           —la casilla que se marca justo antes de pulsar—. Meter un campo
+           entre la casilla y el botón haría marcarla, bajar, escribir, y
+           dudar de si sigue marcada. -->
+      <AModulo :titulo="t('importacion.lista.titulo')">
+        <p class="importar__ayuda">
+          {{ t('importacion.lista.porQue') }}
+        </p>
+
+        <div class="importar__lista">
+          <AEntrada
+            v-model="importacion.lista"
+            :etiqueta="t('importacion.lista.campo')"
+            :marcador="t('importacion.lista.marcador')"
+            :ayuda="t('importacion.lista.ayuda')"
+            autocompletado="off"
+          />
+
+          <!-- Las que ya hay, con su gente. Se ofrecen para pulsar y no sólo
+               para leer: teclear «Videovigilancia» con una letra distinta
+               crea una lista nueva, y entonces la campaña sale a la mitad de
+               la gente sin que nada falle. -->
+          <div
+            v-if="listas.length"
+            class="importar__listas-que-hay"
+          >
+            <span class="importar__ayuda">{{ t('importacion.lista.queHay') }}</span>
+            <ABoton
+              v-for="l in listas"
+              :key="l.id"
+              variante="sutil"
+              tamano="compacto"
+              @click="importacion.lista = l.nombre"
+            >
+              {{ t('importacion.lista.conGente', { nombre: l.nombre, n: l.cuantos }) }}
+            </ABoton>
+          </div>
+        </div>
       </AModulo>
 
       <!-- La declaración de origen (ADR-0013 §1). -->

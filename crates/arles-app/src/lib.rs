@@ -100,6 +100,7 @@ pub fn run() {
             comandos::descargar_plantilla_de_contactos,
             comandos::analizar_importacion,
             comandos::confirmar_importacion,
+            comandos::listas_de_contactos,
             comandos::cancelar_importacion,
             comandos::listar_supresiones,
             comandos::suprimir_contacto,

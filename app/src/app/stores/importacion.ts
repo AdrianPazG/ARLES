@@ -153,6 +153,24 @@ export const useImportacionStore = defineStore('importacion', () => {
   /** El mapeo que el usuario puede corregir. Arranca con el que propone el núcleo. */
   const mapeo = ref<CampoImportable[]>([])
   const origen = ref<OrigenDeLaLista>('formulario_propio')
+
+  /**
+   * A qué lista van estos contactos (D-15).
+   *
+   * ───────────────────────────────────────────────────────────────────────
+   * POR QUÉ UN NOMBRE Y NO UN IDENTIFICADOR
+   *
+   * Porque el camino real tiene dos formas y las dos pasan por aquí: elegir
+   * una lista que ya existe —la tabla de marzo del mismo público— o escribir
+   * una nueva. Con un identificador haría falta crear la lista en otra
+   * pantalla antes de poder importar a ella, y nadie hace eso: carga el
+   * archivo y le pone nombre.
+   *
+   * Rust resuelve las dos con `crear_lista`, que devuelve la existente si ya
+   * se llamaba así. Vacío es «sin lista»: los contactos entran a la empresa y
+   * ya, que es lo que hacían todas las importaciones hasta el 23/10/2026.
+   */
+  const lista = ref('')
   const acepta = ref(false)
   const analisis = ref<Analisis | null>(null)
   const resumen = ref<ResumenDeImportacion | null>(null)
@@ -324,6 +342,7 @@ export const useImportacionStore = defineStore('importacion', () => {
           mapeo: mapeo.value,
           origen: origen.value,
           textoDelConsentimiento: TEXTO_PROVISIONAL,
+          lista: lista.value.trim() || null,
         },
       )
       paso.value = 'hecho'
@@ -358,6 +377,7 @@ export const useImportacionStore = defineStore('importacion', () => {
     archivo,
     mapeo,
     origen,
+    lista,
     acepta,
     analisis,
     resumen,

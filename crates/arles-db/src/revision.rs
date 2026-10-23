@@ -582,6 +582,7 @@ mod tests {
         db.crear_campana(
             empresa(),
             &CampanaNueva {
+                lista: None,
                 nombre: "Septiembre",
                 cuenta: CUENTA.parse().expect("id"),
                 version_de_plantilla: version,
@@ -757,6 +758,7 @@ mod tests {
             .crear_campana(
                 empresa(),
                 &CampanaNueva {
+                    lista: None,
                     nombre: "La mía",
                     cuenta: CUENTA.parse().expect("id"),
                     firma: None,
@@ -869,6 +871,7 @@ mod tests {
             .crear_campana(
                 empresa(),
                 &CampanaNueva {
+                    lista: None,
                     nombre: "Con prisa",
                     cuenta: CUENTA.parse().expect("id"),
                     version_de_plantilla: v,
@@ -990,6 +993,7 @@ mod tests {
             .crear_campana(
                 empresa(),
                 &CampanaNueva {
+                    lista: None,
                     nombre: "Parada",
                     cuenta: CUENTA.parse().expect("id"),
                     version_de_plantilla: v,
