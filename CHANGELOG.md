@@ -12,6 +12,52 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Dos campañas no le escriben a la misma persona el mismo día (D-16)
+
+Quien está en dos listas recibe las dos campañas —son dos mensajes distintos—
+pero **separadas catorce días**. Dos correos de la misma empresa en una tarde
+es lo que hace que alguien marque el segundo como no deseado, y la tasa de
+quejas es la cifra que más pesa en la reputación de un dominio.
+
+- **Se espera, no se cancela.** El envío vuelve a la cola con fecha y sale
+  cuando toca. Sacar de la audiencia a quien recibió algo hace poco habría sido
+  perder el envío **sin que nadie lo supiera**: una audiencia más corta no se
+  distingue de una lista más corta.
+- **Esperar no gasta cupo**: el correo del día queda para el siguiente.
+- **Catorce y no siete**, que es el extremo alto de lo que Dirección pidió.
+  Esperar de más es reversible; esperar de menos deja una queja en el historial
+  del dominio durante meses.
+- **Un envío que *pudo* salir cuenta** (`presumed_sent`, ADR-0004). Contar sólo
+  los seguros haría que un envío ambiguo de ayer no frenara el de hoy.
+- Y **Actividad lo dice**, como séptima razón de que una campaña esté quieta:
+  «Esperando 14 días… No se pierde: sale cuando pasen.»
+
+> **No hizo falta un estado nuevo.** `scheduled_for` existe desde la V1 y la
+> cola ya lo respeta. Un estado nuevo habría que enseñarlo en el registro,
+> contarlo en las cifras, decidir si cuenta como pendiente y añadirlo al
+> `CHECK` de la columna.
+
+> **La migración V15 es un índice, y hacía falta:** ninguno de los cuatro que
+> tenía `message_attempt` empieza por `contact_address` —el único que la lleva
+> es `(campaign_id, channel, contact_address)`, y ésta es justo la consulta que
+> **no** filtra por campaña—. Verificado quitando el índice: la prueba de
+> planes lo caza.
+
+> **Dos defectos míos, los dos encontrados rompiendo y no leyendo:**
+>
+> - **La comprobación nueva no se ejecutaba en ninguna fase.** La registré en
+>   la lista de la fase 8 y la etiqueté como fase 7, así que las cuatro
+>   rupturas salieron en verde. Es el peor defecto posible en una comprobación
+>   —no comprueba nada y da confianza— y sólo lo encontró romperla.
+> - **Y usé `git checkout` sobre un archivo con trabajo sin confirmar**, que es
+>   literalmente lo que este proyecto tiene documentado desde la 8.3 bis que no
+>   se hace. Se llevó `cola.rs` entero: la consulta, el aparcado y el helper.
+>   Rehecho. **Saberlo no basta**: la copia se hace antes, siempre.
+
+> **Y un detalle de SQLite que encontró la prueba:** `strftime('%s', …)`
+> devuelve **texto**, no entero, y `rusqlite` lo rechaza como `i64`. Hace falta
+> `CAST(… AS INTEGER)`.
+
 ### El mismo nombre en dos campañas, con correos distintos (D-15 bis)
 
 Lo preguntó Dirección, y **lo primero que hay que decir es que ARLES ya hacía

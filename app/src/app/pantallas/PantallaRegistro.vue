@@ -129,6 +129,12 @@ function quePaso(s: Suceso): string {
   // y falso. No lo caza ninguna prueba de tipos —los dos son `number | null`—
   // ni ninguna de texto, porque la frase se forma igual. Se vio leyendo la
   // tabla en la demostración.
+  // El descanso (D-16) va con su conteo para que pluralice: «un día» contra
+  // «14 días». Los demás no lo necesitan — sus textos no tienen plural— y
+  // pasarlo a todos cambiaría la frase de `Reintento 2 de 3` sin querer.
+  if (s.clave === 'motor.enDescanso') {
+    return t(s.clave, { dias: s.numeroA ?? '' }, s.numeroA ?? 0)
+  }
   return t(s.clave, {
     cual: s.numeroA ?? '',
     de: s.numeroB ?? '',

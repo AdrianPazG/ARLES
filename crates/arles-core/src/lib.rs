@@ -22,6 +22,7 @@ pub mod cancelacion;
 pub mod cifrado_de_respaldo;
 pub mod contacto;
 pub mod correo;
+pub mod descanso;
 pub mod disyuntor;
 pub mod duracion;
 pub mod email;
@@ -56,6 +57,7 @@ pub use contacto::{
     BorradorDeCanal, BorradorDeContacto, CampoDeContacto, CanalValidado, DatosDeContacto,
     ErrorDeContacto, MAX_CANALES,
 };
+pub use descanso::{DESCANSO_ENTRE_CAMPANAS_DIAS, DESCANSO_MINIMO_DIAS, Descanso, puede_salir};
 pub use disyuntor::{Circuito, Efecto, tras_un_acierto, tras_un_fallo};
 pub use duracion::{Desenlace, DiaDeEnvio, Estimacion, QuienManda, estimar, techo_diario};
 pub use email::EmailAddress;

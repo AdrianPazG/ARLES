@@ -858,6 +858,11 @@ comprobaciones nuevas en `--fase 8`, escritas antes y vistas en rojo.
 > **entero** —no sólo la ruptura—, y se llevó el alcance nuevo y sus tres
 > pruebas. Para restaurar una ruptura se usa una copia del archivo hecha antes,
 > nunca `git checkout` sobre un archivo con trabajo sin confirmar.
+>
+> **Y volvió a pasar el 23/10/2026, con D-16**, sobre `cola.rs`: se llevó la
+> consulta del descanso, el aparcado y su helper. **Saberlo no basta** — es la
+> misma conclusión que los comentarios que se cazan a sí mismos. La copia se
+> hace **antes de la primera ruptura**, siempre, y se restaura desde ella.
 
 **Cerrada la 8.3 bis b · el botón de archivar** (`arles-app/src/archivo.rs` y
 `/ajustes/archivar`). **ARLES archiva el historial entero**: lo escribe, lo

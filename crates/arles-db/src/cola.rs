@@ -52,6 +52,7 @@
 //! La decisión, de ADR-0004: esas filas pasan a `presumed_sent` y **nunca se
 //! reenvían solas**. El usuario las ve con el nombre y la hora, y decide.
 
+use arles_core::Canal;
 use arles_core::attempt::AttemptState;
 use rusqlite::{Connection, OptionalExtension, params};
 
@@ -381,6 +382,80 @@ impl Db {
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
     /// [`DbError::DatoInvalido`] si la fila no estaba en `sending`.
+    /// Cuándo se le escribió por última vez a esta dirección **desde otra
+    /// campaña**, en segundos desde la época (D-16).
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// LOS DOS ESTADOS QUE CUENTAN, Y POR QUÉ SON DOS
+    ///
+    /// - `sent`: el proveedor lo aceptó. Obvio.
+    /// - `presumed_sent`: se llamó al proveedor y **no se sabe** si aceptó
+    ///   (ADR-0004). Cuenta igual, y es la decisión prudente: si pudo salir,
+    ///   no se le vuelve a escribir mañana. Contar sólo los seguros haría que
+    ///   un envío ambiguo de ayer no frenara el de hoy, que es exactamente el
+    ///   hostigamiento que D-16 viene a evitar.
+    ///
+    /// `presumed_sent` **no rellena `sent_at`** —lo deja donde estaba, que es
+    /// nulo— así que la fecha sale de `COALESCE(sent_at, updated_at)`.
+    /// Preguntar por `sent_at IS NOT NULL` habría dejado fuera justo el caso
+    /// dudoso. Medido leyendo `recuperar_al_arrancar`, no supuesto.
+    ///
+    /// Devuelve `None` si nunca se le escribió desde otra campaña.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla.
+    pub fn ultimo_envio_de_otra_campana(
+        &self,
+        direccion: &str,
+        canal: Canal,
+        campana: &str,
+    ) -> Result<Option<i64>, DbError> {
+        self.con_dominio(|conn| ultimo_envio_de_otra_campana_en(conn, direccion, canal, campana))
+    }
+
+    /// Devuelve el envío a la cola **con fecha**, para que salga más tarde.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ `scheduled_for` Y NO UN ESTADO NUEVO
+    ///
+    /// Porque el mecanismo ya existe: `siguiente_candidato` no entrega nada
+    /// cuyo `scheduled_for` esté en el futuro, desde la V1. Un estado nuevo
+    /// habría que enseñarlo en el registro, contarlo en las cifras, decidir si
+    /// cuenta como pendiente y añadirlo al `CHECK` de la columna — cuatro
+    /// sitios para una idea que la cola ya sabía expresar.
+    ///
+    /// **Y el presupuesto no se gasta**: el envío vuelve a `queued` sin pasar
+    /// por el proveedor, así que el cupo del día queda intacto para el
+    /// siguiente de la cola. Esperar no cuesta un correo.
+    ///
+    /// `attempt_count` **no sube**: esto no es un intento fallido, es un
+    /// intento que todavía no ha ocurrido. Subirlo gastaría los reintentos de
+    /// un envío que nunca llegó a salir.
+    ///
+    /// # Errores
+    ///
+    /// - [`DbError::DatoInvalido`] si el intento no estaba tomado.
+    /// - [`DbError::Sqlite`] si la escritura falla.
+    pub fn marcar_en_descanso(&self, id: &str, hasta: &str, ahora: &str) -> Result<(), DbError> {
+        self.con_dominio(|conn| {
+            let filas = conn.execute(
+                "UPDATE message_attempt
+                    SET state = ?1, updated_at = ?2, scheduled_for = ?3,
+                        claimed_at = NULL
+                  WHERE id = ?4 AND state = ?5",
+                params![
+                    AttemptState::Queued.as_str(),
+                    ahora,
+                    hasta,
+                    id,
+                    AttemptState::Claimed.as_str(),
+                ],
+            )?;
+            exigir_una(filas, "el intento no estaba tomado")
+        })
+    }
+
     pub fn marcar_en_espera_de_la_cuenta(
         &self,
         id: &str,
@@ -575,6 +650,48 @@ fn intentar_tomar(conn: &Connection, id: &str, ahora: &str) -> Result<bool, rusq
 /// en vez de fiarse de lo que se leyó aquí.
 ///
 /// El orden es por antigüedad, que es lo que el usuario espera de una cola.
+/// La consulta del último envío, con la conexión ya abierta.
+///
+/// Existe aparte porque **el cerrojo de la conexión no es reentrante**: el
+/// motor la llama desde su bucle, pero las pruebas y cualquier camino futuro
+/// que ya tenga una transacción abierta necesitan esta forma. Es la misma
+/// razón por la que existe `cuentas::salud_en`.
+pub(crate) fn ultimo_envio_de_otra_campana_en(
+    conn: &Connection,
+    direccion: &str,
+    canal: Canal,
+    campana: &str,
+) -> Result<Option<i64>, DbError> {
+    let texto: Option<String> = conn
+        .query_row(
+            "SELECT MAX(COALESCE(sent_at, updated_at))
+               FROM message_attempt
+              WHERE contact_address = ?1 AND channel = ?2
+                AND campaign_id <> ?3
+                AND state IN ('sent', 'presumed_sent')",
+            params![direccion, canal.como_texto(), campana],
+            |f| f.get(0),
+        )
+        .optional()?
+        .flatten();
+
+    let Some(texto) = texto else {
+        return Ok(None);
+    };
+    // `CAST(… AS INTEGER)` y no `strftime` a secas: en SQLite devuelve
+    // **texto**, y `rusqlite` lo rechaza como `i64` con `InvalidColumnType`.
+    // Lo encontró la prueba, no leer la documentación.
+    let segundos: Option<i64> = conn
+        .query_row(
+            "SELECT CAST(strftime('%s', ?1) AS INTEGER)",
+            params![texto],
+            |f| f.get(0),
+        )
+        .optional()?
+        .flatten();
+    Ok(segundos)
+}
+
 fn siguiente_candidato(
     conn: &Connection,
     campana: &str,

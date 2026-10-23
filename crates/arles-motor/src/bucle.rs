@@ -29,6 +29,7 @@
 //! frente, y cada rama del §13 tiene el suyo.
 
 use arles_core::canal::Canal;
+use arles_core::descanso::{DESCANSO_ENTRE_CAMPANAS_DIAS, Descanso, puede_salir};
 use arles_core::disyuntor::{Circuito, Efecto, tras_un_acierto, tras_un_fallo};
 use arles_core::ids::CompanyId;
 use arles_core::reintento::{Decision, Fallo, que_hacer};
@@ -198,6 +199,17 @@ pub enum Paso {
     DadoDeBaja { intento: String },
     /// La cuenta no autentica. **Se detiene la cuenta entera**, no este envío.
     CuentaParada { intento: String },
+    /// Esa persona recibió algo de **otra campaña** hace poco: espera (D-16).
+    ///
+    /// ── NO ES UN FALLO Y NO SE PIERDE NADA ────────────────────────────────
+    ///
+    /// El envío vuelve a la cola con fecha y sale cuando toca. Recibe las dos
+    /// campañas —son dos mensajes distintos—, sólo que no el mismo día, que es
+    /// lo que Dirección pidió el 22/10/2026 «para no hostigar».
+    ///
+    /// Lleva los días que faltan porque una cifra se entiende y «está
+    /// esperando» no (§94).
+    EnDescanso { intento: String, dias: i64 },
     /// El disyuntor de la cuenta está abierto: no se toma trabajo (§7).
     ///
     /// Lleva los segundos que faltan para poder decirlo con una cifra. «La
@@ -250,6 +262,10 @@ impl Paso {
             Self::Cancelado { .. } => "motor.cancelado",
             Self::Aceptado { .. } => "motor.aceptadoPorElProveedor",
             Self::CuentaEnPausa { .. } => "motor.laCuentaEstaEnPausa",
+            // Lleva su propia clave y no una de `reintento`: no es el
+            // desenlace de un intento —el intento no llegó a ocurrir— sino una
+            // razón para no enviar todavía, como estar fuera de la ventana.
+            Self::EnDescanso { .. } => "motor.enDescanso",
 
             // El motivo por el que no cabe un envío ya tiene su texto, y lleva
             // la cifra: «Se alcanzó el tope de 50 envíos al día».
@@ -389,6 +405,43 @@ impl<'a> Trabajador<'a> {
             return Ok(Paso::Baja {
                 intento: trabajo.id,
             });
+        }
+
+        // ── El descanso entre campañas (D-16) ────────────────────────────
+        //
+        // **Después de la baja y antes de enviar**, y el orden no es casual:
+        // una baja es definitiva y un descanso es una espera. Preguntar
+        // primero por el descanso dejaría a alguien que pidió no recibir
+        // esperando catorce días para que, al cabo, se le marque como baja —
+        // el mismo desenlace con dos semanas de retraso y una fila de más en
+        // la cola.
+        //
+        // Se pregunta **en el instante de enviar** y no al encolar, por la
+        // misma razón que la supresión: entre encolar y enviar pueden pasar
+        // meses, y en ese rato la otra campaña pudo escribirle.
+        if let Some(ultimo) = self.db.ultimo_envio_de_otra_campana(
+            &trabajo.direccion,
+            self.ajustes.canal,
+            &self.ajustes.campana,
+        )? {
+            let transcurrido = ahora.unix_timestamp() - ultimo;
+            if let Descanso::Espera { segundos } =
+                puede_salir(transcurrido, DESCANSO_ENTRE_CAMPANAS_DIAS)
+            {
+                // La fecha la calcula quien tiene reloj: el núcleo sólo dice
+                // cuántos segundos faltan (cero I/O).
+                let hasta = ahora + time::Duration::seconds(segundos);
+                let hasta = hasta
+                    .format(&time::format_description::well_known::Rfc3339)
+                    .unwrap_or_else(|_| marca.clone());
+                self.db.marcar_en_descanso(&trabajo.id, &hasta, &marca)?;
+                return Ok(Paso::EnDescanso {
+                    intento: trabajo.id,
+                    // Redondeado hacia arriba: «faltan 0 días» de algo que
+                    // todavía no puede salir se lee como una avería (§94).
+                    dias: segundos.div_euclid(86_400) + i64::from(segundos % 86_400 != 0),
+                });
+            }
         }
 
         if (self.freno)() {
@@ -924,6 +977,157 @@ mod tests {
     /// Verificada rompiéndola el 23/09/2026: quitando la consulta,
     /// `le_pidieron_enviar_a` pasa a devolver `true` y esta prueba falla
     /// diciendo que se le escribió a quien había pedido no recibir.
+    /// Siembra un envío YA SALIDO de otra campaña a esa dirección.
+    ///
+    /// `sent_at` con la fecha que se pida: es lo que decide si el descanso ya
+    /// pasó. La campaña es otra a propósito —`otra-campana`— porque lo que
+    /// D-16 separa son campañas distintas; dos envíos de la misma no existen
+    /// (`idx_attempt_unique` lo impide).
+    fn ya_recibio_de_otra_campana(db: &Db, direccion: &str, cuando: &str) {
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                 VALUES ('otra-campana', '{EMPRESA}', 'La otra', 'running',
+                         '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z');
+                 INSERT INTO message_attempt
+                     (id, campaign_id, channel, contact_address, idempotency_key,
+                      state, attempt_count, sent_at, created_at, updated_at)
+                 VALUES ('viejo', 'otra-campana', 'email', '{direccion}', 'msgid-viejo',
+                         'sent', 1, '{cuando}', '{cuando}', '{cuando}');"
+            ))
+        })
+        .expect("siembra el envío anterior");
+    }
+
+    /// **Dos campañas no le escriben a la misma persona el mismo día (D-16).**
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// LO QUE PIDIÓ DIRECCIÓN, Y LO QUE ESTO NO HACE
+    ///
+    ///   «Me gustaría tener cuidado que no se envíen en el mismo día; si es
+    ///   posible que pase un lapso de 1 o 2 semanas para no hostigar.»
+    ///
+    /// **No se cancela nada.** El envío vuelve a la cola con fecha y sale
+    /// cuando toca: esa persona recibe las dos campañas, sólo que separadas.
+    /// Sacarla de la audiencia habría sido perder el envío sin que nadie lo
+    /// supiera — una audiencia más corta no se distingue de una lista más
+    /// corta.
+    ///
+    /// Se comprueban las tres cosas que tienen que pasar a la vez, porque cada
+    /// una se puede romper sola:
+    ///
+    ///   1. al proveedor **no se le pide nada**;
+    ///   2. el envío sigue en la cola, no se pierde;
+    ///   3. y tiene fecha para más tarde, o volvería a salir en el acto y el
+    ///      motor giraría en vacío.
+    ///
+    /// Verificada rompiéndola: sin la consulta del descanso sale
+    /// `Paso::Aceptado` y `le_pidieron_enviar_a` devuelve `true`.
+    #[test]
+    fn dos_campanas_no_escriben_el_mismo_dia() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        // Le escribimos hace dos horas desde la otra campaña.
+        ya_recibio_de_otra_campana(&db, "ana@x.mx", "2026-09-29T08:00:00Z");
+
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let paso = Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+            .un_paso()
+            .expect("paso");
+
+        assert!(
+            matches!(paso, Paso::EnDescanso { ref intento, .. } if intento == "a"),
+            "tenía que esperar, y salió {paso:?}"
+        );
+        assert!(
+            !p.le_pidieron_enviar_a("ana@x.mx"),
+            "no se le llegó a pedir nada al proveedor"
+        );
+        // Sigue en la cola: no se pierde.
+        assert_eq!(fila(&db, "a", "state").as_deref(), Some("queued"));
+        // Y con fecha, o volvería a salir en el acto.
+        assert!(
+            fila(&db, "a", "scheduled_for").is_some(),
+            "sin fecha, el motor lo tomaría otra vez y giraría en vacío"
+        );
+    }
+
+    /// **Y pasados los catorce días sale.**
+    ///
+    /// La pareja de la anterior. Sin ella, el descanso podría estar escrito
+    /// como «nunca sale si recibió algo alguna vez» y la de arriba seguiría en
+    /// verde — que es perder el envío con otra cara.
+    #[test]
+    fn pasado_el_descanso_el_segundo_correo_sale() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        // Hace más de catorce días: el reloj de las pruebas es el 29/09.
+        ya_recibio_de_otra_campana(&db, "ana@x.mx", "2026-09-01T08:00:00Z");
+
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let paso = Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+            .un_paso()
+            .expect("paso");
+
+        assert_eq!(
+            paso,
+            Paso::Aceptado {
+                intento: "a".to_owned()
+            },
+            "a los veintiocho días ya se le puede escribir"
+        );
+        assert!(p.le_pidieron_enviar_a("ana@x.mx"));
+    }
+
+    /// **El descanso NO frena los envíos de la propia campaña.**
+    ///
+    /// Es el caso que lo convertiría en un desastre: si la consulta no
+    /// excluyera la campaña en curso, el segundo correo de una campaña de mil
+    /// personas esperaría catorce días por culpa del primero, y la campaña
+    /// entera se pararía sola.
+    ///
+    /// No puede pasar por el esquema —`idx_attempt_unique` impide dos intentos
+    /// de la misma campaña a la misma dirección— pero la consulta mira **todas
+    /// las direcciones**, no sólo ésta. Lo que se comprueba es que un envío ya
+    /// salido de ESTA campaña a OTRA persona no frena a nadie.
+    #[test]
+    fn un_envio_de_la_propia_campana_no_frena_al_siguiente() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        // Un envío de ESTA campaña, hace un minuto, a otra persona.
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "INSERT INTO message_attempt
+                     (id, campaign_id, channel, contact_address, idempotency_key,
+                      state, attempt_count, sent_at, created_at, updated_at)
+                 VALUES ('previo', ?1, 'email', 'beto@x.mx', 'msgid-previo',
+                         'sent', 1, '2026-09-29T09:59:00Z', '2026-09-29T09:00:00Z',
+                         '2026-09-29T09:59:00Z')",
+                params![CAMPANA],
+            )
+        })
+        .expect("siembra");
+
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let paso = Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+            .un_paso()
+            .expect("paso");
+
+        assert_eq!(
+            paso,
+            Paso::Aceptado {
+                intento: "a".to_owned()
+            },
+            "la propia campaña no se frena a sí misma"
+        );
+    }
+
     #[test]
     fn quien_pidio_la_baja_no_recibe_nada() {
         let (_d, db) = base();

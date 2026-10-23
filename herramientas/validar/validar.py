@@ -1936,6 +1936,12 @@ MIGRACIONES_PUBLICADAS = {
     # sólo las ata a la campaña.
     "V14__lista_de_la_campana.sql":
         "eab9cd6f92c811847f2af47151cc8a1445a8435ffeb173e92914872552b23507",
+    # El descanso entre campañas (D-16, 22/10/2026): el índice que permite
+    # preguntar, antes de cada envío, cuándo se le escribió por última vez a
+    # esta dirección **desde otra campaña**. Ninguno de los cuatro que había
+    # empieza por `contact_address`.
+    "V15__descanso_entre_campanas.sql":
+        "4a0c07644ba40434a85f859f1e67c77177edef2ca3f6083faeb4ecb022482c20",
 }
 
 
@@ -6734,6 +6740,81 @@ def la_lista_de_la_campana_llega_desde_el_archivo_hasta_el_envio():
     )
 
 
+def el_descanso_entre_campanas_llega_hasta_la_pantalla():
+    """**El cable entero de D-16, de la regla al texto que se lee.**
+
+    ─────────────────────────────────────────────────────────────────────────
+    QUÉ SE PIERDE SI UNO DE LOS CUATRO TRAMOS SE SUELTA
+
+      1. La **regla** vive en el núcleo (`descanso.rs`): cuántos días y qué
+         hacer. Sin ella no hay nada que obedecer.
+      2. La **consulta** vive en `arles-db`: cuándo se le escribió por última
+         vez desde otra campaña. Sin ella, la regla no tiene con qué decidir.
+      3. El **motor** las junta antes de enviar. Si falta este tramo, los dos
+         anteriores pasan sus pruebas y **ARLES escribe dos veces el mismo
+         día** — que es justo lo que D-16 viene a impedir, y nada falla.
+      4. Y el **texto**: sin él, la pantalla de Actividad enseña la clave
+         cruda en la razón por la que la campaña está quieta.
+
+    El tercero es el que no caza nadie más. Es el patrón del §9: cada pieza
+    con sus pruebas y el hueco en la junta.
+
+    Escrita después de construirlo y **vista en rojo en los cuatro tramos**,
+    uno a uno.
+    """
+    faltan = []
+
+    nucleo = sin_comentarios_de_barras(
+        leer("crates", "arles-core", "src", "descanso.rs") or ""
+    )
+    if "DESCANSO_ENTRE_CAMPANAS_DIAS" not in nucleo:
+        faltan.append(
+            "arles-core no declara el descanso: no hay regla que obedecer"
+        )
+
+    db = sin_comentarios_de_barras(leer("crates", "arles-db", "src", "cola.rs") or "")
+    if "ultimo_envio_de_otra_campana" not in db:
+        faltan.append(
+            "arles-db no sabe cuándo se le escribió por última vez desde otra "
+            "campaña: la regla no tendría con qué decidir"
+        )
+    if "marcar_en_descanso" not in db:
+        faltan.append(
+            "no hay forma de devolver el envío a la cola con fecha: esperar "
+            "dejaría el envío tomado para siempre"
+        )
+
+    motor = sin_comentarios_de_barras(leer("crates", "arles-motor", "src", "bucle.rs") or "")
+    # El tramo que nadie más caza: que el BUCLE lo pregunte antes de enviar.
+    if "ultimo_envio_de_otra_campana" not in motor:
+        faltan.append(
+            "el motor no consulta el descanso antes de enviar: las dos piezas "
+            "de abajo pasarían sus pruebas y ARLES escribiría dos veces el "
+            "mismo día"
+        )
+    if "marcar_en_descanso" not in motor:
+        faltan.append(
+            "el motor no aparca el envío: lo dejaría tomado o lo devolvería "
+            "sin fecha, y volvería a salir en el acto"
+        )
+
+    # Y el texto, que es lo único que el usuario lee.
+    catalogo = leer("app", "src", "app", "locales", "es.ts") or ""
+    if "enDescanso:" not in catalogo:
+        faltan.append(
+            "`motor.enDescanso` no tiene texto: Actividad enseñaría la clave "
+            "cruda como razón de que la campaña esté quieta"
+        )
+
+    check(
+        7,
+        "el descanso entre campañas llega del núcleo hasta la pantalla",
+        not faltan,
+        el_descanso_entre_campanas_llega_hasta_la_pantalla.__doc__,
+        detalle="\n      ".join(faltan),
+    )
+
+
 def el_desenlace_de_la_simulacion_llega_hasta_la_pantalla():
     """**ARLES ya sabe si una campaña puede terminar, y no lo decía.**
 
@@ -7587,6 +7668,9 @@ def fase_7(rapido=False):
 
     print(f"{GRIS}  el registro de actividad (7.1){FIN}")
     el_motor_no_tira_lo_que_sabe()
+
+    print(f"{GRIS}  el descanso entre campañas (D-16){FIN}")
+    el_descanso_entre_campanas_llega_hasta_la_pantalla()
 
     print(f"{GRIS}  las cifras (7.2){FIN}")
     las_cifras_salen_de_un_solo_sitio()

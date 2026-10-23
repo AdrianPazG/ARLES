@@ -124,6 +124,24 @@ const CRITICAS: &[(&str, &str, &str)] = &[
           GROUP BY ch.value_normalized",
         "sqlite_autoindex_contact_list_member_1",
     ),
+    (
+        // cola.rs · el descanso entre campañas (D-16). EL CAMINO DE ENVÍO:
+        // esto se pregunta **antes de cada correo**, así que un `SCAN` aquí no
+        // cuesta una pantalla lenta — cuesta los 73.5 s de la auditoría C
+        // multiplicados por cada destinatario.
+        //
+        // Ninguno de los cuatro índices que había empieza por
+        // `contact_address`: el único que la lleva es `idx_attempt_unique`,
+        // que es `(campaign_id, channel, contact_address)`, y esta consulta es
+        // justo la que **no** filtra por campaña.
+        "el descanso entre campañas",
+        "SELECT MAX(COALESCE(sent_at, updated_at))
+           FROM message_attempt
+          WHERE contact_address = ?1 AND channel = ?2
+            AND campaign_id <> ?3
+            AND state IN ('sent', 'presumed_sent')",
+        "idx_attempt_por_direccion",
+    ),
 ];
 
 /// El plan que SQLite va a seguir para esta consulta.

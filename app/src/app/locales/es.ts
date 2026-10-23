@@ -1064,6 +1064,21 @@ export const es = {
     fueraDeVentana: 'Fuera del horario de envío',
     noHayTrabajo: 'No queda nada por enviar ahora mismo',
     cancelado: 'Cancelado antes de salir',
+    // D-16 · recibió algo de otra campaña hace poco, así que ESPERA.
+    //
+    // «Esperando» a secas se lee como una avería. Lo que lo convierte en un
+    // hecho es decir por qué y cuánto falta, que es el §94 y el §95 a la vez:
+    // qué pasó, y qué está a salvo —nada se pierde—.
+    // D-16 · recibió algo de otra campaña hace poco, así que ESPERA.
+    //
+    // Lleva los días (§94): «esperando» a secas se lee como una avería, y
+    // «faltan 14 días» es un hecho. Y dice que nada se pierde, que es la
+    // tercera parte del §95 — quien lea esto está viendo una campaña
+    // quieta y necesita saber que el correo sigue en la cola.
+    enDescanso:
+      'Esperando un día para no escribirle dos veces seguidas. No se pierde: ' +
+      'sale cuando pase. | Esperando {dias} días para no escribirle dos veces ' +
+      'seguidas. No se pierde: sale cuando pasen.',
     // §65: el proveedor se hizo cargo. No sabemos si llegó al buzón.
     aceptadoPorElProveedor: 'Aceptado por el proveedor',
     // {minutos} es una cifra: «vuelve a intentarlo en 23 minutos» es un hecho;

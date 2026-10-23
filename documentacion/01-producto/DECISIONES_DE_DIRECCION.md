@@ -707,7 +707,50 @@ decida por descuido:
 
 ---
 
-### D-16 · Un contacto en dos campañas recibe las dos, pero no en la misma semana
+### D-16 · Un contacto en dos campañas recibe las dos, pero no en la misma semana · ✅ **construida el 23/10/2026**
+
+> **Cómo quedó, y las cuatro decisiones que no son obvias.**
+>
+> **Catorce días**, que es el extremo alto de lo que Dirección pidió («1 o 2
+> semanas»). Se toma el alto porque **el error de esperar de más es reversible
+> y el de esperar de menos no**: una campaña que tarda dos semanas más se
+> explica; una queja de spam se queda en el historial del dominio durante meses
+> y no hay forma de retirarla. Y el coste es pequeño — sólo afecta a quien está
+> en dos listas, no a la campaña entera.
+>
+> 1. **Se espera, no se cancela.** Lo cómodo habría sido sacar de la audiencia
+>    a quien recibió algo hace poco, y eso es **perder el envío**: esa persona
+>    no recibiría nunca la segunda campaña y nadie lo sabría, porque una
+>    audiencia más corta no se distingue de una lista más corta. El envío
+>    vuelve a la cola **con fecha** y sale cuando toca.
+> 2. **Y esperar no gasta cupo.** El envío vuelve a la cola sin pasar por el
+>    proveedor, así que el correo del día queda para el siguiente de la cola.
+> 3. **Un envío que *pudo* salir cuenta.** `presumed_sent` —se llamó al
+>    proveedor y no se sabe si aceptó, ADR-0004— frena igual que un `sent`. Es
+>    la decisión prudente: contar sólo los seguros haría que un envío ambiguo de
+>    ayer no frenara el de hoy, que es el hostigamiento que esto viene a evitar.
+> 4. **Se pregunta en el instante de enviar**, no al encolar, por la misma
+>    razón que la lista de bajas: entre encolar y enviar pueden pasar meses, y
+>    en ese rato la otra campaña pudo escribirle.
+>
+> **No hace falta un estado nuevo.** `scheduled_for` existe desde la V1 y la
+> cola ya lo respeta: un estado nuevo habría que enseñarlo en el registro,
+> contarlo en las cifras, decidir si cuenta como pendiente y añadirlo al
+> `CHECK` de la columna — cuatro sitios para una idea que la cola ya sabía
+> expresar.
+>
+> **Y Actividad lo dice.** Es la séptima razón por la que una campaña está
+> quieta, con su cifra: «Esperando 14 días para no escribirle dos veces
+> seguidas. No se pierde: sale cuando pasen.» Los días van en días y no en
+> segundos a propósito: trescientas esperas de catorce días son **una línea** en
+> el registro, no trescientas.
+>
+> La migración V15 añade el índice que lo hace barato: **ninguno de los cuatro
+> que había empieza por `contact_address`**, y esto se pregunta antes de cada
+> correo. Lo vigila `planes_de_consulta.rs`, verificado quitando el índice.
+>
+> El cable entero lo vigila
+> `el_descanso_entre_campanas_llega_hasta_la_pantalla` en `--fase 7`.
 
 **Fecha:** 22 de octubre de 2026 · **Pedida por:** Dirección · **Gobierna:** la
 activación de campañas

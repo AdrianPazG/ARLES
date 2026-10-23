@@ -344,6 +344,23 @@ fn cifras_del_paso(paso: &Paso) -> (Option<&str>, Option<i64>, Option<i64>) {
         Paso::CuentaEnPausa { segundos_restantes } => {
             (None, i64::try_from(*segundos_restantes).ok(), None)
         }
+        // ── EL DESCANSO NO ES UN DESENLACE (D-16) ──────────────────────────
+        //
+        // `intento` va a `None` **a propósito**, aunque el paso lo lleve: lo
+        // que decide si algo es desenlace es `intento.is_some()`, y un
+        // desenlace es algo que le pasó a un envío. Aquí el envío **no
+        // ocurrió** — está esperando, y sigue en la cola.
+        //
+        // Con `Some`, cada espera se anotaría como un envío más en el
+        // registro, y la campaña diría que mandó trescientos correos que
+        // todavía no ha mandado. Y además se perdería lo que sí hace falta:
+        // que esto aparezca como **la razón por la que no sale nada**, que es
+        // la lista que sólo lee los sucesos de bucle.
+        //
+        // Los días van en `numero_a` porque el texto los pide, y van en días
+        // —no en segundos— para que `anotar_si_cambia` recorte: trescientas
+        // esperas de catorce días son **una línea**, no trescientas.
+        Paso::EnDescanso { dias, .. } => (None, Some(*dias), None),
         // ── EL TOPE, CON SU CIFRA ──────────────────────────────────────────
         //
         // Sin esto, `SinPresupuesto` caía en el `_` de abajo y se anotaba sin
