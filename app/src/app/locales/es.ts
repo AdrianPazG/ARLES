@@ -2719,6 +2719,10 @@ export const es = {
     explicacion:
       'Estas personas pidieron no recibir más, o su dirección dejó de funcionar. ARLES no les escribe, y se queda con el registro aunque borres su contacto: es lo que hace que la baja dure.',
     nota: '{cuantas} de {total}',
+    // El encabezado de la lista. Existe desde que la pantalla tiene también el
+    // formulario de apuntar: sin él, la tabla cuelga del `h2` de ese
+    // formulario para quien navega por encabezados.
+    listaTitulo: 'Las bajas apuntadas',
     cargando: 'Buscando las bajas…',
     vacioTitulo: 'Nadie ha pedido darse de baja',
     vacioCuerpo:
@@ -2739,6 +2743,42 @@ export const es = {
     },
     global: 'Todos sus canales',
     sinContacto: 'Sin contacto en ARLES',
+
+    // ── Apuntar una baja a mano ─────────────────────────────────────────────
+    //
+    // Hasta el 23/10/2026 esta pantalla no tenía dónde escribir una dirección:
+    // la única forma de apuntar una baja era la ficha de un contacto, y eso
+    // exige que la dirección SEA un contacto. El caso que de verdad llega no lo
+    // es —a alguien le reenviaron el correo, o contesta desde otra dirección
+    // suya—, así que esas bajas no se podían apuntar de ninguna forma.
+    apuntar: {
+      titulo: 'Apuntar una baja a mano',
+      // Se dice lo que lo distingue de dar de baja un contacto, porque si no
+      // se lee como el mismo botón dos veces.
+      explicacion:
+        'Para cuando alguien te pide no recibir más y su dirección no está en tus contactos: le reenviaron el correo, o te escribe desde otra dirección suya. ARLES no volverá a escribir a esa dirección, aunque nunca haya estado en tu lista.',
+      direccion: 'Dirección o número',
+      direccionMarcador: 'ana{\'@\'}empresa.mx',
+      direccionAyuda:
+        'Tal como te la escribieron. ARLES la ordena por su cuenta para poder compararla al enviar.',
+      canal: 'Por dónde te escribió',
+      motivo: 'Por qué',
+      // Se avisa de lo que no se puede deshacer ANTES de guardarlo, no después.
+      motivoAyuda:
+        '«Pidió la baja» y «Marcó el correo como no deseado» no se pueden deshacer desde ARLES. «Se añadió a mano» sí.',
+      notas: 'Notas (opcional)',
+      notasMarcador: 'Contestó al correo del 23 de octubre',
+      notasAyuda:
+        'Dónde y cuándo te lo pidió. Es lo que te deja explicarlo dentro de un año.',
+      boton: 'Apuntar la baja',
+      faltaLaDireccion: 'Escribe la dirección o el número para poder apuntarla.',
+      // Dos acuses, y las dos son éxito: apuntar dos veces la misma baja no es
+      // un error que nadie tenga que arreglar, y decir lo mismo en los dos
+      // casos haría apuntarla otra vez sin saberlo.
+      hecha: 'Apuntada. ARLES ya no escribe a esa dirección.',
+      yaEstaba:
+        'Esa dirección ya estaba en la lista, así que no hacía falta: ARLES tampoco le escribía antes.',
+    },
 
     columna: {
       direccion: 'Dirección',

@@ -210,6 +210,53 @@ export const useSupresionStore = defineStore('supresion', () => {
   }
 
   /**
+   * Da de baja **una dirección**, sea o no un contacto de la lista.
+   *
+   * ───────────────────────────────────────────────────────────────────────
+   * POR QUÉ HACE FALTA, HABIENDO YA `suprimirContacto`
+   *
+   * Porque ése pide el identificador de un contacto, y el caso que de verdad
+   * llega no lo tiene: alguien contesta «ya no me escriban» desde una
+   * dirección a la que le reenviaron el correo, o desde otra suya, o de un
+   * contacto que ya se borró. Hasta el 23/10/2026 esa baja **no se podía
+   * apuntar de ninguna forma** — y la siguiente campaña volvía a escribirle.
+   *
+   * **No se manda la forma normalizada**: se manda lo que se escribió, y la
+   * normaliza Rust con el validador del núcleo. Si la normalizara esta
+   * pantalla, la baja quedaría apuntada en una forma que el motor no encuentra
+   * al comparar — que es peor que no apuntarla, porque parece hecha.
+   *
+   * Devuelve `true` si la baja es nueva y `false` si esa dirección ya estaba.
+   * Las dos son éxito: apuntar dos veces la misma baja no es un error que
+   * nadie tenga que arreglar, y la pantalla lo dice con esas palabras.
+   */
+  async function suprimirDireccion(
+    canal: Canal,
+    direccion: string,
+    motivo: MotivoDeSupresion,
+    notas: string,
+  ): Promise<boolean | null> {
+    errorGeneral.value = null
+    try {
+      if (!hayNucleo()) {
+        errorGeneral.value = 'error.app.sin_nucleo'
+        return null
+      }
+      const nueva = await invocar<boolean>('suprimir_direccion', {
+        canal,
+        direccion,
+        motivo,
+        notas,
+      })
+      await cargar(0)
+      return nueva
+    } catch (e) {
+      fallo(e)
+      return null
+    }
+  }
+
+  /**
    * Vuelve a permitir una dirección.
    *
    * Se pide sin comprobar antes si se puede: **lo decide Rust**, leyendo el
@@ -246,6 +293,7 @@ export const useSupresionStore = defineStore('supresion', () => {
     hayMas,
     cargar,
     suprimirContacto,
+    suprimirDireccion,
     levantar,
   }
 })

@@ -675,6 +675,119 @@ desaparece es la posibilidad de equivocarse en ella.
 
 ---
 
+### R-25 · La baja automática, pedida el 23/10/2026 · 🔎 **espera una decisión**
+
+> **Se numeró R-09 el 23/10/2026 y estaba ocupado** —«editar y dar de baja
+> desde la fila del contacto», cerrado el 21/10—. Dos cosas distintas con el
+> mismo identificador en documentos que Dirección lee es exactamente lo que un
+> identificador existe para evitar. Corregido el mismo día: la letra R va de
+> R-01 a R-24 entre peticiones y riesgos, así que ésta es **R-25**.
+
+> «Al momento que un usuario ya no quiera recibir correos, que ARLES lo dé de
+> baja automáticamente. Así como lo hacen otras páginas web o aplicaciones, eso
+> estaría genial, y no yo tener que darlos de baja manualmente.»
+
+**Lo que ARLES hace hoy**, y conviene decirlo entero porque la mitad ya está:
+
+| | Estado |
+|---|---|
+| Quien pidió la baja **no entra** en una campaña nueva | ✅ verificado el 23/10/2026 rompiéndolo |
+| Quien se da de baja **con la campaña ya en marcha** no recibe | ✅ verificado: la lista se consulta en el instante de enviar, no al encolar |
+| Un rebote duro (`550`) da de baja solo | ✅ desde la Fase 5 |
+| Meta avisa de un bloqueo en WhatsApp y da de baja solo | ✅ desde W.4 |
+| El correo **dice cómo darse de baja** | ✅ desde el 22/10/2026 (R-7) |
+| **Que esa petición llegue a la lista sin que nadie la teclee** | ❌ **esto es R-25** |
+
+Hoy la respuesta con «BAJA» llega al buzón del remitente y **la apunta una
+persona en Bajas**. Eso no es un olvido: es que falta la pieza que lee el buzón.
+
+> **Y hasta el 23/10/2026 ni eso se podía hacer entero.** Medir cuánto cuesta
+> apuntar una baja a mano —para saber de qué tamaño es el problema que R-25
+> resuelve— encontró que la pantalla de Bajas sólo tenía **un buscador**: la
+> única forma de apuntar una baja era la ficha de un contacto, y
+> `suprimir_contacto` exige un `ContactId`.
+>
+> Así que **una dirección que no es un contacto no se podía dar de baja de
+> ninguna forma**, y es justo la que llega: a alguien le reenviaron el correo,
+> o contesta desde otra dirección suya, o su contacto se borró después.
+> `Db::suprimir_direccion` existía desde la Fase 4 —probada, con su cabecera
+> explicando por qué hace falta— y **ningún comando la llamaba**: el patrón del
+> §9 por vigesimotercera vez, y aquí lo que falta no es una función, es que una
+> persona que pidió no recibir vuelve a recibir en la siguiente campaña.
+>
+> Cerrado el 23/10/2026 con el comando, el formulario en `/bajas` y
+> `una_baja_no_exige_que_la_direccion_sea_un_contacto` en `--fase 3`, escrita
+> antes y vista en rojo nombrando los tres tramos. **No sustituye a R-25**: el
+> buzón sigue vaciándolo una persona. Lo que cambia es que ahora puede.
+
+---
+
+**Problema.** Darlo de baja a mano tiene tres fallos, y el tercero es el grave:
+se olvida, tarda —y entre la petición y el apunte puede salir otro correo—, y
+**si nadie vacía ese buzón la persona pidió la baja creyendo que servía**. Eso
+es peor que no haber dado la salida, y con la revisión jurídica abierta (P-09)
+es exactamente el tipo de cosa que un abogado señala.
+
+**Riesgo.** Una petición de baja sin atender es una queja de spam a punto de
+ocurrir, y la tasa de quejas es la cifra que más pesa en la reputación del
+dominio (§1 del reporte). También es un incumplimiento: quien pide no recibir
+tiene derecho a no recibir.
+
+**Impacto.** Hoy, cada semana sin vaciar el buzón. Con una campaña de miles de
+personas, decenas de peticiones.
+
+**Alternativas.** Son tres, y «como lo hacen otras páginas web» es justamente la
+que ARLES no puede hacer:
+
+| | Cómo | Lo que cuesta |
+|---|---|---|
+| **A · Leer el buzón por IMAP** | ARLES entra al buzón del remitente con las mismas credenciales del llavero, busca las respuestas a sus propios envíos, y da de baja a quien escribió «BAJA» | Una dependencia nueva (`cargo deny`), un adaptador con su servidor de mentira —el patrón de `arles-email`—, y **decidir qué cuenta como una baja**: ver abajo |
+| **B · Un enlace de un clic, como las webs** | Lo que hace todo el mundo: `https://…/baja?token=…`. Necesita **un servidor** — ARLES es una aplicación de escritorio | Hosting, dominio, mantenimiento, y **datos personales saliendo del equipo del usuario**, que es justo lo que el producto evita. Es el «relay ciego» que Dirección decidió el 29/09 para contar respuestas de WhatsApp, y no existe |
+| **C · Dejarlo a mano** | Lo de hoy | Los tres fallos de arriba |
+
+**Trade-off.** La **A** automatiza sin infraestructura y usa credenciales que ya
+están guardadas, pero **hay que leer correo de personas**, y eso exige acotarlo
+con cuidado. La **B** da la experiencia que Dirección describe y mete al
+producto en el negocio de alojar datos. La **C** no cuesta nada y falla por
+olvido.
+
+**Recomendación: la A, con cuatro límites escritos antes de empezar.**
+
+1. **Sólo las respuestas a correos que ARLES mandó**, reconocidas por
+   `In-Reply-To` contra el `Message-ID` del envío. Una búsqueda por palabra en
+   todo el buzón leería correo que no es de esto.
+2. **Sólo se mira si la respuesta contiene la palabra clave**, y **no se guarda
+   el cuerpo**: lo que entra en la base es la dirección, el motivo y la fecha —
+   igual que hoy—, nunca el texto que escribió la persona.
+3. **Una respuesta ambigua no da de baja sola: la deja propuesta.** Alguien que
+   escribe «qué precio tiene» no se da de baja, y alguien que escribe «no me
+   mandes más» sí. Entre los dos hay un montón de frases, y **dar de baja de
+   más también es un daño**: se pierde un contacto que no lo pidió. Las dudosas
+   se enseñan para confirmar en un clic, que sigue siendo mejor que teclear.
+4. **La baja es irreversible y no se deshace** (es la regla de la Fase 5), así
+   que el camino automático tiene que fallar del lado de **no dar de baja** y
+   dejarlo propuesto, nunca al contrario.
+
+**Lo que esto necesita en el código**, medido el 23/10/2026:
+
+- Un **quinto origen** en `OrigenDeSupresion` —hoy son `smtp_5xx`, `user`,
+  `import`, `whatsapp_webhook`— y por tanto **una migración**, porque el
+  `CHECK` de la V3 los limita.
+- `message_attempt` tendría que guardar el `Message-ID` que el proveedor
+  devolvió, para poder emparejar la respuesta. Hoy guarda el del proveedor en
+  `provider_message_id`: hay que comprobar si sirve.
+- Un adaptador IMAP en un crate propio con su servidor de mentira, como
+  `arles-email`, porque **lo que habla con la red se prueba contra algo que no
+  es la red**.
+
+**Y una limitación que no desaparece con ninguna de las tres:** quien quiera
+darse de baja y no responda —porque pulsa «no deseado» directamente— no deja
+rastro que ARLES pueda leer. Esa persona sólo aparece en Google Postmaster
+Tools, como una queja. **Es la razón por la que el pie de baja tiene que ser
+fácil de encontrar**, no una letra pequeña.
+
+---
+
 ## Decisiones pendientes
 
 Ver **`02-auditoria/PREGUNTAS_ABIERTAS.md`** para el registro completo.
@@ -685,6 +798,7 @@ Ver **`02-auditoria/PREGUNTAS_ABIERTAS.md`** para el registro completo.
 | P-03 | Origen y consentimiento de los contactos | Fase 3 |
 | P-09 | Marco de protección de datos vigente | ~~Entrega 3.3~~ → **apartado del camino crítico por D-7.** Frena los textos legales visibles y el primer envío real a terceros, no la construcción |
 | P-05 | Dominio y aviso de privacidad para Google | Fase 5 |
+| **R-25** | **¿La baja automática se hace leyendo el buzón por IMAP, o con un enlace de un clic que necesita un servidor?** Pedida el 23/10/2026. **Recomendación: IMAP**, con los cuatro límites escritos arriba — automatiza sin infraestructura y sin que los datos salgan del equipo | Que las bajas se apunten solas |
 | **R-05** | **¿Una imagen en la firma y en la plantilla va adjunta en línea o alojada en un servidor?** La adjunta no delata nada y pesa más; la alojada pesa menos y **le dice a tu servidor cuándo se abrió el correo**, que es lo que ARLES promete no saber (§65). **Recomendación: adjunta en línea, con topes duros de peso.** Ver `07-entrega/RIESGOS-DE-REPUTACION.md` §4 | Las imágenes en los correos |
 
 **Ya no hay bloqueantes de la Fase 2.**

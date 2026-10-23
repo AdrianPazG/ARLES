@@ -211,7 +211,11 @@ tres detalles que ya se pensaron:
 
 **Dos cosas que esto cuesta, y son riesgo real:**
 
-1. **La baja llega a tu buzón y la apunta una persona a mano.** ARLES no lee
+1. **La baja llega a tu buzón y hoy la apunta una persona a mano**, y eso es
+   lo que **R-25** viene a quitar: Dirección lo pidió el 23/10/2026 —«que ARLES
+   lo dé de baja automáticamente»— y está planteado con su recomendación en
+   [`DECISIONES_DE_DIRECCION.md`](../01-producto/DECISIONES_DE_DIRECCION.md).
+   Mientras no esté, **vaciar ese buzón cada semana no es opcional**. ARLES no lee
    buzones (los rebotes asíncronos son de la v1.3). Si nadie vacía ese buzón,
    **estás escribiendo a gente que pidió que no le escribieras** — que es la
    forma más rápida de una queja, y además un problema legal con P-09 abierto.

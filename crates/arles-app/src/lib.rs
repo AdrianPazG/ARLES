@@ -103,6 +103,7 @@ pub fn run() {
             comandos::cancelar_importacion,
             comandos::listar_supresiones,
             comandos::suprimir_contacto,
+            comandos::suprimir_direccion,
             comandos::levantar_supresion,
             comandos::entregar_informe_de_acceso,
             comandos::que_se_borraria,

@@ -12,6 +12,55 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Una dirección que no es un contacto ya se puede dar de baja
+
+Medir cuánto cuesta apuntar una baja a mano —para saber de qué tamaño es el
+problema que **R-25**, la baja automática, viene a resolver— encontró que no se
+podía del todo.
+
+`suprimir_contacto` recibe un `ContactId`, así que la única forma de apuntar una
+baja era la ficha de un contacto. **La dirección que de verdad llega no es un
+contacto**: a alguien le reenviaron el correo, o contesta desde otra dirección
+suya, o su contacto se borró después. Esas bajas **no se podían apuntar de
+ninguna forma**, y la siguiente campaña volvía a escribirles.
+
+`Db::suprimir_direccion` existía desde la Fase 4, probada, con su cabecera
+explicando por qué hace falta —«el motor no tiene ficha»—. Lo que faltaba era el
+comando. Es el patrón del §9 por vigesimotercera vez, y aquí lo que falta no es
+una función: es que una persona que pidió no recibir vuelve a recibir.
+
+- **El comando** `suprimir_direccion`, que normaliza con el validador del núcleo
+  (quinta regla de frontera: la webview no manda su propia normalización, o la
+  baja quedaría apuntada en una forma que el motor no encuentra al comparar).
+- **El formulario en `/contactos/supresion`**, con los tres motivos que decide
+  una persona —no los seis—, notas opcionales y **dos acuses distintos**:
+  «apuntada» y «ya estaba» son los dos éxito, y decir lo mismo en los dos casos
+  haría apuntar dos veces sin saberlo.
+- **`una_baja_no_exige_que_la_direccion_sea_un_contacto`** en `--fase 3`,
+  escrita antes y vista en rojo nombrando los tres tramos; una prueba de
+  `arles-db` para las notas, cuatro de pantalla, y una séptima afirmación en
+  `sonda:supresion`.
+
+> **Cuatro defectos que encontró mirar y medir, con las diez fases en verde:**
+>
+> 1. **El formulario caía detrás de una tabla de hasta cincuenta filas.** En su
+>    propio módulo debajo cumplía la regla —estar también con la lista vacía—
+>    pero a dos mil píxeles de scroll de quien viene a apuntar una baja. Subido
+>    dentro del módulo del título, que es donde se alcanza.
+> 2. **La fila de campos arrancaba desalineada 8 px.** `AModulo` añade aire
+>    `.campo + .campo` (H-09, que pidió Dirección), correcto apilado y no lado a
+>    lado: se lo pone a todos menos al primero. Medido: 343 px contra 351.
+> 3. **La tabla colgaba del encabezado del formulario** para quien navega por
+>    encabezados. La sonda no lo caza y es correcto que no lo cace: `h1 → h2 →
+>    h2` no tiene ningún salto. Lo que estaba mal no es la jerarquía, es lo que
+>    agrupa.
+> 4. **La demostración decía «Apuntada» sobre una lista que no cambiaba.** El
+>    simulador relee su estado en cada llamada y faltaba `escribir(e)`. Lo cazó
+>    la sonda, no leer el código.
+>
+> Y **un defecto de identificación**: la baja automática se numeró **R-09**, que
+> estaba ocupado desde el 21/10. Renumerada a **R-25**.
+
 ### Una comprobación que escribía en el repositorio para medirlo
 
 Al medir las diez fases para poner la cifra al día, la fase 1 dio **52 de 53**.

@@ -28,11 +28,18 @@
  * que el núcleo rechaza, o escondería uno que sí valía.
  * ─────────────────────────────────────────────────────────────────────────
  */
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { resolverError } from '@/app/errores'
-import { POR_PAGINA, useSupresionStore } from '@/app/stores/supresion'
+import {
+  CLAVE_DEL_MOTIVO,
+  MOTIVOS_A_MANO,
+  POR_PAGINA,
+  useSupresionStore,
+  type Canal,
+  type MotivoDeSupresion,
+} from '@/app/stores/supresion'
 import {
   AAviso,
   ABoton,
@@ -40,6 +47,7 @@ import {
   AIcono,
   AInsignia,
   AModulo,
+  ASelector,
   EstadoCargando,
   EstadoVacio,
 } from '@/design/componentes'
@@ -123,6 +131,102 @@ function pagina(delta: number): void {
   const siguiente = Math.max(0, supresion.desde + delta * POR_PAGINA)
   void supresion.cargar(siguiente)
 }
+
+/* ── Apuntar una baja a mano ────────────────────────────────────────────────
+ *
+ * EL HUECO QUE ESTO CIERRA, MEDIDO EL 23/10/2026
+ *
+ * Esta pantalla tenía un buscador y ningún campo para añadir. La única forma
+ * de apuntar una baja era la ficha de un contacto, y eso exige que la
+ * dirección **sea** un contacto. El caso que de verdad llega no lo es: alguien
+ * contesta «ya no me escriban» desde una dirección a la que le reenviaron el
+ * correo, o desde otra suya. Esas bajas no se podían apuntar de ninguna forma.
+ *
+ * Y va en su propio módulo, **fuera** del `v-if` de los estados de la lista:
+ * con cero bajas la pantalla enseña su estado vacío, y el formulario tiene que
+ * estar precisamente entonces — la primera baja se apunta cuando no hay
+ * ninguna.
+ */
+const nuevaDireccion = ref('')
+const nuevoCanal = ref('email')
+const nuevoMotivo = ref<string>(MOTIVOS_A_MANO[0] ?? 'manual')
+const nuevasNotas = ref('')
+const apuntando = ref(false)
+
+/**
+ * Qué pasó al apuntar, en clave de texto (§139).
+ *
+ * Son **dos acuses distintos y las dos son éxito**: «apuntada» y «ya estaba».
+ * Enseñar lo mismo en los dos casos haría apuntar dos veces la misma baja sin
+ * saberlo; enseñar un error en el segundo mandaría a arreglar algo que está
+ * bien. Suprimir es idempotente, y eso se dice (§94).
+ */
+const acuse = ref<string | null>(null)
+
+const opcionesDeCanal = computed(() => [
+  { valor: 'email', texto: t('supresion.canal.correo') },
+  { valor: 'whatsapp', texto: t('supresion.canal.whatsapp') },
+])
+
+/**
+ * Los tres motivos que decide una persona, no los seis.
+ *
+ * Salen de `MOTIVOS_A_MANO`, que es donde está argumentado: los otros tres los
+ * **deduce el sistema** hablando con un servidor, y ofrecerlos aquí dejaría
+ * marcar «rebote permanente» sin que haya habido ningún rebote — y el registro
+ * dejaría de servir para lo único que sirve, explicar dentro de un año por qué
+ * esa persona no recibe.
+ */
+const opcionesDeMotivo = computed(() =>
+  MOTIVOS_A_MANO.map((m) => ({ valor: m, texto: t(CLAVE_DEL_MOTIVO[m]) })),
+)
+
+/** Sin dirección no hay nada que apuntar. Lo demás tiene valor por defecto. */
+const puedeApuntar = computed(
+  () => nuevaDireccion.value.trim() !== '' && !apuntando.value,
+)
+
+/**
+ * El canal elegido, estrechado sin un `as`.
+ *
+ * `ASelector` trabaja con cadenas —un `<select>` no tiene tipos—, así que el
+ * valor vuelve como `string`. Se estrecha preguntando, no afirmando: una
+ * aserción de tipo dejaría pasar cualquier cadena el día que alguien añada una
+ * opción y olvide el tipo.
+ */
+function canalElegido(): Canal {
+  return nuevoCanal.value === 'whatsapp' ? 'whatsapp' : 'email'
+}
+
+/**
+ * Lo mismo con el motivo, y la caída **no es la más cómoda sino la más
+ * prudente**: si el valor no está en la lista, el desplegable se manipuló, y
+ * ahí el lado seguro es la baja que un clic no deshace.
+ */
+function motivoElegido(): MotivoDeSupresion {
+  return MOTIVOS_A_MANO.find((m) => m === nuevoMotivo.value) ?? 'unsubscribe'
+}
+
+async function apuntar(): Promise<void> {
+  acuse.value = null
+  apuntando.value = true
+  try {
+    const nueva = await supresion.suprimirDireccion(
+      canalElegido(),
+      nuevaDireccion.value,
+      motivoElegido(),
+      nuevasNotas.value,
+    )
+    // `null` es un fallo, y ya está contado en `errorGeneral`. Poner un acuse
+    // encima diría que se apuntó algo que no se apuntó.
+    if (nueva === null) return
+    acuse.value = nueva ? 'supresion.apuntar.hecha' : 'supresion.apuntar.yaEstaba'
+    nuevaDireccion.value = ''
+    nuevasNotas.value = ''
+  } finally {
+    apuntando.value = false
+  }
+}
 </script>
 
 <template>
@@ -136,6 +240,98 @@ function pagina(delta: number): void {
       <p class="supresion__explicacion">
         {{ t('supresion.explicacion') }}
       </p>
+
+      <!-- ── Apuntar una baja a mano ───────────────────────────────────
+           DENTRO del módulo del título y ANTES de la lista, por dos razones
+           que tiran en la misma dirección:
+
+             1. Fuera del `v-if` de los estados: con cero bajas la pantalla
+                enseña su estado vacío, y la primera baja se apunta justo
+                entonces. En su propio módulo debajo también se cumplía, pero
+                caía **detrás de una tabla de hasta cincuenta filas** — a dos
+                mil píxeles de scroll de quien viene a apuntar una.
+             2. El encabezado de la pantalla tiene que seguir siendo el `h1`
+                (lo mide la sonda de accesibilidad: no sólo los saltos, también
+                por cuál empieza), así que esto no puede ir encima del módulo.
+
+           La lista sigue siendo lo que da nombre a la pantalla. Lo que cambia
+           es que la acción semanal se alcanza sin buscarla. -->
+      <section class="supresion__apuntar-caja">
+        <h2 class="supresion__apuntar-titulo">
+          {{ t('supresion.apuntar.titulo') }}
+        </h2>
+        <p class="supresion__explicacion">
+          {{ t('supresion.apuntar.explicacion') }}
+        </p>
+
+        <div class="supresion__apuntar">
+          <AEntrada
+            v-model="nuevaDireccion"
+            :etiqueta="t('supresion.apuntar.direccion')"
+            :marcador="t('supresion.apuntar.direccionMarcador')"
+            :ayuda="t('supresion.apuntar.direccionAyuda')"
+            autocompletado="off"
+          />
+          <ASelector
+            v-model="nuevoCanal"
+            :etiqueta="t('supresion.apuntar.canal')"
+            :opciones="opcionesDeCanal"
+          />
+          <ASelector
+            v-model="nuevoMotivo"
+            :etiqueta="t('supresion.apuntar.motivo')"
+            :opciones="opcionesDeMotivo"
+            :ayuda="t('supresion.apuntar.motivoAyuda')"
+          />
+          <AEntrada
+            v-model="nuevasNotas"
+            :etiqueta="t('supresion.apuntar.notas')"
+            :marcador="t('supresion.apuntar.notasMarcador')"
+            :ayuda="t('supresion.apuntar.notasAyuda')"
+            autocompletado="off"
+          />
+        </div>
+
+        <!-- El botón dice POR QUÉ está apagado (§95). Un control que no
+             responde y no se explica se lee como una avería — es el defecto
+             que la 8.2c y la 8.3c tuvieron con «Repite la contraseña» y con
+             «Restaurar y reemplazar». -->
+        <div class="supresion__apuntar-pie">
+          <ABoton
+            :deshabilitado="!puedeApuntar"
+            @click="apuntar"
+          >
+            {{ t('supresion.apuntar.boton') }}
+          </ABoton>
+          <p
+            v-if="!puedeApuntar && !apuntando"
+            class="supresion__falta"
+          >
+            {{ t('supresion.apuntar.faltaLaDireccion') }}
+          </p>
+        </div>
+
+        <AAviso
+          v-if="acuse"
+          tono="exito"
+        >
+          {{ t(acuse) }}
+        </AAviso>
+      </section>
+
+      <!-- ── LA LISTA NECESITA SU PROPIO ENCABEZADO ──────────────────────
+           Y no es cosmética. Con un `h2` encima del formulario y ninguno
+           aquí, todo lo que viene después —las cifras, el buscador y la tabla
+           entera— cuelga de «Apuntar una baja a mano» para quien navega por
+           encabezados: la lista quedaría leída como parte del formulario.
+
+           La sonda de accesibilidad no lo caza, y es correcto que no lo cace:
+           mide los saltos de nivel y por cuál empieza, y `h1 → h2 → h2` no
+           tiene ninguno. Lo que está mal no es la jerarquía, es lo que
+           agrupa. Esto se ve mirando, no midiendo. -->
+      <h2 class="supresion__apuntar-titulo">
+        {{ t('supresion.listaTitulo') }}
+      </h2>
 
       <AAviso
         v-if="errorGeneral"
@@ -382,7 +578,72 @@ function pagina(delta: number): void {
   max-width: 62ch;
 }
 
-.supresion__filtro-parcial {
+/* Dos columnas en pantalla ancha y una en estrecha. `minmax(0, …)` y no
+ * `1fr` a secas: sin el mínimo a cero, una ayuda larga ensancha su columna y
+ * empuja la otra fuera — el defecto que las cinco cabeceras de Contactos
+ * tuvieron a 1024 px. */
+/* La caja de apuntar, separada de la lista por una línea y no sólo por aire:
+ * son dos cosas distintas dentro del mismo módulo, y un hueco a secas las
+ * lee como una sola. */
+.supresion__apuntar-caja {
+  margin-top: var(--arles-space-5);
+  margin-bottom: var(--arles-space-6);
+  padding-bottom: var(--arles-space-6);
+  border-bottom: 1px solid var(--arles-border);
+}
+
+.supresion__apuntar-titulo {
+  margin: 0 0 var(--arles-space-2);
+  font-size: var(--arles-font-size-h3);
+  font-weight: var(--arles-font-weight-semibold);
+  color: var(--arles-text);
+}
+
+/* Dos columnas en ancho y una en estrecho, con los cuatro campos en 2×2.
+ *
+ * Con `28ch` cabían tres y el cuarto bajaba solo a una fila con dos huecos al
+ * lado. Medido antes de tocarlo: 297 px por columna en 923, y «Notas» 146 px
+ * por debajo de los otros tres.
+ *
+ * El `min(…, 100%)` es lo que evita el desborde en estrecho: sin él una
+ * columna de 38ch no cabe en una ventana de 360 px y la rejilla se sale. */
+.supresion__apuntar {
+  display: grid;
+  gap: var(--arles-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(38ch, 100%), 1fr));
+  margin-bottom: var(--arles-space-4);
+}
+
+/* ── LA REJILLA NEUTRALIZA EL AIRE ENTRE CAMPOS APILADOS ─────────────────
+ *
+ * `AModulo` añade 8 px con `.campo + .campo` (H-09, que pidió Dirección el
+ * 16/10/2026): ahí separa la ayuda de un campo de la etiqueta del siguiente
+ * —las dos texto pequeño, que se leían como una sola línea—. En una columna
+ * está bien.
+ *
+ * Lado a lado hace otra cosa: se lo pone a todos menos al primero, así que la
+ * fila entera arranca 8 px por debajo de su primera columna. **Medido antes
+ * de tocar nada**: 343 px el primer campo, 351 los otros dos.
+ *
+ * No se toca la regla del módulo. Sirve para lo suyo, y al otro formulario en
+ * rejilla del proyecto ni siquiera le llega: `FormularioDeContacto` vive en un
+ * modal y no dentro de un `AModulo` — comprobado midiéndolo, los dos campos a
+ * 253 px con margen 0, en vez de darlo por hecho y anotar un defecto que no
+ * existe. El aire entre filas lo pone el `gap`, que es de quien es ese
+ * trabajo. */
+.supresion__apuntar-caja .supresion__apuntar > :deep(.campo + .campo) {
+  margin-top: 0;
+}
+
+/* El botón y el por qué está apagado, en la misma banda y con el aviso
+ * debajo: un aviso que explica un control tiene que verse con el control
+ * delante. */
+.supresion__apuntar-pie {
+  margin-bottom: var(--arles-space-4);
+}
+
+.supresion__filtro-parcial,
+.supresion__falta {
   margin: var(--arles-space-2) 0 0;
   font-size: var(--arles-font-size-caption);
   color: var(--arles-text-muted);

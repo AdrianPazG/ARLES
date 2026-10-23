@@ -1493,6 +1493,7 @@ hueco vive justo entre dos capas que cada una pasa lo suyo.
 | Fase 3 | `contacto`, un comando que además **no hacía falta**: la lista ya trae todos los canales |
 | Fase 2 | **El token `--arles-text-on-danger`, definido y sin usar en `ABoton`.** «Detener» pintaba tinta de acento sobre rojo: 2.41:1 |
 | W.1 / 6.1 | Once claves de i18n que el núcleo devuelve y el catálogo no tenía, más una —`plantilla.variable.miEmpresa`— que apuntaba a un texto inexistente |
+| Fase 4 → 23/10 | **`Db::suprimir_direccion`, probada desde la Fase 4 y sin ningún comando.** `suprimir_contacto` exige un `ContactId`, así que **una dirección que no es un contacto no se podía dar de baja de ninguna forma** — y es justo la que llega: a quien le reenviaron el correo, o quien contesta desde otra dirección suya. Aquí lo que faltaba no es una función: es que alguien que pidió no recibir vuelve a recibir |
 
 Los cinco primeros los caza `validar.py --fase W`:
 `lo_que_se_construye_se_usa`, `ninguna_tabla_se_queda_sin_escritor`,

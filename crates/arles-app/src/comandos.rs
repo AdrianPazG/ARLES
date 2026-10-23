@@ -1046,6 +1046,72 @@ pub struct ResumenDeSupresionParaLaPantalla {
     pub ya_estaban: usize,
 }
 
+/// Da de baja **una dirección**, sea o no un contacto de la lista.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ HACE FALTA, HABIENDO YA `suprimir_contacto`
+///
+/// Porque `suprimir_contacto` pide un `ContactId`, y el caso que de verdad
+/// llega no lo tiene. Alguien contesta «ya no me escriban» desde una dirección
+/// a la que le reenviaron el correo, o desde otra suya, o de un contacto que ya
+/// se borró. Hasta el 23/10/2026 esa baja **no se podía apuntar de ninguna
+/// forma** desde ARLES: la pantalla de bajas sólo tenía un buscador, y la ficha
+/// de un contacto no sirve para una dirección que no es un contacto.
+///
+/// `Db::suprimir_direccion` existía desde la Fase 4, probada, con su cabecera
+/// explicando por qué hace falta. Lo que faltaba era este comando — el patrón
+/// del §9 por vigesimotercera vez, y aquí lo que falta no es una función: es que
+/// una persona que pidió no recibir vuelve a recibir en la siguiente campaña.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LA DIRECCIÓN SE NORMALIZA AQUÍ, CON EL VALIDADOR DEL NÚCLEO
+///
+/// Es la quinta regla de frontera: un tipo validado no entra por JSON. Si la
+/// webview mandara la forma normalizada, mandaría **su** normalización, y la
+/// supresión compara justo esa forma — así que una mayúscula de más dejaría la
+/// baja apuntada en una fila que el motor no encuentra al comparar.
+///
+/// El origen tampoco llega de fuera: lo hizo una persona desde ARLES, y dejar
+/// que la webview lo afirme sería dejarle firmar quién tomó la decisión.
+///
+/// Devuelve `true` si la fila es nueva y `false` si esa dirección ya estaba.
+/// **Las dos son éxito**, y la pantalla lo dice con esas palabras: una baja
+/// apuntada dos veces no es un error que nadie tenga que arreglar.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] con `error.email_invalido` o `error.telefono_invalido` si la
+/// dirección no es una dirección de ese canal.
+#[tauri::command]
+pub fn suprimir_direccion(
+    estado: tauri::State<'_, EstadoApp>,
+    canal: arles_core::Canal,
+    direccion: String,
+    motivo: arles_core::MotivoDeSupresion,
+    notas: String,
+) -> Result<bool, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let pais = pais_de_la_empresa(&estado)?;
+
+    // El mismo validador que usa el alta de un contacto. Dos normalizaciones
+    // serían dos reglas que mantener iguales, y la que decide es ésta.
+    let valor =
+        arles_core::ValorDeCanal::parse(canal, &direccion, &pais).map_err(crate::AppError::Core)?;
+
+    let notas = notas.trim();
+    estado
+        .db()
+        .suprimir_direccion(
+            empresa,
+            canal,
+            valor.normalized(),
+            motivo,
+            arles_core::OrigenDeSupresion::Usuario,
+            if notas.is_empty() { None } else { Some(notas) },
+        )
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))
+}
+
 /// Saca una dirección de la lista, si su motivo lo permite.
 ///
 /// **No se comprueba aquí si se puede.** Se pide, y el repositorio lee el

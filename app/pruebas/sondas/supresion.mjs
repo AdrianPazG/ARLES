@@ -232,6 +232,42 @@ try {
     }
   }
 
+  // ── 7 · Se puede apuntar una baja a mano ────────────────────────────
+  //
+  // Hasta el 23/10/2026 no se podía: la única forma era la ficha de un
+  // contacto, y `suprimir_contacto` exige un `ContactId`. Así que una
+  // dirección a la que le reenviaron el correo **no se podía dar de baja de
+  // ninguna forma**.
+  //
+  // Se mide aquí, en la página de verdad, porque es un cable de cuatro
+  // tramos —formulario, store, comando, lista— y la prueba de componente sólo
+  // alcanza los dos primeros.
+  await pagina.getByLabel('Buscar una dirección o un nombre').fill('')
+  await pagina.waitForTimeout(200)
+
+  const campo = pagina.getByLabel('Dirección o número')
+  if ((await campo.count()) === 0) {
+    mal(
+      'No hay dónde apuntar una baja a mano.\n' +
+        '  Una dirección que no sea un contacto no se puede dar de baja.',
+    )
+  } else {
+    await campo.fill('alguien@reenviado.mx')
+    await pagina.getByRole('button', { name: 'Apuntar la baja' }).click()
+    await pagina.waitForTimeout(500)
+
+    const texto = (await pagina.locator('.supresion').innerText()).replace(/\s+/g, ' ')
+    if (!texto.includes('Apuntada')) {
+      mal('Apuntar una baja no acusa recibo: no se sabe si se guardó.')
+    } else if (!texto.includes('alguien@reenviado.mx')) {
+      // La lista se recarga al apuntar. Si la baja nueva no sale, el acuse
+      // está prometiendo algo que no se puede comprobar en la propia pantalla.
+      mal('La baja recién apuntada no aparece en la lista.')
+    } else {
+      console.log('✓ 7 · se apunta una baja de una dirección que no es contacto.')
+    }
+  }
+
   if (quejas.length) {
     mal(`El navegador se quejó ${quejas.length} veces:`)
     for (const q of quejas.slice(0, 6)) console.error(`    ${q}`)

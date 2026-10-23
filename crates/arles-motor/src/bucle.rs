@@ -549,6 +549,8 @@ impl<'a> Trabajador<'a> {
                     &trabajo.direccion,
                     MotivoDeSupresion::RebotePermanente,
                     OrigenDeSupresion::RespuestaSmtp,
+                    // El motor no escribe notas: aquí no hay nadie escribiendo nada.
+                    None,
                 )?;
                 Ok(Paso::DadoDeBaja { intento: id })
             }
@@ -573,6 +575,8 @@ impl<'a> Trabajador<'a> {
                     &trabajo.direccion,
                     MotivoDeSupresion::Baja,
                     OrigenDeSupresion::RespuestaSmtp,
+                    // El motor no escribe notas: aquí no hay nadie escribiendo nada.
+                    None,
                 )?;
                 Ok(Paso::Baja { intento: id })
             }
@@ -930,6 +934,7 @@ mod tests {
             "ana@x.mx",
             MotivoDeSupresion::Baja,
             OrigenDeSupresion::Usuario,
+            None,
         )
         .expect("suprime");
 

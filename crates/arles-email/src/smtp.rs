@@ -102,7 +102,9 @@ impl lettre::message::header::Header for ListUnsubscribe {
 /// `https` detrás sería anunciar una puerta que no existe, y los filtros lo
 /// comprueban. Se pone sólo el `mailto:`, que es válido y cuenta.
 ///
-/// **La baja llega al buzón de quien envía, y se apunta a mano.** ARLES no lee
+/// **La baja llega al buzón de quien envía, y hoy se apunta a mano** — es
+/// **R-25**, pedida por Dirección el 23/10/2026 y pendiente de decidir entre
+/// leer el buzón por IMAP o montar un servidor con enlace de un clic. ARLES no lee
 /// buzones (ADR-0009/0014: los rebotes asíncronos son de la v1.3), así que esto
 /// no da de baja a nadie por su cuenta — la regla de la Fase 5 sigue entera:
 /// nada antes del `RCPT TO` puede dar de baja a nadie. Quien reciba el correo

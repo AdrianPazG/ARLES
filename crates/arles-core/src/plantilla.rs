@@ -207,7 +207,9 @@ impl Variable {
 /// Si ese buzón no se vacía, la persona pidió la baja y ARLES le sigue
 /// escribiendo — que es peor que no haber dado la salida, porque la pidió
 /// creyendo que servía. Está declarado en `RIESGOS-DE-REPUTACION.md` §R-7 como
-/// una tarea semanal de quien envía, no como una función del producto.
+/// una tarea semanal de quien envía, y como **R-25** desde el 23/10/2026:
+/// Dirección pidió que ARLES dé de baja solo, y la recomendación es leer el
+/// buzón por IMAP. Hasta que exista, la tarea semanal es la única defensa.
 ///
 /// ── EL TEXTO VIVE EN RUST, Y ESO NO CONTRADICE EL §139 ────────────────────
 ///

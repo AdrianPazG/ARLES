@@ -596,6 +596,60 @@
         case 'suprimir_contacto':
           return Promise.resolve({ nuevas: 1, yaEstaban: 0 });
 
+        // Devuelve `true` si la baja es nueva. Y aquí se contestan **los dos
+        // casos**, porque los dos tienen su acuse en la pantalla y el de «ya
+        // estaba» no se podría ver nunca con un `true` fijo: una demostración
+        // que sólo enseña un camino deja el otro sin mirar.
+        //
+        // ── Y LA FILA SE AÑADE DE VERDAD ───────────────────────────────
+        //
+        // Devolver `true` sin tocar `e.supresiones` dejaba la demostración
+        // diciendo «Apuntada» sobre una lista que no cambiaba: quien la
+        // probara creería que no se guardó. Lo cazó `sonda:supresion` al
+        // comprobar el tramo nuevo, no leyendo esto.
+        //
+        // El simulador ya guarda estado para `levantar_supresion` —por eso la
+        // sonda puede ver desaparecer un rebote—, así que lo que faltaba no
+        // era la capacidad: era usarla.
+        case 'suprimir_direccion': {
+          var yaEsta = (e.supresiones || []).filter(function (s) {
+            return (
+              s.direccion.toLowerCase() ===
+                String(args.direccion || '').trim().toLowerCase() &&
+              s.canal === args.canal
+            );
+          })[0];
+          if (yaEsta) return Promise.resolve(false);
+
+          var CLAVE = {
+            unsubscribe: 'supresion.motivo.baja',
+            complaint: 'supresion.motivo.queja',
+            manual: 'supresion.motivo.manual',
+          };
+          // Las dos que pidió la persona no se deshacen con un botón. Es la
+          // regla del núcleo, y la demostración la respeta para que la
+          // pantalla se vea como se va a ver.
+          e.supresiones = (e.supresiones || []).concat([
+            {
+              id: 'n' + Date.now(),
+              canal: args.canal,
+              direccion: String(args.direccion || '').trim().toLowerCase(),
+              motivo: CLAVE[args.motivo] || 'supresion.motivo.manual',
+              sePuedeLevantar: args.motivo === 'manual',
+              deQuien: '',
+              notas: String(args.notas || ''),
+              creada: new Date().toISOString(),
+              global: false,
+            },
+          ]);
+          // `escribir(e)` y no sólo mutar: el simulador **relee su estado en
+          // cada llamada**, así que sin esto la fila se pierde entre apuntar
+          // y recargar la lista — y la pantalla diría «Apuntada» sobre una
+          // lista igual que antes. Lo cazó la sonda, no leer el código.
+          escribir(e);
+          return Promise.resolve(true);
+        }
+
         case 'abrir_sitio_de_telemetry':
           window.open('https://telemetrymx.com', '_blank', 'noopener');
           return Promise.resolve();

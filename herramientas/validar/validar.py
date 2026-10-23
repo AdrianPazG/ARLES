@@ -2799,6 +2799,89 @@ def una_supresion_pedida_no_se_levanta_con_un_boton():
     )
 
 
+def una_baja_no_exige_que_la_direccion_sea_un_contacto():
+    """**Se puede dar de baja una dirección que no está en la lista.**
+
+    ─────────────────────────────────────────────────────────────────────────
+    EL HUECO QUE ESTO CIERRA, MEDIDO EL 23/10/2026
+
+    `suprimir_contacto` recibe un `ContactId`, así que hasta hoy una baja sólo
+    se podía apuntar **si la dirección ya era un contacto**. Y el caso que de
+    verdad llega no es ése: alguien a quien le reenviaron el correo, alguien
+    que contesta desde otra dirección suya, o un contacto que se borró después.
+    Esas direcciones **no se podían dar de baja de ninguna forma** — y la
+    siguiente campaña les volvía a escribir.
+
+    `Db::suprimir_direccion` existe desde la Fase 4, con su prueba y su
+    cabecera explicando por qué hace falta habiendo ya `suprimir`: «el motor no
+    tiene ficha». Lo que no existía era **el comando**. Es el patrón del §9 por
+    vigesimotercera vez, y aquí la consecuencia no es una función que falta: es
+    una persona que pidió no recibir y recibe.
+
+    ─────────────────────────────────────────────────────────────────────────
+    POR QUÉ LOS TRES TRAMOS Y NO SÓLO EL COMANDO
+
+    Porque los tres huecos son distintos y ninguno hace fallar al otro:
+
+        Db::suprimir_direccion → comando → registrado → alguien que lo llame
+
+    `ningun_comando_se_queda_sin_quien_lo_llame` (fase W) cubre los dos
+    últimos. El primero no lo cubre nadie: un método de la base que ningún
+    comando llama no es un comando sin quien lo llame — es un comando que no
+    existe, y eso no deja rastro en `generate_handler!`.
+
+    Escrita **antes** de construir nada y vista fallar nombrando los tres
+    tramos el 23/10/2026.
+    """
+    faltan = []
+
+    # Sin comentarios, siempre: la cabecera de `supresion.rs` nombra
+    # `suprimir_direccion` al explicar por qué existe, y buscarlo en el archivo
+    # entero se cazaría ahí. Es el defecto que este proyecto lleva once veces.
+    app = ""
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "crates", "arles-app", "src")):
+        for f in ficheros:
+            if f.endswith(".rs"):
+                with open(os.path.join(carpeta, f), encoding="utf-8") as fh:
+                    app += fh.read()
+    assert app, "no se leyó el código de arles-app"
+    app_sin_comentarios = sin_comentarios_de_barras(app)
+
+    if ".suprimir_direccion(" not in app_sin_comentarios:
+        faltan.append(
+            "Db::suprimir_direccion — nadie en arles-app la llama, así que una "
+            "dirección que no sea un contacto no se puede dar de baja"
+        )
+
+    lib = sin_comentarios_de_barras(leer("crates", "arles-app", "src", "lib.rs") or "")
+    if "suprimir_direccion," not in lib:
+        faltan.append(
+            "el comando suprimir_direccion no está en generate_handler!, "
+            "así que la webview no lo puede pedir"
+        )
+
+    front = ""
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "app", "src")):
+        for f in ficheros:
+            if f.endswith((".ts", ".vue")) and not f.endswith(".spec.ts"):
+                with open(os.path.join(carpeta, f), encoding="utf-8") as fh:
+                    front += fh.read()
+    assert front, "no se leyó el código de app/src"
+    if "'suprimir_direccion'" not in sin_comentarios_de_barras(front):
+        faltan.append(
+            "ninguna pantalla invoca suprimir_direccion — el comando existiría "
+            "sin botón, que es el hueco de la W.8"
+        )
+
+    check(
+        3,
+        "una baja no exige que la dirección sea un contacto",
+        not faltan,
+        una_baja_no_exige_que_la_direccion_sea_un_contacto.__doc__,
+        detalle="; ".join(faltan),
+    )
+
+
 def el_simulador_rechaza_con_claves_que_existen():
     """Las claves de error del simulador tienen que estar en el catálogo.
 
@@ -3354,6 +3437,7 @@ def fase_3(rapido):
     la_bomba_se_mide_antes_de_abrir_la_hoja()
     la_plantilla_dice_las_columnas_que_lleva()
     una_supresion_pedida_no_se_levanta_con_un_boton()
+    una_baja_no_exige_que_la_direccion_sea_un_contacto()
     el_informe_de_importacion_consulta_las_supresiones()
     la_vista_previa_no_miente_sobre_las_rutas()
     el_simulador_rechaza_con_claves_que_existen()

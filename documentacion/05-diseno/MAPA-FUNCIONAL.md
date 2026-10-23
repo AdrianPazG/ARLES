@@ -168,8 +168,8 @@ usa** — extraídos de los almacenes, no supuestos.
 |---|---|
 | **`/contactos/supresion`** | Las bajas. **Una baja no se borra jamás** |
 | Necesita | Empresa |
-| Comandos | `listar_supresiones`, `suprimir_contacto`, `levantar_supresion` |
-| Qué verificar | Que un contacto dado de baja **no entra** en una campaña nueva |
+| Comandos | `listar_supresiones`, `suprimir_contacto`, `suprimir_direccion`, `levantar_supresion` |
+| Qué verificar | Que un contacto dado de baja **no entra** en una campaña nueva. Y que se puede apuntar una baja de una dirección **que no es un contacto** —a quien le reenviaron el correo— con la lista vacía incluida |
 
 | | |
 |---|---|

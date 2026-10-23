@@ -220,6 +220,18 @@ impl Db {
     /// contacto para poder registrar el rebote dejaría el caso más importante
     /// —una dirección muerta a la que seguimos escribiendo— sin registrar.
     ///
+    /// Y desde el 23/10/2026 **también la usa una persona**, no sólo el motor.
+    /// Es el mismo caso visto desde el otro lado: alguien contesta «ya no me
+    /// escriban» desde una dirección que no está en la lista —le reenviaron el
+    /// correo, o escribe desde otra suya— y hasta hoy esa baja **no se podía
+    /// apuntar de ninguna forma**, porque `suprimir_contacto` exige un
+    /// `ContactId`. Lo cuenta `una_baja_no_exige_que_la_direccion_sea_un_contacto`.
+    ///
+    /// `notas` es lo que esa persona escribió, y en el camino del motor va
+    /// `None`: ahí no hay nadie escribiendo nada, y rellenarlo con la respuesta
+    /// del servidor sería meter texto de fuera en una columna que el registro
+    /// enseña tal cual.
+    ///
     /// Devuelve `true` si la fila es nueva y `false` si ya estaba. Las dos son
     /// éxito: suprimir es idempotente (regla 1 de este archivo).
     ///
@@ -233,6 +245,7 @@ impl Db {
         direccion_normalizada: &str,
         motivo: MotivoDeSupresion,
         origen: OrigenDeSupresion,
+        notas: Option<&str>,
     ) -> Result<bool, DbError> {
         let cuando = ahora();
         self.con(|conn| {
@@ -240,7 +253,7 @@ impl Db {
                 "INSERT OR IGNORE INTO suppression_entry
                      (id, company_id, channel, address_normalized, scope,
                       request_id, reason, origin, notes, created_at, created_by)
-                 VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6, ?7, NULL, ?8, NULL)",
+                 VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6, ?7, ?8, ?9, NULL)",
                 params![
                     SuppressionEntryId::nuevo().to_string(),
                     empresa.to_string(),
@@ -249,6 +262,7 @@ impl Db {
                     AlcanceDeSupresion::Canal.como_texto(),
                     motivo.como_texto(),
                     origen.como_texto(),
+                    notas,
                     cuando,
                 ],
             )?;
@@ -1130,6 +1144,7 @@ mod tests {
             "ana@empresa.mx",
             MotivoDeSupresion::Baja,
             OrigenDeSupresion::Usuario,
+            None,
         )
         .expect("suprime");
 
@@ -1154,6 +1169,7 @@ mod tests {
             "ana@empresa.mx",
             MotivoDeSupresion::Baja,
             OrigenDeSupresion::Usuario,
+            None,
         )
         .expect("suprime");
 
@@ -1191,6 +1207,7 @@ mod tests {
             "ana@empresa.mx",
             MotivoDeSupresion::Baja,
             OrigenDeSupresion::Usuario,
+            None,
         )
         .expect("suprime");
 
@@ -1213,6 +1230,7 @@ mod tests {
                 "rebote@empresa.mx",
                 MotivoDeSupresion::RebotePermanente,
                 OrigenDeSupresion::RespuestaSmtp,
+                None,
             )
             .expect("suprime");
         let segunda = db
@@ -1222,11 +1240,58 @@ mod tests {
                 "rebote@empresa.mx",
                 MotivoDeSupresion::RebotePermanente,
                 OrigenDeSupresion::RespuestaSmtp,
+                None,
             )
             .expect("suprime otra vez");
 
         assert!(primera, "la primera es nueva");
         assert!(!segunda, "la segunda ya estaba");
         assert_eq!(db.contar_supresiones(empresa).expect("cuenta"), 1);
+    }
+
+    /// **Una baja de una dirección que no es un contacto se apunta, con sus
+    /// notas, y la lista la enseña.**
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ ESTA PRUEBA, HABIENDO YA LAS DE ARRIBA
+    ///
+    /// Porque las de arriba comprueban el camino del **motor**, que escribe
+    /// `notes = NULL`. El camino de una persona —`suprimir_direccion` desde la
+    /// pantalla de bajas, desde el 23/10/2026— escribe lo que esa persona
+    /// anotó, y eso es **lo único** que explica dentro de un año dónde pidió
+    /// la baja alguien que no estaba en la lista.
+    ///
+    /// Se comprueba leyendo la fila **por la lista**, no por un `SELECT` de la
+    /// prueba: lo que hay que poder afirmar no es «la columna se escribió», es
+    /// «la nota se ve». Verificada escribiendo `None` en vez de las notas: sale
+    /// en rojo con `left: "", right: "Contestó al correo del 23"`.
+    #[test]
+    fn una_baja_a_mano_guarda_sus_notas_y_no_necesita_contacto() {
+        let (_d, db, empresa) = base();
+
+        let nueva = db
+            .suprimir_direccion(
+                empresa,
+                Canal::Correo,
+                "alguien@reenviado.mx",
+                MotivoDeSupresion::Baja,
+                OrigenDeSupresion::Usuario,
+                Some("Contestó al correo del 23"),
+            )
+            .expect("suprime");
+        assert!(nueva, "la fila es nueva");
+
+        let filas = db.listar_supresiones(empresa, 0, 50).expect("lista");
+        let fila = filas
+            .iter()
+            .find(|f| f.direccion == "alguien@reenviado.mx")
+            .expect("la baja está en la lista");
+
+        assert_eq!(fila.notas, "Contestó al correo del 23");
+        // Y sin contacto detrás: es justo el caso que no se podía apuntar.
+        assert_eq!(fila.de_quien, None, "no hay contacto con esa dirección");
+        // La pidió la persona, así que un botón no la deshace. Lo decide el
+        // núcleo; aquí sólo se comprueba que llega decidido.
+        assert!(!fila.motivo.se_puede_levantar());
     }
 }
