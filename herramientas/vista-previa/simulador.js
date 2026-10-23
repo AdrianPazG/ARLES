@@ -81,7 +81,13 @@
   // fila en lista, choque, inválida o rechazada, y numera las filas como Excel
   // —la primera de datos es la 2—.
   function analizar(e, imp, mapeo) {
-    var inf = { filasDeLasListas: [], choques: [], rechazadas: [], invalidas: [], _listas: [] };
+    var inf = {
+      filasDeLasListas: [], choques: [], rechazadas: [], invalidas: [],
+      // Los dos avisos que la pantalla enseña y el simulador no
+      // contestaba. `suprimidas` lo manda Rust desde la Fase 3; el de
+      // nombres repetidos es del 23/10/2026.
+      suprimidas: [], nombresRepetidos: [], _listas: [],
+    };
     var vistas = {};
     var ya = {};
     (e.contactos || []).forEach(function (c) {
@@ -159,6 +165,34 @@
         creadoEn: ahora(), actualizadoEn: ahora(),
       });
     });
+
+    // ── Los nombres que van a quedar repetidos ─────────────────────────
+    //
+    // Se calcula igual que el núcleo: en minúsculas, recortado, y sin contar
+    // los vacíos. Si la demostración lo calculara de otra forma, enseñaría un
+    // aviso que la aplicación de verdad no da — que es peor que no enseñarlo.
+    var porNombre = {};
+    inf._listas.forEach(function (c) {
+      // Nombre Y apellido, igual que `arles_core::nombre_entero`. Con sólo el
+      // nombre de pila, «Ana Ruiz» y «Ana Pérez» saldrían como repetidas y la
+      // demostración enseñaría un aviso que la aplicación no da.
+      var entero = ((c.nombre || '').trim() + ' ' + (c.apellido || '').trim()).trim();
+      if (!entero) return;
+      var clave = entero.toLowerCase();
+      if (!porNombre[clave]) porNombre[clave] = { nombre: entero, cuantos: 0 };
+      porNombre[clave].cuantos += 1;
+    });
+    Object.keys(porNombre).forEach(function (k) {
+      if (porNombre[k].cuantos > 1) {
+        inf.nombresRepetidos.push({
+          nombre: porNombre[k].nombre,
+          cuantos: porNombre[k].cuantos,
+          yaEstaban: 0,
+        });
+      }
+    });
+    inf.nombresRepetidos.sort(function (a, b) { return b.cuantos - a.cuantos; });
+
     return inf;
   }
 
@@ -398,6 +432,12 @@
             ['Sin', 'Contacto', 'Tercera SA', '', ''],
             ['Mal', 'Escrito', 'Cuarta SA', 'esto-no-es-un-correo', ''],
             ['Repe', 'Tida', 'Quinta SA', 'ana@empresa.mx', ''],
+            // El caso que preguntó Dirección el 23/10/2026: la misma empresa
+            // con dos correos y dos teléfonos. NO chocan —entran los dos— y
+            // disparan el aviso de nombres repetidos, que es lo que hay que
+            // poder ver en la demostración.
+            ['Telemetry', 'Insight', 'Telemetry Insight', 'apazg@telemetrymx.com', '56 1164 4230'],
+            ['Telemetry', 'Insight', 'Telemetry Insight', 'veor@telemetrymx.com', '55 3400 3402'],
           ];
           e.importacion = { enc: enc, filas: filas };
           escribir(e);

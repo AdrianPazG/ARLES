@@ -303,9 +303,11 @@ async function terminar(): Promise<void> {
         <template v-if="importacion.analisis.choques.length > 0">
           <h3 class="importar__subtitulo">
             {{
-              t('importacion.revisar.choques', {
-                n: importacion.analisis.choques.length,
-              })
+              t(
+                'importacion.revisar.choques',
+                { n: importacion.analisis.choques.length },
+                importacion.analisis.choques.length,
+              )
             }}
           </h3>
           <p class="importar__ayuda">
@@ -328,6 +330,84 @@ async function terminar(): Promise<void> {
                     ? t('importacion.revisar.repetidaEnElArchivo', { fila: c.con })
                     : t('importacion.revisar.yaEsDe', { quien: c.con || t('contactos.sinNombre') })
                 }}
+              </span>
+            </li>
+          </ul>
+        </template>
+
+        <!-- ── Quienes ya pidieron no recibir ────────────────────────────
+             El núcleo lo calcula desde la Fase 3 y lo mandaba a la pantalla
+             sin que nadie lo leyera. Entran igual —el contacto existe y es
+             suyo— pero ARLES **no les va a escribir**, y sin decirlo cuentan
+             como alcanzables en la cabeza de quien importó. -->
+        <template v-if="importacion.analisis.suprimidas.length > 0">
+          <h3 class="importar__subtitulo">
+            {{
+              t('importacion.revisar.suprimidas', {
+                n: importacion.analisis.suprimidas.length,
+              })
+            }}
+          </h3>
+          <p class="importar__ayuda">
+            {{ t('importacion.revisar.suprimidasDetalle') }}
+          </p>
+          <ul class="filas">
+            <li
+              v-for="(sup, i) in importacion.analisis.suprimidas.slice(0, 50)"
+              :key="i"
+              class="filas__fila"
+            >
+              <AInsignia tono="neutro">
+                {{ t('importacion.fila', { n: sup.fila }) }}
+              </AInsignia>
+              <span class="filas__dato">{{ sup.direccion }}</span>
+              <span class="filas__motivo">
+                {{ te(sup.motivo) ? t(sup.motivo) : t('supresion.motivo.desconocido') }}
+                <!-- La distinción que importa: quien cerró el correo pero no
+                     el WhatsApp sigue siendo alcanzable por el otro canal. -->
+                <template v-if="sup.sinNingunCanalLibre">
+                  · {{ t('importacion.revisar.sinNingunCanal') }}
+                </template>
+              </span>
+            </li>
+          </ul>
+        </template>
+
+        <!-- ── Nombres que van a quedar repetidos (23/10/2026) ───────────
+             NO es un duplicado, y el texto lo dice: lo que hace único a un
+             contacto es su dirección. Lo que avisa es lo que se ve después —
+             dos filas con el mismo nombre en la lista, y el mismo saludo en
+             los dos correos. -->
+        <template v-if="importacion.analisis.nombresRepetidos.length > 0">
+          <h3 class="importar__subtitulo">
+            {{
+              t(
+                'importacion.revisar.nombresRepetidos',
+                { n: importacion.analisis.nombresRepetidos.length },
+                importacion.analisis.nombresRepetidos.length,
+              )
+            }}
+          </h3>
+          <p class="importar__ayuda">
+            {{ t('importacion.revisar.nombresRepetidosDetalle') }}
+          </p>
+          <ul class="filas">
+            <li
+              v-for="n in importacion.analisis.nombresRepetidos.slice(0, 50)"
+              :key="n.nombre"
+              class="filas__fila"
+            >
+              <AInsignia tono="neutro">
+                {{ t('importacion.revisar.seranN', { n: n.cuantos }) }}
+              </AInsignia>
+              <span class="filas__dato">{{ n.nombre }}</span>
+              <!-- Se separa lo que ya estaba porque cambia qué hacer: si los
+                   dos salen de este archivo, se corrige el archivo. -->
+              <span
+                v-if="n.yaEstaban > 0"
+                class="filas__motivo"
+              >
+                {{ t('importacion.revisar.yaEstaban', { n: n.yaEstaban }) }}
               </span>
             </li>
           </ul>

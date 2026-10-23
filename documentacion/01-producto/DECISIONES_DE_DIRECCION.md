@@ -548,6 +548,78 @@ quiere mandar 400 al día desde un buzón, ARLES se lo enseña en rojo y lo deja
 
 ---
 
+### D-15 bis · El mismo nombre en dos campañas, con correos distintos · ✅ **medido y resuelto el 23/10/2026**
+
+> «En caso que en dos o más campañas diferentes se repitan los contactos, pero
+> tengan correo o números diferentes… para mí lo correcto sería que se
+> respetara la lista ingresada en cada campaña, pero al agregarlos en la lista
+> de contactos, sería separarlos — o no sé si sea posible esto, cambiando la
+> nomenclatura del nombre ingresado.»
+
+**Lo primero es que ARLES ya hacía lo correcto, y se midió antes de opinar.**
+Lo que hace único a un contacto es **su dirección**, nunca su nombre
+(`idx_channel_unique` sobre `(empresa, canal, valor_normalizado)`, desde la
+V3). Así que las dos filas del ejemplo entran como **dos contactos separados**,
+cada uno con su correo y su teléfono, y ninguna pisa a la otra:
+
+    importados: 2
+    fila: nombre="Telemetry Insight"  canales=["apazg@telemetrymx.com", "+525611644230"]
+    fila: nombre="Telemetry Insight"  canales=["veor@telemetrymx.com", "+525534003402"]
+
+Y la lista de Contactos **sí los distingue**: tiene columna de correo y de
+WhatsApp, además de nombre y empresa.
+
+---
+
+**Problema.** Lo que sí pasa es lo que Dirección estaba viendo venir: en la
+columna «Nombre» hay dos filas que dicen lo mismo, y —más importante— **el
+`{{nombre}}` del correo será el mismo para los dos**. Si la columna «Nombre»
+del archivo trae la empresa y no a la persona, los dos reciben «Hola Telemetry
+Insight».
+
+**Riesgo de cambiar el nombre automáticamente** —«Telemetry Insight (2)»—:
+ARLES estaría **inventando un dato que el cliente no escribió**, y ese dato no
+se queda en la pantalla: `{{nombre}}` lo lee la plantilla y acaba **dentro del
+correo**. La persona recibiría «Hola Telemetry Insight (2)», que es peor que
+el problema que resuelve. Y el nombre es dato del cliente: ARLES no lo toca.
+
+**Impacto de no hacer nada.** Ninguno en los datos ni en el envío. Sólo en el
+saludo, y sólo cuando el archivo no trae el nombre de la persona.
+
+**Alternativas.**
+
+| | Qué | Por qué no / sí |
+|---|---|---|
+| **A** · Renombrar solo | «Telemetry Insight (2)» | ❌ Inventa un dato que acaba **en el correo** |
+| **B** · Separar en dos contactos | | ✅ **Ya lo hace**, medido |
+| **C** · Avisar antes de importar | Decir cuántos nombres van a quedar repetidos | ✅ **Construido** |
+| **D** · Un campo propio de referencia | El usuario lo rellena | Más trabajo para el usuario, y no arregla el saludo |
+
+**Recomendación, y lo que se hizo: B + C.** Los contactos siguen separándose
+—que es lo correcto— y la pantalla de importar **avisa antes de confirmar**:
+cuántos nombres se van a repetir, cuántos serán de cada uno, cuántos ya
+estaban en ARLES de un archivo anterior, y qué hacer — poner el nombre de la
+persona en el archivo, porque **ése es el dato que leen las plantillas**.
+
+> **Se compara el nombre ENTERO, no el de pila.** La primera versión comparaba
+> sólo `nombre`, y «Ana Ruiz» y «Ana Pérez» salían como un nombre repetido. En
+> una tabla de trescientas filas hay varias Anas: el aviso habría salido en
+> casi todas las importaciones, y **un aviso que sale siempre deja de leerse**.
+> Corregido antes de entrar, con su prueba.
+>
+> Las **tres capas** que comparan —el núcleo, la base y el simulador de la
+> demostración— tienen que hacerlo igual, o las dos cifras que se suman no se
+> refieren a lo mismo. Lo vigila
+> `el_nombre_repetido_se_compara_igual_en_las_tres_capas` en `--fase 3`.
+
+> **Y el hueco del §9 que apareció al lado.** El núcleo calcula desde la Fase 3
+> **qué filas entran con una dirección que ya pidió no recibir**, lo serializa,
+> y el tipo de TypeScript no lo declaraba: ninguna pantalla lo leía. Quien
+> importaba un archivo con diez bajas dentro los metía —correcto, el contacto
+> es suyo— sin que nadie dijera que **a esos diez ARLES no les va a escribir**.
+> Ahora se enseñan, con su motivo y distinguiendo a quien cerró un canal de
+> quien los cerró todos.
+
 ### D-15 · Cada campaña carga su propia lista de contactos · ✅ **construida el 23/10/2026**
 
 **Fecha:** 22 de octubre de 2026 · **Pedida por:** Dirección · **Gobierna:** el

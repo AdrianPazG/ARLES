@@ -2931,12 +2931,42 @@ export const es = {
       titulo: 'Esto es lo que va a pasar',
       // Cifras, no adjetivos (§94).
       cifras: 'Entran {entran} · se quedan fuera {fuera} · de {total} filas',
-      choques: '{n} ya están en tus contactos',
+      choques: '{n} ya está en tus contactos | {n} ya están en tus contactos',
       choquesDetalle:
         'No se van a duplicar. Si de verdad son personas distintas, corrige ' +
         'el archivo y vuelve a cargarlo.',
       yaEsDe: 'ya la tiene {quien}',
       repetidaEnElArchivo: 'repetida: ya estaba en la fila {fila}',
+
+      // ── Quienes ya pidieron no recibir ─────────────────────────────────
+      //
+      // Entran igual: el contacto es suyo y borrarlo no sería respetar la
+      // baja, sería perder el dato. Lo que hay que decir es que ARLES no les
+      // va a escribir, porque si no cuentan como alcanzables.
+      suprimidas: '{n} ya pidieron no recibir',
+      suprimidasDetalle:
+        'Entran en tus contactos, pero ARLES no les va a escribir: están en ' +
+        'la lista de bajas. No cuentan para el alcance de tus campañas.',
+      sinNingunCanal: 'por todos sus canales',
+
+      // ── Nombres que van a quedar repetidos (23/10/2026) ────────────────
+      //
+      // Lo preguntó Dirección: la misma empresa en dos campañas, con correos
+      // distintos. Lo primero que dice el texto es que NO es un problema,
+      // porque la pregunta era si se mezclaban. Lo segundo es lo que sí pasa.
+      // Pluralizado: «1 nombres» es el defecto que el tablero tuvo con «1
+      // hallazgos abiertos», y se lee como una avería del texto.
+      nombresRepetidos: 'Un nombre se va a repetir | {n} nombres se van a repetir',
+      nombresRepetidosDetalle:
+        'No es un duplicado y no se pierde nada: lo que distingue a un ' +
+        'contacto en ARLES es su correo o su teléfono, no su nombre, así que ' +
+        'entran por separado con lo suyo. Lo que pasa es que en tu lista vas ' +
+        'a ver varias filas con el mismo nombre, y que el saludo del correo ' +
+        'será el mismo para todas. Si la columna «Nombre» de tu archivo trae ' +
+        'la empresa y no a la persona, ponle el nombre de la persona antes de ' +
+        'cargarlo: ese dato es el que leen tus plantillas.',
+      seranN: 'serán {n}',
+      yaEstaban: '{n} ya estaban en ARLES',
       fuera: '{n} no se pueden importar',
       volver: 'Volver a las columnas',
       accion: 'Importar {n} contactos',

@@ -2888,6 +2888,104 @@ def una_baja_no_exige_que_la_direccion_sea_un_contacto():
     )
 
 
+def el_nombre_repetido_se_compara_igual_en_las_tres_capas():
+    """**Las tres capas que comparan nombres comparan lo mismo.**
+
+    ─────────────────────────────────────────────────────────────────────────
+    QUÉ SE PIERDE SI SE SEPARAN
+
+    El aviso de nombres repetidos (23/10/2026) suma dos cifras que calculan
+    sitios distintos: cuántos trae el archivo —`arles-core`— y cuántos había ya
+    —`arles-db`—. Y la demostración lo calcula una tercera vez, en JavaScript.
+
+    Si una compara **sólo el nombre de pila** y otra el nombre entero, las dos
+    cifras no se refieren a lo mismo y el aviso sale con un número inventado:
+    «serán 4» cuando son 2. Una cifra mal es peor que ninguna (§94).
+
+    Y es un error fácil: **la primera versión de esto comparaba sólo el nombre
+    de pila**, en las tres capas, y daba un falso positivo con cada «Ana». Se
+    corrigió antes de entrar; esta comprobación existe para que no vuelva por
+    una de las tres.
+
+    Es el mismo riesgo que `AVISO_DIARIO`, duplicado entre Rust y TypeScript
+    con la comprobación que lo mantiene igual.
+
+    Escrita después de corregir el defecto y **vista en rojo en los tres
+    tramos**, uno a uno.
+    """
+    faltan = []
+
+    # ── 1 · El núcleo, que es quien define la forma ──
+    core = sin_comentarios_de_barras(
+        leer("crates", "arles-core", "src", "analisis.rs") or ""
+    )
+    if "fn nombre_entero" not in core:
+        faltan.append(
+            "arles-core no tiene `nombre_entero`: no hay una forma única que "
+            "las otras capas puedan copiar"
+        )
+    else:
+        # ── EL CUERPO, NO LA FIRMA ──
+        #
+        # La primera versión miraba los 300 caracteres tras el nombre de la
+        # función, y **la ruptura salió en verde**: el parámetro se sigue
+        # llamando `apellido`, así que la palabra estaba ahí aunque el cuerpo
+        # la ignorara. Medir que una cadena aparece no es medir que el sitio
+        # que importa la tenga, que es la lección del `cargo arles`.
+        cuerpo_del_nucleo = core.split("fn nombre_entero", 1)[1]
+        cuerpo_del_nucleo = cuerpo_del_nucleo[cuerpo_del_nucleo.find("{") :][:300]
+        if "apellido" not in cuerpo_del_nucleo:
+            faltan.append(
+                "`nombre_entero` no usa el apellido en su cuerpo: «Ana Ruiz» y "
+                "«Ana Pérez» saldrían como un nombre repetido"
+            )
+
+    # ── 2 · La frontera, que arma los nombres del archivo ──
+    app = sin_comentarios_de_barras(leer("crates", "arles-app", "src", "comandos.rs") or "")
+    if "nombre_entero" not in app:
+        faltan.append(
+            "arles-app no usa `nombre_entero` para armar los nombres del "
+            "archivo: compararía de otra forma que el núcleo"
+        )
+
+    # ── 3 · La base, que cuenta los que ya estaban ──
+    db = sin_comentarios_de_barras(leer("crates", "arles-db", "src", "contactos.rs") or "")
+    cuerpo = db.split("fn cuantos_se_llaman_asi")
+    if len(cuerpo) < 2:
+        faltan.append("arles-db no tiene `cuantos_se_llaman_asi`")
+    elif "last_name" not in cuerpo[1][:1200]:
+        faltan.append(
+            "la consulta de `cuantos_se_llaman_asi` no mira `last_name`: "
+            "contaría por nombre de pila y la cifra del aviso no cuadraría"
+        )
+
+    # ── 4 · Y la demostración, que lo calcula una tercera vez ──
+    sim = sin_comentarios_de_barras(leer("herramientas", "vista-previa", "simulador.js") or "")
+    # Y aquí lo mismo: **el bloque que agrupa**, no una ventana de caracteres
+    # hacia atrás. La primera versión miraba los 900 anteriores al `push` y la
+    # ruptura salió en verde, porque `apellido: apellido` aparece antes, al
+    # armar cada contacto. Segunda vez en la misma comprobación.
+    if "nombresRepetidos.push" not in sim:
+        faltan.append("el simulador no calcula los nombres repetidos")
+    elif "var porNombre" not in sim:
+        faltan.append("el simulador no agrupa por nombre")
+    else:
+        agrupa = sim.split("var porNombre", 1)[1].split("});", 1)[0]
+        if "apellido" not in agrupa:
+            faltan.append(
+                "el simulador agrupa sin el apellido: la demostración "
+                "enseñaría un aviso que la aplicación no da"
+            )
+
+    check(
+        3,
+        "el nombre repetido se compara igual en las tres capas",
+        not faltan,
+        el_nombre_repetido_se_compara_igual_en_las_tres_capas.__doc__,
+        detalle="\n      ".join(faltan),
+    )
+
+
 def el_simulador_rechaza_con_claves_que_existen():
     """Las claves de error del simulador tienen que estar en el catálogo.
 
@@ -3446,6 +3544,7 @@ def fase_3(rapido):
     una_baja_no_exige_que_la_direccion_sea_un_contacto()
     el_informe_de_importacion_consulta_las_supresiones()
     la_vista_previa_no_miente_sobre_las_rutas()
+    el_nombre_repetido_se_compara_igual_en_las_tres_capas()
     el_simulador_rechaza_con_claves_que_existen()
     el_informe_de_acceso_no_deja_cruzar_una_ruta()
     ajustes_es_de_la_aplicacion_y_no_del_negocio()

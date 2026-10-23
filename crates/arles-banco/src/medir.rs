@@ -401,7 +401,16 @@ fn importar(
     // importación, que es el que el presupuesto describe.
     let ya_existen = std::collections::HashMap::new();
     let suprimidas = std::collections::HashMap::new();
-    let analisis = analizar(&mapeo, &tabla.filas, "MX", &ya_existen, &suprimidas);
+    // El banco no mide el aviso de nombres repetidos, así que va vacío: lo
+    // que aquí se cronometra es importar medio millón de filas.
+    let analisis = analizar(
+        &mapeo,
+        &tabla.filas,
+        "MX",
+        &ya_existen,
+        &suprimidas,
+        &std::collections::HashMap::new(),
+    );
 
     let resumen = db.importar_contactos(
         empresa,

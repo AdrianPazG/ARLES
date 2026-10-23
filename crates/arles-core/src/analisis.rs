@@ -120,6 +120,60 @@ pub struct Analisis {
     /// suprimidas: cada dirección es una negativa distinta y la pantalla las
     /// enseña por separado.
     pub suprimidas: Vec<FilaSuprimida>,
+    /// Nombres que van a aparecer **más de una vez** en la lista de contactos.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ ESTO NO ES UN CHOQUE, Y POR QUÉ AUN ASÍ SE DICE
+    ///
+    /// Lo preguntó Dirección el 23/10/2026 con su caso: la misma empresa en
+    /// dos campañas, con correos y teléfonos distintos en cada una.
+    ///
+    /// **No es un duplicado y ARLES hace lo correcto**: lo que hace único a un
+    /// contacto es su dirección, nunca su nombre, así que `apazg@…` y
+    /// `veor@…` entran como dos contactos separados y cada uno conserva lo
+    /// suyo. Medido el 23/10/2026.
+    ///
+    /// Lo que sí pasa son dos cosas, y las dos se ven después:
+    ///
+    ///   1. **En la lista hay dos filas con el mismo nombre.** Se distinguen
+    ///      por su correo y su teléfono, que son columnas propias, pero de un
+    ///      vistazo la columna «Nombre» dice lo mismo dos veces.
+    ///   2. **Y el saludo del correo será el mismo para los dos**, porque
+    ///      `{{nombre}}` sale de ahí. Si la columna «Nombre» del archivo traía
+    ///      la EMPRESA y no la persona —que es el caso del ejemplo—, los dos
+    ///      reciben «Hola Telemetry Insight».
+    ///
+    /// Lo segundo es lo que de verdad importa, y es **lo único que ARLES no
+    /// puede arreglar solo**: no hay de dónde sacar el nombre de la persona si
+    /// el archivo no lo trae. Inventarlo —«Telemetry Insight (2)»— sería
+    /// escribir en el correo un dato que nadie escribió.
+    ///
+    /// Así que se cuenta y se dice, antes de importar.
+    pub nombres_repetidos: Vec<NombreRepetido>,
+}
+
+/// Un nombre que va a quedar repetido, con su cifra (§94).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NombreRepetido {
+    /// Tal y como lo escribió el cliente, con sus mayúsculas.
+    ///
+    /// Se enseña el primero que apareció y no una forma normalizada: lo que
+    /// hay que poder reconocer es lo que está en el archivo.
+    pub nombre: String,
+    /// Cuántos contactos van a llamarse así **al terminar**: los de este
+    /// archivo más los que ya estaban en ARLES.
+    ///
+    /// Los dos sumandos, y no sólo los del archivo, porque el caso que lo
+    /// motivó son **dos archivos distintos** —la campaña de enero y la de
+    /// marzo—, y mirar sólo el que se está cargando no vería nada.
+    pub cuantos: usize,
+    /// Cuántos de ésos ya estaban en ARLES antes de este archivo.
+    ///
+    /// Se separa porque cambia qué hacer: si ya había tres, el archivo no es
+    /// el problema; si los dos salen de aquí, se corrige el archivo y se
+    /// vuelve a cargar.
+    pub ya_estaban: usize,
 }
 
 impl Analisis {
@@ -205,6 +259,14 @@ pub fn analizar(
     pais_por_defecto: &str,
     ya_existen: &HashMap<String, String>,
     suprimidas: &HashMap<String, String>,
+    // Cuántos contactos de ARLES se llaman ya como cada nombre del archivo,
+    // en minúsculas y recortado. Lo cuenta `arles-db` (el núcleo no toca la
+    // base) y aquí sólo se suma.
+    //
+    // Sin esto, el caso que lo motivó —la misma empresa en dos archivos, con
+    // correos distintos— no se vería: mirar sólo el archivo que se está
+    // cargando no encuentra nada repetido.
+    ya_se_llaman_asi: &HashMap<String, usize>,
 ) -> Analisis {
     let mut informe = Analisis::default();
 
@@ -314,7 +376,87 @@ pub fn analizar(
         informe.listas.push(datos);
     }
 
+    informe.nombres_repetidos = contar_nombres_repetidos(&informe.listas, ya_se_llaman_asi);
     informe
+}
+
+/// Nombre y apellido juntos, que es lo que se ve en la lista.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ NO BASTA CON EL NOMBRE DE PILA
+///
+/// Porque «Ana Ruiz» y «Ana Pérez» son dos personas distintas y comparar sólo
+/// el nombre las daría por repetidas. Eso no es un detalle: en una tabla de
+/// trescientas filas hay varias Anas y varios Luises, y un aviso que sale
+/// siempre deja de leerse — que es peor que no tenerlo.
+///
+/// La primera versión de esto comparaba sólo `nombre`, y se corrigió antes de
+/// entrar. Lo que hay que comparar es **lo que el usuario va a ver repetido**
+/// en su lista, y ahí salen los dos campos.
+///
+/// Se usa aquí y en `arles-db`, con la misma forma: si una capa comparara de
+/// otra manera, el recuento de los que ya estaban no cuadraría con el del
+/// archivo y la cifra del aviso saldría mal.
+pub fn nombre_entero(nombre: &str, apellido: &str) -> String {
+    format!("{} {}", nombre.trim(), apellido.trim())
+        .trim()
+        .to_owned()
+}
+
+/// Qué nombres van a quedar repetidos al terminar.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// SE COMPARA SIN MAYÚSCULAS Y RECORTADO, Y NO ES UN DETALLE
+///
+/// «Telemetry Insight», «TELEMETRY INSIGHT» y « Telemetry Insight » son el
+/// mismo nombre para quien lee la lista, y dos tablas de clientes distintos
+/// casi nunca lo escriben igual. Comparando literalmente, el aviso callaría
+/// justo en el caso más frecuente.
+///
+/// **Un nombre vacío no cuenta.** La columna «Nombre» puede no venir en el
+/// archivo, y entonces todas las filas lo tendrían vacío: avisar de que
+/// «quinientos contactos se llaman igual» cuando lo que pasa es que ninguno
+/// tiene nombre es una cifra correcta sobre otra pregunta (§94), y además
+/// taparía el aviso de verdad.
+fn contar_nombres_repetidos(
+    listas: &[DatosDeContacto],
+    ya_se_llaman_asi: &HashMap<String, usize>,
+) -> Vec<NombreRepetido> {
+    let mut del_archivo: HashMap<String, (String, usize)> = HashMap::new();
+    for datos in listas {
+        let entero = nombre_entero(&datos.nombre, &datos.apellido);
+        if entero.is_empty() {
+            continue;
+        }
+        let clave = entero.to_lowercase();
+        let entrada = del_archivo.entry(clave).or_insert_with(|| (entero, 0));
+        entrada.1 += 1;
+    }
+
+    let mut salida: Vec<NombreRepetido> = del_archivo
+        .into_iter()
+        .filter_map(|(clave, (nombre, en_el_archivo))| {
+            let ya_estaban = ya_se_llaman_asi.get(&clave).copied().unwrap_or(0);
+            let cuantos = en_el_archivo + ya_estaban;
+            // Uno solo no es una repetición. Avisar de cada nombre del archivo
+            // sería un informe tan largo como la tabla.
+            (cuantos > 1).then_some(NombreRepetido {
+                nombre,
+                cuantos,
+                ya_estaban,
+            })
+        })
+        .collect();
+
+    // De más repetido a menos, y por nombre para desempatar: dos corridas
+    // sobre el mismo archivo tienen que dar el mismo informe, y el orden de un
+    // `HashMap` no lo garantiza.
+    salida.sort_by(|a, b| {
+        b.cuantos
+            .cmp(&a.cuantos)
+            .then_with(|| a.nombre.cmp(&b.nombre))
+    });
+    salida
 }
 
 /// La clave del primer error, que es la que se enseña en el informe.
@@ -355,6 +497,223 @@ mod tests {
         a.rechazadas.get(i).expect("la fila existe")
     }
 
+    /// **El caso que preguntó Dirección el 23/10/2026, con sus datos.**
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// LO PRIMERO QUE ESTO COMPRUEBA ES QUE **NO** HAY PROBLEMA
+    ///
+    ///   «En caso que en dos o más campañas diferentes se repitan los
+    ///   contactos, pero tengan correo o números diferentes…»
+    ///
+    /// Las dos filas entran como **dos contactos separados** y ninguna
+    /// choca: lo que hace único a un contacto en ARLES es su dirección, nunca
+    /// su nombre. Eso es lo correcto y es lo que ya hacía — medido el mismo
+    /// día contra la base de verdad, no sólo aquí.
+    ///
+    /// Lo que sí pasa es que en la lista quedan dos filas con el mismo nombre,
+    /// y **el `{{nombre}}` del correo será el mismo para los dos**. Eso es lo
+    /// que se cuenta y se dice antes de importar.
+    ///
+    /// Verificada rompiéndola: sin la llamada a `contar_nombres_repetidos`,
+    /// `nombres_repetidos` sale vacío y el assert da `left: 0, right: 1`.
+    #[test]
+    fn dos_correos_del_mismo_nombre_entran_los_dos_y_se_avisa() {
+        let filas = vec![
+            f("Telemetry Insight", "apazg@telemetrymx.com", "5611644230"),
+            f("Telemetry Insight", "veor@telemetrymx.com", "5534003402"),
+        ];
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+        );
+
+        // Lo primero: los dos entran, y no hay ningún choque.
+        assert_eq!(a.cuantas_listas(), 2, "son dos contactos distintos");
+        assert_eq!(a.choques.len(), 0, "distinta dirección no es un choque");
+
+        // Y lo segundo: se avisa de que van a llamarse igual.
+        assert_eq!(a.nombres_repetidos.len(), 1);
+        let r = a.nombres_repetidos.first().expect("hay uno");
+        assert_eq!(r.nombre, "Telemetry Insight");
+        assert_eq!(r.cuantos, 2);
+        assert_eq!(r.ya_estaban, 0, "los dos salen de este archivo");
+    }
+
+    /// **Y el caso de verdad son DOS archivos, no uno.**
+    ///
+    /// Es como lo planteó Dirección: la campaña 1 y la campaña 2. Al cargar el
+    /// segundo archivo, mirar sólo sus filas no encontraría nada repetido —hay
+    /// una sola— y el aviso callaría justo cuando hace falta.
+    ///
+    /// Por eso `analizar` recibe cuántos se llaman ya así, contados en la base.
+    ///
+    /// Verificada rompiéndola: pasando un mapa vacío en vez del recuento, la
+    /// lista de repetidos sale vacía.
+    #[test]
+    fn el_nombre_repetido_de_otro_archivo_tambien_cuenta() {
+        // El segundo archivo trae una sola fila.
+        let filas = vec![f("Telemetry Insight", "veor@telemetrymx.com", "")];
+        // Y en ARLES ya hay uno que se llama así, del archivo anterior.
+        let mut ya = HashMap::new();
+        ya.insert("telemetry insight".to_owned(), 1_usize);
+
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &HashMap::new(),
+            &ya,
+        );
+
+        assert_eq!(a.cuantas_listas(), 1);
+        let r = a.nombres_repetidos.first().expect("se avisa");
+        assert_eq!(r.cuantos, 2, "el del archivo y el que ya estaba");
+        assert_eq!(r.ya_estaban, 1, "y se dice cuál de los dos ya estaba");
+    }
+
+    /// **Las mayúsculas no hacen dos nombres distintos.**
+    ///
+    /// Dos tablas de clientes distintos casi nunca escriben un nombre igual, y
+    /// comparando literalmente el aviso callaría en el caso más frecuente.
+    #[test]
+    fn el_mismo_nombre_con_otras_mayusculas_cuenta_igual() {
+        let filas = vec![
+            f("Telemetry Insight", "a@t.mx", ""),
+            f("TELEMETRY INSIGHT", "b@t.mx", ""),
+            f("  telemetry insight  ", "c@t.mx", ""),
+        ];
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+        );
+        assert_eq!(a.nombres_repetidos.len(), 1, "es un solo nombre, no tres");
+        assert_eq!(a.nombres_repetidos.first().expect("uno").cuantos, 3);
+    }
+
+    /// **Dos «Ana» con apellidos distintos NO son un nombre repetido.**
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// EL FALSO POSITIVO QUE ESTA PRUEBA EXISTE PARA QUE NO VUELVA
+    ///
+    /// La primera versión comparaba sólo el nombre de pila, y se corrigió
+    /// antes de entrar. En una tabla de trescientas filas hay varias Anas y
+    /// varios Luises: el aviso habría salido en casi todas las importaciones,
+    /// y **un aviso que sale siempre deja de leerse** — que es peor que no
+    /// tenerlo, porque el día que avise de verdad nadie lo mirará.
+    ///
+    /// Lo que se compara es lo que el usuario va a ver repetido en su lista, y
+    /// ahí sale el nombre entero.
+    ///
+    /// Verificada rompiéndola: comparando sólo `datos.nombre`, sale
+    /// `left: 1, right: 0`.
+    #[test]
+    fn dos_personas_con_el_mismo_nombre_de_pila_no_se_avisan() {
+        let mapeo = vec![
+            CampoImportable::Nombre,
+            CampoImportable::Apellido,
+            CampoImportable::Correo,
+        ];
+        let filas = vec![
+            vec!["Ana".into(), "Ruiz".into(), "ana.r@empresa.mx".into()],
+            vec!["Ana".into(), "Pérez".into(), "ana.p@empresa.mx".into()],
+        ];
+        let a = analizar(
+            &mapeo,
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+        );
+        assert_eq!(a.cuantas_listas(), 2);
+        assert_eq!(
+            a.nombres_repetidos.len(),
+            0,
+            "«Ana Ruiz» y «Ana Pérez» son dos personas, no un nombre repetido"
+        );
+    }
+
+    /// Y con el mismo apellido sí se avisa, que es la otra mitad.
+    #[test]
+    fn dos_personas_con_el_mismo_nombre_entero_si_se_avisan() {
+        let mapeo = vec![
+            CampoImportable::Nombre,
+            CampoImportable::Apellido,
+            CampoImportable::Correo,
+        ];
+        let filas = vec![
+            vec!["Ana".into(), "Ruiz".into(), "ana1@empresa.mx".into()],
+            vec!["Ana".into(), "Ruiz".into(), "ana2@empresa.mx".into()],
+        ];
+        let a = analizar(
+            &mapeo,
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+        );
+        assert_eq!(
+            a.nombres_repetidos.first().expect("se avisa").nombre,
+            "Ana Ruiz"
+        );
+    }
+
+    /// **Un nombre que sólo aparece una vez no es una repetición.**
+    ///
+    /// Sin esto, el informe tendría una línea por cada fila del archivo, y un
+    /// aviso que sale siempre deja de leerse.
+    #[test]
+    fn un_nombre_que_no_se_repite_no_se_avisa() {
+        let filas = vec![
+            f("Ana", "ana@empresa.mx", ""),
+            f("Luis", "luis@empresa.mx", ""),
+        ];
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+        );
+        assert!(a.nombres_repetidos.is_empty());
+    }
+
+    /// **Y las filas sin nombre no cuentan como «todas se llaman igual».**
+    ///
+    /// La columna «Nombre» puede no venir en el archivo. Decir «quinientos
+    /// contactos se llaman igual» cuando lo que pasa es que ninguno tiene
+    /// nombre es una cifra correcta sobre otra pregunta (§94), y taparía el
+    /// aviso de verdad.
+    #[test]
+    fn las_filas_sin_nombre_no_cuentan_como_repetidas() {
+        let filas = vec![f("", "a@t.mx", ""), f("  ", "b@t.mx", "")];
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+        );
+        assert_eq!(
+            a.cuantas_listas(),
+            2,
+            "entran igual: el nombre no es obligatorio"
+        );
+        assert!(a.nombres_repetidos.is_empty(), "pero no se avisa de nada");
+    }
+
     #[test]
     fn un_archivo_limpio_sale_entero() {
         let filas = vec![
@@ -365,6 +724,7 @@ mod tests {
             &mapeo_normal(),
             &filas,
             "MX",
+            &HashMap::new(),
             &HashMap::new(),
             &HashMap::new(),
         );
@@ -383,6 +743,7 @@ mod tests {
             "MX",
             &HashMap::new(),
             &HashMap::new(),
+            &HashMap::new(),
         );
         assert_eq!(
             a.invalidas.first().map(|r| r.fila),
@@ -398,7 +759,14 @@ mod tests {
         ya.insert("ana@empresa.mx".to_owned(), "Ana Ruiz".to_owned());
 
         let filas = vec![f("Ana", "ana@empresa.mx", "")];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &ya, &HashMap::new());
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &ya,
+            &HashMap::new(),
+            &HashMap::new(),
+        );
 
         assert_eq!(a.cuantas_listas(), 0);
         assert_eq!(a.choques.len(), 1);
@@ -422,6 +790,7 @@ mod tests {
             "MX",
             &HashMap::new(),
             &HashMap::new(),
+            &HashMap::new(),
         );
 
         assert_eq!(a.cuantas_listas(), 1, "la primera sí entra");
@@ -440,7 +809,14 @@ mod tests {
         ya.insert("ana@empresa.mx".to_owned(), "Ana Ruiz".to_owned());
 
         let filas = vec![f("Ana", "  Ana@Empresa.MX  ", "")];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &ya, &HashMap::new());
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &ya,
+            &HashMap::new(),
+            &HashMap::new(),
+        );
 
         assert_eq!(a.choques.len(), 1, "no se detectó: se comparó lo escrito");
         assert_eq!(a.cuantas_listas(), 0);
@@ -454,7 +830,14 @@ mod tests {
         ya.insert("+528112345678".to_owned(), "Luis".to_owned());
 
         let filas = vec![f("Luis", "", "+52 1 81 1234 5678")];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &ya, &HashMap::new());
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &ya,
+            &HashMap::new(),
+            &HashMap::new(),
+        );
 
         assert_eq!(
             a.choques.len(),
@@ -472,7 +855,14 @@ mod tests {
 
         // El correo es nuevo; el móvil no.
         let filas = vec![f("Ana", "nueva@empresa.mx", "8112345678")];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &ya, &HashMap::new());
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &ya,
+            &HashMap::new(),
+            &HashMap::new(),
+        );
 
         assert_eq!(a.choques.len(), 1);
         assert_eq!(a.cuantas_listas(), 0, "la fila entera se queda fuera");
@@ -490,7 +880,14 @@ mod tests {
             f("Ana", "ana@empresa.mx", "8110000001"),
             f("Otra", "otra@empresa.mx", "8110000001"),
         ];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &ya, &HashMap::new());
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &ya,
+            &HashMap::new(),
+            &HashMap::new(),
+        );
 
         // La fila 3 choca por el móvil, pero contra la BASE no —el móvil no
         // está— sino contra la fila 2, que tampoco entra. Eso sería culpar a la
@@ -510,6 +907,7 @@ mod tests {
             &mapeo_normal(),
             &filas,
             "MX",
+            &HashMap::new(),
             &HashMap::new(),
             &HashMap::new(),
         );
@@ -533,6 +931,7 @@ mod tests {
             &mapeo_normal(),
             &filas,
             "MX",
+            &HashMap::new(),
             &HashMap::new(),
             &HashMap::new(),
         );
@@ -565,7 +964,14 @@ mod tests {
             f("Mal", "no-es-correo", ""),        // 4 · inválida
             f("Vacía", "", ""),                  // 5 · rechazada
         ];
-        let a = analizar(&mapeo_normal(), &filas, "MX", &ya, &HashMap::new());
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &ya,
+            &HashMap::new(),
+            &HashMap::new(),
+        );
 
         assert_eq!(a.cuantas_listas(), 1);
         assert_eq!(a.choques.len(), 1);
@@ -584,6 +990,7 @@ mod tests {
             &mapeo_normal(),
             &filas,
             "MX",
+            &HashMap::new(),
             &HashMap::new(),
             &HashMap::new(),
         );
@@ -621,6 +1028,7 @@ mod tests {
             "MX",
             &HashMap::new(),
             &HashMap::new(),
+            &HashMap::new(),
         );
         let r = &rechazada(&a, 0).referencia;
         assert!(
@@ -633,7 +1041,14 @@ mod tests {
 
     #[test]
     fn un_archivo_vacio_no_produce_nada() {
-        let a = analizar(&mapeo_normal(), &[], "MX", &HashMap::new(), &HashMap::new());
+        let a = analizar(
+            &mapeo_normal(),
+            &[],
+            "MX",
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+        );
         assert_eq!(a.cuantas_listas(), 0);
         assert!(!a.hay_que_revisar());
     }
@@ -655,6 +1070,7 @@ mod tests {
             "MX",
             &HashMap::new(),
             &suprimida("ana@empresa.mx"),
+            &HashMap::new(),
         );
 
         assert_eq!(a.cuantas_listas(), 1, "la fila tenía que entrar igual");
@@ -681,6 +1097,7 @@ mod tests {
             "MX",
             &HashMap::new(),
             &suprimida("ana@empresa.mx"),
+            &HashMap::new(),
         );
 
         assert_eq!(a.suprimidas.len(), 1);
@@ -713,7 +1130,14 @@ mod tests {
             "supresion.motivo.queja".to_owned(),
         );
 
-        let a = analizar(&mapeo_normal(), &filas, "MX", &HashMap::new(), &sup);
+        let a = analizar(
+            &mapeo_normal(),
+            &filas,
+            "MX",
+            &HashMap::new(),
+            &sup,
+            &HashMap::new(),
+        );
 
         assert_eq!(a.cuantas_listas(), 2, "las dos entran");
         assert_eq!(
@@ -744,6 +1168,7 @@ mod tests {
             "MX",
             &ya,
             &suprimida("ana@empresa.mx"),
+            &HashMap::new(),
         );
 
         assert_eq!(a.choques.len(), 1);
@@ -762,6 +1187,7 @@ mod tests {
             &mapeo_normal(),
             &filas,
             "MX",
+            &HashMap::new(),
             &HashMap::new(),
             &HashMap::new(),
         );

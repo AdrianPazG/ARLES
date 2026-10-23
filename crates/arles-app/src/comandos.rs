@@ -753,8 +753,29 @@ pub fn analizar_importacion(
         .motivos_de_supresion(empresa, &direcciones)
         .map_err(crate::AppError::Db)?;
 
+    // Y cuántos contactos de ARLES se llaman ya como los de este archivo.
+    // Tercera consulta por lotes, y responde a otra cosa que las dos de
+    // arriba: no si la dirección choca, sino si en la lista van a quedar dos
+    // filas con el mismo nombre (pregunta de Dirección del 23/10/2026).
+    let nombres = estado
+        .con_importacion(|t| nombres_del_archivo(&mapeo, &t.filas))
+        .ok_or_else(|| ErrorIpc::from(crate::AppError::SinImportacionEnCurso))?;
+    let ya_se_llaman_asi = estado
+        .db()
+        .cuantos_se_llaman_asi(empresa, &nombres)
+        .map_err(crate::AppError::Db)?;
+
     estado
-        .con_importacion(|t| arles_core::analizar(&mapeo, &t.filas, &pais, &duenos, &suprimidas))
+        .con_importacion(|t| {
+            arles_core::analizar(
+                &mapeo,
+                &t.filas,
+                &pais,
+                &duenos,
+                &suprimidas,
+                &ya_se_llaman_asi,
+            )
+        })
         .ok_or_else(|| ErrorIpc::from(crate::AppError::SinImportacionEnCurso))
 }
 
@@ -820,7 +841,19 @@ pub fn confirmar_importacion(
 
     let datos = estado
         .con_importacion(|t| {
-            let informe = arles_core::analizar(&mapeo, &t.filas, &pais, &duenos, &suprimidas);
+            // Sin los nombres repetidos: aquí el informe sólo decide **qué
+            // filas entran**, y eso no depende de cuántos se llamen igual. El
+            // aviso se enseñó en `analizar_importacion`, antes de pulsar, que
+            // es cuando sirve de algo. Pedir la consulta otra vez sería un
+            // recorrido más de la base para un dato que nadie va a leer.
+            let informe = arles_core::analizar(
+                &mapeo,
+                &t.filas,
+                &pais,
+                &duenos,
+                &suprimidas,
+                &std::collections::HashMap::new(),
+            );
             let lote = arles_db::DatosDelLote {
                 nombre_del_archivo: t.nombre.clone(),
                 huella_del_archivo: t.huella.clone(),
@@ -950,6 +983,37 @@ fn direcciones_del_archivo(
         }
     }
     vistas.into_iter().collect()
+}
+
+/// Los nombres **distintos** que trae el archivo, en minúsculas y recortados.
+///
+/// Es la forma con la que el núcleo compara y con la que `arles-db` cuenta, y
+/// tiene que ser la misma en los tres sitios: si una capa comparara con
+/// mayúsculas, el aviso de nombres repetidos callaría justo en el caso más
+/// frecuente —dos tablas de clientes distintos casi nunca escriben un nombre
+/// igual—.
+///
+/// Un nombre vacío no entra: la columna puede no venir en el archivo, y
+/// preguntar por el vacío devolvería «quinientos se llaman igual» cuando lo que
+/// pasa es que ninguno tiene nombre.
+fn nombres_del_archivo(
+    mapeo: &[arles_core::CampoImportable],
+    filas: &[Vec<String>],
+) -> Vec<String> {
+    let mut vistos = std::collections::HashSet::new();
+    for fila in filas {
+        let Ok(borrador) = arles_core::fila_a_borrador(mapeo, fila) else {
+            continue;
+        };
+        // La misma forma que usa el núcleo y la que cuenta `arles-db`:
+        // nombre y apellido juntos, en minúsculas. Tres capas comparando, y
+        // basta que una lo haga distinto para que la cifra del aviso no cuadre.
+        let entero = arles_core::nombre_entero(&borrador.nombre, &borrador.apellido);
+        if !entero.is_empty() {
+            vistos.insert(entero.to_lowercase());
+        }
+    }
+    vistos.into_iter().collect()
 }
 
 /// El país de la empresa configurada, que completa los móviles sin prefijo.

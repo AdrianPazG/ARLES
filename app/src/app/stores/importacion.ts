@@ -113,12 +113,56 @@ export interface Choque {
   readonly dentroDelArchivo: boolean
 }
 
-/** El informe de lo que pasaría al importar. Coincide con `Analisis`. */
+/** Una fila que entra, pero cuya dirección pidió no recibir. */
+export interface FilaSuprimida {
+  readonly fila: number
+  readonly direccion: string
+  /** Clave de i18n del motivo. */
+  readonly motivo: string
+  readonly referencia: string
+  /** `true` si TODAS las direcciones de esa fila están suprimidas. */
+  readonly sinNingunCanalLibre: boolean
+}
+
+/**
+ * Un nombre que va a quedar repetido en la lista de contactos (23/10/2026).
+ *
+ * No es un duplicado: lo que hace único a un contacto es su dirección, nunca
+ * su nombre. Lo que avisa es que en la lista van a verse dos filas con el
+ * mismo nombre, y que el saludo del correo será el mismo para las dos.
+ */
+export interface NombreRepetido {
+  readonly nombre: string
+  /** Cuántos se llamarán así al terminar: los del archivo y los que ya había. */
+  readonly cuantos: number
+  /** Cuántos de ésos ya estaban en ARLES antes de este archivo. */
+  readonly yaEstaban: number
+}
+
+/**
+ * El informe de lo que pasaría al importar. Coincide con `Analisis`.
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * `suprimidas` FALTABA AQUÍ, Y LA PANTALLA NO LO ENSEÑABA
+ *
+ * El núcleo lo calcula desde la Fase 3 y lo serializa; este tipo no lo
+ * declaraba y ninguna pantalla lo leía. El patrón del §9 en su forma de
+ * «campo de una respuesta que nadie usa» — el mismo que la 8.6 E encontró con
+ * el desenlace de la simulación, y que la comprobación de comandos no caza
+ * porque un campo ignorado no es un comando sin llamar.
+ *
+ * Lo que se perdía: alguien importa un archivo donde diez direcciones ya
+ * pidieron no recibir, ARLES las mete —es correcto, el contacto existe— y
+ * **no les va a escribir**. Sin el aviso, esas diez cuentan como alcanzables
+ * en la cabeza de quien importó.
+ */
 export interface Analisis {
   readonly filasDeLasListas: readonly number[]
   readonly choques: readonly Choque[]
   readonly rechazadas: readonly FilaRechazada[]
   readonly invalidas: readonly FilaRechazada[]
+  readonly suprimidas: readonly FilaSuprimida[]
+  readonly nombresRepetidos: readonly NombreRepetido[]
 }
 
 export interface ResumenDeImportacion {

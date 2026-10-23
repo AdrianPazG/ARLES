@@ -12,6 +12,51 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### El mismo nombre en dos campañas, con correos distintos (D-15 bis)
+
+Lo preguntó Dirección, y **lo primero que hay que decir es que ARLES ya hacía
+lo correcto** — medido antes de opinar. Lo que hace único a un contacto es su
+dirección, nunca su nombre, así que las dos filas entran como dos contactos
+separados y cada uno conserva su correo y su teléfono.
+
+Lo que sí pasa es que en la lista hay dos filas con el mismo nombre, y **el
+saludo del correo será el mismo para las dos**. Eso ahora se avisa antes de
+importar: cuántos nombres se van a repetir, cuántos serán de cada uno, cuántos
+ya estaban de un archivo anterior, y qué hacer.
+
+> **No se renombra automáticamente, y es una decisión.** «Telemetry Insight (2)»
+> sería inventar un dato que el cliente no escribió — y ese dato no se queda en
+> la pantalla: `{{nombre}}` lo lee la plantilla y acaba **dentro del correo**.
+
+> **Se compara el nombre ENTERO, no el de pila.** La primera versión comparaba
+> sólo `nombre`: «Ana Ruiz» y «Ana Pérez» salían como un nombre repetido, y en
+> una tabla de trescientas filas hay varias Anas. El aviso habría salido en
+> casi todas las importaciones, y **un aviso que sale siempre deja de leerse**.
+> Corregido antes de entrar, con su prueba y su ruptura.
+>
+> Las **tres capas** que comparan —el núcleo, la base y el simulador de la
+> demostración— lo hacen igual, o las dos cifras que se suman no se referirían
+> a lo mismo. Lo vigila `el_nombre_repetido_se_compara_igual_en_las_tres_capas`.
+
+> **Y un hueco del §9 encontrado al lado.** El núcleo calcula desde la Fase 3
+> qué filas entran con una dirección **que ya pidió no recibir**, lo serializa,
+> y el tipo de TypeScript no lo declaraba: ninguna pantalla lo leía. Quien
+> importaba un archivo con diez bajas dentro los metía —correcto— sin que nadie
+> dijera que a esos diez ARLES no les va a escribir. Ahora se enseñan, con su
+> motivo y distinguiendo a quien cerró un canal de quien los cerró todos.
+
+> **Dos defectos de mi propia comprobación, los dos del mismo tipo.** Dos de
+> las cuatro rupturas salieron en verde porque buscaba una palabra que aparece
+> también por otros motivos: «apellido» estaba en la **firma** de la función
+> aunque el cuerpo la ignorase, y en el campo `apellido: apellido` de unas
+> líneas antes. Ahora se mide el cuerpo y el bloque exactos. Es la lección del
+> `cargo arles`: **medir que una cadena aparece no es medir que el sitio que
+> importa la tenga.**
+
+> **Y dos pluralizaciones**, vistas mirando la demostración: «1 nombres se van
+> a repetir» —el mío— y «1 ya están en tus contactos», que llevaba ahí desde la
+> Fase 3. Es el defecto de «1 hallazgos abiertos» del tablero.
+
 ### Cada campaña va a su propia lista (D-15)
 
 Hasta hoy **toda campaña iba a todo el padrón**: la audiencia se congelaba como

@@ -580,6 +580,89 @@ impl Db {
         })
     }
 
+    /// Cuántos contactos se llaman ya como cada uno de estos nombres.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// LA PREGUNTA QUE ESTO CONTESTA, Y QUIÉN LA HIZO
+    ///
+    /// Dirección, el 23/10/2026: la misma empresa en dos campañas, con correos
+    /// y teléfonos distintos en cada una. **ARLES hace lo correcto** —lo que
+    /// hace único a un contacto es su dirección, nunca su nombre, así que
+    /// entran como dos contactos separados y cada uno conserva lo suyo— pero
+    /// en la lista quedan dos filas con el mismo nombre, y el `{{nombre}}` del
+    /// correo será el mismo para los dos.
+    ///
+    /// Avisarlo exige mirar **lo que ya está en la base**, no sólo el archivo:
+    /// el caso son dos archivos distintos, el de enero y el de marzo, y mirar
+    /// sólo el que se carga no vería nada.
+    ///
+    /// La clave del mapa va **en minúsculas y recortada**, que es como el
+    /// núcleo compara: dos tablas de clientes distintos casi nunca escriben un
+    /// nombre con las mismas mayúsculas, y comparar literalmente callaría justo
+    /// en el caso más frecuente. En SQL lo hace `lower(trim(…))` y no
+    /// `COLLATE NOCASE`, porque `NOCASE` de SQLite **sólo cubre el ASCII**: con
+    /// él, «Telemetría» y «TELEMETRÍA» serían dos nombres distintos.
+    ///
+    /// En lotes de 400 por el tope de variables por sentencia, igual que
+    /// [`Db::duenos_de_direcciones`].
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla.
+    pub fn cuantos_se_llaman_asi(
+        &self,
+        empresa: CompanyId,
+        nombres: &[String],
+    ) -> Result<std::collections::HashMap<String, usize>, DbError> {
+        let mut cuenta = std::collections::HashMap::new();
+        if nombres.is_empty() {
+            return Ok(cuenta);
+        }
+
+        self.con_dominio(|conn| {
+            const POR_LOTE: usize = 400;
+            for lote in nombres.chunks(POR_LOTE) {
+                let huecos = std::iter::repeat_n("?", lote.len())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                // El `format!` interpola **interrogantes**, nunca un dato.
+                // Nombre Y apellido, que es lo que se ve en la lista y lo
+                // que compara `arles_core::nombre_entero`. Comparando sólo el
+                // nombre de pila, «Ana Ruiz» y «Ana Pérez» saldrían como
+                // repetidas — y en una tabla de trescientas filas hay varias
+                // Anas. Las dos capas tienen que comparar igual o la cifra del
+                // aviso no cuadra.
+                let sql = format!(
+                    "SELECT lower(trim(trim(COALESCE(first_name, '')) || ' '
+                                       || trim(COALESCE(last_name, '')))) AS n,
+                            count(*)
+                       FROM contact
+                      WHERE company_id = ?1 AND deleted_at IS NULL
+                        AND lower(trim(trim(COALESCE(first_name, '')) || ' '
+                                       || trim(COALESCE(last_name, '')))) IN ({huecos})
+                      GROUP BY n"
+                );
+
+                let mut consulta = conn.prepare(&sql)?;
+                let mut parametros: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(lote.len() + 1);
+                let empresa_txt = empresa.to_string();
+                parametros.push(&empresa_txt);
+                for n in lote {
+                    parametros.push(n);
+                }
+
+                let filas = consulta.query_map(parametros.as_slice(), |f| {
+                    Ok((f.get::<_, String>(0)?, f.get::<_, i64>(1)?))
+                })?;
+                for fila in filas {
+                    let (nombre, cuantos) = fila?;
+                    cuenta.insert(nombre, usize::try_from(cuantos).unwrap_or(0));
+                }
+            }
+            Ok(cuenta)
+        })
+    }
+
     pub fn direcciones_suprimidas(
         &self,
         empresa: CompanyId,

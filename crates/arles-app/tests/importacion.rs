@@ -116,7 +116,14 @@ fn importar_un_archivo_de_verdad_de_punta_a_punta() {
         .motivos_de_supresion(empresa, &direcciones)
         .expect("consulta las supresiones");
 
-    let informe = arles_core::analizar(&mapeo, &tabla.filas, "MX", &duenos, &suprimidas);
+    let informe = arles_core::analizar(
+        &mapeo,
+        &tabla.filas,
+        "MX",
+        &duenos,
+        &suprimidas,
+        &Default::default(),
+    );
 
     assert_eq!(informe.cuantas_listas(), 2, "deberían entrar Ana y Luis");
     assert_eq!(informe.rechazadas.len(), 1, "la fila sin contacto");
@@ -234,6 +241,7 @@ fn reimportar_el_mismo_archivo_no_duplica_a_nadie() {
         "MX",
         &Default::default(),
         &Default::default(),
+        &Default::default(),
     );
     assert_eq!(primero.cuantas_listas(), 2);
     db.importar_contactos(empresa, &lote(&primero), &primero.listas)
@@ -247,7 +255,14 @@ fn reimportar_el_mismo_archivo_no_duplica_a_nadie() {
     let suprimidas = db
         .motivos_de_supresion(empresa, &direcciones)
         .expect("consulta las supresiones");
-    let segundo = arles_core::analizar(&mapeo, &tabla.filas, "MX", &duenos, &suprimidas);
+    let segundo = arles_core::analizar(
+        &mapeo,
+        &tabla.filas,
+        "MX",
+        &duenos,
+        &suprimidas,
+        &Default::default(),
+    );
 
     assert_eq!(
         segundo.cuantas_listas(),
@@ -360,7 +375,14 @@ fn el_informe_avisa_de_quien_ya_habia_pedido_no_recibir() {
         .motivos_de_supresion(empresa, &direcciones)
         .expect("consulta las supresiones");
 
-    let informe = arles_core::analizar(&mapeo, &tabla.filas, "MX", &duenos, &suprimidas);
+    let informe = arles_core::analizar(
+        &mapeo,
+        &tabla.filas,
+        "MX",
+        &duenos,
+        &suprimidas,
+        &Default::default(),
+    );
 
     // Las cuatro entran: el nombre y la empresa valen igual.
     assert_eq!(informe.cuantas_listas(), 4, "las cuatro tenían que entrar");
