@@ -56,8 +56,9 @@ fn pico_de_memoria_kb() -> Option<u64> {
 fn escribir_la_bomba(ruta: &std::path::Path) -> u64 {
     let archivo = std::fs::File::create(ruta).expect("crea");
     let mut zip = zip::ZipWriter::new(archivo);
-    let opciones: zip::write::FileOptions<'_, ()> =
-        zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    // `SimpleFileOptions` desde zip 9 (ver `plantilla.rs`).
+    let opciones = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
 
     let armazon: [(&str, &str); 4] = [
         (

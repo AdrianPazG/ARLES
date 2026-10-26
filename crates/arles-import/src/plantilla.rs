@@ -101,8 +101,11 @@ pub fn armar() -> Result<Vec<u8>, ErrorDeLectura> {
     ];
 
     let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
-    let opciones: zip::write::FileOptions<'_, ()> =
-        zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    // `SimpleFileOptions` desde zip 9: el tipo ganó un segundo parámetro de
+    // vida y el alias lo deja escrito en un sitio. Es el único cambio de API
+    // que trajo la subida de la 2 a la 9.
+    let opciones = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
 
     for (nombre, contenido) in &partes {
         zip.start_file(*nombre, opciones)
@@ -320,8 +323,16 @@ mod tests {
     fn el_archivo_lleva_las_cinco_partes() {
         let bytes = armar().expect("se arma en memoria");
         let mut zip = zip::ZipArchive::new(std::io::Cursor::new(bytes)).expect("es un ZIP legible");
+        // Desde zip 9, `name()` devuelve `Result<Cow<str>, ZipError>`: un
+        // nombre dentro de un ZIP puede no ser texto válido. Aquí se descartan
+        // los que no lo sean, que es lo mismo que hacía el `.ok()` de la línea
+        // de al lado — lo que se comprueba es que las cinco partes ESTÉN, y
+        // una parte con el nombre ilegible no está.
         let dentro: Vec<String> = (0..zip.len())
-            .filter_map(|i| zip.by_index(i).ok().map(|f| f.name().to_owned()))
+            .filter_map(|i| {
+                let f = zip.by_index(i).ok()?;
+                Some(f.name().ok()?.into_owned())
+            })
             .collect();
         for parte in [
             "[Content_Types].xml",

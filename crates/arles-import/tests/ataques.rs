@@ -59,8 +59,9 @@ fn armar_xlsx(xml_de_la_hoja: &str) -> Vec<u8> {
     let mut salida = Vec::new();
     {
         let mut zip = zip::ZipWriter::new(std::io::Cursor::new(&mut salida));
-        let opciones: zip::write::FileOptions<'_, ()> =
-            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+        // `SimpleFileOptions` desde zip 9 (ver `plantilla.rs`).
+        let opciones = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
 
         let piezas: [(&str, &str); 4] = [
             (
