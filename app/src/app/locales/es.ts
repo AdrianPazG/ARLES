@@ -201,6 +201,8 @@ export const es = {
     // prueba que falla si el motor puede anotar una clase sin nombre corto.
     clase: {
       aceptadoPorElProveedor: 'Aceptados',
+      // D-WA: nombre corto para el desplegable del filtro.
+      sinPlantillaDeWhatsapp: 'Sin plantilla de WhatsApp',
       // R-3: el freno por rebotes. Nombre corto para el desplegable del
       // filtro, que sin él ofrecería la frase larga con sus marcadores.
       frena: 'Pausadas por rebotes',
@@ -1214,6 +1216,16 @@ export const es = {
       'Esperando un día para no escribirle dos veces seguidas. No se pierde: ' +
       'sale cuando pase. | Esperando {dias} días para no escribirle dos veces ' +
       'seguidas. No se pierde: sale cuando pasen.',
+    // D-WA: una etapa de WhatsApp sin plantilla de Meta elegida.
+    //
+    // Las tres partes del §95. La de «qué está a salvo» importa más aquí que
+    // en otros sitios: la campaña está activada y su audiencia congelada, así
+    // que lo primero que se piensa al ver una campaña quieta es que se perdió.
+    sinPlantillaDeWhatsapp:
+      'Falta elegir la plantilla de WhatsApp de esta campaña. Por WhatsApp ' +
+      'sólo se puede mandar una plantilla que Meta haya aprobado, así que sin ' +
+      'ella no sale nada. Elígela en la campaña y se reanuda sola. No se ha ' +
+      'perdido nadie: tu lista sigue entera y nadie ha recibido nada todavía.',
     // §65: el proveedor se hizo cargo. No sabemos si llegó al buzón.
     aceptadoPorElProveedor: 'Aceptado por el proveedor',
     // {minutos} es una cifra: «vuelve a intentarlo en 23 minutos» es un hecho;

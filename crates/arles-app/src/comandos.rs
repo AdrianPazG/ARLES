@@ -2014,8 +2014,10 @@ fn mandar_el_correo(
 
     match proveedor.enviar(&arles_motor::proveedor::Mensaje {
         para: destino.raw(),
-        asunto: contenido.asunto(),
-        html: contenido.html(),
+        contenido: arles_motor::proveedor::Contenido::Correo {
+            asunto: contenido.asunto(),
+            html: contenido.html(),
+        },
         // **Un envío de prueba no es una campaña**, así que no lleva la
         // cabecera de baja: no pertenece a ninguna lista, y declararse correo
         // masivo sin serlo lo empuja a la carpeta de no deseados.

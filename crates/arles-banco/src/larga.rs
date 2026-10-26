@@ -261,6 +261,7 @@ pub fn correr(pasos: u32, con_fuga: bool) -> Result<Corrida, Box<dyn std::error:
         // que es del texto, que es justo el error que esta corrida existe para
         // no cometer (ver la nota del proveedor que acumula).
         redaccion: None,
+        plantilla_de_whatsapp: None,
     };
 
     let proveedor = SiempreAcepta {

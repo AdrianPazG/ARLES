@@ -74,13 +74,60 @@
 //! enseña, y buscarlos ahí cuesta un rato.
 
 use arles_core::canal::Canal;
-use arles_core::ids::{CompanyId, EmailAccountId};
+use arles_core::ids::{CompanyId, EmailAccountId, WhatsappAccountId};
 use arles_core::ritmo::Limites;
 use arles_core::ventana::{Dias, TimeZone, Ventana, zona};
 use rusqlite::params;
 
 use crate::db::Db;
 use crate::error::DbError;
+
+/// De qué cuenta sale una etapa.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ UNA VARIANTE Y NO `cuenta` + `canal` POR SEPARADO
+///
+/// Porque separados cabe el **estado imposible**: canal de WhatsApp con una
+/// cuenta de correo dentro. Nada fallaría al construirlo; fallaría tres capas
+/// más abajo, al pedirle a Meta que mande por SMTP.
+///
+/// Es la misma razón que `Cifrado::Argon2idXChaCha20 { sal, nonce }` y que
+/// `RecortadaEnElEsencial { fecha }`: el dato que sólo tiene sentido con otro
+/// va dentro de la variante.
+///
+/// Y tiene un segundo efecto, que es el que de verdad protege: **añadirla
+/// obliga al compilador a exigir una decisión** en cada sitio que antes daba
+/// el correo por supuesto. Un `_ =>` ahí dejaría las etapas de WhatsApp sin
+/// enviar en silencio, que es exactamente el estado del que D-WA viene.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CuentaDeLaEtapa {
+    Correo(EmailAccountId),
+    Whatsapp(WhatsappAccountId),
+}
+
+impl CuentaDeLaEtapa {
+    /// El canal, **derivado** y no guardado aparte.
+    #[must_use]
+    pub const fn canal(&self) -> Canal {
+        match self {
+            Self::Correo(_) => Canal::Correo,
+            Self::Whatsapp(_) => Canal::WhatsApp,
+        }
+    }
+
+    /// El identificador, como texto.
+    ///
+    /// El presupuesto y el disyuntor cuelgan de la cuenta y la tratan como una
+    /// cadena opaca: no necesitan saber de qué canal es, sólo que dos etapas
+    /// del mismo número compartan contador.
+    #[must_use]
+    pub fn como_texto(&self) -> String {
+        match self {
+            Self::Correo(id) => id.to_string(),
+            Self::Whatsapp(id) => id.to_string(),
+        }
+    }
+}
 
 /// Una etapa que está enviando, con todo lo que el trabajador necesita saber.
 ///
@@ -98,9 +145,10 @@ pub struct EtapaEnMarcha {
     /// La campaña de la que se toma trabajo.
     pub campana: String,
     /// La cuenta remitente. **El presupuesto cuelga de ella.**
-    pub cuenta: EmailAccountId,
-    /// Por qué medio se manda.
-    pub canal: Canal,
+    ///
+    /// El canal sale de aquí (`cuenta.canal()`) y no se guarda aparte: ver la
+    /// nota de [`CuentaDeLaEtapa`].
+    pub cuenta: CuentaDeLaEtapa,
     /// Los días y horas en que puede enviar, con su zona (D-10).
     pub ventana: Ventana,
     /// El menor de los topes de la etapa y de la cuenta.
@@ -160,20 +208,42 @@ impl Db {
                 })?;
 
             let mut consulta = conn.prepare(
+                // ── LOS DOS CANALES (D-WA, 26/10/2026) ──────────────────
+                //
+                // Hasta hoy esto filtraba `e.channel = 'email'` y unía con
+                // `email_account` a secas. Una etapa de WhatsApp en marcha
+                // **no existía para el motor**: la campaña se activaba, se
+                // congelaba su audiencia, y se quedaba quieta para siempre sin
+                // que nada fallara.
+                //
+                // Los dos `LEFT JOIN` y no uno: el `CHECK` del esquema ya
+                // garantiza que hay exactamente una cuenta por canal, así que
+                // una de las dos uniones da `NULL` siempre y la otra trae su
+                // fila. Con `JOIN` a secas, una etapa de WhatsApp no casaría
+                // con `email_account` y desaparecería del resultado — el mismo
+                // silencio, por otra puerta.
+                //
+                // El estado de la cuenta **no se filtra aquí**: una cuenta que
+                // no puede enviar se salta en `servir`, con su motivo. Hacerlo
+                // en el `WHERE` dejaría la etapa invisible y la pantalla no
+                // podría decir por qué no sale nada.
                 "SELECT e.id,
                         e.campaign_id,
+                        e.channel,
                         e.email_account_id,
+                        e.whatsapp_account_id,
                         v.days_of_week, v.start_hour, v.end_hour, v.timezone,
                         e.hourly_limit, e.daily_limit,
-                        a.hourly_limit, a.daily_limit
+                        a.hourly_limit, a.daily_limit,
+                        w.limite_diario_meta
                    FROM campaign_stage e
                    JOIN campaign        c ON c.id = e.campaign_id
-                   JOIN email_account   a ON a.id = e.email_account_id
+                   LEFT JOIN email_account    a ON a.id = e.email_account_id
+                   LEFT JOIN whatsapp_account w ON w.id = e.whatsapp_account_id
                    JOIN execution_window v ON v.id = e.execution_window_id
                   WHERE c.company_id = ?1
                     AND c.status = 'running'
                     AND e.status = 'running'
-                    AND e.channel = 'email'
                   ORDER BY e.campaign_id, e.position",
             )?;
 
@@ -181,15 +251,18 @@ impl Db {
                 Ok(FilaDeEtapa {
                     etapa: f.get(0)?,
                     campana: f.get(1)?,
-                    cuenta: f.get(2)?,
-                    dias: f.get(3)?,
-                    desde: f.get(4)?,
-                    hasta: f.get(5)?,
-                    zona: f.get(6)?,
-                    hora_etapa: f.get(7)?,
-                    dia_etapa: f.get(8)?,
-                    hora_cuenta: f.get(9)?,
-                    dia_cuenta: f.get(10)?,
+                    canal: f.get(2)?,
+                    cuenta_correo: f.get(3)?,
+                    cuenta_whatsapp: f.get(4)?,
+                    dias: f.get(5)?,
+                    desde: f.get(6)?,
+                    hasta: f.get(7)?,
+                    zona: f.get(8)?,
+                    hora_etapa: f.get(9)?,
+                    dia_etapa: f.get(10)?,
+                    hora_cuenta: f.get(11)?,
+                    dia_cuenta: f.get(12)?,
+                    dia_meta: f.get(13)?,
                 })
             })?;
 
@@ -210,25 +283,60 @@ impl Db {
 struct FilaDeEtapa {
     etapa: String,
     campana: String,
-    cuenta: String,
+    /// `'email'` o `'whatsapp'`. Lo garantiza un `CHECK` del esquema.
+    canal: String,
+    /// Exactamente uno de los dos viene lleno, y lo garantiza otro `CHECK`.
+    cuenta_correo: Option<String>,
+    cuenta_whatsapp: Option<String>,
     dias: i64,
     desde: i64,
     hasta: i64,
     zona: String,
     hora_etapa: Option<i64>,
     dia_etapa: Option<i64>,
-    hora_cuenta: i64,
-    dia_cuenta: i64,
+    /// Los de la cuenta de correo. `None` en una etapa de WhatsApp.
+    hora_cuenta: Option<i64>,
+    dia_cuenta: Option<i64>,
+    /// El tope diario que Meta concede a este número. **Es un techo real del
+    /// proveedor**, no una constante como el de las cuentas de correo, así que
+    /// manda aunque la campaña pida más: pasarse significa que Meta rechaza.
+    dia_meta: Option<i64>,
 }
 
 impl FilaDeEtapa {
     fn a_etapa(self, zona_de_la_empresa: &TimeZone) -> Result<EtapaEnMarcha, DbError> {
-        let cuenta = self
-            .cuenta
-            .parse::<EmailAccountId>()
-            .map_err(|_| DbError::DatoInvalido {
-                motivo: "campaign_stage.email_account_id",
-            })?;
+        // El canal decide de qué columna sale la cuenta. Se lee del canal y no
+        // de «cuál de las dos no es NULL» a propósito: si alguna vez las dos
+        // vinieran llenas —que el `CHECK` impide, pero una migración futura
+        // podría relajar— elegir por ausencia tomaría una en silencio.
+        let cuenta = match self.canal.as_str() {
+            "email" => CuentaDeLaEtapa::Correo(
+                self.cuenta_correo
+                    .as_deref()
+                    .unwrap_or_default()
+                    .parse::<EmailAccountId>()
+                    .map_err(|_| DbError::DatoInvalido {
+                        motivo: "campaign_stage.email_account_id",
+                    })?,
+            ),
+            "whatsapp" => CuentaDeLaEtapa::Whatsapp(
+                self.cuenta_whatsapp
+                    .as_deref()
+                    .unwrap_or_default()
+                    .parse::<WhatsappAccountId>()
+                    .map_err(|_| DbError::DatoInvalido {
+                        motivo: "campaign_stage.whatsapp_account_id",
+                    })?,
+            ),
+            // Un canal que no es ninguno de los dos no se adivina: el `CHECK`
+            // del esquema lo impide, así que llegar aquí significa que alguien
+            // tocó la base por fuera.
+            _ => {
+                return Err(DbError::DatoInvalido {
+                    motivo: "campaign_stage.channel",
+                });
+            }
+        };
 
         let dias = u8::try_from(self.dias)
             .map(Dias)
@@ -251,19 +359,44 @@ impl FilaDeEtapa {
             }
         })?;
 
+        // ── LOS LÍMITES, Y LA DIFERENCIA ENTRE LOS DOS CANALES ────────────
+        //
+        // En CORREO manda la campaña, hacia arriba o hacia abajo (D-13): el
+        // «techo» de la cuenta era una constante del código —toda cuenta nace
+        // con 50— y no el del proveedor, así que quien escribía 300 recibía 50
+        // sin que nada se lo dijera.
+        //
+        // En WHATSAPP no es lo mismo. `limite_diario_meta` **sí** es el techo
+        // del proveedor: es el escalón de mensajería que Meta concede a ese
+        // número, y pasarse no es arriesgado, es que Meta rechaza. Así que
+        // manda el MENOR de los dos, y una campaña que pida más se queda en lo
+        // que Meta permite.
+        //
+        // Por hora no hay tope de Meta: el único que hay es el de la campaña.
+        let limites = match &cuenta {
+            CuentaDeLaEtapa::Correo(_) => Limites::nuevos(
+                el_limite_que_manda(self.hora_etapa, self.hora_cuenta.unwrap_or(0)),
+                el_limite_que_manda(self.dia_etapa, self.dia_cuenta.unwrap_or(0)),
+            ),
+            CuentaDeLaEtapa::Whatsapp(_) => {
+                let de_la_campana = el_limite_que_manda(self.dia_etapa, 0);
+                let diario = match self.dia_meta.and_then(|v| u32::try_from(v).ok()) {
+                    Some(techo) => de_la_campana.min(techo),
+                    // Sin escalón conocido no se inventa un techo: manda la
+                    // campaña. La puerta del canal ya exige las dos cifras de
+                    // permiso antes de dejar activar.
+                    None => de_la_campana,
+                };
+                Limites::nuevos(el_limite_que_manda(self.hora_etapa, 0), diario)
+            }
+        };
+
         Ok(EtapaEnMarcha {
             etapa: self.etapa,
             campana: self.campana,
             cuenta,
-            // La consulta filtra por `channel = 'email'`, así que no hay otro
-            // caso que traducir. El día que haya adaptador de WhatsApp, esto y
-            // el `WHERE` cambian juntos.
-            canal: Canal::Correo,
             ventana,
-            limites: Limites::nuevos(
-                el_limite_que_manda(self.hora_etapa, self.hora_cuenta),
-                el_limite_que_manda(self.dia_etapa, self.dia_cuenta),
-            ),
+            limites,
             zona_de_la_empresa: zona_de_la_empresa.clone(),
         })
     }
@@ -414,8 +547,8 @@ mod contra_la_base {
         assert_eq!(etapas.len(), 1, "hay una etapa enviando");
         let e = etapas.first().expect("la etapa sembrada");
         assert_eq!(e.campana, CAMPANA);
-        assert_eq!(e.cuenta.to_string(), CUENTA);
-        assert_eq!(e.canal, Canal::Correo);
+        assert_eq!(e.cuenta.como_texto(), CUENTA);
+        assert_eq!(e.cuenta.canal(), Canal::Correo);
         assert_eq!(e.ventana.desde, 9);
         assert_eq!(e.ventana.hasta, 18);
         assert_eq!(e.ventana.dias, Dias(31));
@@ -453,12 +586,22 @@ mod contra_la_base {
         assert!(db.etapas_en_marcha(empresa()).expect("consulta").is_empty());
     }
 
-    /// **Una etapa de WhatsApp no llega aquí.**
+    /// **Una etapa de WhatsApp SÍ llega aquí** (D-WA, 26/10/2026).
     ///
-    /// Hoy no hay adaptador de WhatsApp. Devolverla produciría un trabajador
-    /// sin proveedor — o uno al que alguien le enchufara el de correo.
+    /// ── LO QUE ESTA PRUEBA DECÍA ANTES, Y POR QUÉ IMPORTA ──
+    ///
+    /// Hasta hoy decía lo contrario: «una etapa de WhatsApp no llega aquí»,
+    /// porque no había adaptador y devolverla habría producido un trabajador
+    /// sin proveedor. Era correcto entonces y es **el límite que D-WA quita**:
+    /// Dirección decidió que el canal entra en la v1.2.0 con campañas enteras,
+    /// no sólo con el envío de prueba.
+    ///
+    /// Se deja la prueba y se le da la vuelta en vez de borrarla: lo que hay
+    /// que poder afirmar es que la etapa **llega con su número**, que es lo que
+    /// el motor necesita para pedir el proveedor correcto. Borrarla habría
+    /// dejado el cambio sin nadie que lo vigile.
     #[test]
-    fn una_etapa_de_whatsapp_no_se_devuelve() {
+    fn una_etapa_de_whatsapp_llega_con_su_numero() {
         let (_dir, db) = base();
         sql(
             &db,
@@ -466,15 +609,64 @@ mod contra_la_base {
                 "INSERT INTO whatsapp_account (id, company_id, display_name, phone_e164,
                                                waba_id, phone_number_id, credential_ref,
                                                status, created_at, updated_at)
-                 VALUES ('wa-1', '{EMPRESA}', 'Ventas', '+525555555555',
+                 VALUES ('01900000-0000-7000-8000-000000000a01', '{EMPRESA}', 'Ventas', '+525555555555',
                          'waba-1', 'pn-1', 'llavero://w', 'connected',
                          '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z');
 
                  UPDATE campaign_stage SET channel='whatsapp', email_account_id=NULL,
-                        whatsapp_account_id='wa-1' WHERE id='etapa-1';"
+                        whatsapp_account_id='01900000-0000-7000-8000-000000000a01' WHERE id='etapa-1';"
             ),
         );
-        assert!(db.etapas_en_marcha(empresa()).expect("consulta").is_empty());
+        let etapas = db.etapas_en_marcha(empresa()).expect("consulta");
+        assert_eq!(etapas.len(), 1, "la etapa de WhatsApp tiene que llegar");
+
+        let e = etapas.first().expect("la etapa sembrada");
+        assert_eq!(e.cuenta.canal(), Canal::WhatsApp);
+        assert_eq!(
+            e.cuenta,
+            CuentaDeLaEtapa::Whatsapp("01900000-0000-7000-8000-000000000a01".parse().expect("id")),
+            "y con SU número, no con una cuenta de correo"
+        );
+    }
+
+    /// **El tope de Meta manda sobre el de la campaña** (D-WA).
+    ///
+    /// Es la diferencia con el correo, y no es un detalle. Allí D-13 quitó el
+    /// mínimo porque el «techo» de la cuenta era **una constante del código**
+    /// —toda cuenta nace con 50— y quien escribía 300 recibía 50 sin que nada
+    /// se lo dijera.
+    ///
+    /// `limite_diario_meta` es otra cosa: es el escalón de mensajería que Meta
+    /// concede a ese número. Pasarse no es arriesgado, es que **Meta rechaza**.
+    /// Así que aquí sí manda el menor.
+    ///
+    /// Se siembra la campaña pidiendo 500 con un escalón de 250: llegan 250.
+    #[test]
+    fn el_escalon_de_meta_recorta_lo_que_pide_la_campana() {
+        let (_dir, db) = base();
+        sql(
+            &db,
+            &format!(
+                "INSERT INTO whatsapp_account (id, company_id, display_name, phone_e164,
+                                               waba_id, phone_number_id, credential_ref,
+                                               status, limite_diario_meta,
+                                               created_at, updated_at)
+                 VALUES ('01900000-0000-7000-8000-000000000a02', '{EMPRESA}', 'Ventas', '+525555555556',
+                         'waba-1', 'pn-2', 'llavero://w', 'connected', 250,
+                         '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z');
+
+                 UPDATE campaign_stage SET channel='whatsapp', email_account_id=NULL,
+                        whatsapp_account_id='01900000-0000-7000-8000-000000000a02', daily_limit=500
+                  WHERE id='etapa-1';"
+            ),
+        );
+
+        let etapas = db.etapas_en_marcha(empresa()).expect("consulta");
+        let e = etapas.first().expect("la etapa sembrada");
+        assert_eq!(
+            e.limites.por_dia, 250,
+            "la campaña pidió 500 y Meta sólo concede 250"
+        );
     }
 
     /// **Lo que la campaña escribe es lo que llega al motor, de punta a punta.**

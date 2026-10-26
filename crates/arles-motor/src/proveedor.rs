@@ -27,14 +27,21 @@ use arles_core::texto::engana_al_que_mira;
 pub struct Mensaje<'a> {
     /// La dirección de destino, ya validada y normalizada por el núcleo.
     pub para: &'a str,
-    /// El asunto, **ya con las variables puestas**.
-    pub asunto: &'a str,
-    /// El cuerpo en HTML, ya redactado para esta persona y con su firma.
+    /// Qué se manda, **según el canal** (D-WA, 26/10/2026).
     ///
-    /// La versión en texto plano no viaja: la deriva el adaptador del mismo
-    /// HTML. Mandar las dos desde aquí daría dos sitios donde pueden dejar de
-    /// decir lo mismo.
-    pub html: &'a str,
+    /// ── POR QUÉ UNA VARIANTE Y NO UNOS CAMPOS OPCIONALES ──
+    ///
+    /// Porque `asunto` y `html` sólo tienen sentido en correo, y los valores
+    /// de la plantilla sólo en WhatsApp. Sueltos, caben los dos estados
+    /// imposibles: un mensaje de WhatsApp con asunto, y uno de correo sin
+    /// cuerpo pero con valores.
+    ///
+    /// Y hay una razón más fuerte: hasta hoy el contenido de WhatsApp iba
+    /// **pegado al proveedor**, puesto al construirlo. Eso sirve para un envío
+    /// suelto —el de prueba— y **no para una campaña**, donde cada persona
+    /// tiene sus valores. El adaptador habría mandado el mismo mensaje a toda
+    /// la lista, con los datos de la primera persona, sin que nada fallara.
+    pub contenido: Contenido<'a>,
     /// ¿Este mensaje sale de una campaña, o es un envío suelto?
     ///
     /// ── LO QUE DECIDE: SI LLEVA LA CABECERA DE BAJA ───────────────────────
@@ -56,6 +63,28 @@ pub struct Mensaje<'a> {
     /// para dar trazabilidad, y para poder deduplicar del lado del proveedor si
     /// algún día tenemos visibilidad allí (`MOTOR_DE_EJECUCION.md` §2, capa 3).
     pub clave_de_idempotencia: &'a str,
+}
+
+/// Qué se manda, según el canal.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Contenido<'a> {
+    /// Correo: asunto y cuerpo, ya redactados para esta persona.
+    Correo {
+        /// El asunto, **ya con las variables puestas**.
+        asunto: &'a str,
+        /// El cuerpo en HTML, ya redactado para esta persona y con su firma.
+        ///
+        /// La versión en texto plano no viaja: la deriva el adaptador del
+        /// mismo HTML. Mandar las dos desde aquí daría dos sitios donde pueden
+        /// dejar de decir lo mismo.
+        html: &'a str,
+    },
+    /// WhatsApp: los valores de `{{1}}`, `{{2}}`… **de esta persona**.
+    ///
+    /// El nombre y el idioma de la plantilla no viajan aquí: son de la etapa,
+    /// no del contacto, y van en el proveedor. Lo que cambia en cada mensaje
+    /// son los valores, y es justo lo que antes no cambiaba.
+    Whatsapp { valores: &'a [String] },
 }
 
 /// El proveedor se hizo cargo del mensaje.

@@ -132,10 +132,21 @@ impl ProveedorDeWhatsApp {
     /// pequeña, y porque así se ve de un vistazo **qué sale hacia Meta** — que
     /// en un canal con datos personales es justo lo que hay que poder auditar
     /// sin seguir tres capas de derivaciones.
-    fn cuerpo(&self, para: &str) -> String {
-        let parametros = self
-            .contenido
-            .valores
+    /// `valores` son los de **este contacto** (D-WA, 26/10/2026).
+    ///
+    /// ── LO QUE ESTO ARREGLA, Y NO FALLABA ──
+    ///
+    /// Antes se usaban los de `self.contenido`, puestos al construir el
+    /// proveedor. Para el envío de prueba —un mensaje suelto— es correcto.
+    /// Para una campaña era un defecto silencioso: el proveedor se arma una
+    /// vez por etapa, así que **toda la lista habría recibido el mensaje con
+    /// los datos de la primera persona**. Meta lo habría aceptado, ARLES lo
+    /// habría contado como aceptado, y las cifras saldrían bien.
+    ///
+    /// El nombre y el idioma siguen saliendo del proveedor: son de la etapa y
+    /// no cambian entre contactos. Lo que cambia son los valores.
+    fn cuerpo(&self, para: &str, valores: &[String]) -> String {
+        let parametros = valores
             .iter()
             .map(|v| format!(r#"{{"type":"text","text":{}}}"#, json_texto(v)))
             .collect::<Vec<_>>()
@@ -158,6 +169,38 @@ impl ProveedorDeWhatsApp {
     }
 }
 
+/// Los valores que se mandan: los del mensaje si los trae, y si no los del
+/// proveedor.
+///
+/// Las dos puertas hacen falta y no son redundantes. El **envío de prueba**
+/// arma un proveedor con su contenido y manda un mensaje sin valores: ahí
+/// mandan los del proveedor. Una **campaña** arma el proveedor una vez para
+/// toda la etapa y manda los de cada contacto: ahí mandan los del mensaje.
+///
+/// Un `Contenido::Correo` aquí significaría que la fábrica armó el proveedor
+/// equivocado; se cae del lado del proveedor, que es el único contenido que
+/// este adaptador tiene y que Meta va a aceptar.
+fn valores_de<'a>(
+    contenido: &'a arles_motor::proveedor::Contenido<'a>,
+    del_proveedor: &'a arles_core::whatsapp::MensajeDePlantilla,
+) -> &'a [String] {
+    match contenido {
+        // **Vacío cae en los del proveedor, y la condición hace falta.**
+        //
+        // El comentario de arriba lo decía y el código no lo hacía: el envío
+        // de prueba manda `valores: &[]` —su contenido va en el proveedor— y
+        // llegaba a Meta una plantilla SIN SUS HUECOS. Lo cazaron las dos
+        // pruebas de integración del adaptador, no una de módulo: el defecto
+        // vivía en la junta.
+        //
+        // Una plantilla sin huecos tiene los dos lados vacíos, así que caer no
+        // cambia nada; con huecos, los del mensaje son los de esta persona y
+        // mandan.
+        arles_motor::proveedor::Contenido::Whatsapp { valores } if !valores.is_empty() => valores,
+        _ => &del_proveedor.valores,
+    }
+}
+
 impl Proveedor for ProveedorDeWhatsApp {
     fn enviar(&self, mensaje: &Mensaje<'_>) -> Result<Aceptado, Fallo> {
         let url = format!(
@@ -170,7 +213,13 @@ impl Proveedor for ProveedorDeWhatsApp {
             .post(&url)
             .header("Authorization", &format!("Bearer {}", self.token))
             .header("Content-Type", "application/json")
-            .send(self.cuerpo(mensaje.para).as_bytes());
+            .send(
+                self.cuerpo(
+                    mensaje.para,
+                    valores_de(&mensaje.contenido, &self.contenido),
+                )
+                .as_bytes(),
+            );
 
         let mut r = match respuesta {
             Ok(r) => r,
@@ -288,7 +337,7 @@ mod tests {
             valores: vec![r#"Ana"},"to":"+520000000000"#.to_owned()],
             ..contenido()
         };
-        let cuerpo = proveedor(malicioso).cuerpo("+528112345678");
+        let cuerpo = proveedor(malicioso.clone()).cuerpo("+528112345678", &malicioso.valores);
 
         // El destino sigue siendo uno solo, y es el que se pidió.
         assert_eq!(
@@ -312,7 +361,7 @@ mod tests {
             valores: vec!["Ana\nMaría\u{1}".to_owned()],
             ..contenido()
         };
-        let cuerpo = proveedor(con_salto).cuerpo("+528112345678");
+        let cuerpo = proveedor(con_salto.clone()).cuerpo("+528112345678", &con_salto.valores);
         assert!(cuerpo.contains("Ana\\nMar"), "el salto va escapado");
         assert!(cuerpo.contains("\\u0001"), "y los de control también");
         assert!(!cuerpo.contains('\n'), "no queda ningún salto crudo");
@@ -329,7 +378,7 @@ mod tests {
             valores: vec![],
             ..contenido()
         };
-        let cuerpo = proveedor(sin_huecos).cuerpo("+528112345678");
+        let cuerpo = proveedor(sin_huecos.clone()).cuerpo("+528112345678", &sin_huecos.valores);
         assert!(!cuerpo.contains("components"), "{cuerpo}");
         assert!(cuerpo.contains(r#""name":"bienvenida""#));
     }
@@ -338,7 +387,7 @@ mod tests {
     /// texto, que ARLES ni siquiera manda.
     #[test]
     fn el_cuerpo_manda_el_nombre_de_la_plantilla_y_no_su_texto() {
-        let cuerpo = proveedor(contenido()).cuerpo("+528112345678");
+        let cuerpo = proveedor(contenido()).cuerpo("+528112345678", &contenido().valores);
         assert!(cuerpo.contains(r#""messaging_product":"whatsapp""#));
         assert!(cuerpo.contains(r#""type":"template""#));
         assert!(cuerpo.contains(r#""name":"bienvenida""#));

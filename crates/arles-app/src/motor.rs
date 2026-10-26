@@ -57,7 +57,7 @@ use arles_db::trabajo::EtapaEnMarcha;
 use arles_motor::bucle::{Ajustes, EntornoDelSistema, Paso, Trabajador, freno_de_la_base};
 use arles_motor::instancia::Cerrojo;
 
-use crate::fabrica::{ElLlaveroDelSistema, FuenteDeContrasenas, proveedor_de_la_cuenta};
+use crate::fabrica::{ElLlaveroDelSistema, FuenteDeContrasenas, proveedor_de_la_etapa};
 
 /// Cuánto duerme el hilo entre vueltas cuando no hay nada que hacer.
 ///
@@ -234,7 +234,7 @@ fn frenar_si_rebota_demasiado(
                 es_desenlace: false,
                 campana: Some(&etapa.campana),
                 etapa: Some(&etapa.etapa),
-                canal: Some("email"),
+                canal: Some(etapa.cuenta.canal().como_texto()),
                 intento: None,
                 numero_a: Some(i64::from(duros)),
                 numero_b: Some(i64::from(de)),
@@ -276,7 +276,31 @@ fn servir(
         return false;
     }
 
-    let Ok(proveedor) = proveedor_de_la_cuenta(db, secretos, etapa.cuenta) else {
+    // La plantilla de Meta de esta etapa: su nombre y su idioma, que son de la
+    // etapa. Los valores de cada contacto NO salen de aquí — viajan en el
+    // mensaje, que es lo que D-WA vino a arreglar.
+    let plantilla = db
+        .plantilla_de_la_etapa(empresa, &etapa.etapa)
+        .unwrap_or(None);
+
+    let contenido = arles_core::whatsapp::MensajeDePlantilla {
+        nombre: plantilla
+            .as_ref()
+            .map(|p| p.nombre.clone())
+            .unwrap_or_default(),
+        idioma: plantilla
+            .as_ref()
+            .map(|p| p.idioma.clone())
+            .unwrap_or_default(),
+        // Vacíos a propósito: en una campaña los valores los pone cada
+        // mensaje. Si llegaran a usarse éstos, toda la lista recibiría lo
+        // mismo — el defecto que D-WA arregla.
+        valores: Vec::new(),
+        faltaron: Vec::new(),
+    };
+
+    let Ok(proveedor) = proveedor_de_la_etapa(db, secretos, empresa, &etapa.cuenta, contenido)
+    else {
         return false;
     };
 
@@ -296,19 +320,20 @@ fn servir(
     let freno = freno_de_la_base(db, empresa, &etapa.campana);
     let trabajador = Trabajador::nuevo(
         db,
-        &proveedor,
+        &*proveedor,
         &EntornoDelSistema,
         &freno,
         Ajustes {
             empresa,
             campana: etapa.campana.clone(),
-            cuenta: etapa.cuenta.to_string(),
+            cuenta: etapa.cuenta.como_texto(),
             etapa: etapa.etapa.clone(),
-            canal: etapa.canal,
+            canal: etapa.cuenta.canal(),
             ventana: etapa.ventana.clone(),
             limites: etapa.limites,
             zona_de_la_empresa: etapa.zona_de_la_empresa.clone(),
             redaccion,
+            plantilla_de_whatsapp: plantilla,
         },
     );
 
@@ -367,7 +392,7 @@ fn anotar_el_paso(
     // `como_texto()` y no un `match` aquí: esa función **es** el contrato con
     // el esquema —las `CHECK` de las migraciones contienen literalmente esas
     // cadenas— y repetirlo sería una segunda copia que puede divergir.
-    let canal = etapa.canal.como_texto();
+    let canal = etapa.cuenta.canal().como_texto();
 
     let (intento, a, b) = cifras_del_paso(paso);
 
@@ -444,6 +469,9 @@ fn cifras_del_paso(paso: &Paso) -> (Option<&str>, Option<i64>, Option<i64>) {
         // —no en segundos— para que `anotar_si_cambia` recorte: trescientas
         // esperas de catorce días son **una línea**, no trescientas.
         Paso::EnDescanso { dias, .. } => (None, Some(*dias), None),
+        // Sin cifras: lo que hay que decir es que falta elegir plantilla, y
+        // eso no tiene número. El texto lo explica entero.
+        Paso::SinPlantillaDeWhatsapp => (None, None, None),
         // ── EL TOPE, CON SU CIFRA ──────────────────────────────────────────
         //
         // Sin esto, `SinPresupuesto` caía en el `_` de abajo y se anotaba sin

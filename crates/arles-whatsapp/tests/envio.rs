@@ -49,8 +49,7 @@ fn mandar(guion: Guion) -> (ServidorDeMentira, Result<String, Fallo>) {
             para: DESTINO,
             // En WhatsApp el contenido va con el proveedor: es una plantilla
             // aprobada por Meta, no texto libre.
-            asunto: "",
-            html: "",
+            contenido: arles_motor::proveedor::Contenido::Whatsapp { valores: &[] },
             de_una_campana: true,
             clave_de_idempotencia: "k-1",
         })
@@ -206,8 +205,7 @@ fn un_servidor_que_se_calla_no_da_de_baja_a_nadie() {
         para: DESTINO,
         // En WhatsApp el contenido va con el proveedor: es una plantilla
         // aprobada por Meta, no texto libre.
-        asunto: "",
-        html: "",
+        contenido: arles_motor::proveedor::Contenido::Whatsapp { valores: &[] },
         de_una_campana: true,
         clave_de_idempotencia: "k-1",
     });

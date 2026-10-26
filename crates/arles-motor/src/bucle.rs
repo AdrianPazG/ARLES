@@ -42,7 +42,16 @@ use arles_core::ventana::{TimeZone, Ventana, clave_de_dia, clave_de_hora};
 use arles_db::{Db, DbError, TrabajoTomado};
 use time::OffsetDateTime;
 
-use crate::proveedor::{Mensaje, Proveedor, recortar_respuesta};
+use crate::proveedor::{Contenido, Mensaje, Proveedor, recortar_respuesta};
+
+/// Con qué se rellena un hueco de la plantilla de Meta cuando el contacto no
+/// tiene ese dato.
+///
+/// En correo lo que falta se queda en blanco (`SiFalta::Nada`): poner «cliente»
+/// por nuestra cuenta sería escribir en nombre de quien redactó. En WhatsApp
+/// **no hay esa opción**: Meta rechaza un parámetro vacío, y el mensaje no
+/// sale. Entre no mandar nada y mandar una palabra neutra, manda la palabra.
+const RESERVA_DE_WHATSAPP: &str = "Hola";
 use crate::tiempo::sello;
 
 /// Lo que el trabajador necesita saber de la campaña que está sirviendo.
@@ -89,6 +98,13 @@ pub struct Ajustes {
     /// producto no ocurre —`crear_campana` exige una plantilla— y en las
     /// pruebas del motor sí: ahí lo que se ejercita es el ritmo, no el texto.
     pub redaccion: Option<arles_db::RedaccionDeLaCampana>,
+    /// La plantilla de Meta de esta etapa, cuando el canal es WhatsApp.
+    ///
+    /// `None` en una etapa de correo, y también en una de WhatsApp a la que no
+    /// se le eligió plantilla — que no se puede activar, pero una base tocada
+    /// a mano sí lo permite. Por eso el motor lo trata como un paso visible y
+    /// no como un `unwrap`.
+    pub plantilla_de_whatsapp: Option<arles_core::whatsapp::PlantillaDeMeta>,
 }
 
 /// De dónde salen el reloj y el azar.
@@ -210,6 +226,14 @@ pub enum Paso {
     /// Lleva los días que faltan porque una cifra se entiende y «está
     /// esperando» no (§94).
     EnDescanso { intento: String, dias: i64 },
+    /// **Una etapa de WhatsApp sin plantilla de Meta elegida.**
+    ///
+    /// No es como el correo: ahí, si falta el cuerpo, se manda igual —la
+    /// decisión incómoda de la H-15— porque un correo vacío se ve y una
+    /// campaña muda no. En WhatsApp no hay esa salida: **sólo se puede mandar
+    /// una plantilla aprobada**, y sin ella Meta rechaza. Así que se para, y
+    /// se dice.
+    SinPlantillaDeWhatsapp,
     /// El disyuntor de la cuenta está abierto: no se toma trabajo (§7).
     ///
     /// Lleva los segundos que faltan para poder decirlo con una cifra. «La
@@ -266,6 +290,7 @@ impl Paso {
             // desenlace de un intento —el intento no llegó a ocurrir— sino una
             // razón para no enviar todavía, como estar fuera de la ventana.
             Self::EnDescanso { .. } => "motor.enDescanso",
+            Self::SinPlantillaDeWhatsapp => "motor.sinPlantillaDeWhatsapp",
 
             // El motivo por el que no cabe un envío ya tiene su texto, y lleva
             // la cifra: «Se alcanzó el tope de 50 envíos al día».
@@ -496,12 +521,56 @@ impl<'a> Trabajador<'a> {
             )
         });
 
+        // Los valores de la plantilla de Meta, **de esta persona**. Es lo que
+        // antes no cambiaba: el proveedor traía su contenido pegado, así que
+        // una campaña entera habría salido con los datos del primer contacto.
+        let valores_de_whatsapp = self
+            .ajustes
+            .plantilla_de_whatsapp
+            .as_ref()
+            .and_then(|p| {
+                let valores = arles_core::plantilla::Valores::nuevos()
+                    .con(
+                        arles_core::plantilla::Variable::Nombre,
+                        &trabajo.datos.nombre,
+                    )
+                    .con(
+                        arles_core::plantilla::Variable::Apellido,
+                        &trabajo.datos.apellido,
+                    )
+                    .con(
+                        arles_core::plantilla::Variable::Empresa,
+                        &trabajo.datos.empresa,
+                    );
+                // La reserva no es un adorno: Meta RECHAZA un hueco vacío, así
+                // que una plantilla con `{{1}}` y un contacto sin nombre no se
+                // puede mandar en blanco como un correo. Ver `preparar`.
+                p.preparar(&valores, RESERVA_DE_WHATSAPP).ok()
+            })
+            .map(|m| m.valores);
+
+        // ── EL CONTENIDO, SEGÚN EL CANAL (D-WA) ──────────────────────────
+        //
+        // En correo se manda aunque falte el cuerpo: es la decisión de la H-15
+        // —un correo vacío se ve, una campaña muda no—. En WhatsApp no cabe
+        // esa salida: sin plantilla aprobada, Meta rechaza. Se para antes de
+        // gastar un intento.
+        let contenido = match self.ajustes.canal {
+            arles_core::Canal::Correo => Contenido::Correo {
+                asunto: correo.as_ref().map_or("", |c| c.asunto.as_str()),
+                html: correo.as_ref().map_or("", |c| c.html.as_str()),
+            },
+            arles_core::Canal::WhatsApp => match &valores_de_whatsapp {
+                Some(v) => Contenido::Whatsapp { valores: v },
+                None => return Ok(Paso::SinPlantillaDeWhatsapp),
+            },
+        };
+
         let mensaje = Mensaje {
             para: &trabajo.direccion,
             // Esto sale de una campaña: lleva su salida de baja.
             de_una_campana: true,
-            asunto: correo.as_ref().map_or("", |c| c.asunto.as_str()),
-            html: correo.as_ref().map_or("", |c| c.html.as_str()),
+            contenido,
             clave_de_idempotencia: &trabajo.clave_de_idempotencia,
         };
         match self.proveedor.enviar(&mensaje) {
@@ -827,6 +896,7 @@ mod tests {
             // ponerlo aquí haría que cada aserción del bucle dependiera de
             // una plantilla que no es lo que se está mirando.
             redaccion: None,
+            plantilla_de_whatsapp: None,
         }
     }
 

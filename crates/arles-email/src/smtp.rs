@@ -436,7 +436,23 @@ impl ProveedorSmtp {
         // La versión en texto plano se deriva aquí del mismo HTML. Que la
         // mandara el motor daría dos sitios donde pueden dejar de decir lo
         // mismo.
-        let contenido = Contenido::de_html(mensaje.asunto, mensaje.html);
+        // ── UN CONTENIDO QUE NO ES DE CORREO NO SE MANDA COMO SI LO FUERA ──
+        //
+        // Llegar aquí significa que la fábrica armó el proveedor equivocado
+        // para la etapa. No debería pasar —`proveedor_de_la_etapa` elige por
+        // la cuenta de la etapa— y si pasa, lo que no se puede hacer es
+        // inventarse un correo.
+        //
+        // `LaCuentaNoAutentica` y no otra, y la razón es la que manda: es la
+        // única de las cinco que **no puede dar de baja a nadie**.
+        // `LaDireccionNoExiste` y `EsaPersonaPidioLaBaja` suprimen, y suprimir
+        // por un error nuestro de cableado le quitaría el correo a alguien
+        // para siempre. `Pasajero` reintentaría contra un problema que no se
+        // arregla solo. Ésta para la cuenta, que es visible y se deshace.
+        let arles_motor::proveedor::Contenido::Correo { asunto, html } = mensaje.contenido else {
+            return Err(arles_core::reintento::Fallo::LaCuentaNoAutentica);
+        };
+        let contenido = Contenido::de_html(asunto, html);
         let mut constructor = Message::builder()
             .from(self.de.clone())
             .to(para)
@@ -657,11 +673,13 @@ mod tests {
     fn mensaje<'a>(para: &'a str, clave: &'a str) -> Mensaje<'a> {
         Mensaje {
             para,
-            asunto: "Aviso de ARLES",
-            // Con negrita a propósito: es lo que distingue la parte HTML de la
-            // de texto, y sin ella las dos versiones serían iguales y una
-            // prueba de que van por separado no probaría nada.
-            html: "<p>Buenas <strong>tardes</strong>.</p>",
+            contenido: arles_motor::proveedor::Contenido::Correo {
+                asunto: "Aviso de ARLES",
+                // Con negrita a propósito: es lo que distingue la parte HTML
+                // de la de texto, y sin ella las dos versiones serían iguales
+                // y una prueba de que van por separado no probaría nada.
+                html: "<p>Buenas <strong>tardes</strong>.</p>",
+            },
             de_una_campana: true,
             clave_de_idempotencia: clave,
         }

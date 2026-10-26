@@ -196,8 +196,18 @@ impl Proveedor for ProveedorSimulado {
             .push(Pedido {
                 para: mensaje.para.to_owned(),
                 clave_de_idempotencia: mensaje.clave_de_idempotencia.to_owned(),
-                asunto: mensaje.asunto.to_owned(),
-                html: mensaje.html.to_owned(),
+                // El simulador guarda lo del correo porque es lo que sus
+                // pruebas comprueban. Un mensaje de WhatsApp no tiene asunto
+                // ni HTML: lo que lleva son los valores de la plantilla, y se
+                // guardan en su sitio.
+                asunto: match &mensaje.contenido {
+                    crate::proveedor::Contenido::Correo { asunto, .. } => (*asunto).to_owned(),
+                    crate::proveedor::Contenido::Whatsapp { .. } => String::new(),
+                },
+                html: match &mensaje.contenido {
+                    crate::proveedor::Contenido::Correo { html, .. } => (*html).to_owned(),
+                    crate::proveedor::Contenido::Whatsapp { valores } => valores.join(" · "),
+                },
             });
 
         let siguiente = {
@@ -222,8 +232,10 @@ mod tests {
     fn mensaje<'a>(para: &'a str) -> Mensaje<'a> {
         Mensaje {
             para,
-            asunto: "Aviso",
-            html: "<p>Hola</p>",
+            contenido: crate::proveedor::Contenido::Correo {
+                asunto: "Aviso",
+                html: "<p>Hola</p>",
+            },
             de_una_campana: true,
             clave_de_idempotencia: "clave-1",
         }
@@ -355,8 +367,10 @@ mod tests {
         let p = ProveedorSimulado::que_siempre_acepta();
         p.enviar(&Mensaje {
             para: "ana@x.mx",
-            asunto: "Aviso",
-            html: "<p>Hola</p>",
+            contenido: crate::proveedor::Contenido::Correo {
+                asunto: "Aviso",
+                html: "<p>Hola</p>",
+            },
             de_una_campana: true,
             clave_de_idempotencia: "01J-abc",
         })

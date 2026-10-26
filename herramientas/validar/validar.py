@@ -1942,6 +1942,9 @@ MIGRACIONES_PUBLICADAS = {
     # empieza por `contact_address`.
     "V15__descanso_entre_campanas.sql":
         "4a0c07644ba40434a85f859f1e67c77177edef2ca3f6083faeb4ecb022482c20",
+    # D-WA, 26/10/2026: el canal de WhatsApp entra en la v1.2.0.
+    "V16__plantilla_de_whatsapp_en_la_etapa.sql":
+        "2ec028153e673de8c73c00092cf356257d6b278298c87ce4bfed2cbc32f7f9f0",
 }
 
 
@@ -5247,6 +5250,87 @@ def ningun_comando_se_queda_sin_quien_lo_llame():
     )
 
 
+def el_motor_recorre_los_dos_canales():
+    """**D-WA: que una campaña entera salga por WhatsApp, no sólo una prueba.**
+
+    ─────────────────────────────────────────────────────────────────────────
+    QUÉ SE PIERDE SI UNO DE LOS CUATRO TRAMOS SE SUELTA
+
+      1. La **consulta** de `arles-db` tiene que devolver también las etapas de
+         WhatsApp. Hoy filtra `channel = 'email'` y une con `email_account`:
+         una etapa de WhatsApp en marcha **no existe para el motor**, y la
+         campaña se queda quieta para siempre sin que nada falle.
+      2. La **etapa** tiene que poder decir de qué cuenta se trata. Con
+         `cuenta: EmailAccountId` y `canal` por separado cabe el estado
+         imposible —canal de WhatsApp con cuenta de correo— y el compilador no
+         obliga a nadie a decidir.
+      3. El **contenido** tiene que viajar por contacto. `ProveedorDeWhatsApp`
+         trae su plantilla pegada al construirse: sirve para un envío suelto y
+         **no para una campaña**, donde cada persona tiene sus valores.
+      4. Y la **fábrica** del motor tiene que saber armar el proveedor de un
+         número, no sólo el de una cuenta de correo.
+
+    El primero es el que no caza nadie más: todo lo de WhatsApp pasa sus
+    pruebas —el adaptador, el servidor de mentira, el envío de prueba— mientras
+    una campaña activada por ese canal no manda nada. Es el estado en el que
+    el canal llevaba desde la W.8.
+
+    Escrita **antes** de construirlo y vista en rojo nombrando los cuatro.
+    """
+    faltan = []
+
+    trabajo = sin_comentarios_de_barras(
+        leer("crates", "arles-db", "src", "trabajo.rs") or ""
+    )
+    if "e.channel = 'email'" in trabajo:
+        faltan.append(
+            "`etapas_en_marcha` sigue filtrando `channel = 'email'`: una etapa "
+            "de WhatsApp en marcha no existe para el motor y la campaña se "
+            "queda quieta para siempre"
+        )
+    if "whatsapp_account" not in trabajo:
+        faltan.append(
+            "la consulta no une con `whatsapp_account`: no habría de dónde "
+            "sacar el número de una etapa de WhatsApp"
+        )
+
+    # El estado imposible, cerrado con una variante.
+    if "CuentaDeLaEtapa" not in trabajo:
+        faltan.append(
+            "`EtapaEnMarcha` no distingue de qué cuenta se trata: con la de "
+            "correo y el canal por separado cabe el estado imposible, y el "
+            "compilador no obliga a decidir en ningún sitio"
+        )
+
+    fabrica = sin_comentarios_de_barras(
+        leer("crates", "arles-app", "src", "fabrica.rs") or ""
+    )
+    if "proveedor_de_la_etapa(" not in fabrica:
+        faltan.append(
+            "la fábrica no sabe armar el proveedor de una etapa: el motor "
+            "sólo podría pedir cuentas de correo"
+        )
+
+    motor = sin_comentarios_de_barras(
+        leer("crates", "arles-motor", "src", "proveedor.rs") or ""
+    )
+    if "Contenido" not in motor:
+        faltan.append(
+            "el mensaje no lleva el contenido por canal: la plantilla de Meta "
+            "va pegada al proveedor, que sirve para un envío suelto y no para "
+            "una campaña donde cada contacto tiene sus valores"
+        )
+
+    check(
+        "W",
+        "el motor recorre los dos canales (D-WA)",
+        not faltan,
+        "Todo lo de WhatsApp pasa sus pruebas mientras una campaña activada "
+        "por ese canal no manda nada. Es el estado del canal desde la W.8.",
+        "\n  ".join(faltan),
+    )
+
+
 def fase_w(rapido):
     titulo("CANAL W · WhatsApp")
 
@@ -5272,6 +5356,7 @@ def fase_w(rapido):
     la_firma_se_comprueba_antes_de_analizar()
     una_calidad_sin_consultar_no_es_buena()
     las_dos_marcas_no_estan_en_el_alta()
+    el_motor_recorre_los_dos_canales()
 
     print(f"{GRIS}  el recorrido del usuario{FIN}")
     if rapido:

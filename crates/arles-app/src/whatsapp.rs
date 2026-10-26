@@ -387,15 +387,14 @@ pub fn prueba_con(
     let clave = format!("prueba-{}", numero);
     let mensaje = Mensaje {
         para: destino.normalized(),
-        // **En WhatsApp el contenido no viaja por aquí**, y no es un olvido:
-        // Meta no acepta texto libre en un primer mensaje. Lo que se manda es
-        // una plantilla que Meta aprobó, con sus valores, y eso va con el
-        // proveedor —arriba, en `contenido`— porque es lo que la API pide.
+        // **El envío de prueba manda los valores del proveedor**, no unos
+        // propios: es un mensaje suelto, armado para esta prueba, y su
+        // contenido se puso al construir el adaptador.
         //
-        // El `Mensaje` es el mismo para los dos canales, así que estos dos
-        // campos van vacíos en este camino.
-        asunto: "",
-        html: "",
+        // Una lista vacía aquí no significa «sin valores»: el adaptador cae en
+        // los suyos cuando el mensaje no trae ninguno. Es la otra mitad de
+        // D-WA — una campaña sí los manda, uno por contacto.
+        contenido: arles_motor::proveedor::Contenido::Whatsapp { valores: &[] },
         de_una_campana: false,
         clave_de_idempotencia: &clave,
     };

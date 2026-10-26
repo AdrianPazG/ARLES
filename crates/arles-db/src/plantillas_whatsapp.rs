@@ -31,7 +31,7 @@
 use arles_core::ids::{CompanyId, WhatsappAccountId, WhatsappTemplateId};
 use arles_core::plantilla::Variable;
 use arles_core::whatsapp::EstadoEnMeta;
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 
 use crate::db::Db;
 use crate::empresa::ahora;
@@ -156,6 +156,60 @@ impl Db {
     ///
     /// [`DbError::Sqlite`] si la lectura falla, o [`DbError::Nucleo`] si la base
     /// trae un estado o una variable que el núcleo no reconoce.
+    /// La plantilla de Meta que manda una etapa de WhatsApp (D-WA).
+    ///
+    /// `None` cuando la etapa no es de WhatsApp o todavía no tiene plantilla
+    /// elegida. Esto último no se puede activar —`activar_campana` lo exige—
+    /// pero sí existe mientras el asistente va por la mitad, que es por lo que
+    /// la columna no lleva un `CHECK` (ver la V16).
+    ///
+    /// Devuelve la plantilla del núcleo y no la guardada: lo que el motor
+    /// necesita es poder **preparar** el mensaje de cada contacto, y eso lo
+    /// sabe hacer `PlantillaDeMeta`.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla, o [`DbError::Nucleo`] si el
+    /// estado o los huecos guardados no los reconoce el núcleo.
+    pub fn plantilla_de_la_etapa(
+        &self,
+        empresa: CompanyId,
+        etapa: &str,
+    ) -> Result<Option<arles_core::whatsapp::PlantillaDeMeta>, DbError> {
+        self.con_dominio(|conn| {
+            let fila = conn
+                .query_row(
+                    "SELECT p.meta_name, p.language, p.status, p.body, p.slots
+                       FROM campaign_stage e
+                       JOIN whatsapp_template p ON p.id = e.whatsapp_template_id
+                      WHERE e.id = ?1 AND p.company_id = ?2",
+                    params![etapa, empresa.to_string()],
+                    |f| {
+                        Ok((
+                            f.get::<_, String>(0)?,
+                            f.get::<_, String>(1)?,
+                            f.get::<_, String>(2)?,
+                            f.get::<_, String>(3)?,
+                            f.get::<_, String>(4)?,
+                        ))
+                    },
+                )
+                .optional()?;
+
+            let Some((nombre, idioma, estado, cuerpo, huecos)) = fila else {
+                return Ok(None);
+            };
+
+            Ok(Some(arles_core::whatsapp::PlantillaDeMeta {
+                nombre,
+                idioma,
+                estado: EstadoEnMeta::de_guardado(&estado).map_err(DbError::Nucleo)?,
+                huecos: leer_huecos(&huecos)?,
+                cuerpo,
+            }))
+        })
+    }
+
     pub fn plantillas_de_meta(
         &self,
         empresa: CompanyId,

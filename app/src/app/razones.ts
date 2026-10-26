@@ -50,6 +50,9 @@ export const MARCADORES_DE_RAZON: Readonly<Record<string, readonly string[]>> =
     'ritmo.fueraDeVentana': [],
     'ritmo.topeDeLaHora': ['cabian'],
     'ritmo.topeDelDia': ['cabian'],
+    // D-WA: una etapa de WhatsApp sin plantilla de Meta elegida. Sin
+    // cifras: lo que falta no tiene número, y el texto lo explica entero.
+    'motor.sinPlantillaDeWhatsapp': [],
     // R-3: cuántos rebotaron y de cuántos. Las dos cifras hacen falta —
     // «4 rebotaron» sin el denominador no dice si es el 8 % o el 0.04 %.
     'rebotes.frena': ['duros', 'de'],

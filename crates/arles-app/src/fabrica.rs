@@ -178,6 +178,47 @@ impl LaCuentaNoSirve {
     }
 }
 
+/// El proveedor que toca para una etapa, sea del canal que sea (D-WA).
+///
+/// ── POR QUÉ `Box<dyn Proveedor>` Y NO UN ENUM ──
+///
+/// Porque el motor ya habla con un rasgo: `Trabajador` recibe
+/// `&dyn Proveedor` y no sabe si detrás hay SMTP o Meta. Devolver un enum
+/// obligaría a hacer un `match` aquí y otro en cada sitio que lo use, para
+/// acabar llamando al mismo método.
+///
+/// La decisión la toma la **cuenta de la etapa**, que ya lleva el canal
+/// dentro: no hay forma de pedir el proveedor equivocado sin cambiar el tipo.
+///
+/// `contenido` es el de la etapa —nombre e idioma de la plantilla de Meta—.
+/// Los valores de cada contacto no van aquí: viajan en el mensaje, que es lo
+/// que D-WA vino a arreglar.
+///
+/// # Errores
+///
+/// Los de [`proveedor_de_la_cuenta`] y [`proveedor_del_numero`].
+pub fn proveedor_de_la_etapa(
+    db: &Db,
+    secretos: &dyn FuenteDeContrasenas,
+    empresa: arles_core::ids::CompanyId,
+    cuenta: &arles_db::trabajo::CuentaDeLaEtapa,
+    contenido: arles_core::whatsapp::MensajeDePlantilla,
+) -> Result<Box<dyn arles_motor::proveedor::Proveedor>, AppError> {
+    match cuenta {
+        arles_db::trabajo::CuentaDeLaEtapa::Correo(id) => {
+            Ok(Box::new(proveedor_de_la_cuenta(db, secretos, *id)?))
+        }
+        arles_db::trabajo::CuentaDeLaEtapa::Whatsapp(id) => Ok(Box::new(proveedor_del_numero(
+            db,
+            secretos,
+            empresa,
+            *id,
+            contenido,
+            arles_whatsapp::cloud::GRAPH,
+        )?)),
+    }
+}
+
 /// Arma el adaptador de correo de una cuenta guardada.
 ///
 /// Los tres pasos, en este orden y no en otro: se lee la cuenta, se comprueba
