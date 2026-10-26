@@ -2089,6 +2089,90 @@ def rutas_del_catalogo(fuente):
     return rutas
 
 
+def _rutas_del_catalogo():
+    """Todas las rutas del catálogo de textos, resueltas ENTERAS.
+
+    La ruta y no la hoja, que es el defecto que la 7.7 arregló en la
+    comprobación del §139 y que yo mismo volví a cometer el 26/10/2026
+    midiendo con un `grep` de sangría: dio por duplicado un bloque
+    `producto.contactos.supresion` contra `producto.supresion`, que son dos
+    cosas distintas. **La sangría de este archivo no es de fiar** —hay bloques
+    anidados escritos con dos espacios— así que lo que manda es el recuento de
+    llaves.
+    """
+    texto = leer("app/src/app/locales", "es.ts") or ""
+    rutas, pila, nivel = set(), [], 0
+    for linea in texto.split("\n"):
+        # Comentarios y textos fuera ANTES de contar llaves: un texto como
+        # `'{fallan} por arreglar'` lleva una `}` dentro, y contándola el nivel
+        # se descuadra a mitad del archivo (misma razón que `_esqueleto_del_catalogo`).
+        s = re.sub(r"//.*$", "", linea)
+        s = re.sub(r"'(?:\\.|[^'\\])*'", "''", s)
+        s = re.sub(r'"(?:\\.|[^"\\])*"', '""', s)
+        abre = re.match(r"\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*\{\s*$", s)
+        if abre:
+            pila.append(abre.group(1))
+            rutas.add(".".join(pila))
+            nivel += 1
+            continue
+        hoja = re.match(r"\s*([A-Za-z_][A-Za-z0-9_]*)\s*:", s)
+        if hoja and nivel:
+            rutas.add(".".join(pila + [hoja.group(1)]))
+        nivel += s.count("{") - s.count("}")
+        while len(pila) > max(nivel, 0):
+            pila.pop()
+    # El catálogo entero cuelga de `producto`; las claves de Rust no lo nombran.
+    return {r[len("producto.") :] if r.startswith("producto.") else r for r in rutas}
+
+
+def toda_clave_de_pantalla_del_nucleo_tiene_texto():
+    """Toda clave que devuelve un `clave_i18n()` del núcleo tiene su texto.
+
+    ── EL HUECO QUE ESTO CIERRA ──
+
+    `claves_de_error_sin_texto` cubre el §139 **sólo para las claves
+    `error.*`**. Las de pantalla —`preflight.*`, `motor.*`, `intento.*`,
+    `entregabilidad.*`— las devuelve el mismo mecanismo y no las miraba nadie.
+
+    Es el patrón de siempre: una comprobación que dice cubrir una regla y cubre
+    la parte que alguien rompió una vez. Y la consecuencia es la de siempre —
+    una clave sin texto **no revienta nada**: `vue-i18n` enseña la cadena cruda
+    y el usuario lee `entregabilidad.claveRetirada` donde debería leer una
+    frase.
+
+    Medido al escribirla el 26/10/2026: el núcleo devuelve **133** claves de
+    pantalla y las únicas sin texto eran las diez de la 7.5 recién escritas.
+    Nació en rojo sobre exactamente lo que faltaba, que es como se sabe que
+    mide algo.
+    """
+    rutas = _rutas_del_catalogo()
+
+    claves = set()
+    directorio = os.path.join(RAIZ, "crates", "arles-core", "src")
+    for archivo in sorted(os.listdir(directorio)):
+        if not archivo.endswith(".rs"):
+            continue
+        texto = leer("crates/arles-core/src", archivo) or ""
+        # Sin las pruebas: una clave inventada en un `assert_eq!` no es una
+        # clave que el núcleo devuelva.
+        texto = texto.split("#[cfg(test)]")[0]
+        for cuerpo in re.findall(
+            r"fn clave_i18n\([^)]*\)\s*->\s*&.*?\{(.*?)\n    \}", texto, re.S
+        ):
+            for k in re.findall(r'=>\s*"([a-zA-Z][\w.]*\.[\w.]+)"', cuerpo):
+                claves.add((archivo, k))
+
+    faltan = sorted(f"{a} → {k}" for a, k in claves if k not in rutas)
+    check(
+        7,
+        f"toda clave de pantalla del núcleo tiene texto ({len(claves)} claves)",
+        bool(claves) and not faltan,
+        "Una clave sin texto no falla: se enseña cruda. El usuario lee "
+        "«entregabilidad.claveRetirada» donde iba una frase (§139).",
+        "sin texto:\n  " + "\n  ".join(faltan),
+    )
+
+
 def claves_de_error_sin_texto():
     """Toda clave que emite Rust está declarada y tiene texto.
 
@@ -7686,6 +7770,9 @@ def fase_7(rapido=False):
 
     print(f"{GRIS}  el resumen exportable (7.6){FIN}")
     el_resumen_no_puede_llevar_direcciones()
+
+    print(f"{GRIS}  SPF, DKIM y DMARC (7.5){FIN}")
+    toda_clave_de_pantalla_del_nucleo_tiene_texto()
 
 
 # El canal de WhatsApp no es una fase numerada: cruza la 5 y la 6 y se entregó

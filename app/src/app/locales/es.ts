@@ -931,6 +931,95 @@ export const es = {
   },
 
   /**
+   * SPF, DKIM y DMARC · la entrega 7.5.
+   *
+   * Estos textos los lee alguien que NO sabe lo que es un registro TXT, y
+   * tienen que dejarle hacer una cosa muy concreta: entrar al panel de su
+   * proveedor de dominio y escribir algo. Así que cada hallazgo dice las tres
+   * partes del §95 —qué pasa, cómo se arregla y qué está a salvo— y ninguno
+   * usa la palabra «inválido».
+   *
+   * Y el que más importa es `enObservacion`, porque es el único que describe
+   * una configuración CORRECTA que todavía no protege. Decir ahí «bien» sería
+   * el engaño del §65 con otra cara.
+   */
+  entregabilidad: {
+    titulo: 'Los registros de tu dominio',
+    explicacion:
+      'Son tres apuntes en la configuración de tu dominio que le dicen a ' +
+      'Gmail, a Outlook y a los demás que los correos que mandas son de ' +
+      'verdad tuyos. Sin ellos el correo sale igual, lo acepta el servidor y ' +
+      'acaba en no deseados.',
+
+    // Los tres registros, explicados por lo que HACEN y no por lo que son.
+    spf: 'SPF · quién puede enviar en tu nombre',
+    dkim: 'DKIM · la firma que prueba que el correo no se tocó',
+    dmarc: 'DMARC · qué hacer con el correo que no pasa los otros dos',
+
+    enOrden: 'Está y funciona',
+    enOrdenDetalle: 'No hay nada que hacer con este registro.',
+
+    // El estado que motiva todo este archivo. Ni verde ni rojo.
+    enObservacion: 'Está, y todavía no rechaza nada',
+    enObservacionDetalle:
+      'Tu DMARC está en modo observación: vigila y te manda informes, pero ' +
+      'no detiene a quien suplante tu dominio. Es lo correcto al empezar. ' +
+      'Cuando lleves dos o tres semanas recibiendo informes y veas que todo ' +
+      'tu correo legítimo pasa, cámbialo a «p=quarantine». Subirlo antes es ' +
+      'la forma más rápida de que tu propio correo deje de entregarse.',
+
+    falta: 'No está puesto',
+    faltaDetalle:
+      'Este registro no existe en tu dominio. Añádelo en el panel de tu ' +
+      'proveedor y vuelve a comprobar. Tus contactos y tus campañas no se ' +
+      'tocan: esto está fuera de ARLES.',
+
+    // §94: la cifra. «Varios» no dice cuántos hay que borrar.
+    duplicado: 'Hay {cuantos} y por eso no vale ninguno',
+    duplicadoDetalle:
+      'Con más de uno de este registro, quien recibe tu correo los descarta ' +
+      'todos y tu dominio queda como si no tuviera ninguno. Deja sólo uno. ' +
+      'Es un fallo que no se ve mirando: los {cuantos} parecen correctos.',
+
+    noSeEntiende: 'Está puesto, pero le falta una parte',
+    noSeEntiendeDetalle:
+      'El registro existe y no está completo, así que no sirve. Compáralo ' +
+      'con el valor que ARLES te muestra abajo y corrígelo.',
+
+    demasiadoAbierto: 'Autoriza a todo el mundo',
+    demasiadoAbiertoDetalle:
+      'Tu SPF termina en «+all», que significa «cualquiera puede enviar en ' +
+      'mi nombre». Es peor que no tenerlo, porque quien recibe ya no puede ' +
+      'distinguir tus correos de una suplantación. Cámbialo por «~all».',
+
+    claveRetirada: 'La firma está revocada',
+    claveRetiradaDetalle:
+      'El registro DKIM existe pero su clave está vacía, que es la forma de ' +
+      'retirarla. Ninguna firma hecha con ella vale. Vuelve a generar la ' +
+      'clave desde el panel de tu proveedor de correo.',
+
+    // El bloque de «qué poner», que es lo que pedía el plan de la 7.5:
+    // el texto del registro, no un aspa roja.
+    quePoner: 'Qué hay que poner',
+    quePonerNombre: 'Nombre',
+    quePonerTipo: 'Tipo',
+    quePonerValor: 'Valor',
+    // Y el caso en el que ARLES NO lo sabe, dicho sin disimulo: ver la
+    // cabecera de `entregabilidad.rs`.
+    quePonerValorNoSeSabe:
+      'Este valor te lo da tu proveedor de correo y cambia según cuál sea, ' +
+      'así que ARLES no se lo inventa: copiarlo mal dejaría de autorizar al ' +
+      'servidor que de verdad envía tus correos. Búscalo en la ayuda de tu ' +
+      'proveedor como «registro SPF» o «clave DKIM».',
+
+    sinComprobar: 'No se ha podido consultar',
+    sinComprobarDetalle:
+      'ARLES no pudo preguntar al DNS, así que no da nada por bueno. Puede ' +
+      'ser falta de conexión o una red que bloquea esas consultas. Tus ' +
+      'campañas siguen funcionando igual.',
+  },
+
+  /**
    * El motor de ejecución (Fase 4).
    *
    * Aquí no hay errores de tres partes: son **rótulos de estado**, lo que la
