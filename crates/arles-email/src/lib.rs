@@ -31,6 +31,8 @@
 #![forbid(unsafe_code)]
 
 pub mod codigos;
+/// Preguntarle al DNS por SPF, DKIM y DMARC (7.5).
+pub mod dns;
 pub mod error;
 pub mod prueba;
 pub mod servidor;

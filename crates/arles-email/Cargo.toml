@@ -53,6 +53,8 @@ rustls = { version = "0.23", default-features = false, features = [
 # Genera el certificado de prueba. Ver la nota de `tls.rs`: en las pruebas se
 # CONFÍA en un certificado concreto, nunca se desactiva la verificación.
 rcgen = { version = "0.14", optional = true }
+hickory-resolver = { version = "0.26.3", features = ["system-config"] }
+tokio = { version = "1.54.1", default-features = false, features = ["rt", "time"] }
 
 [features]
 # Expone el servidor de mentira que habla cifrado, para quien tenga que probar
