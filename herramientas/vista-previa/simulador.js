@@ -718,6 +718,28 @@
         case 'remitentes':
           return Promise.resolve(e.remitentes || DEMO.remitentes);
 
+        // Los registros del dominio (7.5). La demostración enseña el caso que
+        // de verdad tiene telemetrymx.com desde el 22/10/2026: SPF y DKIM en
+        // orden, y el DMARC EN OBSERVACIÓN — que es el estado que hay que
+        // poder ver aquí, porque es el único que está bien puesto y no
+        // protege todavía.
+        case 'registros_del_dominio':
+          return Promise.resolve({
+            dominio: 'telemetrymx.com',
+            selector: 'titan1',
+            revisiones: [
+              { registro: 'spf', hallazgo: 'enOrden', quePoner: null },
+              { registro: 'dkim', hallazgo: 'enOrden', quePoner: null },
+              {
+                registro: 'dmarc',
+                hallazgo: 'enObservacion',
+                quePoner: null,
+              },
+            ],
+            sinComprobar: [],
+            enOrden: true,
+          });
+
         case 'probar_remitente':
           return Promise.resolve({
             diagnostico: 'correo.diagnostico.todoBien', sirve: true,

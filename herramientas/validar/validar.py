@@ -6824,6 +6824,110 @@ def la_lista_de_la_campana_llega_desde_el_archivo_hasta_el_envio():
     )
 
 
+def los_registros_del_dominio_llegan_hasta_el_preflight():
+    """**El cable entero de la 7.5: del DNS al punto 8 del preflight.**
+
+    ─────────────────────────────────────────────────────────────────────────
+    QUÉ SE PIERDE SI UNO DE LOS CINCO TRAMOS SE SUELTA
+
+      1. La **lectura** vive en el núcleo (`entregabilidad.rs`): qué dice un
+         SPF, un DKIM y un DMARC. Sin ella no hay nada que interpretar.
+      2. La **consulta** vive en `arles-email/dns.rs`: ir a buscarlos. Sin
+         ella, el núcleo sabe leer algo que nadie trae.
+      3. **`arles-app` las junta** y contesta `registros_del_dominio`. Éste es
+         el tramo que no caza nadie más: los dos de abajo pasan todas sus
+         pruebas mientras el punto 8 sigue cableado a `None` y el preflight
+         enseña «sin comprobar» para siempre. **Estuvo así desde la Fase 6**,
+         con el comentario «P-16: ARLES no consulta DNS» al lado.
+      4. La **pantalla** lo enseña: sin eso, se consulta el DNS y el resultado
+         no se ve en ninguna parte.
+      5. Y el **texto**: sin él se lee `entregabilidad.falta` en crudo.
+
+    Es el patrón del §9, que este proyecto lleva más de veinte veces
+    encontrando: cada pieza con sus pruebas y el hueco justo en la junta.
+
+    Escrita **antes** de construir el tramo 3 y vista en rojo nombrando los
+    cinco.
+    """
+    faltan = []
+
+    # ── Los nombres se buscan CON SU PARÉNTESIS ──
+    #
+    # Sin él, `pub fn revisar_spf` sigue casando dentro de
+    # `pub fn revisar_spf_XX`, así que renombrar la función —que es la forma
+    # natural de romperla— pasaba en verde. Verificado el 26/10/2026: la
+    # primera versión de esta comprobación no cazó esa ruptura. Es el defecto
+    # de la subcadena, que en este proyecto lleva más de una docena de
+    # apariciones.
+    nucleo = sin_comentarios_de_barras(
+        leer("crates", "arles-core", "src", "entregabilidad.rs") or ""
+    )
+    if "pub fn revisar_spf(" not in nucleo or "pub fn revisar_dmarc(" not in nucleo:
+        faltan.append(
+            "arles-core no sabe leer SPF/DMARC: no habría nada que interpretar"
+        )
+
+    adaptador = sin_comentarios_de_barras(
+        leer("crates", "arles-email", "src", "dns.rs") or ""
+    )
+    if "pub fn revisar_dominio(" not in adaptador:
+        faltan.append(
+            "arles-email no consulta el DNS: el núcleo sabría leer algo que "
+            "nadie trae"
+        )
+    # La regla que más caro sale equivocar, y que ya falló una vez de verdad:
+    # una negativa sin firmar NO puede dar un registro por ausente.
+    if "fn negativa" not in adaptador:
+        faltan.append(
+            "no se distingue una negativa firmada de un DNS filtrado: ARLES "
+            "diría «te faltan los tres registros» a un dominio bien "
+            "configurado (medido el 26/10/2026 contra telemetrymx.com)"
+        )
+
+    # ── El tramo que no caza nadie más ──
+    app = sin_comentarios_de_barras(
+        leer("crates", "arles-app", "src", "entregabilidad.rs") or ""
+    )
+    if "revisar_dominio(" not in app:
+        faltan.append(
+            "arles-app no junta las dos mitades: las de abajo pasarían sus "
+            "pruebas y el punto 8 seguiría diciendo «sin comprobar» para "
+            "siempre"
+        )
+    # Y que el preflight DEJE de estar cableado a None, que es lo que estuvo
+    # desde la Fase 6. Se mira el argumento, no el nombre del campo.
+    comandos = sin_comentarios_de_barras(
+        leer("crates", "arles-app", "src", "comandos.rs") or ""
+    )
+    if re.search(r"registros_del_dominio:\s*None", comandos):
+        faltan.append(
+            "el preflight sigue cableado a `registros_del_dominio: None`: se "
+            "consultaría el DNS y el punto 8 no se enteraría"
+        )
+
+    pantalla = leer("app", "src", "app", "pantallas", "PantallaRemitentes.vue") or ""
+    if "entregabilidad" not in pantalla:
+        faltan.append(
+            "ninguna pantalla enseña los registros: se consultaría el DNS y "
+            "el resultado no se vería en ninguna parte"
+        )
+
+    catalogo = leer("app", "src", "app", "locales", "es.ts") or ""
+    if "entregabilidad: {" not in catalogo:
+        faltan.append(
+            "`entregabilidad.*` no tiene textos: se leería la clave en crudo"
+        )
+
+    check(
+        7,
+        "los registros del dominio llegan del DNS al preflight (7.5)",
+        not faltan,
+        "Cada pieza pasa sus pruebas y el hueco vive en la junta: el punto 8 "
+        "lleva diciendo «sin comprobar» desde la Fase 6.",
+        "\n  ".join(faltan),
+    )
+
+
 def el_descanso_entre_campanas_llega_hasta_la_pantalla():
     """**El cable entero de D-16, de la regla al texto que se lee.**
 
@@ -7773,6 +7877,7 @@ def fase_7(rapido=False):
 
     print(f"{GRIS}  SPF, DKIM y DMARC (7.5){FIN}")
     toda_clave_de_pantalla_del_nucleo_tiene_texto()
+    los_registros_del_dominio_llegan_hasta_el_preflight()
 
 
 # El canal de WhatsApp no es una fase numerada: cruza la 5 y la 6 y se entregó

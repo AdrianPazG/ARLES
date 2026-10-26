@@ -1012,6 +1012,11 @@ export const es = {
       'servidor que de verdad envía tus correos. Búscalo en la ayuda de tu ' +
       'proveedor como «registro SPF» o «clave DKIM».',
 
+    // Existe porque la consulta se guarda una hora: quien acaba de añadir su
+    // SPF pulsa esto y lo ve reconocido hoy, no mañana. Un botón de recargar
+    // que no recarga es peor que no tenerlo.
+    volverAComprobar: 'Volver a comprobar',
+
     sinComprobar: 'No se ha podido consultar',
     sinComprobarDetalle:
       'ARLES no pudo preguntar al DNS, así que no da nada por bueno. Puede ' +

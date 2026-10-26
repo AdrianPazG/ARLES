@@ -26,6 +26,37 @@ export interface Remitente {
   readonly limitePorHora: number
 }
 
+/**
+ * Un registro del dominio revisado. Coincide con
+ * `arles_core::entregabilidad::Revision`.
+ *
+ * `quePoner.valor` es `null` a propósito en el SPF y el DKIM: ese valor
+ * depende del proveedor de correo y ARLES **no se lo inventa**, porque un
+ * registro copiado mal deja de autorizar al servidor que de verdad envía. La
+ * pantalla enseña entonces la explicación en vez de un campo para copiar.
+ */
+export interface RegistroRevisado {
+  readonly registro: 'spf' | 'dkim' | 'dmarc'
+  readonly hallazgo: string
+  readonly cuantos?: number
+  readonly quePoner: {
+    readonly nombre: string
+    readonly tipo: string
+    readonly valor: string | null
+  } | null
+}
+
+/** Lo que devuelve `registros_del_dominio`. */
+export interface RegistrosDelDominio {
+  readonly dominio: string
+  readonly selector: string | null
+  readonly revisiones: readonly RegistroRevisado[]
+  /** Claves de i18n de los que no se pudieron mirar. */
+  readonly sinComprobar: readonly string[]
+  /** `true`, `false` o `null` cuando no se sabe. **`null` no es un suspenso.** */
+  readonly enOrden: boolean | null
+}
+
 /** Lo que el formulario envía. Coincide con `BorradorDeCuenta`. */
 export interface BorradorDeCuenta {
   servidor: string
@@ -419,7 +450,44 @@ export const useRemitentesStore = defineStore('remitentes', () => {
     }
   }
 
+  // ── Los registros del dominio (7.5) ──
+  //
+  // Se guardan POR CUENTA y no uno solo: un ARLES con dos remitentes de dos
+  // dominios distintos enseñaría el veredicto del último mirado en la ficha
+  // de los dos.
+  const registros = ref<Record<string, RegistrosDelDominio>>({})
+  const mirandoElDominio = ref<string | null>(null)
+
+  /**
+   * Mira los registros del dominio de una cuenta.
+   *
+   * No pone `errorGeneral` si falla: que el DNS no conteste **no es un error
+   * de ARLES**, y pintarlo como tal en la pantalla de Remitentes haría dudar
+   * de una cuenta que funciona. Lo que se enseña entonces es «no se ha podido
+   * consultar», que es lo que de verdad pasa.
+   */
+  async function mirarElDominio(cuenta: string, recomprobar = false): Promise<void> {
+    if (!hayNucleo()) return
+    mirandoElDominio.value = cuenta
+    try {
+      registros.value = {
+        ...registros.value,
+        [cuenta]: await invocar<RegistrosDelDominio>('registros_del_dominio', {
+          cuenta,
+          recomprobar,
+        }),
+      }
+    } catch {
+      // Sin dato: la pantalla enseña «no se ha podido consultar».
+    } finally {
+      mirandoElDominio.value = null
+    }
+  }
+
   return {
+    registros,
+    mirandoElDominio,
+    mirarElDominio,
     remitentes,
     cargada,
     cargando,

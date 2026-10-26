@@ -54,6 +54,24 @@
   --arles-font-family: 'Mont', 'Figtree', system-ui, -apple-system, 'Segoe UI',
     sans-serif;
 
+  /* La monoespaciada del sistema, para los DATOS TÉCNICOS QUE SE COPIAN.
+   *
+   * Entra con la 7.5 (26/10/2026) y tiene un solo uso: el valor de un registro
+   * del DNS. Una clave DKIM es base64 de varias líneas, y en tipografía
+   * proporcional no se distingue una `l` de un `1` ni una `O` de un `0` — que
+   * es exactamente lo que alguien va a comparar carácter a carácter contra el
+   * panel de su proveedor.
+   *
+   * No se incrusta ninguna familia: se usa la del sistema. Meter una fuente
+   * monoespaciada en el instalador por un bloque de texto sería pagar tamaño
+   * —uno de los trece presupuestos— por una diferencia que nadie nota.
+   *
+   * Está declarada aquí, en los tokens, y no escrita en el componente: el §17
+   * no admite literales, y en esta fase ya se inventaron tres tokens que el
+   * navegador resolvía a nada SIN DAR ERROR. Éste se escribió primero. */
+  --arles-font-family-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo,
+    Consolas, monospace;
+
   /* La escala tiene DOS tramos a propósito.
      De `h2` para abajo es densa —base 14, razón ~1.2—, que es lo que quiere
      una aplicación llena de tablas y formularios. Los dos títulos de arriba

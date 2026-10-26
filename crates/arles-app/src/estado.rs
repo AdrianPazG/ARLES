@@ -77,6 +77,15 @@ pub struct EstadoApp {
     /// Se guarda una sola: revisar un respaldo descarta el anterior.
     /// ─────────────────────────────────────────────────────────────────────
     respaldo_elegido: Mutex<Option<std::path::PathBuf>>,
+
+    /// Lo que ya se sabe del DNS de cada dominio (7.5).
+    ///
+    /// Vive en el estado y no en cada llamada porque el preflight y la
+    /// pantalla de Remitentes hacen **la misma pregunta desde dos sitios**: con
+    /// una caché por llamada, abrir el asistente y mirar el remitente darían
+    /// dos respuestas distintas si el DNS cambia en medio, y además serían seis
+    /// consultas de red en vez de tres.
+    dominios: crate::entregabilidad::Dominios,
 }
 
 impl EstadoApp {
@@ -137,12 +146,19 @@ impl EstadoApp {
             motor,
             importacion: Mutex::new(None),
             respaldo_elegido: Mutex::new(None),
+            dominios: crate::entregabilidad::Dominios::default(),
         })
     }
 
     #[must_use]
     pub fn db(&self) -> &Db {
         &self.db
+    }
+
+    /// Lo que se sabe del DNS de cada dominio, compartido (7.5).
+    #[must_use]
+    pub const fn dominios(&self) -> &crate::entregabilidad::Dominios {
+        &self.dominios
     }
 
     /// ¿Está el motor enviando?

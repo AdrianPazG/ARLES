@@ -11,6 +11,8 @@ pub mod campanas;
 mod cifras;
 pub mod comandos;
 mod control;
+/// Los registros SPF, DKIM y DMARC del dominio del remitente (7.5).
+pub mod entregabilidad;
 pub mod error;
 pub mod estado;
 pub mod fabrica;
@@ -112,6 +114,7 @@ pub fn run() {
             comandos::remitentes,
             comandos::probar_remitente,
             comandos::guardar_remitente,
+            entregabilidad::registros_del_dominio,
             comandos::enviar_correo_de_prueba,
             comandos::probar_envio_de_la_cuenta,
             comandos::revisar_campana,

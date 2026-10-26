@@ -2191,6 +2191,7 @@ pub fn revisar_campana(
         &crate::fabrica::ElLlaveroDelSistema,
         empresa,
         campana,
+        Some(estado.dominios()),
     )
 }
 
@@ -2210,6 +2211,11 @@ pub fn revision_de(
     secretos: &dyn crate::fabrica::FuenteDeContrasenas,
     empresa: arles_core::ids::CompanyId,
     campana: arles_core::ids::CampaignId,
+    // `Option` y no `&Dominios` a secas: una prueba de integración que no
+    // quiera salir a la red pasa `None` y el punto 8 queda «sin comprobar»,
+    // que es exactamente lo que decía antes de la 7.5. Sin esto, cada prueba
+    // del preflight haría tres consultas de DNS de verdad.
+    dominios: Option<&crate::entregabilidad::Dominios>,
 ) -> Result<RevisionDeCampana, ErrorIpc> {
     let sabido = db
         .lo_que_se_sabe_de(empresa, campana, time::OffsetDateTime::now_utc())
@@ -2225,8 +2231,18 @@ pub fn revision_de(
         contactos_con_variables_sin_resolver: Some(sabido.contactos_con_huecos),
         estimacion: &sabido.estimacion,
         se_hizo_el_envio_de_prueba: Some(sabido.se_hizo_el_envio_de_prueba),
-        // P-16: ARLES no consulta DNS. No bloquea, y se dice.
-        registros_del_dominio: None,
+        // ── El punto 8, contestado desde la 7.5 (26/10/2026) ──
+        //
+        // Estuvo cableado a `None` desde la Fase 6, con un comentario que
+        // decía «P-16: ARLES no consulta DNS». Cuatro fases enseñando «sin
+        // comprobar» a todo el mundo con la variante, el texto y el sitio en
+        // la pantalla ya escritos: el §9 en su forma más larga.
+        //
+        // Sigue pudiendo salir `None`, y es correcto: sin DNS que responda no
+        // se da nada por ausente. Lo que ya no pasa es que salga `None`
+        // SIEMPRE.
+        registros_del_dominio: dominios
+            .and_then(|d| crate::entregabilidad::veredicto_del_dominio(db, d, sabido.cuenta)),
     });
 
     Ok(RevisionDeCampana {

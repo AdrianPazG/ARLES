@@ -258,6 +258,8 @@ const usuarioTocado = ref(false)
  * posible escribir una dirección en uno y pulsar en el otro.
  */
 const probandoEnvioDe = ref<string | null>(null)
+/** Qué cuenta tiene abierto el bloque de los registros del dominio (7.5). */
+const mirandoDominioDe = ref<string | null>(null)
 /** La dirección a la que mandar la prueba. Vive aquí y se vacía al cerrar. */
 const aDonde = ref('')
 
@@ -387,6 +389,35 @@ async function guardar(): Promise<void> {
  * si llegó, y escribirla a mano es un paso que no aporta nada. Se puede
  * cambiar.
  */
+/**
+ * Abre o cierra los registros del dominio de una cuenta.
+ *
+ * Sólo pregunta al DNS la **primera** vez: el store cachea una hora, y volver
+ * a abrir el bloque no debe costar tres consultas de red. Quien acabe de
+ * cambiar su DNS tiene el botón de «volver a comprobar» dentro.
+ */
+function alternarDominio(r: Remitente): void {
+  if (mirandoDominioDe.value === r.id) {
+    mirandoDominioDe.value = null
+    return
+  }
+  mirandoDominioDe.value = r.id
+  if (!store.registros[r.id]) void store.mirarElDominio(r.id)
+}
+
+/**
+ * El tono de la insignia de un hallazgo.
+ *
+ * `enObservacion` va en AVISO y no en éxito, y es la decisión que todo este
+ * trabajo defiende: un DMARC en `p=none` está bien puesto y no detiene a
+ * nadie. Pintarlo verde diría que el dominio está protegido.
+ */
+function tonoDelHallazgo(hallazgo: string): 'exito' | 'aviso' | 'peligro' {
+  if (hallazgo === 'enOrden') return 'exito'
+  if (hallazgo === 'enObservacion') return 'aviso'
+  return 'peligro'
+}
+
 function alternarEnvio(r: Remitente): void {
   if (probandoEnvioDe.value === r.id) {
     probandoEnvioDe.value = null
@@ -558,12 +589,113 @@ async function probarGuardada(r: Remitente): Promise<void> {
                 {{ t('remitentes.envioDePrueba.titulo') }}
               </ABoton>
               <ABoton
+                variante="sutil"
+                tamano="compacto"
+                :ocupado="store.mirandoElDominio === r.id"
+                @click="alternarDominio(r)"
+              >
+                {{ t('entregabilidad.titulo') }}
+              </ABoton>
+              <ABoton
                 variante="secundario"
                 tamano="compacto"
                 @click="abrirEdicion(r)"
               >
                 {{ t('remitentes.editar') }}
               </ABoton>
+            </div>
+
+            <!-- ── Los registros del dominio (7.5) ───────────────────────
+                 Va aquí y no en una pantalla aparte porque es una propiedad
+                 DE ESTA CUENTA: el dominio que hay que autorizar es el de su
+                 dirección, y dos remitentes de dominios distintos tienen
+                 veredictos distintos.
+
+                 Y no bloquea nada (§154): se enseña, se explica qué poner, y
+                 lo arregla quien administre el dominio. -->
+            <div
+              v-if="mirandoDominioDe === r.id"
+              class="remitentes__dominio"
+            >
+              <p class="remitentes__ayuda">
+                {{ t('entregabilidad.explicacion') }}
+              </p>
+
+              <p
+                v-if="store.mirandoElDominio === r.id"
+                class="remitentes__ayuda"
+              >
+                {{ t('comun.cargando') }}
+              </p>
+
+              <template v-else-if="store.registros[r.id]">
+                <ul class="remitentes__registros">
+                  <li
+                    v-for="reg in store.registros[r.id]!.revisiones"
+                    :key="reg.registro"
+                    class="remitentes__registro"
+                  >
+                    <span class="remitentes__registro-nombre">
+                      {{ t(`entregabilidad.${reg.registro}`) }}
+                    </span>
+                    <AInsignia :tono="tonoDelHallazgo(reg.hallazgo)">
+                      {{ t(`entregabilidad.${reg.hallazgo}`, { cuantos: reg.cuantos ?? 0 }) }}
+                    </AInsignia>
+                    <span class="remitentes__registro-detalle">
+                      {{ t(`entregabilidad.${reg.hallazgo}Detalle`, { cuantos: reg.cuantos ?? 0 }) }}
+                    </span>
+
+                    <!-- Qué poner, sólo cuando hay algo que arreglar. -->
+                    <div
+                      v-if="reg.quePoner"
+                      class="remitentes__que-poner"
+                    >
+                      <span class="remitentes__que-poner-rotulo">
+                        {{ t('entregabilidad.quePoner') }}
+                      </span>
+                      <span class="remitentes__que-poner-dato">
+                        {{ t('entregabilidad.quePonerNombre') }}: {{ reg.quePoner.nombre }}
+                      </span>
+                      <span class="remitentes__que-poner-dato">
+                        {{ t('entregabilidad.quePonerTipo') }}: {{ reg.quePoner.tipo }}
+                      </span>
+                      <span
+                        v-if="reg.quePoner.valor"
+                        class="remitentes__que-poner-valor"
+                      >{{ reg.quePoner.valor }}</span>
+                      <!-- Y cuando ARLES no puede saberlo, lo dice en vez de
+                           inventarse un valor que alguien copiaría. -->
+                      <span
+                        v-else
+                        class="remitentes__que-poner-dato"
+                      >{{ t('entregabilidad.quePonerValorNoSeSabe') }}</span>
+                    </div>
+                  </li>
+
+                  <!-- Los que no se pudieron mirar. Omitido no es aprobado. -->
+                  <li
+                    v-for="clave in store.registros[r.id]!.sinComprobar"
+                    :key="clave"
+                    class="remitentes__registro"
+                  >
+                    <span class="remitentes__registro-nombre">{{ t(clave) }}</span>
+                    <AInsignia tono="neutro">
+                      {{ t('entregabilidad.sinComprobar') }}
+                    </AInsignia>
+                    <span class="remitentes__registro-detalle">
+                      {{ t('entregabilidad.sinComprobarDetalle') }}
+                    </span>
+                  </li>
+                </ul>
+
+                <ABoton
+                  variante="sutil"
+                  tamano="compacto"
+                  @click="store.mirarElDominio(r.id, true)"
+                >
+                  {{ t('entregabilidad.volverAComprobar') }}
+                </ABoton>
+              </template>
             </div>
 
             <!-- ── Mandar un correo de prueba ────────────────────────────
@@ -960,6 +1092,82 @@ async function probarGuardada(r: Remitente): Promise<void> {
   margin-top: var(--arles-space-3);
   padding-top: var(--arles-space-3);
   border-top: var(--arles-border-width) solid var(--arles-border);
+}
+
+/* ── Los registros del dominio (7.5) ──
+   Mismo armazón que el bloque del envío de prueba: ocupa la fila entera y se
+   separa con una línea. Son dos cosas plegadas dentro de la misma ficha y
+   tienen que leerse igual. */
+.remitentes__dominio {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-3);
+  margin-top: var(--arles-space-3);
+  padding-top: var(--arles-space-3);
+  border-top: var(--arles-border-width) solid var(--arles-border);
+  align-items: flex-start;
+}
+
+.remitentes__registros {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-4);
+  width: 100%;
+}
+
+.remitentes__registro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-1);
+  align-items: flex-start;
+}
+
+.remitentes__registro-nombre {
+  font-weight: var(--arles-font-weight-semibold);
+}
+
+.remitentes__registro-detalle {
+  color: var(--arles-text-muted);
+  font-size: var(--arles-font-size-small);
+  max-width: 68ch;
+}
+
+/* Lo que hay que escribir en el DNS. Se separa del diagnóstico porque es lo
+   único de este bloque que alguien va a copiar. */
+.remitentes__que-poner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-1);
+  margin-top: var(--arles-space-2);
+  padding: var(--arles-space-3);
+  background: var(--arles-surface-hover);
+  border-radius: var(--arles-radius-md);
+  max-width: 68ch;
+}
+
+.remitentes__que-poner-rotulo {
+  font-size: var(--arles-font-size-caption);
+  font-weight: var(--arles-font-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--arles-text-muted);
+}
+
+.remitentes__que-poner-dato {
+  font-size: var(--arles-font-size-small);
+}
+
+/* El valor va en monoespaciada y se puede partir: un DMARC no cabe en una
+   línea y cortarlo con puntos suspensivos lo haría incopiable. */
+.remitentes__que-poner-valor {
+  font-family: var(--arles-font-family-mono);
+  font-size: var(--arles-font-size-small);
+  overflow-wrap: anywhere;
+  user-select: all;
 }
 
 .remitentes__acciones {

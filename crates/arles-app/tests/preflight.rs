@@ -190,7 +190,7 @@ fn veredicto(revision: &arles_app_lib::comandos::RevisionDeCampana, punto: Punto
 #[test]
 fn las_cifras_del_preflight_salen_de_la_base() {
     let (_d, db, campana) = base();
-    let r = revision_de(&db, &LlaveroDeMentira, empresa(), campana).expect("revisa");
+    let r = revision_de(&db, &LlaveroDeMentira, empresa(), campana, None).expect("revisa");
 
     assert_eq!(r.audiencia, 2, "tres contactos menos la dada de baja");
     assert_eq!(r.contactos_con_huecos, 1, "el que no tiene nombre");
@@ -213,7 +213,7 @@ fn las_cifras_del_preflight_salen_de_la_base() {
 fn el_envio_de_prueba_anotado_hace_pasar_su_punto() {
     let (_d, db, campana) = base();
 
-    let antes = revision_de(&db, &LlaveroDeMentira, empresa(), campana).expect("revisa");
+    let antes = revision_de(&db, &LlaveroDeMentira, empresa(), campana, None).expect("revisa");
     assert_eq!(
         veredicto(&antes, Punto::SeHizoElEnvioDePrueba),
         Veredicto::Falla,
@@ -233,7 +233,7 @@ fn el_envio_de_prueba_anotado_hace_pasar_su_punto() {
     db.registrar_envio_de_prueba(&etapa, "yo@t.mx", CUENTA.parse().expect("id"))
         .expect("anota");
 
-    let despues = revision_de(&db, &LlaveroDeMentira, empresa(), campana).expect("revisa");
+    let despues = revision_de(&db, &LlaveroDeMentira, empresa(), campana, None).expect("revisa");
     assert_eq!(
         veredicto(&despues, Punto::SeHizoElEnvioDePrueba),
         Veredicto::Pasa
@@ -253,7 +253,7 @@ fn el_envio_de_prueba_anotado_hace_pasar_su_punto() {
 #[test]
 fn un_puerto_cerrado_no_acusa_a_la_contrasena() {
     let (_d, db, campana) = base();
-    let r = revision_de(&db, &LlaveroDeMentira, empresa(), campana).expect("revisa");
+    let r = revision_de(&db, &LlaveroDeMentira, empresa(), campana, None).expect("revisa");
 
     assert_eq!(veredicto(&r, Punto::HayConexion), Veredicto::Falla);
     assert_eq!(
@@ -284,7 +284,7 @@ fn una_cuenta_desactivada_no_se_sondea() {
     })
     .expect("desactiva");
 
-    let r = revision_de(&db, &LlaveroDeMentira, empresa(), campana).expect("revisa");
+    let r = revision_de(&db, &LlaveroDeMentira, empresa(), campana, None).expect("revisa");
 
     assert_eq!(veredicto(&r, Punto::LaCuentaAutentica), Veredicto::Falla);
     assert_eq!(
@@ -304,7 +304,7 @@ fn una_cuenta_desactivada_no_se_sondea() {
 #[test]
 fn los_registros_del_dominio_avisan_y_no_bloquean() {
     let (_d, db, campana) = base();
-    let r = revision_de(&db, &LlaveroDeMentira, empresa(), campana).expect("revisa");
+    let r = revision_de(&db, &LlaveroDeMentira, empresa(), campana, None).expect("revisa");
 
     assert_eq!(
         veredicto(&r, Punto::LosRegistrosDelDominio),
