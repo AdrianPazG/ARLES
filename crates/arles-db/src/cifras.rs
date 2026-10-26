@@ -253,6 +253,58 @@ impl Db {
     /// # Errores
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
+    /// Cuántos rebotes duros lleva esta campaña, y de cuántos envíos.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// LAS DOS DECISIONES DE ESTA CONSULTA, Y LAS DOS SE PUEDEN HACER MAL
+    ///
+    /// **1 · Qué es un rebote duro.** Sólo `permanently_failed` con la causa
+    /// de dirección inexistente. No vale contar todos los `permanently_failed`
+    /// — ahí entran las credenciales caducadas y los intentos agotados, que no
+    /// dicen nada de la lista y harían frenar campañas por un problema del
+    /// remitente.
+    ///
+    /// **2 · De cuántos.** De los **ya resueltos**: salió o rebotó. No entra
+    /// la audiencia entera, ni lo que sigue en cola, ni los `suppressed`.
+    ///
+    /// Los `suppressed` fuera es la parte sutil: esa gente estaba en la lista
+    /// de bajas y **nunca se le llamó**, así que meterlos en el denominador
+    /// diluiría el porcentaje con envíos que no ocurrieron. Una campaña con
+    /// mil bajas y cincuenta rebotes de cincuenta envíos daría un 5 % mal
+    /// contado —parecería el 4.8 % de 1 050— y el freno no saltaría.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla.
+    pub fn rebotes_duros_de(
+        &self,
+        empresa: CompanyId,
+        campana: &str,
+    ) -> Result<(u32, u32), DbError> {
+        self.con(|conn| {
+            let fila = conn.query_row(
+                "SELECT
+                    COALESCE(SUM(CASE
+                        WHEN a.state = 'permanently_failed'
+                         AND a.error_kind = 'reintento.direccionInexistente'
+                        THEN 1 ELSE 0 END), 0),
+                    COALESCE(SUM(CASE
+                        WHEN a.state IN ('sent', 'presumed_sent', 'permanently_failed')
+                        THEN 1 ELSE 0 END), 0)
+                   FROM message_attempt a
+                   JOIN campaign c ON c.id = a.campaign_id
+                  WHERE c.company_id = ?1
+                    AND a.campaign_id = ?2",
+                params![empresa.to_string(), campana],
+                |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
+            )?;
+            Ok((
+                u32::try_from(fila.0).unwrap_or(u32::MAX),
+                u32::try_from(fila.1).unwrap_or(u32::MAX),
+            ))
+        })
+    }
+
     pub fn fallos_por_causa(
         &self,
         empresa: CompanyId,
@@ -1101,6 +1153,107 @@ mod tests {
             ],
             "de más a menos: la causa más frecuente es la que hay que atacar"
         );
+    }
+
+    /// **Sólo la dirección inexistente cuenta como rebote duro** (R-3).
+    ///
+    /// Es la primera de las dos decisiones de `rebotes_duros_de`. Contar todos
+    /// los `permanently_failed` metería dentro las credenciales caducadas y
+    /// los intentos agotados, que no dicen nada de la lista: una cuenta con la
+    /// contraseña mal frenaría la campaña acusando a la lista.
+    #[test]
+    fn solo_la_direccion_inexistente_cuenta_como_rebote_duro() {
+        let (_dir, db) = base();
+        fallo_con_causa(
+            &db,
+            "k-1",
+            1,
+            "permanently_failed",
+            Some("reintento.direccionInexistente"),
+        );
+        fallo_con_causa(
+            &db,
+            "k-1",
+            2,
+            "permanently_failed",
+            Some("reintento.seAgotaronLosIntentos"),
+        );
+        fallo_con_causa(
+            &db,
+            "k-1",
+            3,
+            "permanently_failed",
+            Some("reintento.laCuentaNoAutentica"),
+        );
+
+        let (duros, de) = db.rebotes_duros_de(empresa(), "k-1").expect("lee");
+        assert_eq!(duros, 1, "de los tres fallos, uno es rebote de verdad");
+        assert_eq!(de, 3, "los tres están resueltos, los tres cuentan de base");
+    }
+
+    /// **Los `suppressed` NO entran en el denominador**, y es la parte sutil.
+    ///
+    /// Esa gente estaba en la lista de bajas y **nunca se le llamó**: no hubo
+    /// `RCPT TO`. Meterlos diluiría el porcentaje con envíos que no
+    /// ocurrieron, y el freno no saltaría en el caso que más lo necesita —una
+    /// lista vieja, llena de bajas y de direcciones muertas.
+    ///
+    /// Se mide con la cuenta que lo distingue: 3 rebotes de 50 resueltos es el
+    /// 6 % y frena; con 50 suprimidos dentro serían 3 de 100, el 3 %, y no
+    /// frenaría. La misma campaña, el mismo daño, y la red callada.
+    #[test]
+    fn los_suprimidos_no_diluyen_el_porcentaje() {
+        let (_dir, db) = base();
+        for n in 0..3 {
+            fallo_con_causa(
+                &db,
+                "k-1",
+                n,
+                "permanently_failed",
+                Some("reintento.direccionInexistente"),
+            );
+        }
+        for n in 3..50 {
+            fallo_con_causa(&db, "k-1", n, "sent", None);
+        }
+        // Y cincuenta que nunca se intentaron.
+        for n in 100..150 {
+            fallo_con_causa(&db, "k-1", n, "suppressed", None);
+        }
+
+        let (duros, de) = db.rebotes_duros_de(empresa(), "k-1").expect("lee");
+        assert_eq!(duros, 3);
+        assert_eq!(de, 50, "los 50 suprimidos no se intentaron: fuera");
+        assert!(
+            arles_core::rebotes::mirar(duros, de).hay_que_frenar(),
+            "3 de 50 es el 6 % y tiene que frenar"
+        );
+    }
+
+    /// **Lo que sigue en cola no cuenta todavía.**
+    ///
+    /// Si la audiencia entera fuera el denominador, una campaña de 10 000 con
+    /// 400 rebotes de los primeros 420 envíos daría un 4 % —por debajo del
+    /// freno— cuando lo que pasa es que casi todo lo que sale rebota.
+    #[test]
+    fn lo_que_sigue_en_cola_no_cuenta() {
+        let (_dir, db) = base();
+        for n in 0..60 {
+            fallo_con_causa(
+                &db,
+                "k-1",
+                n,
+                "permanently_failed",
+                Some("reintento.direccionInexistente"),
+            );
+        }
+        for n in 100..1_000 {
+            fallo_con_causa(&db, "k-1", n, "queued", None);
+        }
+
+        let (duros, de) = db.rebotes_duros_de(empresa(), "k-1").expect("lee");
+        assert_eq!((duros, de), (60, 60), "sólo lo resuelto");
+        assert!(arles_core::rebotes::mirar(duros, de).hay_que_frenar());
     }
 
     /// **Un fallo que se va a reintentar NO cuenta como fallo.**

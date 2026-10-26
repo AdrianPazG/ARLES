@@ -42,6 +42,10 @@ export interface CifrasDeCampana {
   readonly cancelado: number
   /** Cuánta gente contestó (D-7A). **Nunca lo que dijeron.** */
   readonly respondieron: number
+  /** Cuántas direcciones no existían (R-3). Sólo se llena si está enviando. */
+  readonly rebotesDuros: number
+  /** De cuántos envíos ya resueltos. **Nunca la audiencia entera.** */
+  readonly enviosResueltos: number
   readonly ritmo: readonly RitmoDeHora[]
   readonly razon: Razon | null
 }

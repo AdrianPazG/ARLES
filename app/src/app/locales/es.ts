@@ -201,6 +201,9 @@ export const es = {
     // prueba que falla si el motor puede anotar una clase sin nombre corto.
     clase: {
       aceptadoPorElProveedor: 'Aceptados',
+      // R-3: el freno por rebotes. Nombre corto para el desplegable del
+      // filtro, que sin él ofrecería la frase larga con sus marcadores.
+      frena: 'Pausadas por rebotes',
       parado: 'Paradas del envío',
       fueraDeVentana: 'Fuera de horario',
       noHayTrabajo: 'Sin nada que enviar',
@@ -928,6 +931,44 @@ export const es = {
     losRegistrosDelDominioAviso:
       'Sin estos registros tus correos entregan peor, pero entregan. Esto no ' +
       'impide activar: lo arregla quien administre tu dominio.',
+  },
+
+  /**
+   * El umbral de rebotes · R-3, decidido por Dirección el 26/10/2026.
+   *
+   * Un rebote duro es una dirección que no existe. Muchos seguidos le dicen al
+   * filtro de quien recibe «éste no sabe a quién le escribe», y el precio no lo
+   * paga la campaña: lo paga el dominio, durante meses.
+   *
+   * Los tres textos llevan SUS DOS CIFRAS (§94). «Demasiados rebotes» sin el
+   * número no deja decidir si reanudar o detener, que es justo la decisión que
+   * ARLES deja en manos de quien mira.
+   */
+  rebotes: {
+    bien: 'Los rebotes van bien',
+
+    // El escalón del 2 %: la campaña SIGUE enviando.
+    // Dos cifras y no tres: por el registro de actividad sólo viajan DOS
+    // números. Un `{porCiento}` aquí se pintaría en crudo, que es el
+    // defecto 1 que `razones.ts` lleva documentado. El porcentaje se sitúa
+    // con la línea de `umbrales`, que es fija.
+    aviso: '{duros} de {de} rebotaron',
+    avisoDetalle:
+      'Son direcciones que no existen. La campaña sigue enviando, pero ' +
+      'conviene mirar de dónde salió esta lista: si la cifra sube al 5 %, ' +
+      'ARLES la pausa solo para proteger tu dominio.',
+
+    // El escalón del 5 %: pausada.
+    frena: 'Pausada: {duros} de {de} rebotaron',
+    frenaDetalle:
+      'ARLES pausó la campaña porque demasiadas direcciones no existen. ' +
+      'Seguir enviando le diría a Gmail y a Outlook que no sabes a quién ' +
+      'escribes, y eso le cuesta meses de reputación a tu dominio. Nada se ha ' +
+      'perdido: lo que no salió sigue en cola. Revisa de dónde salió esta ' +
+      'lista y reanuda, o detén la campaña.',
+
+    // El umbral se enseña para que la cifra de arriba se pueda situar.
+    umbrales: 'ARLES avisa al 2 % y pausa al 5 %, a partir de 50 envíos.',
   },
 
   /**

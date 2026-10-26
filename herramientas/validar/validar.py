@@ -6824,6 +6824,97 @@ def la_lista_de_la_campana_llega_desde_el_archivo_hasta_el_envio():
     )
 
 
+def el_umbral_de_rebotes_frena_de_verdad():
+    """**El cable entero de R-3: del rebote al freno y a la pantalla.**
+
+    ─────────────────────────────────────────────────────────────────────────
+    QUÉ SE PIERDE SI UNO DE LOS CINCO TRAMOS SE SUELTA
+
+      1. La **regla** vive en el núcleo (`rebotes.rs`): dos escalones y la
+         muestra mínima. Sin ella no hay nada que obedecer.
+      2. La **cuenta** vive en `arles-db`: cuántos rebotes duros lleva esta
+         campaña y de cuántos envíos ya resueltos. Sin ella la regla no tiene
+         con qué decidir.
+      3. El **motor** las junta y **pausa**. Éste es el tramo que no caza
+         nadie más: los dos de abajo pasan sus pruebas mientras la campaña
+         sigue quemando el dominio, y nada falla. Es exactamente el estado en
+         el que R-3 llevaba abierto desde la Fase 4: «ARLES los registra, no
+         los frena».
+      4. La **pantalla** lo enseña: una campaña pausada sin decir por qué se
+         lee como una avería.
+      5. Y los **textos**, o se lee `rebotes.frena` en crudo.
+
+    Escrita **antes** de construir los tramos 2 a 5 y vista en rojo nombrando
+    los cuatro que faltaban.
+    """
+    faltan = []
+
+    nucleo = sin_comentarios_de_barras(
+        leer("crates", "arles-core", "src", "rebotes.rs") or ""
+    )
+    # Con su paréntesis: sin él, renombrar la función a `mirar_XX` seguiría
+    # casando. Es el defecto que la comprobación de la 7.5 tuvo el 26/10/2026.
+    if "pub const fn mirar(" not in nucleo:
+        faltan.append("arles-core no tiene la regla: no habría nada que obedecer")
+    if "MUESTRA_MINIMA" not in nucleo:
+        faltan.append(
+            "no hay muestra mínima: con diez envíos un rebote es el 10 % y la "
+            "campaña pararía por una dirección mal escrita"
+        )
+
+    # ── TODOS LOS NOMBRES VAN CON SU PARÉNTESIS ──
+    #
+    # Sin él, `rebotes_duros_de` sigue casando dentro de
+    # `rebotes_duros_de_XX`, y renombrar la función —la forma natural de
+    # romperla— pasa en verde.
+    #
+    # Es el MISMO defecto que la comprobación de la 7.5 tuvo el 26/10/2026, y
+    # se repitió aquí unas horas después de arreglarlo allí: la lección se
+    # escribió en un comentario de otro archivo y no sirvió de nada. Tres de
+    # las siete rupturas de R-3 salieron en verde por esto.
+    db = sin_comentarios_de_barras(leer("crates", "arles-db", "src", "cifras.rs") or "")
+    if "rebotes_duros_de(" not in db:
+        faltan.append(
+            "arles-db no cuenta los rebotes duros de la campaña: la regla no "
+            "tendría con qué decidir"
+        )
+
+    # ── El tramo que no caza nadie más ──
+    motor = sin_comentarios_de_barras(
+        leer("crates", "arles-app", "src", "motor.rs") or ""
+    )
+    if "rebotes::mirar(" not in motor:
+        faltan.append(
+            "el motor no mira los rebotes antes de seguir: las piezas de abajo "
+            "pasarían sus pruebas y la campaña seguiría quemando el dominio"
+        )
+    if "hay_que_frenar()" not in motor:
+        faltan.append(
+            "el motor no pausa la campaña: contaría los rebotes y no haría "
+            "nada con la cuenta, que es R-3 tal como estaba"
+        )
+
+    pantalla = leer("app", "src", "app", "pantallas", "PantallaActividad.vue") or ""
+    if "rebotes" not in pantalla:
+        faltan.append(
+            "Actividad no enseña los rebotes: una campaña pausada sin decir "
+            "por qué se lee como una avería (§95)"
+        )
+
+    catalogo = leer("app", "src", "app", "locales", "es.ts") or ""
+    if "rebotes: {" not in catalogo:
+        faltan.append("`rebotes.*` no tiene textos: se leería la clave en crudo")
+
+    check(
+        7,
+        "el umbral de rebotes frena de verdad (R-3)",
+        not faltan,
+        "Contar los rebotes y no frenar es el estado en el que R-3 llevaba "
+        "abierto desde la Fase 4. El precio lo paga el dominio, durante meses.",
+        "\n  ".join(faltan),
+    )
+
+
 def los_registros_del_dominio_llegan_hasta_el_preflight():
     """**El cable entero de la 7.5: del DNS al punto 8 del preflight.**
 
@@ -7878,6 +7969,9 @@ def fase_7(rapido=False):
     print(f"{GRIS}  SPF, DKIM y DMARC (7.5){FIN}")
     toda_clave_de_pantalla_del_nucleo_tiene_texto()
     los_registros_del_dominio_llegan_hasta_el_preflight()
+
+    print(f"{GRIS}  el umbral de rebotes (R-3){FIN}")
+    el_umbral_de_rebotes_frena_de_verdad()
 
 
 # El canal de WhatsApp no es una fase numerada: cruza la 5 y la 6 y se entregó

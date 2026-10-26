@@ -130,6 +130,29 @@ describe('las razones por las que una campaña está quieta', () => {
       razones.add(m[1]!)
     }
 
+    // ── Y LO QUE ANOTA `motor.rs` POR SU CUENTA ──
+    //
+    // El escáner leía sólo `bucle.rs`, dando por hecho que toda razón sale de
+    // un `Paso`. Desde R-3 no es verdad: el freno por rebotes lo anota
+    // `arles-app/src/motor.rs` directamente, con su propio `SucesoNuevo`.
+    //
+    // Sin esto, la comprobación de abajo —la que vigila que la tabla no tenga
+    // filas muertas— sale EN ROJO sobre una clave que el motor sí anota. Es el
+    // mismo defecto que su propio comentario cuenta del `impl NoSePuede`:
+    // mirar el sitio equivocado y creerse el resultado.
+    const motor = readFileSync(
+      join(raiz, 'crates/arles-app/src/motor.rs'),
+      'utf8',
+    )
+    const anotadas = [...motor.matchAll(/clave:\s*"([a-z]+\.[a-zA-Z]+)"/g)].map(
+      (m) => m[1]!,
+    )
+    expect(
+      anotadas.length,
+      'se leyeron las claves que motor.rs anota directamente',
+    ).toBeGreaterThan(0)
+    for (const clave of anotadas) razones.add(clave)
+
     for (const clave of razones) {
       expect(
         Object.prototype.hasOwnProperty.call(MARCADORES_DE_RAZON, clave),

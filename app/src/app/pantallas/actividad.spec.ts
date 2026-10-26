@@ -62,6 +62,8 @@ function campana(sobre: Partial<CifrasDeCampana> = {}): CifrasDeCampana {
     dadoDeBaja: 3,
     cancelado: 0,
     respondieron: 23,
+    rebotesDuros: 0,
+    enviosResueltos: 350,
     ritmo: [{ hora: '2026-09-30T12', salieron: 60 }],
     razon: null,
     ...sobre,

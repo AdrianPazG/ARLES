@@ -30,6 +30,16 @@ pub struct CifrasDeCampanaIpc {
     pub cancelado: u32,
     /// Cuánta gente contestó (D-7A). **Nunca lo que dijeron.**
     pub respondieron: u32,
+    /// Cuántas direcciones de esta campaña no existían (R-3).
+    ///
+    /// Viajan las DOS cifras y no el porcentaje ya masticado, por la misma
+    /// razón que el ritmo viaja por horas: un número sin su método es una
+    /// promesa (§94). Con «8 %» a secas no se puede decir si son 4 de 50 —que
+    /// se arregla limpiando la lista— o 4 000 de 50 000.
+    pub rebotes_duros: u32,
+    /// De cuántos envíos **ya resueltos**. Nunca la audiencia entera: ver
+    /// `Db::rebotes_duros_de`.
+    pub envios_resueltos: u32,
     /// Cuántos salieron en cada una de las últimas seis horas.
     ///
     /// ── POR QUÉ VIAJAN LAS SEIS HORAS Y NO UN PROMEDIO ──
@@ -182,6 +192,8 @@ pub fn actividad(estado: tauri::State<'_, EstadoApp>) -> Result<ActividadIpc, Er
             dado_de_baja: r.dado_de_baja,
             cancelado: r.cancelado,
             respondieron: r.respondieron,
+            rebotes_duros: 0,
+            envios_resueltos: 0,
             ritmo: Vec::new(),
         })
         .collect();
@@ -208,6 +220,16 @@ pub fn actividad(estado: tauri::State<'_, EstadoApp>) -> Result<ActividadIpc, Er
             .into_iter()
             .map(|(hora, salieron)| RitmoDeHoraIpc { hora, salieron })
             .collect();
+
+        // Los rebotes, para el aviso del 2 % (R-3). Van aquí dentro, con el
+        // ritmo: sólo tienen sentido en una campaña que está enviando. En una
+        // terminada el dato ya no sirve para decidir nada, y serían treinta
+        // consultas más por una cifra que nadie va a leer.
+        let (duros, de) = db
+            .rebotes_duros_de(empresa, &c.id)
+            .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+        c.rebotes_duros = duros;
+        c.envios_resueltos = de;
     }
 
     // La zona de la empresa, que es donde se cuentan las horas del presupuesto.

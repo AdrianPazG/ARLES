@@ -194,6 +194,27 @@ function estaQuieta(c: CifrasDeCampana): boolean {
   )
 }
 
+/**
+ * ¿Hay que avisar de los rebotes de esta campaña? (R-3)
+ *
+ * El escalón del 2 %. La campaña SIGUE enviando: por encima del 5 % el motor
+ * la pausa solo, y entonces lo que se lee es la razón de abajo.
+ *
+ * Los umbrales y la muestra mínima viven en `arles-core/src/rebotes.rs` y se
+ * repiten aquí a propósito, igual que `AVISO_DIARIO`: la pantalla avisa antes
+ * de llamar a nadie. Si se separan, ARLES avisaría de algo que el motor ya no
+ * considera un riesgo — o callaría uno que sí.
+ */
+const REBOTES_AVISO_POR_CIENTO = 2
+const REBOTES_MUESTRA_MINIMA = 50
+
+function avisaDeRebotes(c: CifrasDeCampana): boolean {
+  return (
+    c.enviosResueltos >= REBOTES_MUESTRA_MINIMA &&
+    c.rebotesDuros * 100 >= REBOTES_AVISO_POR_CIENTO * c.enviosResueltos
+  )
+}
+
 /** El cupo del día de una cuenta, con su tope si lo tiene. */
 function cupoDelDia(c: Cupo): string {
   return c.topeDiario === null
@@ -422,6 +443,23 @@ const error = computed(() =>
           </ABoton>
         </p>
 
+        <!-- ── EL AVISO DE REBOTES (R-3) ──────────────────────────────
+             Va con la campaña ENVIANDO, que es cuando todavía se puede hacer
+             algo. Por encima del 5 % el motor la pausa y lo que se lee es la
+             razón de abajo, no esto. -->
+        <div
+          v-if="avisaDeRebotes(c)"
+          class="rebotes"
+        >
+          <AInsignia tono="aviso">
+            {{ $t('rebotes.aviso', { duros: c.rebotesDuros, de: c.enviosResueltos }) }}
+          </AInsignia>
+          <p>{{ $t('rebotes.avisoDetalle') }}</p>
+          <p class="rebotes__umbrales">
+            {{ $t('rebotes.umbrales') }}
+          </p>
+        </div>
+
         <!-- La razón, sólo cuando explica algo: con la campaña avanzando, el
              último suceso del bucle es ruido que compite con las cifras. -->
         <div
@@ -571,6 +609,29 @@ const error = computed(() =>
 /* La razón se separa con un filete y no con color de fondo: es información, no
  * una alarma. Una campaña fuera de horario a las diez de la noche está
  * haciendo exactamente lo que se le pidió. */
+/* El aviso de rebotes. Mismo armazón que `.razon`: son dos cosas que
+   explican el estado de la campaña y tienen que leerse igual. */
+.rebotes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-2);
+  align-items: flex-start;
+  margin-top: var(--arles-space-4);
+  padding-top: var(--arles-space-4);
+  border-top: var(--arles-border-width) solid var(--arles-border);
+}
+
+.rebotes p {
+  margin: 0;
+  color: var(--arles-text-muted);
+  font-size: var(--arles-font-size-small);
+  max-width: 68ch;
+}
+
+.rebotes__umbrales {
+  font-size: var(--arles-font-size-caption);
+}
+
 .razon {
   margin-top: var(--arles-space-4);
   padding-top: var(--arles-space-4);

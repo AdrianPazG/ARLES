@@ -36,6 +36,7 @@ pub mod importacion;
 pub mod onboarding;
 pub mod plantilla;
 pub mod preflight;
+pub mod rebotes;
 pub mod reintento;
 pub mod respaldo;
 pub mod resumen;

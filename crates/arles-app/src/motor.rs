@@ -181,6 +181,70 @@ fn una_vuelta(db: &Db, secretos: &dyn FuenteDeContrasenas, parar: &AtomicBool) -
     hubo_trabajo
 }
 
+/// ¿Hay que frenar esta campaña por rebotes? Y si hay que hacerlo, la pausa.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// SE PAUSA, NO SE DETIENE — Y ESA ES LA DECISIÓN DE DIRECCIÓN
+///
+/// Detener es irreversible: cancela lo que no ha salido, y el comando de
+/// detener exige escribir el nombre de la campaña a mano justamente para que
+/// nadie lo haga sin querer. Una acción irreversible tomada por un umbral, sin
+/// preguntar, sería la única del producto.
+///
+/// La pausa se deshace. ARLES frena, Actividad dice con su cifra por qué, y la
+/// decisión de reanudar o detener sigue siendo de quien mira.
+///
+/// Devuelve `true` si la campaña queda pausada y esta vuelta no debe enviar.
+fn frenar_si_rebota_demasiado(
+    db: &Db,
+    empresa: arles_core::ids::CompanyId,
+    etapa: &EtapaEnMarcha,
+) -> bool {
+    let Ok((duros, de)) = db.rebotes_duros_de(empresa, &etapa.campana) else {
+        // Ver la nota de quien llama: un tropiezo de la base no para nada.
+        return false;
+    };
+
+    if !arles_core::rebotes::mirar(duros, de).hay_que_frenar() {
+        return false;
+    }
+
+    // La pausa puede fallar si alguien la detuvo o la pausó entre medias, y no
+    // es un error: lo que importaba era que no siguiera enviando, y no sigue.
+    let pausada = db
+        .aplicar_a_la_campana(
+            empresa,
+            &etapa.campana,
+            arles_core::campana::AccionDeCampana::Pausar,
+        )
+        .is_ok();
+
+    if pausada {
+        // Queda en el registro de actividad CON SUS DOS CIFRAS: sin ellas,
+        // una campaña pausada sola es indistinguible de una avería (§95), y
+        // «se pausó por rebotes» sin el número no deja decidir nada.
+        //
+        // Se usa `anotar_si_cambia` y no una inserción directa porque el motor
+        // vuelve cada pocos segundos: sin eso, una campaña frenada llenaría el
+        // registro con la misma línea hasta que alguien la mirara.
+        let _ = db.anotar_si_cambia(
+            empresa,
+            &arles_db::actividad::SucesoNuevo {
+                clave: "rebotes.frena",
+                es_desenlace: false,
+                campana: Some(&etapa.campana),
+                etapa: Some(&etapa.etapa),
+                canal: Some("email"),
+                intento: None,
+                numero_a: Some(i64::from(duros)),
+                numero_b: Some(i64::from(de)),
+            },
+        );
+    }
+
+    true
+}
+
 /// Da pasos por una etapa. Devuelve si quedó trabajo por hacer.
 ///
 /// Una cuenta que no puede enviar —sin contraseña, pendiente de configurar— no
@@ -193,6 +257,25 @@ fn servir(
     empresa: arles_core::ids::CompanyId,
     etapa: &EtapaEnMarcha,
 ) -> bool {
+    // ── EL UMBRAL DE REBOTES (R-3, decidido el 26/10/2026) ────────────────
+    //
+    // Va ANTES de pedir el proveedor, que es antes de mandar nada: una vez
+    // pasado el freno, cada envío más es daño añadido al dominio.
+    //
+    // Se mira una vez por vuelta y por etapa, no por envío. El porcentaje no
+    // se mueve entre dos correos, y consultarlo por envío sería una consulta
+    // más en el camino caliente.
+    //
+    // Si la base no contesta, **se sigue enviando**. Es la decisión incómoda y
+    // es la misma que toma la redacción unas líneas más abajo: parar la
+    // campaña porque una consulta falló convertiría un tropiezo de la base en
+    // una campaña muda que nadie sabe explicar. Lo que esto protege es un
+    // riesgo que se acumula, no uno instantáneo: se mirará en la vuelta
+    // siguiente.
+    if frenar_si_rebota_demasiado(db, empresa, etapa) {
+        return false;
+    }
+
     let Ok(proveedor) = proveedor_de_la_cuenta(db, secretos, etapa.cuenta) else {
         return false;
     };
@@ -628,6 +711,138 @@ mod el_pegamento {
             "queued",
             "el motor no llegó a tocar el envío: la cadena se cortó antes"
         );
+    }
+
+    /// Siembra `cuantos` rebotes duros ya resueltos en la campaña de prueba.
+    fn sembrar_rebotes(db: &Db, duros: u32, salidos: u32) {
+        db.ejecutar_en_pruebas(|c| {
+            for n in 0..duros {
+                c.execute(
+                    "INSERT INTO message_attempt
+                         (id, campaign_id, channel, contact_address, idempotency_key,
+                          state, error_kind, attempt_count, created_at, updated_at)
+                     VALUES (?1, 'camp-1', 'email', ?2, ?3,
+                             'permanently_failed', 'reintento.direccionInexistente', 1,
+                             '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
+                    rusqlite::params![
+                        format!("reb-{n}"),
+                        format!("reb{n}@ejemplo.mx"),
+                        format!("idem-reb-{n}")
+                    ],
+                )?;
+            }
+            for n in 0..salidos {
+                c.execute(
+                    "INSERT INTO message_attempt
+                         (id, campaign_id, channel, contact_address, idempotency_key,
+                          state, attempt_count, created_at, updated_at)
+                     VALUES (?1, 'camp-1', 'email', ?2, ?3, 'sent', 1,
+                             '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
+                    rusqlite::params![
+                        format!("ok-{n}"),
+                        format!("ok{n}@ejemplo.mx"),
+                        format!("idem-ok-{n}")
+                    ],
+                )?;
+            }
+            Ok(())
+        })
+        .expect("siembra");
+    }
+
+    fn estado_de_la_campana(db: &Db) -> String {
+        db.ejecutar_en_pruebas(|c| {
+            c.query_row(
+                "SELECT status FROM campaign WHERE id = 'camp-1'",
+                params![],
+                |f| f.get::<_, String>(0),
+            )
+        })
+        .expect("lee el estado de la campaña")
+    }
+
+    /// **El motor pausa la campaña cuando los rebotes pasan del freno** (R-3).
+    ///
+    /// ── EL TRAMO QUE NO CAZA NADIE MÁS ──
+    ///
+    /// La regla del núcleo tiene sus pruebas y la consulta de `arles-db` las
+    /// suyas. Las dos pueden estar en verde mientras **la campaña sigue
+    /// enviando**, que es exactamente el estado en el que R-3 llevaba abierto
+    /// desde la Fase 4: «ARLES los registra, no los frena».
+    ///
+    /// Se mide sobre la base y no sobre el valor devuelto: lo que importa no
+    /// es que `servir` conteste `false`, es que **la campaña quede pausada**.
+    #[test]
+    fn el_motor_pausa_la_campana_cuando_los_rebotes_pasan_del_freno() {
+        let (_dir, db) = base_con_una_campana_enviando();
+        // 4 de 50 es el 8 %: por encima del freno del 5 %.
+        sembrar_rebotes(&db, 4, 46);
+        assert_eq!(estado_de_la_campana(&db), "running", "antes, enviando");
+
+        una_vuelta(&db, &LlaveroDeMentira, &AtomicBool::new(false));
+
+        assert_eq!(
+            estado_de_la_campana(&db),
+            "paused",
+            "el motor contó los rebotes y no frenó: R-3 sigue abierto"
+        );
+        assert_eq!(
+            estado_del_intento(&db),
+            "queued",
+            "y no mandó nada más: el envío pendiente sigue sin tocar"
+        );
+    }
+
+    /// **Una campaña con rebotes normales NO se pausa.**
+    ///
+    /// Es la otra mitad, y la que evita el freno que molesta: 1 de 50 es el
+    /// 2 % —el escalón del aviso— y la campaña tiene que seguir enviando.
+    /// Sin esta prueba, poner el freno en el umbral del aviso pasaría en
+    /// verde y pararía campañas sanas.
+    #[test]
+    fn una_campana_con_rebotes_normales_sigue_enviando() {
+        let (_dir, db) = base_con_una_campana_enviando();
+        sembrar_rebotes(&db, 1, 49);
+
+        una_vuelta(&db, &LlaveroDeMentira, &AtomicBool::new(false));
+
+        assert_eq!(
+            estado_de_la_campana(&db),
+            "running",
+            "el 2 % avisa, no frena: esta campaña no debía pararse"
+        );
+        assert_ne!(
+            estado_del_intento(&db),
+            "queued",
+            "y siguió enviando: el motor tocó el envío pendiente"
+        );
+    }
+
+    /// **La pausa automática deja su línea en el registro, con las dos
+    /// cifras.**
+    ///
+    /// Una campaña pausada sola y sin explicación es indistinguible de una
+    /// avería (§95), y «se pausó por rebotes» sin el número no deja decidir si
+    /// reanudar o detener.
+    #[test]
+    fn la_pausa_por_rebotes_deja_sus_cifras_en_el_registro() {
+        let (_dir, db) = base_con_una_campana_enviando();
+        let empresa: arles_core::ids::CompanyId = EMPRESA.parse().expect("id");
+        sembrar_rebotes(&db, 4, 46);
+
+        una_vuelta(&db, &LlaveroDeMentira, &AtomicBool::new(false));
+
+        let sucesos = db
+            .sucesos(empresa, &arles_db::actividad::Filtro::default())
+            .expect("lee");
+        let frenada = sucesos
+            .sucesos
+            .iter()
+            .find(|s| s.clave == "rebotes.frena")
+            .expect("tiene que constar por qué se pausó");
+
+        assert_eq!(frenada.numero_a, Some(4), "cuántos rebotaron");
+        assert_eq!(frenada.numero_b, Some(50), "de cuántos");
     }
 
     /// **El motor deja constancia de lo que hizo** (7.1).
