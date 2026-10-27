@@ -1268,12 +1268,33 @@
             modo: String(args.modo || 'prospeccion_directa'),
             estado: 'connected',
             coexistenciaConfirmada: null, riesgoAceptado: null,
-            calidad: null, limiteDeMeta: 250,
+            calidad: null, limiteDeMeta: 250, calidadActualizada: null,
             puedeEnviar: false, escribeEnFrio: args.modo !== 'coexistencia',
           }];
           e.whatsapp = ns;
           escribir(e);
           return Promise.resolve(ns);
+        }
+
+        // ── D-WA · el semáforo de calidad (27/10/2026) ────────────────
+        //
+        // La demostración enseña el caso que de verdad importa: la calidad
+        // pasa a AMARILLO al refrescar. Es el estado que hay que poder ver —el
+        // verde no enseña nada y el rojo ya no deja enviar—, y el único que
+        // deja mirar a ojo el aviso que lo acompaña.
+        //
+        // Y con su fecha: una cifra sin fecha se lee como si fuera de hoy.
+        case 'refrescar_calidad_del_numero': {
+          var nsc = (e.whatsapp || DEMO.whatsapp).map(function (n) {
+            if (n.id !== args.id) return n;
+            return Object.assign({}, n, {
+              calidad: 'yellow',
+              limiteDeMeta: 1000,
+              calidadActualizada: new Date().toISOString(),
+            });
+          });
+          e.whatsapp = nsc; escribir(e);
+          return Promise.resolve(nsc);
         }
 
         // Las dos marcas se ponen de una en una, cada una con su pulsación.
@@ -1834,7 +1855,7 @@
       nombreVisible: 'Atención a clientes', telefonoE164: '+528100000000',
       wabaId: '102938475610293', modo: 'prospeccion_directa', estado: 'connected',
       coexistenciaConfirmada: null, riesgoAceptado: null,
-      calidad: null, limiteDeMeta: 250,
+      calidad: null, limiteDeMeta: 250, calidadActualizada: null,
       puedeEnviar: false, escribeEnFrio: true,
     }],
   };

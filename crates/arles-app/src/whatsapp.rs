@@ -63,6 +63,12 @@ pub struct NumeroIpc {
     pub calidad: Option<String>,
     /// El tope diario que impone Meta. Lo decide Meta, no ARLES.
     pub limite_de_meta: Option<u32>,
+    /// Cuándo se le preguntó a Meta por última vez. `null` = nunca.
+    ///
+    /// **Una cifra sin fecha se lee como si fuera de hoy** (§94), y la calidad
+    /// de un número cambia sola: «verde» sin fecha no dice si se miró esta
+    /// mañana o el día que se conectó el número.
+    pub calidad_actualizada: Option<String>,
     /// ¿Puede mandar una campaña hoy?
     pub puede_enviar: bool,
     /// ¿Este modo escribe a quien no lo pidió?
@@ -84,6 +90,7 @@ impl From<arles_db::numero::NumeroGuardado> for NumeroIpc {
             riesgo_aceptado: n.riesgo_aceptado,
             calidad: n.calidad,
             limite_de_meta: n.limite_de_meta,
+            calidad_actualizada: n.calidad_actualizada.clone(),
             // `referencia_de_credencial` no se copia. Es lo único del registro
             // que no cruza, y no cruza porque no le sirve a la pantalla para
             // nada: no es el token, pero dice dónde está.
@@ -243,6 +250,125 @@ pub fn guardar_numero_de_whatsapp(
         let _ = llavero.borrar();
         return Err(ErrorIpc::from(crate::AppError::Db(e)));
     }
+
+    // 3 · Y se le pregunta a Meta cómo está el número (D-WA, 27/10/2026).
+    //
+    // ── POR QUÉ SE PREGUNTA AQUÍ Y NO LLEGA DESDE LA PANTALLA ───────────
+    //
+    // El descubrimiento del alta **ya trae la calidad y el escalón**: los
+    // enseña en la lista para poder elegir a la vista de las dos cifras que
+    // deciden si un número puede trabajar. Lo cómodo sería que la pantalla los
+    // mandara de vuelta al guardar.
+    //
+    // No se hace, y es la regla de la frontera: **lo que la webview dice no se
+    // guarda como si lo hubiera dicho Meta.** Un semáforo cuyo valor viene de
+    // la pantalla es un semáforo que la pantalla puede poner en verde.
+    //
+    // ── Y SI FALLA, NO PASA NADA MALO ──
+    //
+    // El número ya está dado de alta: esto es información añadida, no parte
+    // del alta. Si Meta no contesta, la calidad se queda sin anotar —que es lo
+    // que es— y el botón de refrescar de la ficha lo vuelve a intentar.
+    // Hacer fallar el alta entera por esto dejaría a alguien sin poder
+    // conectar su número porque Meta tardó tres segundos.
+    anotar_lo_que_meta_dice(&estado, empresa, id, &phone_number_id, &token);
+
+    numeros_de_whatsapp(estado)
+}
+
+/// Le pregunta a Meta la calidad y el tope de un número, y lo anota.
+///
+/// **No devuelve error a propósito.** Es información añadida: quien la llama ya
+/// tiene el número dado de alta, y una consulta que no se pudo hacer deja la
+/// calidad en «no se ha preguntado», que es lo que es. Un semáforo que se pone
+/// en verde cuando no ha podido mirar es peor que no tener semáforo.
+fn anotar_lo_que_meta_dice(
+    estado: &tauri::State<'_, EstadoApp>,
+    empresa: arles_core::ids::CompanyId,
+    id: arles_core::ids::WhatsappAccountId,
+    phone_number_id: &str,
+    token: &str,
+) {
+    let Some(dice) =
+        arles_whatsapp::estado::consultar(arles_whatsapp::cloud::GRAPH, phone_number_id, token)
+    else {
+        return;
+    };
+
+    // El error se traga a propósito y por el mismo motivo que arriba. Si la
+    // escritura falla, lo que queda es la calidad de antes — no una inventada.
+    let _ = estado
+        .db()
+        .anotar_calidad(empresa, id, &dice.calidad, dice.tope_diario);
+}
+
+/// Vuelve a preguntarle a Meta cómo está un número.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ HACE FALTA UN BOTÓN Y NO BASTA CON EL ALTA
+///
+/// **La calidad de Meta cambia sola.** Baja cuando la gente bloquea o reporta,
+/// y sube despacio cuando no pasa nada — y es la única señal que hay de que
+/// Meta está a punto de cerrar el número, que no se recupera: se cambia de
+/// número y el nuevo empieza desde el escalón más bajo.
+///
+/// Anotarla sólo al dar de alta daría un semáforo congelado en el día que se
+/// conectó, que es la peor clase de cifra: correcta sobre otra pregunta (§94).
+///
+/// ── Y POR QUÉ SE PREGUNTA Y NO SE ESPERA ──
+///
+/// Meta manda los cambios de calidad por *webhook*, y ARLES no tiene ninguna
+/// URL a la que Meta pueda llamar (`arles_whatsapp::entrante`). Preguntar es
+/// lo que sí funciona desde un escritorio, y es lo que la cabecera de
+/// `arles_whatsapp::estado` dice desde que se escribió.
+///
+/// Lo que esto **no** cubre: una caída en mitad de una campaña de mil
+/// mensajes. Para eso haría falta el «relay ciego» que Dirección decidió el
+/// 29/09/2026 y que no existe.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si el identificador no vale, si el número no es de esta
+/// empresa, o si el llavero no tiene su token — que es el caso en que hay que
+/// volver a conectar el número.
+#[tauri::command]
+pub fn refrescar_calidad_del_numero(
+    estado: tauri::State<'_, EstadoApp>,
+    id: String,
+) -> Result<Vec<NumeroIpc>, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let numero = id
+        .parse::<arles_core::ids::WhatsappAccountId>()
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    // El `phone_number_id` se lee **de la base** y no se recibe: es un dato de
+    // la cuenta, y aceptarlo de la pantalla dejaría preguntar por el número de
+    // otro. Es la misma razón por la que la lista de una campaña se lee aquí
+    // (D-15) y por la que la ruta de un respaldo no cruza la frontera.
+    let numeros = estado
+        .db()
+        .numeros(empresa)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+    let Some(guardado) = numeros.into_iter().find(|n| n.id == numero) else {
+        return Err(ErrorIpc::from(crate::AppError::Db(
+            arles_db::DbError::DatoInvalido {
+                motivo: "ese número de WhatsApp no existe",
+            },
+        )));
+    };
+
+    let token = crate::llavero::Llavero::del_numero(&numero.to_string())
+        .leer_contrasena()
+        .map_err(ErrorIpc::from)?;
+    let Some(token) = token else {
+        return Err(ErrorIpc::from(crate::AppError::Db(
+            arles_db::DbError::DatoInvalido {
+                motivo: "el llavero no tiene el token de ese número",
+            },
+        )));
+    };
+
+    anotar_lo_que_meta_dice(&estado, empresa, numero, &guardado.phone_number_id, &token);
 
     numeros_de_whatsapp(estado)
 }
@@ -494,6 +620,7 @@ mod tests {
             riesgo_aceptado: riesgo.map(ToOwned::to_owned),
             calidad: None,
             limite_de_meta: Some(250),
+            calidad_actualizada: None,
             puede_enviar: coexistencia.is_some() && riesgo.is_some(),
             escribe_en_frio: true,
         }

@@ -25,9 +25,9 @@
 //! ARLES **no puede comprobar ninguna de las dos**: no ve dentro de Meta. Las
 //! pregunta, las registra aquí y en `audit_log`, y no finge que las sabe.
 
-use arles_core::ids::{CompanyId, WhatsappAccountId};
+use arles_core::ids::{CompanyId, WhatsappAccountId, WhatsappQualityEventId};
 use arles_core::whatsapp::ModoDelCanal;
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 
 use crate::db::Db;
 use crate::empresa::{ahora, auditar};
@@ -70,6 +70,12 @@ pub struct NumeroGuardado {
     pub calidad: Option<String>,
     /// El tope diario que Meta impone. Lo decide Meta, no nosotros.
     pub limite_de_meta: Option<u32>,
+    /// Cuándo se le preguntó a Meta por última vez. `None` = nunca.
+    ///
+    /// Va con la calidad porque **una cifra sin fecha se lee como si fuera de
+    /// hoy** (§94), y la calidad de un número cambia sola: «verde» sin fecha no
+    /// dice si se miró esta mañana o el día que se conectó.
+    pub calidad_actualizada: Option<String>,
 }
 
 impl NumeroGuardado {
@@ -172,7 +178,7 @@ impl Db {
                 "SELECT id, display_name, phone_e164, waba_id, phone_number_id,
                         modo, credential_ref, status,
                         coexistencia_confirmada_at, riesgo_aceptado_at,
-                        calidad, limite_diario_meta
+                        calidad, limite_diario_meta, calidad_actualizada_at
                    FROM whatsapp_account
                   WHERE company_id = ?1
                   ORDER BY created_at",
@@ -192,13 +198,27 @@ impl Db {
                     f.get::<_, Option<String>>(9)?,
                     f.get::<_, Option<String>>(10)?,
                     f.get::<_, Option<i64>>(11)?,
+                    f.get::<_, Option<String>>(12)?,
                 ))
             })?;
 
             let mut todos = Vec::new();
             for fila in filas {
-                let (id, nombre, tel, waba, pn, modo, cred, estado, coex, riesgo, cal, tope) =
-                    fila?;
+                let (
+                    id,
+                    nombre,
+                    tel,
+                    waba,
+                    pn,
+                    modo,
+                    cred,
+                    estado,
+                    coex,
+                    riesgo,
+                    cal,
+                    tope,
+                    cal_cuando,
+                ) = fila?;
                 todos.push(NumeroGuardado {
                     id: id.parse().map_err(DbError::Nucleo)?,
                     nombre_visible: nombre,
@@ -212,6 +232,7 @@ impl Db {
                     riesgo_aceptado: riesgo,
                     calidad: cal,
                     limite_de_meta: tope.and_then(|v| u32::try_from(v).ok()),
+                    calidad_actualizada: cal_cuando,
                 });
             }
             Ok(todos)
@@ -332,6 +353,135 @@ impl Db {
                 "whatsapp_account",
                 &id.to_string(),
             )?;
+            tx.commit()?;
+            Ok(())
+        })
+    }
+
+    /// Anota lo que Meta dice de un número: su calidad y su tope diario.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// EL SEMÁFORO SE LEÍA Y NO LO ESCRIBÍA NADIE (D-WA, 27/10/2026)
+    ///
+    /// `whatsapp_account.calidad` y `limite_diario_meta` existen desde la V4 y
+    /// `numeros()` las devuelve desde entonces, así que la pantalla enseña la
+    /// insignia de calidad **desde el primer día**. Ningún `INSERT` ni
+    /// `UPDATE` las tocaba nunca: la insignia decía siempre «no se ha
+    /// preguntado».
+    ///
+    /// Es el patrón del §9 en su forma más silenciosa —la columna correcta, la
+    /// consulta correcta y el cable sin conectar—, y aquí lo que se pierde no
+    /// es una función: es **el único aviso que hay de que Meta está a punto de
+    /// cerrar el número**, que no se recupera.
+    ///
+    /// Y tenía una segunda consecuencia que no se ve: con `limite_diario_meta`
+    /// vacío, una campaña de WhatsApp **sin tope diario propio no se puede
+    /// activar** (ver la nota de los límites en `trabajo.rs`).
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// LAS DOS ESCRITURAS VAN JUNTAS, Y UNA ES UN HISTÓRICO
+    ///
+    /// La cuenta guarda **cómo está hoy**, que es lo que la pantalla enseña.
+    /// `whatsapp_quality_event` guarda **cuándo cambió**, que es lo que
+    /// permite ver una caída: una calidad en amarillo no dice nada, y una que
+    /// bajó de verde a amarillo ayer dice que hay que parar.
+    ///
+    /// La fila del histórico **sólo se escribe cuando el valor cambia**. Si se
+    /// escribiera en cada consulta, refrescar la pantalla diez veces dejaría
+    /// diez filas idénticas y la gráfica de Actividad sería una línea de
+    /// ruido. Lo que importa son los saltos.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ `whatsapp_quality_event` ESTABA EN «PENDIENTES CONOCIDOS», Y
+    /// POR QUÉ ESE MOTIVO ERA FALSO
+    ///
+    /// El validador la declaraba sin escritor con este motivo: «los eventos de
+    /// calidad de Meta llegan por webhook, y el relay ciego no existe
+    /// todavía». **Es verdad de los eventos y falso de la calidad.** La
+    /// cabecera de `arles_whatsapp::estado` lo dice desde que se escribió: lo
+    /// que sí funciona desde un escritorio es **preguntarle a Meta** en vez de
+    /// esperar a que Meta llame, y eso cubre el semáforo sin ningún servidor.
+    ///
+    /// Un «pendiente» con un motivo que no se sostiene es peor que un hueco:
+    /// el hueco se ve, el motivo escrito se cree. Es el mismo defecto que las
+    /// tres cifras «sin medir» de la auditoría C.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::DatoInvalido`] si el número no existe o no es de esta
+    /// empresa, o [`DbError::Sqlite`] si la escritura falla.
+    pub fn anotar_calidad(
+        &self,
+        empresa: CompanyId,
+        id: WhatsappAccountId,
+        calidad: &str,
+        tope_diario: Option<u32>,
+    ) -> Result<(), DbError> {
+        // La calidad se guarda en minúsculas: Meta la manda como `GREEN` y el
+        // `CHECK` del esquema exige `green`. Y un valor que no es de los cuatro
+        // se guarda como `unknown` en vez de hacer fallar la escritura: Meta
+        // puede añadir uno, y perder la consulta entera por eso dejaría el
+        // semáforo sin actualizar — que es el estado del que venimos.
+        let calidad = match calidad.trim().to_ascii_lowercase().as_str() {
+            "green" => "green",
+            "yellow" => "yellow",
+            "red" => "red",
+            _ => "unknown",
+        };
+
+        self.con_dominio(|conn| {
+            let tx = conn.unchecked_transaction()?;
+            let cuando = ahora();
+
+            // Lo que había antes, para saber si esto es un cambio.
+            let antes: Option<(Option<String>, Option<i64>)> = tx
+                .query_row(
+                    "SELECT calidad, limite_diario_meta FROM whatsapp_account
+                      WHERE id = ?1 AND company_id = ?2",
+                    params![id.to_string(), empresa.to_string()],
+                    |f| Ok((f.get(0)?, f.get(1)?)),
+                )
+                .optional()?;
+
+            let Some((calidad_antes, tope_antes)) = antes else {
+                return Err(DbError::DatoInvalido {
+                    motivo: "ese número de WhatsApp no existe",
+                });
+            };
+
+            tx.execute(
+                "UPDATE whatsapp_account
+                    SET calidad = ?3, limite_diario_meta = ?4,
+                        calidad_actualizada_at = ?5, updated_at = ?5
+                  WHERE id = ?1 AND company_id = ?2",
+                params![
+                    id.to_string(),
+                    empresa.to_string(),
+                    calidad,
+                    tope_diario,
+                    cuando
+                ],
+            )?;
+
+            let cambio = calidad_antes.as_deref() != Some(calidad)
+                || tope_antes.and_then(|v| u32::try_from(v).ok()) != tope_diario;
+
+            if cambio {
+                tx.execute(
+                    "INSERT INTO whatsapp_quality_event
+                         (id, whatsapp_account_id, calidad, limite_diario_meta,
+                          evento_crudo, ocurrido_at, created_at)
+                     VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?5)",
+                    params![
+                        WhatsappQualityEventId::nuevo().to_string(),
+                        id.to_string(),
+                        calidad,
+                        tope_diario,
+                        cuando
+                    ],
+                )?;
+            }
+
             tx.commit()?;
             Ok(())
         })
@@ -612,5 +762,138 @@ mod tests {
             })
             .expect("cuenta");
         assert_eq!(cuantas, 2, "y las dos veces quedan en la bitácora");
+    }
+    // ══ D-WA · EL SEMÁFORO DE CALIDAD (27/10/2026) ══════════════════════
+    //
+    // `calidad` y `limite_diario_meta` existen desde la V4 y `numeros()` las
+    // devuelve desde entonces, así que la pantalla enseña la insignia **desde
+    // el primer día**. Ningún `INSERT` ni `UPDATE` las tocaba: la insignia
+    // decía siempre «no consultada».
+    //
+    // Aquí lo que se perdía no es una función: es el único aviso de que Meta
+    // está a punto de cerrar el número, que no se recupera.
+
+    /// Cuántas filas tiene el histórico de calidad de un número.
+    fn saltos(db: &Db, id: WhatsappAccountId) -> i64 {
+        db.ejecutar_en_pruebas(|c| {
+            c.query_row(
+                "SELECT count(*) FROM whatsapp_quality_event
+                  WHERE whatsapp_account_id = ?1",
+                params![id.to_string()],
+                |f| f.get(0),
+            )
+        })
+        .expect("cuenta")
+    }
+
+    /// **Lo que Meta dice se guarda, y la pantalla lo puede leer.**
+    ///
+    /// La prueba que este tramo existía para tener. Antes de hoy, la segunda
+    /// mitad de esto —leerlo de vuelta— devolvía `None` siempre.
+    ///
+    /// Verificada el 27/10/2026 con seis rupturas, las seis en rojo: anular la
+    /// columna en el `SELECT`, no escribir la fecha, dar por buena una calidad
+    /// desconocida, escribir el histórico en cada consulta en vez de en cada
+    /// salto, ignorar un cambio sólo del escalón, y quitar el filtro de
+    /// empresa.
+    #[test]
+    fn la_calidad_que_meta_dice_se_guarda_y_se_lee() {
+        let (_d, db) = base();
+        let id = alta(&db, ModoDelCanal::Seguimiento);
+
+        assert_eq!(leer(&db, id).calidad, None, "nace sin consultar");
+        assert_eq!(leer(&db, id).calidad_actualizada, None);
+
+        db.anotar_calidad(empresa(), id, "GREEN", Some(1_000))
+            .expect("anota");
+
+        let n = leer(&db, id);
+        assert_eq!(
+            n.calidad.as_deref(),
+            Some("green"),
+            "en minúsculas, como el CHECK"
+        );
+        assert_eq!(n.limite_de_meta, Some(1_000));
+        assert!(
+            n.calidad_actualizada.is_some(),
+            "y con su fecha: una cifra sin fecha se lee como si fuera de hoy"
+        );
+    }
+
+    /// **Un valor que Meta no usa hoy no tira la consulta: se guarda como
+    /// `unknown`.**
+    ///
+    /// Meta puede añadir un escalón de calidad. Hacer fallar la escritura por
+    /// eso dejaría el semáforo **sin actualizar**, que es exactamente el estado
+    /// del que venimos — y por una respuesta que Meta considera correcta.
+    ///
+    /// Lo que no se hace es adivinar: no se cae a `green`.
+    #[test]
+    fn una_calidad_que_no_conocemos_no_se_da_por_buena() {
+        let (_d, db) = base();
+        let id = alta(&db, ModoDelCanal::Seguimiento);
+
+        db.anotar_calidad(empresa(), id, "FLAMINGO", None)
+            .expect("no revienta");
+
+        assert_eq!(
+            leer(&db, id).calidad.as_deref(),
+            Some("unknown"),
+            "lo que no conocemos es «no se sabe», nunca «está bien»"
+        );
+    }
+
+    /// **El histórico guarda los saltos, no cada consulta.**
+    ///
+    /// Si se escribiera una fila por consulta, refrescar la pantalla diez veces
+    /// dejaría diez filas idénticas y la gráfica de Actividad sería una línea
+    /// de ruido. Lo que importa es cuándo cambió: una calidad en amarillo no
+    /// dice nada, y una que bajó de verde a amarillo ayer dice que hay que
+    /// parar.
+    #[test]
+    fn el_historico_anota_el_salto_y_no_la_consulta() {
+        let (_d, db) = base();
+        let id = alta(&db, ModoDelCanal::Seguimiento);
+
+        db.anotar_calidad(empresa(), id, "GREEN", Some(1_000))
+            .expect("primera");
+        assert_eq!(saltos(&db, id), 1, "de «no consultada» a verde es un salto");
+
+        db.anotar_calidad(empresa(), id, "GREEN", Some(1_000))
+            .expect("segunda, igual");
+        assert_eq!(saltos(&db, id), 1, "lo mismo otra vez no es un salto");
+
+        db.anotar_calidad(empresa(), id, "YELLOW", Some(1_000))
+            .expect("baja");
+        assert_eq!(saltos(&db, id), 2, "verde a amarillo sí lo es");
+
+        // Y un cambio SÓLO del tope también cuenta: subir de escalón cambia
+        // cuántos se pueden mandar al día, y eso es lo que decide si una
+        // campaña cabe. Verlo en el histórico es la mitad de para qué existe.
+        db.anotar_calidad(empresa(), id, "YELLOW", Some(10_000))
+            .expect("sube el escalón");
+        assert_eq!(saltos(&db, id), 3, "el escalón también es un salto");
+    }
+
+    /// **El número de otra empresa no se toca.**
+    ///
+    /// Es la misma regla que las dos marcas: el identificador llega de la
+    /// webview, y sin el filtro de empresa un identificador adivinado
+    /// escribiría en la cuenta de otra.
+    #[test]
+    fn la_calidad_de_otra_empresa_no_se_anota() {
+        let (_d, db) = base();
+        let id = alta(&db, ModoDelCanal::Seguimiento);
+
+        let otra: CompanyId = "22222222-2222-4222-8222-222222222222".parse().expect("id");
+        let r = db.anotar_calidad(otra, id, "GREEN", Some(1_000));
+
+        assert!(r.is_err(), "no es su número");
+        assert_eq!(
+            leer(&db, id).calidad,
+            None,
+            "y no deja la calidad escrita a medias"
+        );
+        assert_eq!(saltos(&db, id), 0, "ni una fila en el histórico");
     }
 }

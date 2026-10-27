@@ -5196,9 +5196,19 @@ def ninguna_tabla_se_queda_sin_escritor():
         # decidir si alguien dio permiso, pero todavía no hay pantalla que
         # registre uno. Hoy el permiso sólo entra por importación.
         "consent_entry",
-        # Los eventos de calidad de Meta llegan por webhook, y el «relay ciego»
-        # que Dirección decidió el 29/09/2026 no existe todavía.
-        "whatsapp_quality_event",
+        #
+        # `whatsapp_quality_event` SALIÓ DE AQUÍ el 27/10/2026, y su motivo era
+        # falso: decía que «los eventos de calidad de Meta llegan por webhook, y
+        # el relay ciego no existe todavía». Es verdad de los eventos y **falso
+        # de la calidad** — la cabecera de `arles_whatsapp::estado` dice desde
+        # que se escribió que lo que sí funciona desde un escritorio es
+        # preguntarle a Meta en vez de esperar a que Meta llame, y eso cubre el
+        # semáforo sin ningún servidor.
+        #
+        # Un «pendiente» con un motivo que no se sostiene es peor que un hueco:
+        # el hueco se ve, el motivo escrito se cree. Es el mismo defecto que las
+        # tres cifras «sin medir» de la auditoría C. Le dio escritor
+        # `Db::anotar_calidad`, y lector la gráfica de Actividad.
     }
 
     cuerpo = ""

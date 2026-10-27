@@ -134,6 +134,14 @@ id_tipado!(
     WhatsappTemplateId
 );
 id_tipado!(
+    /// Un salto de la calidad que Meta da a un número.
+    ///
+    /// Es un histórico y no un estado: la cuenta guarda cómo está hoy, y esto
+    /// guarda **cuándo cambió**. Una calidad en amarillo no dice nada; una que
+    /// bajó de verde a amarillo ayer dice que hay que parar.
+    WhatsappQualityEventId
+);
+id_tipado!(
     /// Ventana de ejecución: los días y horas en que una campaña puede enviar.
     ///
     /// Es de la empresa y se reutiliza entre campañas, así que tiene id propio

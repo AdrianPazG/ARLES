@@ -29,6 +29,8 @@ const EN_FRIO: Numero = {
   riesgoAceptado: null,
   calidad: null,
   limiteDeMeta: null,
+  // Nunca se le ha preguntado a Meta, que es distinto de que esté bien.
+  calidadActualizada: null,
   puedeEnviar: false,
   escribeEnFrio: true,
 }

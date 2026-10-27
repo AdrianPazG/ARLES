@@ -3636,6 +3636,15 @@ export const es = {
       ayudaSinConsultar:
         'ARLES no ha podido preguntárselo a Meta. No significa que esté ' +
         'bien: significa que no se sabe.',
+
+      // ── D-WA · el botón que faltaba y su fecha ──
+      //
+      // La calidad **cambia sola**: baja cuando la gente bloquea o reporta.
+      // Anotarla sólo al dar de alta daría un semáforo congelado en el día que
+      // se conectó el número, que es la peor clase de cifra — correcta sobre
+      // otra pregunta (§94). Por eso el botón, y por eso la fecha al lado.
+      refrescar: 'Volver a preguntar',
+      preguntadaEl: 'Preguntado a Meta el {cuando}',
     },
 
     limiteDeMeta: 'Meta permite {cuantos} al día',

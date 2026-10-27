@@ -33,6 +33,14 @@ export interface Numero {
   readonly calidad: string | null
   readonly limiteDeMeta: number | null
   /**
+   * Cuándo se le preguntó a Meta, o `null` si nunca.
+   *
+   * **Una cifra sin fecha se lee como si fuera de hoy** (§94), y la calidad
+   * cambia sola: «verde» sin fecha no dice si se miró esta mañana o el día que
+   * se conectó el número.
+   */
+  readonly calidadActualizada: string | null
+  /**
    * ¿Puede mandar una campaña hoy?
    *
    * **Viene resuelto de Rust y aquí no se recalcula.** La regla vive en el
@@ -235,6 +243,18 @@ export const useWhatsappStore = defineStore('whatsapp', () => {
     await marcar('aceptar_riesgo_del_canal', id)
   }
 
+  /**
+   * Vuelve a preguntarle a Meta la calidad y el tope de un número.
+   *
+   * Devuelve la lista entera, igual que las dos marcas, porque lo que cambia
+   * es una fila de la lista que la pantalla ya está pintando: devolver sólo el
+   * número cambiado obligaría a fusionarlo aquí, y una fusión a mano es donde
+   * se queda una fila vieja en pantalla.
+   */
+  async function refrescarCalidad(id: string): Promise<void> {
+    await marcar('refrescar_calidad_del_numero', id)
+  }
+
   /** Las dos marcas se ponen igual; solo cambia el comando. */
   async function marcar(comando: string, id: string): Promise<void> {
     if (!hayNucleo()) return
@@ -260,5 +280,6 @@ export const useWhatsappStore = defineStore('whatsapp', () => {
     enviarPrueba,
     confirmarCoexistencia,
     aceptarRiesgo,
+    refrescarCalidad,
   }
 })

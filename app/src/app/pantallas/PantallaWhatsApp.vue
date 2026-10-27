@@ -308,6 +308,23 @@ async function probar(n: Numero, f: FormularioDePrueba): Promise<void> {
   probando.value = null
 }
 
+/** Qué número está preguntando a Meta ahora mismo, para su botón ocupado. */
+const refrescando = ref<string | null>(null)
+
+/**
+ * Vuelve a preguntarle a Meta la calidad de este número.
+ *
+ * **La calidad cambia sola**: baja cuando la gente bloquea o reporta, y es la
+ * única señal de que Meta está a punto de cerrar el número — que no se
+ * recupera. Anotarla sólo al dar de alta daría un semáforo congelado en el día
+ * que se conectó, que es la peor clase de cifra: correcta sobre otra pregunta.
+ */
+async function refrescarCalidad(n: Numero): Promise<void> {
+  refrescando.value = n.id
+  await store.refrescarCalidad(n.id)
+  refrescando.value = null
+}
+
 function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
   switch (n.calidad) {
     case 'green':
@@ -540,13 +557,29 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
         </AInsignia>
       </div>
 
-      <!-- La calidad, y lo que significa que no conste. -->
+      <!-- La calidad, y lo que significa que no conste.
+           El botón de refrescar va AQUÍ y no en la barra de acciones de abajo:
+           lo que se refresca es esta cifra, y un botón lejos del dato que
+           cambia hace dudar de qué se ha actualizado. -->
       <div class="fila">
         <span class="etiqueta">{{ t('numeroDeWhatsapp.calidad.etiqueta') }}</span>
         <AInsignia :tono="tonoDeCalidad(n)">
           {{ textoDeCalidad(n) }}
         </AInsignia>
+        <ABoton
+          variante="secundario"
+          :ocupado="refrescando === n.id"
+          @click="refrescarCalidad(n)"
+        >
+          {{ t('numeroDeWhatsapp.calidad.refrescar') }}
+        </ABoton>
       </div>
+      <p
+        v-if="n.calidadActualizada !== null"
+        class="ayuda"
+      >
+        {{ t('numeroDeWhatsapp.calidad.preguntadaEl', { cuando: n.calidadActualizada }) }}
+      </p>
       <p
         v-if="n.calidad === null"
         class="ayuda"

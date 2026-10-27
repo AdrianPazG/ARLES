@@ -140,6 +140,9 @@ pub fn run() {
             whatsapp::guardar_numero_de_whatsapp,
             whatsapp::confirmar_coexistencia,
             whatsapp::aceptar_riesgo_del_canal,
+            // D-WA · el semáforo de calidad. Se registra CON su llamador —el
+            // botón de la ficha del número—, que es la condición de la fase W.
+            whatsapp::refrescar_calidad_del_numero,
             whatsapp::enviar_whatsapp_de_prueba,
             campanas::plantillas,
             campanas::guardar_plantilla,
