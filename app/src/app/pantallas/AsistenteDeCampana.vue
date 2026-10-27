@@ -542,11 +542,18 @@ async function siguiente(): Promise<void> {
   if (paso.value === 5 && creada.value === null) {
     const r = await campanas.crearCampana({
       nombre: nombre.value.trim(),
-      cuenta: cuenta.value,
-      versionDePlantilla: versionDePlantilla.value,
-      // Vacío es «la de por defecto»: `null`, no una cadena vacía, que la
-      // clave ajena rechazaría.
-      firma: firma.value === '' ? null : firma.value,
+      // Por dónde sale (D-WA). **Hoy este asistente sólo ofrece correo**: la
+      // elección de canal es el tramo 3c. Va ya con la forma etiquetada
+      // porque es la que la frontera acepta, y porque así el día que entre
+      // WhatsApp TypeScript exige decidir en vez de dejar colar una mezcla.
+      salePor: {
+        canal: 'email',
+        cuenta: cuenta.value,
+        versionDePlantilla: versionDePlantilla.value,
+        // Vacío es «la de por defecto»: `null`, no una cadena vacía, que la
+        // clave ajena rechazaría.
+        firma: firma.value === '' ? null : firma.value,
+      },
       // Vacío es «toda la empresa»: `null`, no una cadena vacía, que la clave
       // ajena rechazaría. Mismo trato que la firma.
       lista: lista.value === '' ? null : lista.value,

@@ -1110,9 +1110,22 @@
               detalle: '',
             });
           }
+          // ── EL CANAL TODAVÍA NO SE MIRA AQUÍ (D-WA, tramo 3b) ─────────
+          //
+          // `crear_campana` recibe desde hoy `salePor`, una variante
+          // etiquetada con el canal dentro. Este decorado **no la lee**, y hoy
+          // da igual: el asistente sólo manda correo hasta el tramo 3c.
+          //
+          // Queda escrito porque la comprobación de la fase 7 compara **qué
+          // comandos** contesta el simulador, no la **forma** de lo que
+          // reciben ni devuelven — es el hueco que la 8.6 E dejó dicho. Así
+          // que el día que el asistente ofrezca WhatsApp, esto seguiría
+          // creando una campaña de correo en la demostración sin que nada
+          // fallara, y el paso 7 pediría un preflight que no existe aquí.
           var nueva = {
             id: nuevoId(),
             nombre: String(args.nombre || 'Campaña nueva'),
+            canal: ((args.salePor || {}).canal) === 'whatsapp' ? 'whatsapp' : 'email',
             estado: 'campana.estado.borrador',
             audiencia: 0, aceptados: 0,
           };

@@ -183,6 +183,46 @@ export interface Activacion {
  * pantalla encendería un botón que el núcleo rechaza — o, peor, dejaría activar
  * una campaña que el preflight había bloqueado, que es irreversible.
  */
+/**
+ * Por dónde sale una campaña, con lo que ese canal necesita y nada más (D-WA).
+ *
+ * ── UNA UNIÓN ETIQUETADA, Y NO SIETE CAMPOS OPCIONALES ──
+ *
+ * Es la forma que `PorDondeSaleIpc` deserializa en Rust, y la etiqueta la
+ * rechaza si llega mezclada: un `{ canal: 'whatsapp', cuenta: '…' }` no
+ * deserializa y el comando no llega a correr.
+ *
+ * Escrita así aquí, **TypeScript exige lo mismo antes de salir**: no se puede
+ * construir un objeto con `canal: 'whatsapp'` y `cuenta` dentro. Con siete
+ * campos opcionales se podía, y el error habría aparecido al otro lado de la
+ * frontera como un fallo de deserialización sin decir qué campo sobra.
+ */
+export type PorDondeSale =
+  | {
+      canal: 'email'
+      cuenta: string
+      versionDePlantilla: string
+      /**
+       * La firma del pie, o `null` para la de por defecto de la empresa (H-12).
+       *
+       * `campaign_stage.signature_id` existía desde la V4 y nada la escribía,
+       * así que todas las campañas salían con la misma firma. Ahora se elige en
+       * el paso 4 del asistente.
+       */
+      firma: string | null
+    }
+  | {
+      canal: 'whatsapp'
+      numero: string
+      /**
+       * La plantilla aprobada de Meta, o `null` si todavía no se eligió.
+       *
+       * **No lleva firma**: una firma es cosa del correo y el esquema lo exige
+       * con un `CHECK` desde la V4.
+       */
+      plantillaDeMeta: string | null
+    }
+
 export const useCampanasStore = defineStore('campanas', () => {
   const campanas = ref<readonly Campana[]>([])
   const plantillas = ref<readonly Plantilla[]>([])
@@ -397,16 +437,7 @@ export const useCampanasStore = defineStore('campanas', () => {
   /** Crea la campaña en borrador. Devuelve sus ids, o `null` si falló. */
   async function crearCampana(datos: {
     nombre: string
-    cuenta: string
-    versionDePlantilla: string
-    /**
-     * La firma del pie, o `null` para la de por defecto de la empresa (H-12).
-     *
-     * `campaign_stage.signature_id` existía desde la V4 y nada la escribía, así
-     * que todas las campañas salían con la misma firma. Ahora se elige en el
-     * paso 4 del asistente.
-     */
-    firma: string | null
+    salePor: PorDondeSale
     /**
      * **A quién va dirigida** (D-15), o `null` para toda la empresa.
      *

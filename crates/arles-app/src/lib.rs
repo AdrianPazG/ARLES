@@ -118,20 +118,23 @@ pub fn run() {
             comandos::enviar_correo_de_prueba,
             comandos::probar_envio_de_la_cuenta,
             comandos::revisar_campana,
-            // ── `revisar_campana_de_whatsapp` NO está registrado, y es a
-            //    propósito desde la 7.7 ──────────────────────────────────────
+            // ── `revisar_campana_de_whatsapp` SIGUE SIN REGISTRAR, y la
+            //    razón cambió de sitio (D-WA, 27/10/2026) ──────────────────
             //
-            // Es el preflight del canal (W.5), con sus dos cifras de permiso.
-            // Funciona y tiene sus pruebas, pero **es la puerta de un flujo que
-            // no existe**: el motor sólo recorre `Canal::Correo`, así que no se
-            // puede lanzar una campaña entera por WhatsApp y no hay pantalla
-            // que pueda pedir esta revisión con sentido.
+            // Hasta hoy el motivo era que el motor no recorría WhatsApp, así
+            // que esto era «la puerta de un flujo que no existe». **Eso ya no
+            // es verdad**: el motor recorre los dos canales desde el tramo 1 y
+            // desde el 3a se puede crear y activar una campaña de WhatsApp.
             //
-            // Registrarlo era peor que no tenerlo: un comando en la frontera
-            // que nadie llama es superficie de ataque que nadie vigila. Vuelve
-            // aquí el día que el motor recorra WhatsApp, que es la decisión que
-            // espera a Dirección en `FASE-05-PARA-DIRECCION.md`. La función y
-            // sus pruebas se quedan donde están.
+            // Lo que falta es lo otro: **la pantalla que lo llame**. Se intentó
+            // registrar aquí y `ningun_comando_se_queda_sin_quien_lo_llame`
+            // salió en rojo, que es exactamente su trabajo — un comando en la
+            // frontera que nadie llama es superficie de ataque que nadie
+            // vigila, y registrarlo «porque ya va a hacer falta» es lo que la
+            // 7.7 vino a quitar.
+            //
+            // Vuelve en el tramo 3c, en el mismo cambio que el paso 7 del
+            // asistente. La función y sus pruebas se quedan donde están.
             whatsapp::numeros_de_whatsapp,
             whatsapp::descubrir_numeros_de_whatsapp,
             whatsapp::guardar_numero_de_whatsapp,

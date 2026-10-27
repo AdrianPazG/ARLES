@@ -20,10 +20,77 @@
 //! «guarda» seguido de «lista» son dos, con una ventana entre medias en la que
 //! la pantalla enseña algo que ya no es cierto.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::error::ErrorIpc;
 use crate::estado::EstadoApp;
+
+/// Por dónde va a salir una campaña, tal como lo manda la pantalla (D-WA).
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// UNA VARIANTE ETIQUETADA, Y NO SIETE CAMPOS OPCIONALES
+///
+/// `PorDondeSale` en `arles-db` hace imposible el estado imposible dentro de
+/// Rust: no se puede construir una etapa de WhatsApp con una plantilla de
+/// correo. **Pero si la frontera recibiera siete campos opcionales y los
+/// armara aquí, el estado imposible volvería a caber** — en el único sitio
+/// donde los datos vienen de fuera, que es justo donde más importa.
+///
+/// Con la etiqueta **y `deny_unknown_fields`**, `serde` rechaza la mezcla antes
+/// de que ninguna línea de ARLES la vea: un `{ canal: 'whatsapp', cuenta: '…' }`
+/// no deserializa y el comando no llega a correr. Es la misma razón por la que
+/// un `CanalValidado` no se puede deserializar (§4 de la arquitectura): lo que
+/// la webview puede mandar tiene que ser exactamente lo que es válido.
+///
+/// ── Y LAS DOS COSAS HACEN FALTA · 27/10/2026 ──
+///
+/// La primera versión de este comentario afirmaba que la etiqueta sola
+/// bastaba. **Era falso, y lo demostró la prueba**: por defecto `serde`
+/// **ignora** los campos que no conoce, así que
+/// `{ canal: 'whatsapp', numero: '…', cuenta: '…' }` entraba perfectamente y
+/// la `cuenta` se tiraba en silencio.
+///
+/// Eso no es inofensivo: quien se equivoque de campo en la pantalla vería la
+/// campaña crearse como si todo estuviera bien, y el dato que escribió no
+/// estaría. Es el §2 aplicado a mí mismo — una afirmación de verificación es
+/// una afirmación como cualquier otra, y en este proyecto son las que más veces
+/// resultan falsas. Lo caza `una_mezcla_de_canales_no_cruza_la_frontera`.
+///
+/// La etiqueta es `canal` y sus valores `email` y `whatsapp`, que es como el
+/// núcleo serializa [`arles_core::canal::Canal`] y lo que el frontend ya usa
+/// en todas partes. Dos nombres para lo mismo serían dos sitios donde
+/// equivocarse.
+///
+/// Los identificadores llegan como texto y no como tipos del núcleo porque es
+/// lo que la webview tiene: los que le dieron las listas. Quien comprueba que
+/// existen son las claves ajenas de `campaign_stage`, y un valor inventado
+/// hace fallar la creación entera en vez de crear una campaña que apunta a
+/// nada.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "canal", rename_all_fields = "camelCase", deny_unknown_fields)]
+pub enum PorDondeSaleIpc {
+    #[serde(rename = "email")]
+    Correo {
+        cuenta: String,
+        version_de_plantilla: String,
+        /// La firma del pie, o `None` para la de por defecto de la empresa
+        /// (H-12).
+        firma: Option<String>,
+    },
+    /// Por WhatsApp. **No lleva firma**, y no por olvido: una firma es cosa del
+    /// correo y el esquema lo exige con un `CHECK` desde la V4. Aquí ni se
+    /// puede escribir.
+    #[serde(rename = "whatsapp")]
+    Whatsapp {
+        numero: String,
+        /// La plantilla aprobada de Meta. Opcional porque la etapa nace antes
+        /// de elegirla —el asistente pregunta el canal y el número primero—, y
+        /// **quien la exige es `activar_campana`**, que es donde importa: ahí
+        /// el error se puede explicar con las tres partes del §95 en vez de
+        /// salir como un fallo de la base. El motivo entero está en la V16.
+        plantilla_de_meta: Option<String>,
+    },
+}
 
 /// Una versión de plantilla, tal como la ve la pantalla.
 #[derive(Debug, Clone, Serialize)]
@@ -449,15 +516,9 @@ pub fn campanas(estado: tauri::State<'_, EstadoApp>) -> Result<Vec<CampanaIpc>, 
 pub fn crear_campana(
     estado: tauri::State<'_, EstadoApp>,
     nombre: String,
-    cuenta: String,
-    version_de_plantilla: String,
-    // La firma que se pega al pie, o `None` para la de por defecto (H-12).
-    // Llega como texto y no como `SignatureId` porque es lo que la webview
-    // tiene: el identificador que le dio la lista de firmas. Quien comprueba
-    // que existe es la clave ajena de `campaign_stage`, y un valor inventado
-    // hace fallar la creación entera en vez de crear una campaña que apunta a
-    // nada.
-    firma: Option<String>,
+    // Por dónde sale, con lo que ese canal necesita y nada más. Ver
+    // [`PorDondeSaleIpc`]: la etiqueta impide que llegue una mezcla.
+    sale_por: PorDondeSaleIpc,
     // ── A quién va dirigida (D-15) ───────────────────────────────────────
     //
     // Llega el identificador de una lista que ya existe, no un archivo: la
@@ -473,17 +534,94 @@ pub fn crear_campana(
     acepto_el_riesgo_del_volumen: bool,
 ) -> Result<CampanaCreadaIpc, ErrorIpc> {
     let empresa = crate::comandos::empresa_actual(&estado)?;
+    crear_campana_en(
+        estado.db(),
+        empresa,
+        &nombre,
+        sale_por,
+        lista.as_deref(),
+        &ventana,
+        limite_por_hora,
+        limite_diario,
+        acepto_el_riesgo_del_volumen,
+    )
+}
 
-    let cuenta = cuenta
-        .parse::<arles_core::ids::EmailAccountId>()
-        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
-    let version = version_de_plantilla
-        .parse::<arles_core::ids::TemplateVersionId>()
-        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+/// Lo mismo, con la base ya abierta.
+///
+/// ── POR QUÉ ESTÁ SEPARADO DEL COMANDO ──
+///
+/// Para poder probarlo contra una base de verdad. Un `tauri::State` no se
+/// puede construir en una prueba, así que un comando que hace el trabajo
+/// dentro **no se puede probar**: sólo queda mirarlo, que es como llegaron a
+/// producción los huecos del §9. Es el mismo patrón que `registro_de` y que
+/// `revision_de`.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si algún identificador no vale o si la base rechaza la
+/// creación.
+#[allow(clippy::too_many_arguments)]
+pub fn crear_campana_en(
+    db: &arles_db::Db,
+    empresa: arles_core::ids::CompanyId,
+    nombre: &str,
+    sale_por: PorDondeSaleIpc,
+    lista: Option<&str>,
+    ventana: &str,
+    limite_por_hora: Option<u32>,
+    limite_diario: Option<u32>,
+    acepto_el_riesgo_del_volumen: bool,
+) -> Result<CampanaCreadaIpc, ErrorIpc> {
+    // Los identificadores se estrechan ANTES de tocar la base. Un valor
+    // inventado hace fallar aquí, con la clave de qué dato no vale, en vez de
+    // llegar como un fallo de clave ajena de SQLite tres capas más abajo.
+    //
+    // El `match` no tiene `_ =>`: añadir un canal mañana no compila hasta
+    // decidir qué se estrecha, que es exactamente donde la decisión importa.
+    let sale_por = match &sale_por {
+        PorDondeSaleIpc::Correo {
+            cuenta,
+            version_de_plantilla,
+            firma,
+        } => arles_db::alta_de_campana::PorDondeSale::Correo {
+            cuenta: cuenta
+                .parse::<arles_core::ids::EmailAccountId>()
+                .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?,
+            version_de_plantilla: version_de_plantilla
+                .parse::<arles_core::ids::TemplateVersionId>()
+                .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?,
+            firma: firma.as_deref(),
+        },
+        PorDondeSaleIpc::Whatsapp {
+            numero,
+            plantilla_de_meta,
+        } => arles_db::alta_de_campana::PorDondeSale::Whatsapp {
+            numero: numero
+                .parse::<arles_core::ids::WhatsappAccountId>()
+                .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?,
+            // Una cadena en blanco es «no se eligió», igual que la lista: la
+            // webview manda `''` cuando un desplegable está vacío, y tratarlo
+            // como un identificador daría un error de dato inválido en vez de
+            // dejar la etapa sin plantilla — que es un estado legítimo hasta
+            // que se active.
+            plantilla_de_meta: match plantilla_de_meta
+                .as_deref()
+                .map(str::trim)
+                .filter(|p| !p.is_empty())
+            {
+                Some(p) => Some(
+                    p.parse::<arles_core::ids::WhatsappTemplateId>()
+                        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?,
+                ),
+                None => None,
+            },
+        },
+    };
 
     // Una lista inventada hace fallar la creación entera —es una clave ajena—
     // en vez de crear una campaña que apunta a nada. Mismo trato que la firma.
-    let lista = match lista.as_deref().map(str::trim).filter(|l| !l.is_empty()) {
+    let lista = match lista.map(str::trim).filter(|l| !l.is_empty()) {
         Some(l) => Some(
             l.parse::<arles_core::ids::ContactListId>()
                 .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?,
@@ -491,23 +629,14 @@ pub fn crear_campana(
         None => None,
     };
 
-    let creada = estado
-        .db()
+    let creada = db
         .crear_campana(
             empresa,
             &arles_db::alta_de_campana::CampanaNueva {
                 lista,
-                nombre: &nombre,
-                // Este comando sigue creando **sólo** campañas de correo, y es
-                // el tramo que falta: el canal entra por aquí cuando el
-                // asistente pueda elegirlo. La variante ya existe, así que el
-                // día que entre el compilador exige decidir en los dos lados.
-                sale_por: arles_db::alta_de_campana::PorDondeSale::Correo {
-                    cuenta,
-                    version_de_plantilla: version,
-                    firma: firma.as_deref(),
-                },
-                ventana: &ventana,
+                nombre,
+                sale_por,
+                ventana,
                 limite_por_hora,
                 limite_diario,
                 acepto_el_riesgo_del_volumen,
