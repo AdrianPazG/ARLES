@@ -102,6 +102,11 @@ const CLAVES_DEL_NUCLEO = [
   'error.db.falta_aceptar_el_volumen',
   'error.db.limite_de_envios_en_cero',
   'error.db.sin_salida_de_baja',
+  // D-WA · las dos puertas de la plantilla de Meta al activar. Son dos claves
+  // y no una porque mandan a hacer dos cosas distintas: elegir una plantilla,
+  // o esperar a que Meta apruebe la que ya está elegida.
+  'error.db.sin_plantilla_de_meta',
+  'error.db.la_plantilla_no_esta_aprobada',
   // Y los cuatro motivos de una ventana que no se abriría nunca. `DbError`
   // devuelve la clave del MOTIVO, no una suya, para que el texto diga qué
   // campo arreglar (§95).

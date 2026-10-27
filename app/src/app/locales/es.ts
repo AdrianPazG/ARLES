@@ -2016,6 +2016,35 @@ export const es = {
           'No se creó ninguna audiencia y no se envió nada. La campaña sigue ' +
           'en borrador, con todo lo que escribiste.',
       },
+      // ── D-WA · las dos puertas de la plantilla de Meta ──
+      //
+      // Son dos textos y no uno porque mandan a hacer dos cosas distintas:
+      // elegir una plantilla, o esperar a que Meta la apruebe. Con un solo
+      // texto, quien ya eligió volvería a elegir la misma.
+      sin_plantilla_de_meta: {
+        que:
+          'Esta campaña sale por WhatsApp y no tiene elegida ninguna ' +
+          'plantilla aprobada de Meta.',
+        como:
+          'Vuelve al paso del mensaje y elige una. Por WhatsApp sólo se puede ' +
+          'mandar una plantilla que Meta haya aprobado: si no tienes ninguna, ' +
+          'dala de alta en Plantillas y firmas y espera su revisión.',
+        salvo:
+          'No se creó ninguna audiencia y no se envió nada. La campaña sigue ' +
+          'en borrador, con todo lo que escribiste.',
+      },
+      la_plantilla_no_esta_aprobada: {
+        que:
+          'Meta todavía no ha aprobado la plantilla que elegiste, así que no ' +
+          'se puede mandar.',
+        como:
+          'Mira su estado en el Administrador de WhatsApp de Meta, o vuelve ' +
+          'al paso del mensaje y elige otra que ya esté aprobada. Si la ' +
+          'activaras así, Meta rechazaría cada mensaje uno por uno.',
+        salvo:
+          'No se creó ninguna audiencia y no se envió nada. La campaña sigue ' +
+          'en borrador, con todo lo que escribiste.',
+      },
       limite_de_envios_en_cero: {
         que: 'Pusiste 0 como máximo de envíos.',
         como:
@@ -3533,6 +3562,24 @@ export const es = {
       'Se puede cambiar dando de alta el número otra vez, así que elige con ' +
       'cuidado: es lo que decide si ARLES te avisa antes de escribir a quien ' +
       'no te lo pidió.',
+
+    // ── LA SALIDA DE BAJA EN WHATSAPP · decisión del 27/10/2026 ──
+    //
+    // Va en la pantalla y no sólo en el manual porque es la única cosa del
+    // canal que **le toca hacer a mano** a quien lo usa, y el sitio donde se
+    // decide usarlo es éste. Decirlo sólo en un documento que nadie abre es lo
+    // mismo que no decirlo.
+    //
+    // No se exige que la plantilla lleve la salida escrita: ARLES no recibe
+    // las respuestas y, cuando las reciba, seguirá sin leer qué dicen (D-7A).
+    // Una frase que promete una salida que el programa no atiende es peor que
+    // no ponerla.
+    bajaAMano:
+      'Las respuestas de WhatsApp no llegan a ARLES: las lees en tu teléfono. ' +
+      'Cuando alguien te pida que no le escribas más, apunta su número en ' +
+      'Contactos › Bajas con el canal WhatsApp y ninguna campaña vuelve a ' +
+      'incluirlo. En el correo esa salida la pone ARLES; aquí el texto lo ' +
+      'aprueba Meta y no hay dónde añadirla.',
 
     // ── Las dos marcas ──
     //

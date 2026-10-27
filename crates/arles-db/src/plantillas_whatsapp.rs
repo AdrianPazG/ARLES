@@ -146,16 +146,6 @@ impl Db {
         })
     }
 
-    /// Las plantillas anotadas de un número.
-    ///
-    /// Devuelve **todas**, no solo las aprobadas: la pantalla necesita poder
-    /// decir «ésta está en revisión» y no hacerla desaparecer, que es como se
-    /// pierde media hora buscando algo que sí se dio de alta.
-    ///
-    /// # Errores
-    ///
-    /// [`DbError::Sqlite`] si la lectura falla, o [`DbError::Nucleo`] si la base
-    /// trae un estado o una variable que el núcleo no reconoce.
     /// La plantilla de Meta que manda una etapa de WhatsApp (D-WA).
     ///
     /// `None` cuando la etapa no es de WhatsApp o todavía no tiene plantilla
@@ -210,6 +200,16 @@ impl Db {
         })
     }
 
+    /// Las plantillas anotadas de un número.
+    ///
+    /// Devuelve **todas**, no solo las aprobadas: la pantalla necesita poder
+    /// decir «ésta está en revisión» y no hacerla desaparecer, que es como se
+    /// pierde media hora buscando algo que sí se dio de alta.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la lectura falla, o [`DbError::Nucleo`] si la base
+    /// trae un estado o una variable que el núcleo no reconoce.
     pub fn plantillas_de_meta(
         &self,
         empresa: CompanyId,

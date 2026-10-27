@@ -470,7 +470,7 @@ fn cuantos_tienen_huecos(fila: &FilaDeRevision, contactos: &[Destinatario]) -> u
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::alta_de_campana::CampanaNueva;
+    use crate::alta_de_campana::{CampanaNueva, PorDondeSale};
     use crate::conexion::ClaveMaestra;
     use crate::plantillas::Redaccion;
     use arles_core::ids::TemplateVersionId;
@@ -584,9 +584,11 @@ mod tests {
             &CampanaNueva {
                 lista: None,
                 nombre: "Septiembre",
-                cuenta: CUENTA.parse().expect("id"),
-                version_de_plantilla: version,
-                firma: None,
+                sale_por: PorDondeSale::Correo {
+                    cuenta: CUENTA.parse().expect("id"),
+                    version_de_plantilla: version,
+                    firma: None,
+                },
                 ventana: "vent-1",
                 limite_por_hora: None,
                 limite_diario: None,
@@ -760,9 +762,11 @@ mod tests {
                 &CampanaNueva {
                     lista: None,
                     nombre: "La mía",
-                    cuenta: CUENTA.parse().expect("id"),
-                    firma: None,
-                    version_de_plantilla: v,
+                    sale_por: PorDondeSale::Correo {
+                        cuenta: CUENTA.parse().expect("id"),
+                        firma: None,
+                        version_de_plantilla: v,
+                    },
                     ventana: "vent-1",
                     limite_por_hora: None,
                     limite_diario: Some(50),
@@ -873,9 +877,11 @@ mod tests {
                 &CampanaNueva {
                     lista: None,
                     nombre: "Con prisa",
-                    cuenta: CUENTA.parse().expect("id"),
-                    version_de_plantilla: v,
-                    firma: None,
+                    sale_por: PorDondeSale::Correo {
+                        cuenta: CUENTA.parse().expect("id"),
+                        version_de_plantilla: v,
+                        firma: None,
+                    },
                     ventana: "vent-1",
                     limite_por_hora: Some(500),
                     limite_diario: Some(500),
@@ -995,9 +1001,11 @@ mod tests {
                 &CampanaNueva {
                     lista: None,
                     nombre: "Parada",
-                    cuenta: CUENTA.parse().expect("id"),
-                    version_de_plantilla: v,
-                    firma: None,
+                    sale_por: PorDondeSale::Correo {
+                        cuenta: CUENTA.parse().expect("id"),
+                        version_de_plantilla: v,
+                        firma: None,
+                    },
                     ventana: "vent-1",
                     limite_por_hora: Some(1),
                     limite_diario: Some(1),

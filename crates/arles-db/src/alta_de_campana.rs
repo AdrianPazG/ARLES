@@ -50,7 +50,7 @@
 use arles_core::campana::EstadoDeCampana;
 use arles_core::ids::{
     CampaignId, CompanyId, ContactListId, EmailAccountId, IdempotencyKey, MessageAttemptId,
-    TemplateVersionId,
+    TemplateVersionId, WhatsappAccountId, WhatsappTemplateId,
 };
 use arles_core::plantilla::tiene_salida_de_baja;
 use rusqlite::{OptionalExtension, params};
@@ -63,16 +63,89 @@ use crate::db::Db;
 use crate::empresa::{ahora, auditar};
 use crate::error::DbError;
 
-/// Lo que hace falta para crear una campaña de correo.
+/// Por dónde sale una campaña, con lo que ese canal necesita y nada más.
 ///
-/// Una campaña **nace con su etapa**: sin remitente, sin plantilla y sin
-/// horario no se puede activar, y una campaña que no se puede activar es una
-/// fila que la interfaz enseña y que no lleva a ninguna parte.
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ UNA VARIANTE Y NO CINCO CAMPOS OPCIONALES (D-WA, 27/10/2026)
+///
+/// La forma cómoda sería añadir `canal`, `numero` y `plantilla_de_meta` al
+/// lado de `cuenta`, `version_de_plantilla` y `firma`, los seis opcionales. Y
+/// entonces caben los estados imposibles: canal de WhatsApp con una plantilla
+/// de correo, canal de correo con un número de Meta, o un canal sin ninguna de
+/// las dos cosas. **Nada fallaría al construirlo**: el `CHECK` del esquema
+/// rechazaría la fila, y el error llegaría como un fallo de SQLite en vez de
+/// decir qué falta.
+///
+/// Es la misma decisión que [`CuentaDeLaEtapa`] en `trabajo.rs`,
+/// `Cifrado::Argon2idXChaCha20 { sal, nonce }` y `RecortadaEnElEsencial
+/// { fecha }`: **el dato que sólo tiene sentido con otro va dentro de la
+/// variante**.
+///
+/// Y tiene el segundo efecto, que es el que de verdad protege: el compilador
+/// **exige una decisión** en cada sitio que antes daba el correo por supuesto.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LA FIRMA SÓLO EXISTE EN CORREO, Y ESO ES UNA REGLA DEL ESQUEMA
+///
+/// `campaign_stage` lleva desde la V4 un `CHECK (channel = 'email' OR
+/// signature_id IS NULL)`, con su motivo escrito: «una firma colgada de una
+/// etapa de WhatsApp es un campo que alguien rellenaría esperando que saliera
+/// en el mensaje». Aquí ni se puede escribir.
+#[derive(Debug, Clone)]
+pub enum PorDondeSale<'a> {
+    Correo {
+        cuenta: EmailAccountId,
+        version_de_plantilla: TemplateVersionId,
+        /// La firma que se pega al final de cada correo, o `None` para la de
+        /// por defecto de la empresa.
+        ///
+        /// ── LA COLUMNA EXISTÍA DESDE LA V4 Y NADIE LA ESCRIBÍA (H-12) ────
+        ///
+        /// `campaign_stage.signature_id` lleva ahí desde la V4, y
+        /// `redaccion_de_la_campana` ya la consultaba —con caída a la de por
+        /// defecto— **meses antes de que nada la rellenara**. El patrón del §9
+        /// en su forma más silenciosa: la consulta correcta, la columna
+        /// correcta, y el cable sin conectar; nada fallaba, simplemente todas
+        /// las campañas salían con la misma firma.
+        ///
+        /// `None` sigue significando «la de por defecto de la empresa», que es
+        /// literalmente lo que promete la casilla de Plantillas: «usar esta
+        /// firma cuando no se elija otra».
+        firma: Option<&'a str>,
+    },
+    /// Una etapa de WhatsApp: el número y la plantilla que Meta aprobó.
+    ///
+    /// **La plantilla es opcional aquí y obligatoria al activar.** La etapa
+    /// nace al elegir canal y número, y la plantilla se elige dos pasos
+    /// después del asistente; exigirla aquí obligaría a preguntar en el orden
+    /// contrario al que la pantalla pregunta, y el primero que tropieza con eso
+    /// es quien vuelve atrás a cambiar algo. El motivo entero está en la V16.
+    Whatsapp {
+        numero: WhatsappAccountId,
+        plantilla_de_meta: Option<WhatsappTemplateId>,
+    },
+}
+
+impl PorDondeSale<'_> {
+    /// Cómo se escribe este canal en la columna `channel`.
+    const fn como_se_guarda(&self) -> &'static str {
+        match self {
+            Self::Correo { .. } => "email",
+            Self::Whatsapp { .. } => "whatsapp",
+        }
+    }
+}
+
+/// Lo que hace falta para crear una campaña.
+///
+/// Una campaña **nace con su etapa**: sin remitente y sin horario no se puede
+/// activar, y una campaña que no se puede activar es una fila que la interfaz
+/// enseña y que no lleva a ninguna parte.
 #[derive(Debug, Clone)]
 pub struct CampanaNueva<'a> {
     pub nombre: &'a str,
-    pub cuenta: EmailAccountId,
-    pub version_de_plantilla: TemplateVersionId,
+    /// Por dónde sale, con lo que ese canal necesita. Ver [`PorDondeSale`].
+    pub sale_por: PorDondeSale<'a>,
     /// **A quién va dirigida** (D-15, 23/10/2026).
     ///
     /// `None` significa «toda la empresa», que es lo que hacían todas las
@@ -90,22 +163,6 @@ pub struct CampanaNueva<'a> {
     /// cuenta: ver la cabecera de `trabajo.rs`.
     pub limite_por_hora: Option<u32>,
     pub limite_diario: Option<u32>,
-    /// La firma que se pega al final de cada correo de esta campaña.
-    ///
-    /// ── LA COLUMNA EXISTÍA DESDE LA V4 Y NADIE LA ESCRIBÍA (H-12) ─────────
-    ///
-    /// `campaign_stage.signature_id` lleva ahí desde la V4, y
-    /// `redaccion_de_la_campana` ya la consultaba —con caída a la de por
-    /// defecto— **meses antes de que nada la rellenara**. El patrón del §9 en
-    /// su forma más silenciosa: la consulta correcta, la columna correcta, y el
-    /// cable sin conectar; nada fallaba, simplemente todas las campañas salían
-    /// con la misma firma.
-    ///
-    /// `None` sigue significando «la de por defecto de la empresa», que es
-    /// literalmente lo que promete la casilla de Plantillas: «usar esta firma
-    /// cuando no se elija otra». La diferencia es que ahora **se puede elegir
-    /// otra**.
-    pub firma: Option<&'a str>,
     /// ¿Se aceptó el riesgo de pasar de 50 diarios (§48)?
     ///
     /// ─────────────────────────────────────────────────────────────────────
@@ -210,22 +267,59 @@ impl Db {
                 ],
             )?;
 
-            // La etapa 1, de correo. El día que haya adaptador de WhatsApp,
-            // aquí entra la etapa 2 — y el `CHECK` del esquema ya impide que
-            // una etapa de correo cuelgue de un número de WhatsApp.
+            // ── LA ETAPA 1, DEL CANAL QUE SEA (D-WA, 27/10/2026) ──────
+            //
+            // Las dos escrituras llevan las MISMAS columnas y en el mismo
+            // orden, con los huecos del otro canal a `NULL`. Es a propósito:
+            // dos `INSERT` con listas de columnas distintas son dos sitios
+            // donde añadir un campo —la V16 añadió uno— y ponerlo en uno solo.
+            // El `CHECK` del esquema exige exactamente una cuenta por canal, y
+            // otro que una firma sólo cuelgue del correo.
+            //
+            // El `match` no tiene `_ =>`, y es lo que protege: añadir un canal
+            // mañana no compila hasta decidir qué escribe, en vez de crear una
+            // campaña sin remitente que falla al activar.
+            let (correo, version, firma, numero, plantilla_de_meta) = match &nueva.sale_por {
+                PorDondeSale::Correo {
+                    cuenta,
+                    version_de_plantilla,
+                    firma,
+                } => (
+                    Some(cuenta.to_string()),
+                    Some(version_de_plantilla.to_string()),
+                    *firma,
+                    None,
+                    None,
+                ),
+                PorDondeSale::Whatsapp {
+                    numero,
+                    plantilla_de_meta,
+                } => (
+                    None,
+                    None,
+                    None,
+                    Some(numero.to_string()),
+                    plantilla_de_meta.map(|p| p.to_string()),
+                ),
+            };
+
             tx.execute(
                 "INSERT INTO campaign_stage (id, campaign_id, position, channel,
-                                             email_account_id, template_version_id,
+                                             email_account_id, whatsapp_account_id,
+                                             template_version_id, whatsapp_template_id,
                                              signature_id, execution_window_id,
                                              hourly_limit, daily_limit,
                                              status, created_at, updated_at)
-                 VALUES (?1, ?2, 1, 'email', ?3, ?4, ?5, ?6, ?7, ?8, 'draft', ?9, ?9)",
+                 VALUES (?1, ?2, 1, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 'draft', ?12, ?12)",
                 params![
                     etapa,
                     id.to_string(),
-                    nueva.cuenta.to_string(),
-                    nueva.version_de_plantilla.to_string(),
-                    nueva.firma,
+                    nueva.sale_por.como_se_guarda(),
+                    correo,
+                    numero,
+                    version,
+                    plantilla_de_meta,
+                    firma,
                     nueva.ventana,
                     nueva.limite_por_hora,
                     nueva.limite_diario,
@@ -359,20 +453,67 @@ impl Db {
                 });
             }
 
-            // 2 · La etapa de correo, con su remitente.
-            let etapa: Option<(String, String)> = tx
-                .query_row(
-                    "SELECT id, email_account_id FROM campaign_stage
-                      WHERE campaign_id = ?1 AND channel = 'email'",
-                    params![id],
-                    |f| Ok((f.get(0)?, f.get(1)?)),
-                )
-                .optional()?;
-            let Some((etapa, cuenta)) = etapa else {
-                return Err(DbError::DatoInvalido {
-                    motivo: "campaign_stage.email_account_id",
-                });
-            };
+            // ── 2 · LA ETAPA, DEL CANAL QUE SEA (D-WA, 27/10/2026) ────
+            //
+            // Hasta hoy esta consulta pedía `channel = 'email'` y, como la
+            // siguiente —y la de la cola, y la de la supresión— escribían
+            // `'email'` de literal, activar una campaña de WhatsApp **congelaba
+            // una audiencia de correos** y llenaba la cola de direcciones de
+            // correo con el canal equivocado. No fallaba nada: el motor
+            // recorrería esa etapa (tramo 1), pediría el contenido de WhatsApp
+            // y se lo mandaría a un correo.
+            //
+            // Ahora el canal **se lee de la etapa** y viaja como parámetro a
+            // las cuatro consultas. Leerlo en vez de recibirlo es lo que
+            // impide que quien activa diga uno distinto del que se guardó.
+            let de_la_etapa = crate::trabajo::leer_la_etapa_para_activar(&tx, &id, empresa)?;
+            let etapa = de_la_etapa.etapa.etapa.clone();
+            let canal = de_la_etapa.etapa.cuenta.canal();
+            let canal_txt = canal.como_texto();
+
+            // ── 2 bis · UNA ETAPA DE WHATSAPP SIN PLANTILLA NO SE ACTIVA ─
+            //
+            // Lo prometía el comentario de la V16 —«quien SÍ lo exige es
+            // `activar_campana`»— y **no lo exigía nadie**: la columna no
+            // lleva `CHECK` a propósito, porque la etapa nace antes de la
+            // elección. Sin esto, una campaña de WhatsApp se activaba, se
+            // congelaba su audiencia, el motor la recorría, pedía el contenido
+            // y no había ninguno: quieta para siempre y diciendo «enviando».
+            //
+            // Es el patrón del §9 con la cara más cara: la comprobación
+            // descrita, el sitio nombrado, y el cable sin conectar.
+            //
+            // Y **aprobada**, que es la segunda mitad: una plantilla en
+            // revisión o rechazada existe en la base, así que exigir sólo que
+            // esté elegida dejaría activar una campaña entera que Meta rechaza
+            // mensaje por mensaje. La regla de qué estado puede enviar vive en
+            // `EstadoEnMeta::se_puede_usar`, escrita por lo que acepta y no por
+            // lo que rechaza: un estado nuevo de Meta no empieza a enviar solo.
+            if matches!(canal, arles_core::canal::Canal::WhatsApp) {
+                let Some(plantilla) = de_la_etapa.plantilla_whatsapp.as_deref() else {
+                    return Err(DbError::SinPlantillaDeMeta);
+                };
+
+                // Se pregunta aparte y no en `SELECT_DE_LA_ETAPA` a propósito:
+                // esa consulta la corre el motor en cada vuelta, y una unión
+                // más que sólo le hace falta al activar la pagarían todas.
+                let estado_en_meta: Option<String> = tx
+                    .query_row(
+                        "SELECT status FROM whatsapp_template
+                          WHERE id = ?1 AND company_id = ?2",
+                        params![plantilla, empresa.to_string()],
+                        |f| f.get(0),
+                    )
+                    .optional()?;
+
+                let puede = estado_en_meta
+                    .as_deref()
+                    .and_then(|e| arles_core::whatsapp::EstadoEnMeta::de_guardado(e).ok())
+                    .is_some_and(arles_core::whatsapp::EstadoEnMeta::se_puede_usar);
+                if !puede {
+                    return Err(DbError::LaPlantillaNoEstaAprobada);
+                }
+            }
 
             // 2 bis · A quién va dirigida (D-15).
             //
@@ -459,12 +600,12 @@ impl Db {
                        FROM {origen}
                       WHERE {filtro_lista}
                         AND c.company_id = ?2 AND c.status = 'active'
-                        AND ch.channel = 'email' AND ch.status = 'active'
+                        AND ch.channel = ?5 AND ch.status = 'active'
                         AND EXISTS (SELECT 1 FROM suppression_entry s
-                                     WHERE s.company_id = ?2 AND s.channel = 'email'
+                                     WHERE s.company_id = ?2 AND s.channel = ?5
                                        AND s.address_normalized = ch.value_normalized)"
                 ),
-                params![id, empresa.to_string(), cuando, lista],
+                params![id, empresa.to_string(), cuando, lista, canal_txt],
                 |f| f.get(0),
             )?;
 
@@ -472,17 +613,17 @@ impl Db {
                 &format!(
                     "INSERT INTO campaign_audience (campaign_id, channel, contact_address,
                                                     contact_id, added_at)
-                     SELECT ?1, 'email', ch.value_normalized, c.id, ?3
+                     SELECT ?1, ?5, ch.value_normalized, c.id, ?3
                        FROM {origen}
                       WHERE {filtro_lista}
                         AND c.company_id = ?2 AND c.status = 'active'
-                        AND ch.channel = 'email' AND ch.status = 'active'
+                        AND ch.channel = ?5 AND ch.status = 'active'
                         AND NOT EXISTS (SELECT 1 FROM suppression_entry s
-                                         WHERE s.company_id = ?2 AND s.channel = 'email'
+                                         WHERE s.company_id = ?2 AND s.channel = ?5
                                            AND s.address_normalized = ch.value_normalized)
                       GROUP BY ch.value_normalized"
                 ),
-                params![id, empresa.to_string(), cuando, lista],
+                params![id, empresa.to_string(), cuando, lista, canal_txt],
             )?;
 
             if metidos == 0 {
@@ -525,8 +666,13 @@ impl Db {
             {
                 use arles_core::duracion::{Desenlace, estimar};
 
-                let fila = crate::revision::leer_la_etapa(&tx, &id, empresa)?;
-                let limites = fila.limites();
+                // Los límites y la ventana salen de **la misma consulta que
+                // el motor va a usar** (`SELECT_DE_LA_ETAPA`), y no de la del
+                // preflight, que es sólo de correo. Que sean la misma es lo
+                // que hace que esta estimación prometa el ritmo que de verdad
+                // se va a aplicar — incluido el techo de Meta, que en WhatsApp
+                // manda aunque la campaña pida más.
+                let limites = de_la_etapa.etapa.limites;
                 let audiencia = u32::try_from(metidos).unwrap_or(u32::MAX);
                 // ── EL INSTANTE SE LEE AQUÍ, Y EN `lo_que_se_sabe_de` ENTRA
                 //    POR PARÁMETRO. LA DIFERENCIA ES A PROPÓSITO ───────────
@@ -545,7 +691,7 @@ impl Db {
                 let estimacion = estimar(
                     audiencia,
                     limites,
-                    &fila.ventana()?,
+                    &de_la_etapa.etapa.ventana,
                     OffsetDateTime::now_utc(),
                 );
 
@@ -560,12 +706,63 @@ impl Db {
                 // entera —audiencia incluida— y ahorra las inserciones de la
                 // cola. **Entero o nada lo mantiene la transacción, no el
                 // orden**, igual que con el desenlace.
-                if let Some(r) = crate::plantillas::redaccion_en(&tx, &id.to_string())? {
-                    let en_el_cuerpo = tiene_salida_de_baja(&r.cuerpo_html);
-                    let en_la_firma = r.firma_html.as_deref().is_some_and(tiene_salida_de_baja);
-                    if !en_el_cuerpo && !en_la_firma {
-                        return Err(DbError::SinSalidaDeBaja);
+                // ── Y EN WHATSAPP NO SE EXIGE, QUE ES DISTINTO DE QUE
+                //    NO HAGA FALTA (D-WA, 27/10/2026) ──────────────────────
+                //
+                // `redaccion_en` devuelve `None` en una etapa de WhatsApp —no
+                // hay plantilla de correo que leer—, así que hasta hoy la
+                // exigencia **pasaba en verde sin mirar nada**. El `match` la
+                // hace explícita: un `if let` que no entra se lee como «no
+                // aplica», y aquí lo que ocurre es que no se puede comprobar.
+                //
+                // Por qué no se puede: la salida de correo se exige por la
+                // variable `{{baja}}`, y lo que ARLES puede afirmar es que
+                // **la sustituye por una salida que funciona**. En una
+                // plantilla de Meta no hay nada que sustituir: el texto lo
+                // aprueba Meta palabra por palabra y ARLES sólo manda su
+                // nombre y los valores de sus huecos. Y buscar la palabra
+                // «baja» en el cuerpo es justo lo que el comentario de
+                // `tiene_salida_de_baja` descarta — pasaría en verde con «este
+                // mes damos de baja los precios».
+                //
+                // ── Y POR QUÉ NO SE EXIGE QUE LA PLANTILLA LA LLEVE
+                //    ESCRITA · DECISIÓN DE DIRECCIÓN DEL 27/10/2026 ────────
+                //
+                // Se planteó exigir que la plantilla registrada dijera su
+                // propia salida —«responde BAJA»— como constancia, igual que
+                // el aviso del §48. **Se descartó, y no por comodidad.**
+                //
+                // ARLES no podría atenderla. Dos veces:
+                //
+                //   1 · **No hay por dónde recibirla.** Los avisos de Meta son
+                //       webhooks y necesitan una URL pública; ARLES es una
+                //       aplicación de escritorio sin componente de red propio.
+                //       Está escrito en la cabecera de
+                //       `arles_whatsapp::entrante`.
+                //   2 · **Y el texto se tira a propósito** (D-7A, 29/09/2026):
+                //       se cuentan las respuestas, nunca qué dijeron.
+                //       `Respuesta` no tiene dónde meter un texto y la V9 no
+                //       tiene columna donde quepa. Así que la palabra «BAJA»
+                //       no se leería ni con transporte.
+                //
+                // Imprimir en cada mensaje una salida que el producto no puede
+                // atender es el §9 con su cara más cara: una promesa
+                // que no se cumple. Lo que sí se cumple es la salida **a
+                // mano**: con Coexistencia la respuesta se lee en el teléfono,
+                // y Supresión acepta un número de WhatsApp y le da de baja.
+                // Eso es lo que dicen el manual y la guía del canal.
+                match canal {
+                    arles_core::canal::Canal::Correo => {
+                        if let Some(r) = crate::plantillas::redaccion_en(&tx, &id.to_string())? {
+                            let en_el_cuerpo = tiene_salida_de_baja(&r.cuerpo_html);
+                            let en_la_firma =
+                                r.firma_html.as_deref().is_some_and(tiene_salida_de_baja);
+                            if !en_el_cuerpo && !en_la_firma {
+                                return Err(DbError::SinSalidaDeBaja);
+                            }
+                        }
                     }
+                    arles_core::canal::Canal::WhatsApp => {}
                 }
 
                 match estimacion.desenlace {
@@ -582,19 +779,31 @@ impl Db {
             // (ADR-0004). Es lo único que permite reconocer después un envío
             // ambiguo.
             {
+                // La cuenta va en **su** columna: la de correo o la del
+                // número. Las dos existen en `message_attempt` desde la V4, y
+                // escribir la de correo con un número dentro dejaría una clave
+                // ajena apuntando a una tabla que no es — un `INSERT` que
+                // falla, en el mejor caso, y una fila que el motor no sabe de
+                // quién es en el peor.
+                let (de_correo, de_whatsapp) = match &de_la_etapa.etapa.cuenta {
+                    crate::trabajo::CuentaDeLaEtapa::Correo(c) => (Some(c.to_string()), None),
+                    crate::trabajo::CuentaDeLaEtapa::Whatsapp(n) => (None, Some(n.to_string())),
+                };
+
                 let mut insertar = tx.prepare(
                     "INSERT INTO message_attempt (id, campaign_id, stage_id, channel,
                                                   contact_id, contact_address,
-                                                  email_account_id, idempotency_key,
+                                                  email_account_id, whatsapp_account_id,
+                                                  idempotency_key,
                                                   state, attempt_count, created_at, updated_at)
-                     VALUES (?1, ?2, ?3, 'email', ?4, ?5, ?6, ?7, 'queued', 0, ?8, ?8)",
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'queued', 0, ?10, ?10)",
                 )?;
 
                 let mut destinatarios = tx.prepare(
                     "SELECT contact_address, contact_id FROM campaign_audience
-                      WHERE campaign_id = ?1 AND channel = 'email'",
+                      WHERE campaign_id = ?1 AND channel = ?2",
                 )?;
-                let filas = destinatarios.query_map(params![id], |f| {
+                let filas = destinatarios.query_map(params![id, canal_txt], |f| {
                     Ok((f.get::<_, String>(0)?, f.get::<_, Option<String>>(1)?))
                 })?;
 
@@ -604,9 +813,11 @@ impl Db {
                         MessageAttemptId::nuevo().to_string(),
                         id,
                         etapa,
+                        canal_txt,
                         contacto,
                         direccion,
-                        cuenta,
+                        de_correo,
+                        de_whatsapp,
                         IdempotencyKey::nueva().to_string(),
                         cuando
                     ])?;
@@ -741,9 +952,11 @@ mod tests {
             &CampanaNueva {
                 lista: None,
                 nombre: "Septiembre",
-                cuenta: CUENTA.parse().expect("id"),
-                version_de_plantilla: version,
-                firma: None,
+                sale_por: PorDondeSale::Correo {
+                    cuenta: CUENTA.parse().expect("id"),
+                    version_de_plantilla: version,
+                    firma: None,
+                },
                 ventana: "vent-1",
                 limite_por_hora: None,
                 limite_diario: None,
@@ -1045,9 +1258,11 @@ mod tests {
                 &CampanaNueva {
                     lista: None,
                     nombre: "Con firma propia",
-                    cuenta: CUENTA.parse().expect("id"),
-                    firma: Some(&otra.to_string()),
-                    version_de_plantilla: v,
+                    sale_por: PorDondeSale::Correo {
+                        cuenta: CUENTA.parse().expect("id"),
+                        firma: Some(&otra.to_string()),
+                        version_de_plantilla: v,
+                    },
                     ventana: "vent-1",
                     limite_por_hora: None,
                     limite_diario: Some(40),
@@ -1075,9 +1290,11 @@ mod tests {
                 &CampanaNueva {
                     lista: None,
                     nombre: "Sin elegir",
-                    cuenta: CUENTA.parse().expect("id"),
-                    firma: None,
-                    version_de_plantilla: v,
+                    sale_por: PorDondeSale::Correo {
+                        cuenta: CUENTA.parse().expect("id"),
+                        firma: None,
+                        version_de_plantilla: v,
+                    },
                     ventana: "vent-1",
                     limite_por_hora: None,
                     limite_diario: Some(40),
@@ -1105,9 +1322,11 @@ mod tests {
             &CampanaNueva {
                 lista: None,
                 nombre: "Deprisa",
-                cuenta: CUENTA.parse().expect("id"),
-                version_de_plantilla: v,
-                firma: None,
+                sale_por: PorDondeSale::Correo {
+                    cuenta: CUENTA.parse().expect("id"),
+                    version_de_plantilla: v,
+                    firma: None,
+                },
                 ventana: "vent-1",
                 limite_por_hora: None,
                 limite_diario: Some(120),
@@ -1140,9 +1359,11 @@ mod tests {
                 &CampanaNueva {
                     lista: None,
                     nombre: "Muda",
-                    cuenta: CUENTA.parse().expect("id"),
-                    version_de_plantilla: v,
-                    firma: None,
+                    sale_por: PorDondeSale::Correo {
+                        cuenta: CUENTA.parse().expect("id"),
+                        version_de_plantilla: v,
+                        firma: None,
+                    },
                     ventana: "vent-1",
                     limite_por_hora: por_hora,
                     limite_diario: diario,
@@ -1165,9 +1386,11 @@ mod tests {
             &CampanaNueva {
                 lista: None,
                 nombre: "Deprisa",
-                cuenta: CUENTA.parse().expect("id"),
-                version_de_plantilla: v,
-                firma: None,
+                sale_por: PorDondeSale::Correo {
+                    cuenta: CUENTA.parse().expect("id"),
+                    version_de_plantilla: v,
+                    firma: None,
+                },
                 ventana: "vent-1",
                 limite_por_hora: None,
                 limite_diario: Some(120),
@@ -1203,9 +1426,11 @@ mod tests {
             &CampanaNueva {
                 lista: None,
                 nombre: "Al filo",
-                cuenta: CUENTA.parse().expect("id"),
-                version_de_plantilla: v,
-                firma: None,
+                sale_por: PorDondeSale::Correo {
+                    cuenta: CUENTA.parse().expect("id"),
+                    version_de_plantilla: v,
+                    firma: None,
+                },
                 ventana: "vent-1",
                 limite_por_hora: None,
                 limite_diario: Some(arles_core::ritmo::Limites::AVISO_DIARIO),
@@ -1684,9 +1909,11 @@ mod tests {
                     &CampanaNueva {
                         lista: None,
                         nombre,
-                        cuenta: CUENTA.parse().expect("id"),
-                        version_de_plantilla: v,
-                        firma: None,
+                        sale_por: PorDondeSale::Correo {
+                            cuenta: CUENTA.parse().expect("id"),
+                            version_de_plantilla: v,
+                            firma: None,
+                        },
                         ventana: "vent-1",
                         limite_por_hora: None,
                         limite_diario: Some(50),
@@ -1815,5 +2042,326 @@ mod tests {
 
         db.activar_campana(empresa(), c)
             .expect("con la salida en la firma sí se activa");
+    }
+    // ══ D-WA · UNA CAMPAÑA DE WHATSAPP, DE PRINCIPIO A FIN (27/10/2026) ══
+    //
+    // Lo que estas pruebas existen para impedir está escrito en una sola
+    // frase: hasta hoy `activar_campana` escribía `'email'` de literal en
+    // CUATRO consultas —la etapa, la supresión, la audiencia y la cola—, así
+    // que activar una campaña de WhatsApp **congelaba una audiencia de
+    // correos**. No fallaba nada: el motor recorría la etapa (tramo 1), pedía
+    // el contenido de WhatsApp, y se lo mandaba a direcciones de correo.
+
+    const NUMERO: &str = "01900000-0000-7000-8000-0000000000b1";
+    const PLANTILLA: &str = "01900000-0000-7000-8000-0000000000d1";
+
+    /// Añade a la base un número de WhatsApp y una plantilla de Meta.
+    ///
+    /// `estado` es el de Meta: `approved`, `pending`, `rejected`… Entra como
+    /// parámetro porque la diferencia entre aprobada y no aprobada es justo lo
+    /// que una de estas pruebas mide.
+    fn con_whatsapp(db: &Db, estado: &str) {
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO whatsapp_account (id, company_id, display_name, phone_e164,
+                                               waba_id, phone_number_id, credential_ref,
+                                               modo, calidad, limite_diario_meta,
+                                               status, created_at, updated_at)
+                 VALUES ('{NUMERO}', '{EMPRESA}', 'Ventas', '+528100000000',
+                         'waba-1', 'pn-1', 'llavero://w', 'prospeccion_directa',
+                         'green', 1000, 'connected',
+                         '2026-09-29T00:00:00Z', '2026-09-29T00:00:00Z');
+
+                 INSERT INTO whatsapp_template (id, company_id, whatsapp_account_id,
+                                                meta_name, language, status, body, slots,
+                                                created_at, updated_at)
+                 VALUES ('{PLANTILLA}', '{EMPRESA}', '{NUMERO}', 'bienvenida', 'es_MX',
+                         '{estado}', 'Hola {{{{1}}}}, somos {{{{2}}}}.', '[]',
+                         '2026-09-29T00:00:00Z', '2026-09-29T00:00:00Z');"
+            ))
+        })
+        .expect("siembra de whatsapp");
+    }
+
+    /// Y un contacto con número de móvil, que es el canal de WhatsApp.
+    fn contacto_con_movil(db: &Db, id: &str, movil: &str) {
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT OR IGNORE INTO contact (id, company_id, status, created_at, updated_at)
+                 VALUES ('{id}', '{EMPRESA}', 'active',
+                         '2026-09-29T00:00:00Z', '2026-09-29T00:00:00Z');
+                 INSERT INTO contact_channel (id, company_id, contact_id, channel,
+                                              value_raw, value_normalized, status,
+                                              created_at, updated_at)
+                 VALUES ('chw-{id}', '{EMPRESA}', '{id}', 'whatsapp', '{movil}', '{movil}',
+                         'active', '2026-09-29T00:00:00Z', '2026-09-29T00:00:00Z');"
+            ))
+        })
+        .expect("contacto con móvil");
+    }
+
+    fn una_campana_de_whatsapp(db: &Db, con_plantilla: bool) -> CampaignId {
+        db.crear_campana(
+            empresa(),
+            &CampanaNueva {
+                lista: None,
+                nombre: "WhatsApp de septiembre",
+                sale_por: PorDondeSale::Whatsapp {
+                    numero: NUMERO.parse().expect("id"),
+                    plantilla_de_meta: if con_plantilla {
+                        Some(PLANTILLA.parse().expect("id"))
+                    } else {
+                        None
+                    },
+                },
+                ventana: "vent-1",
+                limite_por_hora: None,
+                limite_diario: None,
+                acepto_el_riesgo_del_volumen: false,
+            },
+        )
+        .expect("crea")
+        .id
+    }
+
+    /// **La prueba que este tramo existía para tener.**
+    ///
+    /// Un contacto con correo y otro con móvil. La campaña es de WhatsApp, así
+    /// que la audiencia congelada y la cola tienen que ser **del móvil**, con
+    /// `channel = 'whatsapp'` y colgando del NÚMERO, no de una cuenta de
+    /// correo.
+    ///
+    /// Verificada el 27/10/2026 con **siete** rupturas, las siete en rojo: los
+    /// cuatro sitios donde estaba escrito `'email'` (la audiencia, el filtro
+    /// del canal del contacto, la supresión y la cola), el número guardado en
+    /// la columna de la cuenta de correo, y los dos topes de WhatsApp cayendo a
+    /// cero. Es el fallo que no se ve mirando, porque las dos capas pasan lo
+    /// suyo.
+    ///
+    /// Y una de las rupturas estaba mal elegida: poner el número en la columna
+    /// del correo dejaba un `None` sin tipo y **no compilaba**. Una ruptura que
+    /// no compila no prueba nada —lo que hay que ver caer es la prueba, no el
+    /// compilador—, así que se rehízo con el tipo anotado.
+    #[test]
+    fn una_campana_de_whatsapp_congela_los_moviles_y_no_los_correos() {
+        let (_d, db, _v) = base();
+        con_whatsapp(&db, "approved");
+        contacto(&db, "k-correo", "ana@x.mx");
+        contacto_con_movil(&db, "k-movil", "+528111111111");
+
+        let c = una_campana_de_whatsapp(&db, true);
+        let hecho = db.activar_campana(empresa(), c).expect("se activa");
+
+        assert_eq!(hecho.en_la_audiencia, 1, "sólo el del móvil");
+
+        let (canal, direccion, de_correo, de_whatsapp): (
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+        ) = db
+            .ejecutar_en_pruebas(|conn| {
+                conn.query_row(
+                    "SELECT channel, contact_address, email_account_id, whatsapp_account_id
+                       FROM message_attempt WHERE campaign_id = ?1",
+                    params![c.to_string()],
+                    |f| Ok((f.get(0)?, f.get(1)?, f.get(2)?, f.get(3)?)),
+                )
+            })
+            .expect("una fila en la cola");
+
+        assert_eq!(canal, "whatsapp", "el canal de la cola es el de la etapa");
+        assert_eq!(direccion, "+528111111111", "y la dirección, el móvil");
+        assert_eq!(
+            de_correo, None,
+            "un intento de WhatsApp no cuelga de una cuenta de correo"
+        );
+        assert_eq!(
+            de_whatsapp.as_deref(),
+            Some(NUMERO),
+            "cuelga del número, que es quien lo manda"
+        );
+    }
+
+    /// **Una baja de WhatsApp saca del WhatsApp, no del correo.**
+    ///
+    /// La supresión se indexa por (empresa, canal, dirección): la misma persona
+    /// puede haber pedido no recibir correos y seguir queriendo el WhatsApp, o
+    /// al revés. Con el canal cableado a `'email'`, una baja de WhatsApp no
+    /// habría sacado a nadie de una campaña de WhatsApp — y es la promesa que
+    /// más importa de las que hace ARLES.
+    #[test]
+    fn una_baja_de_whatsapp_no_entra_en_la_audiencia() {
+        let (_d, db, _v) = base();
+        con_whatsapp(&db, "approved");
+        contacto_con_movil(&db, "k-1", "+528111111111");
+        contacto_con_movil(&db, "k-2", "+528122222222");
+
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO suppression_entry (id, company_id, channel,
+                                                address_normalized, scope, reason,
+                                                origin, created_at)
+                 VALUES ('sup-wa', '{EMPRESA}', 'whatsapp', '+528111111111', 'global',
+                         'unsubscribe', 'user', '2026-09-29T00:00:00Z');"
+            ))
+        })
+        .expect("baja");
+
+        let c = una_campana_de_whatsapp(&db, true);
+        let hecho = db.activar_campana(empresa(), c).expect("se activa");
+
+        assert_eq!(
+            hecho.en_la_audiencia, 1,
+            "entra sólo el que no pidió la baja"
+        );
+        assert_eq!(
+            hecho.fuera_por_baja, 1,
+            "y se dice cuántos se quedaron fuera"
+        );
+    }
+
+    /// **Una etapa de WhatsApp sin plantilla no se activa.**
+    ///
+    /// Lo prometía el comentario de la V16 —«quien SÍ lo exige es
+    /// `activar_campana`»— y no lo exigía nadie. Sin esto, la campaña se
+    /// activaba, el motor la recorría, pedía el contenido, no había ninguno, y
+    /// se quedaba **quieta para siempre diciendo «enviando»**.
+    #[test]
+    fn una_etapa_de_whatsapp_sin_plantilla_no_se_activa() {
+        let (_d, db, _v) = base();
+        con_whatsapp(&db, "approved");
+        contacto_con_movil(&db, "k-1", "+528111111111");
+
+        let c = una_campana_de_whatsapp(&db, false);
+        assert!(
+            matches!(
+                db.activar_campana(empresa(), c),
+                Err(DbError::SinPlantillaDeMeta)
+            ),
+            "sin plantilla elegida no se puede activar"
+        );
+    }
+
+    /// **Ni una plantilla que Meta todavía no ha aprobado.**
+    ///
+    /// Es un error distinto del anterior porque manda a hacer otra cosa:
+    /// esperar a Meta o elegir otra, no elegir ésta. Sin esta puerta se
+    /// activaba la campaña entera y Meta la rechazaba **mensaje por mensaje**:
+    /// el registro se llenaría de fallos idénticos y el número gastaría
+    /// reputación por algo que se sabía antes de empezar.
+    #[test]
+    fn una_plantilla_que_meta_no_ha_aprobado_no_se_activa() {
+        let (_d, db, _v) = base();
+        con_whatsapp(&db, "pending");
+        contacto_con_movil(&db, "k-1", "+528111111111");
+
+        let c = una_campana_de_whatsapp(&db, true);
+        assert!(
+            matches!(
+                db.activar_campana(empresa(), c),
+                Err(DbError::LaPlantillaNoEstaAprobada)
+            ),
+            "en revisión no es aprobada"
+        );
+    }
+
+    /// **Y la etapa guarda el número en SU columna, no en la del correo.**
+    ///
+    /// Lo exige un `CHECK` del esquema desde la V4, así que un `INSERT` mal
+    /// hecho fallaría — pero fallaría con un error de SQLite en vez de decir
+    /// qué pasa. Esta prueba comprueba la fila, que es lo que el motor lee.
+    #[test]
+    fn la_etapa_de_whatsapp_cuelga_del_numero_y_lleva_su_plantilla() {
+        let (_d, db, _v) = base();
+        con_whatsapp(&db, "approved");
+        let c = una_campana_de_whatsapp(&db, true);
+
+        // La fila, en una estructura y no en una tupla de seis: con la tupla
+        // basta cambiar dos columnas de sitio en el `SELECT` para que la prueba
+        // compruebe otra cosa sin fallar — y es justo el defecto del cuerpo del
+        // respaldo que la 8.2b arregló declarando las columnas.
+        struct Fila {
+            canal: String,
+            correo: Option<String>,
+            numero: Option<String>,
+            version: Option<String>,
+            plantilla: Option<String>,
+            firma: Option<String>,
+        }
+
+        let fila = db
+            .ejecutar_en_pruebas(|conn| {
+                conn.query_row(
+                    "SELECT channel, email_account_id, whatsapp_account_id,
+                            template_version_id, whatsapp_template_id, signature_id
+                       FROM campaign_stage WHERE campaign_id = ?1",
+                    params![c.to_string()],
+                    |f| {
+                        Ok(Fila {
+                            canal: f.get(0)?,
+                            correo: f.get(1)?,
+                            numero: f.get(2)?,
+                            version: f.get(3)?,
+                            plantilla: f.get(4)?,
+                            firma: f.get(5)?,
+                        })
+                    },
+                )
+            })
+            .expect("la etapa");
+
+        assert_eq!(fila.canal, "whatsapp");
+        assert_eq!(fila.correo, None, "ninguna cuenta de correo");
+        assert_eq!(fila.numero.as_deref(), Some(NUMERO));
+        assert_eq!(fila.version, None, "ninguna plantilla de correo");
+        assert_eq!(fila.plantilla.as_deref(), Some(PLANTILLA));
+        assert_eq!(
+            fila.firma, None,
+            "una firma es cosa del correo, y la variante no deja escribirla"
+        );
+    }
+
+    /// **La exigencia de la salida de baja NO se aplica en WhatsApp, y esta
+    /// prueba lo deja escrito para que nadie lea el verde como que sí.**
+    ///
+    /// La plantilla de esta base lleva `{{baja}}` a propósito —seis pruebas de
+    /// este módulo dependen de ello—, pero una campaña de WhatsApp **no usa
+    /// ninguna plantilla de correo**: `redaccion_en` devuelve `None`, y hasta
+    /// el 27/10/2026 eso hacía que la comprobación pasara en verde sin mirar
+    /// nada. Ahora es un `match` explícito, y esto fija la rama.
+    ///
+    /// Por qué no se puede comprobar hoy: la salida de correo se exige por la
+    /// variable `{{baja}}`, que ARLES **sustituye por una salida que
+    /// funciona**. En una plantilla de Meta no hay nada que sustituir: el texto
+    /// lo aprueba Meta palabra por palabra. Buscar la palabra «baja» en el
+    /// cuerpo es lo que `tiene_salida_de_baja` descarta con su propio ejemplo
+    /// —«este mes damos de baja los precios»—.
+    ///
+    /// **Decisión de Dirección del 27/10/2026: no se exige.** Se planteó
+    /// pedir que la plantilla registrada llevara su propia salida —«responde
+    /// BAJA»— como constancia, y se descartó porque ARLES **no podría
+    /// atenderla**: no hay por dónde recibir un aviso de Meta (ver la cabecera
+    /// de `arles_whatsapp::entrante`) y el texto de una respuesta se tira a
+    /// propósito desde la D-7A, así que la palabra «BAJA» no se leería ni con
+    /// transporte. Imprimir una salida que el producto no atiende es una
+    /// promesa que no se cumple.
+    ///
+    /// La salida que sí se cumple es **a mano**: con Coexistencia la respuesta
+    /// se lee en el teléfono, y Supresión acepta un número de WhatsApp. Está
+    /// dicho con esas palabras en el manual y en la guía del canal.
+    ///
+    /// Esta prueba cambia de signo el día que exista el «relay ciego» **y** se
+    /// revise la D-7A, que son dos decisiones y no una.
+    #[test]
+    fn hoy_una_campana_de_whatsapp_se_activa_sin_salida_de_baja_comprobada() {
+        let (_d, db, _v) = base();
+        con_whatsapp(&db, "approved");
+        contacto_con_movil(&db, "k-1", "+528111111111");
+
+        // La plantilla de Meta no dice nada de darse de baja, y se activa.
+        let c = una_campana_de_whatsapp(&db, true);
+        db.activar_campana(empresa(), c)
+            .expect("hoy se activa: la exigencia del correo no se puede medir aquí");
     }
 }

@@ -179,6 +179,40 @@ pub enum DbError {
     #[error("ni la plantilla ni la firma dicen cómo darse de baja")]
     SinSalidaDeBaja,
 
+    /// Una etapa de WhatsApp sin plantilla aprobada de Meta (D-WA).
+    ///
+    /// ── POR QUÉ ES UN ERROR PROPIO Y NO UN `DatoInvalido` ────────────────
+    ///
+    /// Porque no es un dato corrupto: es un paso que falta, y quien lo lee
+    /// tiene que saber **qué hacer**. `DatoInvalido` manda a mirar la base;
+    /// esto manda a elegir una plantilla en el asistente, o a darla de alta en
+    /// Plantillas si todavía no hay ninguna aprobada.
+    ///
+    /// Se comprueba al activar y no al crear, y eso es la V16: la etapa nace al
+    /// elegir canal y número, y la plantilla se elige dos pasos después. Un
+    /// `CHECK` en la columna obligaría a preguntar en el orden contrario al que
+    /// la pantalla pregunta.
+    ///
+    /// Sin esta puerta, una campaña de WhatsApp sin plantilla se activaba: el
+    /// motor recorría la etapa, pedía el contenido, no había ninguno, y la
+    /// campaña se quedaba **quieta para siempre diciendo «enviando»**.
+    #[error("esa etapa de WhatsApp no tiene plantilla de Meta elegida")]
+    SinPlantillaDeMeta,
+
+    /// La plantilla elegida existe y Meta no la ha aprobado (D-WA).
+    ///
+    /// Es un error distinto de [`DbError::SinPlantillaDeMeta`] porque manda a
+    /// hacer otra cosa: ahí falta elegir una, aquí hay que **esperar a Meta** o
+    /// elegir otra que ya esté aprobada. Mezclarlos haría volver al asistente a
+    /// elegir la misma.
+    ///
+    /// Sin esta puerta se podía activar una campaña entera con una plantilla en
+    /// revisión: Meta la rechaza **mensaje por mensaje**, así que el registro
+    /// se llenaría de fallos idénticos y el número gastaría reputación por algo
+    /// que se sabía antes de empezar.
+    #[error("Meta todavía no ha aprobado esa plantilla")]
+    LaPlantillaNoEstaAprobada,
+
     /// La ventana de ejecución no se abriría nunca.
     ///
     /// **Lleva el motivo dentro**, y no es adorno: sin días, con las horas al
@@ -284,6 +318,8 @@ impl DbError {
             Self::FaltaAceptarElVolumen => "error.db.falta_aceptar_el_volumen",
             Self::LimiteDeEnviosEnCero => "error.db.limite_de_envios_en_cero",
             Self::SinSalidaDeBaja => "error.db.sin_salida_de_baja",
+            Self::SinPlantillaDeMeta => "error.db.sin_plantilla_de_meta",
+            Self::LaPlantillaNoEstaAprobada => "error.db.la_plantilla_no_esta_aprobada",
             Self::VentanaInvalida(motivo) => motivo.clave_i18n(),
             Self::Nucleo(e) => e.clave_i18n(),
             Self::SupresionNoSeLevanta { .. } => "error.db.supresion_no_se_levanta",

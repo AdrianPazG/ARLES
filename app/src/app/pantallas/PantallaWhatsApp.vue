@@ -465,6 +465,13 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
           :opciones="MODOS"
           :ayuda="t('numeroDeWhatsapp.modoAyuda')"
         />
+
+        <!-- La única cosa del canal que le toca hacer a mano a quien lo usa, y
+             el sitio donde se decide usarlo es éste. Va siempre, no sólo en
+             frío: una baja se puede pedir desde cualquier modo. -->
+        <p class="grupo-nota">
+          {{ t('numeroDeWhatsapp.bajaAMano') }}
+        </p>
       </div>
 
       <!-- Se avisa ANTES de guardar. Un aviso que llega después del alta no

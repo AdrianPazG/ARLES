@@ -498,9 +498,15 @@ pub fn crear_campana(
             &arles_db::alta_de_campana::CampanaNueva {
                 lista,
                 nombre: &nombre,
-                cuenta,
-                version_de_plantilla: version,
-                firma: firma.as_deref(),
+                // Este comando sigue creando **sólo** campañas de correo, y es
+                // el tramo que falta: el canal entra por aquí cuando el
+                // asistente pueda elegirlo. La variante ya existe, así que el
+                // día que entre el compilador exige decidir en los dos lados.
+                sale_por: arles_db::alta_de_campana::PorDondeSale::Correo {
+                    cuenta,
+                    version_de_plantilla: version,
+                    firma: firma.as_deref(),
+                },
                 ventana: &ventana,
                 limite_por_hora,
                 limite_diario,

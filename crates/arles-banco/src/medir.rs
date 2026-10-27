@@ -451,7 +451,7 @@ fn activacion(
     empresa: arles_core::ids::CompanyId,
     cuantas: usize,
 ) -> Result<(std::time::Duration, u32), Box<dyn std::error::Error>> {
-    use arles_db::alta_de_campana::CampanaNueva;
+    use arles_db::alta_de_campana::{CampanaNueva, PorDondeSale};
     use arles_db::plantillas::Redaccion;
 
     const CUENTA: &str = "01900000-0000-7000-8000-00000000000a";
@@ -486,11 +486,13 @@ fn activacion(
         &CampanaNueva {
             lista: None,
             nombre: "Campaña del banco",
-            cuenta: CUENTA.parse().map_err(|e| format!("cuenta: {e:?}"))?,
-            version_de_plantilla: version,
-            // El banco mide tiempos, no redacción: sin firma es un correo
-            // menos que armar y una variable menos en la medida.
-            firma: None,
+            sale_por: PorDondeSale::Correo {
+                cuenta: CUENTA.parse().map_err(|e| format!("cuenta: {e:?}"))?,
+                version_de_plantilla: version,
+                // El banco mide tiempos, no redacción: sin firma es un correo
+                // menos que armar y una variable menos en la medida.
+                firma: None,
+            },
             ventana: "vent-banco",
             limite_por_hora: Some(500),
             limite_diario: Some(5_000),

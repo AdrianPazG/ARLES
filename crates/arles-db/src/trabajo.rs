@@ -77,7 +77,7 @@ use arles_core::canal::Canal;
 use arles_core::ids::{CompanyId, EmailAccountId, WhatsappAccountId};
 use arles_core::ritmo::Limites;
 use arles_core::ventana::{Dias, TimeZone, Ventana, zona};
-use rusqlite::params;
+use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::db::Db;
 use crate::error::DbError;
@@ -160,6 +160,52 @@ pub struct EtapaEnMarcha {
     pub zona_de_la_empresa: TimeZone,
 }
 
+/// La consulta de una etapa, **escrita una sola vez**.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LOS DOS CANALES, Y POR QUÉ DOS `LEFT JOIN` Y NO UNO (D-WA, 26/10/2026)
+///
+/// Hasta el 26/10/2026 esto filtraba `e.channel = 'email'` y unía con
+/// `email_account` a secas. Una etapa de WhatsApp en marcha **no existía para
+/// el motor**: la campaña se activaba, se congelaba su audiencia, y se quedaba
+/// quieta para siempre sin que nada fallara.
+///
+/// El `CHECK` del esquema ya garantiza que hay exactamente una cuenta por
+/// canal, así que una de las dos uniones da `NULL` siempre y la otra trae su
+/// fila. Con `JOIN` a secas, una etapa de WhatsApp no casaría con
+/// `email_account` y **desaparecería del resultado** — el mismo silencio, por
+/// otra puerta.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ES UNA CONSTANTE Y NO DOS CONSULTAS PARECIDAS
+///
+/// La leen dos sitios: el motor, para saber qué etapas están enviando, y
+/// `activar_campana`, para saber con qué ritmo va a enviar esta. **Las dos
+/// respuestas tienen que ser la misma**: una estima lo que va a tardar y la
+/// otra decide cuánto sale de verdad.
+///
+/// Con dos copias, añadir una columna —`limite_diario_meta` fue la última—
+/// significa acordarse de las dos, y quien se olvide de la del activar deja la
+/// estimación prometiendo un ritmo que Meta no va a aceptar. No falla nada: la
+/// cifra es correcta sobre otra pregunta, que es la peor clase de cifra (§94).
+///
+/// El `WHERE` lo pone cada llamador, porque es lo único que de verdad cambia.
+const SELECT_DE_LA_ETAPA: &str = "SELECT e.id,
+                e.campaign_id,
+                e.channel,
+                e.email_account_id,
+                e.whatsapp_account_id,
+                v.days_of_week, v.start_hour, v.end_hour, v.timezone,
+                e.hourly_limit, e.daily_limit,
+                a.hourly_limit, a.daily_limit,
+                w.limite_diario_meta,
+                e.whatsapp_template_id
+           FROM campaign_stage e
+           JOIN campaign        c ON c.id = e.campaign_id
+           LEFT JOIN email_account    a ON a.id = e.email_account_id
+           LEFT JOIN whatsapp_account w ON w.id = e.whatsapp_account_id
+           JOIN execution_window v ON v.id = e.execution_window_id";
+
 impl Db {
     /// Las etapas de correo que están enviando ahora mismo.
     ///
@@ -207,45 +253,17 @@ impl Db {
                     motivo: "company.timezone",
                 })?;
 
-            let mut consulta = conn.prepare(
-                // ── LOS DOS CANALES (D-WA, 26/10/2026) ──────────────────
-                //
-                // Hasta hoy esto filtraba `e.channel = 'email'` y unía con
-                // `email_account` a secas. Una etapa de WhatsApp en marcha
-                // **no existía para el motor**: la campaña se activaba, se
-                // congelaba su audiencia, y se quedaba quieta para siempre sin
-                // que nada fallara.
-                //
-                // Los dos `LEFT JOIN` y no uno: el `CHECK` del esquema ya
-                // garantiza que hay exactamente una cuenta por canal, así que
-                // una de las dos uniones da `NULL` siempre y la otra trae su
-                // fila. Con `JOIN` a secas, una etapa de WhatsApp no casaría
-                // con `email_account` y desaparecería del resultado — el mismo
-                // silencio, por otra puerta.
-                //
-                // El estado de la cuenta **no se filtra aquí**: una cuenta que
-                // no puede enviar se salta en `servir`, con su motivo. Hacerlo
-                // en el `WHERE` dejaría la etapa invisible y la pantalla no
-                // podría decir por qué no sale nada.
-                "SELECT e.id,
-                        e.campaign_id,
-                        e.channel,
-                        e.email_account_id,
-                        e.whatsapp_account_id,
-                        v.days_of_week, v.start_hour, v.end_hour, v.timezone,
-                        e.hourly_limit, e.daily_limit,
-                        a.hourly_limit, a.daily_limit,
-                        w.limite_diario_meta
-                   FROM campaign_stage e
-                   JOIN campaign        c ON c.id = e.campaign_id
-                   LEFT JOIN email_account    a ON a.id = e.email_account_id
-                   LEFT JOIN whatsapp_account w ON w.id = e.whatsapp_account_id
-                   JOIN execution_window v ON v.id = e.execution_window_id
+            // El estado de la cuenta **no se filtra aquí**: una cuenta que no
+            // puede enviar se salta en `servir`, con su motivo. Hacerlo en el
+            // `WHERE` dejaría la etapa invisible y la pantalla no podría decir
+            // por qué no sale nada.
+            let mut consulta = conn.prepare(&format!(
+                "{SELECT_DE_LA_ETAPA}
                   WHERE c.company_id = ?1
                     AND c.status = 'running'
                     AND e.status = 'running'
-                  ORDER BY e.campaign_id, e.position",
-            )?;
+                  ORDER BY e.campaign_id, e.position"
+            ))?;
 
             let filas = consulta.query_map(params![empresa_txt], |f| {
                 Ok(FilaDeEtapa {
@@ -263,6 +281,7 @@ impl Db {
                     hora_cuenta: f.get(11)?,
                     dia_cuenta: f.get(12)?,
                     dia_meta: f.get(13)?,
+                    plantilla_whatsapp: f.get(14)?,
                 })
             })?;
 
@@ -301,6 +320,12 @@ struct FilaDeEtapa {
     /// proveedor**, no una constante como el de las cuentas de correo, así que
     /// manda aunque la campaña pida más: pasarse significa que Meta rechaza.
     dia_meta: Option<i64>,
+    /// La plantilla aprobada de Meta que manda esta etapa.
+    ///
+    /// `None` en una etapa de correo, y también en una de WhatsApp a la que
+    /// todavía no se le ha elegido — la columna no lleva `CHECK` a propósito
+    /// (ver la V16), porque la etapa nace antes que la elección.
+    plantilla_whatsapp: Option<String>,
 }
 
 impl FilaDeEtapa {
@@ -378,16 +403,51 @@ impl FilaDeEtapa {
                 el_limite_que_manda(self.hora_etapa, self.hora_cuenta.unwrap_or(0)),
                 el_limite_que_manda(self.dia_etapa, self.dia_cuenta.unwrap_or(0)),
             ),
+            // ── LOS DOS DEFECTOS QUE ESTO TENÍA, Y QUE ENCONTRÓ ACTIVAR UNA
+            //    CAMPAÑA DE VERDAD (27/10/2026) ──────────────────────────
+            //
+            // La primera versión escribía `el_limite_que_manda(x, 0)` en los
+            // dos topes, y el cero no es un valor neutro: `techo_diario` es
+            // `min(por_hora × horas, por_dia)`, así que un cero en cualquiera
+            // de los dos da un techo de cero y la campaña **no avanza**.
+            //
+            // Con el motor eso no se vio: sus pruebas siembran etapas con
+            // topes puestos. Se vio al activar una campaña de WhatsApp sin
+            // topes propios, que es lo normal — `LaCampanaNoAvanza` sobre una
+            // campaña perfectamente razonable, con un número que Meta deja
+            // mandar mil al día.
+            //
+            //   1 · **Diario.** Sin tope propio manda el escalón de Meta, que
+            //       es un techo real y conocido del proveedor — el mismo papel
+            //       que el límite de la cuenta en correo. Antes caía a cero.
+            //       Y cuando la campaña fija uno, nunca por encima del
+            //       escalón: pasarse no es arriesgado, es que Meta rechaza.
+            //
+            //   2 · **Por hora.** Meta no pone ninguno, así que no hay de
+            //       quién heredarlo. Sin tope propio se deriva **el que hace
+            //       falta para que el diario se cumpla**, que es exactamente
+            //       el arreglo que la auditoría del cupo le hizo al correo:
+            //       pedir 500 al día con diez por hora daba 90. Cero dejaría
+            //       la campaña quieta; un número inventado prometería un ritmo
+            //       que no sale.
             CuentaDeLaEtapa::Whatsapp(_) => {
-                let de_la_campana = el_limite_que_manda(self.dia_etapa, 0);
-                let diario = match self.dia_meta.and_then(|v| u32::try_from(v).ok()) {
-                    Some(techo) => de_la_campana.min(techo),
-                    // Sin escalón conocido no se inventa un techo: manda la
-                    // campaña. La puerta del canal ya exige las dos cifras de
-                    // permiso antes de dejar activar.
-                    None => de_la_campana,
+                let propio_dia = el_limite_propio(self.dia_etapa);
+                let de_meta = self.dia_meta.and_then(|v| u32::try_from(v).ok());
+                let diario = match (propio_dia, de_meta) {
+                    (Some(campana), Some(techo)) => campana.min(techo),
+                    (Some(campana), None) => campana,
+                    (None, Some(techo)) => techo,
+                    // No se sabe el escalón y la campaña no dijo nada: no se
+                    // inventa un techo. Da cero, y entonces `activar_campana`
+                    // rechaza con `LaCampanaNoAvanza` en vez de mandar a un
+                    // ritmo que nadie eligió. El asistente pide el tope diario
+                    // en WhatsApp justo por esto.
+                    (None, None) => 0,
                 };
-                Limites::nuevos(el_limite_que_manda(self.hora_etapa, 0), diario)
+                let por_hora = el_limite_propio(self.hora_etapa).unwrap_or_else(|| {
+                    arles_core::duracion::por_hora_que_hace_falta(diario, &ventana)
+                });
+                Limites::nuevos(por_hora, diario)
             }
         };
 
@@ -400,6 +460,112 @@ impl FilaDeEtapa {
             zona_de_la_empresa: zona_de_la_empresa.clone(),
         })
     }
+}
+
+/// Lo que `activar_campana` necesita saber de la etapa que va a poner a enviar.
+///
+/// Es [`EtapaEnMarcha`] más la plantilla de Meta, y **no una estructura
+/// paralela**: las dos salen de [`SELECT_DE_LA_ETAPA`] y del mismo `a_etapa`,
+/// así que el canal, el ritmo y la ventana que se usan para estimar son
+/// exactamente los que el motor va a aplicar. Ver la nota de la constante.
+#[derive(Debug, Clone)]
+pub(crate) struct EtapaParaActivar {
+    pub(crate) etapa: EtapaEnMarcha,
+    /// La plantilla aprobada de Meta. `None` en correo, y `None` también en una
+    /// etapa de WhatsApp sin plantilla elegida — que es justo lo que
+    /// `activar_campana` tiene que rechazar.
+    pub(crate) plantilla_whatsapp: Option<String>,
+}
+
+/// La única etapa de una campaña, sea del canal que sea.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ NO SE PIDE EL CANAL Y SE LEE
+///
+/// Porque el canal es un dato **de la campaña**, elegido al crearla, y pedirlo
+/// por parámetro dejaría que quien activa diga uno distinto del que se guardó.
+/// Es la misma razón por la que la lista de contactos se lee aquí en vez de
+/// viajar desde la webview (D-15), y por la que `suprimir_contacto` lee las
+/// direcciones en vez de recibirlas.
+///
+/// Hoy una campaña tiene **una** etapa: la crea `crear_campana` y el esquema
+/// admite dos (`position IN (1, 2)`) para la L-6, que no está construida. Con
+/// dos haría falta decidir cuál se activa primero, y ésa es otra entrega: por
+/// eso se lee por posición y se toma la primera, en vez de dar por supuesto
+/// que hay una sola.
+pub(crate) fn leer_la_etapa_para_activar(
+    conn: &Connection,
+    campana: &str,
+    empresa: CompanyId,
+) -> Result<EtapaParaActivar, DbError> {
+    let zona_empresa_txt: String = conn.query_row(
+        "SELECT timezone FROM company WHERE id = ?1",
+        params![empresa.to_string()],
+        |f| f.get(0),
+    )?;
+    let zona_de_la_empresa = zona(&zona_empresa_txt).map_err(|_| DbError::DatoInvalido {
+        motivo: "company.timezone",
+    })?;
+
+    let fila = conn
+        .query_row(
+            &format!(
+                "{SELECT_DE_LA_ETAPA}
+                  WHERE e.campaign_id = ?1 AND c.company_id = ?2
+                  ORDER BY e.position
+                  LIMIT 1"
+            ),
+            params![campana, empresa.to_string()],
+            |f| {
+                Ok(FilaDeEtapa {
+                    etapa: f.get(0)?,
+                    campana: f.get(1)?,
+                    canal: f.get(2)?,
+                    cuenta_correo: f.get(3)?,
+                    cuenta_whatsapp: f.get(4)?,
+                    dias: f.get(5)?,
+                    desde: f.get(6)?,
+                    hasta: f.get(7)?,
+                    zona: f.get(8)?,
+                    hora_etapa: f.get(9)?,
+                    dia_etapa: f.get(10)?,
+                    hora_cuenta: f.get(11)?,
+                    dia_cuenta: f.get(12)?,
+                    dia_meta: f.get(13)?,
+                    plantilla_whatsapp: f.get(14)?,
+                })
+            },
+        )
+        .optional()?;
+
+    let Some(fila) = fila else {
+        // Una campaña sin etapa no se puede activar, y el motivo nombra la
+        // tabla: no es «la campaña no existe» —eso ya se comprobó antes— sino
+        // que no tiene de dónde salir.
+        return Err(DbError::DatoInvalido {
+            motivo: "campaign_stage",
+        });
+    };
+
+    let plantilla_whatsapp = fila.plantilla_whatsapp.clone();
+    Ok(EtapaParaActivar {
+        etapa: fila.a_etapa(&zona_de_la_empresa)?,
+        plantilla_whatsapp,
+    })
+}
+
+/// El tope propio de la etapa, si lo fija y vale.
+///
+/// `None` significa «esta etapa no fija tope», y es distinto de un cero: el
+/// cero lo rechaza `crear_campana` con su propio error, y un valor negativo o
+/// desmesurado en la base se trata como «no fija» en vez de reventar.
+///
+/// Existe aparte de [`el_limite_que_manda`] porque en WhatsApp la caída no es
+/// a un número sino a **otra pregunta** —el escalón de Meta, o el por hora que
+/// hace falta para cumplir el día—, y para eso hay que poder distinguir «no
+/// fija» de «fija cero».
+fn el_limite_propio(etapa: Option<i64>) -> Option<u32> {
+    etapa.and_then(|v| u32::try_from(v).ok()).filter(|v| *v > 0)
 }
 
 /// El límite que de verdad se aplica: **el de la campaña si lo fija**, y el de

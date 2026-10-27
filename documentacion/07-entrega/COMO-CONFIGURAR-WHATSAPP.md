@@ -187,6 +187,34 @@ llamadas a un servidor en internet, y ARLES es una aplicación de escritorio: no
 hay servidor al que llamar. La cifra de «cuánta gente contestó» será cero en
 WhatsApp hasta que exista esa pieza, y está dicho en la pantalla.
 
+**Y por eso una baja pedida por WhatsApp hay que apuntarla a mano.** Esto es
+importante y conviene leerlo entero.
+
+En el correo, ARLES pone al final de cada mensaje una frase que explica cómo
+darse de baja, y **no deja activar una campaña sin ella**. Por WhatsApp no
+puede: el texto de la plantilla lo aprueba Meta palabra por palabra y ARLES
+sólo manda su nombre y los valores de sus huecos — no hay dónde añadir nada.
+
+Se consideró exigir que tus plantillas llevaran escrita su propia salida
+(«responde BAJA y te quitamos»). **Se descartó el 27/10/2026**, y el motivo es
+que ARLES no podría atenderla: no recibe los mensajes que te contestan, y
+cuando los reciba seguirá sin leer **qué** dicen, porque así se decidió el
+29/09/2026 para no guardar conversaciones de nadie. Una frase que promete una
+salida que el programa no atiende es peor que no ponerla.
+
+**Lo que sí funciona, y es tu parte:**
+
+1. Con **Coexistencia** el número sigue en tu app de WhatsApp Business, así que
+   las respuestas te llegan al teléfono y las lees tú.
+2. Cuando alguien te pida que no le escribas más, abre ARLES →
+   **Contactos › Bajas** y apunta su número. Elige el canal **WhatsApp**.
+3. Desde ese momento ninguna campaña de WhatsApp vuelve a incluirlo: la baja se
+   comprueba al congelar la audiencia y otra vez antes de cada envío.
+
+Si vas a mandar en frío, **escribe la salida en tu plantilla igualmente** — no
+porque ARLES lo exija, sino porque es lo que evita que la gente use el botón de
+reportar, que es la señal que más daño le hace a tu número.
+
 **No puede crear nada en Meta.** No da de alta números, no crea plantillas ni
 las manda a revisar. Todo eso es el panel de Meta. ARLES lee y envía.
 

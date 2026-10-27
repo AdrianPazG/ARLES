@@ -37,7 +37,7 @@ use arles_app_lib::comandos::revision_de;
 use arles_app_lib::fabrica::FuenteDeContrasenas;
 use arles_core::ids::{CampaignId, CompanyId};
 use arles_core::preflight::{Punto, Veredicto};
-use arles_db::alta_de_campana::CampanaNueva;
+use arles_db::alta_de_campana::{CampanaNueva, PorDondeSale};
 use arles_db::plantillas::Redaccion;
 use arles_db::{ClaveMaestra, Db};
 
@@ -134,9 +134,11 @@ fn base() -> (tempfile::TempDir, Db, CampaignId) {
             &CampanaNueva {
                 lista: None,
                 nombre: "Septiembre",
-                cuenta: CUENTA.parse().expect("id"),
-                version_de_plantilla: version,
-                firma: None,
+                sale_por: PorDondeSale::Correo {
+                    cuenta: CUENTA.parse().expect("id"),
+                    version_de_plantilla: version,
+                    firma: None,
+                },
                 ventana: "vent-1",
                 limite_por_hora: None,
                 limite_diario: None,

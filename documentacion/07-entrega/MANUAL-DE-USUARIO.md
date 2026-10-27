@@ -282,6 +282,7 @@ nada que no se pueda cumplir.
 | **Nadie ha abierto ARLES en un Mac** | Está construido para macOS y **no se ha probado ahí**. Hasta que alguien lo haga, no se puede afirmar que funcione |
 | **Una firma no puede llevar una imagen** | Sólo texto, con negrita y cursiva. Está pendiente de decidir cómo: embebida engorda cada correo y dispara filtros de spam; alojada hay que alojarla en algún sitio |
 | **El número de WhatsApp nunca ha hablado con Meta** | Todo lo de WhatsApp está probado contra un servidor de mentira. Falta una cuenta de empresa verificada con Coexistencia |
+| **No lee las respuestas de WhatsApp, así que una baja pedida por ahí se apunta a mano** | Las respuestas te llegan al teléfono con Coexistencia. Apúntalas en Contactos › Bajas, canal WhatsApp, y ninguna campaña vuelve a incluir ese número. En el correo la salida la pone ARLES y es obligatoria; en WhatsApp el texto lo aprueba Meta y no hay dónde añadirla |
 
 > **Y una que dejó de ser cierta el 22/10/2026, porque conviene saberlo:**
 > hasta ese día ARLES **nunca había hablado con un servidor de correo real**.
