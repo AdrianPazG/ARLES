@@ -1276,6 +1276,33 @@
           return Promise.resolve(ns);
         }
 
+        // ── D-WA · el preflight del canal de WhatsApp (27/10/2026) ────
+        //
+        // La demostración enseña el caso que de verdad importa y el que no se
+        // puede mirar de otra forma: **casi nadie dio permiso**. Es la cifra
+        // que decide, porque es la que se paga en calidad del número, y el
+        // único estado que deja ver su aviso.
+        //
+        // `sePuedeActivar` va en `true` para que el paso 9 se pueda recorrer:
+        // con las dos marcas puestas, la puerta del canal pasa. Lo que no
+        // pasa es que no haya aviso.
+        case 'revisar_campana_de_whatsapp':
+          return Promise.resolve({
+            audiencia: 847,
+            conPermiso: 12,
+            sinPermiso: 835,
+            coexistencia: true,
+            riesgoAceptado: true,
+            escribeEnFrio: true,
+            plantillasAprobadas: 1,
+            sePuedeActivar: true,
+            pidePalabraDeConfirmacion: true,
+            // `null` sería «no se pudo preguntar», y eso ya se ve en la ficha
+            // del número. Aquí se enseña una calidad de verdad —amarilla— para
+            // poder mirar la insignia que avisa.
+            calidad: 'yellow',
+          });
+
         // ── D-WA · las plantillas de Meta (27/10/2026) ────────────────
         //
         // La demostración trae DOS: una aprobada con dos huecos y otra en

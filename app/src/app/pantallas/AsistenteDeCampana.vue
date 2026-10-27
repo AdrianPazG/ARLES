@@ -44,6 +44,7 @@ import { AVISO_DIARIO, useCampanasStore } from '@/app/stores/campanas'
 import { useListasStore } from '@/app/stores/listas'
 import { useEmpresaStore } from '@/app/stores/empresa'
 import { useRemitentesStore } from '@/app/stores/remitentes'
+import { useWhatsappStore } from '@/app/stores/whatsapp'
 import {
   AAviso,
   ABoton,
@@ -56,6 +57,7 @@ import {
 
 const campanas = useCampanasStore()
 const remitentes = useRemitentesStore()
+const whatsapp = useWhatsappStore()
 // La zona horaria del horario es la de la EMPRESA, nunca la del equipo: es la
 // decisión que la pantalla de Configuración explica en su aviso.
 const empresa = useEmpresaStore()
@@ -120,8 +122,31 @@ const paso = ref(1)
 
 // ── Lo que se va escribiendo ──
 const nombre = ref('')
+
+/**
+ * Por dónde sale esta campaña (D-WA, 27/10/2026).
+ *
+ * ── POR QUÉ SE PREGUNTA EN EL PASO 1 Y NO MÁS ADELANTE ───────────────────
+ *
+ * Porque **decide tres pasos**: el remitente son cuentas de correo o números de
+ * WhatsApp, el mensaje son plantillas nuestras o plantillas aprobadas por Meta,
+ * y el envío de prueba va a un correo o a un teléfono. Preguntarlo después
+ * obligaría a volver atrás a rehacer lo ya elegido.
+ *
+ * Y empieza en correo porque es lo que el producto hace desde la Fase 5 y lo
+ * que más se usa — pero se pregunta, no se asume: una campaña de WhatsApp
+ * mandada por correo sin que nadie lo eligiera es el error que no se puede
+ * deshacer.
+ */
+const canal = ref<'email' | 'whatsapp'>('email')
+const esWhatsapp = computed(() => canal.value === 'whatsapp')
+
 const cuenta = ref('')
 const versionDePlantilla = ref('')
+/** El número de WhatsApp remitente. Vacío hasta que se elige. */
+const numero = ref('')
+/** La plantilla aprobada de Meta. Vacía hasta que se elige. */
+const plantillaDeMeta = ref('')
 const ventana = ref('')
 // A quién va dirigida (D-15). Vacío es «toda la empresa», que es lo que
 // hacían todas las campañas hasta el 23/10/2026.
@@ -166,6 +191,8 @@ onMounted(() => {
   void empresa.cargar()
   // Y las listas, para el paso 2 (D-15).
   void listasStore.cargar()
+  // Y los números de WhatsApp, para el paso 3 cuando el canal sea ése (D-WA).
+  void whatsapp.cargar()
 })
 
 const error = computed(() =>
@@ -201,6 +228,18 @@ const opcionesDeLista = computed(() => [
   })),
 ])
 
+/**
+ * Los dos canales.
+ *
+ * Se ofrecen los dos siempre, aunque no haya remitente de uno: el paso 3 avisa
+ * y dice dónde se conecta. Esconder el canal de WhatsApp cuando no hay números
+ * dejaría a quien quiere usarlo sin saber que existe.
+ */
+const opcionesDeCanal = computed(() => [
+  { valor: 'email', texto: t('asistente.paso.informacion.canalCorreo') },
+  { valor: 'whatsapp', texto: t('asistente.paso.informacion.canalWhatsapp') },
+])
+
 const opcionesDeCuenta = computed(() =>
   remitentes.remitentes
     // Sólo las que pueden enviar. Ofrecer una cuenta rota es construir una
@@ -208,6 +247,81 @@ const opcionesDeCuenta = computed(() =>
     .filter((r) => r.estado === 'connected')
     .map((r) => ({ valor: r.id, texto: r.remitente })),
 )
+
+/**
+ * Los números que pueden mandar una campaña **hoy**.
+ *
+ * `puedeEnviar` **viene resuelto de Rust**: la puerta del canal son tres
+ * condiciones —conectado, Coexistencia confirmada, y el riesgo aceptado si
+ * escribe en frío— y vive en `NumeroGuardado::puede_enviar`. Recalcularla aquí
+ * sería una segunda verdad que puede separarse de la que decide.
+ *
+ * Y el rótulo lleva **las dos cifras que deciden si un número puede trabajar**
+ * (§94): su calidad y cuántos permite Meta al día. Elegir sin verlas es elegir
+ * a ciegas justo donde se juega el número.
+ */
+const opcionesDeNumero = computed(() =>
+  whatsapp.numeros
+    .filter((n) => n.puedeEnviar)
+    .map((n) => ({
+      valor: n.id,
+      texto: t('asistente.paso.remitente.numeroCon', {
+        nombre: n.nombreVisible,
+        telefono: n.telefonoE164,
+        calidad:
+          n.calidad === null
+            ? t('numeroDeWhatsapp.calidad.sinConsultar')
+            : t(`numeroDeWhatsapp.calidad.${n.calidad}`),
+        tope:
+          n.limiteDeMeta === null
+            ? t('asistente.paso.remitente.topeSinSaber')
+            : n.limiteDeMeta.toLocaleString('es-MX'),
+      }),
+    })),
+)
+
+/**
+ * Las plantillas de Meta **que se pueden usar**.
+ *
+ * Sólo las aprobadas: `activar_campana` rechaza las demás (tramo 3a), así que
+ * ofrecerlas sería construir un camino que termina en un rechazo cuatro pasos
+ * después — el defecto que este asistente ya tuvo con las cuentas rotas y con
+ * la plantilla de correo.
+ *
+ * Las que están en revisión **sí se ven en Plantillas**, que es donde hay que
+ * poder seguirles la pista.
+ */
+const opcionesDePlantillaDeMeta = computed(() =>
+  whatsapp.plantillasDeMeta
+    .filter((p) => p.sePuedeUsar)
+    .map((p) => ({ valor: p.id, texto: `${p.nombre} · ${p.idioma}` })),
+)
+
+/** La plantilla de Meta elegida, para poder enseñar su texto y sus huecos. */
+const plantillaDeMetaElegida = computed(
+  () => whatsapp.plantillasDeMeta.find((p) => p.id === plantillaDeMeta.value) ?? null,
+)
+
+// Al cambiar de número hay que releer sus plantillas: la clave de Meta es
+// (número, nombre, idioma), así que las de un número no son las de otro.
+// Y se olvida la elegida: dejarla haría crear una campaña cuya plantilla es de
+// otro número, y `activar_campana` la rechazaría al final.
+watch(numero, (id) => {
+  plantillaDeMeta.value = ''
+  if (id.length > 0) void whatsapp.cargarPlantillasDeMeta(id)
+})
+
+// Y al cambiar de canal se olvida lo elegido del otro. Sin esto, quien empiece
+// en correo, elija cuenta y plantilla, y cambie a WhatsApp, mandaría una
+// campaña con los dos juegos de datos dentro — y la variante etiquetada de la
+// frontera la rechazaría sin decir cuál sobra.
+watch(canal, () => {
+  cuenta.value = ''
+  versionDePlantilla.value = ''
+  firma.value = ''
+  numero.value = ''
+  plantillaDeMeta.value = ''
+})
 
 /**
  * Las firmas, con «la de por defecto» la primera.
@@ -490,9 +604,14 @@ const sePuedeSeguir = computed(() => {
     case 1:
       return nombre.value.trim().length > 0
     case 3:
-      return cuenta.value.length > 0
+      // El remitente, del canal que sea.
+      return esWhatsapp.value ? numero.value.length > 0 : cuenta.value.length > 0
     case 4:
-      return versionDePlantilla.value.length > 0
+      // El mensaje. En WhatsApp **no hay firma**: una firma es cosa del correo
+      // y el esquema lo exige con un `CHECK` desde la V4.
+      return esWhatsapp.value
+        ? plantillaDeMeta.value.length > 0
+        : versionDePlantilla.value.length > 0
     case 5:
       return (
         ventana.value.length > 0 &&
@@ -500,6 +619,11 @@ const sePuedeSeguir = computed(() => {
         (!avisaDelVolumen.value || aceptoElRiesgo.value)
       )
     case 6: {
+      // En WhatsApp no hay estimación de duración: su revisión no la trae. El
+      // desenlace imposible lo sigue rechazando `activar_campana`, que es donde
+      // vive la regla — aquí lo que no se puede es enseñar una cifra que nadie
+      // ha calculado.
+      if (esWhatsapp.value) return true
       // ── NO SE DEJA AVANZAR SI LA CAMPAÑA NO VA A PODER ACTIVARSE ──
       //
       // `activar_campana` la rechaza desde la 8.6 E, y eso pasa en el paso 9.
@@ -528,9 +652,18 @@ const termina = computed(
   () => campanas.revision?.estimacion.desenlace.desenlace === 'termina',
 )
 
-/** Lo que dice el preflight. `null` mientras no se haya pedido. */
-const sePuedeActivar = computed(
-  () => campanas.revision?.preflight.resultado.resultado === 'lista',
+/**
+ * Lo que dice el preflight. `null` mientras no se haya pedido.
+ *
+ * **Son dos veredictos distintos y no se mezclan.** El de correo sale de los
+ * ocho puntos; el de WhatsApp de su propia puerta —Coexistencia, el riesgo
+ * aceptado y las plantillas aprobadas—, que es `se_puede_activar` resuelto en
+ * Rust. Recalcularlo aquí sería una segunda verdad sobre si se puede enviar.
+ */
+const sePuedeActivar = computed(() =>
+  esWhatsapp.value
+    ? campanas.revisionDeWhatsapp?.sePuedeActivar === true
+    : campanas.revision?.preflight.resultado.resultado === 'lista',
 )
 
 // ── Navegación ──
@@ -546,14 +679,22 @@ async function siguiente(): Promise<void> {
       // elección de canal es el tramo 3c. Va ya con la forma etiquetada
       // porque es la que la frontera acepta, y porque así el día que entre
       // WhatsApp TypeScript exige decidir en vez de dejar colar una mezcla.
-      salePor: {
-        canal: 'email',
-        cuenta: cuenta.value,
-        versionDePlantilla: versionDePlantilla.value,
-        // Vacío es «la de por defecto»: `null`, no una cadena vacía, que la
-        // clave ajena rechazaría.
-        firma: firma.value === '' ? null : firma.value,
-      },
+      // Por dónde sale (D-WA). La forma **etiquetada**: TypeScript no deja
+      // construir una mezcla, y la frontera tampoco la deserializaría.
+      salePor: esWhatsapp.value
+        ? {
+            canal: 'whatsapp',
+            numero: numero.value,
+            plantillaDeMeta: plantillaDeMeta.value === '' ? null : plantillaDeMeta.value,
+          }
+        : {
+            canal: 'email',
+            cuenta: cuenta.value,
+            versionDePlantilla: versionDePlantilla.value,
+            // Vacío es «la de por defecto»: `null`, no una cadena vacía, que la
+            // clave ajena rechazaría.
+            firma: firma.value === '' ? null : firma.value,
+          },
       // Vacío es «toda la empresa»: `null`, no una cadena vacía, que la clave
       // ajena rechazaría. Mismo trato que la firma.
       lista: lista.value === '' ? null : lista.value,
@@ -578,7 +719,19 @@ async function siguiente(): Promise<void> {
   // Pedirlos juntos además es lo correcto: son dos vistas del mismo instante de
   // la campaña, y dos llamadas darían dos fotos distintas de la misma cosa.
   if (paso.value === 5 && creada.value) {
-    await campanas.revisar(creada.value.id)
+    // El preflight del canal que sea. Son dos comandos distintos porque son
+    // dos preguntas distintas: el de correo sondea el servidor SMTP y los
+    // registros del dominio; el de WhatsApp mira **las dos cifras de permiso**,
+    // Coexistencia, el riesgo aceptado y cuántas plantillas hay aprobadas.
+    //
+    // `revisar_campana_de_whatsapp` existía desde W.5 y estuvo **desregistrado
+    // desde la 7.7** con este motivo escrito: era «la puerta de un flujo que no
+    // existe». Vuelve aquí, con su llamador.
+    if (esWhatsapp.value) {
+      await campanas.revisarWhatsapp(creada.value.id)
+    } else {
+      await campanas.revisar(creada.value.id)
+    }
   }
 
   paso.value = Math.min(paso.value + 1, PASOS.length)
@@ -590,6 +743,34 @@ function atras(): void {
 
 async function mandarLaPrueba(): Promise<void> {
   if (!creada.value) return
+
+  // ── LA PRUEBA DE WHATSAPP CUELGA DEL NÚMERO, NO DE LA ETAPA ───────────
+  //
+  // Y no es un detalle de implementación: `enviar_whatsapp_de_prueba` le pide a
+  // Meta que mande **esa plantilla** desde **ese número**, que es justo lo que
+  // hay que comprobar antes de activar. El correo de prueba cuelga de la etapa
+  // porque lo que se prueba allí es la redacción con su firma.
+  if (esWhatsapp.value) {
+    const p = plantillaDeMetaElegida.value
+    if (p === null) return
+    const r = await whatsapp.enviarPrueba(
+      numero.value,
+      direccionDePrueba.value.trim(),
+      p.nombre,
+      p.idioma,
+    )
+    // Las dos formas se igualan aquí: la de WhatsApp devuelve `{aceptado,
+    // clave}` y la del correo `{aceptado, problema}`. Igualarlas en la pantalla
+    // y no en los comandos es a propósito — son dos proveedores distintos y
+    // forzarlos a un tipo común escondería en qué se diferencian.
+    resultadoDePrueba.value =
+      r === null ? null : { aceptado: r.aceptado, problema: r.clave }
+    if (resultadoDePrueba.value?.aceptado) {
+      await campanas.revisarWhatsapp(creada.value.id)
+    }
+    return
+  }
+
   resultadoDePrueba.value = await campanas.enviarPrueba(
     creada.value.etapa,
     direccionDePrueba.value.trim(),
@@ -647,6 +828,28 @@ function rotulo(clave: string): string {
           :etiqueta="t('asistente.paso.informacion.nombre')"
           :ayuda="t('asistente.paso.informacion.ayuda')"
         />
+
+        <!-- ── EL CANAL (D-WA, 27/10/2026) ─────────────────────────────
+             Va aquí y no más adelante porque **decide tres pasos**: el
+             remitente, el mensaje y el envío de prueba. Preguntarlo después
+             obligaría a volver atrás a rehacer lo ya elegido. -->
+        <ASelector
+          v-model="canal"
+          :etiqueta="t('asistente.paso.informacion.canal')"
+          :opciones="opcionesDeCanal"
+          :ayuda="t('asistente.paso.informacion.canalAyuda')"
+        />
+
+        <!-- Lo que cambia al elegir WhatsApp, dicho antes de elegirlo y no
+             después: por WhatsApp sólo se manda una plantilla que Meta aprobó,
+             y eso no es un detalle — es a quién se le puede escribir. -->
+        <AAviso
+          v-if="esWhatsapp"
+          tono="info"
+          :titulo="t('asistente.paso.informacion.whatsappEsDistinto')"
+        >
+          <p>{{ t('asistente.paso.informacion.whatsappEsDistintoDetalle') }}</p>
+        </AAviso>
       </template>
 
       <!-- ── 2 · A quién va dirigida (D-15) ──────────────────────────────
@@ -694,34 +897,133 @@ function rotulo(clave: string): string {
         </AAviso>
       </template>
 
-      <!-- 3 · Remitente -->
+      <!-- 3 · Remitente · del canal que sea -->
       <template v-else-if="paso === 3">
-        <ASelector
-          v-model="cuenta"
-          :etiqueta="t('asistente.paso.remitente.cuenta')"
-          :opciones="opcionesDeCuenta"
-        />
-        <AAviso
-          v-if="opcionesDeCuenta.length === 0"
-          tono="aviso"
-          :titulo="t('asistente.paso.remitente.sinCuentas')"
-        >
-          <p>{{ t('asistente.paso.remitente.sinCuentasComo') }}</p>
-        </AAviso>
-        <!-- ADR-0008: ARLES no rota remitentes, y se dice donde se elige uno. -->
+        <!-- ── WHATSAPP ────────────────────────────────────────────────
+             El rótulo de cada número lleva **las dos cifras que deciden si
+             puede trabajar**: su calidad y cuántos permite Meta al día (§94).
+             Elegir sin verlas es elegir a ciegas justo donde se juega el
+             número, que no se recupera. -->
+        <template v-if="esWhatsapp">
+          <ASelector
+            v-model="numero"
+            :etiqueta="t('asistente.paso.remitente.numero')"
+            :opciones="opcionesDeNumero"
+            :ayuda="t('asistente.paso.remitente.numeroAyuda')"
+          />
+          <!-- Sin ningún número que pueda enviar, esto sería un desplegable
+               vacío sin salida: el H-06 del 22/10/2026. Se dice qué falta Y se
+               lleva allí. -->
+          <AAviso
+            v-if="opcionesDeNumero.length === 0"
+            tono="aviso"
+            :titulo="t('asistente.paso.remitente.sinNumeros')"
+          >
+            <p>{{ t('asistente.paso.remitente.sinNumerosComo') }}</p>
+            <ABoton
+              variante="secundario"
+              @click="router.push({ name: 'whatsapp' })"
+            >
+              {{ t('asistente.paso.remitente.irAWhatsApp') }}
+            </ABoton>
+          </AAviso>
+        </template>
+
+        <!-- ── CORREO ─────────────────────────────────────────────────── -->
+        <template v-else>
+          <ASelector
+            v-model="cuenta"
+            :etiqueta="t('asistente.paso.remitente.cuenta')"
+            :opciones="opcionesDeCuenta"
+          />
+          <AAviso
+            v-if="opcionesDeCuenta.length === 0"
+            tono="aviso"
+            :titulo="t('asistente.paso.remitente.sinCuentas')"
+          >
+            <p>{{ t('asistente.paso.remitente.sinCuentasComo') }}</p>
+          </AAviso>
+        </template>
+
+        <!-- ADR-0008: ARLES no rota remitentes, y se dice donde se elige uno.
+             Vale para los dos canales — y en WhatsApp más, porque el que se
+             quema es el número. -->
         <p class="asistente__nota">
           {{ t('asistente.paso.remitente.sinRotacion') }}
         </p>
       </template>
 
-      <!-- 4 · Mensaje -->
+      <!-- 4 · Mensaje · del canal que sea -->
       <template v-else-if="paso === 4">
-        <ASelector
-          v-model="versionDePlantilla"
-          :etiqueta="t('asistente.paso.mensaje.plantilla')"
-          :opciones="opcionesDePlantilla"
-        />
-        <!--
+        <!-- ── WHATSAPP: UNA PLANTILLA QUE META APROBÓ, Y NADA MÁS ─────
+             No hay firma —el esquema lo exige con un `CHECK` desde la V4— ni
+             texto que escribir: el de una plantilla de Meta lo aprueba Meta
+             palabra por palabra, y lo que ARLES manda es su nombre y los
+             valores de sus huecos.
+
+             Sólo se ofrecen las APROBADAS: `activar_campana` rechaza las demás
+             (tramo 3a), así que ofrecerlas sería construir un camino que
+             termina en un rechazo cuatro pasos después. -->
+        <template v-if="esWhatsapp">
+          <ASelector
+            v-model="plantillaDeMeta"
+            :etiqueta="t('asistente.paso.mensaje.plantillaDeMeta')"
+            :opciones="opcionesDePlantillaDeMeta"
+            :ayuda="t('asistente.paso.mensaje.plantillaDeMetaAyuda')"
+          />
+
+          <!-- Sin ninguna aprobada, el mismo H-06: se dice qué falta y se
+               lleva allí. Y se distingue «no has apuntado ninguna» de «las que
+               tienes están en revisión», que mandan a hacer cosas distintas. -->
+          <AAviso
+            v-if="opcionesDePlantillaDeMeta.length === 0"
+            tono="aviso"
+            :titulo="t('asistente.paso.mensaje.sinAprobadas')"
+          >
+            <p>
+              {{
+                whatsapp.plantillasDeMeta.length === 0
+                  ? t('asistente.paso.mensaje.sinAprobadasNinguna')
+                  : t('asistente.paso.mensaje.sinAprobadasEnRevision')
+              }}
+            </p>
+            <ABoton
+              variante="secundario"
+              @click="router.push({ name: 'plantillas' })"
+            >
+              {{ t('asistente.paso.mensaje.irAPlantillasDeMeta') }}
+            </ABoton>
+          </AAviso>
+
+          <!-- El texto que va a salir, y qué dato va en cada hueco. Es lo
+               único que se puede enseñar antes de mandar: el cuerpo no se
+               puede cambiar desde aquí. -->
+          <div
+            v-if="plantillaDeMetaElegida"
+            class="asistente__variables"
+          >
+            <p>{{ plantillaDeMetaElegida.cuerpo }}</p>
+            <p v-if="plantillaDeMetaElegida.huecos.length > 0">
+              {{ t('asistente.paso.mensaje.variables') }}:
+              <AInsignia
+                v-for="(h, i) in plantillaDeMetaElegida.huecos"
+                :key="`${plantillaDeMetaElegida.id}-${i}`"
+                tono="info"
+              >
+                {{ i + 1 }} · {{ rotulo(`plantilla.variable.${h}`) }}
+              </AInsignia>
+            </p>
+          </div>
+        </template>
+
+        <!-- ── CORREO ─────────────────────────────────────────────────── -->
+        <template v-else>
+          <ASelector
+            v-model="versionDePlantilla"
+            :etiqueta="t('asistente.paso.mensaje.plantilla')"
+            :opciones="opcionesDePlantilla"
+          />
+          <!--
           ── SIN PLANTILLAS, EL PASO 4 DEJABA SIN SALIDA (22/10/2026) ──────
           El paso 3 avisa cuando no hay cuentas y el 5 cuando no hay horarios;
           **éste no avisaba de nada**: un desplegable vacío, «Continuar»
@@ -729,45 +1031,46 @@ function rotulo(clave: string): string {
           pantalla. Es el H-06 en el paso de al lado, y se encontró mirando la
           demostración con las diez fases en verde.
         -->
-        <AAviso
-          v-if="opcionesDePlantilla.length === 0"
-          tono="aviso"
-          :titulo="t('asistente.paso.mensaje.sinPlantillas')"
-        >
-          <p>{{ t('asistente.paso.mensaje.sinPlantillasComo') }}</p>
-          <ABoton
-            variante="secundario"
-            @click="router.push({ name: 'plantillas' })"
+          <AAviso
+            v-if="opcionesDePlantilla.length === 0"
+            tono="aviso"
+            :titulo="t('asistente.paso.mensaje.sinPlantillas')"
           >
-            {{ t('asistente.paso.mensaje.sinPlantillasIr') }}
-          </ABoton>
-        </AAviso>
-        <!--
+            <p>{{ t('asistente.paso.mensaje.sinPlantillasComo') }}</p>
+            <ABoton
+              variante="secundario"
+              @click="router.push({ name: 'plantillas' })"
+            >
+              {{ t('asistente.paso.mensaje.sinPlantillasIr') }}
+            </ABoton>
+          </AAviso>
+          <!--
           La firma, que hasta el 22/10/2026 no se podía elegir: la columna
           existía desde la V4, la consulta del envío ya la miraba, y nadie la
           escribía — así que todas las campañas salían con la de por defecto.
         -->
-        <ASelector
-          v-model="firma"
-          :etiqueta="t('asistente.paso.mensaje.firma')"
-          :opciones="opcionesDeFirma"
-        />
-        <div
-          v-if="plantillaElegida?.version"
-          class="asistente__variables"
-        >
-          <p>{{ t('asistente.paso.mensaje.asunto') }}: {{ plantillaElegida.version.asunto }}</p>
-          <p v-if="plantillaElegida.version.variables.length > 0">
-            {{ t('asistente.paso.mensaje.variables') }}:
-            <AInsignia
-              v-for="v in plantillaElegida.version.variables"
-              :key="v"
-              tono="info"
-            >
-              {{ rotulo(`plantilla.variable.${v}`) }}
-            </AInsignia>
-          </p>
-        </div>
+          <ASelector
+            v-model="firma"
+            :etiqueta="t('asistente.paso.mensaje.firma')"
+            :opciones="opcionesDeFirma"
+          />
+          <div
+            v-if="plantillaElegida?.version"
+            class="asistente__variables"
+          >
+            <p>{{ t('asistente.paso.mensaje.asunto') }}: {{ plantillaElegida.version.asunto }}</p>
+            <p v-if="plantillaElegida.version.variables.length > 0">
+              {{ t('asistente.paso.mensaje.variables') }}:
+              <AInsignia
+                v-for="v in plantillaElegida.version.variables"
+                :key="v"
+                tono="info"
+              >
+                {{ rotulo(`plantilla.variable.${v}`) }}
+              </AInsignia>
+            </p>
+          </div>
+        </template>
       </template>
 
       <!-- 5 · Límites y horario -->
@@ -1069,8 +1372,88 @@ function rotulo(clave: string): string {
 
       <!-- 7 · Preflight -->
       <template v-else-if="paso === 7">
+        <!-- ── EL PREFLIGHT DEL CANAL DE WHATSAPP (W.5 → D-WA 3c-2b) ───
+             No son los ocho puntos del correo: es la puerta del canal. Y la
+             cifra que de verdad decide es **a cuánta gente no le consta
+             permiso**, porque ésa es la que se paga en calidad del número si
+             bloquean o reportan — y el número no se recupera.
+
+             `revisar_campana_de_whatsapp` existía desde W.5 y estuvo
+             desregistrado desde la 7.7 por no tener quien lo llamara. Éste es
+             el llamador. -->
+        <template v-if="esWhatsapp">
+          <template v-if="campanas.revisionDeWhatsapp">
+            <ul class="asistente__puntos">
+              <li>
+                <AInsignia tono="neutro">
+                  {{ campanas.revisionDeWhatsapp.audiencia.toLocaleString('es-MX') }}
+                </AInsignia>
+                {{ t('asistente.paso.preflight.wa.audiencia') }}
+              </li>
+              <li>
+                <AInsignia
+                  :tono="campanas.revisionDeWhatsapp.sinPermiso === 0 ? 'exito' : 'aviso'"
+                >
+                  {{ campanas.revisionDeWhatsapp.sinPermiso.toLocaleString('es-MX') }}
+                </AInsignia>
+                {{ t('asistente.paso.preflight.wa.sinPermiso') }}
+              </li>
+              <li>
+                <AInsignia :tono="campanas.revisionDeWhatsapp.coexistencia ? 'exito' : 'peligro'">
+                  {{ t(`asistente.paso.preflight.wa.${campanas.revisionDeWhatsapp.coexistencia ? 'si' : 'no'}`) }}
+                </AInsignia>
+                {{ t('asistente.paso.preflight.wa.coexistencia') }}
+              </li>
+              <li v-if="campanas.revisionDeWhatsapp.escribeEnFrio">
+                <AInsignia :tono="campanas.revisionDeWhatsapp.riesgoAceptado ? 'exito' : 'peligro'">
+                  {{ t(`asistente.paso.preflight.wa.${campanas.revisionDeWhatsapp.riesgoAceptado ? 'si' : 'no'}`) }}
+                </AInsignia>
+                {{ t('asistente.paso.preflight.wa.riesgo') }}
+              </li>
+              <li>
+                <AInsignia
+                  :tono="campanas.revisionDeWhatsapp.plantillasAprobadas > 0 ? 'exito' : 'peligro'"
+                >
+                  {{ campanas.revisionDeWhatsapp.plantillasAprobadas }}
+                </AInsignia>
+                {{ t('asistente.paso.preflight.wa.plantillas') }}
+              </li>
+              <li>
+                <!-- `null` es «no se pudo preguntar», NO «está bien»: la misma
+                     regla que el «sin comprobar» del preflight de correo. -->
+                <AInsignia
+                  :tono="campanas.revisionDeWhatsapp.calidad === null ? 'incierto' : 'neutro'"
+                >
+                  {{
+                    campanas.revisionDeWhatsapp.calidad === null
+                      ? t('numeroDeWhatsapp.calidad.sinConsultar')
+                      : t(`numeroDeWhatsapp.calidad.${campanas.revisionDeWhatsapp.calidad}`)
+                  }}
+                </AInsignia>
+                {{ t('asistente.paso.preflight.wa.calidad') }}
+              </li>
+            </ul>
+            <!-- El aviso que más importa de esta pantalla, y va con su cifra
+                 delante: escribir a quien no dio permiso es legítimo y es lo
+                 que más calidad cuesta. §154 — se informa, no se prohíbe. -->
+            <AAviso
+              v-if="campanas.revisionDeWhatsapp.sinPermiso > 0"
+              tono="aviso"
+              :titulo="t('asistente.paso.preflight.wa.enFrioTitulo')"
+            >
+              <p>
+                {{
+                  t('asistente.paso.preflight.wa.enFrioDetalle', {
+                    n: campanas.revisionDeWhatsapp.sinPermiso.toLocaleString('es-MX'),
+                  })
+                }}
+              </p>
+            </AAviso>
+          </template>
+        </template>
+
         <ul
-          v-if="campanas.revision"
+          v-else-if="campanas.revision"
           class="asistente__puntos"
         >
           <li
@@ -1091,18 +1474,33 @@ function rotulo(clave: string): string {
             {{ t(`preflight.${p.punto}`) }}
           </li>
         </ul>
-        <!-- «Sin comprobar» no es un aprobado, y el texto lo dice. -->
-        <p class="asistente__nota">
+        <!-- «Sin comprobar» no es un aprobado, y el texto lo dice. Es del
+             preflight de correo: el de WhatsApp no tiene puntos de red. -->
+        <p
+          v-if="!esWhatsapp"
+          class="asistente__nota"
+        >
           {{ t('preflight.sinComprobarDetalle') }}
         </p>
       </template>
 
-      <!-- 8 · Envío de prueba -->
+      <!-- 8 · Envío de prueba · del canal que sea -->
       <template v-else-if="paso === 8">
-        <p>{{ t('asistente.paso.prueba.porQue') }}</p>
+        <p>
+          {{
+            esWhatsapp
+              ? t('asistente.paso.prueba.porQueWhatsapp')
+              : t('asistente.paso.prueba.porQue')
+          }}
+        </p>
         <AEntrada
           v-model="direccionDePrueba"
-          :etiqueta="t('asistente.paso.prueba.aDonde')"
+          :etiqueta="
+            esWhatsapp
+              ? t('asistente.paso.prueba.aDondeWhatsapp')
+              : t('asistente.paso.prueba.aDonde')
+          "
+          :ayuda="esWhatsapp ? t('asistente.paso.prueba.aDondeWhatsappAyuda') : ''"
         />
         <ABoton
           variante="secundario"

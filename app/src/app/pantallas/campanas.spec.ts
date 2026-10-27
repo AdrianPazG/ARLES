@@ -6,6 +6,11 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { i18n } from '@/app/i18n'
 import { useCampanasStore, type Campana, type Revision } from '@/app/stores/campanas'
 import { useRemitentesStore, type Remitente } from '@/app/stores/remitentes'
+import {
+  useWhatsappStore,
+  type Numero,
+  type PlantillaDeMeta,
+} from '@/app/stores/whatsapp'
 
 import AsistenteDeCampana from './AsistenteDeCampana.vue'
 import PantallaCampanas from './PantallaCampanas.vue'
@@ -921,5 +926,238 @@ describe('el paso 5 sin ningún horario guardado', () => {
     expect(p.text()).not.toContain('Ese número no puede ser un máximo de envíos')
     // @ts-expect-error estado interno
     expect(p.vm.sePuedeSeguir).toBe(true)
+  })
+})
+
+// ══ D-WA · EL ASISTENTE ELIGE CANAL (27/10/2026) ═════════════════════════
+//
+// Hasta hoy el canal estaba escrito a fuego en `'email'`, con el comentario
+// encima diciendo que la elección era este tramo. Todo lo de debajo funcionaba
+// —el motor, el alta, la activación, la frontera— y **el botón no existía**.
+
+describe('el asistente elige canal', () => {
+  const NUMERO: Numero = {
+    id: '01900000-0000-7000-8000-0000000000b1',
+    nombreVisible: 'Ventas',
+    telefonoE164: '+528112345678',
+    wabaId: 'waba-1',
+    modo: 'prospeccion_directa',
+    estado: 'connected',
+    coexistenciaConfirmada: '2026-10-01T00:00:00Z',
+    riesgoAceptado: '2026-10-01T00:00:00Z',
+    calidad: 'green',
+    limiteDeMeta: 1000,
+    calidadActualizada: '2026-10-27T00:00:00Z',
+    puedeEnviar: true,
+    escribeEnFrio: true,
+  }
+
+  const APROBADA: PlantillaDeMeta = {
+    id: '01900000-0000-7000-8000-0000000000e1',
+    nombre: 'bienvenida',
+    idioma: 'es_MX',
+    estado: 'approved',
+    cuerpo: 'Hola.',
+    huecos: ['nombre'],
+    sePuedeUsar: true,
+  }
+
+  /** El asistente recién abierto, en correo. */
+  function montarEnCorreo(): ReturnType<typeof mount> {
+    const remitentes = useRemitentesStore()
+    remitentes.remitentes = [CUENTA]
+    remitentes.cargada = true
+    useCampanasStore().cargada = true
+    return mount(AsistenteDeCampana, entorno)
+  }
+
+  /** El asistente en WhatsApp, con un número que puede enviar. */
+  function enWhatsapp(opciones?: {
+    numeros?: Numero[]
+    plantillas?: PlantillaDeMeta[]
+  }): ReturnType<typeof mount> {
+    const remitentes = useRemitentesStore()
+    remitentes.remitentes = [CUENTA]
+    remitentes.cargada = true
+
+    const wa = useWhatsappStore()
+    wa.numeros = opciones?.numeros ?? [NUMERO]
+    wa.plantillasDeMeta = opciones?.plantillas ?? [APROBADA]
+
+    useCampanasStore().cargada = true
+
+    const p = mount(AsistenteDeCampana, entorno)
+    // @ts-expect-error acceso al estado interno para elegir el canal
+    p.vm.canal = 'whatsapp'
+    return p
+  }
+
+  /**
+   * **El canal se pregunta en el paso 1, no se asume.**
+   *
+   * Es el paso donde tiene que estar porque decide tres pasos: el remitente, el
+   * mensaje y el envío de prueba. Y una campaña de WhatsApp mandada por correo
+   * sin que nadie lo eligiera es el error que no se puede deshacer.
+   */
+  it('el paso 1 pregunta por dónde sale', () => {
+    expect(montarEnCorreo().text()).toContain('Por dónde sale')
+  })
+
+  /**
+   * **Al elegir WhatsApp se dice qué cambia, antes de elegirlo y no después.**
+   *
+   * Por WhatsApp sólo se manda una plantilla que Meta aprobó, y eso no es un
+   * detalle de implementación: es a quién se le puede escribir y qué se le
+   * puede decir.
+   */
+  it('avisa de que WhatsApp no funciona como el correo', async () => {
+    const p = enWhatsapp()
+    await p.vm.$nextTick()
+    expect(p.text()).toContain('WhatsApp no funciona como el correo')
+  })
+
+  /**
+   * **El paso 3 ofrece números, con sus dos cifras.**
+   *
+   * La calidad y el tope de Meta son lo que decide si un número puede trabajar
+   * (§94). Elegir sin verlas es elegir a ciegas justo donde se juega el número,
+   * que no se recupera: se cambia de número.
+   */
+  it('el paso 3 ofrece los números con su calidad y su tope', async () => {
+    const p = enWhatsapp()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 3
+    p.vm.paso = 3
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto).toContain('+528112345678')
+    expect(texto, 'la calidad de Meta').toContain('Alta')
+    expect(texto, 'y cuántos permite al día, con separador').toContain('1,000')
+    expect(texto, 'ninguna cuenta de correo').not.toContain('ventas@telemetry.mx')
+  })
+
+  /**
+   * **Un número que no puede enviar no se ofrece.**
+   *
+   * `puedeEnviar` viene resuelto de Rust: la puerta del canal son tres
+   * condiciones y vive en `NumeroGuardado::puede_enviar`. Ofrecer uno que no
+   * pasa construye una campaña que el preflight va a bloquear cuatro pasos
+   * después — el mismo defecto que las cuentas rotas del paso 3.
+   *
+   * Y **se dice qué falta y se lleva allí**: un desplegable vacío sin salida es
+   * el H-06 del 22/10/2026.
+   */
+  it('no ofrece un número sin Coexistencia, y dice dónde se confirma', async () => {
+    const p = enWhatsapp({
+      numeros: [{ ...NUMERO, coexistenciaConfirmada: null, puedeEnviar: false }],
+    })
+    // @ts-expect-error acceso al estado interno para situarse en el paso 3
+    p.vm.paso = 3
+    await p.vm.$nextTick()
+
+    expect(p.text()).toContain('No hay ningún número de WhatsApp listo para enviar')
+    expect(p.text()).toContain('Coexistencia')
+    expect(p.text()).not.toContain('+528112345678')
+  })
+
+  /**
+   * **El paso 4 ofrece plantillas de Meta, y ninguna firma.**
+   *
+   * Una firma es cosa del correo y el esquema lo exige con un `CHECK` desde la
+   * V4. Ofrecerla aquí sería un campo que alguien rellenaría esperando que
+   * saliera en el mensaje.
+   */
+  it('el paso 4 ofrece plantillas de Meta y no pide firma', async () => {
+    const p = enWhatsapp()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 4
+    p.vm.paso = 4
+    await p.vm.$nextTick()
+
+    expect(p.text()).toContain('Qué plantilla de Meta se manda')
+    expect(p.text(), 'en WhatsApp no hay firma').not.toContain('Firma')
+  })
+
+  /**
+   * **Una plantilla que Meta no ha aprobado no se ofrece, y se distingue de no
+   * tener ninguna.**
+   *
+   * `activar_campana` las rechaza (tramo 3a), así que ofrecerlas sería un
+   * camino que termina en un rechazo. Y los dos casos mandan a hacer cosas
+   * distintas: apuntar una, o esperar a que Meta revise la que ya está.
+   */
+  it('distingue «no hay ninguna» de «las que hay están en revisión»', async () => {
+    const enRevision = { ...APROBADA, estado: 'pending', sePuedeUsar: false }
+
+    const conUna = enWhatsapp({ plantillas: [enRevision] })
+    // @ts-expect-error acceso al estado interno para situarse en el paso 4
+    conUna.vm.paso = 4
+    await conUna.vm.$nextTick()
+    expect(conUna.text()).toContain('están en revisión o rechazadas')
+
+    const sinNinguna = enWhatsapp({ plantillas: [] })
+    // @ts-expect-error acceso al estado interno para situarse en el paso 4
+    sinNinguna.vm.paso = 4
+    await sinNinguna.vm.$nextTick()
+    expect(sinNinguna.text()).toContain('Administrador de WhatsApp de Meta')
+  })
+
+  /**
+   * **Cambiar de canal olvida lo elegido del otro.**
+   *
+   * Sin esto, quien empiece en correo, elija cuenta y plantilla y cambie a
+   * WhatsApp mandaría los dos juegos de datos — y la variante etiquetada de la
+   * frontera lo rechazaría **sin decir cuál sobra**, porque `deny_unknown_fields`
+   * sólo dice que hay un campo de más.
+   */
+  it('cambiar de canal olvida el remitente y el mensaje del otro', async () => {
+    const p = montarEnCorreo()
+    // @ts-expect-error acceso al estado interno
+    p.vm.cuenta = CUENTA.id
+    // @ts-expect-error acceso al estado interno
+    p.vm.versionDePlantilla = 'v-1'
+    // @ts-expect-error acceso al estado interno
+    p.vm.canal = 'whatsapp'
+    await p.vm.$nextTick()
+
+    // @ts-expect-error acceso al estado interno
+    expect(p.vm.cuenta, 'la cuenta de correo se olvida').toBe('')
+    // @ts-expect-error acceso al estado interno
+    expect(p.vm.versionDePlantilla, 'y su plantilla').toBe('')
+  })
+
+  /**
+   * **El paso 7 enseña la puerta del canal, con la cifra que decide delante.**
+   *
+   * No son los ocho puntos del correo. Y la cifra que importa es a cuánta gente
+   * **no** le consta permiso, porque es la que se paga en calidad del número si
+   * bloquean o reportan — y eso no se recupera.
+   */
+  it('el paso 7 enseña a cuánta gente no le consta permiso', async () => {
+    const p = enWhatsapp()
+    const campanas = useCampanasStore()
+    campanas.revisionDeWhatsapp = {
+      audiencia: 847,
+      conPermiso: 12,
+      sinPermiso: 835,
+      coexistencia: true,
+      riesgoAceptado: true,
+      escribeEnFrio: true,
+      plantillasAprobadas: 1,
+      sePuedeActivar: true,
+      pidePalabraDeConfirmacion: true,
+      calidad: 'yellow',
+    }
+    // @ts-expect-error acceso al estado interno para situarse en el paso 7
+    p.vm.paso = 7
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto, 'la audiencia con separador').toContain('847')
+    expect(texto, 'y los que no dieron permiso').toContain('835')
+    expect(texto, 'con su aviso').toContain('Esta campaña escribe a gente que no lo pidió')
+    expect(
+      texto,
+      'y el «sin comprobar» del correo no aplica aquí',
+    ).not.toContain('Sin comprobar no es un aprobado')
   })
 })

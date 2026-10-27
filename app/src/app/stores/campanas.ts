@@ -223,6 +223,38 @@ export type PorDondeSale =
       plantillaDeMeta: string | null
     }
 
+/**
+ * El preflight del canal de WhatsApp (W.5, conectado en D-WA 3c-2b).
+ *
+ * **No es el mismo que el del correo y no se mezclan.** El de correo sondea el
+ * servidor SMTP y los registros del dominio; éste mira la puerta del canal: las
+ * dos cifras de permiso, Coexistencia, el riesgo aceptado del modo en frío, y
+ * cuántas plantillas hay aprobadas.
+ *
+ * `sePuedeActivar` **viene resuelto de Rust**. Recalcularlo aquí sería una
+ * segunda verdad sobre si se puede enviar, y la que decide es la otra.
+ */
+export interface RevisionDeWhatsapp {
+  readonly audiencia: number
+  /** De ésos, a cuántos consta permiso vigente. */
+  readonly conPermiso: number
+  /** Y a cuántos no. **Es la cifra que cambia el botón de activar.** */
+  readonly sinPermiso: number
+  readonly coexistencia: boolean
+  readonly riesgoAceptado: boolean
+  readonly escribeEnFrio: boolean
+  readonly plantillasAprobadas: number
+  readonly sePuedeActivar: boolean
+  readonly pidePalabraDeConfirmacion: boolean
+  /**
+   * La calidad que Meta asigna al número, o `null` si no se pudo preguntar.
+   *
+   * **`null` es «no se sabe», no «está bien»** — la misma regla que el «sin
+   * comprobar» del preflight de correo.
+   */
+  readonly calidad: string | null
+}
+
 export const useCampanasStore = defineStore('campanas', () => {
   const campanas = ref<readonly Campana[]>([])
   const plantillas = ref<readonly Plantilla[]>([])
@@ -236,6 +268,7 @@ export const useCampanasStore = defineStore('campanas', () => {
 
   /** La última revisión pedida. `null` mientras no se haya pedido ninguna. */
   const revision = ref<Revision | null>(null)
+  const revisionDeWhatsapp = ref<RevisionDeWhatsapp | null>(null)
   const revisando = ref(false)
 
   const hayCampanas = computed(() => campanas.value.length > 0)
@@ -483,6 +516,34 @@ export const useCampanasStore = defineStore('campanas', () => {
     }
   }
 
+  /**
+   * Pide el preflight del canal de WhatsApp.
+   *
+   * `revisar_campana_de_whatsapp` existía desde W.5 y estuvo **desregistrado
+   * desde la 7.7** con su motivo escrito en `lib.rs`: era «la puerta de un
+   * flujo que no existe», porque el motor no recorría WhatsApp. Lo recorre
+   * desde el tramo 1, y desde el 3a se puede crear y activar una campaña del
+   * canal — así que vuelve, con su llamador.
+   */
+  async function revisarWhatsapp(id: string): Promise<void> {
+    revisando.value = true
+    errorGeneral.value = null
+    try {
+      revisionDeWhatsapp.value = await invocar<RevisionDeWhatsapp>(
+        'revisar_campana_de_whatsapp',
+        { id },
+      )
+    } catch (e) {
+      // Se pierde a propósito, igual que la del correo: dejar la anterior en
+      // pantalla mientras se enseña un error haría creer que ese veredicto
+      // sigue siendo el de ahora — y es sobre el que se pulsa «activar».
+      revisionDeWhatsapp.value = null
+      recordarError(e)
+    } finally {
+      revisando.value = false
+    }
+  }
+
   /** Manda el correo de prueba de una etapa (§45). */
   async function enviarPrueba(
     etapa: string,
@@ -639,6 +700,8 @@ export const useCampanasStore = defineStore('campanas', () => {
     trabajando,
     revisando,
     revision,
+    revisionDeWhatsapp,
+    revisarWhatsapp,
     errorGeneral,
     hayCampanas,
     enMarcha,

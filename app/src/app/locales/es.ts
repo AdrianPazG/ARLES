@@ -2294,6 +2294,22 @@ export const es = {
         titulo: 'Información',
         nombre: 'Nombre de la campaña',
         ayuda: 'Sólo lo ves tú. No sale en el correo.',
+
+        // ── D-WA · el canal se elige aquí ──
+        //
+        // Va en el paso 1 porque decide tres pasos: el remitente, el mensaje y
+        // el envío de prueba. Preguntarlo después obligaría a volver atrás.
+        canal: 'Por dónde sale',
+        canalCorreo: 'Correo',
+        canalWhatsapp: 'WhatsApp',
+        canalAyuda:
+          'No se puede cambiar después de crear la campaña: cada canal usa su ' +
+          'propio remitente y su propio mensaje.',
+        whatsappEsDistinto: 'WhatsApp no funciona como el correo',
+        whatsappEsDistintoDetalle:
+          'Sólo se puede mandar una plantilla que Meta haya aprobado, con el ' +
+          'texto que Meta aprobó: no se escribe aquí ni lleva firma. Y Meta ' +
+          'pone un tope de mensajes al día que manda sobre el tuyo.',
       },
 
       // ── D-15 · a quién va dirigida ────────────────────────────────────
@@ -2354,9 +2370,47 @@ export const es = {
         sinRotacion:
           'ARLES no reparte los envíos entre varias cuentas. Toda la campaña ' +
           'sale de ésta.',
+
+        // ── D-WA · el remitente cuando el canal es WhatsApp ──
+        //
+        // El rótulo lleva las DOS cifras que deciden si un número puede
+        // trabajar (§94): su calidad y cuántos permite Meta al día. Elegir sin
+        // verlas es elegir a ciegas justo donde se juega el número.
+        numero: 'Desde qué número',
+        numeroCon: '{nombre} · {telefono} · calidad {calidad} · Meta permite {tope} al día',
+        topeSinSaber: 'un número que Meta no ha dicho',
+        numeroAyuda:
+          'Sólo aparecen los que pueden enviar hoy: conectados, con ' +
+          'Coexistencia confirmada y —si escriben en frío— con el riesgo ' +
+          'aceptado.',
+        sinNumeros: 'No hay ningún número de WhatsApp listo para enviar',
+        sinNumerosComo:
+          'Ve a Remitentes › WhatsApp, conecta un número y confirma ' +
+          'Coexistencia. Si escribe en frío, acepta también el aviso de ' +
+          'riesgo: sin esas dos marcas ARLES no deja enviar.',
+        irAWhatsApp: 'Ir a Remitentes › WhatsApp',
       },
 
       mensaje: {
+        // ── D-WA · el mensaje cuando el canal es WhatsApp ──
+        //
+        // No hay firma ni texto que escribir: el de una plantilla de Meta lo
+        // aprueba Meta palabra por palabra, y lo que ARLES manda es su nombre
+        // y los valores de sus huecos.
+        plantillaDeMeta: 'Qué plantilla de Meta se manda',
+        plantillaDeMetaAyuda:
+          'Sólo las aprobadas: ARLES no deja activar una campaña con una que ' +
+          'esté en revisión, porque Meta rechazaría cada mensaje.',
+        sinAprobadas: 'No hay ninguna plantilla aprobada para este número',
+        sinAprobadasNinguna:
+          'Escribe la plantilla en el Administrador de WhatsApp de Meta, y ' +
+          'cuando la apruebe apúntala en Plantillas › WhatsApp.',
+        sinAprobadasEnRevision:
+          'Las que tienes apuntadas están en revisión o rechazadas. Mira su ' +
+          'estado en el Administrador de WhatsApp de Meta, y cuando apruebe ' +
+          'alguna pon su estado al día en Plantillas.',
+        irAPlantillasDeMeta: 'Ir a Plantillas',
+
         // ── SIN PLANTILLAS NO HABÍA SALIDA (22/10/2026) ──────────────────
         //
         // El paso 3 avisa cuando no hay cuentas y el 5 cuando no hay horarios;
@@ -2551,6 +2605,29 @@ export const es = {
 
       preflight: {
         titulo: 'Comprobaciones',
+
+        // ── D-WA · el preflight del canal de WhatsApp (W.5) ──
+        //
+        // No son los ocho puntos del correo: es la puerta del canal. Y la
+        // cifra que de verdad decide es a cuánta gente NO le consta permiso,
+        // porque es la que se paga en calidad del número si bloquean o
+        // reportan.
+        wa: {
+          audiencia: 'personas recibirían el mensaje',
+          sinPermiso: 'de ellas no han dado permiso ni te escribieron antes',
+          coexistencia: 'Coexistencia confirmada',
+          riesgo: 'Riesgo del modo en frío aceptado',
+          plantillas: 'plantillas aprobadas por Meta',
+          calidad: 'Calidad del número, según Meta',
+          si: 'Sí',
+          no: 'No',
+          enFrioTitulo: 'Esta campaña escribe a gente que no lo pidió',
+          enFrioDetalle:
+            'A {n} personas les llega un primer mensaje sin haberlo pedido. ' +
+            'Es legítimo y es lo que más calidad cuesta: si suficientes te ' +
+            'bloquean o te reportan, Meta puede inhabilitar el número — y eso ' +
+            'no se recupera, se cambia de número.',
+        },
       },
 
       prueba: {
@@ -2560,6 +2637,22 @@ export const es = {
           'paso que caza el error más caro: verlo como lo va a ver quien lo ' +
           'reciba.',
         aDonde: 'Tu dirección',
+
+        // ── D-WA · la prueba cuando el canal es WhatsApp ──
+        //
+        // Cuelga del NÚMERO y no de la etapa, y no es un detalle: lo que se
+        // comprueba es que esa plantilla sale desde ese número, que es justo
+        // lo que puede fallar.
+        porQueWhatsapp:
+          'Mándate el WhatsApp a ti mismo antes de mandárselo a nadie. Es el ' +
+          'paso que comprueba las tres cosas juntas: que el token sirve, que ' +
+          'el número puede enviar y que Meta acepta la plantilla.',
+        aDondeWhatsapp: 'Tu número de WhatsApp',
+        aDondeWhatsappAyuda:
+          'Con código de país: +52 para México. Si usas el número de prueba ' +
+          'de Meta, apunta antes el tuyo en su lista de permitidos o Meta lo ' +
+          'rechaza.',
+
         mandar: 'Mandar la prueba',
         aceptado: 'El servidor aceptó el mensaje',
         // §65 otra vez, y aquí es donde más se nota.

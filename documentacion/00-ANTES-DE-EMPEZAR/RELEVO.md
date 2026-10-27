@@ -97,38 +97,35 @@ frecuencia es el dato:
 **Esta sección se actualiza al cerrar cada tramo.** Si la fecha de arriba es de
 hace más de una semana, no te la creas: mira `git log` y `ESTADO_ACTUAL.md`.
 
-**D-WA · el canal de WhatsApp como canal entero.** Tres tramos cerrados y
-empujados, uno abierto:
+**D-WA está cerrado** (27/10/2026): se puede **crear y lanzar una campaña
+entera por WhatsApp** desde la aplicación. Seis tramos, todos empujados:
 
-| Tramo | Qué | Estado |
+| Tramo | Qué | Commit |
 |---|---|---|
-| 1 | El motor recorre las etapas de WhatsApp | ✅ `bb1051e` |
-| 2 | El contenido de WhatsApp viaja hasta el proveedor | ✅ |
-| alta | El número se da de alta con un solo dato | ✅ `4dfd084` |
-| 3a | Crear y activar una campaña de WhatsApp, por dentro | ✅ `3501757` |
-| 3b | El canal cruza la frontera, nada mezclado entra | ✅ `52ce92b` |
-| **3c** | **El asistente, el preflight en pantalla y el semáforo de calidad** | **abierto** |
+| 1 | El motor recorre las etapas de WhatsApp | `bb1051e` |
+| 2 | El contenido de WhatsApp viaja hasta el proveedor | — |
+| alta | El número se da de alta con un solo dato | `4dfd084` |
+| 3a | Crear y activar una campaña de WhatsApp, por dentro | `3501757` |
+| 3b | El canal cruza la frontera, nada mezclado entra | `52ce92b` |
+| 3c-1 | El semáforo de calidad se llena | `0b89835` |
+| 3c-2a | Las plantillas de Meta se registran y se leen | `05d0975` |
+| 3c-2b | El asistente elige canal | este |
 
-**Lo que el 3c tiene que cerrar**, y lo primero no es cosmético:
+**Lo que WhatsApp sigue sin hacer, y no es un defecto:**
 
-1. **El semáforo de calidad no se llena nunca.** `whatsapp_account.calidad` y
-   `limite_diario_meta` **se leen y no los escribe nadie** — ningún `INSERT` ni
-   `UPDATE` los toca. Y `arles_whatsapp::estado::consultar`, la sonda que le
-   pregunta a Meta, **no tiene llamador**. El dato ya está en la mano: el alta
-   en un solo dato lo pregunta, lo enseña para elegir y al guardar lo tira.
-   Consecuencia: con el escalón vacío, una campaña de WhatsApp sin tope diario
-   propio **no se puede activar**.
-2. El paso 1 del asistente pregunta el canal (hoy está escrito a fuego en
-   `'email'`).
-3. El paso 3 ofrece números en vez de cuentas de correo; el paso 4, plantillas
-   aprobadas de Meta en vez de plantillas de correo, y sin firma.
-4. El paso 7 llama a `revisar_campana_de_whatsapp`, **y ahí vuelve a
-   registrarse** en `lib.rs`: hoy está fuera a propósito porque no tiene quien
-   lo llame, y la comprobación de la fase W lo caza.
-5. El simulador de la vista previa aprende el canal, para que la demostración no
-   mienta.
+1. **Contar las respuestas.** Meta las manda por *webhook* y ARLES no tiene
+   ninguna URL a la que Meta pueda llamar (`arles_whatsapp::entrante`). La cifra
+   de «cuánta gente contestó» es cero en WhatsApp hasta que exista el «relay
+   ciego» que Dirección decidió el 29/09/2026.
+2. **Atender un «BAJA» automáticamente.** Ni hay transporte, ni se lee el texto
+   de una respuesta (D-7A). Se apunta **a mano** en Contactos › Bajas, y está
+   dicho con esas palabras en la pantalla de WhatsApp, en la guía del canal y en
+   el manual. Decisión de Dirección del 27/10/2026.
 
----
+**Lo siguiente, sin empezar:** la **Fase 9**, con lo que las auditorías dejaron
+abierto — sacar la activación a segundo plano con avance (73.5 s con 451 196
+destinatarios, y se rompe alrededor de los 30 000), el filtro de la lista de
+contactos (C-2), y **R-07**: nadie ha abierto ARLES en un Mac.
 
 ## 6 · Cómo se cierra un tramo
 
