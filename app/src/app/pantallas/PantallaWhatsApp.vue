@@ -41,12 +41,14 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { resolverError } from '@/app/errores'
+import { claveDelError, invocar } from '@/app/nucleo'
 import {
   borradorDeNumeroVacio,
   revisarDatoDeMeta,
   useWhatsappStore,
   type BorradorDeNumero,
   type Numero,
+  type NumeroDescubierto,
 } from '@/app/stores/whatsapp'
 import {
   AAviso,
@@ -87,64 +89,123 @@ const borrador = ref<BorradorDeNumero>(borradorDeNumeroVacio())
  */
 const token = ref('')
 
+// ── EL DESCUBRIMIENTO ──
+const buscando = ref(false)
+const errorAlBuscar = ref('')
+const descubiertos = ref<NumeroDescubierto[]>([])
+const elegido = ref('')
+
+/**
+ * Le pregunta a Meta qué números tiene este token.
+ *
+ * El token **no se guarda aquí**: viaja al comando, se usa para preguntar y se
+ * tira. Quien lo guarda es el llavero, y sólo al dar de alta el número.
+ */
+async function buscarMisNumeros(): Promise<void> {
+  buscando.value = true
+  // El error de la búsqueda anterior se borra ANTES de reintentar, no al
+  // terminar bien: si no, el aviso de un intento fallido sobrevive al intento
+  // que lo resuelve. Es el H-01 del 14/10/2026, en otra pantalla.
+  errorAlBuscar.value = ''
+  descubiertos.value = []
+  elegido.value = ''
+  try {
+    descubiertos.value = await invocar<NumeroDescubierto[]>(
+      'descubrir_numeros_de_whatsapp',
+      { token: token.value },
+    )
+  } catch (e) {
+    errorAlBuscar.value = claveDelError(e)
+  } finally {
+    buscando.value = false
+  }
+}
+
+/**
+ * Al cambiar el token, lo descubierto deja de valer.
+ *
+ * Sin esto, alguien pega otro token, no vuelve a buscar, y guarda el número
+ * del token anterior con la credencial del nuevo — una cuenta que no puede
+ * enviar y que nadie sabe por qué.
+ */
+function alCambiarElToken(): void {
+  descubiertos.value = []
+  elegido.value = ''
+  errorAlBuscar.value = ''
+}
+
+/** Rellena el borrador con lo que dijo Meta. Nada de esto se teclea. */
+function elegirNumero(n: NumeroDescubierto): void {
+  borrador.value.wabaId = n.wabaId
+  borrador.value.phoneNumberId = n.phoneNumberId
+  borrador.value.telefono = n.telefono
+  borrador.value.nombreVisible = n.nombre
+}
+
+/**
+ * El tono de la calidad que Meta declara.
+ *
+ * `UNKNOWN` va en neutro y no en verde: un semáforo que se pone en verde
+ * cuando no ha podido mirar es peor que no tener semáforo.
+ */
+function tonoDeLaCalidadDeMeta(
+  calidad: string,
+): 'exito' | 'aviso' | 'peligro' | 'neutro' {
+  if (calidad === 'GREEN') return 'exito'
+  if (calidad === 'YELLOW') return 'aviso'
+  if (calidad === 'RED') return 'peligro'
+  return 'neutro'
+}
+
 const MODOS = computed(() => [
   { valor: 'seguimiento', texto: t('whatsapp.modo.seguimiento') },
   { valor: 'prospeccion_directa', texto: t('whatsapp.modo.prospeccionDirecta') },
 ])
 
 /**
- * Los avisos de los tres datos que se copian del panel de Meta.
+ * El aviso del token, que es **el único dato que se pega a mano**.
  *
- * ── R-02 · por qué esto y no «dos campos como el correo» ────────────────────
+ * ── R-02 · de seis campos a uno, y por qué antes no se pudo ────────────────
  *
- * Dirección pidió que esto fuera tan sencillo como el alta de correo. **No se
- * puede, y es importante decir por qué**: el correo se deduce del dominio, pero
- * el WABA ID, el Phone Number ID y el token **sólo existen en el panel de
- * Meta** y no hay nada de lo que inferirlos.
+ * Dirección pidió que esto fuera tan sencillo como el alta de correo. La
+ * respuesta de entonces fue que no se podía: el correo se deduce del dominio,
+ * pero el WABA ID y el Phone Number ID **sólo existen en el panel de Meta** y
+ * no hay nada de lo que inferirlos.
  *
- * Lo que sí se puede es cazar el error de pegado **antes** de guardar, que es
- * donde se pierde la gente: los dos identificadores son números largos, el
- * token empieza por `EAA`, y copiar uno en el campo del otro da un error de
- * Meta que no dice cuál de los tres está mal.
+ * Era cierto y estaba incompleto. No se pueden **deducir**, pero sí se pueden
+ * **preguntar**: el token ya autoriza a Meta a decir qué números cuelgan de
+ * él. Eso es D-WA (26/10/2026), y deja el alta en un dato y una elección.
+ *
+ * El aviso de pegado se queda para el token: empieza por `EAA`, y pegar ahí un
+ * identificador numérico da un error de Meta que no dice cuál es el problema.
  */
-const avisoWabaId = computed(() =>
-  claveAviso(revisarDatoDeMeta('wabaId', borrador.value.wabaId)),
+const avisoToken = computed(() =>
+  claveAviso(revisarDatoDeMeta('token', token.value)),
 )
-const avisoPhoneNumberId = computed(() =>
-  claveAviso(revisarDatoDeMeta('phoneNumberId', borrador.value.phoneNumberId)),
-)
-const avisoToken = computed(() => claveAviso(revisarDatoDeMeta('token', token.value)))
 
 function claveAviso(clave: string): string {
   return clave ? t(clave) : ''
 }
 
-/**
- * El nombre para identificarlo sigue al teléfono mientras nadie lo cambie.
- *
- * Es un campo «solo para ti» que no sale en ningún mensaje, así que dejarlo
- * vacío y obligar a inventarse algo es pedir trabajo sin motivo (R-02).
- */
-const nombreTocado = ref(false)
-function alEscribirElTelefono(): void {
-  if (!nombreTocado.value) borrador.value.nombreVisible = borrador.value.telefono
-}
-
 /** Avisa antes de guardar, no después: el modo en frío se elige sabiéndolo. */
 const elegidoEnFrio = computed(() => borrador.value.modo === 'prospeccion_directa')
 
+/**
+ * Se guarda cuando hay token Y un número elegido de la lista.
+ *
+ * Se mira `elegido` y no los campos del borrador: los campos se rellenan al
+ * elegir, así que mirarlos diría lo mismo — hasta que alguien cambie el token
+ * sin volver a buscar. Entonces el borrador sigue lleno y lo elegido ya no
+ * vale, que es justo lo que `alCambiarElToken` limpia.
+ */
 const puedeGuardar = computed(
-  () =>
-    borrador.value.nombreVisible.trim().length > 0 &&
-    borrador.value.telefono.trim().length > 0 &&
-    borrador.value.wabaId.trim().length > 0 &&
-    borrador.value.phoneNumberId.trim().length > 0 &&
-    token.value.trim().length > 0,
+  () => token.value.trim().length > 0 && elegido.value.length > 0,
 )
 
 function abrir(): void {
   borrador.value = borradorDeNumeroVacio()
   token.value = ''
+  alCambiarElToken()
   formularioAbierto.value = true
 }
 
@@ -297,65 +358,30 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
       v-if="formularioAbierto"
       :titulo="t('numeroDeWhatsapp.anadir')"
     >
-      <!-- ── R-02 · el formulario en tres bloques ──
-           Antes eran seis campos seguidos, todos iguales, mezclando lo que se
-           escribe con lo que se copia del panel de Meta. Ahora se separan:
+      <!-- ── R-02 → D-WA · de seis campos a un dato y una elección ──
+           El 14/10/2026 esto eran seis campos seguidos, y la respuesta a
+           Dirección fue que **no se podía** reducir como el correo: el WABA ID
+           y el Phone Number ID sólo existen en el panel de Meta y no hay nada
+           de lo que inferirlos.
 
-             1 · tu número          — lo que la persona sabe de memoria
-             2 · copiado de Meta    — los tres que hay que ir a buscar
-             3 · cómo se va a usar  — la decisión
-
-           No se puede reducir a dos campos como el correo, y conviene decirlo:
-           el correo se deduce del dominio, pero estos tres identificadores sólo
-           existen en el panel de Meta y no hay nada de lo que inferirlos. Lo
-           que sí se hace es avisar del error de pegado antes de guardar. -->
+           Era verdad de *inferirlos* y falsa de *preguntarlos*. Con el token,
+           Meta dice cuáles son sus números: el 26/10/2026 los seis campos
+           quedaron en **pegar el token y elegir de una lista**, y lo que se
+           guarda viene verificado por la fuente en vez de por quien copia. -->
       <div class="campos">
-        <p class="grupo">
-          {{ t('numeroDeWhatsapp.grupoTuNumero') }}
-        </p>
+        <!-- ══ EL ALTA, EN UN DATO Y UNA ELECCIÓN (D-WA, 26/10/2026) ══
+             Pedía SEIS campos, cuatro de ellos identificadores que sólo
+             existen en el panel de Meta y hay que copiar sin equivocarse. Con
+             el token, Meta dice el resto.
 
-        <AEntrada
-          v-model="borrador.telefono"
-          :etiqueta="t('numeroDeWhatsapp.telefono')"
-          :ayuda="t('numeroDeWhatsapp.telefonoAyuda')"
-          @update:model-value="alEscribirElTelefono"
-        />
-        <AEntrada
-          v-model="borrador.nombreVisible"
-          :etiqueta="t('numeroDeWhatsapp.nombreVisible')"
-          :ayuda="t('numeroDeWhatsapp.nombreVisibleAyuda')"
-          @update:model-value="nombreTocado = true"
-        />
-
+             Los campos de antes no se esconden: dejan de existir. Un
+             formulario con «configuración avanzada» por si acaso es el
+             formulario de antes con un pliegue. -->
         <p class="grupo">
-          {{ t('numeroDeWhatsapp.grupoDeMeta') }}
+          {{ t('numeroDeWhatsapp.grupoElToken') }}
         </p>
         <p class="grupo-nota">
-          {{ t('numeroDeWhatsapp.grupoDeMetaNota') }}
-        </p>
-
-        <AEntrada
-          v-model="borrador.wabaId"
-          :etiqueta="t('numeroDeWhatsapp.wabaId')"
-          :ayuda="t('numeroDeWhatsapp.wabaIdAyuda')"
-        />
-        <p
-          v-if="avisoWabaId"
-          class="aviso-de-pegado"
-        >
-          {{ avisoWabaId }}
-        </p>
-
-        <AEntrada
-          v-model="borrador.phoneNumberId"
-          :etiqueta="t('numeroDeWhatsapp.phoneNumberId')"
-          :ayuda="t('numeroDeWhatsapp.phoneNumberIdAyuda')"
-        />
-        <p
-          v-if="avisoPhoneNumberId"
-          class="aviso-de-pegado"
-        >
-          {{ avisoPhoneNumberId }}
+          {{ t('numeroDeWhatsapp.grupoElTokenNota') }}
         </p>
 
         <AEntrada
@@ -363,6 +389,7 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
           tipo="password"
           :etiqueta="t('numeroDeWhatsapp.token')"
           :ayuda="t('numeroDeWhatsapp.tokenAyuda')"
+          @update:model-value="alCambiarElToken"
         />
         <p
           v-if="avisoToken"
@@ -370,6 +397,63 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
         >
           {{ avisoToken }}
         </p>
+
+        <ABoton
+          variante="secundario"
+          :ocupado="buscando"
+          :deshabilitado="token.trim().length === 0"
+          @click="buscarMisNumeros"
+        >
+          {{ t('numeroDeWhatsapp.buscar') }}
+        </ABoton>
+
+        <!-- El motivo por el que no se pudo preguntar. Son tres y mandan a
+             hacer tres cosas distintas: revisar el token, esperar, o ir al
+             panel a dar de alta un número. -->
+        <AAviso
+          v-if="errorAlBuscar"
+          tono="peligro"
+        >
+          {{ t(errorAlBuscar) }}
+        </AAviso>
+
+        <!-- Los números que Meta dice que existen. Con su calidad y su tope:
+             son las dos cifras que deciden si ese número puede trabajar, y
+             enseñarlas aquí evita elegir a ciegas. -->
+        <template v-if="descubiertos.length > 0">
+          <p class="grupo">
+            {{ t('numeroDeWhatsapp.grupoElige') }}
+          </p>
+          <ul class="descubiertos">
+            <li
+              v-for="n in descubiertos"
+              :key="n.phoneNumberId"
+            >
+              <label class="descubierto">
+                <input
+                  v-model="elegido"
+                  type="radio"
+                  name="numero-descubierto"
+                  :value="n.phoneNumberId"
+                  @change="elegirNumero(n)"
+                >
+                <span class="descubierto__nombre">{{ n.nombre }}</span>
+                <span class="descubierto__telefono">{{ n.telefono }}</span>
+                <AInsignia :tono="tonoDeLaCalidadDeMeta(n.calidad)">
+                  {{ t(`numeroDeWhatsapp.calidad.${n.calidad.toLowerCase()}`) }}
+                </AInsignia>
+                <span
+                  v-if="n.topeDiario !== null"
+                  class="descubierto__tope"
+                >
+                  {{ t('numeroDeWhatsapp.topeDeMeta', {
+                    tope: n.topeDiario.toLocaleString('es-MX'),
+                  }) }}
+                </span>
+              </label>
+            </li>
+          </ul>
+        </template>
 
         <p class="grupo">
           {{ t('numeroDeWhatsapp.grupoComoSeUsa') }}
@@ -627,6 +711,48 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
 
 /* Los tres títulos que parten el formulario (R-02). Separan lo que se sabe de
    memoria de lo que hay que ir a buscar al panel de Meta. */
+/* ── La lista de números que Meta dice que existen (D-WA) ──
+   Cada uno es una fila pulsable entera, no sólo el redondel: el objetivo de
+   32 px del §22 se cumple con la fila, y elegir el número es la acción
+   principal de esta pantalla. */
+.descubiertos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-2);
+}
+
+.descubierto {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--arles-space-3);
+  min-height: var(--arles-objetivo-minimo);
+  padding: var(--arles-space-3);
+  border: var(--arles-border-width) solid var(--arles-border);
+  border-radius: var(--arles-radius-md);
+  cursor: pointer;
+}
+
+.descubierto:hover {
+  background: var(--arles-surface-hover);
+}
+
+.descubierto__nombre {
+  font-weight: var(--arles-font-weight-semibold);
+}
+
+.descubierto__telefono {
+  font-variant-numeric: tabular-nums;
+}
+
+.descubierto__tope {
+  color: var(--arles-text-muted);
+  font-size: var(--arles-font-size-small);
+}
+
 .grupo {
   margin: var(--arles-space-2) 0 0;
   font-weight: var(--arles-font-weight-semibold);

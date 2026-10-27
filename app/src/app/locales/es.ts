@@ -3474,22 +3474,48 @@ export const es = {
       'y está junto a tu número en el panel.',
 
     // ── R-02 · los tres bloques del formulario, y los avisos de pegado ──
-    grupoTuNumero: 'Tu número',
-    grupoDeMeta: 'Lo que se copia del panel de Meta',
-    grupoDeMetaNota:
-      'Estos tres sólo existen en tu cuenta de Meta: ARLES no puede ' +
-      'adivinarlos. Si algo no cuadra al pegarlo, te avisa antes de guardar.',
+    // ── EL ALTA EN UN DATO Y UNA ELECCIÓN (D-WA, 26/10/2026) ──
+    //
+    // Pedía seis campos. Con el token, Meta dice el resto.
+    grupoElToken: 'Pega tu token de Meta',
+    grupoElTokenNota:
+      'Es lo único que ARLES te pide. Con él le pregunta a Meta cuáles son ' +
+      'tus números y rellena lo demás. El token se guarda en el llavero de ' +
+      'tu equipo, nunca en la base de datos ni en ningún archivo.',
+    buscar: 'Buscar mis números',
+    grupoElige: 'Elige el número con el que vas a escribir',
+    // §94: la cifra. «Límite alto» no deja planificar una campaña.
+    topeDeMeta: 'Meta te deja {tope} al día',
+
+    // Los tres motivos por los que no se pudo preguntar. Son tres y no uno
+    // porque mandan a hacer tres cosas distintas: revisar el token, esperar,
+    // o ir al panel de Meta a dar de alta un número.
+    descubrir: {
+      tokenNoVale:
+        'Meta no acepta ese token. Si es el temporal, caduca a las 24 horas: ' +
+        'copia uno nuevo del panel. Si es permanente, comprueba que tenga los ' +
+        'permisos «whatsapp_business_messaging» Y ' +
+        '«whatsapp_business_management» — sin el segundo, ARLES no puede ' +
+        'preguntar cuáles son tus números. No se ha guardado nada.',
+      noSeLlego:
+        'No se pudo hablar con Meta. Puede ser tu conexión o Meta misma. ' +
+        'Vuelve a intentarlo en unos minutos: tu token está bien, no lo ' +
+        'cambies. No se ha guardado nada.',
+      ningunNumero:
+        'El token es correcto, pero esta cuenta no tiene ningún número de ' +
+        'WhatsApp dado de alta. Añádelo en el panel de Meta y vuelve a ' +
+        'buscar. No se ha guardado nada.',
+    },
+
+
     grupoComoSeUsa: 'Cómo se va a usar',
+
+    // Se fueron con sus campos: `grupoTuNumero`, `grupoDeMeta`,
+    // `grupoDeMetaNota` y los tres avisos de los identificadores —
+    // `esElToken`, `soloDigitos`, `demasiadoCorto`—. Desde D-WA el alta no
+    // pide ningún identificador: los pregunta a Meta. Un texto que ninguna
+    // pantalla pinta es el §9 por el otro lado, y no lo caza nada.
     avisos: {
-      esElToken:
-        'Esto parece el token de acceso, no un identificador. El token va en ' +
-        'su propio campo, más abajo.',
-      soloDigitos:
-        'Un identificador de Meta son sólo dígitos, sin espacios ni guiones. ' +
-        'Revisa que lo copiaste entero y sin nada más.',
-      demasiadoCorto:
-        'Parece corto para ser un identificador de Meta: suelen tener quince ' +
-        'dígitos o más. Puede que falte un trozo al copiarlo.',
       tokenEsUnNumero:
         'Esto parece un identificador, no el token. El token de Meta empieza ' +
         'por EAA y es mucho más largo.',

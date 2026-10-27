@@ -16,12 +16,15 @@
 
 pub mod cloud;
 pub mod codigos;
+/// Preguntarle a Meta qué números tiene este token (D-WA).
+pub mod descubrir;
 pub mod entrante;
 pub mod estado;
 pub mod servidor;
 
 pub use cloud::ProveedorDeWhatsApp;
 pub use codigos::{ErrorDeMeta, traducir};
+pub use descubrir::{NoSePudoPreguntar, NumeroDescubierto, numeros_del_token};
 pub use entrante::{Aviso, AvisoRechazado, Respuesta};
 pub use estado::{EstadoDelNumero, consultar};
 pub use servidor::{Guion, ServidorDeMentira};

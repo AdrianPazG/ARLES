@@ -44,6 +44,18 @@ pub enum Guion {
     /// contesta, que es distinto de uno que rechaza: aquí sí hay algo
     /// escuchando, así que la dirección y el puerto están bien.
     Enmudece,
+    /// El token vale para mandar y **no para preguntar**: `debug_token`
+    /// contesta 200 con el permiso de mensajería y sin el de gestión.
+    ///
+    /// Es el caso más probable de todos —el que la guía de configuración
+    /// advierte en el paso 4— y el que no se puede reproducir con `Falla`,
+    /// porque Meta no da ningún error: contesta bien y la lista viene vacía.
+    TokenSinGestion,
+    /// El token vale, autoriza un WABA, y ese WABA **no tiene ningún número**.
+    ///
+    /// Es el único de los tres que manda al panel de Meta a dar de alta un
+    /// número en vez de a tocar el token.
+    SinNumeros,
 }
 
 /// Lo que el servidor recibió, para poder comprobarlo.
@@ -172,11 +184,32 @@ fn atender(mut flujo: TcpStream, guion: &Guion, recibido: &Arc<Mutex<Vec<LoQueLl
     }
     peticion.cuerpo = String::from_utf8_lossy(&cuerpo).into_owned();
 
+    // La ruta se copia ANTES de guardar la petición: el guardado la mueve, y
+    // las dos rutas del descubrimiento la necesitan para decidir qué contestar.
+    let ruta = peticion.ruta.clone();
+
     if let Ok(mut g) = recibido.lock() {
         g.push(peticion);
     }
 
     let respuesta = match guion {
+        // ── LAS DOS RUTAS DEL DESCUBRIMIENTO (D-WA) ──────────────────────
+        //
+        // Van ANTES del guion y sólo en `Acepta`: son consultas, no envíos, y
+        // mezclarlas con el guion haría que una prueba de «Meta rechaza el
+        // mensaje» tampoco pudiera listar los números — dos cosas distintas
+        // con un solo interruptor.
+        Guion::Acepta if ruta.contains("debug_token") => http(
+            200,
+            r#"{"data":{"app_id":"1","granular_scopes":[
+                {"scope":"whatsapp_business_messaging","target_ids":["waba-1"]},
+                {"scope":"whatsapp_business_management","target_ids":["waba-1"]}]}}"#,
+        ),
+        Guion::Acepta if ruta.contains("phone_numbers") => http(
+            200,
+            r#"{"data":[{"verified_name":"Telemetry","display_phone_number":"+52 55 1234 5678",
+                "id":"pn-1","quality_rating":"GREEN","messaging_limit_tier":"TIER_1K"}]}"#,
+        ),
         Guion::Acepta => http(
             200,
             r#"{"messaging_product":"whatsapp","contacts":[{"wa_id":"5218112345678"}],"messages":[{"id":"wamid.DEMENTIRA"}]}"#,
@@ -193,6 +226,29 @@ fn atender(mut flujo: TcpStream, guion: &Guion, recibido: &Arc<Mutex<Vec<LoQueLl
         // Se cierra sin contestar: el cliente se queda esperando hasta su
         // tiempo máximo. Es lo que hace un servidor saturado.
         Guion::Enmudece => return,
+
+        // Las dos caras del descubrimiento que Meta contesta **con un 200**.
+        // Son las que ningún `Falla` puede reproducir, y son justo las que
+        // mandan a dos sitios distintos: a generar otro token, o al panel.
+        Guion::TokenSinGestion if ruta.contains("debug_token") => http(
+            200,
+            r#"{"data":{"app_id":"1","granular_scopes":[
+                {"scope":"whatsapp_business_messaging","target_ids":["waba-1"]}]}}"#,
+        ),
+        Guion::SinNumeros if ruta.contains("debug_token") => http(
+            200,
+            r#"{"data":{"app_id":"1","granular_scopes":[
+                {"scope":"whatsapp_business_management","target_ids":["waba-1"]}]}}"#,
+        ),
+        Guion::SinNumeros if ruta.contains("phone_numbers") => http(200, r#"{"data":[]}"#),
+
+        // Fuera de sus dos rutas, los dos guiones nuevos no tienen nada que
+        // decir: un 500 y no un 200, para que una prueba que llegue aquí por
+        // error falle en vez de creerse una respuesta inventada.
+        Guion::TokenSinGestion | Guion::SinNumeros => http(
+            500,
+            r#"{"error":{"message":"este guion solo contesta al descubrimiento","type":"OAuthException","code":1,"fbtrace_id":"x"}}"#,
+        ),
     };
 
     let _ = flujo.write_all(respuesta.as_bytes());

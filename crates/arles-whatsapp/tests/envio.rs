@@ -233,3 +233,133 @@ fn el_token_va_en_la_cabecera_y_en_ningun_otro_sitio() {
     assert!(!p.ruta.contains(TOKEN), "y no en la ruta: {}", p.ruta);
     assert!(!p.cuerpo.contains(TOKEN), "ni en el cuerpo");
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EL DESCUBRIMIENTO · D-WA, 26/10/2026
+//
+// El alta pedía SEIS datos, cuatro de ellos identificadores que sólo existen
+// en el panel de Meta y hay que copiar sin equivocarse. Con el token, Meta
+// dice el resto: queda un dato y una elección.
+//
+// Estas pruebas van contra el servidor de mentira y no contra las funciones
+// sueltas —que ya tienen las suyas en el módulo— porque lo que hay que poder
+// afirmar es que **las dos llamadas encadenan**: la primera saca el WABA y la
+// segunda lo usa. Cada mitad puede estar bien y la junta no.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// **Con sólo el token, Meta dice el número entero.**
+///
+/// Es la prueba de que el alta se puede reducir: todo lo que el formulario
+/// pedía a mano —WABA, Phone Number ID, teléfono y nombre— llega de la fuente.
+#[test]
+fn con_el_token_se_descubre_el_numero_entero() {
+    let servidor = ServidorDeMentira::arrancar(Guion::Acepta).expect("arranca");
+
+    let numeros =
+        arles_whatsapp::numeros_del_token(&servidor.base(), TOKEN).expect("Meta contesta");
+
+    assert_eq!(numeros.len(), 1, "el servidor de mentira tiene uno");
+    let n = numeros.first().expect("uno");
+    assert_eq!(n.phone_number_id, "pn-1");
+    assert_eq!(n.waba_id, "waba-1", "el WABA salió de debug_token");
+    assert_eq!(n.telefono, "+52 55 1234 5678");
+    assert_eq!(n.nombre, "Telemetry");
+    assert_eq!(n.calidad, "GREEN");
+    assert_eq!(n.tope_diario, Some(1_000), "TIER_1K");
+}
+
+/// **Las dos llamadas encadenan, y se comprueba que la segunda usa el WABA de
+/// la primera.**
+///
+/// Es la junta: con el WABA mal pasado, la segunda llamada iría a otra ruta y
+/// la lista saldría vacía — que se leería como «no tienes números» delante de
+/// alguien que sí los tiene.
+#[test]
+fn la_segunda_llamada_usa_el_waba_de_la_primera() {
+    let servidor = ServidorDeMentira::arrancar(Guion::Acepta).expect("arranca");
+
+    let _ = arles_whatsapp::numeros_del_token(&servidor.base(), TOKEN).expect("Meta contesta");
+
+    let pedidos = servidor.recibido();
+    assert_eq!(pedidos.len(), 2, "una por paso");
+    assert!(
+        pedidos
+            .first()
+            .expect("la primera")
+            .ruta
+            .contains("debug_token"),
+        "primero se pregunta qué autoriza el token"
+    );
+    assert!(
+        pedidos
+            .get(1)
+            .expect("la segunda")
+            .ruta
+            .contains("waba-1/phone_numbers"),
+        "y después se piden los números DE ESE WABA"
+    );
+}
+
+/// **Un token que Meta rechaza manda a revisar el token, no a esperar.**
+#[test]
+fn un_token_rechazado_se_distingue_de_una_red_caida() {
+    let servidor = ServidorDeMentira::arrancar(Guion::Falla {
+        http: 401,
+        codigo: 190,
+    })
+    .expect("arranca");
+
+    let r = arles_whatsapp::numeros_del_token(&servidor.base(), TOKEN);
+    assert_eq!(r, Err(arles_whatsapp::NoSePudoPreguntar::ElTokenNoVale));
+}
+
+/// **Un token que sirve para mandar y no para preguntar manda a cambiar el
+/// token, no al panel de Meta.**
+///
+/// Es el fallo más probable del alta —la guía lo advierte en el paso 4— y el
+/// que ningún error de Meta delata: `debug_token` contesta **200**, con el
+/// permiso de mensajería y sin el de gestión, y la lista de WABA viene vacía.
+///
+/// Los dos desenlaces posibles mandan a sitios opuestos: «genera otro token
+/// con los dos permisos» o «ve al panel a dar de alta un número». Confundirlos
+/// es media tarde buscando un número que sí existe.
+///
+/// **Esta prueba existe porque su ruptura salió en verde** (§2, 27/10/2026):
+/// cambiar este desenlace a `NingunNumero` no hacía fallar nada, así que la
+/// distinción entre los dos motivos no estaba verificada por ninguna de las
+/// once pruebas del módulo. Verificada ahora rompiéndola **en los dos
+/// sentidos**, con `una_cuenta_sin_numeros_no_acusa_al_token`: cada una caza
+/// la suya y ninguna caza las dos.
+#[test]
+fn un_token_sin_el_permiso_de_gestion_no_parece_una_cuenta_sin_numeros() {
+    let servidor = ServidorDeMentira::arrancar(Guion::TokenSinGestion).expect("arranca");
+
+    let r = arles_whatsapp::numeros_del_token(&servidor.base(), TOKEN);
+    assert_eq!(
+        r,
+        Err(arles_whatsapp::NoSePudoPreguntar::ElTokenNoVale),
+        "sin el permiso de gestión no hay dónde mirar: el token es lo que falta"
+    );
+}
+
+/// **Y al revés: una cuenta de verdad sin ningún número manda al panel.**
+///
+/// Aquí el token está perfecto. Decirle a quien lo acaba de generar con los dos
+/// permisos que «el token no vale» le haría generar otro, y otro.
+#[test]
+fn una_cuenta_sin_numeros_no_acusa_al_token() {
+    let servidor = ServidorDeMentira::arrancar(Guion::SinNumeros).expect("arranca");
+
+    let r = arles_whatsapp::numeros_del_token(&servidor.base(), TOKEN);
+    assert_eq!(r, Err(arles_whatsapp::NoSePudoPreguntar::NingunNumero));
+}
+
+/// **Meta callada no es un token malo**, y mandar a revisar el token por eso
+/// es una tarde perdida buscando donde no está.
+#[test]
+fn meta_callada_no_acusa_al_token() {
+    let servidor = ServidorDeMentira::arrancar(Guion::Enmudece).expect("arranca");
+
+    let r = arles_whatsapp::numeros_del_token(&servidor.base(), TOKEN);
+    assert_eq!(r, Err(arles_whatsapp::NoSePudoPreguntar::NoSeLlego));
+}

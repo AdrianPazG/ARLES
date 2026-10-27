@@ -110,6 +110,72 @@ pub fn numeros_de_whatsapp(
         .collect())
 }
 
+/// Un número que Meta dice que existe, listo para enseñar en una lista.
+///
+/// **No lleva el token** (regla 3 de la frontera): el token entró por el
+/// comando y no vuelve. Lo que vuelve son identificadores y un teléfono, que
+/// son públicos — están impresos en el panel de Meta.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NumeroDescubiertoIpc {
+    pub phone_number_id: String,
+    pub waba_id: String,
+    pub telefono: String,
+    pub nombre: String,
+    /// `GREEN`, `YELLOW`, `RED` o `UNKNOWN`, tal como lo manda Meta.
+    pub calidad: String,
+    pub tope_diario: Option<u32>,
+}
+
+/// Pregunta a Meta qué números tiene este token (D-WA, 26/10/2026).
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LO QUE ESTE COMANDO AHORRA
+///
+/// El alta pedía seis datos. Cuatro —WABA ID, Phone Number ID, teléfono y
+/// nombre visible— sólo existen en el panel de Meta, en tres pantallas
+/// distintas, y hay que copiarlos sin equivocarse: el WABA ID y el Phone
+/// Number ID son dos números largos y parecidos, y cambiarlos de campo da un
+/// error que no dice cuál de los dos está mal.
+///
+/// Con esto queda **un dato y una elección**. Y lo que se guarda viene
+/// verificado por la fuente, que es mejor que verificado por quien copia.
+///
+/// El token **entra y no se guarda**: se usa para preguntar y se tira. Quien
+/// lo guarda es el llavero, al dar de alta el número elegido.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] con la clave del motivo: el token no vale, no se llegó a Meta,
+/// o la cuenta no tiene ningún número dado de alta. Son tres y no uno porque
+/// mandan a hacer tres cosas distintas.
+#[tauri::command]
+pub fn descubrir_numeros_de_whatsapp(token: String) -> Result<Vec<NumeroDescubiertoIpc>, ErrorIpc> {
+    arles_whatsapp::numeros_del_token(arles_whatsapp::cloud::GRAPH, &token)
+        .map(|v| {
+            v.into_iter()
+                .map(|n| NumeroDescubiertoIpc {
+                    phone_number_id: n.phone_number_id,
+                    waba_id: n.waba_id,
+                    telefono: n.telefono,
+                    nombre: n.nombre,
+                    calidad: n.calidad,
+                    tope_diario: n.tope_diario,
+                })
+                .collect()
+        })
+        .map_err(|e| ErrorIpc {
+            clave: e.clave_i18n().to_owned(),
+            // El detalle NO lleva el token ni nada que venga de Meta: es texto
+            // de fuera, y la bitácora no es sitio para él (regla de redacción
+            // de `ErrorIpc`). Basta con cuál de los tres motivos fue.
+            detalle: e.clave_i18n().to_owned(),
+            campos: Vec::new(),
+            canales: Vec::new(),
+            campos_de_cuenta: Vec::new(),
+        })
+}
+
 /// Da de alta un número de WhatsApp.
 ///
 /// El orden es el mismo que el de una cuenta de correo, y por la misma razón:

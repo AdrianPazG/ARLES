@@ -1208,6 +1208,38 @@
             aDonde: String(args.para || 'tu@ejemplo.mx'),
           });
 
+        // Preguntarle a Meta qué números tiene el token (D-WA, 26/10/2026).
+        //
+        // Devuelve DOS números a propósito: con uno solo la lista de elección
+        // no se puede mirar, y es justo la pieza que esta entrega construyó.
+        // El segundo lleva `topeDiario: null` —el escalón que Meta no nombra—
+        // porque esa rama pinta un texto distinto y no se vería nunca con un
+        // solo número en verde.
+        //
+        // Un token de menos de veinte caracteres se rechaza, por la misma
+        // razón que el número que acaba en 0 del envío de prueba: el aviso de
+        // que el token no vale es el texto que más se va a leer, y sin forma
+        // de provocarlo no se puede mirar a ojo.
+        case 'descubrir_numeros_de_whatsapp': {
+          if (String(args.token || '').length < 20) {
+            return Promise.reject({
+              clave: 'numeroDeWhatsapp.descubrir.tokenNoVale', detalle: '',
+            });
+          }
+          return Promise.resolve([
+            {
+              phoneNumberId: '109876543210987', wabaId: '102938475610293',
+              telefono: '+52 81 0000 0000', nombre: 'Atención a clientes',
+              calidad: 'GREEN', topeDiario: 250,
+            },
+            {
+              phoneNumberId: '110293847561029', wabaId: '102938475610293',
+              telefono: '+52 81 0000 0001', nombre: 'Ventas',
+              calidad: 'UNKNOWN', topeDiario: null,
+            },
+          ]);
+        }
+
         case 'numeros_de_whatsapp':
           return Promise.resolve(e.whatsapp || DEMO.whatsapp);
 

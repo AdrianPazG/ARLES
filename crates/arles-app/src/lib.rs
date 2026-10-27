@@ -133,6 +133,7 @@ pub fn run() {
             // espera a Dirección en `FASE-05-PARA-DIRECCION.md`. La función y
             // sus pruebas se quedan donde están.
             whatsapp::numeros_de_whatsapp,
+            whatsapp::descubrir_numeros_de_whatsapp,
             whatsapp::guardar_numero_de_whatsapp,
             whatsapp::confirmar_coexistencia,
             whatsapp::aceptar_riesgo_del_canal,

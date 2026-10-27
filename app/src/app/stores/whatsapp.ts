@@ -44,6 +44,28 @@ export interface Numero {
 }
 
 /** Lo que el formulario de alta manda. */
+/**
+ * Un número que Meta dice que existe (D-WA, 26/10/2026).
+ *
+ * Coincide con `arles_app::whatsapp::NumeroDescubiertoIpc`. **Ningún campo lo
+ * teclea nadie**: viene entero de Meta, que es la razón de que esto exista. Un
+ * identificador copiado a mano puede estar mal; uno traído de la fuente, no.
+ *
+ * No lleva el token (regla 3 de la frontera): el token entró por el comando y
+ * no vuelve.
+ */
+export interface NumeroDescubierto {
+  readonly phoneNumberId: string
+  readonly wabaId: string
+  /** Como Meta lo enseña, con sus espacios: es lo que se reconoce en la lista. */
+  readonly telefono: string
+  readonly nombre: string
+  /** `GREEN`, `YELLOW`, `RED` o `UNKNOWN`, tal como lo manda Meta. */
+  readonly calidad: string
+  /** Cuántos al día deja mandar Meta. `null` si no lo dice. */
+  readonly topeDiario: number | null
+}
+
 export interface BorradorDeNumero {
   nombreVisible: string
   telefono: string
@@ -55,45 +77,38 @@ export interface BorradorDeNumero {
 /**
  * Revisa que un dato copiado del panel de Meta tenga la forma que debe.
  *
- * ── POR QUÉ, Y POR QUÉ NO SE PUEDE HACER MÁS (R-02, 14/10/2026) ─────────────
+ * ── POR QUÉ EXISTE, Y POR QUÉ HOY MIRA UN SOLO CAMPO ───────────────────────
  *
- * Dirección pidió que dar de alta un número fuera tan sencillo como el correo:
- * «correo y contraseña nomás». **Con WhatsApp no se puede**, y conviene que
- * quede escrito por qué: el correo se deduce del dominio —`@gmail.com` implica
- * `smtp.gmail.com:587`— pero los tres identificadores de Meta (WABA ID, Phone
- * Number ID y token) **sólo existen en su panel**. No hay nada de lo que
- * inferirlos.
+ * Dirección pidió el 14/10/2026 que dar de alta un número fuera tan sencillo
+ * como el correo: «correo y contraseña nomás». La respuesta de entonces fue
+ * que **con WhatsApp no se podía**, porque el WABA ID y el Phone Number ID
+ * sólo existen en el panel de Meta y no hay nada de lo que inferirlos. Era
+ * verdad de *inferirlos* y falsa de *preguntarlos*: desde D-WA (26/10/2026)
+ * los pregunta `descubrir_numeros_de_whatsapp`, y el alta quedó en **un dato y
+ * una elección**.
  *
- * Lo que sí se puede es **cazar el error de pegado antes de guardar**, que es
- * donde se pierde la gente: los dos identificadores son números largos y el
- * token empieza siempre por `EAA`. Copiar uno en el campo del otro, o pegar un
- * trozo con espacios, da un error de Meta que no dice cuál de los tres está
- * mal.
+ * Así que esta función ya no revisa esos dos campos: **no existen**. Se quitan
+ * sus ramas en vez de dejarlas «por si acaso», porque una rama que nadie
+ * recorre es una rama que nadie vigila — y la que queda es la única que la
+ * pantalla usa.
+ *
+ * Lo que sí se sigue cazando es **el error de pegado del token antes de
+ * guardar**, que es donde se pierde la gente: pegar sólo un trozo, o pegar un
+ * identificador aquí por error, da un error de Meta que no dice qué está mal.
  *
  * **Avisa, no bloquea.** Meta podría cambiar el formato, y un formulario que se
  * niega a guardar algo correcto es peor que uno que avisa de algo dudoso.
  *
  * @returns la clave del aviso, o `''` si el dato tiene buena pinta.
  */
-export function revisarDatoDeMeta(
-  campo: 'wabaId' | 'phoneNumberId' | 'token',
-  valor: string,
-): string {
+export function revisarDatoDeMeta(campo: 'token', valor: string): string {
   const v = valor.trim()
-  if (v.length === 0) return ''
+  if (v.length === 0 || campo !== 'token') return ''
 
-  if (campo === 'token') {
-    // Los tokens de la Cloud API empiezan por `EAA` y son largos. Lo que más
-    // pasa es pegar sólo un trozo, o pegar un identificador aquí por error.
-    if (/^\d+$/.test(v)) return 'numeroDeWhatsapp.avisos.tokenEsUnNumero'
-    if (!v.startsWith('EAA')) return 'numeroDeWhatsapp.avisos.tokenNoEmpiezaBien'
-    return ''
-  }
-
-  // Los dos identificadores son números largos, sin espacios ni guiones.
-  if (v.startsWith('EAA')) return 'numeroDeWhatsapp.avisos.esElToken'
-  if (!/^\d+$/.test(v)) return 'numeroDeWhatsapp.avisos.soloDigitos'
-  if (v.length < 10) return 'numeroDeWhatsapp.avisos.demasiadoCorto'
+  // Los tokens de la Cloud API empiezan por `EAA` y son largos. Lo que más
+  // pasa es pegar sólo un trozo, o pegar un identificador aquí por error.
+  if (/^\d+$/.test(v)) return 'numeroDeWhatsapp.avisos.tokenEsUnNumero'
+  if (!v.startsWith('EAA')) return 'numeroDeWhatsapp.avisos.tokenNoEmpiezaBien'
   return ''
 }
 
