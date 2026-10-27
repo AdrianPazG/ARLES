@@ -199,6 +199,117 @@ def fase_0(rapido):
           "§37" in indice and "§69" in indice and "T-4" in indice,
           "El brief se contradecía en tres puntos; si no consta la resolución, alguien los reabrirá.")
 
+    # ── EL ORDEN DEL PROYECTO · requisito de Dirección del 27/10/2026 ─────
+    #
+    # Tres comprobaciones, y las tres existen por el mismo motivo: un
+    # andamiaje de documentación se degrada en silencio. Nadie borra una
+    # carpeta de golpe; lo que pasa es que un archivo se queda sin su puntero,
+    # o `CLAUDE.md` deja de mandar leerlo, y seis meses después nadie sabe que
+    # existía.
+    #
+    # Dirección pidió «que siempre te obligues a leer» y «que siempre
+    # actualices el estatus». Una obligación que depende de que alguien se
+    # acuerde no es una obligación: es una intención. Esto la convierte en una
+    # comprobación.
+    #
+    # Verificadas el 27/10/2026 con cuatro rupturas, las cuatro en rojo:
+    # apartando `ROLES.md` de la carpeta, cambiando el puntero de `CLAUDE.md`
+    # por otro archivo —no borrándolo, que dejaría el síntoma en pie—, poniendo
+    # el estado cinco meses atrás, y dejándolo sin fecha legible. Se comprobó
+    # la LÍNEA de cada comprobación con su cruz y no «algún rojo», que daría
+    # por cazada una ruptura que tumbó otra cosa.
+    arranque = os.path.join(RAIZ, "documentacion/00-ANTES-DE-EMPEZAR")
+    de_lectura = [
+        "LEEME-PRIMERO.md",
+        "PROHIBICIONES.md",
+        "METODO.md",
+        "DONDE-VA-CADA-COSA.md",
+        "ROLES.md",
+        "RELEVO.md",
+    ]
+    sin_archivo = [a for a in de_lectura if not os.path.exists(os.path.join(arranque, a))]
+    check(0, "La carpeta de lectura obligatoria está completa", not sin_archivo,
+          "Es lo primero que lee quien retoma el proyecto. Un archivo que falta "
+          "es una regla que la siguiente sesión no va a conocer.",
+          "Faltan:\n" + "\n".join(sin_archivo))
+
+    # ── Y `CLAUDE.md` TIENE QUE MANDAR LEERLA ────────────────────────────
+    #
+    # La carpeta sin el puntero es la carpeta que nadie abre. Se comprueba el
+    # archivo que de verdad se lee al abrir el proyecto, y se busca la RUTA
+    # entera y no el nombre de la carpeta: «00-ANTES-DE-EMPEZAR» a secas
+    # casaría una frase que la mencione de pasada.
+    reglas = leer("CLAUDE.md") or ""
+    check(0, "CLAUDE.md manda leer la carpeta de arranque",
+          "documentacion/00-ANTES-DE-EMPEZAR/LEEME-PRIMERO.md" in reglas,
+          "Una carpeta de lectura obligatoria que el archivo de reglas no nombra "
+          "es una carpeta que nadie abre.")
+
+    # ── EL ESTADO NO SE QUEDA ATRÁS DEL CÓDIGO ───────────────────────────
+    #
+    # `ESTADO_ACTUAL.md` es el único archivo de estado, y su valor entero
+    # depende de estar al día: un estado que describe el proyecto de hace tres
+    # entregas es peor que no tenerlo, porque se cree. Ya pasó —estuvo
+    # diciendo «entrega 3.3» con la Fase 4 cerrada y la 5 a medias—, y el §9
+    # de `CLAUDE.md` nació de ahí.
+    #
+    # Se compara su fecha con la del último commit que toca CÓDIGO, no con
+    # cualquiera: un cambio de documentación no obliga a reescribir el estado,
+    # y exigirlo haría que la comprobación saliera en rojo al arreglar una
+    # errata. El margen son catorce días, que es más de lo que tarda una
+    # entrega y menos de lo que tarda en mentir.
+    #
+    # Y la fecha se lee de la CABECERA del documento, no del archivo en disco:
+    # `git checkout` cambia la fecha del archivo sin cambiar su contenido, así
+    # que medir el disco daría verde sobre un documento viejo.
+    estado = leer("documentacion/07-entrega", "ESTADO_ACTUAL.md") or ""
+    m_fecha = re.search(
+        r"\*\*Última actualización:\*\*\s*(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})",
+        estado,
+    )
+    MESES = {
+        "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5,
+        "junio": 6, "julio": 7, "agosto": 8, "septiembre": 9,
+        "octubre": 10, "noviembre": 11, "diciembre": 12,
+    }
+    if m_fecha is None or m_fecha.group(2).lower() not in MESES:
+        check(0, "El estado del proyecto lleva su fecha", False,
+              "Sin fecha en la cabecera, un estado viejo se lee como si fuera de hoy.",
+              "no se encontró «**Última actualización:** D de MES de AAAA» "
+              "en ESTADO_ACTUAL.md")
+    else:
+        import datetime
+        import subprocess as _sp
+
+        del_estado = datetime.date(
+            int(m_fecha.group(3)),
+            MESES[m_fecha.group(2).lower()],
+            int(m_fecha.group(1)),
+        )
+        # El último commit que toca código, no documentación.
+        crudo = _sp.run(
+            ["git", "log", "-1", "--format=%cs", "--", "crates", "app/src", "herramientas"],
+            cwd=RAIZ, capture_output=True, text=True, check=False,
+        ).stdout.strip()
+        try:
+            del_codigo = datetime.date.fromisoformat(crudo)
+        except ValueError:
+            del_codigo = None
+
+        if del_codigo is None:
+            check(0, "El estado del proyecto va al día", True,
+                  "Sin historia de git no se puede comparar; no es un fallo del estado.",
+                  "no se pudo leer la fecha del último commit de código")
+        else:
+            atraso = (del_codigo - del_estado).days
+            check(0, "El estado del proyecto va al día", atraso <= 14,
+                  "Un estado que describe el proyecto de hace tres entregas es peor "
+                  "que no tenerlo, porque se cree. Estuvo diciendo «entrega 3.3» con "
+                  "la Fase 4 cerrada.",
+                  f"el estado es del {del_estado} y el último cambio de código del "
+                  f"{del_codigo}: {atraso} días de atraso, y el margen son 14. "
+                  f"Actualiza documentacion/07-entrega/ESTADO_ACTUAL.md")
+
     # ── La documentación dice la verdad ──────────────────────────────────
     #
     # Se añade el 22/09/2026 después de que Dirección pidiera revisar la

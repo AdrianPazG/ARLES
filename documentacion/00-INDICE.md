@@ -1,16 +1,30 @@
 # Documentación de ARLES RELAY I
 
 **Versión objetivo:** v1.2.0 · **Desarrollado por:** TELEMETRY INSIGHT
-**Fase actual:** 0 — Discovery, auditoría y arquitectura
-**Última actualización:** 2026-09-11
+**Última actualización:** 2026-10-27
+
+> **El estado del proyecto NO está en este archivo**, y es a propósito. Vive en
+> [`07-entrega/ESTADO_ACTUAL.md`](07-entrega/ESTADO_ACTUAL.md), que es el único
+> sitio donde vive.
+>
+> Esta cabecera decía «Fase actual: 0 — Discovery» con la Fase 8 cerrada y una
+> fecha de septiembre. Un índice que miente sobre el estado es peor que uno sin
+> estado, porque se cree — así que ahora no lo lleva: lo señala.
 
 ---
 
 ## Por dónde empezar
 
+> **Si vas a tocar algo, empieza por
+> [`00-ANTES-DE-EMPEZAR/LEEME-PRIMERO.md`](00-ANTES-DE-EMPEZAR/LEEME-PRIMERO.md).**
+> Son cinco archivos y veinte minutos, y no son opcionales: este proyecto ha
+> fallado más veces por no leer que por programar mal.
+
 | Si eres… | Lee esto |
 |---|---|
-| **Dirección** | [Auditoría A–U](02-auditoria/AUDITORIA_DISCOVERY.md) → [Preguntas abiertas](02-auditoria/PREGUNTAS_ABIERTAS.md) |
+| **Quien retoma el proyecto** | [Antes de empezar](00-ANTES-DE-EMPEZAR/LEEME-PRIMERO.md) → [Relevo](00-ANTES-DE-EMPEZAR/RELEVO.md) |
+| **Dirección** | [Estado actual](07-entrega/ESTADO_ACTUAL.md) → [Manual de usuario](07-entrega/MANUAL-DE-USUARIO.md) → [Requisitos](10-requisitos/REGISTRO-DE-REQUISITOS.md) |
+| Dirección, el histórico | [Auditoría A–U](02-auditoria/AUDITORIA_DISCOVERY.md) → [Preguntas abiertas](02-auditoria/PREGUNTAS_ABIERTAS.md) |
 | Tech Lead / Arquitecto | [Arquitectura](03-arquitectura/ARQUITECTURA.md) → [Motor de ejecución](03-arquitectura/MOTOR_DE_EJECUCION.md) → ADRs |
 | Backend / Rust | [Modelo de datos](03-arquitectura/MODELO_DE_DATOS.md) → [Motor](03-arquitectura/MOTOR_DE_EJECUCION.md) → [Proveedores](03-arquitectura/ABSTRACCION_EMAIL_PROVIDER.md) |
 | Frontend | [Design System](05-diseno/DESIGN_SYSTEM.md) → [Color](05-diseno/COLOR_SYSTEM.md) → [UX y navegación](05-diseno/UX_NAVEGACION.md) |
@@ -22,6 +36,16 @@
 ---
 
 ## Índice
+
+### 00 · Antes de empezar
+| Documento | Contenido |
+|---|---|
+| [**LEEME-PRIMERO**](00-ANTES-DE-EMPEZAR/LEEME-PRIMERO.md) | ⭐ **El orden de lectura.** Lo primero, siempre |
+| [PROHIBICIONES](00-ANTES-DE-EMPEZAR/PROHIBICIONES.md) | Lo que nunca se hace, con la comprobación que vigila cada cosa |
+| [METODO](00-ANTES-DE-EMPEZAR/METODO.md) | La regla de la ruptura, los tramos, la verificación y los poka-yokes |
+| [DONDE-VA-CADA-COSA](00-ANTES-DE-EMPEZAR/DONDE-VA-CADA-COSA.md) | En qué carpeta va cada archivo, y las cuatro cosas que tienen un solo sitio |
+| [ROLES](00-ANTES-DE-EMPEZAR/ROLES.md) | Los once sombreros, qué mira cada uno y qué ha encontrado |
+| [RELEVO](00-ANTES-DE-EMPEZAR/RELEVO.md) | **Retomar sin el contexto de la sesión anterior**, y los seis patrones de fallo |
 
 ### 01 · Producto
 | Documento | Contenido |
@@ -86,6 +110,9 @@
 | [MARCA_TELEMETRY](05-diseno/MARCA_TELEMETRY.md) | El logotipo horizontal dentro de ARLES: tinta, aire, enlace |
 | [UX_NAVEGACION](05-diseno/UX_NAVEGACION.md) | 6 secciones, flujos, onboarding, teclado. **La séptima se decide en P-13** |
 | [UX_WRITING](05-diseno/UX_WRITING.md) | Tono, errores, vocabulario de la honestidad |
+| [**guia-de-documentos**](05-diseno/guia-de-documentos/README.md) | **Cómo se diseña un informe para Dirección**: lenguaje, estructura, espaciado, color, impresión |
+| [· Plantilla de informe](05-diseno/guia-de-documentos/PLANTILLA-INFORME.md) | El esqueleto de un informe de entrega o de fase, con la sección de lo que todavía no hace |
+| [· Plantilla de decisión](05-diseno/guia-de-documentos/PLANTILLA-DECISION.md) | Cuando hace falta que Dirección elija: problema, riesgo, impacto, alternativas, trade-off, recomendación |
 
 ### 06 · Calidad
 | Documento | Contenido |

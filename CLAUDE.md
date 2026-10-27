@@ -49,6 +49,68 @@ código ni nada que acabe en el repositorio. En el chat sí.
 
 ---
 
+## 1 bis · El orden del proyecto · requisito de Dirección del 27/10/2026
+
+Esta sección **no se omite nunca**, y Dirección la pidió con esas palabras.
+
+**Antes de tocar nada, se lee
+[`documentacion/00-ANTES-DE-EMPEZAR/LEEME-PRIMERO.md`](documentacion/00-ANTES-DE-EMPEZAR/LEEME-PRIMERO.md).**
+Son cinco archivos y veinte minutos: las reglas, lo que nunca se hace, el
+método de verificación, el estado y los requisitos. Esa carpeta existe porque
+este proyecto ha fallado más veces por no leer que por programar mal.
+
+**Cada archivo que se crea va en su carpeta**, y la carpeta no se decide sobre
+la marcha: está en
+[`DONDE-VA-CADA-COSA.md`](documentacion/00-ANTES-DE-EMPEZAR/DONDE-VA-CADA-COSA.md).
+Un archivo en la raíz o en una carpeta nueva «por ahora» es cómo se llega a dos
+verdades que se contradicen — y este proyecto ya tuvo un índice diciendo «Fase
+0 — Discovery» con la Fase 8 cerrada. **Todo documento nuevo se nombra en
+`00-INDICE.md`**: lo vigila la fase 0.
+
+**Al cerrar un tramo se actualiza el estado.** Las cuatro cosas que tienen un
+solo sitio, y escribir una segunda es crear una contradicción:
+
+| Qué | Dónde, y sólo ahí |
+|---|---|
+| El estado del proyecto | `07-entrega/ESTADO_ACTUAL.md` |
+| El porcentaje de avance | `07-entrega/avance.json` → `herramientas/avance/calcular.py --escribir` |
+| Los requisitos y lo que bloquea | `10-requisitos/REGISTRO-DE-REQUISITOS.md` |
+| Los defectos encontrados usando ARLES | `06-calidad/BITACORA-DE-PRUEBAS.md` |
+
+**Y se escribe el poka-yoke.** Cuando algo falla, la pregunta no es sólo «¿cómo
+lo arreglo?» sino **«¿qué comprobación habría hecho imposible esto?»** — y se
+escribe, y se verifica rompiéndola. Gana el tipo sobre el validador, y el
+validador sobre la prueba: una variante con el dato dentro no necesita que
+nadie se acuerde. Los cinco fallos propios conocidos al escribir uno —la lista
+a mano, el alcance corto, la hoja y no la ruta, el comentario que se caza a sí
+mismo, y escribir en el repositorio para medirlo— están en
+[`METODO.md`](documentacion/00-ANTES-DE-EMPEZAR/METODO.md) §4.
+
+**Las cuatro preguntas antes de empujar**, siempre:
+
+1. **¿Quién lo llama?** La pieza nueva tiene un llamador de verdad, no una
+   prueba. Si todavía no lo tiene, **no se registra** y queda dicho dónde
+   vuelve.
+2. **¿Qué documento deja de ser verdad?** El estado, el índice, el manual, el
+   mapa de pantallas, el registro de requisitos.
+3. **¿Qué poka-yoke hace falta?** Y verificado rompiéndolo.
+4. **¿Está todo en su carpeta?**
+
+**Los informes y documentos para Dirección** siguen
+[`05-diseno/guia-de-documentos/`](documentacion/05-diseno/guia-de-documentos/README.md):
+cifras y no adjetivos, sin un solo emoji, nada que pudiera estar en cualquier
+informe de cualquier proyecto, y la sección de lo que todavía no hace es
+obligatoria.
+
+**Y los roles.** Antes de cerrar un tramo se mira desde los sombreros que el
+cambio toca —arquitecto, datos, seguridad, QA, rendimiento, diseño,
+accesibilidad, redacción, operaciones, legal—, que es como se encontraron
+diecisiete cosas con las diez fases en verde. Están en
+[`ROLES.md`](documentacion/00-ANTES-DE-EMPEZAR/ROLES.md), con lo que cada uno
+mira y lo que cada uno ha encontrado.
+
+---
+
 ## 2 · La regla de trabajo
 
 > **Una comprobación que nunca se ha visto fallar no está verificada.**

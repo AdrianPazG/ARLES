@@ -1,7 +1,7 @@
 # Estado actual · dónde está ARLES y qué sigue
 
 **Proyecto:** ARLES RELAY I · v1.2.0
-**Última actualización:** 22 de octubre de 2026 (R-24 cerrado · la auditoría de funcionalidad · el límite diario que se aplica)
+**Última actualización:** 27 de octubre de 2026 (D-WA tramos 1, 2, 3a y 3b · el alta de WhatsApp en un solo dato · la 7.5 de entregabilidad · el umbral de rebotes · el orden del proyecto)
 **Para qué sirve este documento:** que quien retome el trabajo —otra sesión, otra persona, otro equipo— sepa en una lectura qué está construido, qué decisiones ya están tomadas, qué **no** hay que volver a discutir y qué es lo siguiente.
 
 > Se actualiza **al cerrar cada entrega**, no al empezarla. Un documento de estado que describe intenciones en vez de hechos es peor que no tenerlo: se lee como si fuera cierto.
@@ -16,7 +16,11 @@
 
 **Y ARLES cuenta lo que hace.** La Fase 7 está cerrada salvo la 7.5: el freno —pausar, reanudar, detener y la parada de emergencia, con botón—, el registro de actividad, las cifras de cada campaña, la pantalla de Actividad con **por qué no sale nada**, el registro con sus seis filtros y el resumen exportable.
 
-**El canal de WhatsApp (W.1 a W.8) está construido**, y desde la 7.7 **se puede mandar un WhatsApp de prueba desde la aplicación** — hasta entonces el comando existía sin botón. Lo que WhatsApp **no** hace es lanzar una campaña entera: el motor sólo recorre `Canal::Correo`. Es la decisión que espera a Dirección en `09-fases/FASE-05-PARA-DIRECCION.md`.
+**El canal de WhatsApp (W.1 a W.8) está construido**, y desde la 7.7 se puede mandar un WhatsApp de prueba desde la aplicación — hasta entonces el comando existía sin botón.
+
+**Y desde el 26/10/2026 WhatsApp es un canal entero por dentro** (D-WA): el motor recorre las dos clases de etapa, el contenido viaja hasta el adaptador, una campaña de WhatsApp se crea y se activa congelando **los móviles y no los correos**, y el canal cruza la frontera como una variante etiquetada que rechaza cualquier mezcla. El alta de un número son **un dato y una elección**: se pega el token y ARLES le pregunta a Meta cuáles son tus números.
+
+**Lo que falta es el tramo 3c, y no es sólo el botón.** El asistente tiene el canal escrito a fuego en `'email'`, el preflight del canal no está registrado porque no tiene quien lo llame, y **el semáforo de calidad no se llena nunca**: `whatsapp_account.calidad` y `limite_diario_meta` se leen y no los escribe nadie, y la sonda que le pregunta a Meta no tiene llamador. Está detallado en `00-ANTES-DE-EMPEZAR/RELEVO.md` §5.
 
 **Y ARLES ya sabe guardar y recuperar todo lo que tiene.** La Fase 8 está cerrada entera (8.0 a 8.7, más la 8.3 bis y las cinco auditorías): respaldo cifrado con dos alcances, restauración que reemplaza y une las bajas, archivado del historial a un disco externo verificado antes de borrar, la pantalla de recuperación para el día que se pierda la llave del llavero, y la migración V11 que dejó la lista de contactos en 357 ms y la búsqueda por correo en menos de 1.
 

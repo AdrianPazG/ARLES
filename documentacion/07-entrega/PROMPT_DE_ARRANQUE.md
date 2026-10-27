@@ -9,11 +9,20 @@
 
 ---
 
-Hola. Vas a continuar el desarrollo de **ARLES RELAY I**, un proyecto que ya
-lleva cuatro fases y media construidas. Vengo de otra sesión y lo que sigue es
-todo lo que necesitas para retomarlo sin romper nada.
+Hola. Vas a continuar el desarrollo de **ARLES RELAY I**, un proyecto con
+**nueve fases construidas** —la 8 cerrada entera, con sus seis auditorías— y el
+canal de WhatsApp a falta de su última pieza. Vengo de otra sesión y lo que
+sigue es todo lo que necesitas para retomarlo sin romper nada.
 
 **Lee esto entero antes de tocar una sola línea de código.**
+
+> **Este archivo decía «cuatro fases y media» hasta el 27/10/2026**, con la Fase
+> 8 cerrada. Un documento de arranque que miente sobre el tamaño del proyecto
+> hace empezar con la idea equivocada de lo que ya está decidido — así que
+> ahora el detalle no vive aquí: vive en
+> [`00-ANTES-DE-EMPEZAR/`](../00-ANTES-DE-EMPEZAR/LEEME-PRIMERO.md), que es lo
+> que de verdad hay que leer, y en
+> [`ESTADO_ACTUAL.md`](ESTADO_ACTUAL.md), que es el único archivo de estado.
 
 ---
 
