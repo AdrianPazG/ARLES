@@ -80,15 +80,27 @@ frecuencia es el dato:
 | # | El patrón | Veces | Dónde está contado |
 |---|---|---|---|
 | 1 | **Una pieza correcta y probada que nadie llama** | 25+ | `CLAUDE.md`, «El patrón que ya ha aparecido ocho veces» |
-| 2 | **Una comprobación que se caza a sí misma** en un comentario | 9 | `METODO.md` §1 |
+| 2 | **Una comprobación que se caza a sí misma** en un comentario | 10 | `METODO.md` §1 |
 | 3 | **Una lista escrita a mano** que dice cubrir una regla y cubre una parte | 11 de 17 hallazgos | las cuatro auditorías del §140 |
-| 4 | **Un documento que afirma de más** | 5+ | el índice decía «Fase 0» con la Fase 8 cerrada |
+| 4 | **Un documento que afirma de más** | 8 anotados | `10-requisitos/REGISTRO-DE-REQUISITOS.md`, «Documentos que afirmaban de más» |
 | 5 | **Una afirmación de verificación falsa** — «verificada rompiéndola» sin haberlo hecho | 6+ | la 8.3 bis, la 8.6 E, el tramo 3b |
 | 6 | **Una ruptura mal elegida** que deja el síntoma en pie o no compila | 4 | `METODO.md` §1 |
 
 > **El quinto es el que más duele**, porque es el único que no se puede
 > distinguir de lo correcto sin volver a correrlo. Si un comentario dice
 > «verificada rompiéndola» y hay dudas, **se vuelve a romper.**
+
+> **El segundo llegó a diez el 27/10/2026, y el sitio importa:** el
+> `DESIGN_SYSTEM.md` reescrito ese día escribía el nombre de un token
+> inventado para ilustrar que un nombre mal escrito no da error — dentro de la
+> misma sección que advierte de esta trampa, y en el documento cuya
+> comprobación nueva lee precisamente esos nombres. Lo cazó **medir antes de
+> escribir la comprobación**, no después.
+>
+> La conclusión ya no es una anécdota y está en `CLAUDE.md`: **saberlo no
+> basta.** Se quitan los comentarios por defecto en cualquier comprobación que
+> busque una cadena en un archivo, y no se escribe un contraejemplo donde una
+> comprobación lo vaya a leer como afirmación.
 
 ---
 
@@ -121,6 +133,18 @@ entera por WhatsApp** desde la aplicación. Seis tramos, todos empujados:
    de una respuesta (D-7A). Se apunta **a mano** en Contactos › Bajas, y está
    dicho con esas palabras en la pantalla de WhatsApp, en la guía del canal y en
    el manual. Decisión de Dirección del 27/10/2026.
+
+**Cerrado el sistema de diseño como documento** (27/10/2026): el
+[`DESIGN_SYSTEM.md`](../05-diseno/DESIGN_SYSTEM.md) reescrito con el código
+delante —los 89 tokens y las 16 piezas, que antes documentaba a medias— y con
+`el_sistema_de_diseno_dice_lo_que_hay` comparándolo con los dos CSS y con la
+carpeta de componentes en las dos direcciones. Tenía **cinco afirmaciones
+falsas** desde la Fase 2, anotadas como DOC-1 a DOC-5 en el registro de
+requisitos.
+
+**Lo que queda de la petición del 23/10:** el **registro de requisitos de
+diseño** llenado desde una revisión visual de las dieciocho pantallas. La
+carpeta existe; lo que falta es mirar.
 
 **Lo siguiente, sin empezar:** la **Fase 9**, con lo que las auditorías dejaron
 abierto — sacar la activación a segundo plano con avance (73.5 s con 451 196

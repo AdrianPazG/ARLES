@@ -405,3 +405,61 @@ que importa la tenga.**
 
 - **El límite diario se escribía y no se aplicaba.** Se escribía 300, se leía el aviso de riesgo, se marcaba la casilla — **y salían 50**, porque el motor tomaba el menor entre la campaña y la cuenta, y toda cuenta nacía con 50 escritos en el código. **Peor que faltar la función: dejaba creer que se usó.**
 - **Dos campañas con el mismo remitente se repartían el cupo** —medido: 50 y 50 daban **25 y 25**, por orden de llegada—, así que el plazo del paso 6 no se cumplía. **Resuelto esa misma tarde con la D-13**: los topes se suman, las dos sacan 50, y el aviso del paso 6 pasó a avisar de lo otro — que de ese buzón salen 100 al día y el agregado ya no tiene techo.
+
+---
+
+## 12. El sistema de diseño, al día y comprobado · 27/10/2026
+
+Dirección pidió el 23/10 un sistema de diseño. Existía
+—[`DESIGN_SYSTEM.md`](../05-diseno/DESIGN_SYSTEM.md), de la Fase 2— y estaba
+desalineado: documentaba **24 de los 64 tokens** que no son color, **5 de las 16
+piezas**, y no mencionaba el tema claro, con los 25 colores llevando su valor
+claro desde la Fase 3 y una sonda midiéndolo.
+
+**Reescrito con el código delante, tenía cinco afirmaciones falsas.** Las cinco
+desde la Fase 2, y **ninguna de las cuatro auditorías del §140 las vio**: una
+auditoría mide el producto, y esto es un documento. Están en el registro de
+requisitos como DOC-1 a DOC-5, y en el §14 del propio documento con lo que
+habría costado cada una.
+
+La peor de las cinco no es la más vistosa: el documento daba el anillo de foco
+como `--arles-accent`, el oro de relleno. Quien copiara ese fragmento tendría
+**1.32:1** en el tema claro, que es un anillo de foco invisible, que es la
+navegación por teclado entera.
+
+**El poka-yoke es la mitad del trabajo.** Ese documento es una lista escrita a
+mano, y el patrón número 3 de este proyecto dice qué les pasa a las listas a
+mano: once de los diecisiete hallazgos de las cuatro auditorías fueron eso. Así
+que `el_sistema_de_diseno_dice_lo_que_hay`, en `--fase 2`, mide cuatro cosas
+leyendo el código:
+
+1. Todo token que el documento nombra existe en los dos CSS.
+2. Todo token que existe está nombrado en el documento.
+3. Toda pieza de `componentes/` está nombrada, **y toda pieza nombrada existe** —
+   las dos direcciones, porque son dos defectos distintos.
+4. Las cifras del documento son las que hay: 89 tokens, 25 colores, 39 contratos,
+   24 iconos.
+
+Verificada rompiéndola por los **cinco** caminos: un token inventado, un token
+que deja de estar documentado, una pieza fantasma, una pieza de la carpeta sin
+documentar, y una cifra que se queda atrás. Las cinco en rojo, y el documento
+restaurado desde una copia hecha **antes** de la primera ruptura — comprobado con
+`diff`, no supuesto.
+
+> **Y el décimo comentario que se caza a sí mismo**, en el peor sitio posible: la
+> primera versión del documento escribía el nombre de un token inventado para
+> ilustrar que un nombre mal escrito no da error, **dentro de la misma sección
+> que advierte de esta trampa** y en el documento cuya comprobación nueva lee
+> precisamente esos nombres. Lo cazó medir antes de escribir la comprobación.
+>
+> Por eso el documento tiene ahora una regla propia en su §0: **ahí no se escribe
+> el nombre de un token ni de una pieza que no exista, ni como contraejemplo.**
+
+> **Y un hallazgo falso dentro de mi propio instrumento, cazado antes de que
+> entrara.** La expresión que reconoce el nombre de una pieza exige minúscula en
+> la tercera letra. Sin eso casa **cinco siglas** del documento —`AA`, `ADR`,
+> `ANTES`, `ARIA`, `ARLES`— y la comprobación habría salido en rojo acusando al
+> documento de nombrar cinco componentes inexistentes. El comentario que lo
+> explica decía «tres, entre ellas `ARCO`»: tres en vez de cinco, y una que el
+> documento no menciona. **Se corrigió midiéndolo**, que es la diferencia entre
+> un comentario y un dato.

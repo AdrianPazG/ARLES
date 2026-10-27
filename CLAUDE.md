@@ -1521,6 +1521,34 @@ refused to connect».
 > bloques citados son bloques**, y son justo donde se escriben los comandos de
 > salida de un tropiezo.
 
+**Y el 27/10/2026, el sistema de diseño: `DESIGN_SYSTEM.md` reescrito con el
+código delante, y tenía cinco afirmaciones falsas.** Documentaba 24 de los 64
+tokens que no son color y 5 de las 16 piezas, y no mencionaba el tema claro.
+Está contado en [`ESTADO_ACTUAL.md`](documentacion/07-entrega/ESTADO_ACTUAL.md)
+§12, y las cinco en el registro de requisitos como DOC-1 a DOC-5.
+
+> **Las cinco llevaban ahí desde la Fase 2 y las cuatro auditorías del §140 no
+> vieron ninguna**, porque una auditoría mide el producto y esto es un
+> documento. Un documento no falla: **se cree.** La peor no es la más vistosa —
+> daba el anillo de foco como el oro de relleno, así que quien copiara ese
+> fragmento tendría 1.32:1 en el tema claro, que es un anillo invisible, que es
+> la navegación por teclado entera.
+>
+> Lo caza `el_sistema_de_diseno_dice_lo_que_hay` en `--fase 2`: todo token que
+> el documento nombra existe, todo token que existe está nombrado, toda pieza de
+> `componentes/` está nombrada **y toda pieza nombrada existe** —las dos
+> direcciones—, y las cifras son las que hay. Verificada por los cinco caminos.
+
+> **Décima vez del comentario que se caza a sí mismo, y en el peor sitio.** La
+> primera versión de ese documento escribía el nombre de un token inventado para
+> ilustrar que un nombre mal escrito no da error — **dentro de la misma sección
+> que advierte de esta trampa**, y en el archivo cuya comprobación nueva lee
+> precisamente esos nombres. Lo cazó medir antes de escribir la comprobación.
+>
+> Por eso ese documento tiene ahora una regla propia en su §0: **ahí no se
+> escribe el nombre de un token ni de una pieza que no exista, ni como
+> contraejemplo.** Una comprobación no distingue una afirmación de un ejemplo.
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |

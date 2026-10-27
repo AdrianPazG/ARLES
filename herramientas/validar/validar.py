@@ -1506,6 +1506,159 @@ def primitivas():
     )
 
 
+# Una pieza del design system: `ATabla`, `EstadoVacio`. La tercera letra tiene
+# que ser minúscula a propósito, y no es un detalle de expresión regular.
+#
+# Medido sobre el documento el 27/10/2026: sin ese `[a-z]`, el patrón casa
+# **cinco siglas** —`AA`, `ADR`, `ANTES`, `ARIA` y `ARLES`— y la comprobación
+# sale en rojo acusando al documento de nombrar cinco componentes que no
+# existen. Es un hallazgo falso de los que la auditoría B dejó dicho que
+# cuestan más que uno ausente, metido dentro del instrumento.
+#
+# La primera versión de este comentario decía «`ARLES`, `ADR` y `ARCO`»: tres
+# en vez de cinco, y uno que el documento no menciona. Se corrigió midiéndolo.
+RE_PIEZA = re.compile(r"\b(A[A-Z][a-z][a-zA-Z]*|Estado[A-Z][a-zA-Z]*)\b")
+
+DOC_SISTEMA = "documentacion/05-diseno/DESIGN_SYSTEM.md"
+
+
+def el_sistema_de_diseno_dice_lo_que_hay():
+    """El DESIGN_SYSTEM describe lo que hay, y se comprueba contra el código.
+
+    ── POR QUÉ EXISTE ────────────────────────────────────────────────────────
+
+    Ese documento es **una lista escrita a mano**, y es el patrón número 3 de
+    este proyecto: once de los diecisiete hallazgos de las cuatro auditorías
+    del §140 fueron una lista a mano que decía cubrir una regla y cubría una
+    parte. Hasta el 27/10/2026 nada lo comparaba con el código.
+
+    Se reescribió ese día con el código delante y **tenía cinco afirmaciones
+    falsas**, las cinco desde la Fase 2: decía que la barra lateral no se
+    plega —se plega, con el umbral medido—, que la altura de fila es una
+    preferencia del usuario —es una opción de cada tabla—, que el anillo de
+    foco usa el oro de relleno —usa la tinta, o en tema claro daría 1.32:1—,
+    que los iconos vienen de Lucide —son 24 trazos propios, y afirmar una
+    licencia que no aplica es el peor sitio para equivocarse— y que cada
+    insignia lleva icono —el tono neutro no, desde que la revisión del
+    29/09/2026 encontró ocho relojes que no esperaban nada—.
+
+    Ninguna de las cuatro auditorías las vio, y no es un descuido: **una
+    auditoría mide el producto y esto es un documento.** Un documento no
+    falla; se cree.
+
+    ── QUÉ MIDE, Y POR QUÉ LAS DOS DIRECCIONES ───────────────────────────────
+
+    1. Todo token que el documento nombra **existe** en los dos CSS.
+    2. Todo token que existe **está nombrado** en el documento. Faltaban 40 de
+       64: la escala tipográfica entera, las veladuras, los anchos del armazón.
+       Un token que no está documentado es uno que alguien va a volver a
+       inventar — y eso pasó tres veces en la Fase 8, cada una con el navegador
+       resolviendo el `var()` a nada sin un solo error.
+    3. Toda pieza de `componentes/` está nombrada, y toda pieza nombrada existe.
+       Las dos direcciones, porque son dos defectos distintos: la primera caza
+       una primitiva nueva sin documentar, la segunda una retirada que el
+       documento sigue dando por viva. La lista sale de **la carpeta**.
+    4. Las cifras del documento son las que hay. El §94 pide cifras y no
+       adjetivos; «unos cuantos tokens» no se puede comprobar y no informa.
+
+    ── LA REGLA QUE ESTO IMPONE AL DOCUMENTO ─────────────────────────────────
+
+    **Ahí no se escribe el nombre de un token ni de una pieza que no exista**,
+    ni como contraejemplo: la comprobación no distingue una afirmación de un
+    ejemplo. Y esto no es teórico — la primera versión del documento escribía
+    un `var(--arles-algo-mal-escrito)` para ilustrar que un nombre mal escrito
+    no da error, dentro de la misma sección que advierte de esta trampa.
+    **Décima vez del mismo defecto en el proyecto**, y la cazó medir antes de
+    escribir la comprobación, no después.
+
+    Verificada rompiéndola por los cuatro caminos el 27/10/2026.
+    """
+    doc = leer(DOC_SISTEMA) or ""
+
+    # Las definiciones se leen de los dos CSS y no de `tokens.json`, porque lo
+    # que el navegador resuelve es el CSS: un token que estuviera en el JSON y
+    # no llegara al `dist` sería un hueco, y mirar el JSON lo taparía.
+    definidos = set()
+    for ruta in ("app/src/design/base.css",
+                 "herramientas/design-tokens/dist/arles-tokens.css"):
+        definidos |= set(
+            re.findall(r"(--arles-[a-z0-9-]+)\s*:", sin_comentarios(leer(ruta) or ""))
+        )
+    nombrados = set(re.findall(r"--arles-[a-z0-9-]+", doc))
+
+    inventados = sorted(nombrados - definidos)
+    check(
+        2, "el sistema de diseño no nombra ningún token que no exista",
+        not inventados and bool(definidos),
+        "Copiar de ahí un token inexistente deja el `var()` resolviéndose a "
+        "nada, que es el fallo de CSS que más lejos llega sin que nadie lo "
+        "vea. Y un contraejemplo escrito ahí cuenta como afirmación: esta "
+        "comprobación no los distingue.",
+        ", ".join(inventados[:6]) if definidos else "no se leyó ningún CSS",
+    )
+
+    sin_documentar = sorted(definidos - nombrados)
+    check(
+        2, "todo token está documentado en el sistema de diseño",
+        not sin_documentar,
+        "Un token que no está documentado es uno que alguien va a volver a "
+        "inventar. Pasó tres veces en la Fase 8 —seis tokens en la 5.2, tres "
+        "en la 8.3c— y el navegador no dijo nada ninguna de las tres.",
+        f"{len(sin_documentar)} sin documentar: " + ", ".join(sin_documentar[:6]),
+    )
+
+    piezas = {os.path.basename(r)[:-4] for r in primitivas()}
+    faltan = sorted(p for p in piezas if not re.search(rf"\b{re.escape(p)}\b", doc))
+    fantasmas = sorted(set(RE_PIEZA.findall(doc)) - piezas)
+    check(
+        2, "el sistema de diseño nombra las piezas que hay, y sólo ésas",
+        bool(piezas) and not faltan and not fantasmas,
+        "Las dos direcciones son dos defectos distintos: una primitiva nueva "
+        "sin documentar no la encuentra quien va a dibujar una pantalla, y una "
+        "retirada que el documento da por viva se busca durante un rato. La "
+        "lista sale de la carpeta, no de aquí.",
+        " · ".join(
+            ([f"sin documentar: {', '.join(faltan)}"] if faltan else [])
+            + ([f"no existen: {', '.join(fantasmas)}"] if fantasmas else [])
+        ) or ("no se leyó la carpeta" if not piezas else ""),
+    )
+
+    # ── Las cifras ──
+    import json as _json
+    try:
+        with open(os.path.join(RAIZ, "herramientas/design-tokens/tokens.json"),
+                  encoding="utf-8") as f:
+            tok = _json.load(f)
+        colores = sum(len(g["colores"]) for g in tok["grupos"].values())
+        contratos, avisos = len(tok["contratos"]), len(tok["advertencias"])
+    except (OSError, ValueError, KeyError):
+        colores = contratos = avisos = -1
+
+    iconos = len(re.findall(
+        r"^  [a-zA-Z]+: '",
+        leer("app/src/design/componentes/AIcono.vue") or "", re.M,
+    ))
+
+    # Cada cifra con el texto exacto donde vive, para que una que se quede
+    # atrás diga **cuál** y no sólo que alguna no cuadra.
+    cifras = [
+        (f"**{len(definidos)} tokens", "el total de tokens"),
+        (f"| **Color** | {colores} |", "los tokens de color"),
+        (f"| **Todo lo demás** | {len(definidos) - colores} |", "los que no son color"),
+        (f"**{contratos} contratos**", "los contratos de contraste"),
+        (f"**{avisos} advertencias**", "las advertencias"),
+        (f"cerrado de {iconos} iconos", "los iconos del conjunto cerrado"),
+    ]
+    desfasadas = [porque for texto, porque in cifras if texto not in doc]
+    check(
+        2, "las cifras del sistema de diseño son las que hay", not desfasadas,
+        "El §94 pide cifras y no adjetivos, y una cifra escrita a mano es lo "
+        "único de este documento que envejece sin que nadie la toque. El "
+        "tablero lo tiene prohibido por la misma razón.",
+        "no cuadran: " + ", ".join(desfasadas),
+    )
+
+
 def informe_para_direccion(fase, base):
     """Comprueba el informe sin tecnicismos de una fase, y que su PDF esté al día.
 
@@ -1870,6 +2023,7 @@ def fase_2(rapido):
 
     # ── Documentación ──
     print(f"{GRIS}  documentación{FIN}")
+    el_sistema_de_diseno_dice_lo_que_hay()
     informe_para_direccion(2, "FASE-02-PARA-DIRECCION")
     manual_de_entrega()
 

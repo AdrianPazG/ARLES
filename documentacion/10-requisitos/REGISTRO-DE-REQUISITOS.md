@@ -110,6 +110,38 @@ las tres veces: leer la cascada del esquema y contarla, no tocarla.
 
 ---
 
+## Documentos que afirmaban de más
+
+El patrón número 4 de [`RELEVO.md`](../00-ANTES-DE-EMPEZAR/RELEVO.md), y el más
+barato de cometer: **un documento no falla, se cree.** Se anotan aquí porque un
+documento equivocado cuesta trabajo rehecho igual que un defecto, y porque la
+defensa que funciona es siempre la misma — una comprobación que lee el código,
+no una relectura con buena voluntad.
+
+| Id | Qué decía | Lo que había | Cerrado |
+|---|---|---|---|
+| **DOC-1** | `DESIGN_SYSTEM.md`: «la barra lateral es fija, **no colapsable**» | Se plega, con el umbral medido por `sonda:plegado` | ✅ 27/10/2026 |
+| **DOC-2** | `DESIGN_SYSTEM.md`: la altura de fila es «**preferencia del usuario**» | Es una opción de cada tabla; esa pantalla no existe | ✅ 27/10/2026 |
+| **DOC-3** | `DESIGN_SYSTEM.md`: el anillo de foco usa el oro de relleno | Usa la tinta de acento. En tema claro, el relleno daría **1.32:1** | ✅ 27/10/2026 |
+| **DOC-4** | `DESIGN_SYSTEM.md`: los iconos vienen de «**Lucide (ISC)**» | 24 trazos propios. No es una dependencia del proyecto | ✅ 27/10/2026 |
+| **DOC-5** | `DESIGN_SYSTEM.md`: «**cada** insignia lleva icono además del color» | El tono neutro no lo lleva, a propósito desde el 29/09/2026 | ✅ 27/10/2026 |
+| **DOC-6** | `THREAT_MODEL.md` §8 pedía «la capa de redacción de `tracing`» | El proyecto no usa `tracing` | ✅ 06/10/2026 · auditoría B |
+| **DOC-7** | `PRESUPUESTO_RENDIMIENTO.md` §3 describía una arquitectura con Tokio | No hay Tokio; la conexión es un `Mutex<Connection>` | ✅ 07/10/2026 · auditoría C |
+| **DOC-8** | El `ROADMAP` ponía los derechos ARCO en la Fase 8 | Construidos desde la 3.4. La auditoría B perdió tiempo buscándolos | ✅ 07/10/2026 |
+
+**Las cinco primeras llevaban ahí desde la Fase 2** y ninguna de las cuatro
+auditorías del §140 las vio, porque una auditoría mide el producto y esto es un
+documento. Las caza ahora `el_sistema_de_diseno_dice_lo_que_hay` en
+`validar.py --fase 2`, que compara el documento con los dos CSS y con la carpeta
+de componentes, en las dos direcciones.
+
+**DOC-6 y DOC-7 son el mismo defecto a una pasada de distancia:** dos documentos
+de la Fase 0 nombrando bibliotecas que nunca se adoptaron. No tienen todavía
+ninguna comprobación que los vigile, y está dicho así en vez de darlos por
+seguros.
+
+---
+
 ## Dónde vive lo que no está aquí
 
 | Qué | Dónde |
