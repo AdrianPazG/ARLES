@@ -144,6 +144,13 @@ pub fn run() {
             // botón de la ficha del número—, que es la condición de la fase W.
             whatsapp::refrescar_calidad_del_numero,
             whatsapp::enviar_whatsapp_de_prueba,
+            // D-WA · las plantillas de Meta. `Db::anotar_plantilla_de_meta` y
+            // `Db::plantillas_de_meta` existían desde la 6.8, probadas, y no
+            // las llamaba nadie: ni comando ni pantalla. Entran CON su
+            // llamador —la sección de Plantillas › WhatsApp—, que es la
+            // condición de la fase W.
+            whatsapp::plantillas_de_meta,
+            whatsapp::anotar_plantilla_de_meta,
             campanas::plantillas,
             campanas::guardar_plantilla,
             // R-06 (17/10/2026). `nueva_version_de_plantilla` estaba en

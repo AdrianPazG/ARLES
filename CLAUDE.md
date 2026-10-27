@@ -364,9 +364,23 @@ que **no se puede lanzar una campaña entera por WhatsApp**, solo el envío de
 prueba. Y las respuestas no se pueden contar sin el «relay ciego» que Dirección
 decidió el 29/09/2026 y que no existe todavía.
 
-**Cerrada la 6.8** —el editor de plantillas y firmas, y el registro de las
-plantillas aprobadas de Meta—, que era lo que bloqueaba crear una campaña
-entera desde la interfaz.
+**Cerrada la 6.8** —el editor de plantillas y firmas—, que era lo que
+bloqueaba crear una campaña entera desde la interfaz.
+
+> **Esta línea decía además «y el registro de las plantillas aprobadas de
+> Meta», y era falso.** `Db::anotar_plantilla_de_meta` y
+> `Db::plantillas_de_meta` entraron en la 6.8 con sus pruebas, y **no las
+> llamaba nadie**: ni comando ni pantalla. La función existía y el registro no.
+>
+> Lo que costaba no se vio hasta el 27/10/2026, al llegar al asistente: el paso
+> 4, al elegir WhatsApp, habría sido un desplegable vacío sin ninguna pista de
+> dónde se registran — el H-06 otra vez y en el mismo paso. Lo cerró el tramo
+> 3c-2a de D-WA, con su sección en Plantillas › WhatsApp.
+>
+> Y es el patrón del §9 con una cara nueva: no sólo la pieza sin llamador, sino
+> **un archivo que da la pieza por conectada**. `ninguna_tabla_se_queda_sin_escritor`
+> no lo cazaba porque `whatsapp_template` sí tenía un escritor en `arles-db` —
+> lo que no tenía era quien llamara al escritor.
 
 **Y cerrada la auditoría de recorrido** (A1 a A3): el inventario de cada
 pantalla y cada acción, las nueve insignias ilegibles, y la revisión **a ojo**
@@ -1587,19 +1601,27 @@ decorado sin nadie que lo use son el mismo hueco visto desde los dos lados.
 
 **Al añadir algo, la pregunta no es «¿funciona?» sino «¿quién lo llama?».**
 
-### Dos formas de tumbar una pantalla con un texto
+### Tres formas de tumbar una pantalla con un texto
 
-Las dos son cadenas válidas de TypeScript, así que ni `vue-tsc` ni ESLint las
-ven, y las dos aparecieron escribiendo los textos del registro (7.4):
+Las tres son cadenas válidas de TypeScript, así que ni `vue-tsc` ni ESLint las
+ven. Las dos primeras aparecieron escribiendo los textos del registro (7.4) y
+la tercera los de las plantillas de Meta (D-WA, 27/10/2026):
 
 1. **Una `@` suelta.** `vue-i18n` la usa para sus enlaces —`@:otra.clave`—, así
    que un correo de ejemplo en un texto no compila: «Invalid linked format», y
    **se cae el componente entero**, no ese texto. Un `{'@'}` escapado sí vale.
 2. **Los `**asteriscos**`.** No hay Markdown: salen literales, y justo en la
    frase que alguien resaltó porque era la importante.
+3. **Unas llaves dobles, `{{1}}`.** `vue-i18n` usa `{...}` para interpolar, así
+   que eso es **un marcador dentro de otro**: «Not allowed nest placeholder», y
+   se cae el componente entero igual que con la `@`. Y **va a volver a pasar**,
+   porque los huecos de una plantilla de Meta se escriben exactamente así. Se
+   escapa con interpolación literal: `{'{{1}}'}`.
 
-Las cazan `ningun_texto_lleva_una_arroba_suelta` y `ningun_texto_lleva_markdown`
-en la fase 7.
+Las dos primeras las cazan `ningun_texto_lleva_una_arroba_suelta` y
+`ningun_texto_lleva_markdown` en la fase 7. **La tercera la cazó
+`es.spec.ts`**, que compila los textos uno a uno — y es la comprobación que de
+verdad las cubre todas, porque no busca un patrón: ejecuta el compilador.
 
 ### Lo que sólo se ve mirando, y no midiendo
 

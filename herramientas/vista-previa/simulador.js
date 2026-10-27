@@ -1276,6 +1276,52 @@
           return Promise.resolve(ns);
         }
 
+        // ── D-WA · las plantillas de Meta (27/10/2026) ────────────────
+        //
+        // La demostración trae DOS: una aprobada con dos huecos y otra en
+        // revisión. Las dos hacen falta: con sólo la aprobada no se puede
+        // mirar la insignia de «en revisión», que es la que explica por qué
+        // una plantilla que sí se dio de alta no sale en el asistente.
+        case 'plantillas_de_meta':
+          return Promise.resolve(
+            (e.plantillasDeMeta || DEMO.plantillasDeMeta).filter(function (p) {
+              return p.numero === String(args.numero || '');
+            }),
+          );
+
+        case 'anotar_plantilla_de_meta': {
+          // Se actualiza en vez de duplicar, igual que en Rust: la clave de
+          // Meta es (número, nombre, idioma), así que «la misma plantilla»
+          // significa lo mismo en los dos sitios.
+          var pms = (e.plantillasDeMeta || DEMO.plantillasDeMeta).slice();
+          var mismo = function (p) {
+            return p.numero === String(args.numero || '')
+              && p.nombre === String(args.nombre || '')
+              && p.idioma === String(args.idioma || '');
+          };
+          var puesta = {
+            id: nuevoId(),
+            numero: String(args.numero || ''),
+            nombre: String(args.nombre || ''),
+            idioma: String(args.idioma || ''),
+            estado: String(args.estadoEnMeta || 'approved'),
+            cuerpo: String(args.cuerpo || ''),
+            huecos: (args.huecos || []).slice(),
+            sePuedeUsar: String(args.estadoEnMeta || 'approved') === 'approved',
+          };
+          var donde = pms.findIndex(mismo);
+          if (donde >= 0) {
+            puesta.id = pms[donde].id;
+            pms[donde] = puesta;
+          } else {
+            pms.push(puesta);
+          }
+          e.plantillasDeMeta = pms; escribir(e);
+          return Promise.resolve(pms.filter(function (p) {
+            return p.numero === String(args.numero || '');
+          }));
+        }
+
         // ── D-WA · el semáforo de calidad (27/10/2026) ────────────────
         //
         // La demostración enseña el caso que de verdad importa: la calidad
@@ -1849,6 +1895,25 @@
       id: '01900000-0000-7000-8000-0000000000d1', nombre: 'Días laborables',
       dias: 31, desde: 9, hasta: 18, zona: 'America/Monterrey',
     }],
+
+    plantillasDeMeta: [
+      {
+        id: '01900000-0000-7000-8000-0000000000e1',
+        numero: '01900000-0000-7000-8000-0000000000a1',
+        nombre: 'bienvenida_prospeccion', idioma: 'es_MX',
+        estado: 'approved',
+        cuerpo: 'Hola {{1}}, somos {{2}}. ¿Te parece si te cuento en dos minutos?',
+        huecos: ['nombre', 'mi_empresa'], sePuedeUsar: true,
+      },
+      {
+        id: '01900000-0000-7000-8000-0000000000e2',
+        numero: '01900000-0000-7000-8000-0000000000a1',
+        nombre: 'seguimiento_propuesta', idioma: 'es_MX',
+        estado: 'pending',
+        cuerpo: 'Hola {{1}}, te escribo para dar seguimiento a la propuesta.',
+        huecos: ['nombre'], sePuedeUsar: false,
+      },
+    ],
 
     whatsapp: [{
       id: '01900000-0000-7000-8000-0000000000a1',

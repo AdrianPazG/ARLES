@@ -603,6 +603,191 @@ pub fn prueba_con(
     })
 }
 
+/// Una plantilla aprobada de Meta, tal como la ve la pantalla.
+///
+/// **No lleva el token ni ningún identificador de Meta más que el nombre de la
+/// plantilla**, que es público: es lo que viaja por la API y lo que se ve en el
+/// panel de Meta.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlantillaDeMetaIpc {
+    pub id: String,
+    /// El `name` de Meta. **Es el identificador real del mensaje**: es lo que
+    /// se manda, no el texto.
+    pub nombre: String,
+    /// El idioma en la forma de Meta: `es_MX`.
+    pub idioma: String,
+    /// `approved`, `pending`, `rejected`, `paused` o `disabled`, tal como lo
+    /// dice Meta.
+    pub estado: String,
+    /// El texto aprobado, para poder leer lo que va a salir antes de elegirla.
+    pub cuerpo: String,
+    /// Qué variable de ARLES va en cada hueco, en orden. Son **claves de i18n**
+    /// y no nombres: la pantalla los traduce (§139).
+    pub huecos: Vec<String>,
+    /// ¿Se puede mandar una campaña con ésta?
+    ///
+    /// **Viene resuelto de Rust y aquí no se recalcula.** La regla vive en
+    /// `EstadoEnMeta::se_puede_usar`, escrita por lo que acepta: un estado
+    /// nuevo de Meta no debe empezar a enviar solo.
+    pub se_puede_usar: bool,
+}
+
+/// Estrecha las claves de i18n de los huecos a variables del núcleo.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// UNA VARIABLE QUE NO EXISTE HACE FALLAR EL APUNTE ENTERO
+///
+/// Lo cómodo sería saltarse la que no se reconoce y guardar las demás. Eso
+/// dejaría una plantilla con **un hueco menos del que tiene el texto**, y Meta
+/// manda los valores **por posición**: el hueco que falta saldría vacío en cada
+/// mensaje de la campaña, o peor, correría los demás un puesto —el nombre
+/// donde va la empresa— sin que nada fallara.
+///
+/// El fallo llegaría con la campaña ya activada y mil mensajes fuera. Así que
+/// se rechaza aquí, que es donde todavía se puede corregir.
+///
+/// Está aparte del comando **para poder probarlo**: un `tauri::State` no se
+/// construye en una prueba, así que lo que vive dentro de un comando sólo se
+/// puede mirar. Es el mismo reparto que `registro_de` y `crear_campana_en`.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] con `error.db.dato_invalido` si alguna clave no es de las que
+/// el núcleo conoce.
+fn variables_de(huecos: &[String]) -> Result<Vec<arles_core::plantilla::Variable>, ErrorIpc> {
+    let mut variables = Vec::with_capacity(huecos.len());
+    for h in huecos {
+        let Some(v) = arles_core::plantilla::Variable::de_clave(h) else {
+            return Err(ErrorIpc::from(crate::AppError::Db(
+                arles_db::DbError::DatoInvalido {
+                    motivo: "esa variable no existe",
+                },
+            )));
+        };
+        variables.push(v);
+    }
+    Ok(variables)
+}
+
+fn a_ipc(p: &arles_db::plantillas_whatsapp::PlantillaDeMetaGuardada) -> PlantillaDeMetaIpc {
+    PlantillaDeMetaIpc {
+        id: p.id.clone(),
+        nombre: p.meta_name.clone(),
+        idioma: p.idioma.clone(),
+        estado: p.estado.como_se_guarda().to_owned(),
+        cuerpo: p.cuerpo.clone(),
+        huecos: p.huecos.iter().map(|v| v.clave().to_owned()).collect(),
+        se_puede_usar: p.se_puede_usar(),
+    }
+}
+
+/// Las plantillas de Meta anotadas de un número.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// EXISTÍA EN `arles-db` DESDE LA 6.8 Y NO TENÍA COMANDO (D-WA, 27/10/2026)
+///
+/// `Db::plantillas_de_meta` y `Db::anotar_plantilla_de_meta` llevan ahí desde
+/// la 6.8, con sus pruebas, **y no las llamaba nadie**. Así que `CLAUDE.md`
+/// afirmaba de más al decir que la 6.8 cerró «el registro de las plantillas
+/// aprobadas de Meta»: la función existía y el registro no.
+///
+/// Lo que eso costaba no se ve hasta que hace falta: el paso 4 del asistente,
+/// al elegir WhatsApp, sería un desplegable vacío sin ninguna pista de dónde
+/// se registran — el H-06 del 22/10/2026, otra vez y en el mismo paso.
+///
+/// Devuelve **todas** y no sólo las aprobadas, a propósito: la pantalla tiene
+/// que poder decir «ésta está en revisión» en vez de hacerla desaparecer, que
+/// es como se pierde media hora buscando algo que sí se dio de alta.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si no hay empresa configurada, si el identificador no vale, o
+/// si la base trae un estado que el núcleo no reconoce.
+#[tauri::command]
+pub fn plantillas_de_meta(
+    estado: tauri::State<'_, EstadoApp>,
+    numero: String,
+) -> Result<Vec<PlantillaDeMetaIpc>, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let numero = numero
+        .parse::<arles_core::ids::WhatsappAccountId>()
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    let todas = estado
+        .db()
+        .plantillas_de_meta(empresa, numero)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    Ok(todas.iter().map(a_ipc).collect())
+}
+
+/// Anota una plantilla que Meta aprobó, o pone al día la que ya estaba.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// ARLES NO CREA PLANTILLAS EN META, Y ESTO NO LO CAMBIA
+///
+/// El texto de una plantilla lo aprueba Meta **palabra por palabra**, en su
+/// panel. Lo que ARLES guarda es el **apunte** de que existe: su nombre, su
+/// idioma, qué dice y en qué estado está — para poder ofrecerla al crear una
+/// campaña y para poder enseñar lo que va a salir.
+///
+/// Por eso el estado entra como dato y no se comprueba contra Meta: quien lo
+/// sabe es el panel, y preguntarlo aquí exigiría una consulta por plantilla
+/// cada vez que se abre la pantalla. Lo que sí hace ARLES es **no dejar
+/// activar** una campaña cuya plantilla no esté aprobada (tramo 3a).
+///
+/// ── SE ACTUALIZA EN VEZ DE DUPLICAR ──
+///
+/// Meta cambia el estado por su cuenta: una aprobada puede pasar a `paused` si
+/// la gente la reporta. Quien vuelva a anotarla está poniendo al día lo que
+/// Meta dice, no creando una segunda — y la clave única del esquema (número,
+/// nombre, idioma) es la misma que usa Meta, así que «la misma plantilla»
+/// significa lo mismo en los dos sitios.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si no hay empresa configurada, si el identificador no vale, si
+/// el nombre o el idioma vienen vacíos, o si una variable no es de las que el
+/// núcleo conoce.
+#[tauri::command]
+pub fn anotar_plantilla_de_meta(
+    estado: tauri::State<'_, EstadoApp>,
+    numero: String,
+    nombre: String,
+    idioma: String,
+    estado_en_meta: String,
+    cuerpo: String,
+    huecos: Vec<String>,
+) -> Result<Vec<PlantillaDeMetaIpc>, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let id_numero = numero
+        .parse::<arles_core::ids::WhatsappAccountId>()
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    let en_meta = arles_core::whatsapp::EstadoEnMeta::de_guardado(&estado_en_meta)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    let variables = variables_de(&huecos)?;
+
+    estado
+        .db()
+        .anotar_plantilla_de_meta(
+            empresa,
+            id_numero,
+            &arles_db::plantillas_whatsapp::PlantillaDeMetaNueva {
+                meta_name: &nombre,
+                idioma: &idioma,
+                estado: en_meta,
+                cuerpo: &cuerpo,
+                huecos: &variables,
+            },
+        )
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    plantillas_de_meta(estado, numero)
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
@@ -677,5 +862,109 @@ mod tests {
 
         let ambas = numero_de_muestra(Some("2026-09-29T00:00:00Z"), Some("2026-09-29T00:01:00Z"));
         assert!(ambas.puede_enviar);
+    }
+    // ══ D-WA · LAS PLANTILLAS DE META EN LA FRONTERA (27/10/2026) ═══════
+    //
+    // `Db::anotar_plantilla_de_meta` y `Db::plantillas_de_meta` existían desde
+    // la 6.8, con sus pruebas, **y no las llamaba nadie**: ni comando ni
+    // pantalla. Así que `CLAUDE.md` afirmaba de más al decir que la 6.8 cerró
+    // «el registro de las plantillas aprobadas de Meta».
+
+    /// **Una variable que no existe hace fallar el apunte entero.**
+    ///
+    /// Saltarse la que no se reconoce dejaría una plantilla con un hueco menos
+    /// del que tiene el texto, y Meta manda los valores **por posición**: el
+    /// que falta saldría vacío en cada mensaje, o correría los demás un puesto
+    /// —el nombre donde va la empresa— sin que nada fallara. El fallo llegaría
+    /// con la campaña activada y mil mensajes fuera.
+    ///
+    /// Verificada rompiéndola el 27/10/2026: cambiando el `else` que devuelve
+    /// el error por un `continue` que salta la clave, esta prueba falla.
+    #[test]
+    fn una_variable_inventada_no_entra_en_una_plantilla() {
+        let buenas = vec![
+            "nombre".to_owned(),
+            "apellido".to_owned(),
+            "empresa".to_owned(),
+            "mi_empresa".to_owned(),
+            "baja".to_owned(),
+        ];
+        assert_eq!(
+            variables_de(&buenas).expect("las cinco del núcleo").len(),
+            5
+        );
+
+        let con_una_mala = vec!["nombre".to_owned(), "codigo_postal".to_owned()];
+        let e = variables_de(&con_una_mala).expect_err("no existe");
+        assert_eq!(
+            e.clave, "error.db.dato_invalido",
+            "y dice que es un dato que no vale, no «falló la base»: {e:?}"
+        );
+    }
+
+    /// **Lo que cruza la frontera no lleva el token ni el identificador del
+    /// número en Meta.**
+    ///
+    /// Regla 3: ningún comando devuelve un secreto. El `phone_number_id` es con
+    /// lo que se envía en nombre de ese número, y el nombre de la plantilla sí
+    /// es público —es lo que viaja por la API y lo que se ve en el panel—.
+    ///
+    /// Se serializa de verdad en vez de leer la definición del `struct`: si
+    /// alguien añade un campo mañana, esta prueba lo dice.
+    #[test]
+    fn la_plantilla_de_meta_que_sale_no_lleva_secretos() {
+        let p = arles_db::plantillas_whatsapp::PlantillaDeMetaGuardada {
+            id: "01900000-0000-7000-8000-0000000000e1".to_owned(),
+            numero: "01900000-0000-7000-8000-0000000000a1".parse().expect("id"),
+            meta_name: "bienvenida".to_owned(),
+            idioma: "es_MX".to_owned(),
+            estado: arles_core::whatsapp::EstadoEnMeta::Aprobada,
+            cuerpo: "Hola {{1}}.".to_owned(),
+            huecos: vec![arles_core::plantilla::Variable::Nombre],
+        };
+
+        let json = serde_json::to_string(&a_ipc(&p)).expect("serializa");
+        assert!(!json.contains("llavero://"), "ni la referencia: {json}");
+        assert!(!json.contains("EAA"), "ni un token: {json}");
+        assert!(
+            !json.contains("phoneNumberId"),
+            "ni el id del número en Meta: {json}"
+        );
+        assert!(json.contains("bienvenida"), "pero sí el nombre: {json}");
+    }
+
+    /// **`sePuedeUsar` lo resuelve Rust, y sólo «aprobada» puede.**
+    ///
+    /// La pantalla no lo recalcula: la regla vive en
+    /// `EstadoEnMeta::se_puede_usar`, escrita por lo que acepta y no por lo que
+    /// rechaza — un estado nuevo de Meta no debe empezar a enviar solo.
+    ///
+    /// Y las cinco se devuelven, no sólo las aprobadas: la pantalla tiene que
+    /// poder decir «ésta está en revisión» en vez de hacerla desaparecer, que
+    /// es como se pierde media hora buscando algo que sí se dio de alta.
+    #[test]
+    fn solo_una_plantilla_aprobada_puede_enviar() {
+        use arles_core::whatsapp::EstadoEnMeta;
+
+        let de = |estado: EstadoEnMeta| {
+            a_ipc(&arles_db::plantillas_whatsapp::PlantillaDeMetaGuardada {
+                id: "01900000-0000-7000-8000-0000000000e1".to_owned(),
+                numero: "01900000-0000-7000-8000-0000000000a1".parse().expect("id"),
+                meta_name: "p".to_owned(),
+                idioma: "es_MX".to_owned(),
+                estado,
+                cuerpo: "x".to_owned(),
+                huecos: Vec::new(),
+            })
+        };
+
+        assert!(de(EstadoEnMeta::Aprobada).se_puede_usar);
+        assert!(!de(EstadoEnMeta::EnRevision).se_puede_usar);
+        assert!(!de(EstadoEnMeta::Rechazada).se_puede_usar);
+        assert!(
+            !de(EstadoEnMeta::Pausada).se_puede_usar,
+            "pausada por Meta no envía, y es el estado al que cae una aprobada \
+             cuando la gente la reporta"
+        );
     }
 }

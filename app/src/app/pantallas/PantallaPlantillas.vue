@@ -56,12 +56,13 @@
  * antes de guardar. En una firma se reescribe encima, y no hay nada congelado.
  * ─────────────────────────────────────────────────────────────────────────
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { resolverError } from '@/app/errores'
 import type { Firma, Plantilla } from '@/app/stores/campanas'
 import { useCampanasStore } from '@/app/stores/campanas'
+import { useWhatsappStore } from '@/app/stores/whatsapp'
 import {
   AAviso,
   ABoton,
@@ -69,16 +70,134 @@ import {
   AInsignia,
   AModal,
   AModulo,
+  ASelector,
   EstadoCargando,
   EstadoVacio,
 } from '@/design/componentes'
 
 const store = useCampanasStore()
+const whatsapp = useWhatsappStore()
 const { t } = useI18n()
 
 onMounted(() => {
   void store.cargar()
+  // Los números, para la sección de plantillas de Meta: una plantilla es
+  // **del número** —la clave de Meta es (número, nombre, idioma)— así que sin
+  // saber de cuál no hay nada que listar.
+  void whatsapp.cargar()
 })
+
+// ── LAS PLANTILLAS DE META (D-WA, 27/10/2026) ───────────────────────────────
+//
+// `Db::anotar_plantilla_de_meta` y `Db::plantillas_de_meta` existían desde la
+// 6.8, con sus pruebas, **y no las llamaba nadie**: ni comando ni pantalla. Así
+// que `CLAUDE.md` afirmaba de más al decir que la 6.8 cerró «el registro de las
+// plantillas aprobadas de Meta».
+//
+// Lo que eso costaba se ve al llegar al asistente: el paso 4, al elegir
+// WhatsApp, sería un desplegable vacío sin ninguna pista de dónde se registran
+// — el H-06 del 22/10/2026, otra vez y en el mismo paso.
+//
+// ── POR QUÉ SE REGISTRAN A MANO Y NO SE LEEN DE META ──
+//
+// Leerlas de Meta exigiría un permiso más y una consulta por número cada vez
+// que se abre esta pantalla, y el dato que de verdad importa —qué variable de
+// ARLES va en cada hueco— **Meta no lo sabe**: sus huecos son `{{1}}` y `{{2}}`,
+// sin nombre. Eso lo decide quien escribió la plantilla, y es lo que se apunta
+// aquí.
+const numeroElegido = ref('')
+
+/** Los números que se pueden elegir, con su teléfono para reconocerlos. */
+const opcionesDeNumero = computed(() =>
+  whatsapp.numeros.map((n) => ({
+    valor: n.id,
+    texto: `${n.nombreVisible} · ${n.telefonoE164}`,
+  })),
+)
+
+/**
+ * Los cinco estados de Meta, tal como los nombra su API.
+ *
+ * Se ofrecen los cinco y no sólo «aprobada»: quien registra una plantilla que
+ * está en revisión necesita poder apuntarla para no perderla de vista, y el
+ * paso de activar ya rechaza las que no están aprobadas (tramo 3a). Ofrecer
+ * sólo «aprobada» obligaría a mentir para poder guardar.
+ */
+const ESTADOS_DE_META = ['approved', 'pending', 'rejected', 'paused', 'disabled'] as const
+
+const nuevaDeMeta = ref({
+  nombre: '',
+  idioma: 'es_MX',
+  estadoEnMeta: 'approved',
+  cuerpo: '',
+  huecos: [] as string[],
+})
+
+const opcionesDeEstadoDeMeta = computed(() =>
+  ESTADOS_DE_META.map((e) => ({ valor: e, texto: t(`plantillas.meta.estado.${e}`) })),
+)
+
+/** Cuántos huecos `{{n}}` tiene el texto que se pegó. */
+const huecosDelCuerpo = computed(
+  () => (nuevaDeMeta.value.cuerpo.match(/\{\{\s*\d+\s*\}\}/g) ?? []).length,
+)
+
+/**
+ * Si se puede guardar.
+ *
+ * **Y los huecos tienen que cuadrar.** Meta manda los valores por posición, así
+ * que una plantilla con dos `{{n}}` y una sola variable apuntada mandaría el
+ * segundo hueco vacío en cada mensaje de la campaña — sin que nada fallara.
+ */
+const puedeGuardarDeMeta = computed(
+  () =>
+    numeroElegido.value.length > 0 &&
+    nuevaDeMeta.value.nombre.trim().length > 0 &&
+    nuevaDeMeta.value.idioma.trim().length > 0 &&
+    nuevaDeMeta.value.cuerpo.trim().length > 0 &&
+    nuevaDeMeta.value.huecos.length === huecosDelCuerpo.value,
+)
+
+watch(numeroElegido, (id) => {
+  if (id.length > 0) void whatsapp.cargarPlantillasDeMeta(id)
+})
+
+function ponerHueco(clave: string): void {
+  nuevaDeMeta.value.huecos = [...nuevaDeMeta.value.huecos, clave]
+}
+
+function quitarUltimoHueco(): void {
+  nuevaDeMeta.value.huecos = nuevaDeMeta.value.huecos.slice(0, -1)
+}
+
+async function guardarDeMeta(): Promise<void> {
+  if (!puedeGuardarDeMeta.value) return
+  const ok = await whatsapp.anotarPlantillaDeMeta({
+    numero: numeroElegido.value,
+    nombre: nuevaDeMeta.value.nombre.trim(),
+    idioma: nuevaDeMeta.value.idioma.trim(),
+    estadoEnMeta: nuevaDeMeta.value.estadoEnMeta,
+    cuerpo: nuevaDeMeta.value.cuerpo,
+    huecos: nuevaDeMeta.value.huecos,
+  })
+  if (ok) {
+    nuevaDeMeta.value = {
+      nombre: '',
+      idioma: 'es_MX',
+      estadoEnMeta: 'approved',
+      cuerpo: '',
+      huecos: [],
+    }
+  }
+}
+
+/** El tono de la insignia del estado de Meta. Sólo «aprobada» es buena. */
+function tonoDelEstadoDeMeta(estado: string): 'exito' | 'aviso' | 'peligro' | 'neutro' {
+  if (estado === 'approved') return 'exito'
+  if (estado === 'pending') return 'aviso'
+  if (estado === 'rejected' || estado === 'disabled') return 'peligro'
+  return 'neutro'
+}
 
 /**
  * Las cinco variables del núcleo (`arles_core::plantilla::Variable`).
@@ -684,6 +803,170 @@ const tituloDelEditor = computed(() => {
           </ABoton>
         </div>
       </AModulo>
+
+      <!-- ── Las plantillas de Meta (D-WA) ────────────────────────────────
+           ARLES **no las crea**: el texto lo aprueba Meta palabra por palabra
+           en su panel. Esto es el apunte de que existe, para poder ofrecerla
+           al crear una campaña y para poder leer lo que va a salir.
+
+           Y el dato que de verdad importa —qué variable de ARLES va en cada
+           hueco— **Meta no lo sabe**: sus huecos son `{{1}}` y `{{2}}`, sin
+           nombre. Eso lo decide quien escribió la plantilla. -->
+      <h2>{{ t('plantillas.meta.titulo') }}</h2>
+      <p class="ayuda">
+        {{ t('plantillas.meta.explicacion') }}
+      </p>
+
+      <AAviso
+        v-if="opcionesDeNumero.length === 0"
+        tono="info"
+        :titulo="t('plantillas.meta.sinNumeros')"
+      >
+        <p>{{ t('plantillas.meta.sinNumerosComo') }}</p>
+        <ABoton
+          variante="secundario"
+          @click="$router.push({ name: 'whatsapp' })"
+        >
+          {{ t('plantillas.meta.irAWhatsApp') }}
+        </ABoton>
+      </AAviso>
+
+      <template v-else>
+        <ASelector
+          v-model="numeroElegido"
+          :etiqueta="t('plantillas.meta.numero')"
+          :opciones="opcionesDeNumero"
+          :ayuda="t('plantillas.meta.numeroAyuda')"
+        />
+
+        <template v-if="numeroElegido">
+          <EstadoVacio
+            v-if="whatsapp.plantillasDeMeta.length === 0"
+            :titulo="t('plantillas.meta.vacioTitulo')"
+            :cuerpo="t('plantillas.meta.vacioCuerpo')"
+          />
+          <AModulo
+            v-for="p in whatsapp.plantillasDeMeta"
+            :key="p.id"
+            :titulo="p.nombre"
+          >
+            <div class="fila">
+              <AInsignia :tono="tonoDelEstadoDeMeta(p.estado)">
+                {{ t(`plantillas.meta.estado.${p.estado}`) }}
+              </AInsignia>
+              <AInsignia tono="neutro">
+                {{ p.idioma }}
+              </AInsignia>
+              <AInsignia
+                v-for="(h, i) in p.huecos"
+                :key="`${p.id}-${i}`"
+                tono="neutro"
+              >
+                {{ i + 1 }} · {{ t(`plantilla.variable.${h}`) }}
+              </AInsignia>
+            </div>
+            <p class="asunto">
+              {{ p.cuerpo }}
+            </p>
+          </AModulo>
+
+          <!-- El formulario de apunte. Va debajo de la lista para que lo
+               primero que se vea sea lo que ya hay: quien vuelve aquí viene
+               casi siempre a comprobar un estado, no a añadir. -->
+          <AModulo :titulo="t('plantillas.meta.anotar')">
+            <AEntrada
+              v-model="nuevaDeMeta.nombre"
+              :etiqueta="t('plantillas.meta.nombre')"
+              :ayuda="t('plantillas.meta.nombreAyuda')"
+            />
+            <AEntrada
+              v-model="nuevaDeMeta.idioma"
+              :etiqueta="t('plantillas.meta.idioma')"
+              :ayuda="t('plantillas.meta.idiomaAyuda')"
+            />
+            <ASelector
+              v-model="nuevaDeMeta.estadoEnMeta"
+              :etiqueta="t('plantillas.meta.estadoEtiqueta')"
+              :opciones="opcionesDeEstadoDeMeta"
+              :ayuda="t('plantillas.meta.estadoAyuda')"
+            />
+
+            <div class="campo">
+              <label for="cuerpo-de-meta">{{ t('plantillas.meta.cuerpo') }}</label>
+              <textarea
+                id="cuerpo-de-meta"
+                v-model="nuevaDeMeta.cuerpo"
+                class="area"
+                rows="6"
+                :placeholder="t('plantillas.meta.cuerpoMarcador')"
+              />
+              <p class="ayuda">
+                {{ t('plantillas.meta.cuerpoAyuda') }}
+              </p>
+            </div>
+
+            <!-- Los huecos, EN ORDEN. Meta manda los valores por posición, así
+                 que el orden no es cosmético: es a quién se le escribe. -->
+            <div class="campo">
+              <label>{{ t('plantillas.meta.huecos', { n: huecosDelCuerpo }) }}</label>
+              <p class="ayuda">
+                {{ t('plantillas.meta.huecosAyuda') }}
+              </p>
+              <div class="fila">
+                <AInsignia
+                  v-for="(h, i) in nuevaDeMeta.huecos"
+                  :key="`puesto-${i}`"
+                  tono="info"
+                >
+                  {{ i + 1 }} · {{ t(`plantilla.variable.${h}`) }}
+                </AInsignia>
+              </div>
+              <div class="fila">
+                <ABoton
+                  v-for="v in VARIABLES"
+                  :key="v"
+                  variante="sutil"
+                  :deshabilitado="nuevaDeMeta.huecos.length >= huecosDelCuerpo"
+                  @click="ponerHueco(v)"
+                >
+                  {{ t(`plantilla.variable.${v}`) }}
+                </ABoton>
+                <ABoton
+                  variante="sutil"
+                  :deshabilitado="nuevaDeMeta.huecos.length === 0"
+                  @click="quitarUltimoHueco"
+                >
+                  {{ t('plantillas.meta.quitarHueco') }}
+                </ABoton>
+              </div>
+            </div>
+
+            <ABoton
+              variante="primario"
+              :deshabilitado="!puedeGuardarDeMeta"
+              :ocupado="whatsapp.cargando"
+              @click="guardarDeMeta"
+            >
+              {{ t('plantillas.meta.guardar') }}
+            </ABoton>
+            <!-- §95: un botón apagado dice por qué. Es el defecto que la 8.2c
+                 y la 8.3c tuvieron con «Repite la contraseña». -->
+            <p
+              v-if="!puedeGuardarDeMeta"
+              class="ayuda"
+            >
+              {{
+                nuevaDeMeta.huecos.length === huecosDelCuerpo
+                  ? t('plantillas.meta.faltanDatos')
+                  : t('plantillas.meta.huecosNoCuadran', {
+                    puestos: nuevaDeMeta.huecos.length,
+                    n: huecosDelCuerpo,
+                  })
+              }}
+            </p>
+          </AModulo>
+        </template>
+      </template>
     </template>
 
     <!-- ── R-08 · borrar, con su pregunta ──────────────────────────────── -->

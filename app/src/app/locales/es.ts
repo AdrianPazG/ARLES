@@ -3774,6 +3774,85 @@ export const es = {
 
   // ── Escribir plantillas y firmas · entrega 6.8a ───────────────────────
   plantillas: {
+    // ── LAS PLANTILLAS DE META (D-WA, 27/10/2026) ──
+    //
+    // ARLES no las crea: el texto lo aprueba Meta palabra por palabra en su
+    // panel. Esto es el apunte de que existe. Y el dato que de verdad importa
+    // —qué variable va en cada hueco— Meta no lo sabe: sus huecos son {'{{'}1{'}}'}
+    // y {'{{'}2{'}}'}, sin nombre.
+    meta: {
+      titulo: 'Plantillas de WhatsApp aprobadas por Meta',
+      explicacion:
+        'Por WhatsApp sólo se puede mandar una plantilla que Meta haya ' +
+        'aprobado. ARLES no las crea: se escriben en el panel de Meta y aquí ' +
+        'se apuntan, para poder elegirlas al crear una campaña.',
+
+      sinNumeros: 'Todavía no has conectado ningún número de WhatsApp',
+      sinNumerosComo:
+        'Una plantilla pertenece a un número concreto, así que primero hay ' +
+        'que conectar el número.',
+      irAWhatsApp: 'Ir a Remitentes › WhatsApp',
+
+      numero: 'De qué número es la plantilla',
+      numeroAyuda:
+        'Meta las guarda por número: la misma empresa con dos números tiene ' +
+        'dos juegos de plantillas.',
+
+      vacioTitulo: 'Este número no tiene ninguna plantilla apuntada',
+      vacioCuerpo:
+        'Escribe la plantilla en el Administrador de WhatsApp de Meta, espera ' +
+        'su revisión, y cuando la apruebe apúntala aquí abajo.',
+
+      anotar: 'Apuntar una plantilla',
+      nombre: 'Nombre que le pusiste en Meta',
+      nombreAyuda:
+        'Es el identificador real del mensaje: es lo que ARLES le manda a ' +
+        'Meta, no el texto. Tiene que escribirse igual que allí.',
+      idioma: 'Idioma, en la forma de Meta',
+      idiomaAyuda:
+        'Para español de México es «es_MX». La misma plantilla en dos idiomas ' +
+        'son dos plantillas para Meta.',
+
+      estadoEtiqueta: 'Qué dice Meta de ella',
+      estadoAyuda:
+        'Se puede apuntar una que esté en revisión para no perderla de ' +
+        'vista. ARLES no deja activar una campaña con una que no esté ' +
+        'aprobada.',
+      estado: {
+        approved: 'Aprobada',
+        pending: 'En revisión',
+        rejected: 'Rechazada',
+        paused: 'Pausada por Meta',
+        disabled: 'Inhabilitada',
+      },
+
+      cuerpo: 'El texto aprobado, tal como está en Meta',
+      // ── LA TERCERA FORMA DE TUMBAR UNA PANTALLA CON UN TEXTO ──
+      //
+      // `vue-i18n` usa `{...}` para interpolar, así que `{{1}}` es **un
+      // marcador dentro de otro** y no compila: «Not allowed nest
+      // placeholder», y se cae el componente entero — no este texto.
+      //
+      // Y los huecos de Meta se escriben así de verdad, así que esto va a
+      // volver a pasar. Se escapa con interpolación literal.
+      cuerpoMarcador: "Hola {'{{1}}'}, somos {'{{2}}'}.",
+      cuerpoAyuda:
+        'Se guarda para que puedas leer lo que va a salir antes de elegir ' +
+        'esta plantilla. ARLES no lo manda: lo tiene Meta.',
+
+      huecos: 'Qué dato va en cada hueco · el texto tiene {n}',
+      huecosAyuda:
+        'Meta manda los valores por posición, así que el orden importa: es a ' +
+        'quién se le escribe. Pulsa los datos en el mismo orden en que ' +
+        'aparecen los huecos del texto.',
+      quitarHueco: 'Quitar el último',
+      guardar: 'Apuntar la plantilla',
+      faltanDatos: 'Faltan el nombre, el idioma o el texto.',
+      huecosNoCuadran:
+        'Has puesto {puestos} de {n} huecos. Si no cuadran, los que falten ' +
+        'saldrían vacíos en cada mensaje de la campaña.',
+    },
+
     titulo: 'Plantillas y firmas',
     explicacion:
       'El texto que ARLES manda en una campaña de correo. Necesitas al menos ' +

@@ -133,6 +133,34 @@ export function borradorDeNumeroVacio(): BorradorDeNumero {
   }
 }
 
+/**
+ * Una plantilla aprobada de Meta, tal como la manda la frontera.
+ *
+ * ARLES **no las crea**: el texto lo aprueba Meta palabra por palabra en su
+ * panel. Esto es el apunte de que existe —su nombre, su idioma, qué dice y en
+ * qué estado está— para poder ofrecerla al crear una campaña y para poder leer
+ * lo que va a salir antes de elegirla.
+ */
+export interface PlantillaDeMeta {
+  readonly id: string
+  /** El `name` de Meta. **Es el identificador real del mensaje.** */
+  readonly nombre: string
+  /** El idioma en la forma de Meta: `es_MX`. */
+  readonly idioma: string
+  /** `approved`, `pending`, `rejected`, `paused` o `disabled`. */
+  readonly estado: string
+  readonly cuerpo: string
+  /** Claves de i18n, no nombres: la pantalla las traduce (§139). */
+  readonly huecos: readonly string[]
+  /**
+   * ¿Se puede mandar una campaña con ésta?
+   *
+   * **Viene resuelto de Rust y aquí no se recalcula.** La regla está escrita
+   * por lo que acepta: un estado nuevo de Meta no empieza a enviar solo.
+   */
+  readonly sePuedeUsar: boolean
+}
+
 export const useWhatsappStore = defineStore('whatsapp', () => {
   const numeros = ref<readonly Numero[]>([])
   const cargando = ref(false)
@@ -255,6 +283,65 @@ export const useWhatsappStore = defineStore('whatsapp', () => {
     await marcar('refrescar_calidad_del_numero', id)
   }
 
+  // ── Las plantillas de Meta (D-WA, 27/10/2026) ──
+  //
+  // Viven aquí y no en el store de campañas porque son **del número**: la
+  // clave única de Meta es (número, nombre, idioma), y la misma empresa puede
+  // tener dos números con plantillas distintas. Ponerlas en campañas obligaría
+  // a cargarlas sin saber de cuál.
+  const plantillasDeMeta = ref<readonly PlantillaDeMeta[]>([])
+
+  /** Las plantillas anotadas de un número. Vacía la lista si falla. */
+  async function cargarPlantillasDeMeta(numero: string): Promise<void> {
+    if (!hayNucleo()) return
+    cargando.value = true
+    error.value = null
+    try {
+      plantillasDeMeta.value = await invocar<PlantillaDeMeta[]>('plantillas_de_meta', {
+        numero,
+      })
+    } catch (e) {
+      error.value = esErrorIpc(e) ? e.clave : 'error.desconocido'
+      // Se vacía a propósito: dejar la lista del número anterior haría elegir
+      // una plantilla que no es de este número, y el error llegaría al activar.
+      plantillasDeMeta.value = []
+    } finally {
+      cargando.value = false
+    }
+  }
+
+  /**
+   * Anota una plantilla que Meta aprobó, o pone al día la que ya estaba.
+   *
+   * Devuelve `true` si se guardó. Meta cambia el estado por su cuenta —una
+   * aprobada puede pasar a `paused` si la gente la reporta—, así que volver a
+   * anotarla es poner al día lo que Meta dice, no crear una segunda.
+   */
+  async function anotarPlantillaDeMeta(datos: {
+    numero: string
+    nombre: string
+    idioma: string
+    estadoEnMeta: string
+    cuerpo: string
+    huecos: string[]
+  }): Promise<boolean> {
+    if (!hayNucleo()) return false
+    cargando.value = true
+    error.value = null
+    try {
+      plantillasDeMeta.value = await invocar<PlantillaDeMeta[]>(
+        'anotar_plantilla_de_meta',
+        datos,
+      )
+      return true
+    } catch (e) {
+      error.value = esErrorIpc(e) ? e.clave : 'error.desconocido'
+      return false
+    } finally {
+      cargando.value = false
+    }
+  }
+
   /** Las dos marcas se ponen igual; solo cambia el comando. */
   async function marcar(comando: string, id: string): Promise<void> {
     if (!hayNucleo()) return
@@ -281,5 +368,8 @@ export const useWhatsappStore = defineStore('whatsapp', () => {
     confirmarCoexistencia,
     aceptarRiesgo,
     refrescarCalidad,
+    plantillasDeMeta,
+    cargarPlantillasDeMeta,
+    anotarPlantillaDeMeta,
   }
 })
