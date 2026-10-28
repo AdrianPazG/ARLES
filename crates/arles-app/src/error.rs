@@ -113,6 +113,27 @@ pub enum AppError {
     #[error("no se pudo abrir el archivo elegido")]
     ArchivoNoSePudoLeer,
 
+    /// Se pidió activar una campaña con otra activación ya corriendo.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ SE RECHAZA EN VEZ DE HACER COLA
+    ///
+    /// Activar tarda hasta 73.5 s y toma el cerrojo de la conexión entero
+    /// (auditoría C). Dejar que la segunda petición espere ese cerrojo haría
+    /// que quien pulsó dos veces se quedara **setenta segundos mirando** para
+    /// que después se activara otra campaña, o la misma.
+    ///
+    /// Y las dos salidas de esa cola son malas: la misma campaña dos veces
+    /// choca contra el `UNIQUE(campaign_id, channel, contact_address)` y falla
+    /// con un error de SQLite que no dice lo que pasa; dos campañas distintas
+    /// **funcionan las dos**, y entonces quien pulsó no sabe cuál va ni en qué
+    /// orden salieron.
+    ///
+    /// Lo que está a salvo (§95): nada se tocó, y la activación que sí está
+    /// corriendo sigue su curso.
+    #[error("ya hay una activación en curso")]
+    YaHayUnaActivacion,
+
     /// Se pidió restaurar sin haber revisado ningún respaldo antes.
     ///
     /// **No se arregla abriendo un diálogo aquí.** Restaurar sin haber enseñado
@@ -169,6 +190,7 @@ impl AppError {
             Self::EmpresaNoConfigurada => "error.app.empresa_no_configurada",
             Self::SinImportacionEnCurso => "error.app.sin_importacion_en_curso",
             Self::ArchivoNoSePudoLeer => "error.app.archivo_no_se_pudo_leer",
+            Self::YaHayUnaActivacion => "error.app.ya_hay_una_activacion",
             Self::AlcanceDeRespaldoDesconocido => "error.app.alcance_de_respaldo_desconocido",
             Self::CuentaNoSirve(e) => e.clave_i18n(),
             Self::Lectura(e) => e.clave_i18n(),

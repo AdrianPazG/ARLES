@@ -586,6 +586,97 @@ describe('el asistente de campaña', () => {
     expect(botones.join(' | ')).toContain('Detener todos los envíos')
     expect(w.text()).not.toContain('no sale nada de ninguna campaña')
   })
+
+  // ── EL AVANCE DE LA ACTIVACIÓN (Fase 9) ────────────────────────────────
+
+  /**
+   * **El avance dice en qué va con palabras, y la cifra sólo donde la hay.**
+   *
+   * Medido el 28/10/2026: el bucle de la cola es el 52-57 % del tiempo y el
+   * único tramo contable. El `INSERT` de la audiencia (33-38 %) es una sola
+   * sentencia y el `COMMIT` (7-9 %) tampoco se subdivide, así que una barra de
+   * porcentaje estaría quieta el 45 % de la espera y después saltaría.
+   *
+   * En la fase de congelar **no puede aparecer ninguna cifra**: si apareciera,
+   * sería inventada.
+   */
+  it('mientras congela la audiencia dice qué hace y no da cifras', async () => {
+    const campanas = useCampanasStore()
+    const p = montar()
+    campanas.comoVa = { fase: 'congelando', sePuedeCancelar: true }
+    // @ts-expect-error acceso al estado interno para situarse en el paso 9
+    p.vm.paso = 9
+    // @ts-expect-error la campaña ya creada, para llegar al bloque de activar
+    p.vm.creada = { id: 'c-1' }
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto).toContain('Decidiendo quién entra en la campaña')
+    expect(texto, 'ni «de»: ahí no hay cifra que dar').not.toContain(' de 0')
+    expect(texto, 'y se puede cancelar').toContain('Cancelar la activación')
+  })
+
+  /** La fase de la cola sí lleva cifras, **con separador de miles**. */
+  it('al llenar la cola enseña van y de, con separador', async () => {
+    const campanas = useCampanasStore()
+    const p = montar()
+    campanas.comoVa = { fase: 'cola', van: 12000, de: 180552, sePuedeCancelar: true }
+    // @ts-expect-error acceso al estado interno para situarse en el paso 9
+    p.vm.paso = 9
+    // @ts-expect-error la campaña ya creada
+    p.vm.creada = { id: 'c-1' }
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto).toContain('Preparando los mensajes')
+    // Es el octavo defecto de este tipo del proyecto —«12536 filas» en la
+    // 8.2c, «1303 días» en la 8.6 E—, así que se comprueba y no se confía.
+    expect(texto, 'con separador').toContain('12,000')
+    expect(texto, 'y el total también').toContain('180,552')
+  })
+
+  /**
+   * **En la fase de cerrar, el botón de cancelar se apaga y dice por qué.**
+   *
+   * Un botón encendido que no hace nada es el §95 al revés. Y uno apagado sin
+   * motivo se lee como una avería — es el defecto que la 8.2c y la 8.3c
+   * tuvieron con «Repite la contraseña» y «Restaurar y reemplazar».
+   */
+  it('al cerrar apaga el botón de cancelar y explica el motivo', async () => {
+    const campanas = useCampanasStore()
+    const p = montar()
+    campanas.comoVa = { fase: 'cerrando', sePuedeCancelar: false }
+    // @ts-expect-error acceso al estado interno para situarse en el paso 9
+    p.vm.paso = 9
+    // @ts-expect-error la campaña ya creada
+    p.vm.creada = { id: 'c-1' }
+    await p.vm.$nextTick()
+
+    expect(p.text()).toContain('Ya no se puede cancelar')
+
+    const boton = p.findAll('button').find((b) => b.text().includes('Cancelar la activación'))
+    expect(boton, 'el botón sigue estando, para no mover la pantalla').toBeTruthy()
+    expect(boton?.attributes('disabled'), 'y está apagado').toBeDefined()
+    expect(
+      boton?.attributes('title'),
+      'con el motivo, que es lo que el §95 pide de un botón apagado',
+    ).toBeTruthy()
+  })
+
+  /** Sin activación en curso, el botón que se ve es el de activar. */
+  it('sin activación en curso no hay avance ni botón de cancelar', async () => {
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 9
+    p.vm.paso = 9
+    // @ts-expect-error la campaña ya creada
+    p.vm.creada = { id: 'c-1' }
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto).toContain('Activar campaña')
+    expect(texto).not.toContain('Cancelar la activación')
+    expect(texto).not.toContain('Preparando los mensajes')
+  })
 })
 
 /**

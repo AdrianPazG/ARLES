@@ -1,6 +1,6 @@
 //! Estado compartido de la aplicación.
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use arles_db::Db;
 
@@ -86,6 +86,64 @@ pub struct EstadoApp {
     /// dos respuestas distintas si el DNS cambia en medio, y además serían seis
     /// consultas de red en vez de tres.
     dominios: crate::entregabilidad::Dominios,
+
+    /// La activación que está corriendo, si hay una.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ ESTO VIVE AQUÍ Y NO EN EL COMANDO
+    ///
+    /// Porque **cancelar es otro comando**. `activar_campana` tarda hasta 73.5 s
+    /// (auditoría C) y durante ese rato `cancelar_activacion` tiene que poder
+    /// llegar y decirle que pare: la bandera es el único sitio donde los dos se
+    /// encuentran.
+    ///
+    /// `Arc<AtomicBool>` y no un `Mutex<bool>` a propósito: el hilo que activa
+    /// la consulta cada 2 000 filas, y tomar un cerrojo para leer un booleano
+    /// 225 veces mientras se escriben 451 196 filas es ruido que además podría
+    /// esperar a quien está escribiendo.
+    ///
+    /// ── Y POR QUÉ ADEMÁS SIRVE DE PUERTA ──────────────────────────────────
+    ///
+    /// `Some` significa «hay una activación en curso», así que la segunda
+    /// petición se rechaza en vez de quedarse esperando el cerrojo de la base
+    /// durante setenta segundos para activar después. Dos activaciones de la
+    /// misma campaña chocarían contra el
+    /// `UNIQUE(campaign_id, channel, contact_address)` y fallarían con un error
+    /// de SQLite; dos de campañas distintas funcionarían, y dejarían a quien
+    /// pulsó sin saber cuál de las dos va.
+    activacion_en_curso: Mutex<Option<Arc<std::sync::atomic::AtomicBool>>>,
+}
+
+/// Lo que se devuelve al tomar la vez para activar.
+///
+/// Suelta la vez **al soltarse**, así que un `?` o un `panic!` en medio de la
+/// activación no deja la puerta cerrada para siempre. Escribirlo a mano —poner
+/// `None` al final del comando— habría dejado ese camino abierto, y es
+/// exactamente el tipo de hueco que este proyecto encuentra tres entregas
+/// después.
+#[derive(Debug)]
+pub struct LaVezParaActivar<'a> {
+    estado: &'a EstadoApp,
+    /// La bandera que el hilo de la activación consulta.
+    pub cancelar: Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl LaVezParaActivar<'_> {
+    /// ¿Ya pidieron cancelar?
+    #[must_use]
+    pub fn cancelada(&self) -> bool {
+        self.cancelar.load(std::sync::atomic::Ordering::Relaxed)
+    }
+}
+
+impl Drop for LaVezParaActivar<'_> {
+    fn drop(&mut self) {
+        *self
+            .estado
+            .activacion_en_curso
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = None;
+    }
 }
 
 impl EstadoApp {
@@ -147,12 +205,52 @@ impl EstadoApp {
             importacion: Mutex::new(None),
             respaldo_elegido: Mutex::new(None),
             dominios: crate::entregabilidad::Dominios::default(),
+            activacion_en_curso: Mutex::new(None),
         })
     }
 
     #[must_use]
     pub fn db(&self) -> &Db {
         &self.db
+    }
+
+    /// Toma la vez para activar una campaña, o dice que ya hay una en curso.
+    ///
+    /// Devuelve `None` si otra activación está corriendo. **No espera**: quien
+    /// pulsa dos veces tiene que leer que ya va una, no quedarse setenta
+    /// segundos mirando para que después se active otra vez.
+    pub fn tomar_la_vez_para_activar(&self) -> Option<LaVezParaActivar<'_>> {
+        let mut guardia = self
+            .activacion_en_curso
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        if guardia.is_some() {
+            return None;
+        }
+        let cancelar = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        *guardia = Some(Arc::clone(&cancelar));
+        Some(LaVezParaActivar {
+            estado: self,
+            cancelar,
+        })
+    }
+
+    /// Pide que la activación en curso pare. Dice si había alguna.
+    ///
+    /// `false` no es un error: se pulsó cancelar cuando ya había terminado, que
+    /// es una carrera normal con una barra que se mueve. La pantalla lo trata
+    /// como «ya está», no como un fallo.
+    pub fn pedir_cancelar_la_activacion(&self) -> bool {
+        let guardia = self
+            .activacion_en_curso
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        if let Some(bandera) = guardia.as_ref() {
+            bandera.store(true, std::sync::atomic::Ordering::Relaxed);
+            true
+        } else {
+            false
+        }
     }
 
     /// Lo que se sabe del DNS de cada dominio, compartido (7.5).

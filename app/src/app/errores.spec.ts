@@ -74,6 +74,10 @@ const CLAVES_DEL_NUCLEO = [
   'error.app.empresa_no_configurada',
   'error.app.sin_importacion_en_curso',
   'error.app.archivo_no_se_pudo_leer',
+  // Fase 9 · la puerta que impide dos activaciones a la vez. Se rechaza en vez
+  // de hacer cola: esperar el cerrojo setenta segundos para activar después es
+  // lo que haría quien no mirase.
+  'error.app.ya_hay_una_activacion',
   // Entrega 8.2c · la webview pidió un alcance de respaldo que no existe. Es
   // un defecto nuestro: la pantalla sólo ofrece los dos de D-8B.
   'error.app.alcance_de_respaldo_desconocido',

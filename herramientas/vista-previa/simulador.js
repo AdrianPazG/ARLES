@@ -1156,6 +1156,19 @@
           return Promise.resolve({ enLaAudiencia: Math.max(0, enLa - fuera), fueraPorBaja: fuera });
         }
 
+        // Cancelar la activación (Fase 9). Aquí siempre dice que no había
+        // ninguna, y es lo honesto: en la demostración activar es instantáneo
+        // —no hay base que escribir—, así que cuando se pulsa ya terminó. El
+        // producto devuelve `false` en ese mismo caso, que es la carrera normal
+        // de pulsar mientras la barra se mueve.
+        //
+        // Lo que la demostración NO puede enseñar es el avance: los avisos son
+        // eventos de Tauri y en un navegador no hay quien los emita. Está
+        // dicho así en vez de inventar una barra que se mueva sola, que
+        // enseñaría un producto que no existe.
+        case 'cancelar_activacion':
+          return Promise.resolve(false);
+
         case 'revisar_campana':
           // El preflight de ocho puntos, en verde menos los tres de red, que
           // desde un navegador **no se pueden contestar**: van como «sin

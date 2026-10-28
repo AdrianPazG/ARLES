@@ -165,6 +165,10 @@ pub fn run() {
             campanas::campanas,
             campanas::crear_campana,
             campanas::activar_campana,
+            // Fase 9 · cancelar una activación en curso. Va aquí al lado
+            // porque es su pareja: sin este comando, `activar_campana` tiene
+            // una bandera que nadie puede levantar.
+            campanas::cancelar_activacion,
             // El freno (7.0). Estos seis llevaban desde la Fase 4 sin existir,
             // con todo lo demás construido debajo: una campaña activada no se
             // podía parar desde la aplicación.

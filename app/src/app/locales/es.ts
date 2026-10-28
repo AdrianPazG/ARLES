@@ -2215,6 +2215,16 @@ export const es = {
           'primero.',
         salvo: 'No se importó nada.',
       },
+      ya_hay_una_activacion: {
+        que: 'Ya hay una campaña activándose ahora mismo.',
+        como:
+          'Espera a que termine —verás su avance— y vuelve a intentarlo. ' +
+          'Activar dos campañas a la vez no se puede: cada una escribe su ' +
+          'cola entera y la segunda tendría que esperar igual, sin decírtelo.',
+        salvo:
+          'No se tocó nada de esta campaña, y la que se está activando sigue ' +
+          'su curso.',
+      },
       empresa_no_configurada: {
         que: 'Todavía no has configurado los datos de tu empresa.',
         como: 'Ve a Ajustes, completa los datos de la empresa y vuelve aquí.',
@@ -2725,6 +2735,28 @@ export const es = {
           'correos empiezan a salir. Puedes pausar o detener la campaña, pero ' +
           'lo que ya haya salido no vuelve.',
         activar: 'Activar campaña',
+        /*
+         * LAS TRES FASES, Y POR QUÉ SON PALABRAS Y NO UN PORCENTAJE
+         *
+         * Medido el 28/10/2026 instrumentando el código real: el bucle de la
+         * cola es el 52-57 % del tiempo y el único tramo contable; el INSERT
+         * de la audiencia (33-38 %) es una sola sentencia de SQLite y el
+         * COMMIT (7-9 %) tampoco se subdivide. Una barra estaría quieta el
+         * 45 % de la espera y después saltaría.
+         *
+         * Cada frase dice qué está pasando, no cuánto queda, porque cuánto
+         * queda no se sabe sin inventarlo.
+         */
+        fase: {
+          congelando: 'Decidiendo quién entra en la campaña…',
+          cola: 'Preparando los mensajes…',
+          cerrando: 'Terminando. Ya no se puede cancelar.',
+        },
+        vanDe: '{van} de {de}',
+        cancelar: 'Cancelar la activación',
+        yaNoSePuedeCancelar:
+          'Ya no se puede cancelar: solo queda guardar lo hecho, y eso tarda ' +
+          'un instante.',
         bloqueada:
           'Vuelve al paso 7: hay comprobaciones que no pasan o que no se ' +
           'pudieron hacer.',

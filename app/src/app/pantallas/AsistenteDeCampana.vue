@@ -828,6 +828,22 @@ async function activar(): Promise<void> {
   activacion.value = await campanas.activar(creada.value.id)
 }
 
+/**
+ * Pide que la activación en curso pare.
+ *
+ * No deshace nada desde aquí: levanta una bandera que el núcleo consulta entre
+ * tandas, y quien deshace es su transacción. Por eso cancelar **no puede dejar
+ * una campaña a medio activar** — está probado en `arles-db` comparando el
+ * recuento de las cuatro tablas antes y después.
+ *
+ * No se mira lo que devuelve: `false` significa que ya había terminado, que es
+ * la carrera normal de pulsar mientras la barra se mueve, y en ese caso el
+ * resultado de la activación ya está en camino por el valor del comando.
+ */
+async function cancelar(): Promise<void> {
+  await campanas.cancelarLaActivacion()
+}
+
 function alFinal(): void {
   void router.push({ name: 'campanas' })
 }
@@ -1588,7 +1604,61 @@ function rotulo(clave: string): string {
           >
             <p>{{ t('asistente.paso.activacion.noSeDeshaceDetalle') }}</p>
           </AAviso>
+          <!--
+            EL AVANCE, Y POR QUÉ NO ES UNA BARRA DE PORCENTAJE
+
+            Activar tarda 73.5 s con 451 196 destinatarios y rompe su
+            presupuesto de 2 s hacia los 30 000 (auditoría C). Medido por
+            tramos el 28/10/2026: el bucle de la cola es el 52-57 % del tiempo
+            y el ÚNICO que se puede contar fila a fila; el INSERT de la
+            audiencia (33-38 %) es una sola sentencia y el COMMIT (7-9 %)
+            tampoco se subdivide.
+
+            Una barra de 0 a 100 estaría quieta el 45 % de la espera y después
+            saltaría. Así que se dice EN QUÉ VA con palabras, y la cifra sólo
+            aparece en la fase que la tiene. Es el §94: cifras y no adjetivos,
+            y menos una cifra que no mide nada.
+          -->
+          <div
+            v-if="campanas.comoVa"
+            class="asistente__avance"
+          >
+            <p class="asistente__frase">
+              {{ t(`asistente.paso.activacion.fase.${campanas.comoVa.fase}`) }}
+            </p>
+            <p
+              v-if="campanas.comoVa.van !== undefined && campanas.comoVa.de !== undefined"
+              class="asistente__nota"
+            >
+              {{
+                t('asistente.paso.activacion.vanDe', {
+                  van: campanas.comoVa.van.toLocaleString('es-MX'),
+                  de: campanas.comoVa.de.toLocaleString('es-MX'),
+                })
+              }}
+            </p>
+            <!--
+              El botón se apaga con lo que manda el núcleo y no con la clave de
+              la fase: quien sabe si cancelar sirve es quien tiene el dato. En
+              `cerrando` ya no sirve, y un botón encendido que no hace nada es
+              el §95 al revés.
+            -->
+            <ABoton
+              variante="secundario"
+              :deshabilitado="!campanas.comoVa.sePuedeCancelar"
+              :title="
+                campanas.comoVa.sePuedeCancelar
+                  ? undefined
+                  : t('asistente.paso.activacion.yaNoSePuedeCancelar')
+              "
+              @click="cancelar"
+            >
+              {{ t('asistente.paso.activacion.cancelar') }}
+            </ABoton>
+          </div>
+
           <ABoton
+            v-else
             variante="primario"
             :deshabilitado="!sePuedeActivar"
             :ocupado="campanas.trabajando"
@@ -1597,7 +1667,7 @@ function rotulo(clave: string): string {
             {{ t('asistente.paso.activacion.activar') }}
           </ABoton>
           <p
-            v-if="!sePuedeActivar"
+            v-if="!sePuedeActivar && !campanas.comoVa"
             class="asistente__nota"
           >
             {{ t('asistente.paso.activacion.bloqueada') }}

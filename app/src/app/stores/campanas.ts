@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { claveDelError, hayNucleo, invocar } from '@/app/nucleo'
+import { claveDelError, escuchar, hayNucleo, invocar } from '@/app/nucleo'
 
 /**
  * El umbral del aviso de volumen (§48).
@@ -168,6 +168,30 @@ export interface CampanaCreada {
 export interface Activacion {
   readonly enLaAudiencia: number
   readonly fueraPorBaja: number
+}
+
+/**
+ * Cómo va una activación, tal y como llega del núcleo.
+ *
+ * `van` y `de` **sólo vienen en la fase `cola`**, y la diferencia entre
+ * ausentes y cero importa: con `0` la pantalla pintaría una barra al 0 %
+ * durante el 38 % de la espera, sin forma de saber que ahí no hay cifra que
+ * pintar. Medido el 28/10/2026 — ver `FaseDeActivacion` en el núcleo.
+ */
+export interface ComoVa {
+  /** `congelando`, `cola` o `cerrando`. Clave de i18n, no texto (§139). */
+  readonly fase: 'congelando' | 'cola' | 'cerrando'
+  readonly van?: number
+  readonly de?: number
+  /**
+   * ¿Sirve de algo cancelar todavía?
+   *
+   * Viene del núcleo y **no se deduce aquí de la fase**: quien sabe la
+   * respuesta es quien tiene el dato, igual que con los tres puntos de red del
+   * preflight. En `cerrando` es `false`, porque a esa altura sólo quedan dos
+   * `UPDATE` de una fila y el `COMMIT`.
+   */
+  readonly sePuedeCancelar: boolean
 }
 
 /**
@@ -564,10 +588,37 @@ export const useCampanasStore = defineStore('campanas', () => {
     }
   }
 
+  /**
+   * Cómo va la activación en curso, o `null` si no hay ninguna.
+   *
+   * ── POR QUÉ ESTO EXISTE (Fase 9) ─────────────────────────────────────────
+   *
+   * Activar tarda **73.5 s con 451 196 destinatarios** y rompe su presupuesto
+   * de 2 s **hacia los 30 000**, que es una lista ordinaria (auditoría C,
+   * 07/10/2026). Hasta hoy no había cifra de avance y no se podía cancelar.
+   *
+   * `fase` es una clave y no un texto: el §139 manda, y el texto vive en el
+   * catálogo. `van` y `de` son opcionales **a propósito** — sólo la fase de la
+   * cola tiene cifra, porque es el único tramo que se puede contar fila a
+   * fila. Interpolar un porcentaje sobre los otros dos sería inventarse una
+   * medición (§94).
+   */
+  const comoVa = ref<ComoVa | null>(null)
+
   /** Activa. **No se deshace.** */
   async function activar(id: string): Promise<Activacion | null> {
     trabajando.value = true
     errorGeneral.value = null
+    comoVa.value = null
+
+    // El oyente se pone **antes** de invocar: puesto después, los primeros
+    // avisos de una campaña pequeña ya habrían pasado y la barra aparecería a
+    // mitad. Y se quita siempre, pase lo que pase — un oyente que no se quita
+    // sigue vivo al salir de la pantalla, y la segunda visita deja dos
+    // escribiendo sobre el mismo contador.
+    const dejarDeEscuchar = await escuchar<ComoVa>('campana:activando', (c) => {
+      comoVa.value = c
+    })
     try {
       const a = await invocar<Activacion>('activar_campana', { id })
       campanas.value = await invocar<Campana[]>('campanas')
@@ -576,7 +627,28 @@ export const useCampanasStore = defineStore('campanas', () => {
       recordarError(e)
       return null
     } finally {
+      dejarDeEscuchar()
+      comoVa.value = null
       trabajando.value = false
+    }
+  }
+
+  /**
+   * Pide que la activación en curso pare.
+   *
+   * No deshace nada por sí misma: levanta una bandera que el núcleo consulta
+   * entre tandas, y quien deshace es su transacción. Por eso cancelar **no
+   * puede dejar una campaña a medio activar**.
+   *
+   * Devuelve `false` si ya había terminado, y **no es un error**: es la carrera
+   * normal de pulsar mientras la barra se mueve.
+   */
+  async function cancelarLaActivacion(): Promise<boolean> {
+    try {
+      return await invocar<boolean>('cancelar_activacion', {})
+    } catch (e) {
+      recordarError(e)
+      return false
     }
   }
 
@@ -717,6 +789,8 @@ export const useCampanasStore = defineStore('campanas', () => {
     revisar,
     enviarPrueba,
     activar,
+    comoVa,
+    cancelarLaActivacion,
     pausar,
     reanudar,
     detener,
