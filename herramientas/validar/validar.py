@@ -157,6 +157,7 @@ def fase_0(rapido):
           "Faltan:\n" + "\n".join(faltan))
 
     todo_documento_esta_en_el_indice()
+    los_bloqueos_se_cuentan_en_un_solo_sitio()
 
     adrs = sorted(
         f for f in os.listdir(os.path.join(RAIZ, "documentacion/03-arquitectura/adr"))
@@ -394,6 +395,243 @@ def todo_documento_esta_en_el_indice():
         "índice diciendo «Fase 0 — Discovery» con la Fase 8 cerrada.",
         f"{len(fuera)} sin nombrar: " + ", ".join(sorted(fuera)[:6])
         if fuera else "no se pudo leer el índice",
+    )
+
+
+def los_bloqueos_se_cuentan_en_un_solo_sitio():
+    """Los bloqueos externos viven en `avance.json` y los dos documentos que los
+    repiten dicen lo mismo — incluida la cifra escrita en letra.
+
+    ── QUÉ PASÓ, Y POR QUÉ ESTA COMPROBACIÓN NO ES BUROCRACIA ────────────────
+
+    El 28/10/2026, contestando a Dirección «qué falta para una beta», salió que
+    los bloqueos del proyecto estaban escritos **tres veces a mano**:
+    `avance.json`, el registro de requisitos y el §8 de `CLAUDE.md`. Las tres
+    listas coincidían, y las tres **dejaban fuera los mismos dos trámites**:
+
+      · el certificado de firma de Windows — 1 a 3 semanas de plazo externo
+      · el Apple Developer ID — sin él la aplicación NO ABRE en macOS
+
+    Los dos están declarados en `DISTRIBUCION_Y_FIRMA.md` §1 desde la Fase 0
+    como trámites que **arrancan en la Fase 1**, y la matriz los tiene como
+    R-14 con la mitigación escrita «trámite iniciado en Fase 1». Nadie los
+    había iniciado, y ninguna de las tres listas los nombraba, así que nadie
+    los estaba esperando: el riesgo R-14 ocurriendo exactamente como estaba
+    descrito.
+
+    Y el registro afirmaba de P-01 que era «lo único entre ARLES y el `.exe`».
+    Una tabla que se lee para saber qué falta y deja fuera dos plazos de
+    semanas no es una tabla incompleta: es la que hace que se descubran al
+    final.
+
+    ── CUÁLES SON «LOS DOCUMENTOS», Y POR QUÉ NO SE NOMBRAN AQUÍ ─────────────
+
+    **Se buscan**, no se enumeran. La primera versión de esta comprobación
+    traía dos rutas escritas a mano —el registro de requisitos y `CLAUDE.md`—
+    y había una **cuarta** lista que no contaba: el §6 de `ESTADO_ACTUAL.md`,
+    con las mismas dos omisiones, la misma cifra desfasada y además el motor
+    descrito como si sólo recorriera correo. La encontré a mano, que es
+    precisamente lo que este proyecto lleva once hallazgos aprendiendo a no
+    hacer: **una comprobación escrita para cazar listas a mano, con una lista a
+    mano dentro.**
+
+    Así que el documento que repite la lista se declara a sí mismo: es todo
+    `.md` del proyecto que contenga la frase «impiden entregar». Quien escriba
+    una quinta lista mañana entra en la comprobación el día que la escriba, sin
+    que nadie se acuerde — y si escribe la tabla sin la frase, no está diciendo
+    cuántos son, que es el otro fallo que esto mide.
+
+    ── QUÉ MIDE, Y POR QUÉ LA CIFRA EN LETRA TAMBIÉN ─────────────────────────
+
+    Dos cosas, y la segunda es la que de verdad falló:
+
+      1. Los identificadores, **en las dos direcciones**: todo bloqueo abierto
+         de `avance.json` está nombrado en los dos documentos, y ningún
+         documento nombra uno que la fuente no tenga. Una dirección sola deja
+         pasar el caso que ocurrió —la fuente creciendo y los documentos
+         quietos— o el contrario.
+      2. La frase «Los N impiden entregar». Decía «los cuatro» con cuatro
+         bloqueos, así que era verdad **el día que se escribió** y falsa el día
+         que entrara el quinto, sin que nada fallara. Una cifra escrita a mano
+         junto a una lista que crece es la lista a mano otra vez, en su forma
+         más barata de cometer.
+
+    `avance.json` es la fuente porque de ahí se genera la portada del
+    repositorio, que es el único sitio donde Dirección ve esto.
+
+    ── CÓMO SE MIDE, Y LA TRAMPA DE SIEMPRE ──────────────────────────────────
+
+    La cifra se busca con un patrón sobre prosa, así que aplica la conclusión
+    que este proyecto lleva **diez veces** aprendiendo: una comprobación que
+    busca una cadena en un archivo se caza a sí misma en el texto que explica
+    por qué existe. Por eso de los dos documentos se quitan, antes de medir,
+    las citas entre comillas angulares — que es cómo este proyecto escribe lo
+    que un documento **decía**.
+
+    **Y ese quitado es una defensa dormida, dicho así porque medirlo demostró
+    que hoy no la ejercita nada.** Al quitarlo, la comprobación siguió en
+    verde: la fila DOC-10 del registro cita la frase vieja en trozos —«los
+    cuatro»— y no entera, así que el patrón no la alcanza. Lo que sí la haría
+    caer es escribir la frase **completa** dentro de una cita, que es lo normal
+    en una nota histórica de este proyecto. Medido por los dos caminos el
+    28/10/2026: con la frase entera citada, con el quitado puesto queda en
+    verde y sin él se pone en rojo sobre documentos correctos. Se queda por eso
+    y con su condición al lado, no porque se dé por buena.
+
+    Los bloqueos cerrados no se exigen: un bloqueo cerrado se deja escrito en
+    `avance.json` a propósito —uno que desaparece parece uno que nadie
+    resolvió— pero los documentos pueden dejar de nombrarlo sin mentir.
+
+    ── LO QUE ESTA COMPROBACIÓN NO CUBRE ─────────────────────────────────────
+
+    Que la lista de `avance.json` esté **completa**. Compara tres sitios entre
+    sí, y los tres podían estar de acuerdo en omitir lo mismo: es exactamente
+    lo que pasó con los dos trámites de firma durante nueve fases. Para eso no
+    hay comprobación posible —exige saber qué hace falta para entregar, que no
+    está en ningún archivo— y la defensa que funcionó fue usar la lista para
+    contestar una pregunta concreta.
+
+    ── LA RED QUE CUBRE EL HUECO DE LA BÚSQUEDA ──────────────────────────────
+
+    Buscar por una frase tiene un fallo evidente: un documento que lleve la
+    tabla **sin** la frase no se encuentra, y la comprobación pierde cobertura
+    en silencio diciendo un número más bajo de documentos. Por eso el que
+    nombra **todos** los bloqueos abiertos y no dice cuántos son es un hallazgo
+    por sí mismo. Las dos mitades se cubren: al quitar la tolerancia al negrita
+    —ruptura 6—, `ESTADO_ACTUAL.md` se cae de la búsqueda y esta red lo
+    recoge.
+
+    ── VERIFICADA ROMPIÉNDOLA ────────────────────────────────────────────────
+
+    Siete rupturas el 28/10/2026, las siete vistas en rojo con su mensaje:
+
+      1. quitar FIRMA-MAC del registro de requisitos
+      2. quitar FIRMA-WIN de `ESTADO_ACTUAL.md`
+      3. dejar la cifra de `CLAUDE.md` en «Los cuatro»
+      4. nombrar en el registro un `P-44` que la fuente no tiene
+      5. quitarle la frase a un documento que lleva la lista entera
+      6. quitar la tolerancia al negrita del patrón
+      7. quitar la exclusión de los informes fechados — 6 hallazgos, que es
+         lo que prueba que la exclusión hace falta
+
+    Y una octava sobre el filtro de citas, que es la que midió lo que se dice
+    arriba de él: con la frase vieja citada entera, en verde con el filtro y en
+    rojo sin él.
+
+    **La primera corrida de verdad encontró un defecto de quien la escribió,
+    antes de empujar nada**: los tres documentos decían «los cinco» y los
+    bloqueos abiertos eran **seis**. Se escribió para cazar una cifra a mano
+    desfasada y lo primero que cazó fue una recién escrita a mano.
+
+    Los archivos se restauraron de copias hechas **antes** de la primera
+    ruptura y se comprobó con `diff`, no con un `grep` de un identificador:
+    buscar el nombre deja en pie el síntoma y no prueba la restauración.
+    """
+    import json as _json
+
+    crudo = leer("documentacion", "07-entrega", "avance.json")
+    if not crudo:
+        check(0, "los bloqueos se cuentan en un solo sitio", False,
+              "Sin `avance.json` no hay fuente con la que comparar.",
+              "no se pudo leer documentacion/07-entrega/avance.json")
+        return
+
+    bloqueos = _json.loads(crudo)["bloqueos"]
+    abiertos = [b["id"] for b in bloqueos if "cerrado" not in b]
+    cerrados = {b["id"] for b in bloqueos if "cerrado" in b}
+
+    # Las citas de lo que un documento DECÍA van entre comillas angulares, y
+    # son exactamente lo que no hay que medir.
+    def sin_citas(t):
+        return re.sub(r"«[^»]*»", " ", t)
+
+    # Los documentos que repiten la lista se declaran por llevar la frase, no
+    # por estar nombrados aquí: ver la cabecera.
+    # Los informes para Dirección quedan fuera, y es una regla y no una lista:
+    # son entregables FECHADOS, la foto de un día. Tres los llevan —las fases
+    # 3, 4 y 8— diciendo «los cuatro», que era verdad cuando se firmaron.
+    # Exigirles la cifra de hoy sería reescribir el informe de septiembre, y un
+    # informe que se reescribe deja de ser lo que se entregó.
+    candidatos = [os.path.join(RAIZ, "CLAUDE.md")]
+    for base, _, archivos in os.walk(os.path.join(RAIZ, "documentacion")):
+        candidatos += [
+            os.path.join(base, n) for n in archivos
+            if n.endswith(".md") and not n.endswith("-PARA-DIRECCION.md")
+        ]
+
+    # El negrita se admite en medio: el §6 de `ESTADO_ACTUAL.md` escribe
+    # «impiden **entregar**», y una búsqueda literal lo habría saltado — que es
+    # justamente la lista que esta comprobación no estaba mirando.
+    LA_FRASE = re.compile(r"[Ll]os (\w+) impiden\s+(?:\*\*)?entregar")
+
+    docs = {}
+    sin_cifra = []
+    for ruta in candidatos:
+        with open(ruta, encoding="utf-8") as f:
+            texto = sin_citas(f.read())
+        rel = os.path.relpath(ruta, RAIZ)
+        if LA_FRASE.search(texto):
+            docs[rel] = texto
+        elif abiertos and all(bid in texto for bid in abiertos):
+            # Lleva la lista ENTERA y no dice cuántos son, así que la frase
+            # —que es cómo se descubren estos documentos— no lo encuentra y la
+            # comprobación perdería cobertura en silencio.
+            #
+            # «La lista entera» y no «tres o más»: medido el 28/10/2026, cinco
+            # documentos nombran 3 o 4 bloqueos **de pasada** —el ROADMAP,
+            # dos documentos de fase, el de la Fase 4 y el de qué información
+            # hace falta— y ninguno pretende ser la lista. Con el umbral en
+            # tres, esta comprobación habría nacido con **seis hallazgos
+            # falsos**; con «todos», con cero. Lo dio medirlo antes de
+            # escribirlo, no leerlo.
+            sin_cifra.append(rel)
+
+    if not docs:
+        check(0, "los bloqueos se cuentan en un solo sitio", False,
+              "Ningún documento dice cuántos bloqueos impiden entregar, así que "
+              "la lista de `avance.json` no está repetida en ninguna parte "
+              "legible — o la frase cambió y esta comprobación dejó de mirar.",
+              "ningún .md contiene «impiden entregar»")
+        return
+
+    problemas = [
+        f"{r} lleva la lista entera y no dice cuántos impiden entregar"
+        for r in sin_cifra
+    ]
+    for nombre, texto in docs.items():
+        for bid in abiertos:
+            if bid not in texto:
+                problemas.append(f"{nombre} no nombra {bid}")
+        # La dirección contraria: un identificador con pinta de bloqueo que el
+        # documento nombra y la fuente no tiene. Se buscan los que la fuente
+        # usa como prefijos reales, no cualquier mayúscula, para no acusar a
+        # una decisión D-8C ni a un hallazgo H-07.
+        for posible in set(re.findall(r"\*\*(P-\d{2}|FIRMA-[A-Z]{3}|META)\b", texto)):
+            if posible not in abiertos and posible not in cerrados:
+                problemas.append(f"{nombre} nombra {posible}, que no está en avance.json")
+
+    # La cifra en letra, que es la que fue falsa.
+    LETRAS = {
+        1: "un", 2: "dos", 3: "tres", 4: "cuatro", 5: "cinco",
+        6: "seis", 7: "siete", 8: "ocho", 9: "nueve", 10: "diez",
+    }
+    debida = LETRAS.get(len(abiertos))
+    for nombre, texto in docs.items():
+        for dicha in LA_FRASE.findall(texto):
+            if dicha.lower() != debida:
+                problemas.append(
+                    f"{nombre} dice «los {dicha}» y hay {len(abiertos)}"
+                )
+
+    check(
+        0, f"los bloqueos se cuentan en un solo sitio ({len(docs)} documentos)",
+        not problemas,
+        "Tres listas de bloqueos escritas a mano dejaron fuera los mismos dos "
+        "trámites de firma —1 a 3 semanas de plazo, y sin el de Apple la "
+        "aplicación no abre en macOS—, que es el riesgo R-14 ocurriendo. Y una "
+        "cifra en letra junto a una lista que crece es verdad sólo el día que "
+        "se escribe.",
+        f"{len(problemas)}: " + " · ".join(problemas[:6]),
     )
 
 

@@ -35,7 +35,7 @@
     "  python3 herramientas/avance/calcular.py --escribir"
   ],
   "version": "1.2.0",
-  "actualizado": "2026-10-22",
+  "actualizado": "2026-10-28",
   "fases": [
     {
       "id": "F0",
@@ -69,8 +69,8 @@
       "id": "F3W",
       "nombre": "Canales: esquema de contactos, consentimiento y etapas",
       "peso": 8,
-      "hecho": 0.55,
-      "porque": "Migraciones V3 y V4 aplicadas y probadas: contact_channel, consent_entry, supresión por canal, campaign_stage, whatsapp_account y su historial de calidad. Falta la pantalla de CANALES, el alta del número y el repositorio en Rust que lea y escriba estas tablas."
+      "hecho": 1.0,
+      "porque": "Cerrada el 27/10/2026 con D-WA. Migraciones V3 y V4 aplicadas y probadas: contact_channel, consent_entry, supresión por canal, campaign_stage, whatsapp_account y su historial de calidad. Las TRES cosas que esta ficha declaraba pendientes el 22/10 están construidas: los canales se leen y se escriben desde arles-db —contactos.rs, supresion.rs, listas.rs, alta_de_campana.rs, revision_whatsapp.rs y arco.rs entre otros—, los canales de un contacto se editan en su ficha (FormularioDeContacto.vue), y el alta del número es un dato y una elección desde el 26/10/2026 (R-02): se pega el token y ARLES le pregunta a Meta cuáles son tus números. El consentimiento se afirma al importar y cruza la frontera en texto_del_consentimiento. validar.py --fase W en verde, y lo vigilan ninguna_tabla_se_queda_sin_escritor y ningun_comando_se_queda_sin_quien_lo_llame."
     },
     {
       "id": "F4",
@@ -83,8 +83,8 @@
       "id": "F5",
       "nombre": "Proveedores de envío",
       "peso": 7,
-      "hecho": 0.7,
-      "porque": "La PARTE DE CORREO cerrada entera: 5.1 a 5.6. Traducción de códigos SMTP, servidor de mentira que habla el protocolo y sabe fallar de seis maneras, adaptador con cifrado obligatorio y sin forma de desactivarlo, «Probar conexión» con seis diagnósticos, migraciones V7 y V8, repositorio de cuentas sin contraseñas, llavero por cuenta, pantalla de Remitentes, el motor encendido en su propio hilo (§51), y el envío de prueba. R-24 CERRADO el 22/10/2026: Dirección dio de alta una cuenta real de Titan (enlace@telemetrymx.com) y ARLES mandó un correo que llegó a la BANDEJA PRINCIPAL de Outlook, Gmail y un corporativo — tres de tres. Ya no es un servidor de mentira: es SMTP real con TLS real. El alta son dos campos desde la ronda del 14/10 (R-01), con el par puerto+cifrado que nunca se cruza. NO está el adaptador de WhatsApp Cloud API, que el ROADMAP pone en esta misma fase (P-15): es el 30 % que falta. El canal W construyó el adaptador y su envío de prueba, pero el motor sólo recorre Canal::Correo —medido el 22/10/2026: el camino de campañas está atado a channel='email' en siete sitios—, así que no se puede lanzar una campaña entera por WhatsApp. Por eso la fase no se declara cerrada."
+      "hecho": 1.0,
+      "porque": "CERRADA EL 27/10/2026 CON D-WA. El 30 % que faltaba el 22/10 era el adaptador de WhatsApp Cloud API enchufado al motor, y D-WA lo construyó en ocho tramos (26 y 27/10/2026): el motor recorre los DOS canales —arles-motor/src/bucle.rs:563—, se puede crear y lanzar una campaña entera por WhatsApp desde el asistente, el semáforo de calidad se llena y las plantillas de Meta se registran y se leen. Lo que sigue sin hacerse NO es nuestro: nada de WhatsApp ha hablado nunca con Meta (bloqueo META). Y lo de antes, que sigue en pie: la PARTE DE CORREO cerrada entera, 5.1 a 5.6. Traducción de códigos SMTP, servidor de mentira que habla el protocolo y sabe fallar de seis maneras, adaptador con cifrado obligatorio y sin forma de desactivarlo, «Probar conexión» con seis diagnósticos, migraciones V7 y V8, repositorio de cuentas sin contraseñas, llavero por cuenta, pantalla de Remitentes, el motor encendido en su propio hilo (§51), y el envío de prueba. R-24 CERRADO el 22/10/2026: Dirección dio de alta una cuenta real de Titan (enlace@telemetrymx.com) y ARLES mandó un correo que llegó a la BANDEJA PRINCIPAL de Outlook, Gmail y un corporativo — tres de tres. Ya no es un servidor de mentira: es SMTP real con TLS real. El alta son dos campos desde la ronda del 14/10 (R-01), con el par puerto+cifrado que nunca se cruza."
     },
     {
       "id": "F6",
@@ -97,8 +97,8 @@
       "id": "F7",
       "nombre": "Actividad y entregabilidad",
       "peso": 9,
-      "hecho": 0.92,
-      "porque": "Siete de las ocho entregas cerradas (30/09 y 01/10 de 2026). 7.0: el freno completo, con la parada de emergencia enchufada. 7.1: el registro de actividad, con el motor anotando los once sucesos que antes tiraba. 7.2: las cifras de cada campana y el cupo de cada remitente, de un solo sitio. 7.3: la pantalla de Actividad, con una tarjeta por campana (D-7A) y POR QUE no sale nada. 7.4: el registro con seis filtros que viajan en la direccion, 500 filas con el total al lado, y el recorte bimestral que no toca ni un envio (D-7C). 7.6: el resumen exportable, un archivo de texto por campana con el metodo de cada cifra y sin una sola direccion de correo. 7.7: la auditoria de cierre, que con todo en verde encontro siete defectos: el envio de prueba de WhatsApp sin boton y sin sus seis textos, el boton Detener con 2.41 de contraste cuando el minimo es 4.5, tres pantallas de catorce sin titulo de pagina, tres comandos registrados que nadie llamaba, una clave de i18n que apuntaba a un texto inexistente, y dos defectos visibles solo en la captura. Las dos comprobaciones que debian cazarlos tenian listas escritas a mano y estan reescritas para leer del codigo. Las nueve fases CON SONDAS en 298 comprobaciones, 0 fallos, 0 omitidas. Falta solo la 7.5 (SPF/DKIM/DMARC), que Direccion movio al final el 30/09/2026 porque necesita red y una dependencia nueva. Su condicion ya se cumple: R-24 se cerro el 22/10/2026 y el dominio telemetrymx.com tiene SPF, DKIM de Titan y DMARC en p=none, verificados con mxtoolbox. Asi que la 7.5 ya se puede construir Y verificar de verdad."
+      "hecho": 1.0,
+      "porque": "CERRADA EL 27/10/2026, las ocho entregas. La 7.5 —SPF, DKIM y DMARC, la única que faltaba— en tres tramos: el núcleo de entregabilidad con cero I/O (arles-core/src/entregabilidad.rs, que recibe las cadenas TXT ya traídas y da un veredicto), el adaptador de DNS con su resolutor de mentira, y el punto 8 del preflight contestado por fin. Lo que ese núcleo distingue, y es la razón de que exista: tener DMARC no es estar protegido, y el fallo que evita NO SE NOTA AL ENVIAR — sin los tres registros el correo sale, el servidor lo acepta, ARLES lo cuenta como aceptado, y el filtro de quien recibe lo manda a no deseados: todas las cifras salen bien y el correo no lo lee nadie. Su condición era cerrar R-24, cerrado el 22/10/2026: telemetrymx.com tiene SPF, DKIM de Titan y DMARC en p=none, comprobados con mxtoolbox, y el DMARC sube a pct=25, 50 y 100 después de dos o tres semanas leyendo informes (decisión del 27/10/2026; saltar a quarantine manda correo legítimo a spam en silencio, sin rebote y sin aviso). Y las siete de antes (30/09 y 01/10 de 2026). 7.0: el freno completo, con la parada de emergencia enchufada. 7.1: el registro de actividad, con el motor anotando los once sucesos que antes tiraba. 7.2: las cifras de cada campana y el cupo de cada remitente, de un solo sitio. 7.3: la pantalla de Actividad, con una tarjeta por campana (D-7A) y POR QUE no sale nada. 7.4: el registro con seis filtros que viajan en la direccion, 500 filas con el total al lado, y el recorte bimestral que no toca ni un envio (D-7C). 7.6: el resumen exportable, un archivo de texto por campana con el metodo de cada cifra y sin una sola direccion de correo. 7.7: la auditoria de cierre, que con todo en verde encontro siete defectos: el envio de prueba de WhatsApp sin boton y sin sus seis textos, el boton Detener con 2.41 de contraste cuando el minimo es 4.5, tres pantallas de catorce sin titulo de pagina, tres comandos registrados que nadie llamaba, una clave de i18n que apuntaba a un texto inexistente, y dos defectos visibles solo en la captura. Las dos comprobaciones que debian cazarlos tenian listas escritas a mano y estan reescritas para leer del codigo. Las nueve fases CON SONDAS en 298 comprobaciones, 0 fallos, 0 omitidas."
     },
     {
       "id": "F8",
@@ -132,7 +132,19 @@
       "id": "META",
       "que": "Cuenta de empresa en Meta, verificada y con Coexistencia activada (L-11)",
       "quien": "Operaciones",
-      "bloquea": "El alta del número de WhatsApp contra una cuenta real. El adaptador de Cloud API, su servidor de mentira, la pantalla y el envío de prueba están construidos (canal W), pero nunca han hablado con Meta. Y por debajo hay un límite mayor que no depende de Meta: el motor sólo recorre Canal::Correo, así que hoy no se puede lanzar una campaña entera por WhatsApp — sólo el envío de prueba."
+      "bloquea": "El alta del número de WhatsApp contra una cuenta real. Desde D-WA (27/10/2026) el canal está COMPLETO por dentro —el motor recorre los dos canales, se crea y se lanza una campaña entera por WhatsApp, las plantillas de Meta se registran—, y todo eso NUNCA HA HABLADO CON META: está probado contra un servidor de mentira. Lo que falta no es código nuestro, es una cuenta de empresa verificada con Coexistencia activada (L-11)."
+    },
+    {
+      "id": "FIRMA-WIN",
+      "que": "Certificado de firma de código para Windows (OV recomendado para la v1.2.0, EV para el lanzamiento comercial)",
+      "quien": "Dirección",
+      "bloquea": "Que el .msi se instale sin la advertencia de «editor desconocido» de SmartScreen, que en un entorno corporativo bloquea la instalación en la práctica: hay que pulsar «Más información» y «Ejecutar de todos modos», y un departamento de TI directamente lo prohíbe. Plazo externo de 1 a 3 SEMANAS. Desde junio de 2023 la clave tiene que vivir en hardware certificado, lo que afecta al CI: conviene resolverlo al contratar, no al configurar el CI. Estaba declarado en DISTRIBUCION_Y_FIRMA.md §1 como trámite que arranca en la Fase 1 (riesgo R-14) y NO estaba en ninguna lista de bloqueos — anotado el 28/10/2026."
+    },
+    {
+      "id": "FIRMA-MAC",
+      "que": "Apple Developer Program de organización, con Developer ID Application y Developer ID Installer",
+      "quien": "Dirección",
+      "bloquea": "QUE ARLES ABRA EN macOS. Desde Catalina, una aplicación descargada sin notarizar no se ejecuta: no es una advertencia, es un bloqueo de Gatekeeper. Hace falta el alta de la cuenta más la notarización de cada build, con el ticket grapado al .dmg para que Gatekeeper pueda verificar sin conexión. Arrastra a R-07: el mismo Mac que hace falta para mirar las dieciocho pantallas en WKWebView es el que hace falta para firmar y notarizar. Mismo origen que FIRMA-WIN: declarado en DISTRIBUCION_Y_FIRMA.md §1 y ausente de las listas de bloqueos hasta el 28/10/2026."
     },
     {
       "id": "R-07",

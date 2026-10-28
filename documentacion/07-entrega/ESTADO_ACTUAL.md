@@ -232,16 +232,27 @@ Y el validador comprueba, sobre el árbol entero **con las pruebas incluidas**, 
 
 ## 6. Lo que está bloqueado esperando a alguien de fuera
 
-Ninguno impide construir. Los cuatro impiden **entregar** la v1.2.0.
+Ninguno impide construir. Los seis impiden **entregar** la v1.2.0.
 
 | Qué | Quién | Qué bloquea exactamente |
 |---|---|---|
-| **P-01 · Licencia de Mont** | Dirección | Distribuir el instalador con la tipografía dentro. Plan B: tipografía del sistema |
+| **P-01 · Licencia de Mont** | Dirección | Distribuir el instalador con la tipografía dentro. Plan B: tipografía del sistema, una línea de CSS |
+| **FIRMA-WIN · Certificado de Windows** | Dirección | Que el `.msi` se instale sin la advertencia de «editor desconocido» de SmartScreen, que en una empresa la bloquea en la práctica. **1 a 3 semanas de plazo externo** |
+| **FIRMA-MAC · Apple Developer ID** | Dirección | **Que ARLES abra en macOS**: sin notarizar, Gatekeeper no la ejecuta. No es un aviso. Arrastra a R-07 |
 | **P-09 · Revisión jurídica** | Abogado | Los textos legales visibles. **No** frena la construcción (ADR-0013) |
-| **META · Cuenta con Coexistencia** | Operaciones | El alta del número contra una cuenta real. Y por debajo hay un límite mayor que no depende de Meta: el motor sólo recorre `Canal::Correo` |
+| **META · Cuenta con Coexistencia** | Operaciones | El alta del número contra una cuenta real. Por dentro el canal está **completo** desde D-WA (27/10/2026): el motor recorre los dos canales y se puede lanzar una campaña entera por WhatsApp |
 | **R-07 · Revisión en macOS** | Quien tenga un Mac | Nadie ha abierto ARLES en WKWebView. La fecha que decía «antes de la F6» caducó: la F6, el canal W, la F7 y la F8 cerraron sin eso |
 
-**Eran cinco.** `R-24` se cerró el 22/10/2026 — ver §7.
+**`R-24` se cerró el 22/10/2026** — ver §7.
+
+> **Esta tabla decía «los cuatro» y le faltaban los dos trámites de firma**,
+> igual que las otras tres listas de bloqueos del proyecto. Y describía el
+> motor como si sólo recorriera correo, seis días después de que D-WA lo
+> cambiara. Corregido el 28/10/2026 al contestar a Dirección qué falta para
+> una beta; lo vigila ahora `los_bloqueos_se_cuentan_en_un_solo_sitio` en
+> `--fase 0`, que **busca** los documentos que repiten la lista en vez de
+> nombrarlos — esta cuarta lista apareció a mano, y una comprobación con dos
+> rutas escritas dentro no la habría visto nunca.
 
 ---
 
@@ -364,23 +375,36 @@ que importa la tenga.**
 
 ## 10. Lo siguiente
 
-**La Fase 9 · Release**, con tres cosas que la Fase 8 dejó anotadas y una decisión pendiente:
+**La Fase 9 · Release**, que es **lo único que queda**: el avance está al
+**95 % a 2026-10-28**, y ese 5 % restante es exactamente el peso de la Fase 9.
+Las otras diez fases están al 100 %.
+
+Cuatro cosas de código y una puerta:
 
 | | Qué | De dónde viene |
 |---|---|---|
-| **1** | **Sacar la activación de campañas a segundo plano**, con avance y botón de cancelar. Hoy tarda 73.5 s con 451 196 destinatarios y la interfaz no contesta; el presupuesto de 2 s se rompe hacia los 30 000 | Auditoría C |
-| **2** | **El filtro del registro** (C-2): buscar texto tarda 3 709 ms. Declarado con su cifra, no arreglado | Auditoría C |
-| **3** | **La 7.5 · SPF, DKIM y DMARC**, que Dirección movió al final el 30/09/2026: es lo único que necesita red y una dependencia nueva | Fase 7 |
-| **4** | **El mensaje de «fallo al migrar el esquema» no cumple el §95**: manda a cerrar y reabrir —que da el mismo error siempre— y a restaurar un respaldo que puede no existir, y no dice dónde vive la base. La salida real está hoy sólo en la guía de arranque | 08/10/2026, primer intento real |
-| **5** | **La 7.5 ya se puede verificar de verdad.** Su condición era cerrar R-24, y se cerró el 22/10/2026: el dominio `telemetrymx.com` tiene SPF, DKIM de Titan y DMARC en `p=none`, comprobados con mxtoolbox. Ojo con lo que **no** arregla: el spam de Outlook no venía de ahí (§7) | 22/10/2026 |
+| **1** | **Sacar la activación de campañas a segundo plano**, con avance y botón de cancelar. Hoy tarda 73.5 s con 451 196 destinatarios y la interfaz no contesta; el presupuesto de 2 s se rompe hacia los **30 000**, que es una lista ordinaria | Auditoría C |
+| **2** | **El filtro de la lista de contactos** (C-2): buscar texto tarda 3 709 ms. Declarado con su cifra, no arreglado | Auditoría C |
+| **3** | **El mensaje de «fallo al migrar el esquema» no cumple el §95**: manda a cerrar y reabrir —que da el mismo error siempre— y a restaurar un respaldo que puede no existir, y no dice dónde vive la base. La salida real está hoy sólo en la guía de arranque | 08/10/2026, primer intento real |
+| **4** | **Instaladores, firma, notarización, updater y `CHANGELOG.md`** | ROADMAP Fase 9 |
+| **5** | **Restaurar un respaldo de un esquema anterior** (V11→V12). Hoy se rechaza con un error claro. Coste real hoy: cero, no hay ningún `.arles` fuera de las pruebas; dentro de un mes de uso, no | 8.3b, disparado por la V11 |
+| — | **Puerta P-01** (D-5): antes del primer instalador que se enseñe fuera del equipo, se vuelve a plantear la licencia de Mont. Plan B listo: una línea en `--arles-font-family` | ROADMAP Fase 9 |
 
-**Y tres decisiones que esperan a Dirección:**
+**Y una decisión que espera a Dirección:**
 
 | | Qué | Dónde está planteada |
 |---|---|---|
-| **D-WA** | Construir el adaptador de WhatsApp para el motor antes de la Fase 9, o entregar la v1.2.0 con campañas sólo por correo | `09-fases/FASE-05-PARA-DIRECCION.md` |
 | **R-05** | La imagen en la firma del correo: embebida —engorda cada envío y dispara filtros— o alojada, que hay que alojarla. El saneado del HTML tendría que admitir `<img>` con sus reglas | Pedido el 21/10/2026 |
+| **R-25** | Baja automática por correo. La recomendación es IMAP: leer la bandeja y dar de baja a quien responda BAJA | Registro de requisitos |
+| ✅ **D-WA** | **Cerrada el 26/10/2026 y construida el 27**: el canal de WhatsApp entra en la v1.2.0 **con campañas enteras**, no sólo el envío de prueba. Ocho tramos | `09-fases/FASE-05-PARA-DIRECCION.md` |
 | ✅ **D-REM** | **Cerrada el 22/10/2026 con D-13 y D-14**, y no como se planteó: en vez de impedirlo, los topes **se suman** —cada campaña manda lo suyo y el plazo se cumple— y el total del buzón sale en Remitentes con su semáforo. El agregado ya no tiene techo, a propósito (§154) | `01-producto/DECISIONES_DE_DIRECCION.md` D-13 y D-14 |
+
+> **La 7.5 ya no está en esta lista: se construyó.** Estuvo aquí desde el
+> 30/09/2026, cuando Dirección la movió al final porque era lo único que
+> necesitaba red y una dependencia nueva. Su condición era cerrar R-24, cerrado
+> el 22/10/2026, y los tres tramos entraron después. Esta sección siguió
+> pidiéndola **seis días**, igual que `avance.json` siguió diciendo 89 %: es el
+> §9 de `CLAUDE.md` en el documento que existe para no tenerlo.
 
 ---
 

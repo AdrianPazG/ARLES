@@ -8,9 +8,9 @@ Desarrollado por **TELEMETRY INSIGHT**
 ---
 
 <!-- AVANCE:INICIO -->
-![Avance de la v1.2.0](https://img.shields.io/badge/avance_v1.2.0-89%25-brightgreen?style=flat-square)
+![Avance de la v1.2.0](https://img.shields.io/badge/avance_v1.2.0-95%25-brightgreen?style=flat-square)
 
-**89 % de la versión 1.2.0 construido y verificado**, a 2026-10-22.
+**95 % de la versión 1.2.0 construido y verificado**, a 2026-10-28.
 
 <details>
 <summary>Cómo sale ese número, y qué no mide</summary>
@@ -32,11 +32,11 @@ son trabajo pendiente nuestro: van aparte.
 | F1 · Cimientos | 9 % | ✅ 100 % |
 | F2 · Design System | 9 % | ✅ 100 % |
 | F3 · Empresa y contactos | 14 % | ✅ 100 % |
-| F3W · Canales: esquema de contactos, consentimiento y etapas | 8 % | 🟨 55 % |
+| F3W · Canales: esquema de contactos, consentimiento y etapas | 8 % | ✅ 100 % |
 | F4 · Motor de ejecución | 14 % | ✅ 100 % |
-| F5 · Proveedores de envío | 7 % | 🟨 70 % |
+| F5 · Proveedores de envío | 7 % | ✅ 100 % |
 | F6 · Campañas y mensajes | 13 % | ✅ 100 % |
-| F7 · Actividad y entregabilidad | 9 % | 🟨 92 % |
+| F7 · Actividad y entregabilidad | 9 % | ✅ 100 % |
 | F8 · Respaldos y endurecimiento | 7 % | ✅ 100 % |
 | F9 · Release v1.2.0 | 5 % | ⬜ 0 % |
 
@@ -46,7 +46,9 @@ son trabajo pendiente nuestro: van aparte.
 |---|---|---|---|
 | **P-01** | Licencia de Mont para incrustarla en la aplicación distribuida | Dirección | El primer instalador descargable. Hay plan B: tipografía del sistema, una línea de CSS |
 | **P-09** | Revisión jurídica: dieciocho preguntas en 08-legal/CONSULTA-JURIDICA.md | Abogado | Ya NO bloquea la construcción (ADR-0013). Frena los textos legales visibles y el primer envío real a alguien de fuera de TELEMETRY. Incluye P-17: consent_entry es de sólo-añadir y guarda la dirección en claro, lo que contradice el derecho de cancelación. |
-| **META** | Cuenta de empresa en Meta, verificada y con Coexistencia activada (L-11) | Operaciones | El alta del número de WhatsApp contra una cuenta real. El adaptador de Cloud API, su servidor de mentira, la pantalla y el envío de prueba están construidos (canal W), pero nunca han hablado con Meta. Y por debajo hay un límite mayor que no depende de Meta: el motor sólo recorre Canal::Correo, así que hoy no se puede lanzar una campaña entera por WhatsApp — sólo el envío de prueba. |
+| **META** | Cuenta de empresa en Meta, verificada y con Coexistencia activada (L-11) | Operaciones | El alta del número de WhatsApp contra una cuenta real. Desde D-WA (27/10/2026) el canal está COMPLETO por dentro —el motor recorre los dos canales, se crea y se lanza una campaña entera por WhatsApp, las plantillas de Meta se registran—, y todo eso NUNCA HA HABLADO CON META: está probado contra un servidor de mentira. Lo que falta no es código nuestro, es una cuenta de empresa verificada con Coexistencia activada (L-11). |
+| **FIRMA-WIN** | Certificado de firma de código para Windows (OV recomendado para la v1.2.0, EV para el lanzamiento comercial) | Dirección | Que el .msi se instale sin la advertencia de «editor desconocido» de SmartScreen, que en un entorno corporativo bloquea la instalación en la práctica: hay que pulsar «Más información» y «Ejecutar de todos modos», y un departamento de TI directamente lo prohíbe. Plazo externo de 1 a 3 SEMANAS. Desde junio de 2023 la clave tiene que vivir en hardware certificado, lo que afecta al CI: conviene resolverlo al contratar, no al configurar el CI. Estaba declarado en DISTRIBUCION_Y_FIRMA.md §1 como trámite que arranca en la Fase 1 (riesgo R-14) y NO estaba en ninguna lista de bloqueos — anotado el 28/10/2026. |
+| **FIRMA-MAC** | Apple Developer Program de organización, con Developer ID Application y Developer ID Installer | Dirección | QUE ARLES ABRA EN macOS. Desde Catalina, una aplicación descargada sin notarizar no se ejecuta: no es una advertencia, es un bloqueo de Gatekeeper. Hace falta el alta de la cuenta más la notarización de cada build, con el ticket grapado al .dmg para que Gatekeeper pueda verificar sin conexión. Arrastra a R-07: el mismo Mac que hace falta para mirar las dieciocho pantallas en WKWebView es el que hace falta para firmar y notarizar. Mismo origen que FIRMA-WIN: declarado en DISTRIBUCION_Y_FIRMA.md §1 y ausente de las listas de bloqueos hasta el 28/10/2026. |
 | **R-07** | Revisión visual en macOS (WKWebView) | Quien tenga un Mac | Nada de la construcción, y por eso lleva abierto desde la Fase 2. La fecha que decía «antes de la F6» caducó: la F6, el canal W, la F7 y la F8 se cerraron sin que nadie abriera ARLES en WKWebView. Lo que frena es poder AFIRMAR que las dieciocho pantallas se ven bien en macOS: todo lo medido —contraste, foco, objetivos, textos encimados— sale de Chromium, y la vista previa no cuenta porque ahí el motor es el del navegador. Se cierra antes de la F9. |
 
 **Ya no frenan nada** (se dejan escritos: un bloqueo que desaparece parece uno que nadie resolvió):

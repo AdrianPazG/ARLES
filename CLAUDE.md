@@ -297,15 +297,37 @@ del proyecto, no del producto.
 
 ## 8 · Lo que está bloqueado esperando a alguien de fuera
 
-Ninguno impide construir. **Los cuatro impiden entregar la v1.2.0.**
+Ninguno impide construir. **Los seis impiden entregar la v1.2.0**, y dos
+tienen plazo externo que no se comprime.
 
 | Qué | Quién | Qué bloquea exactamente |
 |---|---|---|
-| **P-01 · Licencia de Mont** | Dirección | **No se puede distribuir un instalador** con la tipografía dentro. Es lo que impide entregar el `.exe` |
+| **P-01 · Licencia de Mont** | Dirección | **No se puede distribuir un instalador** con la tipografía dentro. Plan B listo: una línea en `--arles-font-family` (D-5) |
+| **FIRMA-WIN · Certificado de Windows** | Dirección | Que el `.msi` se instale **sin la advertencia de «editor desconocido»** de SmartScreen, que en una empresa bloquea la instalación en la práctica. **1 a 3 semanas de plazo externo.** OV para la v1.2.0, EV para el comercial |
+| **FIRMA-MAC · Apple Developer ID** | Dirección | **Que ARLES abra en macOS.** Desde Catalina, una aplicación sin notarizar no se ejecuta: no es un aviso, es Gatekeeper negándose. Arrastra a R-07 — el mismo Mac hace las dos cosas |
 | **P-09 · Revisión jurídica** | Abogado | Los textos legales que el usuario lee. Las dieciocho preguntas están en `08-legal/CONSULTA-JURIDICA.md`. La construcción **no** se detiene (ADR-0013: se construye con texto marcado como provisional) |
-| **META · Cuenta con Coexistencia** | Operaciones | P-14 no se puede probar contra nada real |
+| **META · Cuenta con Coexistencia** | Operaciones | Nada de WhatsApp ha hablado con Meta. Por dentro el canal está **completo** desde D-WA (27/10/2026), campañas enteras incluidas, y todo probado contra un servidor de mentira |
 | **R-07 · Revisión en macOS** | Quien tenga un Mac | Nadie ha abierto ARLES en WKWebView. La vista previa **no cuenta**: ahí el motor es el del navegador |
-| **R-24 · Ningún servidor de correo real** | Dirección | Todo lo de la Fase 5 está probado contra un servidor de mentira. **No se puede cerrar desde un contenedor**: la red de la sesión bloquea los puertos 587, 465 y 25 —medido—, y además ARLES exige el llavero del sistema, que un Linux sin escritorio no tiene. Se cierra en la máquina del usuario, con una cuenta desechable |
+
+**Ya no frena nada**, y se deja escrito porque un bloqueo que desaparece parece
+uno que nadie resolvió:
+
+| Qué era | Cerrado | Cómo |
+|---|---|---|
+| **R-24 · Ningún servidor de correo real** | 22/10/2026 | Dirección dio de alta `enlace@telemetrymx.com` (Titan, SMTP real con TLS) y ARLES mandó un correo que llegó a la **bandeja principal** de Outlook, Gmail y un corporativo — tres de tres. Antes, desde una dirección `@gmail.com`, Outlook lo mandaba a no deseados con la autenticación entera en verde: lo que pesaba era el patrón «marca + gmail personal», que no se arregla con código |
+
+> **Los dos trámites de firma entraron aquí el 28/10/2026, y llevaban
+> declarados desde la Fase 0.** Estaban en `DISTRIBUCION_Y_FIRMA.md` §1 como
+> plazos que **arrancan en la Fase 1** y en la matriz como **R-14**, con la
+> mitigación escrita «trámite iniciado en Fase 1». No se inició, y **las tres
+> listas de bloqueos del proyecto lo omitían igual**, así que nadie los estaba
+> esperando. Esta misma tabla decía además que P-01 era «lo que impide entregar
+> el `.exe`», y R-24 llevaba seis días cerrado aquí dentro.
+>
+> Lo caza `los_bloqueos_se_cuentan_en_un_solo_sitio` en `--fase 0`, que compara
+> los identificadores con `avance.json` **en las dos direcciones** y comprueba
+> la cifra escrita en letra — porque «los cuatro» era verdad el día que se
+> escribió y falso el día que entrara el quinto, sin que nada fallara.
 
 ---
 
@@ -1615,6 +1637,71 @@ visible lleva un número de corrido—, las dos verificadas rompiéndolas.
 > las medidas falló a mitad —después de preparar el texto y antes de escribir el
 > archivo—, y la conclusión fácil habría sido «no sirven». Se distinguen mirando
 > el archivo, no deduciendo.
+
+**Y el 28/10/2026, el estado del proyecto al día: el avance pasa de 89 % a
+95 %, y entran dos bloqueos que llevaban nueve fases sin estar en ninguna
+lista.** Lo disparó una pregunta de Dirección —«qué sigue en el roadmap y qué
+falta para una beta»— y no una auditoría. **Con la Fase 9 pendiente, las otras
+diez fases están al 100 %**, así que el 5 % que queda es exactamente su peso.
+
+> **`avance.json` decía 89 % a 2026-10-22 con doce tramos cerrados después.** La
+> 7.5 entera —SPF, DKIM y DMARC, los tres tramos— y D-WA entera —ocho tramos, el
+> canal de WhatsApp con campañas completas—. La ficha de F7 decía «falta sólo la
+> 7.5» **con la 7.5 construida**, y el §10 de `ESTADO_ACTUAL.md` seguía
+> pidiéndola. Es el §9 de este archivo en los dos documentos que existen para no
+> tenerlo. Son DOC-11 y DOC-10 del registro.
+>
+> **El error iba en la dirección cómoda de ver**: la portada del repositorio
+> enseñaba menos trabajo hecho del que había. Conviene decirlo porque la
+> dirección contraria es la que cuesta dinero, y ésta cuesta lo mismo en
+> credibilidad: un porcentaje que no se mueve en seis días de trabajo se deja de
+> mirar.
+
+> **Y el hallazgo que no era del porcentaje: faltaban dos bloqueos, y uno impide
+> que la aplicación abra.** El certificado de firma de Windows —1 a 3 semanas de
+> plazo externo— y el **Apple Developer ID**, sin el cual macOS, desde Catalina,
+> **no ejecuta** una aplicación descargada: no es una advertencia, es Gatekeeper
+> negándose. Los dos están declarados en `DISTRIBUCION_Y_FIRMA.md` §1 desde la
+> Fase 0 como trámites que **arrancan en la Fase 1** precisamente porque son
+> plazos que no se comprimen, y en la matriz como **R-14** con la mitigación
+> escrita: *«trámite iniciado en Fase 1»*.
+>
+> No se inició. Y **las cuatro listas de bloqueos del proyecto los omitían
+> igual** —`avance.json`, el registro de requisitos, el §8 de este archivo y el
+> §6 de `ESTADO_ACTUAL.md`—, así que nadie los estaba esperando: el riesgo R-14
+> ocurriendo exactamente como estaba descrito. El §8 decía además que P-01 era
+> «lo que impide entregar el `.exe`», y tenía R-24 como bloqueo abierto seis
+> días después de cerrarse.
+>
+> **Cuatro copias de acuerdo no son una comprobación**: pueden estar de acuerdo
+> en omitir lo mismo, y es lo que pasó durante nueve fases. Lo que las vio
+> falsas fue **usar la lista para algo**.
+
+> **Lo caza `los_bloqueos_se_cuentan_en_un_solo_sitio` en `--fase 0`**, con
+> `avance.json` como fuente única: compara los identificadores en las dos
+> direcciones y **la cifra escrita en letra**, porque «los cuatro» era verdad el
+> día que se escribió y falso el día que entrara el quinto, sin que nada
+> fallara. Verificada con ocho rupturas.
+>
+> **Nació con el defecto que persigue, y es la undécima vez.** La primera
+> versión traía **dos rutas escritas a mano**, así que la cuarta lista —el §6 de
+> `ESTADO_ACTUAL.md`— no la habría mirado nunca; la encontré a mano. Ahora los
+> documentos se **buscan**: es todo `.md` que contenga la frase «impiden
+> entregar», con los informes `-PARA-DIRECCION` fuera porque son entregables
+> **fechados** y reescribir el informe de septiembre sería peor.
+>
+> Y como buscar por una frase deja escapar al documento que lleva la tabla sin
+> la frase, hay una segunda red: **nombrar todos los bloqueos y no decir cuántos
+> son** es un hallazgo. El umbral es «todos» y no «tres o más» porque **medirlo
+> antes de escribirlo** dio que cinco documentos nombran 3 o 4 de pasada —el
+> ROADMAP entre ellos—: con el umbral en tres habría nacido con **seis hallazgos
+> falsos**.
+
+> **Y la primera corrida de verdad cazó un error mío antes de empujar nada:**
+> los tres documentos decían «los cinco» y los bloqueos abiertos eran **seis**.
+> Escrita para cazar una cifra a mano desfasada, lo primero que cazó fue una
+> recién escrita a mano. El tablero visual también salió en rojo con su 89 %, y
+> eso ya lo vigilaba una comprobación de la fase 3 desde el 14/10.
 
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 

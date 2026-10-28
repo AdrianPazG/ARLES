@@ -1,6 +1,6 @@
 # Registro de requisitos
 
-**Última actualización:** 2026-10-27
+**Última actualización:** 2026-10-28
 
 **Este es el único sitio donde vive el estado de un requisito.** Los
 identificadores se usaban dispersos en siete documentos, y un requisito que
@@ -33,15 +33,35 @@ aparece dos veces con dos estados distintos es peor que uno que falta.
 
 ## Lo que impide entregar la v1.2.0
 
-Ninguno impide construir. **Los cuatro impiden entregar.**
+Ninguno impide construir. **Los seis impiden entregar**, y dos de ellos tienen
+plazo externo que no se comprime.
 
 | Id | Qué | Quién | Estado | Qué bloquea exactamente |
 |---|---|---|---|---|
-| **P-01** | Licencia de la tipografía Mont | Dirección | bloqueado | **No se puede distribuir un instalador** con la tipografía dentro. Es lo único entre ARLES y el `.exe` |
-| **P-09** | Revisión jurídica | Abogado | bloqueado | Los textos legales que lee el usuario. Las dieciocho preguntas están en `08-legal/CONSULTA-JURIDICA.md`. La construcción **no** se detiene (ADR-0013) |
-| **META** | Cuenta de WhatsApp Business con Coexistencia | Operaciones | bloqueado | Todo WhatsApp está probado contra un servidor de mentira. **Nunca ha hablado con Meta** |
-| **R-07** | Revisión en macOS | quien tenga un Mac | bloqueado | Nadie ha abierto ARLES en WKWebView. La vista previa no cuenta: ahí el motor es el del navegador |
+| **P-01** | Licencia de la tipografía Mont | Dirección | bloqueado | **No se puede distribuir un instalador** con la tipografía dentro. Plan B listo: una línea en `--arles-font-family` (D-5, `TIPOGRAFIA.md` §3) |
+| **FIRMA-WIN** | Certificado de firma de código para Windows | Dirección | bloqueado | Que el `.msi` se instale **sin la advertencia de «editor desconocido»** de SmartScreen, que en un entorno corporativo bloquea la instalación en la práctica. **Plazo externo de 1 a 3 semanas.** OV para la v1.2.0, EV para el lanzamiento comercial |
+| **FIRMA-MAC** | Apple Developer Program de organización | Dirección | bloqueado | **Que ARLES abra en macOS.** Desde Catalina, una aplicación descargada sin notarizar no se ejecuta: no es una advertencia, es un bloqueo de Gatekeeper. Alta de la cuenta más notarización por build |
+| **P-09** | Revisión jurídica | Abogado | bloqueado | Los textos legales que lee el usuario, y el primer envío real a alguien de fuera de TELEMETRY. Las dieciocho preguntas están en `08-legal/CONSULTA-JURIDICA.md`. La construcción **no** se detiene (ADR-0013) |
+| **META** | Cuenta de WhatsApp Business con Coexistencia | Operaciones | bloqueado | Todo WhatsApp está probado contra un servidor de mentira. **Nunca ha hablado con Meta.** Por dentro el canal está completo desde D-WA (27/10/2026): campañas enteras incluidas |
+| **R-07** | Revisión en macOS | quien tenga un Mac | bloqueado | Nadie ha abierto ARLES en WKWebView. La vista previa no cuenta: ahí el motor es el del navegador. **Lo arrastra FIRMA-MAC**: el mismo Mac hace las dos cosas |
 | **R-24** | Un servidor de correo real | Dirección | **hecho** 22/10/2026 | Cerrado: ARLES manda por SMTP con TLS desde una cuenta de Titan, y llega a la bandeja principal de Outlook, Gmail y un corporativo |
+
+> **Los dos trámites de firma se anotaron el 28/10/2026, y llevaban declarados
+> desde la Fase 0.** `DISTRIBUCION_Y_FIRMA.md` §1 los pone como trámites que
+> **arrancan en la Fase 1** precisamente porque son plazos externos, D-4 lo
+> repite, y la matriz de riesgos los tiene como **R-14** con la mitigación
+> escrita: *«trámite iniciado en Fase 1»*. No hay rastro de que se iniciara, y
+> **ninguna de las tres listas de bloqueos del proyecto los nombraba**, así que
+> nadie los estaba esperando.
+>
+> Es el décimo documento que afirmaba de más, y la frase exacta era de esta
+> misma tabla: P-01 decía ser *«lo único entre ARLES y el `.exe`»*. Entre ARLES
+> y un `.exe` que se instala sin advertencia hay también un certificado, y entre
+> ARLES y un `.dmg` que **abre** hay un Developer ID. Una tabla que se lee para
+> saber qué falta y deja fuera dos plazos de semanas no es una tabla incompleta:
+> es la que hace que se descubran al final, que es el riesgo R-14 literal.
+>
+> Lo vigila `los_bloqueos_se_cuentan_en_un_solo_sitio` en la fase 0.
 
 ---
 
@@ -129,6 +149,8 @@ no una relectura con buena voluntad.
 | **DOC-7** | `PRESUPUESTO_RENDIMIENTO.md` §3 describía una arquitectura con Tokio | No hay Tokio; la conexión es un `Mutex<Connection>` | ✅ 07/10/2026 · auditoría C |
 | **DOC-8** | El `ROADMAP` ponía los derechos ARCO en la Fase 8 | Construidos desde la 3.4. La auditoría B perdió tiempo buscándolos | ✅ 07/10/2026 |
 | **DOC-9** | `CLAUDE.md` §1 bis: «Todo documento nuevo se nombra en `00-INDICE.md`: **lo vigila la fase 0**» | No lo vigilaba nadie. La fase 0 tenía una lista de catorce documentos esperados y comprobaba que existieran; la dirección contraria no la miraba nada | ✅ 28/10/2026 · ahora la vigila `todo_documento_esta_en_el_indice` |
+| **DOC-10** | Esta misma tabla: P-01 era «**lo único entre ARLES y el `.exe`**», y los bloqueos eran «los cuatro» | Son cinco. Faltaban los **dos trámites de firma**, declarados en `DISTRIBUCION_Y_FIRMA.md` §1 desde la Fase 0 como plazos externos que arrancan en la Fase 1, y ausentes de las **tres** listas de bloqueos del proyecto | ✅ 28/10/2026 · ahora los cuenta `los_bloqueos_se_cuentan_en_un_solo_sitio` |
+| **DOC-11** | `avance.json`: **89 % a 2026-10-22**, con F3W al 55 %, F5 al 70 % y F7 al 92 % | Doce tramos cerrados después de esa fecha —la 7.5 entera y D-WA entera— dejaban las tres fichas describiendo un estado que ya no existía. F7 decía «falta sólo la 7.5» con la 7.5 construida. Recalculado: **95 %** | ✅ 28/10/2026 |
 
 **Las cinco primeras llevaban ahí desde la Fase 2** y ninguna de las cuatro
 auditorías del §140 las vio, porque una auditoría mide el producto y esto es un
@@ -149,6 +171,19 @@ seguros.
 > Medido el día que se escribió la comprobación: **114 de 115 documentos** sí
 > estaban en el índice. La regla se venía cumpliendo a mano, así que el hueco no
 > se notaba — y un hueco que no se nota es el que un día se cuela.
+
+> **DOC-10 y DOC-11 son los dos únicos de la lista que afirman de más sobre el
+> propio estado del proyecto**, y por eso son los que más caro salen: no mandan
+> a buscar una función que no existe, mandan a no buscar algo que falta. DOC-11
+> dejaba la portada del repositorio diciendo **89 %** con el 95 % construido,
+> que es el error en la dirección cómoda de ver y la incómoda de cometer —
+> presenta menos trabajo hecho del que hay—; DOC-10 dejaba fuera de la lista de
+> bloqueos **dos plazos de semanas** que nadie estaba esperando.
+>
+> **Los dos los encontró contestar una pregunta de Dirección**, no una
+> auditoría: «qué sigue en el roadmap y qué falta para una beta». Las cinco
+> auditorías corridas en este proyecto miden el producto; para que un documento
+> de estado se vea falso hay que ir a usarlo para algo.
 
 ---
 

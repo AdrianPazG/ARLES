@@ -100,10 +100,16 @@ def bloque_readme(datos: dict, pct: int) -> str:
     abiertos = [b for b in datos["bloqueos"] if "cerrado" not in b]
     cerrados = [b for b in datos["bloqueos"] if "cerrado" in b]
 
+    # El texto de «no queda ninguno» CUENTA los cerrados en vez de decir un
+    # número: decía «los cinco están cerrados» con cinco bloqueos en la
+    # fuente, así que el día que entrara el sexto habría quedado mintiendo en
+    # la portada del repositorio sin que nada fallara. Es la lista escrita a
+    # mano (patrón 3) dentro del generador que existe para no tenerlas, y lo
+    # disparó añadir FIRMA-WIN y FIRMA-MAC el 28/10/2026.
     bloqueos = "\n".join(
         f"| **{b['id']}** | {b['que']} | {b['quien']} | {b['bloquea']} |"
         for b in abiertos
-    ) or "| — | Ninguno: los cinco están cerrados | — | — |"
+    ) or f"| — | Ninguno: los {len(cerrados)} están cerrados | — | — |"
 
     ya_no = ""
     if cerrados:

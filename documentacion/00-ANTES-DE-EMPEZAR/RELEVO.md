@@ -2,7 +2,7 @@
 
 **Para:** quien retome ARLES sin el contexto de la sesión anterior — otra
 persona, u otro modelo.
-**Última actualización:** 2026-10-27
+**Última actualización:** 2026-10-28
 
 Dirección puede cambiar de modelo por ahorro de créditos o por cualquier otro
 motivo. **Este archivo existe para que eso no cueste nada.**
@@ -82,7 +82,7 @@ frecuencia es el dato:
 | 1 | **Una pieza correcta y probada que nadie llama** | 25+ | `CLAUDE.md`, «El patrón que ya ha aparecido ocho veces» |
 | 2 | **Una comprobación que se caza a sí misma** en un comentario | 10 | `METODO.md` §1 |
 | 3 | **Una lista escrita a mano** que dice cubrir una regla y cubre una parte | 11 de 17 hallazgos | las cuatro auditorías del §140 |
-| 4 | **Un documento que afirma de más** | 9 anotados | `10-requisitos/REGISTRO-DE-REQUISITOS.md`, «Documentos que afirmaban de más» |
+| 4 | **Un documento que afirma de más** | 11 anotados | `10-requisitos/REGISTRO-DE-REQUISITOS.md`, «Documentos que afirmaban de más» |
 | 5 | **Una afirmación de verificación falsa** — «verificada rompiéndola» sin haberlo hecho | 6+ | la 8.3 bis, la 8.6 E, el tramo 3b |
 | 6 | **Una ruptura mal elegida** que deja el síntoma en pie o no compila | 4 | `METODO.md` §1 |
 
@@ -161,10 +161,29 @@ Y por el camino, el noveno documento que afirmaba de más: `CLAUDE.md` §1 bis
 prometía que la fase 0 vigilaba que todo documento estuviera en el índice, y
 **no lo vigilaba nadie**. Ahora sí.
 
-**Lo siguiente, sin empezar:** la **Fase 9**, con lo que las auditorías dejaron
-abierto — sacar la activación a segundo plano con avance (73.5 s con 451 196
-destinatarios, y se rompe alrededor de los 30 000), el filtro de la lista de
-contactos (C-2), y **R-07**: nadie ha abierto ARLES en un Mac.
+**Cerrado el estado del proyecto** (28/10/2026), al contestar a Dirección qué
+falta para una beta: `avance.json` llevaba seis días diciendo **89 %** con el
+**95 %** construido —la 7.5 y D-WA cerradas y sin anotar—, y **las cuatro listas
+de bloqueos del proyecto omitían los dos trámites de firma**: el certificado de
+Windows (1 a 3 semanas de plazo) y el Apple Developer ID, sin el cual la
+aplicación **no abre** en macOS. Los dos estaban declarados desde la Fase 0 como
+R-14, con la mitigación escrita «trámite iniciado en Fase 1». Nadie los había
+iniciado y nadie los esperaba. Son DOC-10 y DOC-11.
+
+> **Dos cosas que vale la pena llevarse de ahí.** Las cinco auditorías del
+> proyecto miden el producto, así que un documento de estado nunca se les ve
+> falso: **se vio al usarlo para contestar una pregunta.** Y la comprobación
+> nueva —`los_bloqueos_se_cuentan_en_un_solo_sitio`— nació con una lista de dos
+> rutas escritas a mano, el patrón 3 **dentro de la comprobación escrita para
+> cazarlo**: había una cuarta lista, el §6 de `ESTADO_ACTUAL.md`, que esa
+> versión no habría mirado nunca. Ahora busca los documentos por la frase.
+
+**Lo siguiente, sin empezar:** la **Fase 9**, que es **el 5 % que queda** — las
+otras diez fases están al 100 %. Sacar la activación a segundo plano con avance
+(73.5 s con 451 196 destinatarios, y se rompe alrededor de los 30 000), el
+filtro de la lista de contactos (C-2), el mensaje de fallo al migrar que no
+cumple el §95, los instaladores con su firma, y **R-07**: nadie ha abierto ARLES
+en un Mac.
 
 ## 6 · Cómo se cierra un tramo
 
