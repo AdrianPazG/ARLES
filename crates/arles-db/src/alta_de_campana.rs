@@ -204,6 +204,112 @@ pub struct CampanaGuardada {
     pub aceptados: u32,
 }
 
+/// Cada cuántas filas de la cola se avisa del avance.
+///
+/// Dos mil, el mismo valor que el respaldo (`respaldo::FILAS_POR_AVISO`) y por
+/// la misma razón: avisar de cada fila serían 451 196 avisos cruzando la
+/// frontera para mover una cifra que nadie puede leer tan rápido. Con dos mil,
+/// una activación de 180 552 destinatarios manda **noventa avisos** en diez
+/// segundos — nueve por segundo, que es más de lo que hace falta y menos de lo
+/// que estorba.
+pub const FILAS_POR_AVISO_AL_ACTIVAR: u32 = 2_000;
+
+/// En qué va una activación.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ FASES CON NOMBRE Y NO UN PORCENTAJE · MEDIDO EL 28/10/2026
+///
+/// La forma obvia es una barra de 0 a 100. **No se puede llenar con verdad**, y
+/// se midió antes de escribir esto, instrumentando el código real a dos
+/// escalas:
+///
+/// | Tramo                  | 45 253 dest. |     % | 180 552 dest. |     % |
+/// |------------------------|-------------:|------:|--------------:|------:|
+/// | Contar los de baja     |     0.084 s  |   3.0 |      0.303 s  |   1.6 |
+/// | `INSERT` de la audiencia |   0.922 s  |  32.9 |      7.153 s  |  37.7 |
+/// | Bucle de la cola       |     1.605 s  |  57.3 |      9.896 s  |  52.2 |
+/// | `COMMIT`               |     0.191 s  |   6.8 |      1.622 s  |   8.5 |
+///
+/// El bucle de la cola es **la mitad del tiempo, no la mayor parte**, y es el
+/// único tramo que se puede contar fila a fila: el `INSERT` de la audiencia es
+/// **una sola sentencia** de SQLite y el `COMMIT` tampoco se subdivide.
+///
+/// Así que una barra que sólo avanzara en el bucle estaría **quieta el 45 % de
+/// la espera** y después saltaría. E interpolar por tiempo transcurrido sobre
+/// los dos tramos opacos sería inventarse una medición, que es lo que el §94
+/// prohíbe: cifras, no adjetivos — y menos una cifra que no mide nada.
+///
+/// Lo que sí es verdad es **en qué está**, y eso se dice con palabras. Dentro
+/// de la fase que tiene cuenta, se da la cuenta.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FaseDeActivacion {
+    /// Se está decidiendo quién entra. **Sin cuenta**: es un `INSERT … SELECT`
+    /// y SQLite no dice por dónde va.
+    CongelandoLaAudiencia,
+    /// Se está llenando la cola. Es la fase que se cuenta, y `de` es el total
+    /// —ya se sabe, porque la audiencia está congelada—.
+    LlenandoLaCola { de: u32 },
+    /// Queda el `COMMIT` y poner los estados. **Sin cuenta** y sin vuelta
+    /// atrás: a partir de aquí cancelar ya no sirve de nada.
+    Cerrando,
+}
+
+/// Quien mira cómo va una activación, y puede pedir que pare.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// ES UN RASGO Y NO UN CANAL, POR LA MISMA RAZÓN QUE `Destino`
+///
+/// `arles-db` no conoce la IPC y no depende de `serde`: no puede emitir un
+/// suceso de Tauri ni sabe que existe una ventana. Quien lo implementa en el
+/// tramo 2 traduce estas llamadas a sucesos; aquí sólo se cuenta en voz alta.
+///
+/// Los tres métodos tienen implementación por defecto a propósito, para que
+/// quien sólo quiera cancelar no tenga que escribir dos funciones vacías.
+pub trait ComoVaLaActivacion {
+    /// Empieza una fase. Se llama **una vez por fase**, en orden.
+    ///
+    /// No puede fallar: avisar de en qué va no es motivo para abortar una
+    /// activación.
+    fn fase(&mut self, _fase: FaseDeActivacion) {}
+
+    /// Van `hechos` de `de` filas de la cola. Se llama cada
+    /// [`FILAS_POR_AVISO_AL_ACTIVAR`] y **una vez al terminar**, para que la
+    /// última cifra sea la de verdad y no la del último múltiplo de dos mil.
+    fn van(&mut self, _hechos: u32, _de: u32) {}
+
+    /// ¿Seguir?
+    ///
+    /// ── DEVOLVER `false` NO DEJA NADA A MEDIAS, Y ES LO QUE LO HACE SEGURO ─
+    ///
+    /// Se consulta **dentro de la transacción**, así que decir que no devuelve
+    /// [`DbError::ActivacionCancelada`] y la transacción se deshace entera: la
+    /// audiencia congelada, las filas de la cola que ya se metieron y el estado
+    /// de la campaña. No queda una campaña medio activada, que es el estado que
+    /// el encabezado de este módulo describe como silencioso.
+    ///
+    /// Se pregunta **antes de cada tanda**, no en cada fila: una llamada por
+    /// fila serían 451 196 consultas a una bandera para ganar, en el peor caso,
+    /// los milisegundos de dos mil inserciones.
+    ///
+    /// **Y no se pregunta en [`FaseDeActivacion::Cerrando`]**, a propósito: a
+    /// esa altura el trabajo caro ya está hecho y lo único que queda es
+    /// confirmar. Cancelar ahí tiraría los diez segundos de trabajo para
+    /// ahorrar dos milisegundos.
+    fn seguir(&mut self) -> bool {
+        true
+    }
+}
+
+/// El que no mira nada y nunca cancela.
+///
+/// Es lo que usa [`Db::activar_campana`], que existe para quien no quiere
+/// avance: el banco de pruebas y las pruebas de esta casa. Así la firma de
+/// siempre sigue funcionando y no hay dos caminos que mantener.
+#[derive(Debug, Clone, Copy)]
+pub struct SinMirar;
+
+impl ComoVaLaActivacion for SinMirar {}
+
 /// Lo que pasó al activar. Cifras, no adjetivos (§94).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Activacion {
@@ -425,6 +531,40 @@ impl Db {
         empresa: CompanyId,
         campana: CampaignId,
     ) -> Result<Activacion, DbError> {
+        self.activar_campana_contando(empresa, campana, &mut SinMirar)
+    }
+
+    /// Igual que [`Db::activar_campana`], pero **contando en voz alta** y
+    /// dejando cancelar.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ ESTE MÉTODO EXISTE, Y QUÉ NO ARREGLA
+    ///
+    /// Activar tarda **73.5 s con 451 196 destinatarios** y rompe su
+    /// presupuesto de 2 s **hacia los 30 000** (auditoría C, 07/10/2026), que
+    /// es una lista de tamaño ordinario. Corre dentro de un comando de Tauri,
+    /// así que hasta hoy la interfaz no contestaba, no había cifra de avance y
+    /// no se podía cancelar.
+    ///
+    /// Esto resuelve las dos últimas. **No resuelve que la base esté ocupada**:
+    /// el cerrojo de la conexión es uno solo (ADR-0002), así que mientras la
+    /// transacción está abierta ninguna otra consulta entra. Eso lo arregla la
+    /// conexión de lectura de [ADR-0015], que va después y no empieza hasta
+    /// medir cuánto crece el `-wal`.
+    ///
+    /// [ADR-0015]: ../../../documentacion/03-arquitectura/adr/0015-un-escritor-y-lectores-separados.md
+    ///
+    /// # Errores
+    ///
+    /// Los de [`Db::activar_campana`], más
+    /// [`DbError::ActivacionCancelada`] si quien mira pide parar. En ese caso
+    /// **no queda nada escrito**: lo deshace la transacción.
+    pub fn activar_campana_contando<A: ComoVaLaActivacion + ?Sized>(
+        &self,
+        empresa: CompanyId,
+        campana: CampaignId,
+        como_va: &mut A,
+    ) -> Result<Activacion, DbError> {
         self.con_dominio(|conn| {
             let tx = conn.unchecked_transaction()?;
             let cuando = ahora();
@@ -574,6 +714,12 @@ impl Db {
             // Sin lista, `?4` entra igual y vale `NULL`: así las dos formas
             // llevan los mismos cuatro parámetros y nadie tiene que acordarse
             // de cambiarlos al tocar una.
+            // La primera fase arranca aquí y no antes: lo de arriba son cuatro
+            // consultas de una fila que no llegan al milisegundo —medido:
+            // 0.000 s a las dos escalas—, y anunciar una fase que dura menos de
+            // lo que tarda en pintarse sería un parpadeo.
+            como_va.fase(FaseDeActivacion::CongelandoLaAudiencia);
+
             let (origen, filtro_lista) = if lista.is_some() {
                 (
                     "contact_list_member m
@@ -628,6 +774,15 @@ impl Db {
 
             if metidos == 0 {
                 return Err(DbError::AudienciaVacia);
+            }
+
+            // ── LA PRIMERA OPORTUNIDAD DE CANCELAR, Y LA MÁS VALIOSA ──────
+            //
+            // Aquí se ha pagado el 38 % del tiempo y **queda por pagar el
+            // 52 %**: es el punto donde cancelar ahorra más. Y no deja nada,
+            // porque la transacción se deshace entera.
+            if !como_va.seguir() {
+                return Err(DbError::ActivacionCancelada);
             }
 
             // ── 3 bis · ¿Esta campaña puede terminar? ─────────────────────
@@ -807,6 +962,15 @@ impl Db {
                     Ok((f.get::<_, String>(0)?, f.get::<_, Option<String>>(1)?))
                 })?;
 
+                // El total se sabe: es la audiencia que se acaba de congelar,
+                // contada por el propio `INSERT`. No hay que volver a
+                // preguntarlo —sería otro recorrido completo de la tabla— y es
+                // lo que permite que esta fase dé una cifra «de» y no sólo un
+                // «van».
+                let total = u32::try_from(metidos).unwrap_or(u32::MAX);
+                como_va.fase(FaseDeActivacion::LlenandoLaCola { de: total });
+
+                let mut hechas: u32 = 0;
                 for fila in filas {
                     let (direccion, contacto) = fila?;
                     insertar.execute(params![
@@ -821,8 +985,31 @@ impl Db {
                         IdempotencyKey::nueva().to_string(),
                         cuando
                     ])?;
+
+                    hechas = hechas.saturating_add(1);
+                    if hechas.is_multiple_of(FILAS_POR_AVISO_AL_ACTIVAR) {
+                        como_va.van(hechas, total);
+                        // Se pregunta junto con el aviso y no en cada fila: una
+                        // consulta por fila serían 451 196 para ahorrar, en el
+                        // peor caso, los milisegundos de dos mil inserciones.
+                        if !como_va.seguir() {
+                            return Err(DbError::ActivacionCancelada);
+                        }
+                    }
                 }
+
+                // El último aviso lleva **la cifra de verdad**, no la del
+                // último múltiplo de dos mil. Sin esto, una audiencia de
+                // 180 552 terminaría diciendo «180 000 de 180 552» y la
+                // pantalla se quedaría con 552 sin explicar.
+                como_va.van(hechas, total);
             }
+
+            // No se vuelve a preguntar por la cancelación a partir de aquí, y
+            // está dicho en `ComoVaLaActivacion::seguir`: lo que queda son dos
+            // `UPDATE` de una fila y el `COMMIT`. Cancelar aquí tiraría diez
+            // segundos de trabajo para ahorrar dos milisegundos.
+            como_va.fase(FaseDeActivacion::Cerrando);
 
             // 5 · Y ahora sí, la campaña envía. La etapa también: son dos
             // estados desde la L-6, y dejar la etapa en borrador haría que el
@@ -2363,5 +2550,273 @@ mod tests {
         let c = una_campana_de_whatsapp(&db, true);
         db.activar_campana(empresa(), c)
             .expect("hoy se activa: la exigencia del correo no se puede medir aquí");
+    }
+
+    // ── EL AVANCE POR FASES Y LA CANCELACIÓN ──────────────────────────────
+
+    /// Un mirón que lo apunta todo y puede decir que no en una fila concreta.
+    #[derive(Debug, Default)]
+    struct Mirón {
+        fases: Vec<FaseDeActivacion>,
+        avisos: Vec<(u32, u32)>,
+        /// Cuántas veces se le ha preguntado si seguir.
+        preguntas: u32,
+        /// Dice que no a partir de esta pregunta. `None` nunca cancela.
+        cancela_en_la_pregunta: Option<u32>,
+    }
+
+    impl ComoVaLaActivacion for Mirón {
+        fn fase(&mut self, fase: FaseDeActivacion) {
+            self.fases.push(fase);
+        }
+        fn van(&mut self, hechos: u32, de: u32) {
+            self.avisos.push((hechos, de));
+        }
+        fn seguir(&mut self) -> bool {
+            self.preguntas += 1;
+            self.cancela_en_la_pregunta
+                .is_none_or(|n| self.preguntas < n)
+        }
+    }
+
+    /// Siembra `cuantos` contactos con correo, para tener una audiencia.
+    ///
+    /// Reusa `contacto()`, que ya existe en este módulo. La primera versión de
+    /// este ayudante **escribió el `INSERT` a mano y se olvidó de
+    /// `contact_channel.id`**, que es `NOT NULL`: en rojo con un error de
+    /// SQLite sobre una prueba correcta. Es el error de inventarse el esquema
+    /// en vez de mirarlo, el mismo que la auditoría B cometió buscando comandos
+    /// por nombres que no existían.
+    fn contactos_con_correo(db: &Db, cuantos: u32) {
+        for i in 0..cuantos {
+            contacto(db, &format!("c-{i}"), &format!("q{i}@ejemplo.mx"));
+        }
+    }
+
+    /// Las tres fases se anuncian, **en orden**, y sólo la del medio cuenta.
+    ///
+    /// El orden importa porque la pantalla lo usa para decidir si el botón de
+    /// cancelar sirve todavía: en `Cerrando` ya no. Si las fases llegaran
+    /// desordenadas, ese botón quedaría encendido cuando ya no hace nada —el
+    /// §95 al revés: una acción que dice que puede y no puede.
+    #[test]
+    fn las_tres_fases_se_anuncian_en_orden_y_solo_una_cuenta() {
+        let (_d, db, v) = base();
+        contactos_con_correo(&db, 3);
+        let c = una_campana(&db, v);
+
+        let mut m = Mirón::default();
+        let a = db
+            .activar_campana_contando(empresa(), c, &mut m)
+            .expect("activa");
+        assert_eq!(a.en_la_audiencia, 3);
+
+        assert_eq!(
+            m.fases,
+            vec![
+                FaseDeActivacion::CongelandoLaAudiencia,
+                FaseDeActivacion::LlenandoLaCola { de: 3 },
+                FaseDeActivacion::Cerrando,
+            ],
+            "las tres fases, en orden, y la del medio con el total dentro"
+        );
+    }
+
+    /// El último aviso lleva **la cifra de verdad**, no la del último múltiplo.
+    ///
+    /// Con tres destinatarios no se llega a los 2 000 del aviso periódico, así
+    /// que el único aviso que puede haber es el del final. Si no estuviera, la
+    /// pantalla se quedaría sin ninguna cifra en una campaña pequeña —que son
+    /// casi todas— y el avance diría «llenando la cola» sin número.
+    #[test]
+    fn el_ultimo_aviso_lleva_la_cifra_exacta_y_no_el_multiplo() {
+        let (_d, db, v) = base();
+        contactos_con_correo(&db, 3);
+        let c = una_campana(&db, v);
+
+        let mut m = Mirón::default();
+        db.activar_campana_contando(empresa(), c, &mut m)
+            .expect("activa");
+
+        assert_eq!(
+            m.avisos.last(),
+            Some(&(3, 3)),
+            "el último aviso tiene que decir 3 de 3, no 0 de 3"
+        );
+    }
+
+    /// **La prueba que este tramo existía para tener: cancelar no deja nada.**
+    ///
+    /// ── POR QUÉ SE COMPARA EL RECUENTO DE LAS CUATRO TABLAS ───────────────
+    ///
+    /// Comprobar sólo que devuelve el error diría que la señal llega, no que la
+    /// transacción se deshizo. Y comprobar sólo `campaign.status` dejaría pasar
+    /// el caso que de verdad duele: una campaña en borrador **con su audiencia
+    /// congelada y media cola escrita**, que al activarse otra vez chocaría
+    /// contra el `UNIQUE(campaign_id, channel, contact_address)` y fallaría con
+    /// un error de SQLite sin decir por qué.
+    ///
+    /// Así que se comparan las cuatro tablas que la activación escribe, antes y
+    /// después. Y se cancela en la **primera** pregunta, que es justo después
+    /// del `INSERT` de la audiencia: ahí ya hay filas escritas, así que si la
+    /// transacción no se deshiciera, el recuento de `campaign_audience` no
+    /// cuadraría.
+    #[test]
+    fn cancelar_no_deja_ni_una_fila() {
+        let (_d, db, v) = base();
+        contactos_con_correo(&db, 5);
+        let c = una_campana(&db, v);
+
+        let recuentos = |db: &Db| -> Vec<(String, i64)> {
+            db.ejecutar_en_pruebas(|conn| {
+                let mut salida = Vec::new();
+                for t in [
+                    "campaign_audience",
+                    "message_attempt",
+                    "audit_log",
+                    "campaign",
+                ] {
+                    let n: i64 =
+                        conn.query_row(&format!("SELECT count(*) FROM {t}"), [], |f| f.get(0))?;
+                    salida.push((t.to_owned(), n));
+                }
+                // El estado de la campaña también: es lo que el motor mira.
+                let estado: String =
+                    conn.query_row("SELECT status FROM campaign LIMIT 1", [], |f| f.get(0))?;
+                salida.push((format!("status={estado}"), 0));
+                Ok(salida)
+            })
+            .expect("cuenta")
+        };
+
+        let antes = recuentos(&db);
+
+        let mut m = Mirón {
+            cancela_en_la_pregunta: Some(1),
+            ..Mirón::default()
+        };
+        let r = db.activar_campana_contando(empresa(), c, &mut m);
+
+        assert!(
+            matches!(r, Err(DbError::ActivacionCancelada)),
+            "cancelar tiene que devolver ActivacionCancelada, y devolvió {r:?}"
+        );
+        assert_eq!(
+            recuentos(&db),
+            antes,
+            "cancelar no puede dejar ni una fila ni mover el estado de la campaña"
+        );
+    }
+
+    /// **Cancelar DENTRO del bucle de la cola, cruzando la frontera del aviso.**
+    ///
+    /// ── POR QUÉ 2 001 Y NO 5 · LA LECCIÓN DE LA AUDITORÍA F ──────────────
+    ///
+    /// Las otras pruebas de cancelación siembran cinco contactos, así que
+    /// `hechas` nunca llega a los 2 000 de `FILAS_POR_AVISO_AL_ACTIVAR` y **la
+    /// pregunta de dentro del bucle no se ejecuta ni una vez**. Cancelan en la
+    /// primera pregunta, la que va después del `INSERT` de la audiencia, y
+    /// dejaban el camino del bucle sin ejercitar — en verde, y sin cubrirlo.
+    ///
+    /// Es exactamente el fallo que la auditoría F encontró en la Fase 8: todas
+    /// las pruebas de ida y vuelta usaban dos filas, un solo trozo y ninguna
+    /// frontera, así que el único trozo que se ejercitaba era el único que no
+    /// podía fallar. **Si lo que se recorre tiene tandas, la prueba tiene que
+    /// cruzar una y decir cuántas.**
+    ///
+    /// Aquí: 2 001 destinatarios dan **exactamente un aviso** de dentro del
+    /// bucle —a las 2 000— y por tanto una segunda pregunta. Se cancela en esa
+    /// segunda, con 2 000 filas de cola ya escritas, y no queda ninguna.
+    #[test]
+    fn cancelar_dentro_del_bucle_tampoco_deja_nada() {
+        let (_d, db, v) = base();
+        contactos_con_correo(&db, FILAS_POR_AVISO_AL_ACTIVAR + 1);
+        let c = una_campana(&db, v);
+
+        let cuenta = |db: &Db, tabla: &str| -> i64 {
+            db.ejecutar_en_pruebas(|conn| {
+                conn.query_row(&format!("SELECT count(*) FROM {tabla}"), [], |f| f.get(0))
+            })
+            .expect("cuenta")
+        };
+
+        let mut m = Mirón {
+            // La segunda: la primera es la de después del `INSERT` de la
+            // audiencia, y a ésa se le dice que sí.
+            cancela_en_la_pregunta: Some(2),
+            ..Mirón::default()
+        };
+        let r = db.activar_campana_contando(empresa(), c, &mut m);
+
+        assert!(
+            matches!(r, Err(DbError::ActivacionCancelada)),
+            "tenía que cancelarse en el bucle, y dio {r:?}"
+        );
+        assert_eq!(
+            m.preguntas, 2,
+            "con {} + 1 destinatarios se pregunta dos veces: una tras la \
+             audiencia y una a las {}",
+            FILAS_POR_AVISO_AL_ACTIVAR, FILAS_POR_AVISO_AL_ACTIVAR
+        );
+        assert_eq!(
+            m.avisos,
+            vec![(FILAS_POR_AVISO_AL_ACTIVAR, FILAS_POR_AVISO_AL_ACTIVAR + 1)],
+            "un solo aviso de dentro del bucle, y con el total de verdad"
+        );
+        assert_eq!(
+            cuenta(&db, "message_attempt"),
+            0,
+            "la cola tiene que quedar vacía"
+        );
+        assert_eq!(
+            cuenta(&db, "campaign_audience"),
+            0,
+            "y la audiencia congelada también"
+        );
+    }
+
+    /// Y se puede volver a activar después de cancelar.
+    ///
+    /// Es la mitad que una comparación de recuentos no prueba: que lo que quedó
+    /// **sirve**. Si la cancelación dejara la campaña en un estado desde el que
+    /// no se puede activar, el recuento cuadraría igual y el producto estaría
+    /// roto — el usuario habría perdido la campaña por pulsar «cancelar».
+    #[test]
+    fn tras_cancelar_la_campana_se_puede_activar_otra_vez() {
+        let (_d, db, v) = base();
+        contactos_con_correo(&db, 4);
+        let c = una_campana(&db, v);
+
+        let mut corta = Mirón {
+            cancela_en_la_pregunta: Some(1),
+            ..Mirón::default()
+        };
+        assert!(
+            db.activar_campana_contando(empresa(), c, &mut corta)
+                .is_err()
+        );
+
+        let a = db
+            .activar_campana_contando(empresa(), c, &mut Mirón::default())
+            .expect("después de cancelar, se activa");
+        assert_eq!(a.en_la_audiencia, 4);
+    }
+
+    /// `activar_campana` sigue funcionando sin mirar nada.
+    ///
+    /// Hay un solo camino —el de siempre delega en el nuevo con `SinMirar`—, y
+    /// esta prueba es lo que impide que se conviertan en dos: si alguien
+    /// duplicara el cuerpo, esta prueba seguiría pasando y la de las fases
+    /// también, así que lo que la cubre de verdad es que `activar_campana`
+    /// **no tiene cuerpo propio**. Queda dicho aquí porque una prueba no puede
+    /// afirmarlo.
+    #[test]
+    fn el_camino_de_siempre_sigue_activando() {
+        let (_d, db, v) = base();
+        contactos_con_correo(&db, 2);
+        let c = una_campana(&db, v);
+
+        let a = db.activar_campana(empresa(), c).expect("activa");
+        assert_eq!(a.en_la_audiencia, 2);
     }
 }

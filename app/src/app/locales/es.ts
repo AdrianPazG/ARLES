@@ -1987,6 +1987,23 @@ export const es = {
           'La campaña sigue en borrador y no se envió nada. No se congeló ' +
           'ninguna audiencia.',
       },
+      /*
+       * ESTE NO ES UN FALLO, Y SU TEXTO LO DICE
+       *
+       * Técnicamente llega como error porque es lo que deshace la transacción
+       * entera. Pero quien lo ve pulsó «cancelar»: decirle «no se pudo activar»
+       * le haría buscar un problema que no existe. Así que el «qué» es un acuse
+       * —se canceló— y el «cómo» no manda a arreglar nada, manda a seguir.
+       */
+      activacion_cancelada: {
+        que: 'Se canceló la activación. No se activó nada.',
+        como:
+          'Puedes volver a activar la campaña cuando quieras: está igual que ' +
+          'antes de empezar.',
+        salvo:
+          'No se envió ningún mensaje, no se congeló ninguna audiencia y no ' +
+          'se puso nada en la cola. La campaña sigue en borrador.',
+      },
       cuenta_de_correo_no_existe: {
       que: 'Esa cuenta de correo ya no está.',
       como: 'Vuelve a la lista de remitentes y elige una de las que hay.',

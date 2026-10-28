@@ -1,6 +1,7 @@
 # ADR-0015 · Un escritor con cerrojo, y lectores en conexión aparte
 
-**Estado:** propuesto · **Fecha:** 2026-10-28 · **Decide:** Dirección
+**Estado:** aceptado · **Fecha:** 2026-10-28 · **Decide:** Dirección
+**Aceptado por Dirección el 2026-10-28**, el mismo día que se propuso
 **Acota** las consecuencias negativas 1 de [ADR-0002](0002-rusqlite-sqlcipher-refinery.md) · su **decisión tecnológica sigue intacta**
 **Relacionado:** auditoría C del §140 · presupuesto de rendimiento §0 · DOC-12
 
@@ -263,8 +264,17 @@ reparto 49/56 con 20 escrituras por `con`— está en este documento con su fech
 
 ---
 
-## Cómo pasa a `aceptado`
+## Estado de la decisión
 
-Esta decisión queda **propuesta** hasta que Dirección la acepte, y entonces se
-cambia el estado aquí, en el índice y en la cabecera de ADR-0002. Mientras tanto
-el código sigue como está: un escritor con cerrojo y ninguna conexión de lectura.
+**Aceptada por Dirección el 2026-10-28**, el mismo día que se propuso, con las
+tres mediciones de arriba delante y las tres incógnitas declaradas.
+
+Lo que eso significa, y lo que no:
+
+- **El hilo dedicado con canal queda descartado por escrito.** Si alguien lo
+  propone de nuevo, la respuesta está aquí con su motivo, y no hay que volver a
+  discutirla.
+- **La conexión de lectura queda programada**, no construida. Va después de que
+  la activación corra en su propio hilo con avance y cancelación, y **no empieza
+  hasta que estén medidas las tres incógnitas** de la sección anterior. Mover un
+  método antes de medir el `-wal` sería publicar una cifra que nadie tomó.

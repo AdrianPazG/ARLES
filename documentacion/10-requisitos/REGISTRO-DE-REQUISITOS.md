@@ -95,6 +95,7 @@ Dirección lo pida.
 | **D-15** | 23/10/2026 | Cada campaña carga **su propia lista** de contactos. `None` es «toda la empresa», y la pantalla lo ofrece con esas palabras |
 | **D-16** | 23/10/2026 | **Ventana de descanso** de 14 días entre campañas al mismo contacto |
 | **D-WA** | 26/10/2026 | El canal de WhatsApp entra en la v1.2.0, **con campañas enteras** y no sólo el envío de prueba |
+| **D-18** | 28/10/2026 | **[ADR-0015](../03-arquitectura/adr/0015-un-escritor-y-lectores-separados.md) aceptado.** Un escritor con cerrojo y lectores en conexión aparte. El **hilo dedicado con canal de ADR-0002 queda descartado por escrito**, no pendiente: su premisa era Tokio y este proyecto no lo usa. La conexión de lectura queda **programada**, y no empieza hasta medir el crecimiento del `-wal` |
 | **DMARC** | 27/10/2026 | El DMARC se queda en `p=none` **dos o tres semanas** leyendo informes, y después se sube `pct=25` → 50 → 100. Saltar a `quarantine` manda correo legítimo a spam **en silencio**: sin rebote, sin error y sin aviso |
 | **Baja en WhatsApp** | 27/10/2026 | **No se exige** que la plantilla lleve la salida escrita, porque ARLES no podría atenderla: no recibe los mensajes y no lee su texto (D-7A). Se avisa **a mano** en Contactos › Bajas, y se dice con esas palabras en la pantalla, la guía y el manual |
 

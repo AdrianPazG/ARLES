@@ -2,8 +2,8 @@
 
 **Estado:** aceptado · **Fecha:** 2026-09-11 · **Decide:** Tech Lead + Database
 
-> **Acotado el 2026-10-28 por [ADR-0015](0015-un-escritor-y-lectores-separados.md)
-> —propuesto, pendiente de Dirección.**
+> **Acotado el 2026-10-28 por [ADR-0015](0015-un-escritor-y-lectores-separados.md),
+> aceptado por Dirección ese mismo día.**
 >
 > **La decisión de este ADR sigue vigente palabra por palabra**: `rusqlite` +
 > SQLCipher + `refinery` con repositorios propios, y está construida.

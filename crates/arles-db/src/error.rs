@@ -103,6 +103,28 @@ pub enum DbError {
     #[error("esta campaña no termina en cinco años: faltarían {faltan} mensajes")]
     LaCampanaNoTermina { faltan: u32 },
 
+    /// Alguien pulsó «cancelar» mientras la campaña se activaba.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// ES UN ERROR POR MECÁNICA, NO POR DIAGNÓSTICO
+    ///
+    /// Técnicamente tiene que ser un `Err`: es lo que deshace la transacción y
+    /// con ella la audiencia congelada, las filas de la cola que ya entraron y
+    /// el estado de la campaña. Devolver `Ok` dejaría una campaña a medio
+    /// activar, que es el estado que la cabecera de `alta_de_campana` describe
+    /// como silencioso.
+    ///
+    /// **Pero para quien lo pidió no es un error, es un acuse**: pulsó cancelar
+    /// y se canceló. Por eso su texto no empieza por «no se pudo», y por eso la
+    /// frontera lo traduce a un desenlace normal en vez de a un aviso rojo. Un
+    /// error que dice que algo falló cuando el usuario pidió que no ocurriera
+    /// le hace buscar un problema que no existe.
+    ///
+    /// Lo que está a salvo (§95) es **todo**: la campaña sigue en borrador y se
+    /// puede activar otra vez.
+    #[error("la activación se canceló y no se activó nada")]
+    ActivacionCancelada,
+
     /// Se intentó activar una campaña con la que **no sale ni un mensaje**.
     ///
     /// Pasa con un tope a cero, o con una ventana que no contiene ninguna hora
@@ -313,6 +335,7 @@ impl DbError {
             Self::AudienciaVacia => "error.db.audiencia_vacia",
             Self::LaCampanaNoTermina { .. } => "error.db.la_campana_no_termina",
             Self::LaCampanaNoAvanza => "error.db.la_campana_no_avanza",
+            Self::ActivacionCancelada => "error.db.activacion_cancelada",
             Self::CuentaDeCorreoNoExiste => "error.db.cuenta_de_correo_no_existe",
             Self::AccionDeCampanaImposible { clave } => clave,
             Self::FaltaAceptarElVolumen => "error.db.falta_aceptar_el_volumen",

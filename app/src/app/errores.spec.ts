@@ -97,6 +97,10 @@ const CLAVES_DEL_NUCLEO = [
   // que es por lo que esta lista a mano se puede tener.
   'error.db.la_campana_no_termina',
   'error.db.la_campana_no_avanza',
+  // Fase 9 · cancelar una activación en curso. Llega como error porque es lo
+  // que deshace la transacción, pero su texto es un acuse y no un fallo: quien
+  // lo ve pulsó «cancelar».
+  'error.db.activacion_cancelada',
   // Entrega 6.6 · el aviso de volumen del §48. No es un límite: es la
   // constancia de que se informó antes de crear la campaña.
   'error.db.falta_aceptar_el_volumen',

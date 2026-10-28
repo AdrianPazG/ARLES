@@ -98,7 +98,7 @@
 | [0012](03-arquitectura/adr/0012-recursos-fuente-unica.md) | `/RECURSOS` fuente única | **propuesto** |
 | [0013](03-arquitectura/adr/0013-origen-de-contactos-y-purificacion.md) | Origen de contactos, purificación y canario | aceptado |
 | [0014](03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md) | Detección de rebotes sin VERP | aceptado |
-| [0015](03-arquitectura/adr/0015-un-escritor-y-lectores-separados.md) | Un escritor con cerrojo, y lectores en conexión aparte | **propuesto** |
+| [0015](03-arquitectura/adr/0015-un-escritor-y-lectores-separados.md) | Un escritor con cerrojo, y lectores en conexión aparte | aceptado · **acota 0002** |
 
 ### 04 · Seguridad
 | Documento | Contenido |
