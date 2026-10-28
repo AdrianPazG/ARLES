@@ -187,6 +187,48 @@ la activación mete ~451 000 filas en `campaign_audience` y otras ~451 000 en
 `message_attempt`, cada una actualizando sus índices, sobre SQLCipher. Es el
 mismo orden que la importación (~1.35 M filas en 111 s).
 
+#### Dónde se va el tiempo, por tramos · medido el 28/10/2026
+
+La cifra total no dice qué se puede arreglar. Se instrumentó el **código real**
+de `activar_campana` —no una reimplementación— y se corrió a dos escalas:
+
+| Tramo | 45 253 dest. | % | 180 552 dest. | % |
+|---|---|---|---|---|
+| Validar y leer la etapa | 0.000 s | 0 | 0.000 s | 0 |
+| Contar los que quedan fuera por baja | 0.084 s | 3.0 | 0.303 s | 1.6 |
+| **`INSERT` de la audiencia** | 0.922 s | 32.9 | **7.153 s** | **37.7** |
+| Estimar el desenlace y la salida de baja | 0.000 s | 0 | 0.000 s | 0 |
+| **Bucle de la cola** | 1.605 s | 57.3 | **9.896 s** | **52.2** |
+| Poner los estados y auditar | 0.000 s | 0 | 0.000 s | 0 |
+| `COMMIT` | 0.191 s | 6.8 | 1.622 s | 8.5 |
+| **Total** | **2.803 s** | | **18.974 s** | |
+
+**Esto cambia el diseño de la solución, y por eso se midió antes de escribirla.**
+El bucle de la cola es **la mitad del tiempo, no la mayor parte**: es el único
+tramo que se puede contar fila a fila, así que una barra de avance que sólo se
+mueva ahí estaría **quieta el 45 % de la espera** y después saltaría. El
+`INSERT` de la audiencia es **una sola sentencia** —no se puede subdividir— y el
+`COMMIT` tampoco.
+
+Así que el avance que esta fase construye es **por fases con nombre**, y lleva
+una cifra sólo en la que tiene una. Poner un porcentaje interpolado sobre los
+dos tramos opacos sería inventarse una medición, que es lo que el §94 prohíbe.
+
+> **Y medir esto encontró que el banco llevaba seis días sin poder medirlo.**
+> El 22/10/2026 entró la regla de la salida de baja y la plantilla que el banco
+> siembra no la cumplía, así que `activar_campana` le devolvía
+> `SinSalidaDeBaja`. El informe lo anotaba como **SIN MEDIR** con un motivo, es
+> decir igual que los cuatro presupuestos que legítimamente no se pueden medir
+> en un contenedor — y la corrida salía con código **cero**.
+>
+> Es la lección de esta misma auditoría aplicada al instrumento: *un «sin
+> medir» con un motivo falso es peor que un hueco, porque el hueco se ve y el
+> motivo escrito se cree.* Lo cierra un **tipo** y no una comprobación
+> (§1 bis): `Veredicto::ElBancoSeRompio`, en el que el motivo de una medición
+> reventada **no cabe** en `SinMedir`, y que hace salir la corrida con código 2.
+> Verificado rompiéndolo: con la plantilla sin `{{baja}}`, código 2 y «BANCO
+> ROTO» en el informe donde antes había cero y «SIN MEDIR».
+
 Las alternativas y su coste están en
 [`AUDITORIA-C-QA.md`](../09-fases/AUDITORIA-C-QA.md) §C-1. **Pendiente de
 Dirección**, porque la opción barata no es técnica: a 50 correos diarios (§48)

@@ -22,9 +22,42 @@ pub enum Veredicto {
     /// Se midió y **no** entra. Es un resultado, no un fallo del banco.
     NoCumple,
     /// No se pudo medir aquí, y se dice por qué. **No es «cumple».**
+    ///
+    /// El motivo es `&'static str` a propósito: es una **limitación
+    /// declarada** —hace falta una webview (R-07), los puertos de correo
+    /// (R-24), el empaquetador (P-01)—, algo que se sabe al escribir el banco
+    /// y no al correrlo. Si el motivo saliera de un error en tiempo de
+    /// ejecución, sería [`Veredicto::ElBancoSeRompio`].
     SinMedir(&'static str),
     /// No se puede medir porque la función no existe todavía.
     NoConstruido(&'static str),
+    /// **La medición reventó.** No es una limitación: es el banco roto.
+    ///
+    /// ── POR QUÉ ESTE VEREDICTO EXISTE, Y QUÉ COSTÓ NO TENERLO ────────────
+    ///
+    /// Hasta el 28/10/2026, una medición que devolvía `Err` se anotaba como
+    /// `SinMedir("la activación falló: ver la salida de error")`. En el
+    /// informe eso sale como **SIN MEDIR**, idéntico a los cuatro
+    /// presupuestos que legítimamente no se pueden medir aquí — y se lee como
+    /// «todavía no toca», no como «esto está roto».
+    ///
+    /// Pasó con la peor cifra del producto. El 22/10/2026 entró la regla de la
+    /// salida de baja (`SinSalidaDeBaja`) y la plantilla que el banco siembra
+    /// no la cumplía, así que **`activar_campana` dejó de poder medirse ese
+    /// día** y el informe lo dijo de una forma que nadie iba a leer como una
+    /// alarma. Seis días después, al ir a partir los 73.5 s en sus tramos,
+    /// seguía roto.
+    ///
+    /// Es la lección de la auditoría C con otra cara: *un «sin medir» con un
+    /// motivo falso es peor que un hueco, porque el hueco se ve y el motivo
+    /// escrito se cree.* Y la razón de que sea un **tipo** y no una
+    /// comprobación del validador es el §1 bis: gana el tipo sobre el
+    /// validador. Con esta variante, el motivo de una medición rota **no cabe**
+    /// en `SinMedir`, porque esa variante no acepta una cadena construida.
+    ///
+    /// La corrida termina con código distinto de cero: un instrumento roto no
+    /// puede pasar inadvertido en CI.
+    ElBancoSeRompio(String),
 }
 
 impl Veredicto {
@@ -34,7 +67,14 @@ impl Veredicto {
             Self::NoCumple => "NO CUMPLE",
             Self::SinMedir(_) => "SIN MEDIR",
             Self::NoConstruido(_) => "NO EXISTE",
+            Self::ElBancoSeRompio(_) => "BANCO ROTO",
         }
+    }
+
+    /// ¿Este veredicto dice que el instrumento falló?
+    #[must_use]
+    pub const fn se_rompio(&self) -> bool {
+        matches!(self, Self::ElBancoSeRompio(_))
     }
 }
 
@@ -68,7 +108,7 @@ fn mb(bytes: u64) -> String {
 ///
 /// Lo que falle al generar el archivo, abrir la base o importar. **No se
 /// traga**: un banco que mide después de un error mediría otra cosa.
-pub fn correr(cuantas: usize, semilla: u64) -> Result<String, Box<dyn std::error::Error>> {
+pub fn correr(cuantas: usize, semilla: u64) -> Result<Corrida, Box<dyn std::error::Error>> {
     use arles_core::ids::CompanyId;
     use arles_db::{ClaveMaestra, Db};
 
@@ -255,10 +295,14 @@ pub fn correr(cuantas: usize, semilla: u64) -> Result<String, Box<dyn std::error
     // **dentro de un comando de Tauri**, en una sola transacción y con el
     // cerrojo de la conexión tomado: mientras dura, la interfaz no contesta y
     // el motor no escribe.
+    // El error se **guarda**, no sólo se imprime: imprimirlo y seguir es lo
+    // que dejó esta medida rota seis días (ver `Veredicto::ElBancoSeRompio`).
+    let mut activar_rompio: Option<String> = None;
     let activar = match activacion(&db, empresa, cuantas) {
         Ok(d) => Some(d),
         Err(e) => {
-            eprintln!("no se pudo medir la activación: {e}");
+            eprintln!("LA MEDICIÓN DE LA ACTIVACIÓN REVENTÓ: {e}");
+            activar_rompio = Some(e.to_string());
             None
         }
     };
@@ -267,10 +311,15 @@ pub fn correr(cuantas: usize, semilla: u64) -> Result<String, Box<dyn std::error
         presupuesto: "< 2 s",
         medido: activar.map_or_else(|| "no se pudo medir".to_owned(), |d| segundos(d.0)),
         metodo: "Db::activar_campana sobre la base ya importada: congela la audiencia y llena la cola, en una transacción",
-        veredicto: match activar {
-            Some((d, _)) if d.as_millis() < 2000 => Veredicto::Cumple,
-            Some(_) => Veredicto::NoCumple,
-            None => Veredicto::SinMedir("la activación falló: ver la salida de error"),
+        veredicto: match (activar, activar_rompio) {
+            (Some((d, _)), _) if d.as_millis() < 2000 => Veredicto::Cumple,
+            (Some(_), _) => Veredicto::NoCumple,
+            (None, Some(e)) => Veredicto::ElBancoSeRompio(e),
+            // Sin medida y sin error no debería ocurrir; si ocurre, es el
+            // banco roto de la forma más difícil de diagnosticar.
+            (None, None) => {
+                Veredicto::ElBancoSeRompio("ni medida ni error: imposible".to_owned())
+            }
         },
     });
 
@@ -356,7 +405,27 @@ pub fn correr(cuantas: usize, semilla: u64) -> Result<String, Box<dyn std::error
         ),
     });
 
-    Ok(informe(cuantas, semilla, bytes, generar, &medidas))
+    // ── LO QUE SE DEVUELVE LLEVA SI EL BANCO SE ROMPIÓ ───────────────────
+    //
+    // Y no sólo el texto del informe. Devolver sólo el informe obliga a quien
+    // lo recibe a **leerlo** para saber si el instrumento funcionó, y nadie
+    // lee un informe buscando eso: se mira el veredicto de la fila que
+    // interesa. Por eso la corrida sale con código distinto de cero.
+    let roto = medidas.iter().any(|m| m.veredicto.se_rompio());
+    Ok(Corrida {
+        informe: informe(cuantas, semilla, bytes, generar, &medidas),
+        se_rompio: roto,
+    })
+}
+
+/// Lo que deja una corrida del banco: el informe, y si el instrumento falló.
+#[derive(Debug, Clone)]
+pub struct Corrida {
+    /// El informe en Markdown, listo para el presupuesto.
+    pub informe: String,
+    /// Alguna medición reventó. **No es que un presupuesto no se cumpla**:
+    /// es que el banco no pudo medirlo porque algo se rompió.
+    pub se_rompio: bool,
 }
 
 /// Importa el conjunto por el mismo camino que la pantalla.
@@ -472,12 +541,25 @@ fn activacion(
         ))
     })?;
 
+    // ── LA PLANTILLA LLEVA `{{baja}}`, Y NO ES DECORACIÓN ────────────────
+    //
+    // Sin ella, `activar_campana` rechaza con `SinSalidaDeBaja` desde el
+    // 22/10/2026 y **esta medida deja de poder tomarse**. Pasó: el banco
+    // dejó de medir la peor cifra del producto el día que entró esa regla, y
+    // el informe lo decía —«la activación falló: ver la salida de error»— sin
+    // que nadie lo leyera, porque un «no se pudo medir» se lee igual que un
+    // «todavía no toca». Encontrado el 28/10/2026 al ir a partir los 73.5 s.
+    //
+    // La lección es la de la auditoría C con otra cara: **un instrumento que
+    // deja de medir no hace ruido.** Lo vigila ahora
+    // `el_banco_puede_medir_la_activacion` en `--fase 8`, que compara las
+    // exigencias de `activar_campana` con lo que el banco siembra.
     let (_, version) = db.crear_plantilla(
         empresa,
         "Banco",
         &Redaccion {
             asunto: "Hola {{nombre}}".to_owned(),
-            cuerpo_html: "<p>Gracias</p>".to_owned(),
+            cuerpo_html: "<p>Gracias</p><p>{{baja}}</p>".to_owned(),
         },
     )?;
 
@@ -583,8 +665,16 @@ fn informe(
     s.push_str("\n### Cómo se midió cada una\n\n");
     for m in medidas {
         s.push_str(&format!("- **{}** — {}", m.operacion, m.metodo));
-        if let Veredicto::SinMedir(p) | Veredicto::NoConstruido(p) = &m.veredicto {
-            s.push_str(&format!(". No se midió: {p}"));
+        match &m.veredicto {
+            Veredicto::SinMedir(p) | Veredicto::NoConstruido(p) => {
+                s.push_str(&format!(". No se midió: {p}"));
+            }
+            // Se escribe distinto a propósito: «no se midió» y «el banco se
+            // rompió» son dos cosas, y confundirlas es lo que pasó.
+            Veredicto::ElBancoSeRompio(e) => {
+                s.push_str(&format!(". **EL BANCO SE ROMPIÓ MIDIENDO ESTO:** {e}"));
+            }
+            Veredicto::Cumple | Veredicto::NoCumple => {}
         }
         s.push_str(".\n");
     }

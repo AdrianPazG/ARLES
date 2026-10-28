@@ -61,7 +61,25 @@ fn main() {
         .unwrap_or(20_261_006);
 
     match arles_banco::medir::correr(cuantas, semilla) {
-        Ok(informe) => print!("{informe}"),
+        Ok(corrida) => {
+            print!("{}", corrida.informe);
+            // ── UNA MEDICIÓN ROTA SALE CON CÓDIGO DISTINTO DE CERO ───────
+            //
+            // Un presupuesto que **no se cumple** es un resultado y sale con
+            // cero: es información, no un fallo del banco. Un presupuesto que
+            // el banco **no pudo medir porque reventó** es otra cosa, y hasta
+            // el 28/10/2026 salía igual: con cero y con un «SIN MEDIR» que se
+            // lee como «todavía no toca». Así estuvo seis días sin medirse la
+            // peor cifra del producto.
+            if corrida.se_rompio {
+                eprintln!(
+                    "\nEL BANCO SE ROMPIÓ EN AL MENOS UNA MEDICIÓN. \
+                     Busca «BANCO ROTO» en el informe: la cifra que falta no \
+                     es una limitación declarada, es un instrumento averiado."
+                );
+                std::process::exit(2);
+            }
+        }
         Err(e) => {
             eprintln!("el banco no pudo terminar: {e}");
             std::process::exit(1);
