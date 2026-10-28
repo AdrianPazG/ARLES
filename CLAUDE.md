@@ -65,7 +65,15 @@ la marcha: está en
 Un archivo en la raíz o en una carpeta nueva «por ahora» es cómo se llega a dos
 verdades que se contradicen — y este proyecto ya tuvo un índice diciendo «Fase
 0 — Discovery» con la Fase 8 cerrada. **Todo documento nuevo se nombra en
-`00-INDICE.md`**: lo vigila la fase 0.
+`00-INDICE.md`**: lo vigila `todo_documento_esta_en_el_indice` en la fase 0,
+que lee la carpeta y no una lista.
+
+> **Esa última frase fue falsa hasta el 28/10/2026**, y es el noveno documento
+> del proyecto que afirma de más. La fase 0 tenía una lista de catorce
+> documentos esperados y comprobaba que existieran; **la dirección contraria no
+> la miraba nada.** Es el peor de los nueve, porque los otros dicen algo falso
+> del producto y éste decía falsamente que **había una red** — y una red que se
+> cree hace dejar de mirar.
 
 **Al cerrar un tramo se actualiza el estado.** Las cuatro cosas que tienen un
 solo sitio, y escribir una segunda es crear una contradicción:

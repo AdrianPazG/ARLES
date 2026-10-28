@@ -82,7 +82,7 @@ frecuencia es el dato:
 | 1 | **Una pieza correcta y probada que nadie llama** | 25+ | `CLAUDE.md`, «El patrón que ya ha aparecido ocho veces» |
 | 2 | **Una comprobación que se caza a sí misma** en un comentario | 10 | `METODO.md` §1 |
 | 3 | **Una lista escrita a mano** que dice cubrir una regla y cubre una parte | 11 de 17 hallazgos | las cuatro auditorías del §140 |
-| 4 | **Un documento que afirma de más** | 8 anotados | `10-requisitos/REGISTRO-DE-REQUISITOS.md`, «Documentos que afirmaban de más» |
+| 4 | **Un documento que afirma de más** | 9 anotados | `10-requisitos/REGISTRO-DE-REQUISITOS.md`, «Documentos que afirmaban de más» |
 | 5 | **Una afirmación de verificación falsa** — «verificada rompiéndola» sin haberlo hecho | 6+ | la 8.3 bis, la 8.6 E, el tramo 3b |
 | 6 | **Una ruptura mal elegida** que deja el síntoma en pie o no compila | 4 | `METODO.md` §1 |
 
@@ -142,9 +142,16 @@ carpeta de componentes en las dos direcciones. Tenía **cinco afirmaciones
 falsas** desde la Fase 2, anotadas como DOC-1 a DOC-5 en el registro de
 requisitos.
 
-**Lo que queda de la petición del 23/10:** el **registro de requisitos de
-diseño** llenado desde una revisión visual de las dieciocho pantallas. La
-carpeta existe; lo que falta es mirar.
+**Cerrado el registro de hallazgos de diseño** (28/10/2026):
+[`HALLAZGOS-DE-DISENO.md`](../10-requisitos/HALLAZGOS-DE-DISENO.md), llenado
+abriendo la demostración y mirando las dieciocho pantallas con las seis sondas
+en verde. **Siete hallazgos y tres descartados por falsos** — los dos listados,
+porque uno falso cuesta más que uno ausente. **Ninguno arreglado todavía**: el
+registro era el tramo.
+
+Y por el camino, el noveno documento que afirmaba de más: `CLAUDE.md` §1 bis
+prometía que la fase 0 vigilaba que todo documento estuviera en el índice, y
+**no lo vigilaba nadie**. Ahora sí.
 
 **Lo siguiente, sin empezar:** la **Fase 9**, con lo que las auditorías dejaron
 abierto — sacar la activación a segundo plano con avance (73.5 s con 451 196

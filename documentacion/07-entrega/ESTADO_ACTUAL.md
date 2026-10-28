@@ -463,3 +463,60 @@ restaurado desde una copia hecha **antes** de la primera ruptura — comprobado 
 > explica decía «tres, entre ellas `ARCO`»: tres en vez de cinco, y una que el
 > documento no menciona. **Se corrigió midiéndolo**, que es la diferencia entre
 > un comentario y un dato.
+
+---
+
+## 13. Lo que encontró mirar las dieciocho pantallas · 28/10/2026
+
+Dirección pidió el 23/10 un registro de lo que se vaya encontrando en diseño.
+Está en
+[`10-requisitos/HALLAZGOS-DE-DISENO.md`](../10-requisitos/HALLAZGOS-DE-DISENO.md),
+y se llenó abriendo la demostración y **mirando** las dieciocho pantallas, con
+las seis sondas en verde.
+
+**Siete hallazgos, y tres descartados por falsos.** El registro lleva las dos
+listas, porque un hallazgo falso cuesta más que uno ausente.
+
+El más grave es **D-01: Inicio dice que el producto no está terminado.** Con los
+seis pasos del alta en **6 de 6**, la primera pantalla sigue diciendo «No hay
+nada más que puedas hacer aquí todavía» y «Los módulos de campañas, canales y
+actividad aparecerán aquí cuando existan» — con las tres construidas y con
+pantalla desde la Fase 7.
+
+> **Y no es un texto que se quedó atrás, aunque también.** Sale de una línea del
+> núcleo: `disponible: paso.ruta().is_some()`. Son **dos preguntas distintas
+> metidas en un campo** —«¿tiene pantalla propia?» y «¿se puede hacer hoy?»— y
+> el paso de la ventana de envío contesta *no* a la primera y *sí* a la segunda,
+> porque se configura dentro del asistente. De ahí salen las dos frases, y
+> `porConstruir` vale **1 para siempre**, en cualquier instalación.
+>
+> **Hay una prueba que sujeta el defecto en su sitio:**
+> `disponible_y_ruta_no_pueden_divergir` afirma justo esa igualdad. Está bien
+> escrita y verifica lo que dice; lo que dice es la regla equivocada. **Una
+> comprobación puede estar verificada y garantizar lo que no toca.**
+
+Los otros seis son: el número de WhatsApp enseñado de dos formas —dos de tres
+pantallas lo pintan crudo—, el asistente apretando sus campos a 8 px donde el
+resto del producto usa 16, «Continuar» apagado sin decir por qué (cuarta vez de
+ese defecto), la columna «Correo» cortando a 136 px mientras «WhatsApp» tiene
+179 que no necesita, dos botones de 1 020 px donde el resto usa de 139 a 169, y
+el título de Campañas repetido en su primer módulo.
+
+**Ninguno está arreglado todavía.** Este tramo es el registro.
+
+### Y el noveno documento que afirmaba de más, encontrado por el camino
+
+`CLAUDE.md` §1 bis dice desde que Dirección pidió ordenar el proyecto: *«Todo
+documento nuevo se nombra en `00-INDICE.md`: **lo vigila la fase 0**»*. **No lo
+vigilaba nadie.** La fase 0 tenía una lista de catorce documentos esperados y
+comprobaba que existieran; la dirección contraria —que es la de la regla— no la
+miraba nada.
+
+Es el peor de los nueve del registro, y no por lo que decía mal: **decía
+falsamente que había una red**, y una red que se cree hace dejar de mirar.
+Medido al escribir la comprobación: **114 de 115 documentos** sí estaban en el
+índice, así que la regla se venía cumpliendo a mano y el hueco no se notaba.
+
+Lo cierra `todo_documento_esta_en_el_indice` en `--fase 0`, que **lee la
+carpeta** y no una lista. Verificada rompiéndola por los dos caminos: quitando
+del índice un documento que existe, y creando un documento sin nombrarlo.

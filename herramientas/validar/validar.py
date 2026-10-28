@@ -156,6 +156,8 @@ def fase_0(rapido):
           "Sin estos documentos no hay trazabilidad de por qué se tomó cada decisión.",
           "Faltan:\n" + "\n".join(faltan))
 
+    todo_documento_esta_en_el_indice()
+
     adrs = sorted(
         f for f in os.listdir(os.path.join(RAIZ, "documentacion/03-arquitectura/adr"))
         if f.endswith(".md")
@@ -334,6 +336,66 @@ def fase_0(rapido):
 
 
 # ─── Fase 1 · Cimientos ──────────────────────────────────────────────────────
+
+def todo_documento_esta_en_el_indice():
+    """Ningún documento de `documentacion/` se queda fuera de `00-INDICE.md`.
+
+    ── POR QUÉ, Y LA AFIRMACIÓN QUE ERA FALSA ────────────────────────────────
+
+    `CLAUDE.md` §1 bis dice, desde que Dirección pidió ordenar el proyecto:
+
+      «Todo documento nuevo se nombra en `00-INDICE.md`: **lo vigila la
+       fase 0**.»
+
+    No lo vigilaba nadie. La fase 0 tenía —y tiene— una lista de catorce
+    documentos **esperados** y comprobaba que existieran; la dirección
+    contraria, que es la de esta regla, no la miraba nada. Medido el
+    28/10/2026: **114 de 115 documentos estaban en el índice**, así que la
+    regla se venía cumpliendo a mano y el hueco no se notaba. Un hueco que no
+    se nota es el que un día se cuela.
+
+    Es el patrón número 4 del proyecto —un documento que afirma de más— y
+    duele más aquí que en otros sitios: la frase prometía una red que no
+    existía, así que quien la leyera **dejaría de comprobarlo a mano**.
+
+    ── POR QUÉ ASÍ, Y NO CON UNA LISTA ───────────────────────────────────────
+
+    La lista de catorce de arriba es exactamente lo que este proyecto lleva
+    once hallazgos aprendiendo a no hacer: dice cubrir una regla y cubre una
+    parte. Ésta **lee la carpeta**, así que un documento nuevo entra en la
+    comprobación el día que se escribe, sin que nadie se acuerde.
+
+    Se acepta el nombre del archivo o su ruta: el índice enlaza con rutas
+    relativas desde `documentacion/`, pero un documento puede estar nombrado
+    desde otra sección con una ruta distinta y sigue estando nombrado.
+
+    Verificada rompiéndola por los dos caminos el 28/10/2026: quitando del
+    índice la línea de un documento que existe, y creando un documento sin
+    nombrarlo.
+    """
+    carpeta = os.path.join(RAIZ, "documentacion")
+    indice = leer("documentacion", "00-INDICE.md") or ""
+
+    fuera = []
+    for base, _, archivos in os.walk(carpeta):
+        for n in archivos:
+            if not n.endswith(".md"):
+                continue
+            rel = os.path.relpath(os.path.join(base, n), carpeta)
+            if rel == "00-INDICE.md":
+                continue
+            if rel not in indice and n not in indice:
+                fuera.append(rel)
+
+    check(
+        0, "todo documento está nombrado en el índice", not fuera and bool(indice),
+        "§1 bis: un archivo en una carpeta que el índice no nombra es como se "
+        "llega a dos verdades que se contradicen. Este proyecto ya tuvo un "
+        "índice diciendo «Fase 0 — Discovery» con la Fase 8 cerrada.",
+        f"{len(fuera)} sin nombrar: " + ", ".join(sorted(fuera)[:6])
+        if fuera else "no se pudo leer el índice",
+    )
+
 
 def la_aplicacion_se_construye_como_aplicacion():
     """**El binario que se entrega no puede quedar en modo de desarrollo.**

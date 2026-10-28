@@ -47,6 +47,12 @@
 | [ROLES](00-ANTES-DE-EMPEZAR/ROLES.md) | Los once sombreros, qué mira cada uno y qué ha encontrado |
 | [RELEVO](00-ANTES-DE-EMPEZAR/RELEVO.md) | **Retomar sin el contexto de la sesión anterior**, y los seis patrones de fallo |
 
+### 10 · Requisitos y hallazgos
+| Documento | Contenido |
+|---|---|
+| [REGISTRO-DE-REQUISITOS](10-requisitos/REGISTRO-DE-REQUISITOS.md) | **Lo que se ha pedido y lo que bloquea**, con su estado — y los documentos que afirmaban de más |
+| [HALLAZGOS-DE-DISENO](10-requisitos/HALLAZGOS-DE-DISENO.md) | **Lo que se encuentra mirando y no midiendo**: las dieciocho pantallas, con lo descartado por falso |
+
 ### 01 · Producto
 | Documento | Contenido |
 |---|---|

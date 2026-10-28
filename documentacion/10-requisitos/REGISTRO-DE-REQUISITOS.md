@@ -128,6 +128,7 @@ no una relectura con buena voluntad.
 | **DOC-6** | `THREAT_MODEL.md` §8 pedía «la capa de redacción de `tracing`» | El proyecto no usa `tracing` | ✅ 06/10/2026 · auditoría B |
 | **DOC-7** | `PRESUPUESTO_RENDIMIENTO.md` §3 describía una arquitectura con Tokio | No hay Tokio; la conexión es un `Mutex<Connection>` | ✅ 07/10/2026 · auditoría C |
 | **DOC-8** | El `ROADMAP` ponía los derechos ARCO en la Fase 8 | Construidos desde la 3.4. La auditoría B perdió tiempo buscándolos | ✅ 07/10/2026 |
+| **DOC-9** | `CLAUDE.md` §1 bis: «Todo documento nuevo se nombra en `00-INDICE.md`: **lo vigila la fase 0**» | No lo vigilaba nadie. La fase 0 tenía una lista de catorce documentos esperados y comprobaba que existieran; la dirección contraria no la miraba nada | ✅ 28/10/2026 · ahora la vigila `todo_documento_esta_en_el_indice` |
 
 **Las cinco primeras llevaban ahí desde la Fase 2** y ninguna de las cuatro
 auditorías del §140 las vio, porque una auditoría mide el producto y esto es un
@@ -139,6 +140,15 @@ de componentes, en las dos direcciones.
 de la Fase 0 nombrando bibliotecas que nunca se adoptaron. No tienen todavía
 ninguna comprobación que los vigile, y está dicho así en vez de darlos por
 seguros.
+
+> **DOC-9 es el que más duele de los nueve, y conviene ver por qué.** Los otros
+> ocho dicen algo falso sobre el producto. Éste decía falsamente que **había una
+> red**, y una red que se cree es una red que hace dejar de mirar: quien leyera
+> esa frase daría por comprobado algo que nadie comprobaba.
+>
+> Medido el día que se escribió la comprobación: **114 de 115 documentos** sí
+> estaban en el índice. La regla se venía cumpliendo a mano, así que el hueco no
+> se notaba — y un hueco que no se nota es el que un día se cuela.
 
 ---
 

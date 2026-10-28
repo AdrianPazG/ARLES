@@ -1,0 +1,297 @@
+# Hallazgos de diseño
+
+**Qué es esto:** lo que se encuentra **mirando** la aplicación, no midiéndola.
+**Última revisión:** 2026-10-28, las dieciocho pantallas a 1440×900.
+**Dónde van los otros:** los defectos de funcionalidad en
+[`REGISTRO-DE-REQUISITOS.md`](REGISTRO-DE-REQUISITOS.md); los que encuentra
+Dirección usando ARLES en `06-calidad/BITACORA-DE-PRUEBAS.md`.
+
+---
+
+## 0 · Por qué este registro existe aparte
+
+Las sondas miden contraste, foco, desbordes, textos encimados, tamaños de
+objetivo y jerarquía de encabezados. **Las dieciocho pantallas pasan las seis
+sondas.** Nada de eso caza una pantalla que dice algo falso, dos formatos del
+mismo dato, o una rejilla que separa igual lo que va junto y lo que no.
+
+La frase que lo resume está desde el 29/09/2026 en `CLAUDE.md`: **una pantalla
+puede pasar todas sus comprobaciones y seguir estando mal.**
+
+**Y la mitad del valor está en lo descartado.** Las auditorías B, C y D
+aprendieron cada una por las malas que **un hallazgo falso cuesta más que uno
+ausente**: manda a arreglar algo que funciona y gasta la credibilidad del resto.
+Por eso el §3 de este archivo lista lo que se descartó, con por qué.
+
+---
+
+## 1 · Lo encontrado el 28/10/2026
+
+Siete, ordenados por lo que le cuestan a quien usa ARLES.
+
+| Id | Qué se ve | Dónde | Estado |
+|---|---|---|---|
+| **D-01** | Inicio dice que faltan por construir tres secciones que existen, y que no hay nada más que hacer — con **6 de 6** pasos hechos | `/inicio` | Abierto |
+| **D-02** | El mismo número de WhatsApp se enseña de **dos formas**: `+52 81 1111 1111` y `+528100000000` | 3 pantallas | Abierto |
+| **D-03** | El asistente aprieta sus campos **al doble** que el resto del producto: 8 px entre campos contra 16 px | `/campanas/nueva` | Abierto |
+| **D-04** | «Continuar» sale apagado y **no dice por qué**, ni en pantalla ni para un lector | `/campanas/nueva` | Abierto |
+| **D-05** | La columna «Correo» corta la dirección en **136 px** mientras «WhatsApp» tiene **179 px** y no los necesita | `/contactos` | Abierto |
+| **D-06** | Dos botones de **1020 px** donde el resto del producto usa de 139 a 169 | `/remitentes/whatsapp` | Abierto |
+| **D-07** | El título de la pantalla y el del primer módulo dicen los dos «Campañas» | `/campanas` | Abierto |
+
+Y una observación que **no** es un defecto, anotada para que no se vuelva a
+levantar: en Actividad, «Contestaron» cae sola en una segunda fila de la
+rejilla de seis columnas. Es un salto de línea legítimo. Se deja dicho en el §2.
+
+---
+
+## 2 · Cada uno, con lo que se midió
+
+### D-01 · Inicio dice que el producto no está terminado
+
+**Lo que se ve.** La primera pantalla, con los seis pasos del alta en **6 de 6**:
+
+> **Para poder enviar tu primera campaña** · 6 / 6
+> Los siguientes pasos se construyen en las entregas indicadas. **No hay nada
+> más que puedas hacer aquí todavía.**
+>
+> **Lo que falta por construir** · 1 paso
+> Los módulos de campañas, canales y actividad aparecerán aquí cuando existan.
+
+Campañas, Remitentes y Actividad **existen y tienen pantalla** desde la Fase 7.
+Los seis pasos están hechos. Las dos frases son falsas, y están en la pantalla
+que se abre primero.
+
+**Por qué pasa, que no es lo que parece.** No es un texto que se quedó atrás —
+eso también—, es una línea de `arles-core/src/onboarding.rs`:
+
+```rust
+disponible: paso.ruta().is_some(),
+```
+
+`disponible` se deriva de si el paso **tiene pantalla propia**. Y el paso de la
+ventana de envío no la tiene, **a propósito y con razón**: la ventana se
+configura dentro del asistente. Pero de ahí sale que:
+
+- `siguienteAccionable` no puede ser nunca ese paso, así que cuando los otros
+  cinco están hechos Inicio concluye que no queda nada que hacer;
+- `porConstruir` vale **1 para siempre**, en cualquier instalación, así que el
+  módulo «Lo que falta por construir» no se va nunca.
+
+**Son dos preguntas distintas metidas en un campo:** «¿tiene pantalla propia?»
+y «¿se puede hacer hoy?». La ventana contesta *no* a la primera y *sí* a la
+segunda.
+
+**Y hay una prueba que sujeta el defecto en su sitio.**
+`disponible_y_ruta_no_pueden_divergir` afirma `p.disponible == p.ruta.is_some()`
+para los seis pasos. Está bien escrita y verifica lo que dice; lo que dice es la
+regla equivocada. Una comprobación puede estar verificada y garantizar lo que no
+toca.
+
+**Es el mismo defecto que este archivo ya documenta dos veces**, y las dos están
+escritas en comentarios a tres líneas de la línea culpable: los accesos rápidos
+que decían «Contactos · aún no» con la pantalla a un clic (29/09/2026), y
+`ruta()` devolviendo `None` para pantallas construidas, en la 3.2 y otra vez en
+la 6.4. **Tercera vez del mismo patrón en el mismo archivo.**
+
+**Lo que cuesta.** Quien abre ARLES por primera vez lee, en la primera pantalla,
+que el producto no está terminado. Es lo contrario de lo que el §9 pide de un
+archivo que se lee al empezar.
+
+---
+
+### D-02 · El número de WhatsApp se enseña de dos formas
+
+Medido en las tres pantallas que lo pintan:
+
+| Pantalla | Cómo sale |
+|---|---|
+| `/contactos` | `+52 81 1111 1111` |
+| `/remitentes/whatsapp` | `+528100000000` |
+| `/contactos/supresion` | `+528112345678` |
+
+**Dos de tres lo enseñan crudo.** Un número de doce dígitos seguidos no se
+puede comparar de un vistazo con el que alguien tiene en el teléfono, y
+comprobar que el número es el correcto es justo lo que se va a hacer en
+Remitentes antes de mandar nada.
+
+El formato con espacios **ya existe** y se usa en la lista de contactos. Lo que
+falta es que las otras dos lo usen.
+
+> **Esto ya mordió una vez, en la dirección contraria.** `CLAUDE.md` cuenta una
+> sonda que buscaba `+521` en un texto donde el número se enseña con espacios:
+> el patrón no podía coincidir **nunca**. Dos formatos del mismo dato no sólo se
+> leen peor — rompen lo que los busca.
+
+---
+
+### D-03 · El asistente aprieta sus campos al doble
+
+Medido, hueco vertical entre el final de un campo y la etiqueta del siguiente:
+
+| Pantalla | Dentro de un campo | **Entre dos campos** |
+|---|---|---|
+| `/inicio/configuracion` | 4 px | **16 px** |
+| `/ajustes/respaldos` | 4 px | **16 px** |
+| `/campanas/nueva` | 4 px | **8 px** |
+
+En el asistente, separar dos preguntas distintas ocupa el doble que separar una
+etiqueta de su casilla. A esa distancia, «Sólo lo ves tú. No sale en el correo.»
+—que explica el **nombre**— parece el encabezado de «Por dónde sale».
+
+No es cuestión de gusto: es la regla de proximidad, y es la única señal que dice
+qué va con qué cuando no hay líneas ni cajas. El asistente es además la pantalla
+con más campos del producto.
+
+---
+
+### D-04 · «Continuar» apagado y sin decir por qué
+
+Medido en el paso 1: el botón está `disabled`, **sin `title`, sin
+`aria-describedby`, y sin ningún texto cerca** que lo explique. Para quien usa
+un lector de pantalla no hay absolutamente nada.
+
+Es la cuarta vez de este defecto en el proyecto, y las tres anteriores se
+arreglaron por la misma razón (§95: un control que no responde y no se explica
+se lee como una avería):
+
+| Dónde | Cuándo |
+|---|---|
+| «Repite la contraseña», en Respaldos | 8.2c |
+| «Restaurar y reemplazar», en Restaurar | 8.3c |
+| «Continuar» del paso 6, al rechazar el desenlace | 8.6 E |
+
+La del 8.6 E es la misma pantalla y el mismo botón, en otro paso: ahí el aviso
+va **pegado encima del botón** y funciona. Falta en el paso 1.
+
+---
+
+### D-05 · La columna estrecha es la que lleva el dato largo
+
+Medido en `/contactos`, con los anchos que reparte la rejilla:
+
+| Columna | Ancho | ¿Se corta? |
+|---|---|---|
+| Nombre | 148 px | no |
+| Empresa | 155 px | no |
+| **Correo** | **136 px** | **sí** — `ana@ejemplo.mx` sale `ana@ejemplo…` |
+| WhatsApp | 179 px | no — `+52 81 1111 1111` cabe con sitio de sobra |
+
+La columna más estrecha de las cuatro lleva el dato más largo, y la segunda más
+ancha lleva uno de longitud fija que siempre cabe.
+
+**Cortar un dato está permitido** y está dicho en `CLAUDE.md`: la dirección
+entera se lee al abrir la ficha. Lo que no tiene defensa es cortarlo **mientras
+la columna de al lado sobra**: un correo es lo que se mira para saber si ese
+contacto es el que se busca.
+
+---
+
+### D-06 · Dos botones de 1020 px
+
+Medido, ancho de todos los botones visibles de cuatro pantallas:
+
+| Pantalla | Botones |
+|---|---|
+| `/ajustes/restaurar` | 169 |
+| `/ajustes/respaldos` | 157 |
+| `/ajustes/archivar` | 147 |
+| `/remitentes/whatsapp` | 139 · 166 · **1020** · **1020** |
+
+Los dos de 1020 px son «Confirmo que está en Coexistencia» y «Entiendo el riesgo
+y lo acepto»: ocupan el ancho entero de su aviso. Son además las **dos
+decisiones más serias de esa pantalla** —una acepta que el número puede quedar
+inhabilitado por Meta, y eso no se recupera—, así que su tamaño no es sólo una
+rareza visual: un botón que ocupa toda una banda se pulsa sin apuntar.
+
+Es la familia del defecto de la 8.3c, donde el botón de elegir medía 540 px y
+los de abajo 200 y 96. Aquí la diferencia es de siete veces.
+
+---
+
+### D-07 · El título y el módulo dicen lo mismo
+
+En `/campanas`, el `h1` dice «Campañas» y el primer `h2`, sesenta píxeles más
+abajo, dice «Campañas». Medido en las cinco pantallas con módulos: es la única
+donde coinciden.
+
+Es la familia de «Con sus campañas · 3 campañas», que la 8.3 bis b arregló.
+
+---
+
+### La observación que NO es un defecto
+
+En Actividad, la tarjeta de cada campaña reparte siete cifras en una rejilla de
+seis columnas (x = 297, 481, 664, 848, 1032, 1215), así que **«Contestaron» cae
+sola en una segunda fila**. Parece accidental, y además es la cifra que la
+entradilla de la pantalla explica (D-7A: cuánta gente contestó, nunca qué
+dijeron).
+
+**No se anota como defecto** porque un salto de línea en una rejilla es correcto
+y cualquier otro reparto tiene su propio precio. Queda dicho para que la próxima
+revisión no lo levante como hallazgo nuevo.
+
+---
+
+## 3 · Lo que se descartó, y por qué
+
+Tres cosas se vieron, se comprobaron y resultaron falsas. **Ninguna llegó al
+registro**, y están aquí porque el descarte es parte del trabajo:
+
+| Lo que creí ver | Lo que había |
+|---|---|
+| «Todavia no puede enviar», sin tilde, en la insignia de WhatsApp | El catálogo dice `'Todavía no puede enviar'`. La tilde está: a 12 px y en semibold no la leí en la captura |
+| Restaurar no mete su contenido en una tarjeta, al revés que el resto | **Respaldos y Archivar tampoco.** Las tres pantallas de esa subsección usan una columna sin marco. Es su patrón, no una excepción |
+| En `/recuperar`, tres huecos distintos de título a cuerpo (24, 40 y 64 px) | Medidos: **43 px los dos**. Me los inventé leyendo píxeles |
+
+Las tres tienen la misma causa: **leer una captura en vez de medirla.** Las dos
+últimas las descartó una medición de treinta segundos.
+
+> **Y un cuarto, que no llegó ni a candidato.** Para buscar tildes perdidas pasé
+> una lista de palabras sospechosas por el catálogo de textos y salieron unos
+> sesenta resultados. **Todos falsos**: casaban las *claves* —`numero:`,
+> `direccion:`, `configuracion:`—, que van sin tilde porque son
+> identificadores de TypeScript, no texto que alguien lea.
+>
+> Es la quinta vez que hace falta esta lección en el proyecto; la cuarta fue la
+> medición de argumentos de la auditoría G, que dio **130 hallazgos, todos
+> falsos**, porque la expresión capturaba hasta el `return {` del final del
+> archivo. **Medir una cadena no es medir lo que significa.**
+
+---
+
+## 4 · Qué comprobación haría imposible cada uno
+
+El §1 bis obliga a preguntarlo, y la respuesta honesta no es «todas»:
+
+| Id | ¿Se puede vigilar? | Cómo |
+|---|---|---|
+| D-01 | **Sí, y es el que más falta hace** | Separar `disponible` de `ruta()`: son dos preguntas. Y reescribir la prueba que hoy las ata, que es lo que sujeta el defecto |
+| D-02 | **Sí** | Un solo formateador para el número, y una comprobación de que ninguna pantalla lo pinta crudo |
+| D-03 | **Sí** | Una sonda que mida el hueco entre campos y exija el mismo token en todos los formularios |
+| D-04 | **Sí** | Una sonda que exija que todo botón `disabled` tenga `title`, `aria-describedby` o un aviso al lado |
+| D-05 | A medias | Se puede medir «una columna se corta mientras otra de la misma tabla sobra», pero el reparto bueno es un juicio |
+| D-06 | **Sí** | Un máximo de ancho de botón, o que ninguno pase del doble del más ancho de su pantalla |
+| D-07 | **Sí** | Comparar el `h1` con el primer `h2`, que es lo que ya hace la medición de este informe |
+
+**Ninguna está escrita todavía.** Este tramo es el registro; escribirlas y
+arreglar lo que encontraron es el siguiente, y se pregunta antes.
+
+---
+
+## 5 · Lo que esta revisión NO cubre
+
+Obligatorio decirlo, por la guía de documentos:
+
+- **Un solo tamaño de ventana.** 1440×900. Las sondas recorren cuatro, ésta no:
+  mirar dieciocho pantallas a cuatro ventanas son setenta y dos capturas y el
+  rendimiento decreciente llega antes.
+- **Un solo tema.** El claro, que es con el que abre la demostración. El oscuro
+  es el tema de origen de ARLES y **no se ha mirado en esta pasada**.
+- **Ningún estado intermedio.** Cada pantalla se vio como la deja el simulador:
+  sin errores en pantalla, sin listas vacías, sin cargas a medias, sin
+  formularios a medio rellenar. Los cuatro estados del §97 **no** se revisaron.
+- **Ni Windows ni macOS.** Esto es Chromium en Linux. Sigue abierto **R-07**:
+  nadie ha abierto ARLES en WKWebView.
+- **No se pulsó nada.** Es una revisión de lo que se ve al llegar, no del
+  recorrido.
