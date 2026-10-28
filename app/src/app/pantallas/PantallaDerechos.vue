@@ -370,9 +370,18 @@ async function borrarDeVerdad(): Promise<void> {
             tipo="submit"
             :deshabilitado="!sePuedePedir"
             :ocupado="trabajando"
+            :aria-describedby="!sePuedePedir && !trabajando ? 'derechos-falta-acceso' : undefined"
           >
             {{ t('derechos.entregar') }}
           </ABoton>
+          <!-- Por qué está apagado (§95, D-04). -->
+          <p
+            v-if="!sePuedePedir && !trabajando"
+            id="derechos-falta-acceso"
+            class="derechos__falta"
+          >
+            {{ t('derechos.faltaLaDireccion') }}
+          </p>
         </div>
       </form>
 
@@ -486,9 +495,17 @@ async function borrarDeVerdad(): Promise<void> {
             tipo="submit"
             :deshabilitado="!sePuedeMirar"
             :ocupado="borrando && !vistaPrevia"
+            :aria-describedby="!sePuedeMirar && !borrando ? 'derechos-falta-borrado' : undefined"
           >
             {{ t('derechos.verQueSeBorraria') }}
           </ABoton>
+          <p
+            v-if="!sePuedeMirar && !borrando"
+            id="derechos-falta-borrado"
+            class="derechos__falta"
+          >
+            {{ t('derechos.faltaLaDireccion') }}
+          </p>
         </div>
       </form>
 
@@ -638,6 +655,12 @@ async function borrarDeVerdad(): Promise<void> {
      cabe algo más largo de lo que cabe. */
   max-width: 34rem;
   margin: var(--arles-space-5) 0;
+}
+
+.derechos__falta {
+  margin: var(--arles-space-2) 0 0;
+  font-size: var(--arles-font-size-caption);
+  color: var(--arles-text-muted);
 }
 
 .derechos__acciones {

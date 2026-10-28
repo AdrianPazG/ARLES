@@ -148,9 +148,14 @@ abriendo la demostración y mirando las dieciocho pantallas con las seis sondas
 en verde. **Siete hallazgos y tres descartados por falsos** — los dos listados,
 porque uno falso cuesta más que uno ausente.
 
-**D-01 cerrado el 28/10/2026**: Inicio ya no dice que el producto no está
-terminado. **Quedan seis abiertos**, D-02 a D-07, y cada uno lleva anotado qué
-comprobación lo haría imposible.
+**Los siete cerrados el 28/10/2026**: seis arreglados —D-01 el primero, que
+hacía que Inicio dijera que el producto no está terminado— y **D-05 descartado
+con su cifra**, porque los anchos de Contactos están medidos y no hay holgura.
+
+Tres de los seis resultaron ser otra cosa de la que el registro anotaba, y está
+contado en su §6: el más instructivo es D-03, una corrección de Dirección del
+16/10 que **nunca llegó a su valor** porque sumaba 8 px sobre un hueco de 16
+que no existe.
 
 Y por el camino, el noveno documento que afirmaba de más: `CLAUDE.md` §1 bis
 prometía que la fase 0 vigilaba que todo documento estuviera en el índice, y

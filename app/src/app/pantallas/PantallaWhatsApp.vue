@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { numeroLegible } from '../formato'
 /**
  * El número de WhatsApp desde el que ARLES escribe (entrega W.6).
  *
@@ -455,7 +456,7 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
                   @change="elegirNumero(n)"
                 >
                 <span class="descubierto__nombre">{{ n.nombre }}</span>
-                <span class="descubierto__telefono">{{ n.telefono }}</span>
+                <span class="descubierto__telefono">{{ numeroLegible(n.telefono) }}</span>
                 <AInsignia :tono="tonoDeLaCalidadDeMeta(n.calidad)">
                   {{ t(`numeroDeWhatsapp.calidad.${n.calidad.toLowerCase()}`) }}
                 </AInsignia>
@@ -541,7 +542,7 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
       :titulo="n.nombreVisible"
     >
       <div class="fila">
-        <span class="telefono">{{ n.telefonoE164 }}</span>
+        <span class="telefono">{{ numeroLegible(n.telefonoE164) }}</span>
         <AInsignia :tono="n.puedeEnviar ? 'exito' : 'aviso'">
           {{
             n.puedeEnviar
@@ -603,12 +604,19 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
         <strong>{{ t('numeroDeWhatsapp.coexistencia.titulo') }}</strong>
         <p>{{ t('numeroDeWhatsapp.coexistencia.cuerpo') }}</p>
         <p>{{ t('numeroDeWhatsapp.coexistencia.porQue') }}</p>
-        <ABoton
-          variante="secundario"
-          @click="store.confirmarCoexistencia(n.id)"
-        >
-          {{ t('numeroDeWhatsapp.coexistencia.boton') }}
-        </ABoton>
+
+        <!-- En el slot `acciones` y no en el cuerpo: el cuerpo es una columna
+             flex, que estira a sus hijos, así que este botón medía 1020 px
+             contra los 139 a 169 del resto del producto. `acciones` es una
+             fila y le da su ancho natural. D-06, 28/10/2026. -->
+        <template #acciones>
+          <ABoton
+            variante="secundario"
+            @click="store.confirmarCoexistencia(n.id)"
+          >
+            {{ t('numeroDeWhatsapp.coexistencia.boton') }}
+          </ABoton>
+        </template>
       </AAviso>
       <p
         v-else
@@ -626,12 +634,15 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
           <strong>{{ t('numeroDeWhatsapp.riesgo.titulo') }}</strong>
           <p>{{ t('numeroDeWhatsapp.riesgo.cuerpo') }}</p>
           <p>{{ t('numeroDeWhatsapp.riesgo.porQue') }}</p>
-          <ABoton
-            variante="secundario"
-            @click="store.aceptarRiesgo(n.id)"
-          >
-            {{ t('numeroDeWhatsapp.riesgo.boton') }}
-          </ABoton>
+
+          <template #acciones>
+            <ABoton
+              variante="secundario"
+              @click="store.aceptarRiesgo(n.id)"
+            >
+              {{ t('numeroDeWhatsapp.riesgo.boton') }}
+            </ABoton>
+          </template>
         </AAviso>
         <p
           v-else

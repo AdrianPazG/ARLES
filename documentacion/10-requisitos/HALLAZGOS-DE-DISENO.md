@@ -32,12 +32,12 @@ Siete, ordenados por lo que le cuestan a quien usa ARLES.
 | Id | Qué se ve | Dónde | Estado |
 |---|---|---|---|
 | **D-01** | Inicio dice que faltan por construir tres secciones que existen, y que no hay nada más que hacer — con **6 de 6** pasos hechos | `/inicio` | **Cerrado 28/10/2026** |
-| **D-02** | El mismo número de WhatsApp se enseña de **dos formas**: `+52 81 1111 1111` y `+528100000000` | 3 pantallas | Abierto |
-| **D-03** | El asistente aprieta sus campos **al doble** que el resto del producto: 8 px entre campos contra 16 px | `/campanas/nueva` | Abierto |
-| **D-04** | «Continuar» sale apagado y **no dice por qué**, ni en pantalla ni para un lector | `/campanas/nueva` | Abierto |
-| **D-05** | La columna «Correo» corta la dirección en **136 px** mientras «WhatsApp» tiene **179 px** y no los necesita | `/contactos` | Abierto |
-| **D-06** | Dos botones de **1020 px** donde el resto del producto usa de 139 a 169 | `/remitentes/whatsapp` | Abierto |
-| **D-07** | El título de la pantalla y el del primer módulo dicen los dos «Campañas» | `/campanas` | Abierto |
+| **D-02** | El mismo número de WhatsApp se enseña de **dos formas**: `+52 81 1111 1111` y `+528100000000` | 3 pantallas | **Cerrado 28/10/2026** |
+| **D-03** | El asistente aprieta sus campos **al doble** que el resto del producto: 8 px entre campos contra 16 px | `/campanas/nueva` | **Cerrado 28/10/2026** · y la causa era otra |
+| **D-04** | «Continuar» sale apagado y **no dice por qué**, ni en pantalla ni para un lector | `/campanas/nueva` | **Cerrado 28/10/2026** · y había cuatro más |
+| **D-05** | La columna «Correo» corta la dirección en **136 px** mientras «WhatsApp» tiene **179 px** y no los necesita | `/contactos` | **Descartado 28/10/2026** · medido |
+| **D-06** | Dos botones de **1020 px** donde el resto del producto usa de 139 a 169 | `/remitentes/whatsapp` | **Cerrado 28/10/2026** |
+| **D-07** | El título de la pantalla y el del primer módulo dicen los dos «Campañas» | `/campanas` | **Cerrado 28/10/2026** |
 
 Y una observación que **no** es un defecto, anotada para que no se vuelva a
 levantar: en Actividad, «Contestaron» cae sola en una segunda fila de la
@@ -345,3 +345,133 @@ Obligatorio decirlo, por la guía de documentos:
   nadie ha abierto ARLES en WKWebView.
 - **No se pulsó nada.** Es una revisión de lo que se ve al llegar, no del
   recorrido.
+
+---
+
+## 6 · Cómo se cerraron los seis · 28/10/2026
+
+**Cinco arreglados y uno descartado**, y tres de los cinco resultaron ser otra
+cosa de la que este registro había anotado. Vale la pena el detalle, porque el
+patrón se repite: **mirar una pantalla dice que algo está mal; sólo medir dice
+qué.**
+
+### D-02 · Un solo formateador, y el diagnóstico estaba a medias
+
+Este registro decía que «el formato con espacios ya existe y se usa en la lista
+de contactos, lo que falta es que las otras dos lo usen». **Falso.** Contactos
+no formatea nada: enseña `valorRaw`, que es **lo que el usuario tecleó**. Así
+que ARLES no tenía una forma de presentar un número — tenía dos orígenes.
+
+Ahora hay una, `numeroLegible()` en `app/src/app/formato.ts`, con su límite
+escrito: no es un formateador internacional —eso es una biblioteca entera—, es
+una ayuda de lectura con una regla para México y otra genérica. **Lo que no
+reconoce lo devuelve intacto**, porque la lista de bajas pinta con ella tanto
+correos como números.
+
+Y medir encontró una pantalla más de las tres anotadas: **Plantillas** también
+lo pintaba crudo. Cinco apariciones, no cuatro.
+
+### D-03 · La causa no era el asistente
+
+El asistente separaba sus campos con 8 px, cierto. Lo que este registro no
+sabía es **por qué**: `AModulo` tiene desde el 16/10/2026 una regla escrita
+para el **H-09 de Dirección** —que leyó el paso 5 y dijo que el hueco era «muy
+reducido»— y su comentario explica el cálculo: *«16 + 8 = 24 px entre campos»*,
+los 16 del `gap` del módulo más estos 8.
+
+**Esos 16 no existen.** El cuerpo del módulo es un bloque, así que no tiene
+`gap` ninguno. Durante doce días esa regla entregó **8 px**, no 24 — el doble
+de los 4 de dentro de un campo, no seis veces.
+
+Así que el defecto no era del asistente: era una corrección de Dirección que
+nunca llegó a su valor. Hoy son los 24 que pedía, en un solo sitio y sin
+depender de un hueco que no está.
+
+> **Y el primer arreglo fue peor que el defecto.** Puse el cuerpo del módulo
+> como columna flex con `gap`. Las tres sondas pasaron… y una columna flex
+> **estira a sus hijos**: el botón «Ver qué se puede liberar» del Registro pasó
+> a medir **1 086 px**, que es exactamente D-06 dos pantallas más allá. Lo cazó
+> volver a medir los anchos después del cambio, no ninguna sonda.
+>
+> El segundo intento —un margen entre hermanos— tampoco hacía nada: el CSS con
+> `scoped` **no alcanza al contenido del slot**, que pertenece al ámbito de la
+> pantalla. Y el tercero, ya con `:deep`, seguía perdiendo contra la regla del
+> H-09, que es más específica.
+>
+> Tres intentos, y los tres medidos. El que valía era cambiar el valor donde la
+> decisión ya estaba tomada.
+
+### D-04 · Había cuatro botones más
+
+Al escribir la medida, **cinco** botones apagados en cuatro pantallas no decían
+por qué: el «Continuar» del paso 1, el «Atrás» del mismo paso, «Apuntar la
+baja» y los dos de Derechos.
+
+Y uno de ellos enseña lo que la medida tiene que exigir: **Bajas sí tenía el
+texto**, debajo del botón, desde que se escribió. Lo que no tenía era
+`aria-describedby`, así que quien mira lo lee y quien usa un lector de pantalla
+oye un botón apagado y nada más. Por eso la medida pide el enlace y no «un
+texto cerca»: lo segundo se cumple a ojo y deja fuera a quien no ve.
+
+### D-05 · Descartado, con la cifra
+
+Los anchos de Contactos **están medidos**, y su comentario lo explica: lo que
+no puede cortarse es el **rótulo**, no el dato, y «Correo» cede porque su
+rótulo es corto y una dirección se lee entera al abrir la ficha.
+
+Probado: dar a «Correo» 1.35fr y a «WhatsApp» 1.2fr **corta el rótulo
+«WhatsApp» a 1024 px**, y la sonda lo dice con su cifra — *necesita 7 px más*.
+No hay holgura.
+
+Así que este hallazgo estaba mal planteado: miraba el dato y la restricción es
+la cabecera. **Cuarto descarte de esta revisión.** Queda una mejora posible y
+más cara —columnas que crezcan con la ventana, hoy los `fr` son fijos—, y no se
+hace aquí.
+
+### D-06 · El componente ya tenía el sitio
+
+Los dos botones estaban en el cuerpo del aviso, que es una columna flex y los
+estiraba. `AAviso` **ya tiene un slot `acciones`**, que es una fila y da el
+ancho natural. No hacía falta tocar el componente: hacía falta usarlo.
+
+> El primer intento sí lo tocó —`align-items: flex-start` en el cuerpo— y **no
+> hacía nada**, porque el slot va dentro de otro contenedor. Revertido desde la
+> copia: un comentario que describe un arreglo que no entrega es peor que no
+> tener el comentario.
+
+### D-07 · El módulo dice algo
+
+«Campañas» dos veces pasa a «Lo que has creado», que además informa: lo que hay
+dentro son las de esta empresa con su estado.
+
+---
+
+## 7 · Lo que vigila que no vuelvan
+
+Dos medidas nuevas en `sonda:auditoria`, que recorre las dieciocho pantallas a
+cuatro ventanas:
+
+| Qué exige | Por qué ahí |
+|---|---|
+| **Todo botón apagado tiene `aria-describedby` o `title`** | El proyecto lo arregló cuatro veces a mano y nada lo vigilaba. Se exige el enlace y no un texto cerca, por lo del párrafo de D-04 |
+| **Ningún texto visible lleva un número de corrido** | Se mide **lo que se ve**, no el código: el defecto es que el dato salga así, venga de donde venga |
+
+Las dos **verificadas rompiéndolas**: devolviendo el número crudo a Remitentes
+› WhatsApp y quitándole el `aria-describedby` al «Continuar» del asistente. Las
+dos en rojo, nombrando la pantalla y el ancho.
+
+> **Y las dos nacieron sin existir.** El script que las insertaba falló a mitad
+> —después de preparar el texto y **antes de escribir el archivo**— y las
+> primeras dos rupturas salieron en verde. La conclusión fácil habría sido «la
+> medida no sirve»; la correcta, que no estaba. Se comprobó mirando el archivo.
+>
+> Es el §2 con una cara que no estaba en la lista: **una ruptura en verde
+> significa que la comprobación no caza el defecto *o* que la comprobación no
+> está.** Las dos se distinguen mirando, no deduciendo.
+
+Más `formato.spec.ts`, con sus cuatro casos.
+
+> **Uno de ellos nació siendo una prueba que no podía fallar**: comparaba
+> `numeroLegible(x)` con `numeroLegible(x)` envuelto en un `replace`, o sea la
+> función contra sí misma. Cazado antes de correrla; las cifras están ahora
+> calculadas a mano.

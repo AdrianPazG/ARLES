@@ -585,3 +585,55 @@ simulador salía en rojo por lo mismo.
 
 **Quedan seis hallazgos de diseño abiertos**, D-02 a D-07, en
 [`HALLAZGOS-DE-DISENO.md`](../10-requisitos/HALLAZGOS-DE-DISENO.md).
+
+---
+
+## 15. Los seis hallazgos de diseño que quedaban · 28/10/2026
+
+**Cinco arreglados y uno descartado.** Está contado entero en
+[`HALLAZGOS-DE-DISENO.md`](../10-requisitos/HALLAZGOS-DE-DISENO.md) §6.
+
+| | Qué | Cómo quedó |
+|---|---|---|
+| D-02 | El número se enseñaba de dos formas | Un solo `numeroLegible()`, y medir encontró **una pantalla más** de las tres anotadas |
+| D-03 | Los campos del asistente, al doble de apretados | **La causa era otra**: una corrección de Dirección que nunca llegó a su valor |
+| D-04 | «Continuar» apagado sin decir por qué | Arreglado, **y había cuatro botones más** en tres pantallas |
+| D-05 | Las columnas de Contactos | **Descartado**: los anchos están medidos y no hay holgura |
+| D-06 | Dos botones de 1 020 px | El componente ya tenía el sitio; había que usarlo |
+| D-07 | «Campañas» dos veces | El módulo ahora dice «Lo que has creado» |
+
+**Tres de los cinco resultaron ser otra cosa de la que el registro anotaba**, y
+el más instructivo es D-03.
+
+> **Una corrección de Dirección que nunca llegó a su valor.** `AModulo` lleva
+> desde el 16/10/2026 una regla escrita para el **H-09** —Dirección leyó el
+> paso 5 y dijo que el hueco entre dos campos era «muy reducido»— y su
+> comentario explica el cálculo: «16 + 8 = 24 px», los 16 del `gap` del módulo
+> más 8 de margen.
+>
+> **Esos 16 no existen**: el cuerpo del módulo es un bloque y no tiene `gap`.
+> Durante doce días esa regla entregó **8 px**. Hoy son los 24 que pedía.
+>
+> Y el primer arreglo fue peor que el defecto: poner el cuerpo como columna
+> flex con `gap` **estiró un botón a 1 086 px**, que es el mismo defecto que
+> D-06 dos pantallas más allá. Lo cazó volver a medir los anchos, no ninguna
+> sonda. Tres intentos, los tres medidos; el bueno era cambiar el valor donde
+> la decisión ya estaba tomada.
+
+### Dos medidas nuevas en `sonda:auditoria`
+
+Todo **botón apagado** tiene que decir por qué con `aria-describedby` o
+`title`, y **ningún texto visible** puede llevar un número de corrido. Las dos
+verificadas rompiéndolas.
+
+> **Y las dos nacieron sin existir.** El script que las insertaba falló a mitad
+> —después de preparar el texto y antes de escribir el archivo— así que las dos
+> primeras rupturas salieron en verde. La conclusión fácil habría sido «la
+> medida no sirve»; la correcta, que no estaba.
+>
+> Es el §2 con una cara que no estaba en la lista: **una ruptura en verde
+> significa que la comprobación no caza el defecto *o* que la comprobación no
+> está**, y las dos se distinguen mirando el archivo, no deduciendo.
+
+**Con esto los siete hallazgos de la revisión del 28/10 están cerrados**: seis
+arreglados y uno descartado con su cifra.

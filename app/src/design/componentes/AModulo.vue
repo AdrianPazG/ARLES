@@ -131,10 +131,31 @@ withDefaults(
 
    Se añade sólo ENTRE CAMPOS, no al `gap` del módulo: subir ése alejaría
    también el título de su primer campo, y lo que Dirección pidió fue
-   «equilibrado, ni amontonado ni con demasiado espacio». 16 + 8 = 24 px entre
-   campos, seis veces lo de dentro, y el título donde estaba. */
+   «equilibrado, ni amontonado ni con demasiado espacio». El título se queda
+   donde estaba.
+
+   ── Y DURANTE DOCE DÍAS ENTREGÓ 8 PX, NO 24 ───────────────────────────────
+
+   Este comentario decía «16 + 8 = 24 px entre campos»: los 16 del `gap` del
+   módulo más estos 8. **Esos 16 no existen.** El cuerpo del módulo es un
+   bloque —`display: block`—, así que no tiene `gap` ninguno, y lo que quedaba
+   entre dos campos eran los 8 de aquí. Dos veces lo de dentro de un campo (4),
+   no seis.
+
+   Medido el 28/10/2026 en el asistente, que es la pantalla con más campos del
+   producto: 8 px entre dos preguntas distintas contra 4 dentro de una. A esa
+   distancia, la ayuda de un campo parece el encabezado del siguiente — que es
+   lo mismo que Dirección reportó en el H-09, sin arreglar del todo.
+
+   Las otras pantallas con formulario —Configuración, Respaldos— daban 16
+   porque envuelven sus campos en un contenedor propio con `gap`, no por esta
+   regla. Tres sitios decidiendo el mismo hueco, y los tres con otro valor.
+
+   Ahora son los 24 px que la H-09 quería, escritos en un solo sitio y sin
+   depender de un `gap` que no está. D-03 de
+   `10-requisitos/HALLAZGOS-DE-DISENO.md`. */
 .modulo :deep(.campo + .campo) {
-  margin-top: var(--arles-space-2);
+  margin-top: var(--arles-space-5);
 }
 
 .cabecera {
@@ -205,7 +226,41 @@ withDefaults(
 .cuerpo {
   flex: 1;
   min-width: 0;
+
+  /* Lo que va junto, junto; lo que no, separado.
+   *
+   * Un campo separa su etiqueta de su casilla con 4 px (`AEntrada`), así que
+   * dos campos distintos tienen que separarse MÁS que eso o la regla de
+   * proximidad deja de decir nada. Medido el 28/10/2026: el asistente —la
+   * pantalla con más campos del producto— los separaba con **8 px**, donde
+   * Configuración y Respaldos usan 16. A esa distancia, el texto de ayuda de
+   * un campo parece el encabezado del siguiente.
+   *
+   * Va aquí y no en cada pantalla porque tres de ellas ya lo escribían a
+   * mano, cada una en su hoja: eso son tres sitios donde el valor puede
+   * separarse, y es como el asistente acabó con otro. D-03 de
+   * `10-requisitos/HALLAZGOS-DE-DISENO.md`. */
 }
+
+/* Lo que va junto, junto; lo que no, separado.
+ *
+ * Un campo separa su etiqueta de su casilla con 4 px (`AEntrada`), así que dos
+ * campos distintos tienen que separarse MÁS que eso o la proximidad deja de
+ * decir nada. Medido el 28/10/2026: el asistente —la pantalla con más campos
+ * del producto— los separaba con **8 px**, donde Configuración y Respaldos
+ * usan 16. A esa distancia, la ayuda de un campo parece el encabezado del
+ * siguiente. D-03 de `10-requisitos/HALLAZGOS-DE-DISENO.md`.
+ *
+ * ── POR QUÉ UN MARGEN Y NO UN `gap` ───────────────────────────────────────
+ *
+ * El primer intento fue `display: flex; flex-direction: column; gap`. Las tres
+ * sondas pasaron y **estiraba a todos los hijos**: el botón «Ver qué se puede
+ * liberar» del Registro pasó a medir 1 086 px, el mismo defecto que D-06
+ * arreglaba dos pantallas más allá. Lo cazó volver a medir los anchos después
+ * del cambio, no ninguna sonda.
+ *
+ * Un margen separa sin tocar la caja: el párrafo sigue llenando el ancho y el
+ * botón sigue midiendo lo que mide su texto. */
 
 .acciones {
   display: flex;

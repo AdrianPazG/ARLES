@@ -1591,6 +1591,31 @@ con los descartados incluidos — un hallazgo falso cuesta más que uno ausente.
 > núcleo roto a propósito. La del simulador, a la que yo había acusado de mirar
 > una sola dirección, miraba las dos desde el principio.
 
+**Y los seis que quedaban, cerrados el mismo día: cinco arreglados y uno
+descartado con su cifra.** Lo vigilan dos medidas nuevas en `sonda:auditoria` —
+todo botón apagado dice por qué con `aria-describedby` o `title`, y ningún texto
+visible lleva un número de corrido—, las dos verificadas rompiéndolas.
+
+> **Tres de los cinco resultaron ser otra cosa de la que el registro anotaba**,
+> y el más instructivo es el hueco entre los campos del asistente. No era del
+> asistente: `AModulo` lleva desde el 16/10/2026 una regla escrita para el
+> **H-09 de Dirección** cuyo comentario calcula «16 + 8 = 24 px», los 16 del
+> `gap` del módulo más 8 de margen. **Esos 16 no existen** —el cuerpo del módulo
+> es un bloque y no tiene `gap`—, así que durante doce días esa corrección
+> entregó 8 px.
+>
+> Y el primer arreglo fue peor que el defecto: poner el cuerpo como columna flex
+> con `gap` **estiró un botón del Registro a 1 086 px**, que es el mismo defecto
+> que se estaba arreglando dos pantallas más allá. Lo cazó volver a medir los
+> anchos **después** del cambio, no ninguna sonda.
+
+> **Una ruptura en verde significa dos cosas, y no son la misma.** O la
+> comprobación no caza el defecto, **o la comprobación no está**. Las dos
+> primeras rupturas de ese día salieron en verde porque el script que insertaba
+> las medidas falló a mitad —después de preparar el texto y antes de escribir el
+> archivo—, y la conclusión fácil habría sido «no sirven». Se distinguen mirando
+> el archivo, no deduciendo.
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |

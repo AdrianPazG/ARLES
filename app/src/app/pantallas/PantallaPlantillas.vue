@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { numeroLegible } from '../formato'
 /**
  * Escribir plantillas y firmas de correo (entrega 6.8a).
  *
@@ -111,7 +112,7 @@ const numeroElegido = ref('')
 const opcionesDeNumero = computed(() =>
   whatsapp.numeros.map((n) => ({
     valor: n.id,
-    texto: `${n.nombreVisible} · ${n.telefonoE164}`,
+    texto: `${n.nombreVisible} · ${numeroLegible(n.telefonoE164)}`,
   })),
 )
 

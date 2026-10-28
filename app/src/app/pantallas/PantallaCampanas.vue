@@ -226,7 +226,7 @@ async function confirmarDetener(): Promise<void> {
 
     <AModulo
       v-else
-      :titulo="t('campanas.titulo')"
+      :titulo="t('campanas.listaTitulo')"
       :nota="
         campanas.parada?.parado
           ? t('campanas.enMarchaDetenido')

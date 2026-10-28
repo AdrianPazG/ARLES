@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { numeroLegible } from '../formato'
 /**
  * Quién pidió no recibir (entrega 3.4).
  *
@@ -299,12 +300,17 @@ async function apuntar(): Promise<void> {
         <div class="supresion__apuntar-pie">
           <ABoton
             :deshabilitado="!puedeApuntar"
+            :aria-describedby="!puedeApuntar && !apuntando ? 'supresion-falta' : undefined"
             @click="apuntar"
           >
             {{ t('supresion.apuntar.boton') }}
           </ABoton>
+          <!-- El texto ya estaba; lo que faltaba era **enlazarlo**. Visible y
+               sin `aria-describedby`, quien usa un lector de pantalla oye un
+               botón apagado y nada más. Medido el 28/10/2026 con D-04. -->
           <p
             v-if="!puedeApuntar && !apuntando"
+            id="supresion-falta"
             class="supresion__falta"
           >
             {{ t('supresion.apuntar.faltaLaDireccion') }}
@@ -440,7 +446,7 @@ async function apuntar(): Promise<void> {
                         : t('supresion.canal.whatsapp')
                     }}
                   </span>
-                  <span class="fila__valor">{{ fila.direccion }}</span>
+                  <span class="fila__valor">{{ numeroLegible(fila.direccion) }}</span>
                   <AInsignia
                     v-if="fila.global"
                     tono="neutro"

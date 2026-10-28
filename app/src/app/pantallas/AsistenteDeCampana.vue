@@ -647,6 +647,48 @@ const sePuedeSeguir = computed(() => {
   }
 })
 
+/**
+ * Por qué «Continuar» está apagado, para poder decirlo.
+ *
+ * ── POR QUÉ HIZO FALTA ────────────────────────────────────────────────────
+ *
+ * Medido el 28/10/2026 en el paso 1: el botón salía `disabled` **sin `title`,
+ * sin `aria-describedby` y sin ningún texto cerca**. Para quien usa un lector
+ * de pantalla no había absolutamente nada.
+ *
+ * Es la cuarta vez de este defecto en el proyecto —«Repite la contraseña» en
+ * la 8.2c, «Restaurar y reemplazar» en la 8.3c, «Continuar» del paso 6 en la
+ * 8.6 E— y las tres anteriores se arreglaron por la misma razón: un control
+ * que no responde y no se explica se lee como una avería (§95).
+ *
+ * Devuelve **una clave**, no un texto (§139). `null` cuando se puede seguir.
+ *
+ * Los pasos 5 y 6 ya pintan su aviso encima con el detalle entero; esto les
+ * añade el renglón corto pegado al botón, que es lo que contesta «¿y por qué
+ * no puedo pulsar?» sin levantar la vista.
+ */
+const porQueNoSeSigue = computed<string | null>(() => {
+  if (sePuedeSeguir.value) return null
+  switch (paso.value) {
+    case 1:
+      return 'asistente.falta.nombre'
+    case 3:
+      return esWhatsapp.value ? 'asistente.falta.numero' : 'asistente.falta.cuenta'
+    case 4:
+      return esWhatsapp.value ? 'asistente.falta.plantillaDeMeta' : 'asistente.falta.plantilla'
+    case 5:
+      if (ventana.value.length === 0) return 'asistente.falta.horario'
+      if (limiteImposible.value) return 'asistente.falta.limite'
+      return 'asistente.falta.aviso'
+    case 6:
+      return 'asistente.falta.desenlace'
+    case 8:
+      return 'asistente.falta.prueba'
+    default:
+      return null
+  }
+})
+
 /** ¿El simulador dice que esta campaña llega al final? */
 const termina = computed(
   () => campanas.revision?.estimacion.desenlace.desenlace === 'termina',
@@ -1593,9 +1635,13 @@ function rotulo(clave: string): string {
       v-if="activacion === null"
       class="asistente__pies"
     >
+      <!-- `title` y no un renglón aparte: en el paso 1 «Atrás» está apagado
+           porque no hay paso anterior, y eso ya lo dice «Paso 1 de 9». Lo que
+           faltaba es que lo supiera quien no ve la pantalla. -->
       <ABoton
         variante="sutil"
         :deshabilitado="paso === 1"
+        :title="paso === 1 ? t('asistente.atrasEnElPrimero') : undefined"
         @click="atras"
       >
         {{ t('asistente.atras') }}
@@ -1605,10 +1651,23 @@ function rotulo(clave: string): string {
         variante="primario"
         :deshabilitado="!sePuedeSeguir"
         :ocupado="campanas.trabajando || campanas.revisando"
+        :aria-describedby="porQueNoSeSigue ? 'asistente-falta' : undefined"
         @click="siguiente"
       >
         {{ t('asistente.siguiente') }}
       </ABoton>
+
+      <!-- Por qué está apagado, pegado al botón y no al final de la pantalla:
+           un aviso que explica un control tiene que verse con el control
+           delante. Y con `aria-describedby`, porque si sólo se pinta, quien
+           usa un lector de pantalla sigue sin saberlo (D-04). -->
+      <p
+        v-if="porQueNoSeSigue"
+        id="asistente-falta"
+        class="asistente__falta"
+      >
+        {{ t(porQueNoSeSigue) }}
+      </p>
     </nav>
   </section>
 </template>
@@ -1618,6 +1677,15 @@ function rotulo(clave: string): string {
   display: flex;
   flex-direction: column;
   gap: var(--arles-space-6);
+}
+
+.asistente__falta {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--arles-text-muted);
+  font-size: var(--arles-font-size-small);
+  line-height: var(--arles-line-height-small);
+  text-align: right;
 }
 
 .asistente__titulo {

@@ -2252,6 +2252,15 @@ export const es = {
    */
   campanas: {
     titulo: 'Campañas',
+
+    // El título del módulo de la lista, y NO «Campañas» otra vez.
+    //
+    // El `h1` de la pantalla ya dice «Campañas», y el módulo repetía la misma
+    // palabra sesenta píxeles más abajo. Es la familia de «Con sus campañas ·
+    // 3 campañas», que la 8.3 bis b arregló. Y además dice algo: lo que hay
+    // dentro no son todas las campañas posibles, son las de esta empresa, con
+    // su estado. D-07 de `10-requisitos/HALLAZGOS-DE-DISENO.md`.
+    listaTitulo: 'Lo que has creado',
     entradilla: 'Lo que ARLES ha enviado y lo que va a enviar.',
     nueva: 'Nueva campaña',
     cargando: 'Buscando tus campañas',
@@ -2294,6 +2303,28 @@ export const es = {
     progreso: 'Paso {paso} de {total}',
     atras: 'Atrás',
     siguiente: 'Continuar',
+    atrasEnElPrimero: 'Éste es el primer paso.',
+
+    // ── Por qué «Continuar» está apagado (D-04, 28/10/2026) ──────────────
+    //
+    // Un renglón corto pegado al botón, no un error: no ha fallado nada, falta
+    // algo. Cada uno dice **qué falta**, porque «completa los campos» obliga a
+    // buscar cuál.
+    //
+    // Los pasos 5 y 6 ya pintan su aviso completo encima; estos dos son el
+    // resumen que se lee sin levantar la vista del botón.
+    falta: {
+      nombre: 'Escribe un nombre para la campaña.',
+      cuenta: 'Elige desde qué cuenta sale.',
+      numero: 'Elige desde qué número sale.',
+      plantilla: 'Elige la plantilla y su versión.',
+      plantillaDeMeta: 'Elige una plantilla aprobada por Meta.',
+      horario: 'Elige un horario de envío.',
+      limite: 'El límite diario tiene que ser mayor que cero.',
+      aviso: 'Acepta el aviso de volumen para continuar.',
+      desenlace: 'Con estos límites la campaña no termina. Vuelve al paso 5.',
+      prueba: 'Manda el envío de prueba y espera a que el servidor lo acepte.',
+    },
 
     paso: {
       informacion: {
@@ -2878,6 +2909,9 @@ export const es = {
   // trabaje en protección de datos. Quien atiende la solicitud necesita
   // entender qué hace el botón, no aprobar un examen.
   derechos: {
+    // Por qué están apagados los dos botones de esta pantalla (D-04,
+    // 28/10/2026). Los dos piden lo mismo: una dirección.
+    faltaLaDireccion: 'Escribe el correo o el número de la persona.',
     titulo: 'Derechos de las personas',
     explicacion:
       'Cuando alguien te escribe preguntando qué datos tienes de él, la ley ' +

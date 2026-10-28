@@ -156,7 +156,7 @@ function mal(mensaje) {
 /** Batería de medidas. Corre dentro de la página. */
 const MEDIR = (sueloDeshabilitado) => {
   const out = { desbordes: [], contrastes: [], sinNombre: [], encabezados: [], ids: [],
-                objetivos: [], soloColor: [] }
+                objetivos: [], soloColor: [], sinMotivo: [], numerosDeCorrido: [] }
 
   // ── 2 · contenido que no cabe ───────────────────────────────────────
   //
@@ -391,6 +391,44 @@ const MEDIR = (sueloDeshabilitado) => {
     }
   }
 
+  // ── 10 · un botón apagado dice por qué ─────────────────────────────
+  //
+  // §95: un control que no responde y no se explica se lee como una avería.
+  // El proyecto lo arregló **cuatro veces a mano** —«Repite la contraseña» en
+  // la 8.2c, «Restaurar y reemplazar» en la 8.3c, «Continuar» del paso 6 en la
+  // 8.6 E, y el paso 1 del asistente en D-04— y nada lo vigilaba, así que la
+  // quinta vez volvía.
+  //
+  // Se exige `aria-describedby` o `title`, **no un texto cerca**: un renglón
+  // debajo del botón lo ve quien mira, y quien usa un lector de pantalla oye
+  // un botón apagado y nada más. Medido el 28/10/2026: Bajas **tenía** el
+  // texto y no lo enlazaba, así que esa pantalla pasaba a ojo y fallaba aquí.
+  for (const b of document.querySelectorAll(
+    'button[disabled], button[aria-disabled="true"]',
+  )) {
+    const rb = b.getBoundingClientRect()
+    if (rb.width === 0 || rb.height === 0) continue
+    // «Ocupado» no cuenta: no está apagado por una regla, está trabajando.
+    if (b.getAttribute('aria-busy') === 'true') continue
+    if (b.getAttribute('aria-describedby') || b.getAttribute('title')) continue
+    out.sinMotivo.push((b.textContent || '').trim().slice(0, 40) || b.outerHTML.slice(0, 80))
+  }
+
+  // ── 11 · ningún número se enseña de corrido ────────────────────────
+  //
+  // ARLES guarda los números en E.164 —`+528112345678`— porque así se compara
+  // y se deduplica. Enseñarlo igual obliga a contar dígitos para cotejarlo con
+  // el teléfono, que es justo lo que se hace en Remitentes antes de mandar
+  // nada. Medido el 28/10/2026: cinco apariciones en tres pantallas.
+  //
+  // Se mide el TEXTO QUE SE VE y no el código, porque el defecto es que el
+  // dato salga así, venga de donde venga. `numeroLegible` es quien lo arregla.
+  for (const n of new Set(
+    [...(document.body.innerText || '').matchAll(/\+\d{8,}/g)].map((x) => x[0]),
+  )) {
+    out.numerosDeCorrido.push(n)
+  }
+
   return out
 }
 
@@ -432,6 +470,12 @@ for (const [ancho, alto] of ANCHOS) {
     r.ids.forEach((i) => mal(`${donde} · id repetido: ${i}`))
     r.objetivos.forEach((o) => mal(`${donde} · objetivo por debajo de 32 px: ${o}`))
     r.soloColor.forEach((c) => mal(`${donde} · estado sólo por color: ${c}`))
+    r.sinMotivo.forEach((b) =>
+      mal(`${donde} · botón apagado sin decir por qué: «${b}»`),
+    )
+    r.numerosDeCorrido.forEach((n) =>
+      mal(`${donde} · número de corrido: ${n} — tiene que pasar por numeroLegible()`),
+    )
   }
   await pagina.close()
   console.log(`✓ ${RUTAS.length} pantallas medidas a ${ancho}×${alto}.`)
