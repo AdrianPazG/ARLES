@@ -248,19 +248,118 @@ después de leer el plan.
 
 ---
 
-## Lo que queda por medir antes de construir
+## Las tres incógnitas · medidas el 28/10/2026
 
-Las tres, y ninguna se da por buena:
+Estaban declaradas aquí como «por medir antes de construir». Las tres están
+medidas, y **la primera contestó algo distinto de lo que preguntaba**.
 
-1. **Cuánto crece el `-wal`** con un lector abierto durante una importación de
-   500 000.
-2. **Cuántos de los 105 bloques sirven a una pantalla** y no al motor. Hoy está
-   estimado en cinco o seis *por su peso*, no contado.
-3. **Que la comprobación de «el motor no usa `leer`» caza de verdad** el caso.
-   Se escribe antes y se ve en rojo.
+### 1 · El `-wal` no crece por el lector: deja de vaciarse
 
-Lo medido hasta aquí —`query_only` contra SQLCipher, el no bloqueo en WAL, y el
-reparto 49/56 con 20 escrituras por `con`— está en este documento con su fecha.
+La pregunta estaba mal hecha, y medirla es lo que lo enseñó. Cinco casos con
+`banco wal`, que corre **la importación de verdad** —el mismo camino que la
+pantalla— con un vigilante que mira el `-wal` cada 100 ms:
+
+| Caso | `-wal` máximo | Base | Escribir |
+|---|---|---|---|
+| Importar 500 000, **sin lector** | 716.3 MB | 711.6 MB | 81.2 s |
+| Importar 500 000, lector **de una en una** (pantallas) | 716.3 MB | 711.6 MB | 70.7 s |
+| Importar 500 000, lector **con transacción abierta** (respaldo) | **716.3 MB** | **0.5 MB** | 68.5 s |
+| 20 000 transacciones pequeñas, **sin lector** | **4.0 MB** | 4.4 MB | 3.4 s |
+| 20 000 transacciones pequeñas, lector **con transacción abierta** | **373.3 MB** | 0.5 MB | 2.1 s |
+
+**Lo que dicen las tres primeras filas:** el `-wal` mide **lo mismo** con lector
+y sin él. Una importación es **una sola transacción**, así que cabe entera en el
+`-wal` haya quien lea o no, y el *checkpoint* no puede correr hasta que
+confirme. Lo que cambia es **la base**: 711.6 MB sin lector y **0.5 MB** con la
+transacción abierta. Es decir, **un lector largo no engorda el `-wal`: impide
+que se vuelque a la base.** El disco total es el mismo.
+
+**Y lo que dicen las dos últimas, que es el hallazgo:** con **muchas
+transacciones pequeñas** —la forma del motor, que confirma cada envío— un lector
+fijado lleva el `-wal` de **4.0 MB a 373.3 MB**. Noventa y tres veces. Cada
+transacción añade sus páginas y el *checkpoint* no recupera ninguna mientras el
+lector viva.
+
+> **Las dos filas de referencia son la mitad de la medición.** Sin la de «sin
+> lector», los 373 MB no dirían nada: no se sabría cuánto es por el lector y
+> cuánto crecería igual. La primera tanda se corrió **sin** la referencia de las
+> transacciones pequeñas, y hubo que volver a añadirla.
+
+**Qué significa para esta decisión, dicho sin adornos.** El caso malo es real y
+ocurre justo en el escenario que esta decisión vende como su beneficio
+principal: **un respaldo largo mientras el motor envía.** No la invalida —el
+respaldo de 500 000 son 716 MB de `-wal` de todas formas— pero añade dos
+condiciones que antes no estaban:
+
+1. **`journal_size_limit` entra con la conexión de lectura**, no después. Hoy no
+   está puesto, y se midió: el `-wal` se queda en 716.3 MB **incluso después de
+   soltar al lector**, porque SQLite reutiliza el archivo en vez de recortarlo.
+2. **`Db::exportar` es el último método que se mueve**, con su propia medida: es
+   el más valioso y el único que fija una transacción larga.
+
+### 2 · 37 candidatos de 111, contados y no estimados
+
+Estaba estimado «en cinco o seis por su peso». Contado sobre `impl Db`,
+descontando los módulos de prueba:
+
+| | Cuántos |
+|---|---|
+| Métodos públicos de `impl Db` | **111** |
+| Escriben, directa o transitivamente | **60** |
+| De sólo lectura | **51** |
+| …de ésos, **los llama el motor**, así que se quedan | **5** |
+| …**candidatos a `leer`** | **37** |
+| …sin llamador fuera de `arles-db` | 8 |
+| Fuera a mano: `ejecutar_en_pruebas` | 1 |
+
+Los cinco del motor, que la condición 3 protege: `esta_suprimida`,
+`gastado_de`, `hay_que_parar`, `salud_de_la_cuenta` y
+`ultimo_envio_de_otra_campana`.
+
+`ejecutar_en_pruebas` queda fuera **a mano y con su motivo**: recibe un cierre
+con SQL arbitrario, así que puede escribir aunque su cuerpo no lleve una sola
+sentencia. Es el único caso que ninguna regla estática decide, y por eso se dice
+en vez de dejarlo en la lista.
+
+> **El script de medición necesitó cuatro versiones**, y vale la pena el
+> recuento porque es el patrón de la auditoría G con sus 130 hallazgos falsos,
+> cuatro veces seguidas:
+>
+> 1. El cuerpo se cortaba en la siguiente línea que empezara por `pub `, así que
+>    `activar_campana` y `crear_lista` salían como de sólo lectura. **Las dos
+>    escriben.**
+> 2. Cogía `pub fn` de **todos** los `impl` de los archivos de `arles-db`:
+>    `clave_i18n` es de `DbError` y `para_la_cabecera` de `Inventario`.
+> 3. La transitividad no miraba los `fn` **privados** de `impl Db`.
+>    `aceptar_el_riesgo` y `confirmar_coexistencia` llaman a `self.marcar(…)`,
+>    que escribe.
+> 4. Y `ejecutar_en_pruebas`, que ninguna versión podía decidir.
+>
+> Lo cazó las cuatro veces **mirar la lista antes de anotarla**, no correrla
+> otra vez. Un hallazgo falso cuesta más que uno ausente.
+
+### 3 · La comprobación existe y está vista en rojo
+
+`el_motor_no_lee_por_la_conexion_de_pantallas`, en `--fase 1`. Lee qué métodos
+de `impl Db` usan `self.leer(` y cuáles de ésos llama `arles-motor`: la
+intersección tiene que estar vacía.
+
+**Hoy pasa sin mirar nada**, porque `leer` no existe todavía, y eso queda dicho
+en su docstring en vez de darla por una red. Lo que sí está verificado es que
+caza el caso, por los dos caminos:
+
+- Añadiendo un `leer` a `Db` y pasando **`esta_suprimida`** por él →
+  **en rojo**, nombrando el método y su archivo.
+- Pasando por `leer` **`plantillas`**, que el motor no llama → **en verde**, que
+  es lo que prueba que no acusa a cualquiera.
+
+> **Y un tropiezo propio que vale como aviso.** El bucle de las dos rupturas se
+> cortó a mitad al pasarse a segundo plano, así que el restaurado **no corrió**:
+> dos archivos se quedaron con la ruptura puesta mientras yo seguía trabajando.
+> Es la trampa que `CLAUDE.md` documenta dos veces —la del `git checkout` que se
+> llevó un módulo entero— con otra cara: **no basta con tener la copia, hay que
+> comprobar que la restauración ocurrió.** Se comprobó con `diff` sobre los tres
+> archivos antes de seguir.
 
 ---
 

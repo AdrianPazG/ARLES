@@ -51,6 +51,26 @@ fn main() {
         return;
     }
 
+    // `banco wal 500000` mide cuánto crece el `-wal` con un lector abierto
+    // durante una importación: la incógnita 1 de ADR-0015. Va aparte porque
+    // corre la importación TRES VECES —sin lector, con lecturas de una en una
+    // y con una transacción abierta— y sin la de referencia no se sabría
+    // cuánto de lo que crece es por el lector.
+    if std::env::args().nth(1).as_deref() == Some("wal") {
+        let cuantas: usize = std::env::args()
+            .nth(2)
+            .and_then(|a| a.parse().ok())
+            .unwrap_or(500_000);
+        match arles_banco::wal::correr_los_tres(cuantas, 20_261_028) {
+            Ok(tabla) => print!("{tabla}"),
+            Err(e) => {
+                eprintln!("la medición del wal no pudo terminar: {e}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+
     let cuantas: usize = std::env::args()
         .nth(1)
         .and_then(|a| a.parse().ok())

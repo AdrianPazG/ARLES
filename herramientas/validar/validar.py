@@ -831,6 +831,7 @@ def fase_1(rapido):
 
     el_nucleo_no_toca_el_mundo()
     el_grafo_de_crates_solo_apunta_hacia_dentro()
+    el_motor_no_lee_por_la_conexion_de_pantallas()
     las_cifras_del_nucleo_son_las_mismas_en_la_pantalla()
     el_techo_del_dia_se_calcula_igual_en_los_dos_lados()
 
@@ -1387,6 +1388,128 @@ def nada_sale_por_correo_sin_pasar_por_el_saneado():
     check(5, "nada sale por correo sin pasar por el saneado", not problemas,
           nada_sale_por_correo_sin_pasar_por_el_saneado.__doc__,
           detalle="\n      ".join(problemas))
+
+
+def el_motor_no_lee_por_la_conexion_de_pantallas():
+    """**Ningún método que use `leer` puede ser llamado desde `arles-motor`.**
+
+    ── LA CONDICIÓN 3 DE ADR-0015, Y POR QUÉ NO ES UNA RECOMENDACIÓN ─────────
+
+    ADR-0015 decide abrir una segunda conexión de sólo lectura para que las
+    pantallas no esperen al escritor, con una condición: **sirve a las
+    pantallas y a nadie más.** El accesor que la usa se llama `leer`.
+
+    Lo que costaría romperla tiene nombre: `Db::esta_suprimida` es la consulta
+    que decide si un mensaje sale, y es una de las tres reglas de la Fase 5 que
+    no se negocian —*nada antes del `RCPT TO` puede dar de baja a nadie*—.
+    Mandarla a la lectora costaría dos cosas **para siempre**:
+
+      1. Se pierde la posibilidad de poner la comprobación y la escritura del
+         intento en **una misma transacción**. Hoy no lo están, pero se puede;
+         con dos conexiones, no se podrá nunca.
+      2. Se pierde **leer lo que acabas de escribir** entre las dos conexiones.
+
+    Y no hace falta que alguien lo haga a propósito: basta con mover un método
+    a `leer` sin mirar quién lo llama. Medido el 28/10/2026, los métodos de
+    sólo lectura que el motor llama son **cinco**: `esta_suprimida`,
+    `gastado_de`, `hay_que_parar`, `salud_de_la_cuenta` y
+    `ultimo_envio_de_otra_campana`.
+
+    ── SE ESCRIBE ANTES DE QUE `leer` EXISTA, Y ESO ES DELIBERADO ────────────
+
+    Hoy `leer` no existe: la conexión de lectura está **programada y no
+    construida**, porque ADR-0015 pide medir el crecimiento del `-wal` primero.
+    Así que esta comprobación pasa sin mirar nada — y eso es lo que tiene que
+    quedar dicho, en vez de darla por una red.
+
+    Lo que sí está verificado es que **caza el caso**: se probó añadiendo un
+    `leer` a `Db` y haciendo que `esta_suprimida` lo usara, con el motor
+    llamándola. Salió en rojo nombrando el método. Ver «Verificada» abajo.
+
+    ── CÓMO SE MIDE ─────────────────────────────────────────────────────────
+
+    Dos pasos, los dos leyendo el código y no una lista:
+
+      1. Qué métodos de `impl Db` usan `self.leer(`.
+      2. Cuáles de ésos aparecen llamados en `arles-motor/src`.
+
+    La intersección tiene que estar vacía. Se descuentan los módulos de prueba:
+    una prueba del propio `arles-db` puede llamar a lo que quiera.
+
+    ── VERIFICADA ROMPIÉNDOLA ───────────────────────────────────────────────
+
+    28/10/2026, por los dos caminos:
+
+      · Añadiendo `leer` a `Db` y pasando `esta_suprimida` por él → **en rojo**,
+        nombrando `esta_suprimida` y `arles-motor`.
+      · Pasando por `leer` un método que el motor NO llama —`plantillas`— →
+        **en verde**, que es lo que prueba que no acusa a cualquiera.
+    """
+    carpeta = os.path.join(RAIZ, "crates", "arles-db", "src")
+    if not os.path.isdir(carpeta):
+        check(1, "el motor no lee por la conexión de pantallas", False,
+              "No se encuentra `arles-db/src`.", "falta la carpeta")
+        return
+
+    def sin_pruebas(t):
+        i = t.find("#[cfg(test)]")
+        return t[:i] if i > 0 else t
+
+    def bloque(t, i):
+        j = t.find("{", i)
+        if j < 0:
+            return ""
+        prof = 0
+        for k in range(j, len(t)):
+            if t[k] == "{":
+                prof += 1
+            elif t[k] == "}":
+                prof -= 1
+                if prof == 0:
+                    return t[j:k + 1]
+        return t[j:]
+
+    # 1 · Los métodos de `impl Db` que usan la conexión de lectura.
+    por_la_lectora = {}
+    for n in sorted(os.listdir(carpeta)):
+        if not n.endswith(".rs"):
+            continue
+        with open(os.path.join(carpeta, n), encoding="utf-8") as f:
+            src = sin_pruebas(f.read())
+        for im in re.finditer(r"\nimpl Db \{", src):
+            cuerpo_impl = bloque(src, im.start())
+            for m in re.finditer(r"\n    (?:pub )?(?:const )?fn (\w+)", cuerpo_impl):
+                if "self.leer(" in bloque(cuerpo_impl, m.end()):
+                    por_la_lectora[m.group(1)] = n
+
+    # 2 · Y cuáles de ésos llama el motor.
+    motor = os.path.join(RAIZ, "crates", "arles-motor", "src")
+    llamados = set()
+    for base, _, archivos in os.walk(motor):
+        for n in archivos:
+            if not n.endswith(".rs"):
+                continue
+            with open(os.path.join(base, n), encoding="utf-8") as f:
+                src = sin_pruebas(f.read())
+            for metodo in por_la_lectora:
+                if re.search(r"\." + re.escape(metodo) + r"\s*\(", src):
+                    llamados.add(metodo)
+
+    detalle = (
+        f"{len(llamados)} que el motor llama y van por la lectora: "
+        + ", ".join(f"{m} ({por_la_lectora[m]})" for m in sorted(llamados))
+        if llamados
+        else f"{len(por_la_lectora)} métodos usan `leer`, ninguno lo llama el motor"
+    )
+    check(
+        1, "el motor no lee por la conexión de pantallas", not llamados,
+        "ADR-0015: la conexión de sólo lectura sirve a las pantallas y a nadie "
+        "más. `esta_suprimida` decide si un mensaje sale —una de las tres "
+        "reglas de la Fase 5—, y por la lectora se pierde para siempre poder "
+        "meterla con la escritura del intento en una transacción, y leer lo "
+        "que acabas de escribir.",
+        detalle,
+    )
 
 
 def el_nucleo_no_toca_el_mundo():

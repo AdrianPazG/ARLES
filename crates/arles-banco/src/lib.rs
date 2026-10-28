@@ -27,6 +27,7 @@
 
 pub mod larga;
 pub mod medir;
+pub mod wal;
 
 /// Un generador de números reproducible. SplitMix64.
 ///

@@ -448,6 +448,25 @@ pub struct Corrida {
 ///
 /// El mapeo va escrito aquí porque el archivo lo escribimos nosotros; en la
 /// aplicación sale del paso 2.
+/// La importación que mide el `-wal`, por **el mismo camino** que la de arriba.
+///
+/// Existe para que `wal.rs` no escriba su propia versión: lo que hay que medir
+/// es cuánto crece el `-wal` durante **la importación de verdad**, y una copia
+/// del mapeo y del análisis mediría otra cosa. Es la misma razón por la que el
+/// archivado relee con el lector de la restauración y no con uno escrito para
+/// eso (8.3 bis b).
+///
+/// # Errores
+///
+/// Lo que falle al analizar o al importar.
+pub fn importar_para_el_wal(
+    db: &arles_db::Db,
+    empresa: arles_core::ids::CompanyId,
+    tabla: &arles_import::TablaLeida,
+) -> Result<(usize, usize, usize), Box<dyn std::error::Error>> {
+    importar(db, empresa, tabla)
+}
+
 fn importar(
     db: &arles_db::Db,
     empresa: arles_core::ids::CompanyId,

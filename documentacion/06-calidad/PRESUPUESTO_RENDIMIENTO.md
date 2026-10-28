@@ -229,6 +229,30 @@ dos tramos opacos sería inventarse una medición, que es lo que el §94 prohíb
 > Verificado rompiéndolo: con la plantilla sin `{{baja}}`, código 2 y «BANCO
 > ROTO» en el informe donde antes había cero y «SIN MEDIR».
 
+#### El `-wal` con un lector abierto · medido el 28/10/2026
+
+[ADR-0015](../03-arquitectura/adr/0015-un-escritor-y-lectores-separados.md)
+decide abrir una segunda conexión de sólo lectura, y dejó esta cifra declarada
+sin medir. Medida con `banco wal`, que corre la importación de verdad:
+
+| Caso | `-wal` máximo | Base |
+|---|---|---|
+| Importar 500 000, sin lector | 716.3 MB | 711.6 MB |
+| Importar 500 000, lector de una en una | 716.3 MB | 711.6 MB |
+| Importar 500 000, lector con transacción abierta | 716.3 MB | **0.5 MB** |
+| 20 000 transacciones pequeñas, sin lector | **4.0 MB** | 4.4 MB |
+| 20 000 transacciones pequeñas, lector con transacción abierta | **373.3 MB** | 0.5 MB |
+
+**La pregunta estaba mal hecha, y medirla lo enseñó.** Un lector largo no
+engorda el `-wal`: **impide que se vuelque a la base**. Con una importación —una
+sola transacción— el `-wal` mide lo mismo haya lector o no, y lo que cambia es
+la base, que se queda en 0.5 MB.
+
+Lo que sí acumula es **muchas transacciones pequeñas** con un lector fijado, que
+es la forma del motor: de **4.0 a 373.3 MB**, noventa y tres veces. Y el `-wal`
+**no se recorta al soltar al lector** —SQLite reutiliza el archivo—, así que
+`journal_size_limit` entra con la conexión de lectura y no después.
+
 Las alternativas y su coste están en
 [`AUDITORIA-C-QA.md`](../09-fases/AUDITORIA-C-QA.md) §C-1. **Pendiente de
 Dirección**, porque la opción barata no es técnica: a 50 correos diarios (§48)
