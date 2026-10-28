@@ -151,6 +151,7 @@ no una relectura con buena voluntad.
 | **DOC-9** | `CLAUDE.md` §1 bis: «Todo documento nuevo se nombra en `00-INDICE.md`: **lo vigila la fase 0**» | No lo vigilaba nadie. La fase 0 tenía una lista de catorce documentos esperados y comprobaba que existieran; la dirección contraria no la miraba nada | ✅ 28/10/2026 · ahora la vigila `todo_documento_esta_en_el_indice` |
 | **DOC-10** | Esta misma tabla: P-01 era «**lo único entre ARLES y el `.exe`**», y los bloqueos eran «los cuatro» | Son cinco. Faltaban los **dos trámites de firma**, declarados en `DISTRIBUCION_Y_FIRMA.md` §1 desde la Fase 0 como plazos externos que arrancan en la Fase 1, y ausentes de las **tres** listas de bloqueos del proyecto | ✅ 28/10/2026 · ahora los cuenta `los_bloqueos_se_cuentan_en_un_solo_sitio` |
 | **DOC-11** | `avance.json`: **89 % a 2026-10-22**, con F3W al 55 %, F5 al 70 % y F7 al 92 % | Doce tramos cerrados después de esa fecha —la 7.5 entera y D-WA entera— dejaban las tres fichas describiendo un estado que ya no existía. F7 decía «falta sólo la 7.5» con la 7.5 construida. Recalculado: **95 %** | ✅ 28/10/2026 |
+| **DOC-12** | `ADR-0002`: la base «vive en un hilo dedicado que recibe peticiones por canal», y «los lectores usan conexiones separadas» | Ni una cosa ni la otra. Cero `thread::spawn` y cero `mpsc` en `arles-db`, y **una sola** `Connection::open`: lo que hay es un `Mutex<Connection>`. Su decisión tecnológica sí está construida y es correcta; lo que no se construyó es una **mitigación** de sus consecuencias negativas | ✅ 28/10/2026 · acotado por [ADR-0015](../03-arquitectura/adr/0015-un-escritor-y-lectores-separados.md) |
 
 **Las cinco primeras llevaban ahí desde la Fase 2** y ninguna de las cuatro
 auditorías del §140 las vio, porque una auditoría mide el producto y esto es un
@@ -184,6 +185,23 @@ seguros.
 > auditoría: «qué sigue en el roadmap y qué falta para una beta». Las cinco
 > auditorías corridas en este proyecto miden el producto; para que un documento
 > de estado se vea falso hay que ir a usarlo para algo.
+
+> **DOC-12 es el tercero que nombra algo que nunca se adoptó** —tras `tracing`
+> en el `THREAT_MODEL.md` (DOC-6) y Tokio en el presupuesto (DOC-7)—, y es el
+> **primero que es un ADR**. La diferencia importa: un ADR es el documento al
+> que se va a preguntar *por qué* algo se decidió así, así que quien lo leyera
+> construiría el hilo dedicado con canal creyendo que arregla algo.
+>
+> **Y de las dos mitades que describía, una estaba equivocada.** No es que
+> faltara el hilo: es que su premisa escrita —«`rusqlite` es síncrono, no encaja
+> en Tokio»— dejó de existir cuando el proyecto no adoptó Tokio, y construirlo
+> ahora bajaría la calidad. Es el primer caso de los doce en que lo correcto no
+> era construir lo prometido sino **descartarlo por escrito y decir por qué**.
+>
+> Los dos de la misma familia tienen además el mismo origen: la auditoría C
+> corrigió esta frase **en el presupuesto** el 07/10/2026 y **no en el ADR**.
+> Corregir una copia y dejar la fuente es cómo un documento falso sobrevive a su
+> propio hallazgo.
 
 ---
 

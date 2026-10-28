@@ -2,6 +2,29 @@
 
 **Estado:** aceptado · **Fecha:** 2026-09-11 · **Decide:** Tech Lead + Database
 
+> **Acotado el 2026-10-28 por [ADR-0015](0015-un-escritor-y-lectores-separados.md)
+> —propuesto, pendiente de Dirección.**
+>
+> **La decisión de este ADR sigue vigente palabra por palabra**: `rusqlite` +
+> SQLCipher + `refinery` con repositorios propios, y está construida.
+>
+> Lo que no se construyó es la **mitigación de la consecuencia negativa 1**: el
+> hilo dedicado de base de datos que recibe peticiones por canal, y los lectores
+> en conexiones separadas. Medido el 28/10/2026: cero `thread::spawn` y cero
+> `mpsc` en `arles-db`, y una sola `Connection::open`. Lo que hay es un
+> `Mutex<Connection>`.
+>
+> Y de las dos mitades, **una estaba equivocada y la otra valía la pena**:
+>
+> - El **hilo con canal se descarta**, y ADR-0015 dice por qué no se debe
+>   construir: su premisa era «no encaja en Tokio» y **este proyecto no usa
+>   Tokio** (auditoría C, 07/10/2026). El `Mutex` ya da la serialización de un
+>   solo escritor que elimina de raíz los `SQLITE_BUSY`.
+> - Los **lectores en conexión aparte se mantienen** y se construyen, con
+>   `PRAGMA query_only` y sin que el motor los toque nunca.
+>
+> Anotado como DOC-12 en el registro de requisitos.
+
 ---
 
 ## Contexto

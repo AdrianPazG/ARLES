@@ -85,7 +85,7 @@
 | # | Decisión | Estado |
 |---|---|---|
 | [0001](03-arquitectura/adr/0001-tauri-2-sobre-electron.md) | Tauri 2 sobre Electron | aceptado |
-| [0002](03-arquitectura/adr/0002-rusqlite-sqlcipher-refinery.md) | rusqlite + SQLCipher + refinery | aceptado |
+| [0002](03-arquitectura/adr/0002-rusqlite-sqlcipher-refinery.md) | rusqlite + SQLCipher + refinery | aceptado · **acotado por 0015** |
 | [0003](03-arquitectura/adr/0003-smtp-primero-oauth-en-paralelo.md) | SMTP primero, OAuth en paralelo | aceptado |
 | [0004](03-arquitectura/adr/0004-idempotencia-y-envio-ambiguo.md) | Idempotencia y envío ambiguo | aceptado |
 | [0005](03-arquitectura/adr/0005-paleta-derivada.md) | Paleta derivada | aceptado |
@@ -98,6 +98,7 @@
 | [0012](03-arquitectura/adr/0012-recursos-fuente-unica.md) | `/RECURSOS` fuente única | **propuesto** |
 | [0013](03-arquitectura/adr/0013-origen-de-contactos-y-purificacion.md) | Origen de contactos, purificación y canario | aceptado |
 | [0014](03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md) | Detección de rebotes sin VERP | aceptado |
+| [0015](03-arquitectura/adr/0015-un-escritor-y-lectores-separados.md) | Un escritor con cerrojo, y lectores en conexión aparte | **propuesto** |
 
 ### 04 · Seguridad
 | Documento | Contenido |

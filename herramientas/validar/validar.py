@@ -166,7 +166,7 @@ def fase_0(rapido):
     # El umbral sube cuando se añade un ADR: bajar de aquí significa que alguien
     # borró un registro de decisión, y ésa es la forma en que una decisión se
     # vuelve a discutir desde cero seis meses después.
-    check(0, f"Los ADR están presentes ({len(adrs)})", len(adrs) >= 14,
+    check(0, f"Los ADR están presentes ({len(adrs)})", len(adrs) >= 15,
           "Cada decisión con coste debe tener su registro, o se vuelve a discutir cada seis meses.",
           f"se esperaban al menos 14, hay {len(adrs)}")
 
