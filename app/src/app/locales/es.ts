@@ -389,22 +389,28 @@ export const es = {
       aun: 'aún no',
     },
 
-    enConstruccion: {
-      titulo: 'Lo que falta por construir',
-      // vue-i18n elige la rama por la cantidad: «1 paso», «3 pasos». Decía
-      // siempre «pasos» y con uno solo quedaba «1 pasos».
-      nota: '{n} paso | {n} pasos',
-      cuerpo:
-        'Los módulos de campañas, canales y actividad aparecerán aquí cuando ' +
-        'existan. No se dibujan vacíos a propósito: un panel de cajas en ' +
-        'espera anuncia cosas que ARLES todavía no sabe hacer.',
-    },
     hecho: 'Hecho',
     pendiente: 'Pendiente',
-    llegaEn: 'Llega en la entrega {entrega}',
-    sinPasosDisponibles:
-      'Los siguientes pasos se construyen en las entregas indicadas. ' +
-      'No hay nada más que puedas hacer aquí todavía.',
+
+    // ── Cuando los seis pasos están hechos ─────────────────────────────────
+    //
+    // Aquí vivían tres textos que **afirmaban que ARLES no estaba terminado**,
+    // y se leían en la primera pantalla con los seis pasos en verde:
+    //
+    //   · «Lo que falta por construir · 1 paso», con el cuerpo diciendo que
+    //     los módulos de campañas, canales y actividad «aparecerán aquí
+    //     cuando existan» — las tres con pantalla desde la Fase 7.
+    //   · «Llega en la entrega {entrega}», jerga de nuestro roadmap.
+    //   · «No hay nada más que puedas hacer aquí todavía.»
+    //
+    // Ninguno era alcanzable por un error de texto: salían del núcleo, que
+    // daba el paso de la ventana por no construido porque no tiene pantalla
+    // propia. Ver D-01 en `10-requisitos/HALLAZGOS-DE-DISENO.md`.
+    altaTerminada: 'Ya puedes enviar campañas',
+    todoHecho:
+      'Los seis pasos están hechos: tienes empresa, remitente, contactos, ' +
+      'plantilla, horario y al menos una campaña. Desde aquí se crean las ' +
+      'siguientes.',
     paso: {
       empresa: {
         titulo: 'Configurar tu empresa',

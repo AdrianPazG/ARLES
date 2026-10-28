@@ -31,7 +31,7 @@ Siete, ordenados por lo que le cuestan a quien usa ARLES.
 
 | Id | Qué se ve | Dónde | Estado |
 |---|---|---|---|
-| **D-01** | Inicio dice que faltan por construir tres secciones que existen, y que no hay nada más que hacer — con **6 de 6** pasos hechos | `/inicio` | Abierto |
+| **D-01** | Inicio dice que faltan por construir tres secciones que existen, y que no hay nada más que hacer — con **6 de 6** pasos hechos | `/inicio` | **Cerrado 28/10/2026** |
 | **D-02** | El mismo número de WhatsApp se enseña de **dos formas**: `+52 81 1111 1111` y `+528100000000` | 3 pantallas | Abierto |
 | **D-03** | El asistente aprieta sus campos **al doble** que el resto del producto: 8 px entre campos contra 16 px | `/campanas/nueva` | Abierto |
 | **D-04** | «Continuar» sale apagado y **no dice por qué**, ni en pantalla ni para un lector | `/campanas/nueva` | Abierto |
@@ -97,6 +97,56 @@ la 6.4. **Tercera vez del mismo patrón en el mismo archivo.**
 **Lo que cuesta.** Quien abre ARLES por primera vez lee, en la primera pantalla,
 que el producto no está terminado. Es lo contrario de lo que el §9 pide de un
 archivo que se lee al empezar.
+
+#### Cerrado el 28/10/2026, y el arreglo no fue el que este registro proponía
+
+El §4 de abajo decía: «separar `disponible` de `ruta()`: son dos preguntas».
+**Lo correcto resultó ser lo contrario: juntarlas del todo.**
+
+Separarlas habría creado un estado nuevo —un paso que se puede hacer y no lleva
+a ningún sitio— que la interfaz tendría que pintar como un paso sin botón. Eso
+es el H-06 del 22/10/2026, el defecto de dejar sin salida. Lo que de verdad
+pasaba es más simple: **la ventana sí tiene a dónde llevar**, al paso 5 del
+asistente, y `ruta()` llevaba seis semanas diciendo que no.
+
+Así que `disponible` **se fue**: era `ruta.is_some()` dicho otra vez, y tener el
+mismo dato con dos nombres es lo que invitó a leerlos como preguntas distintas.
+Con un solo campo el estado inconsistente no existe — gana el tipo sobre el
+validador, y el validador sobre la prueba.
+
+Con eso, los tres textos falsos dejaron de ser alcanzables y **se borraron**:
+«Lo que falta por construir», «Llega en la entrega {n}» y «No hay nada más que
+puedas hacer aquí todavía». En su sitio, con los seis hechos, Inicio dice **«Ya
+puedes enviar campañas · 6 de 6»**.
+
+**Lo que se encontró arreglándolo**, y que el registro no había visto:
+
+1. **Una cuarta copia de la misma lista**, en `stores/empresa.ts`: la reserva
+   que se pinta sin núcleo detrás —`vite dev`, las sondas, las capturas de
+   revisión— tenía **tres de seis filas con `ruta: null`**, con dos de esas
+   pantallas construidas desde el 29/09. Nadie la comparaba con nada. El
+   comentario de ese archivo avisaba del riesgo… de las zonas horarias, que sí
+   se comparan. **Un aviso escrito no es una comprobación.**
+2. **La misma cifra con dos formatos en el mismo archivo**: el bloque de primera
+   vez de Inicio usa el catálogo y da «0 de 6»; el panel la armaba a mano y daba
+   «6 / 6». Lo encontró escribir la prueba, no mirarla.
+3. **El comentario del simulador nombraba un `comprobar_simulador.py`** que no
+   ha existido nunca. La comparación sí existe, en la fase 3 del validador.
+
+**Las cuatro rupturas**, las cuatro en rojo: devolver `None` en la ventana
+(el defecto original), dejar `ruta: null` en el store, mandar el simulador a
+otra pantalla, y devolver el módulo «Lo que falta por construir» a Inicio.
+
+> **Y una quinta que encontró un defecto en mi propia comprobación.** La que
+> compara el store con el núcleo recorría **sólo** lo que declara el núcleo, así
+> que un paso que el núcleo deja sin ruta y el store sí lleva no se comparaba
+> con nada: la clave no estaba en el bucle. Salió en verde con el núcleo roto a
+> propósito, mientras la del simulador salía en rojo por lo mismo. Ahora compara
+> las claves de los dos lados.
+>
+> Es exactamente el defecto que yo le había atribuido —por error— a la
+> comprobación del simulador, que sí miraba las dos direcciones desde el
+> principio. **Acusar al instrumento de al lado de lo que tiene el propio.**
 
 ---
 
@@ -266,7 +316,7 @@ El §1 bis obliga a preguntarlo, y la respuesta honesta no es «todas»:
 
 | Id | ¿Se puede vigilar? | Cómo |
 |---|---|---|
-| D-01 | **Sí, y es el que más falta hace** | Separar `disponible` de `ruta()`: son dos preguntas. Y reescribir la prueba que hoy las ata, que es lo que sujeta el defecto |
+| D-01 | **Hecho** | `todo_paso_lleva_a_su_pantalla` en el núcleo y dos comprobaciones de fase que comparan las rutas del núcleo con las del simulador y las del store. Lo que esta fila proponía —separar `disponible` de `ruta()`— **era el arreglo equivocado**, y está explicado arriba |
 | D-02 | **Sí** | Un solo formateador para el número, y una comprobación de que ninguna pantalla lo pinta crudo |
 | D-03 | **Sí** | Una sonda que mida el hueco entre campos y exija el mismo token en todos los formularios |
 | D-04 | **Sí** | Una sonda que exija que todo botón `disabled` tenga `title`, `aria-describedby` o un aviso al lado |

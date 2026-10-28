@@ -59,11 +59,14 @@ impl PasoDeOnboarding {
         }
     }
 
-    /// A dónde lleva el paso, si ya se puede hacer.
+    /// A dónde va quien quiere hacer este paso.
     ///
-    /// `None` significa que la pantalla **todavía no existe**. Se dice, no se
-    /// esconde: un paso que lleva a una pantalla vacía es peor que uno que
-    /// avisa de que llega más adelante.
+    /// **Los seis tienen a dónde llevar desde el 28/10/2026**, y por eso esto
+    /// devuelve siempre `Some`. El tipo sigue siendo `Option` a propósito: un
+    /// paso futuro puede nacer antes que su pantalla, y entonces la interfaz
+    /// tiene que poder decirlo en vez de pintar un enlace a ninguna parte.
+    /// Pero mientras todos la tengan, `todo_paso_lleva_a_su_pantalla` exige que
+    /// así sea, sin lista de excepciones.
     #[must_use]
     pub fn ruta(self) -> Option<&'static str> {
         match self {
@@ -93,23 +96,20 @@ impl PasoDeOnboarding {
             // automatizarse del todo: entregar una pantalla incluye venir aquí.
             Self::Plantilla => Some("/campanas/plantillas"),
             Self::PrimeraCampana => Some("/campanas"),
-            // La ventana de envío se configura dentro del asistente, no en una
-            // pantalla propia, así que no tiene a dónde llevar.
-            Self::VentanaDeEjecucion => None,
-        }
-    }
-
-    /// Entrega del roadmap que construye este paso.
-    ///
-    /// Se muestra en la interfaz para que la lista sea honesta sobre lo que
-    /// todavía no está: «Contactos · llega en la entrega 3.2».
-    #[must_use]
-    pub fn entrega(self) -> &'static str {
-        match self {
-            Self::Empresa => "3.1",
-            Self::Contactos => "3.2",
-            Self::Remitente => "5",
-            Self::Plantilla | Self::VentanaDeEjecucion | Self::PrimeraCampana => "6",
+            // Y la tercera vez, el 28/10/2026, con la ventana de envío.
+            //
+            // Ésta no tiene pantalla propia —se define en el paso 5 del
+            // asistente— y de ahí salía `None`. El razonamiento era correcto
+            // y la conclusión no: **«no tiene pantalla propia» no es «no se
+            // puede hacer»**, y de confundir las dos cosas salía que Inicio
+            // dijera «No hay nada más que puedas hacer aquí todavía» con los
+            // seis pasos hechos, y «Lo que falta por construir · 1 paso» en
+            // toda instalación, para siempre.
+            //
+            // Lo encontró mirar la primera pantalla (D-01 de
+            // `10-requisitos/HALLAZGOS-DE-DISENO.md`), no ninguna prueba: las
+            // pruebas afirmaban esta rama como la garantía viva de la regla.
+            Self::VentanaDeEjecucion => Some("/campanas/nueva"),
         }
     }
 
@@ -138,10 +138,26 @@ pub struct EstadoDePaso {
     pub paso: PasoDeOnboarding,
     pub clave: &'static str,
     pub completado: bool,
-    /// La pantalla existe y se puede ir a ella.
-    pub disponible: bool,
+    /// A dónde va quien quiere hacerlo. `None` sólo si no hay a dónde.
+    ///
+    /// ── AQUÍ VIVÍA UN CAMPO MÁS, Y QUITARLO ES EL ARREGLO ─────────────────
+    ///
+    /// Había además un `disponible: bool` que se calculaba como
+    /// `ruta().is_some()` — el mismo dato dicho dos veces. Y una prueba,
+    /// `disponible_y_ruta_no_pueden_divergir`, que comprobaba justo esa
+    /// igualdad.
+    ///
+    /// La prueba estaba bien escrita y verificaba lo que decía. El problema es
+    /// que **lo que decía era la regla equivocada**: los dos nombres invitaban
+    /// a leerlos como preguntas distintas —«¿tiene pantalla?» y «¿se puede
+    /// hacer hoy?»— y la interfaz los usó así, mientras el núcleo los mantenía
+    /// iguales. Una comprobación puede estar verificada y garantizar lo que no
+    /// toca.
+    ///
+    /// Con un solo campo el estado inconsistente **no existe**, que es la regla
+    /// del proyecto: gana el tipo sobre el validador, y el validador sobre la
+    /// prueba.
     pub ruta: Option<&'static str>,
-    pub entrega: &'static str,
 }
 
 /// La lista completa, lista para pintarse.
@@ -168,16 +184,14 @@ impl ListaDeOnboarding {
                 paso,
                 clave: paso.clave(),
                 completado: paso.completado(r),
-                disponible: paso.ruta().is_some(),
                 ruta: paso.ruta(),
-                entrega: paso.entrega(),
             })
             .collect();
 
         let completados = pasos.iter().filter(|p| p.completado).count();
         let siguiente = pasos
             .iter()
-            .find(|p| !p.completado && p.disponible)
+            .find(|p| !p.completado && p.ruta.is_some())
             .map(|p| p.paso);
 
         Self {
@@ -198,56 +212,64 @@ impl ListaDeOnboarding {
 #[cfg(test)]
 mod tests {
 
-    /// **Un paso cuya pantalla ya existe tiene que tener a dónde llevar.**
+    use super::*;
+
+    /// **Todo paso lleva a su pantalla. Los seis, sin excepciones.**
     ///
-    /// La lista de alta enseña «llega en la entrega X» y esconde el botón
-    /// cuando un paso no tiene ruta. Sin esta prueba, entregar una pantalla y
-    /// olvidarse de apuntarla aquí deja la lista diciendo que está por llegar
-    /// — que es lo que pasó con Contactos entre la 3.2 y la 5.3: semanas
-    /// anunciando como futura una pantalla construida, y sin forma de llegar a
-    /// ella desde la lista.
+    /// ── LO QUE HABÍA AQUÍ, Y POR QUÉ NO BASTÓ ─────────────────────────────
     ///
-    /// La lista de abajo se escribe a mano a propósito: es la afirmación «esto
-    /// ya está construido», y tiene que costar un segundo de pensar al
-    /// añadirle una línea.
+    /// Esta prueba tenía una **lista escrita a mano** de los pasos ya
+    /// construidos, defendida con este argumento: «es la afirmación “esto ya
+    /// está construido”, y tiene que costar un segundo de pensar al añadirle
+    /// una línea».
+    ///
+    /// El argumento es bueno y la lista falló igual, **tres veces**:
+    ///
+    /// - Contactos, entre la 3.2 y el 23/09/2026: semanas anunciando como
+    ///   futura una pantalla construida.
+    /// - Campañas y Plantillas, el 29/09/2026: las dos escritas aquí como
+    ///   «todavía no existen» con las pantallas hechas desde la 6.4 y la 6.8a.
+    /// - La ventana de envío, hasta el 28/10/2026 — y ésta estaba **afirmada**
+    ///   por la prueba como «la garantía viva de la regla», así que no la
+    ///   cazaba nadie: la prueba exigía que siguiera sin ruta.
+    ///
+    /// Una lista a mano no se mantiene por saber que hay que mantenerla. Es el
+    /// patrón número 3 del proyecto, y la única defensa que ha funcionado las
+    /// tres veces es no tener lista: **ahora se exigen los seis.**
+    ///
+    /// Si algún día nace un paso antes que su pantalla, esta prueba falla y
+    /// hay que decidirlo a la vista — que es exactamente cuando conviene
+    /// decidirlo, y no seis semanas después.
+    ///
+    /// Verificada rompiéndola el 28/10/2026: devolviendo `None` en la rama de
+    /// la ventana, que es el defecto que acaba de arreglarse.
     #[test]
-    fn los_pasos_ya_construidos_llevan_a_su_pantalla() {
-        let construidos = [
-            (PasoDeOnboarding::Empresa, "/inicio/configuracion"),
-            (PasoDeOnboarding::Contactos, "/contactos"),
-            (PasoDeOnboarding::Remitente, "/remitentes"),
-        ];
-        for (paso, ruta) in construidos {
-            assert_eq!(
-                paso.ruta(),
-                Some(ruta),
-                "{paso:?} ya está construido: la lista de alta tiene que poder llevar ahí"
-            );
-        }
-
-        // Plantilla y PrimeraCampana entraron el 29/09/2026, cuando esta misma
-        // prueba las tenía escritas como «todavía no existen» con las dos
-        // pantallas construidas —la de campañas desde la 6.4, la de plantillas
-        // desde la 6.8a—. Hizo su trabajo: falló al darles ruta, y obligó a
-        // mirar si la ruta era de verdad o inventada.
-        for paso in [
-            PasoDeOnboarding::Plantilla,
-            PasoDeOnboarding::PrimeraCampana,
-        ] {
-            assert!(paso.ruta().is_some(), "{paso:?} ya tiene pantalla");
-        }
-
-        // Y el que todavía no existe no inventa una ruta: un botón que lleva a
-        // una pantalla vacía es peor que no tener botón. La ventana de envío no
-        // tiene pantalla propia —se configura dentro del asistente—, así que
-        // esta rama sigue siendo la garantía viva de la regla.
-        assert_eq!(
-            PasoDeOnboarding::VentanaDeEjecucion.ruta(),
-            None,
-            "la ventana se configura en el asistente, no en una pantalla"
+    fn todo_paso_lleva_a_su_pantalla() {
+        let sin_ruta: Vec<_> = PASOS.iter().filter(|p| p.ruta().is_none()).collect();
+        assert!(
+            sin_ruta.is_empty(),
+            "estos pasos no llevan a ninguna parte, así que la lista de alta \
+             los daría por no construidos: {sin_ruta:?}"
         );
     }
-    use super::*;
+
+    /// Y la ruta tiene que ser una ruta de verdad, no una cadena cualquiera.
+    ///
+    /// Sin esto, el arreglo de arriba se puede «cumplir» con un `Some("")` o
+    /// con un `Some("pendiente")`, y la lista de alta pintaría un enlace a
+    /// ninguna parte — que es justo lo que la regla quería evitar. No se
+    /// comprueba contra el router porque el núcleo no conoce el frontend: lo
+    /// que sí se puede exigir es la forma.
+    #[test]
+    fn ninguna_ruta_es_inventada() {
+        for p in PASOS {
+            let r = p.ruta().expect("todo paso tiene ruta");
+            assert!(
+                r.starts_with('/') && r.len() > 1,
+                "{p:?} declara «{r}», que no es una ruta"
+            );
+        }
+    }
 
     #[test]
     fn una_instalacion_nueva_no_tiene_nada_hecho() {
@@ -333,21 +355,9 @@ mod tests {
     }
 
     #[test]
-    fn cada_paso_dice_en_que_entrega_llega() {
+    fn cada_paso_tiene_su_clave_de_texto() {
         for p in PASOS {
-            assert!(!p.entrega().is_empty(), "{p:?} no declara entrega");
-            assert!(!p.clave().is_empty());
-        }
-    }
-
-    /// Un paso disponible tiene ruta y uno sin ruta no está disponible: son la
-    /// misma afirmación, y si divergen la interfaz pinta un enlace a ninguna
-    /// parte.
-    #[test]
-    fn disponible_y_ruta_no_pueden_divergir() {
-        let l = ListaDeOnboarding::desde(&RecuentoDeAlta::default());
-        for p in &l.pasos {
-            assert_eq!(p.disponible, p.ruta.is_some(), "{:?} incoherente", p.paso);
+            assert!(!p.clave().is_empty(), "{p:?} no declara clave");
         }
     }
 
@@ -368,15 +378,20 @@ mod tests {
     fn la_lista_se_serializa_con_los_nombres_que_espera_la_interfaz() {
         let l = ListaDeOnboarding::desde(&RecuentoDeAlta::default());
         let json = serde_json::to_string(&l).expect("serializa");
-        for campo in [
-            "pasos",
-            "completados",
-            "total",
-            "siguiente",
-            "disponible",
-            "entrega",
-        ] {
+        for campo in ["pasos", "completados", "total", "siguiente", "ruta"] {
             assert!(json.contains(campo), "falta «{campo}» en {json}");
+        }
+
+        // Y los dos que se fueron el 28/10/2026 no pueden volver por la puerta
+        // de atrás: `disponible` era `ruta.is_some()` dicho otra vez, y
+        // `entrega` sacaba el número de entrega del roadmap a la interfaz
+        // —«Llega en la entrega 6»—, que es jerga nuestra en la pantalla de
+        // alguien que no trabaja aquí.
+        for campo in ["disponible", "entrega"] {
+            assert!(
+                !json.contains(campo),
+                "«{campo}» volvió a la frontera: {json}"
+            );
         }
     }
 }

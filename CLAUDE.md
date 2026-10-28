@@ -1557,6 +1557,40 @@ Está contado en [`ESTADO_ACTUAL.md`](documentacion/07-entrega/ESTADO_ACTUAL.md)
 > escribe el nombre de un token ni de una pieza que no exista, ni como
 > contraejemplo.** Una comprobación no distingue una afirmación de un ejemplo.
 
+**Y el 28/10/2026, mirar las dieciocho pantallas: siete hallazgos de diseño y
+tres descartados por falsos.** Están en
+[`HALLAZGOS-DE-DISENO.md`](documentacion/10-requisitos/HALLAZGOS-DE-DISENO.md),
+con los descartados incluidos — un hallazgo falso cuesta más que uno ausente.
+
+> **El primero era que Inicio decía que el producto no está terminado.** Con los
+> seis pasos del alta en **6 de 6**, la primera pantalla seguía diciendo «No hay
+> nada más que puedas hacer aquí todavía» y «Lo que falta por construir · 1
+> paso», con el cuerpo nombrando tres secciones que tienen pantalla desde la
+> Fase 7.
+>
+> Salía de una línea del núcleo: `disponible: paso.ruta().is_some()`. Eran **dos
+> preguntas distintas metidas en un campo** —«¿tiene pantalla propia?» y «¿se
+> puede hacer hoy?»— y la ventana de envío contesta *no* a la primera y *sí* a
+> la segunda, porque se define en el paso 5 del asistente.
+>
+> **El arreglo no fue separarlas, que es lo que el registro proponía: fue
+> juntarlas del todo.** Separarlas habría creado un paso que se puede hacer y no
+> lleva a ningún sitio — el H-06 otra vez. Lo que pasaba es que `ruta()` llevaba
+> seis semanas diciendo que la ventana no tenía a dónde llevar. Con eso
+> corregido, `disponible` sobraba, y con él el estado inconsistente.
+>
+> Lo vigila `todo_paso_lleva_a_su_pantalla` en el núcleo — **sin lista de
+> excepciones**, que es lo que falló las tres veces anteriores (Contactos en la
+> 3.2, Campañas y Plantillas el 29/09, la ventana ahora). La lista a mano estaba
+> defendida con un buen argumento, y falló igual tres veces.
+
+> **Y una comprobación mía nació con el defecto que yo le había atribuido a la
+> de al lado.** La que compara la lista de reserva del store con el núcleo
+> recorría **sólo** lo que declara el núcleo, así que un paso que el núcleo deja
+> sin ruta y el store sí lleva no se comparaba con nada: salió en verde con el
+> núcleo roto a propósito. La del simulador, a la que yo había acusado de mirar
+> una sola dirección, miraba las dos desde el principio.
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |

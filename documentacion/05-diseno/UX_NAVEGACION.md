@@ -261,11 +261,11 @@ Nada de tours emergentes de veinte pasos (§25). Una **lista de verificación pe
 ```
 Para poder enviar tu primera campaña                 1 de 6
 ✓ Configurar tu empresa
-  Conectar una cuenta remitente        Llega en la entrega 5
-  Cargar tus contactos                 Llega en la entrega 3.2
-  Escribir una plantilla               Llega en la entrega 6
-  Definir una ventana de envío         Llega en la entrega 6
-  Crear tu primera campaña             Llega en la entrega 6
+  Conectar una cuenta remitente        → /remitentes
+  Cargar tus contactos                 → /contactos
+  Escribir una plantilla               → /campanas/plantillas
+  Definir una ventana de envío         → /campanas/nueva
+  Crear tu primera campaña             → /campanas
 ```
 
 Cada paso es funcional: al pulsar se va a hacer la cosa, no a leer sobre ella.
@@ -281,12 +281,27 @@ que ese paso está hecho. Aquí cada paso es una consulta —¿hay alguna cuenta
 ¿hay algún contacto sin borrar?—, así que **no puede mentir**: si el dato
 desaparece, el paso vuelve a estar pendiente. Ver `arles_core::onboarding`.
 
-**Los seis pasos se enseñan desde el primer día, incluidos los que aún no
-existen**, cada uno con la entrega del roadmap que lo trae. La alternativa
-—enseñar sólo lo construido y que la lista crezca sola— hace que alguien vea
-la lista completa al terminar el primer paso y concluya que ya puede enviar.
-Un paso que avisa de que llega más adelante es información; un paso ausente es
+**Los seis pasos se enseñan desde el primer día.** La alternativa —enseñar sólo
+lo construido y que la lista crezca sola— hace que alguien vea la lista completa
+al terminar el primer paso y concluya que ya puede enviar. Un paso ausente es
 una promesa implícita de que no hace falta.
+
+> **Y los seis llevan a su pantalla desde el 28/10/2026.** Esta sección decía
+> además que cada paso enseña «la entrega del roadmap que lo trae», y así era:
+> «Llega en la entrega 6». Eso tenía sentido cuando faltaban pantallas por
+> construir y dejó de tenerlo cuando se construyeron — pero el texto siguió
+> saliendo, porque el núcleo daba por no construido todo paso **sin pantalla
+> propia**, y la ventana de envío se define dentro del asistente.
+>
+> De ahí salía que Inicio dijera «No hay nada más que puedas hacer aquí
+> todavía» con los seis pasos hechos. Es D-01 de
+> [`HALLAZGOS-DE-DISENO.md`](../10-requisitos/HALLAZGOS-DE-DISENO.md), y lo
+> vigila ahora `todo_paso_lleva_a_su_pantalla` en el núcleo, sin lista de
+> excepciones.
+>
+> **El número de una entrega de nuestro roadmap no vuelve a la interfaz.** Es
+> jerga nuestra en la pantalla de alguien que no trabaja aquí, y es el mismo
+> defecto que el 29/09/2026 sacó «roadmap», «andamiaje» y «tokens» de Actividad.
 
 ---
 

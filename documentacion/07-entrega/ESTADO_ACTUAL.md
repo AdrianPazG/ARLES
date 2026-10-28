@@ -520,3 +520,68 @@ Medido al escribir la comprobación: **114 de 115 documentos** sí estaban en el
 Lo cierra `todo_documento_esta_en_el_indice` en `--fase 0`, que **lee la
 carpeta** y no una lista. Verificada rompiéndola por los dos caminos: quitando
 del índice un documento que existe, y creando un documento sin nombrarlo.
+
+---
+
+## 14. D-01 cerrado · Inicio ya no dice que el producto no está terminado · 28/10/2026
+
+Con los seis pasos del alta en **6 de 6**, la primera pantalla decía «No hay nada
+más que puedas hacer aquí todavía» y «Lo que falta por construir · 1 paso». Hoy
+dice **«Ya puedes enviar campañas · 6 de 6»**.
+
+**El arreglo no fue el que el registro proponía**, y la diferencia vale la pena.
+El registro decía «separar `disponible` de `ruta()`: son dos preguntas». Lo
+correcto resultó ser lo contrario: **juntarlas del todo**. Separarlas habría
+creado un paso que se puede hacer y no lleva a ningún sitio, que es el H-06 —
+dejar sin salida— otra vez.
+
+Lo que pasaba es más simple: **la ventana de envío sí tiene a dónde llevar**, al
+paso 5 del asistente, y `ruta()` llevaba seis semanas diciendo que no. Con eso
+corregido, `disponible` sobraba: era `ruta.is_some()` dicho otra vez, y tener el
+mismo dato con dos nombres es lo que invitó a leerlos como preguntas distintas.
+Se fue, y con él el estado inconsistente.
+
+Los tres textos falsos dejaron de ser alcanzables y se borraron: «Lo que falta
+por construir», «Llega en la entrega {n}» —jerga de nuestro roadmap en la
+pantalla de alguien que no trabaja aquí— y «No hay nada más que puedas hacer
+aquí todavía».
+
+### Lo que encontró arreglarlo
+
+> **Una cuarta copia de la misma lista, y nadie la comparaba con nada.**
+> `stores/empresa.ts` guarda la reserva que se pinta sin núcleo detrás —`vite
+> dev`, las sondas, las capturas de revisión— y **tres de sus seis filas decían
+> `ruta: null`**, con dos de esas pantallas construidas desde el 29/09. El
+> comentario de ese archivo avisa de que «las listas están duplicadas aquí, y
+> eso es una costura peligrosa»: avisa de las zonas horarias, que sí se
+> comparan desde la Fase 3. Los pasos del alta, no. **Un aviso escrito no es
+> una comprobación.**
+
+> **La misma cifra con dos formatos en el mismo archivo.** El bloque de primera
+> vez de Inicio usa el catálogo y da «0 de 6»; el panel la armaba a mano, fuera
+> del catálogo, y daba «6 / 6». Lo encontró escribir la prueba, no mirar la
+> pantalla.
+
+> **Y el comentario del simulador nombraba un `comprobar_simulador.py`** que no
+> ha existido nunca. La comparación sí existe, en la fase 3 del validador, con
+> otro nombre.
+
+### Las comprobaciones, y la quinta ruptura que encontró un defecto propio
+
+Tres nuevas: `todo_paso_lleva_a_su_pantalla` y `ninguna_ruta_es_inventada` en el
+núcleo —sin lista de excepciones, que es lo que falló las tres veces
+anteriores— y `la lista de reserva del store lleva las rutas del núcleo` en la
+fase 3.
+
+Cuatro rupturas, las cuatro en rojo. Y una quinta que encontró un defecto en mi
+propia comprobación: la del store recorría **sólo** lo que declara el núcleo,
+así que un paso que el núcleo deja sin ruta y el store sí lleva no se comparaba
+con nada. Salió en verde con el núcleo roto a propósito, mientras la del
+simulador salía en rojo por lo mismo.
+
+> Es exactamente el defecto que el registro le había atribuido —por error— a la
+> comprobación del simulador, que sí miraba las dos direcciones desde el
+> principio. **Acusar al instrumento de al lado de lo que tiene el propio.**
+
+**Quedan seis hallazgos de diseño abiertos**, D-02 a D-07, en
+[`HALLAZGOS-DE-DISENO.md`](../10-requisitos/HALLAZGOS-DE-DISENO.md).

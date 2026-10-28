@@ -335,7 +335,7 @@ async function enviar(): Promise<void> {
               <div class="cuerpo-paso">
                 <p class="nombre">
                   <component
-                    :is="paso.disponible && paso.ruta ? RouterLink : 'span'"
+                    :is="paso.ruta ? RouterLink : 'span'"
                     :to="paso.ruta ?? undefined"
                   >
                     {{ $t(`inicio.paso.${paso.clave}.titulo`) }}
@@ -346,12 +346,13 @@ async function enviar(): Promise<void> {
                 </p>
               </div>
 
-              <p
-                v-if="!paso.disponible"
-                class="cuando"
-              >
-                {{ $t('inicio.llegaEn', { entrega: paso.entrega }) }}
-              </p>
+              <!-- Aquí iba «Llega en la entrega 6», que es el número de una
+                   entrega de nuestro roadmap en la pantalla de alguien que no
+                   trabaja aquí. Se fue el 28/10/2026 con el arreglo de D-01:
+                   los seis pasos están construidos, así que no había ninguno
+                   del que decirlo — y mientras lo hubo, lo decía de dos que sí
+                   estaban hechos. Es el mismo defecto que el 29/09/2026 sacó
+                   «roadmap», «andamiaje» y «tokens» de Actividad. -->
             </li>
           </ol>
         </section>

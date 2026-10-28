@@ -36,20 +36,30 @@ describe('configuración de empresa sin núcleo', () => {
   })
 
   /**
-   * La lista enseña los seis pasos desde el primer día, y los que aún no
-   * existen lo dicen con su entrega. Si sólo se enseñaran los construidos,
-   * alguien vería la lista completa al terminar el primero y concluiría que ya
-   * puede enviar.
+   * La lista enseña los seis pasos desde el primer día, y **los seis llevan a
+   * algún sitio**.
+   *
+   * ── LO QUE COMPROBABA ANTES, Y POR QUÉ NO SERVÍA ─────────────────────────
+   *
+   * Comprobaba dos cosas que se fueron el 28/10/2026 con el arreglo de D-01:
+   * que cada paso declarase su `entrega` del roadmap, y que `disponible` y
+   * `ruta` no divergieran. La segunda era la misma afirmación dicha dos veces
+   * —`disponible` se calculaba como `ruta !== null`—, así que no podía fallar
+   * nunca; y mientras la vigilaba, **tres de las seis filas de la reserva
+   * decían `ruta: null`** con dos de esas pantallas construidas desde el 29/09.
+   *
+   * La comprobación cubría la coherencia entre dos campos y no la única
+   * pregunta que importa: ¿lleva este paso a alguna parte? Ahora pregunta eso.
    */
-  it('los pasos que aún no existen lo declaran y no llevan a ninguna parte', async () => {
+  it('los seis pasos de la reserva llevan a una pantalla', async () => {
     const e = useEmpresaStore()
     await e.cargar()
+    expect(e.onboarding.pasos).toHaveLength(6)
     for (const paso of e.onboarding.pasos) {
-      expect(paso.entrega.length, `${paso.clave} no dice su entrega`).toBeGreaterThan(0)
-      expect(
-        paso.disponible,
-        `${paso.clave}: «disponible» y «ruta» no pueden divergir`,
-      ).toBe(paso.ruta !== null)
+      expect(paso.ruta, `${paso.clave} no lleva a ninguna parte`).not.toBeNull()
+      expect(paso.ruta?.startsWith('/'), `${paso.clave}: «${paso.ruta}» no es una ruta`).toBe(
+        true,
+      )
     }
   })
 

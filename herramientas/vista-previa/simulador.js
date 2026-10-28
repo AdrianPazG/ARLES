@@ -1583,8 +1583,10 @@
       // —que es DONDE DIRECCIÓN REVISA— seguía llevando a Ajustes. Se reportó
       // dos veces el mismo defecto porque el simulador mentía.
       //
-      // `comprobar_simulador.py` compara esta tabla con el núcleo y falla si
-      // vuelven a separarse.
+      // `la vista previa lleva a donde lleva el núcleo`, en la fase 3 del
+      // validador, compara esta tabla con el núcleo y falla si vuelven a
+      // separarse. (Este comentario nombraba un `comprobar_simulador.py` que
+      // nunca ha existido; corregido el 28/10/2026 al buscarlo.)
       // ── LOS SEIS PASOS SE CALCULAN, NO SE FIJAN ─────────────────────────
       //
       // Los cinco de abajo estaban escritos como `false` sin mirar nada, y era
@@ -1595,20 +1597,22 @@
       //
       // Encontrado el 29/09/2026 mirando la demostración, no midiéndola: el
       // texto era legítimo y ninguna sonda podía saber que era falso.
-      ['empresa', hay, true, '3.1', '/inicio/configuracion'],
+      ['empresa', hay, '/inicio/configuracion'],
       // Contactos y Remitentes ganaron ruta el 23/09/2026, al descubrirse que
       // Contactos llevaba desde la 3.2 anunciándose como «llega en la entrega
       // 3.2» con la pantalla ya construida. La comprobación de abajo volvió a
       // hacer su trabajo: avisó de que el simulador se había quedado atrás.
-      ['remitente', (e.remitentes || DEMO.remitentes).length > 0, true, '5', '/remitentes'],
-      ['contactos', (e.contactos || []).length > 0, true, '3.2', '/contactos'],
-      ['plantilla', (e.plantillas || DEMO.plantillas).length > 0, true, '6', '/campanas/plantillas'],
-      ['ventana', (e.ventanas || DEMO.ventanas).length > 0, false, '6', null],
-      ['campana', (e.campanas || DEMO.campanas).length > 0, true, '6', '/campanas'],
+      ['remitente', (e.remitentes || DEMO.remitentes).length > 0, '/remitentes'],
+      ['contactos', (e.contactos || []).length > 0, '/contactos'],
+      ['plantilla', (e.plantillas || DEMO.plantillas).length > 0, '/campanas/plantillas'],
+      // La ventana se define en el paso 5 del asistente: tiene a dónde
+      // llevar aunque no tenga pantalla propia. Decía `null` y de ahí salía
+      // que Inicio diera el producto por sin terminar (D-01, 28/10/2026).
+      ['ventana', (e.ventanas || DEMO.ventanas).length > 0, '/campanas/nueva'],
+      ['campana', (e.campanas || DEMO.campanas).length > 0, '/campanas'],
     ].map(function (p) {
       return {
-        paso: p[0], clave: p[0], completado: p[1], disponible: p[2],
-        entrega: p[3], ruta: p[4],
+        paso: p[0], clave: p[0], completado: p[1], ruta: p[2],
       };
     });
     return {

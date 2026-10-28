@@ -120,6 +120,53 @@ describe('Inicio no afirma lo que no sabe', () => {
     const w = montar()
     expect(w.findAll('.modulo')).toHaveLength(0)
   })
+
+  /**
+   * **Con los seis pasos hechos, Inicio no dice que falte nada.**
+   *
+   * Es D-01 de `10-requisitos/HALLAZGOS-DE-DISENO.md`, y es la prueba que no
+   * existía: con 6 de 6, la primera pantalla del producto decía «No hay nada
+   * más que puedas hacer aquí todavía» y «Lo que falta por construir · 1
+   * paso», con el cuerpo nombrando tres secciones —campañas, canales y
+   * actividad— que tienen pantalla desde la Fase 7.
+   *
+   * Ninguna prueba podía cazarlo porque todas montaban la pantalla con la
+   * lista de reserva, que es **cero de seis**. El estado que mentía era el
+   * único que nadie montaba: el del producto terminado.
+   *
+   * Verificada rompiéndola el 28/10/2026: devolviendo `None` en la rama de la
+   * ventana de `PasoDeOnboarding::ruta`, que es el defecto original.
+   */
+  it('con los seis pasos hechos no dice que falte nada por construir', async () => {
+    const empresa = useEmpresaStore()
+    empresa.configuracion = {
+      ...empresa.configuracion,
+      empresa: {
+        nombreComercial: 'Telemetry',
+        pais: 'MX',
+        zonaHoraria: 'America/Monterrey',
+        correoCorporativo: 'hola@telemetry.mx',
+        sitioWeb: '',
+      },
+      onboarding: {
+        ...empresa.onboarding,
+        pasos: empresa.onboarding.pasos.map((p) => ({ ...p, completado: true })),
+        completados: 6,
+        siguiente: null,
+      },
+    }
+    const w = montar()
+    await w.vm.$nextTick()
+
+    expect(w.text()).toContain('6 de 6')
+    expect(w.text(), 'el producto está terminado').not.toContain(
+      'No hay nada más que puedas hacer',
+    )
+    expect(w.text(), 'las tres secciones existen desde la Fase 7').not.toContain(
+      'Lo que falta por construir',
+    )
+    expect(w.text()).toContain('Ya puedes enviar campañas')
+  })
 })
 
 describe('La configuración sigue enseñando los seis pasos', () => {
@@ -160,7 +207,7 @@ describe('La configuración sigue enseñando los seis pasos', () => {
    * siguiente pantalla que se entregue en vez de volverse una afirmación
    * caducada.
    */
-  it('cada paso es enlace si su pantalla existe, y lo dice si no', () => {
+  it('los seis pasos son enlaces a su pantalla', () => {
     const empresa = useEmpresaStore()
     const w = montar()
     const pasos = w.findAll('.paso')
@@ -170,19 +217,16 @@ describe('La configuración sigue enseñando los seis pasos', () => {
 
     for (const [i, paso] of pasos.entries()) {
       const declarado = declarados[i]
-      if (declarado?.ruta) {
-        expect(paso.find('a').exists(), `${declarado.paso} ya existe: debe llevar ahí`).toBe(true)
-        expect(paso.find('a').attributes('href')).toBe(declarado.ruta)
-      } else {
-        expect(paso.find('a').exists(), 'no debe ser un enlace').toBe(false)
-        expect(paso.text()).toContain('Llega en la entrega')
-      }
+      expect(declarado?.ruta, `${declarado?.paso} no lleva a ninguna parte`).toBeTruthy()
+      expect(paso.find('a').exists(), `${declarado?.paso}: debe llevar a su pantalla`).toBe(
+        true,
+      )
+      expect(paso.find('a').attributes('href')).toBe(declarado?.ruta)
     }
 
-    // Y al menos uno de cada clase, para que la prueba no pase por vacío el
-    // día que todo esté construido o nada lo esté.
-    expect(declarados.some((p) => p.ruta)).toBe(true)
-    expect(declarados.some((p) => !p.ruta)).toBe(true)
+    // Y lo que ya no puede aparecer: el número de una entrega del roadmap en
+    // la pantalla de alguien que no trabaja aquí.
+    expect(w.text()).not.toContain('Llega en la entrega')
   })
 })
 

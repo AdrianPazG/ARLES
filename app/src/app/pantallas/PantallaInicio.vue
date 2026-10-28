@@ -68,23 +68,40 @@ onMounted(() => {
 })
 
 const lista = computed(() => empresa.onboarding)
-const avance = computed(() => `${lista.value.completados} / ${lista.value.total}`)
+// El avance sale del catálogo, no de una plantilla escrita aquí.
+//
+// Esto decía `${completados} / ${total}` y daba «6 / 6», mientras el bloque de
+// primera vez de esta MISMA pantalla usa `$t('inicio.avance')` y da «0 de 6».
+// La misma cifra con dos formatos en el mismo archivo, y uno de los dos fuera
+// del catálogo de textos. Lo encontró escribir la prueba de los seis pasos
+// hechos, el 28/10/2026.
 
 /**
- * El siguiente paso que **se puede hacer hoy**, no el siguiente de la lista.
+ * El siguiente paso pendiente que tiene a dónde llevar.
  *
- * La diferencia importa: los pasos 2 a 6 llegan en entregas futuras, así que
- * apuntar al «siguiente» sin más produciría un botón que lleva a una pantalla
- * pendiente. Cuando no hay ninguno accionable, el módulo lo dice en vez de
- * ofrecer un botón que no lleva a nada.
+ * ── LO QUE DECÍA ESTE COMENTARIO, Y POR QUÉ ERA EL DEFECTO ─────────────────
+ *
+ * Decía: «los pasos 2 a 6 llegan en entregas futuras, así que apuntar al
+ * siguiente sin más produciría un botón que lleva a una pantalla pendiente».
+ * Eso dejó de ser verdad hace semanas y **el código siguió comportándose como
+ * si lo fuera**, porque filtraba por un campo —`disponible`— que el núcleo
+ * calculaba como «¿tiene pantalla propia?».
+ *
+ * La ventana de envío no tiene pantalla propia pero **sí se puede hacer**: es
+ * el paso 5 del asistente. Así que nunca era «accionable», esto devolvía
+ * `null` con los seis pasos hechos, y el módulo decía «No hay nada más que
+ * puedas hacer aquí todavía» en la primera pantalla de un producto terminado.
+ *
+ * Hoy `disponible` no existe: hay una ruta o no la hay. Ver D-01 en
+ * `10-requisitos/HALLAZGOS-DE-DISENO.md`.
  */
 const siguienteAccionable = computed(
-  () => lista.value.pasos.find((p) => !p.completado && p.disponible) ?? null,
+  () => lista.value.pasos.find((p) => !p.completado && p.ruta) ?? null,
 )
 
-/** Los pasos que existirán pero todavía no, para poder decir cuántos son. */
-const porConstruir = computed(
-  () => lista.value.pasos.filter((p) => !p.disponible).length,
+/** Los seis hechos. Entonces el módulo felicita en vez de pedir otro paso. */
+const terminada = computed(
+  () => lista.value.completados === lista.value.total && lista.value.total > 0,
 )
 
 /**
@@ -189,8 +206,8 @@ const accesos = computed(() => [
       <div class="rejilla">
         <AModulo
           principal
-          :titulo="$t('inicio.alta')"
-          :nota="avance"
+          :titulo="terminada ? $t('inicio.altaTerminada') : $t('inicio.alta')"
+          :nota="$t('inicio.avance', { hechos: lista.completados, total: lista.total })"
         >
           <p
             v-if="siguienteAccionable"
@@ -202,7 +219,7 @@ const accesos = computed(() => [
             v-else
             class="detalle"
           >
-            {{ $t('inicio.sinPasosDisponibles') }}
+            {{ $t('inicio.todoHecho') }}
           </p>
 
           <template #acciones>
@@ -246,18 +263,6 @@ const accesos = computed(() => [
           </ul>
         </AModulo>
       </div>
-
-      <!-- Un módulo a todo el ancho, y no una nota al pie, porque es la
-           respuesta a «¿por qué mi panel está tan vacío?». -->
-      <AModulo
-        v-if="porConstruir > 0"
-        :titulo="$t('inicio.enConstruccion.titulo')"
-        :nota="$t('inicio.enConstruccion.nota', { n: porConstruir }, porConstruir)"
-      >
-        <p class="detalle">
-          {{ $t('inicio.enConstruccion.cuerpo') }}
-        </p>
-      </AModulo>
     </template>
   </section>
 </template>

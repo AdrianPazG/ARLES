@@ -146,8 +146,11 @@ requisitos.
 [`HALLAZGOS-DE-DISENO.md`](../10-requisitos/HALLAZGOS-DE-DISENO.md), llenado
 abriendo la demostración y mirando las dieciocho pantallas con las seis sondas
 en verde. **Siete hallazgos y tres descartados por falsos** — los dos listados,
-porque uno falso cuesta más que uno ausente. **Ninguno arreglado todavía**: el
-registro era el tramo.
+porque uno falso cuesta más que uno ausente.
+
+**D-01 cerrado el 28/10/2026**: Inicio ya no dice que el producto no está
+terminado. **Quedan seis abiertos**, D-02 a D-07, y cada uno lleva anotado qué
+comprobación lo haría imposible.
 
 Y por el camino, el noveno documento que afirmaba de más: `CLAUDE.md` §1 bis
 prometía que la fase 0 vigilaba que todo documento estuviera en el índice, y

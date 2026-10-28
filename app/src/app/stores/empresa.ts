@@ -21,14 +21,19 @@ export interface BorradorDeEmpresa {
   sitioWeb: string
 }
 
-/** Coincide con `arles_core::onboarding::EstadoDePaso`. */
+/**
+ * Coincide con `arles_core::onboarding::EstadoDePaso`.
+ *
+ * **Llevaba dos campos más hasta el 28/10/2026**, y los dos se fueron con el
+ * arreglo de D-01: `disponible`, que era `ruta !== null` dicho otra vez, y
+ * `entrega`, que sacaba el número de entrega del roadmap a la pantalla de
+ * alguien que no trabaja aquí —«Llega en la entrega 6»—.
+ */
 export interface PasoDeAlta {
   readonly paso: string
   readonly clave: string
   readonly completado: boolean
-  readonly disponible: boolean
   readonly ruta: string | null
-  readonly entrega: string
 }
 
 export interface ListaDeAlta {
@@ -74,12 +79,18 @@ const RESERVA_SIN_NUCLEO: ConfiguracionDeEmpresa = {
   paises: ['MX'],
   onboarding: {
     pasos: [
-      { paso: 'empresa', clave: 'empresa', completado: false, disponible: true, ruta: '/inicio/configuracion', entrega: '3.1' },
-      { paso: 'remitente', clave: 'remitente', completado: false, disponible: true, ruta: '/remitentes', entrega: '5' },
-      { paso: 'contactos', clave: 'contactos', completado: false, disponible: true, ruta: '/contactos', entrega: '3.2' },
-      { paso: 'plantilla', clave: 'plantilla', completado: false, disponible: false, ruta: null, entrega: '6' },
-      { paso: 'ventanaDeEjecucion', clave: 'ventana', completado: false, disponible: false, ruta: null, entrega: '6' },
-      { paso: 'primeraCampana', clave: 'campana', completado: false, disponible: false, ruta: null, entrega: '6' },
+      // Las rutas son las mismas que las de `PasoDeOnboarding::ruta` en el
+      // núcleo, y lo comprueba `las_rutas_del_alta_coinciden_con_el_nucleo`
+      // en la fase 3. Hasta el 28/10/2026 no lo comprobaba nada: las tres
+      // últimas decían aquí `ruta: null` mientras el núcleo daba pantalla a
+      // dos de ellas desde el 29/09, así que `vite dev` y las sondas pintaban
+      // una lista de alta que no era la del producto.
+      { paso: 'empresa', clave: 'empresa', completado: false, ruta: '/inicio/configuracion' },
+      { paso: 'remitente', clave: 'remitente', completado: false, ruta: '/remitentes' },
+      { paso: 'contactos', clave: 'contactos', completado: false, ruta: '/contactos' },
+      { paso: 'plantilla', clave: 'plantilla', completado: false, ruta: '/campanas/plantillas' },
+      { paso: 'ventanaDeEjecucion', clave: 'ventana', completado: false, ruta: '/campanas/nueva' },
+      { paso: 'primeraCampana', clave: 'campana', completado: false, ruta: '/campanas' },
     ],
     completados: 0,
     total: 6,

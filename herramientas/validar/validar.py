@@ -3523,16 +3523,24 @@ def la_vista_previa_no_miente_sobre_las_rutas():
         )
     )
 
-    # Las del simulador: `['empresa', hay, true, '3.1', '/inicio/configuracion'],`
+    # Las del simulador: `['empresa', hay, '/inicio/configuracion'],`
     #
     # Se lee hasta el final de la LÍNEA y no hasta el primer `]`. Con el corchete
     # la fila de contactos —`(e.contactos || []).length > 0`— era invisible: el
     # `[]` de la lista vacía cerraba el patrón antes de tiempo. La comprobación
     # llevaba desde entonces sin mirar ese paso y no lo decía.
+    #
+    # El 28/10/2026 las filas perdieron dos columnas —`disponible` y la entrega
+    # del roadmap— y este patrón las exigía: `'[\d.]+'` entre la clave y la
+    # ruta. Sin tocarlo, habría dejado de encontrar **ninguna** fila… y eso sí
+    # lo caza el `del_simulador != {}` de abajo, que es para lo que está.
+    #
+    # Y la ruta tiene que empezar por `/`: así un día de éstos nadie puede
+    # «arreglar» una divergencia poniendo una cadena cualquiera en su sitio.
     del_simulador = {
         clave: ruta
         for clave, ruta in _re.findall(
-            r"\[\s*'(\w+)',[^\n]*?'[\d.]+',\s*'([^']+)'\s*\]", generador
+            r"\[\s*'(\w+)',[^\n]*?,\s*'(/[^']*)'\s*\]", generador
         )
     }
 
@@ -3559,6 +3567,58 @@ def la_vista_previa_no_miente_sobre_las_rutas():
             "no se pudo leer ninguna ruta del simulador"
             if del_simulador == {}
             else "\n".join(divergen)
+        ),
+    )
+
+    # ── Y LA CUARTA COPIA DE LA MISMA LISTA ──────────────────────────────
+    #
+    # `stores/empresa.ts` lleva un `RESERVA_SIN_NUCLEO` con los seis pasos
+    # escritos a mano, que es lo que se pinta en `vite dev` y en las sondas de
+    # navegador cuando no hay núcleo detrás.
+    #
+    # Nadie lo comparaba con nada. Medido el 28/10/2026: **tres de sus seis
+    # filas decían `ruta: null`** —plantilla, ventana y campaña— cuando el
+    # núcleo llevaba dando pantalla a dos de ellas desde el 29/09. Así que las
+    # sondas y las capturas de revisión enseñaban una lista de alta que no era
+    # la del producto, y el comentario de ese archivo ya avisaba del riesgo:
+    # «las listas están duplicadas aquí, y eso es una costura peligrosa».
+    #
+    # Avisaba de las zonas horarias, que sí se comparan desde la Fase 3. Los
+    # pasos del alta no. **Un aviso escrito no es una comprobación.**
+    reserva = leer("app", "src", "app", "stores", "empresa.ts") or ""
+    bloque = reserva.split("RESERVA_SIN_NUCLEO", 1)[-1].split("}\n", 1)[0]
+    del_store = dict(
+        _re.findall(r"clave:\s*'(\w+)'[^\n]*?ruta:\s*'(/[^']*)'", bloque)
+    )
+    sin_ruta_en_el_store = _re.findall(r"clave:\s*'(\w+)'[^\n]*?ruta:\s*null", bloque)
+
+    # Las dos direcciones, y la segunda hizo falta de verdad.
+    #
+    # La primera versión recorría sólo `esperado` —lo que declara el núcleo—,
+    # así que un paso que el núcleo deja sin ruta y el store sí lleva **no se
+    # comparaba con nada**: la clave no estaba en `esperado` y el bucle no
+    # pasaba por ella. Lo encontró romper el núcleo a propósito y ver esta
+    # comprobación en verde mientras la del simulador salía en rojo por lo
+    # mismo. Comparar las claves de los dos lados es lo que lo cierra.
+    claves = set(esperado) | set(del_store)
+    difieren = [
+        f"{k}: el núcleo lleva a {esperado.get(k, 'ningún sitio')!r} "
+        f"y el store a {del_store.get(k, 'ningún sitio')!r}"
+        for k in sorted(claves)
+        if esperado.get(k) != del_store.get(k)
+    ]
+    check(
+        3,
+        "la lista de reserva del store lleva las rutas del núcleo",
+        bool(del_store) and not difieren and not sin_ruta_en_el_store,
+        "Es lo que se pinta sin núcleo detrás: `vite dev`, las sondas y las "
+        "capturas de revisión. Si diverge, lo que se revisa no es el producto "
+        "— y es justo donde Dirección mira.",
+        detalle=(
+            "no se leyó ninguna ruta de RESERVA_SIN_NUCLEO"
+            if not del_store
+            else "\n".join(difieren)
+            + ("\nsin ruta: " + ", ".join(sin_ruta_en_el_store) if sin_ruta_en_el_store else "")
         ),
     )
 
