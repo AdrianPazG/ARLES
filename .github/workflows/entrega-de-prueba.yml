@@ -175,8 +175,8 @@ jobs:
 
             ### Qué se puede hacer con esto
 
-            **Las dieciocho pantallas, y ARLES manda de verdad.** Al 08/10/2026,
-            con las diez fases del validador en 324/324:
+            **Las dieciocho pantallas, y ARLES manda de verdad.** Al 29/10/2026,
+            con las diez fases del validador en verde y 0 fallos:
 
             - Configurar la empresa y **cargar contactos** desde CSV o XLSX, con
               los choques revisados antes de importar; bajas y derechos ARCO.
@@ -185,17 +185,40 @@ jobs:
               de nueve pasos y **activarla**.
             - Verla enviar en Actividad, con sus cifras y **por qué no sale
               nada**, y **pararla** en cualquier momento.
-            - Dar de alta un número de WhatsApp y **mandarse un WhatsApp real**.
+            - Dar de alta un número de WhatsApp y **lanzar una campaña entera
+              por WhatsApp**, no sólo el mensaje de prueba (D-WA, 27/10/2026).
             - **Respaldo cifrado, restauración, archivado del historial** y la
               pantalla de recuperación del llavero perdido.
+            - **Comprobar SPF, DKIM y DMARC** del dominio del remitente, en el
+              preflight y en Remitentes (7.5).
+
+            ### Lo nuevo desde la versión del 22/10
+
+            | Qué | Cuándo |
+            |---|---|
+            | **Campañas enteras por WhatsApp**, con el canal elegido en el asistente y las plantillas de Meta registradas | 26 y 27/10 |
+            | **SPF, DKIM y DMARC**, con el punto 8 del preflight contestado | 26/10 |
+            | **Activar ya no congela la ventana**, enseña en qué va y **se puede cancelar** sin dejar nada a medias | 28/10 |
+            | Siete arreglos de diseño mirando las dieciocho pantallas, e Inicio deja de decir que el producto no está terminado | 28/10 |
+            | Las pantallas de Contactos, Registro, Actividad y Bajas **leen por su propia conexión**, así que no esperan al motor | 29/10 |
 
             ### Lo que todavía NO hace
 
-            - Una **campaña entera por WhatsApp**: el motor sólo recorre correo.
-              De WhatsApp sale el mensaje de prueba y nada más.
+            - **Contar las respuestas de WhatsApp.** Meta las manda por
+              *webhook* y ARLES no tiene ninguna URL a la que llamar: la cifra
+              es cero en ese canal.
+            - **Atender un «BAJA» automáticamente**, en ningún canal. Se apunta
+              a mano en Contactos › Bajas.
             - **Filtrar la audiencia** y **editar una campaña ya creada**.
-            - **Activar una campaña grande** tarda y congela la ventana: 73.5 s
-              con 451 196 destinatarios, y empieza a notarse hacia los 30 000.
+            - **Gmail y Outlook con su botón.** Se dan de alta por SMTP con
+              contraseña de aplicación, que funciona y está probado contra una
+              cuenta real.
+            - **Tasas de rebote por buzón.** Dependen de la v1.3.
+
+            > **Activar una campaña grande sigue tardando** —73.5 s con 451 196
+            > destinatarios, y se nota hacia los 30 000—, pero desde el 28/10 la
+            > ventana responde, dice en qué va y deja cancelar. Lo que tarda es
+            > escribir ~900 000 filas, y eso no ha cambiado.
 
             > **La primera vez, Windows te pedirá permiso para guardar una
             > credencial.** Es correcto: ARLES cifra su base de datos con una
