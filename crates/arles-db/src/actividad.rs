@@ -218,7 +218,7 @@ impl Db {
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
     pub fn sucesos(&self, empresa: CompanyId, f: &Filtro<'_>) -> Result<Pagina, DbError> {
-        self.con(|conn| {
+        self.leer(|conn| {
             let empresa = empresa.to_string();
             // El mismo `WHERE` para contar y para leer, construido una sola
             // vez. Dos cadenas parecidas es como se acaba enseñando «500 de

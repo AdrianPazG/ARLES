@@ -286,7 +286,7 @@ impl Db {
         tamano: u32,
     ) -> Result<PaginaDeContactos, DbError> {
         let tamano = tamano.clamp(1, MAX_POR_PAGINA);
-        self.con_dominio(|conn| {
+        self.leer_dominio(|conn| {
             let total: u32 = conn.query_row(
                 "SELECT count(*) FROM contact WHERE company_id = ?1 AND deleted_at IS NULL",
                 params![empresa.to_string()],

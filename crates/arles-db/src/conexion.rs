@@ -140,6 +140,74 @@ pub(crate) fn abrir_crudo(ruta: &Path, clave: &ClaveMaestra) -> Result<Connectio
     conn.pragma_update(None, "synchronous", "NORMAL")?;
     conn.busy_timeout(std::time::Duration::from_secs(5))?;
 
+    // ── EL `-wal` SE RECORTA AL CERRAR EL CHECKPOINT · ADR-0015 ──────────
+    //
+    // Sin esto, SQLite **reutiliza** el archivo `-wal` en vez de recortarlo, así
+    // que se queda en su pico para siempre. Medido el 28/10/2026 con
+    // `banco wal`: tras importar 500 000 contactos el `-wal` se quedaba en
+    // **716.3 MB incluso después de soltar al lector** y con la base ya
+    // volcada. Y con muchas transacciones pequeñas y un lector fijado —la forma
+    // del motor con un respaldo en marcha— llegaba a **373.3 MB** contra 4.0 MB
+    // sin lector.
+    //
+    // 64 MiB porque es holgado para el pico de una transacción normal y acota
+    // el caso malo a algo que cabe en cualquier disco. No recorta a cero a
+    // propósito: un `-wal` que se trunca en cada checkpoint obliga a recrearlo
+    // en la siguiente escritura, y eso se paga en cada envío.
+    //
+    // Es una **condición de ADR-0015**, no un ajuste: entra con la conexión de
+    // lectura y no después, porque es ésa la que puede retener el checkpoint.
+    conn.pragma_update(None, "journal_size_limit", 64 * 1024 * 1024)?;
+
+    Ok(conn)
+}
+
+/// Abre la **segunda conexión, de sólo lectura** (ADR-0015).
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// QUÉ RESUELVE, Y QUÉ NO
+///
+/// Hay **un solo escritor** con su cerrojo, y eso no cambia: es lo que
+/// «elimina de raíz» los `SQLITE_BUSY` (ADR-0002). Lo que esta conexión
+/// resuelve es que las pantallas no esperen ese cerrojo mientras una operación
+/// larga lo tiene tomado: importar 500 000 contactos (91.4 s), activar una
+/// campaña de 451 196 (73.5 s) o exportar un respaldo, que hoy **detiene los
+/// envíos** porque el cerrojo es uno solo.
+///
+/// En WAL un lector no espera a un escritor — medido el 28/10/2026: con una
+/// transacción de escritura abierta en otra conexión, la lectora devuelve y no
+/// se bloquea. Lo que bloqueaba era nuestro `Mutex`, no SQLite.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// `query_only` NO ES UNA CONVENCIÓN: ES EL MOTOR DE BASE NEGÁNDOSE
+///
+/// Medido contra SQLCipher de verdad, no contra la documentación: una escritura
+/// por aquí devuelve `Err(SqliteFailure(ReadOnly, 8))` — «attempt to write a
+/// readonly database». **Siempre, no a veces.** Es lo que hace que mover un
+/// método a `leer` sin mirar no pueda acabar en una escritura silenciosa, y es
+/// el orden que pide el §1 bis: gana el tipo sobre el validador.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LO QUE NO SE PUEDE HACER CON ELLA, Y ESTÁ VIGILADO
+///
+/// **Sirve a las pantallas y a nadie más.** `arles-motor` no la toca: sus cinco
+/// lecturas —`esta_suprimida`, `gastado_de`, `hay_que_parar`,
+/// `salud_de_la_cuenta` y `ultimo_envio_de_otra_campana`— se quedan en el
+/// escritor. La primera es la que decide si un mensaje sale, y por la lectora
+/// se perdería para siempre poder meterla con la escritura del intento en una
+/// misma transacción, y leer lo que acabas de escribir.
+///
+/// Lo vigila `el_motor_no_lee_por_la_conexion_de_pantallas` en `--fase 1`.
+///
+/// # Errores
+///
+/// Las mismas que [`abrir`], menos [`DbError::Migracion`]: **no migra**. Las
+/// migraciones las corre el escritor al arrancar, y esta conexión se abre
+/// después — una segunda conexión intentando migrar sobre un esquema ya al día
+/// es, en el mejor caso, trabajo repetido.
+pub fn abrir_para_leer(ruta: &Path, clave: &ClaveMaestra) -> Result<Connection, DbError> {
+    let conn = abrir_crudo(ruta, clave)?;
+    conn.pragma_update(None, "query_only", true)?;
     Ok(conn)
 }
 

@@ -363,6 +363,65 @@ caza el caso, por los dos caminos:
 
 ---
 
+## Qué está construido · 29/10/2026
+
+El **primer tramo**, con las dos condiciones que las mediciones añadieron:
+
+| Qué | Dónde |
+|---|---|
+| `journal_size_limit` a **64 MiB** | `conexion::abrir_crudo` |
+| `conexion::abrir_para_leer`, con `query_only` y **sin migrar** | `conexion.rs` |
+| La segunda conexión en `Db`, `Option` para que no poder abrirla no impida arrancar | `db.rs` |
+| `Db::leer` y `Db::leer_dominio` | `db.rs` |
+
+Y **cuatro lecturas movidas**, las que la medición señala como las que pesan:
+
+| Método | Pantalla | Por qué ésta |
+|---|---|---|
+| `listar_contactos` | Contactos | 357 ms tras la V11, y es la que se abre a diario |
+| `sucesos` | Registro | 3 709 ms con filtro de texto (C-2) |
+| `resumen_de_campana` | Actividad | Una por tarjeta |
+| `listar_supresiones` | Bajas | Crece sola y no se recorta |
+
+**Cuatro de 37, a propósito.** Mover los 37 de golpe sería el cambio ancho que
+esta decisión evita: cada método se mueve mirando quién lo llama. Y
+`Db::exportar` **sigue en el escritor**, que es lo que esta decisión dejó
+escrito: es el más valioso y el único que fija una transacción larga.
+
+### Lo que está probado, y lo que una prueba no puede decir
+
+Cuatro pruebas en `db.rs`, y tres rupturas vistas en rojo:
+
+- **Una escritura por la lectora da `ReadOnly`** — contra SQLCipher de verdad,
+  no contra la documentación.
+- **Lee lo que hay**, que es la otra mitad: una conexión que no deja escribir y
+  tampoco lee no serviría.
+- **No espera al escritor y ve la foto anterior**: `Ok(0)` con una transacción
+  de escritura abierta y sin confirmar, `Ok(1)` tras el `commit`.
+- **El `-wal` tiene su tope** de 64 MiB.
+
+Rupturas: quitar `query_only` → rojo; quitar `journal_size_limit` → rojo; dejar
+la lectora en `None` → rojo, **dos pruebas**.
+
+> **Y la tercera ruptura enseñó un defecto de mi prueba antes de enseñar uno del
+> código.** Con `lectora: None` la prueba de la foto **se colgaba** en vez de
+> fallar: `leer` cae al escritor y se bloquea contra el cerrojo que ella misma
+> tiene tomado — la no reentrancia que `CLAUDE.md` documenta como trampa de la
+> Fase 6. **Una prueba que se cuelga no es una prueba en rojo**: no dice qué
+> pasó, y en CI parece una máquina lenta. Ahora afirma `lectora.is_some()`
+> antes de tomar el cerrojo, y la ruptura sale en rojo con su mensaje.
+
+### Lo que falta
+
+- **Los otros 33 candidatos**, de uno en uno y mirando quién los llama.
+- **`Db::exportar` al final**, con su propia medida del `-wal`: es el que
+  convierte «hacer un respaldo detiene los envíos» en que no los detenga.
+- **Medir si se nota.** Lo construido es correcto y está probado; que una
+  pantalla responda durante una importación de 91 s **no se ha visto**, porque
+  hace falta una ventana (R-07).
+
+---
+
 ## Estado de la decisión
 
 **Aceptada por Dirección el 2026-10-28**, el mismo día que se propuso, con las

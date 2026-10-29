@@ -155,7 +155,7 @@ impl Db {
         empresa: CompanyId,
         campana: &str,
     ) -> Result<ResumenDeCampana, DbError> {
-        self.con(|conn| {
+        self.leer(|conn| {
             let audiencia = conn.query_row(
                 "SELECT count(*) FROM campaign_audience a
                   JOIN campaign c ON c.id = a.campaign_id

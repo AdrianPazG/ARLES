@@ -350,7 +350,7 @@ impl Db {
         cuantas: usize,
     ) -> Result<Vec<SupresionGuardada>, DbError> {
         let limite = cuantas.min(MAX_SUPRESIONES_POR_PAGINA);
-        self.con_dominio(|conn| {
+        self.leer_dominio(|conn| {
             let mut consulta = conn.prepare(
                 "SELECT s.id, s.channel, s.address_normalized, s.scope, s.reason,
                         s.origin, COALESCE(s.notes, ''), s.created_at, s.request_id,
