@@ -379,7 +379,7 @@ Y **cuatro lecturas movidas**, las que la medición señala como las que pesan:
 | Método | Pantalla | Por qué ésta |
 |---|---|---|
 | `listar_contactos` | Contactos | 357 ms tras la V11, y es la que se abre a diario |
-| `sucesos` | Registro | 3 709 ms con filtro de texto (C-2) |
+| `sucesos` | Registro | 1 151–1 257 ms con filtro de texto (C-2, remedido el 02/11/2026) |
 | `resumen_de_campana` | Actividad | Una por tarjeta |
 | `listar_supresiones` | Bajas | Crece sola y no se recorta |
 

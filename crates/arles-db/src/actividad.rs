@@ -14,6 +14,70 @@
 //! Con el recorte por cambio, un fin de semana entero son **dos filas**: la del
 //! viernes a las 18:00 diciendo que se acabó el horario, y la del lunes a las
 //! 9:00 diciendo que volvió. Que es exactamente lo que alguien querría leer.
+//!
+//! **POR QUÉ ESTE FILTRO NO LLEVA ÍNDICE, Y NO ES POR NO HABERLO INTENTADO**
+//!
+//! ───────────────────────────────────────────────────────────────────────────
+//! C-2, MEDIDO EL 02/11/2026 Y RESUELTO AL CONTRARIO DE LO QUE DECÍA AQUÍ
+//!
+//! Este módulo decía desde la 7.4, y la auditoría C lo repitió el 07/10/2026:
+//! *«si algún día hiciera falta más, la respuesta es FTS5»*. **Se construyó y
+//! es 18 veces peor.**
+//!
+//! Se midió sobre 451 196 sucesos, con tres corridas de cada camino y la
+//! búsqueda que un usuario hace de verdad —la dirección de **una persona**—
+//! junto al caso ancho:
+//!
+//! | Camino | Una persona (1 coincidencia) | Un dominio (119 532) |
+//! |---|---|---|
+//! | `LIKE '%…%'`, el de hoy | **1 257, 1 192, 1 151 ms** | 1 212, 1 222, 1 146 ms |
+//! | La pregunta al revés, sin índice | 1 015, 1 010, 1 145 ms | 1 192, 1 221, 1 217 ms |
+//! | Índice FTS5 `trigram` (V17) | 21 556, 21 906, 20 653 ms | 23 242, 23 793, 24 448 ms |
+//!
+//! **La razón es exactamente la contraria de la intuición: cuanto más largo el
+//! texto, peor.** Una dirección de 29 caracteres son 27 trigramas, y cada uno
+//! está en casi todas las filas —todas las direcciones acaban en un dominio y
+//! llevan `@`, puntos y las mismas sílabas—. FTS5 tiene que cruzar 27 listas
+//! de cien mil entradas para contestar «una fila». Un índice sirve cuando lo
+//! que se busca es raro; aquí cada pedazo es común.
+//!
+//! Y la V17 traía tres costes más, cada uno suficiente por sí solo:
+//!
+//! 1. **Una segunda copia de una dirección de correo**, que hay que mantener
+//!    sincronizada con tres disparadores para que un ARCO no deje el dato
+//!    encontrable en una tabla que nadie mira.
+//! 2. **Rompía `la_cascada_calculada_es_la_que_borra_sqlite`**: las tablas
+//!    sombra del FTS5 aparecen en lo que SQLite borra de verdad, así que el
+//!    preflight del archivado tendría que llevar una lista de excepciones —el
+//!    patrón de la lista a mano, en la comprobación que protege del F1.
+//! 3. **Una migración invalida todos los respaldos anteriores**
+//!    (`restauracion.rs`), y esta vez ya hay un instalador fuera.
+//!
+//! ── LO QUE SÍ SE MIDIÓ Y NO ES UN ÍNDICE ──
+//!
+//! Un **índice cubriente** sobre `message_attempt(id, contact_address)` para
+//! que el JOIN no lea la fila entera: `EXPLAIN QUERY PLAN` dice que **no
+//! cambia el plan**, así que se descartó sin medirlo — la misma regla que
+//! descartó uno de los diseños de la 8.6.
+//!
+//! **Y dónde está el tiempo de verdad:** traer las 500 filas de la página
+//! cuesta ~1 200 ms y contar **todas** las coincidencias para enseñar «500 de
+//! 3 412» cuesta otro tanto. El único cambio que baja esta cifra de verdad es
+//! dejar de dar el total exacto, y eso **no es una optimización: es D-7C**, que
+//! pidió el total al lado precisamente para que el tope no escondiera nada.
+//! Está planteado a Dirección y no se decide aquí.
+//!
+//! ── Y LA CIFRA DE LA AUDITORÍA NO SE REPRODUCE ──
+//!
+//! La auditoría C publicó **3 709 ms**; hoy la misma medición da 1 151 a
+//! 1 257 ms. `idx_activity_empresa_fecha` es de la V10, anterior a aquella
+//! medición, así que no lo explica un cambio de esquema, y esta máquina es
+//! sólo ~20 % más rápida importando. **No se va a inventar la causa**: aquella
+//! corrida no se guardó, y una corrida que no se guarda no se puede
+//! diagnosticar. De ahí que las de arriba sean tres y estén las tres escritas.
+//!
+//! El presupuesto sigue incumplido, pero por **un 20 %, no por 3.7×**, y con
+//! 451 196 sucesos — que a 300 envíos diarios es más de un año de uso.
 
 use std::collections::HashMap;
 
@@ -234,19 +298,16 @@ impl Db {
             // del registro, en silencio—.
             //
             // `?7` compara contra la dirección del intento, que vive en
-            // `message_attempt` porque aquí no hay ninguna (P-17). Es un
-            // `LIKE` con comodines a los dos lados, así que **no usa índice**:
-            // medido sobre 20 000 filas, 11 ms. Con el filtro de campaña
-            // puesto —que es como se usa— el índice recorta antes y baja a 2.
-            // Si algún día hiciera falta más, la respuesta es FTS5, no un
-            // índice sobre un LIKE que no lo puede aprovechar.
+            // `message_attempt` porque aquí no hay ninguna (P-17). El patrón
+            // se arma en Rust y no en SQL: `patron_de_busqueda` explica por qué.
+            let texto = f.texto.map(patron_de_busqueda);
             let donde = "e.company_id = ?1
                      AND (?2 IS NULL OR e.campaign_id = ?2)
                      AND (?3 IS NULL OR e.is_outcome = ?3)
                      AND (?4 IS NULL OR e.kind = ?4)
                      AND (?5 IS NULL OR e.occurred_at >= ?5)
                      AND (?6 IS NULL OR e.occurred_at <= ?6)
-                     AND (?7 IS NULL OR a.contact_address LIKE '%' || ?7 || '%')";
+                     AND (?7 IS NULL OR a.contact_address LIKE ?7 ESCAPE '\\')";
             let de = "activity_event e
                       LEFT JOIN message_attempt a ON a.id = e.message_attempt_id";
             let atados = params![
@@ -256,7 +317,7 @@ impl Db {
                 f.clave,
                 f.desde,
                 f.hasta,
-                f.texto,
+                texto,
             ];
 
             let total: u32 = conn.query_row(
@@ -474,6 +535,42 @@ fn insertar(
         ],
     )?;
     Ok(())
+}
+
+/// El texto del usuario, convertido en un patrón de `LIKE` que no es sintaxis.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// EL DEFECTO QUE ESTO ARREGLA · 02/11/2026
+///
+/// La consulta era `a.contact_address LIKE '%' || ?7 || '%'`, con el texto
+/// pegado dentro del patrón **en SQL**. Y en un patrón de `LIKE`, `%` y `_`
+/// son comodines: `%` casa con cualquier cosa y `_` con un carácter.
+///
+/// Medido sobre tres direcciones: escribir `%` en el filtro devuelve **las
+/// tres**, y `_` también. No es un error ni un hueco visible — es un filtro
+/// que, ante un carácter corriente, contesta como si no hubiera filtro.
+///
+/// Es la misma forma que una inyección de SQL, y no se arregla igual porque
+/// aquí no hay nada que concatenar: el valor ya viaja atado. Lo que hay que
+/// quitarle es el **significado**, y eso es `ESCAPE`.
+///
+/// ── POR QUÉ EL PATRÓN SE ARMA AQUÍ Y NO EN LA CONSULTA ──
+///
+/// Con `'%' || ?7 || '%'`, el `%` de los extremos lo pone SQL y el escapado
+/// tendría que ponerlo Rust: dos mitades del mismo patrón en dos sitios, y la
+/// de SQL no se puede probar sola. Armándolo entero aquí, lo que se ata es el
+/// patrón ya terminado, esta función se prueba con una tabla de casos y la
+/// consulta sólo dice `LIKE ?7 ESCAPE '\'`.
+///
+/// El orden importa: la barra se escapa **primero**. Al revés, el `\` que
+/// introduce el escapado de un `%` se volvería a escapar y el patrón buscaría
+/// una barra que el usuario no escribió.
+fn patron_de_busqueda(texto: &str) -> String {
+    let escapado = texto
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_");
+    format!("%{escapado}%")
 }
 
 #[cfg(test)]
@@ -1088,8 +1185,8 @@ mod tests {
 
     /// **Buscar una dirección encuentra sus envíos, y sólo los suyos.**
     ///
-    /// Verificada rompiéndola quitando la condición de `?7`: devuelve los tres
-    /// y falla con el recuento.
+    /// Verificada rompiéndola el 02/11/2026, dejando el filtro de texto en
+    /// `(?7 IS NULL OR 1=1)`: devuelve los tres y falla con el recuento.
     #[test]
     fn el_texto_busca_en_la_direccion() {
         let (_dir, db) = base();
@@ -1136,8 +1233,10 @@ mod tests {
     /// `contact_address` es nulo, y un `NULL LIKE '%ana%'` es nulo, no falso—,
     /// que es el error clásico de un JOIN externo con filtro.
     ///
-    /// Verificada rompiéndola: poniendo `(a.contact_address IS NULL OR …)` en
-    /// la condición, el suceso de bucle aparece y la prueba falla.
+    /// Verificada rompiéndola el 02/11/2026 de las dos formas: poniendo
+    /// `(a.contact_address IS NULL OR …)` en la condición —el suceso de bucle
+    /// aparece y falla **sólo esta** prueba, que es lo que la hace valer— y
+    /// dejando el filtro en `(?7 IS NULL OR 1=1)`.
     #[test]
     fn buscar_una_direccion_no_devuelve_sucesos_de_bucle() {
         let (_dir, db) = base();
@@ -1192,6 +1291,187 @@ mod tests {
             .expect("lee");
         assert_eq!(p.total, 1);
         assert_eq!(primero(&p.sucesos).clave, "reintento.direccionInexistente");
+    }
+
+    /// **El filtro encuentra cualquier trozo de la dirección, y nada más.**
+    ///
+    /// ── POR QUÉ ESTOS DIEZ TEXTOS Y NO TRES ──
+    ///
+    /// Esta prueba nació comparando dos caminos —el `LIKE` y un índice FTS5—
+    /// porque C-2 iba a cambiar el motor de búsqueda. El índice se descartó
+    /// (ver la cabecera de `patron_de_busqueda` y el bloque de C-2), pero los
+    /// textos se quedan, y valen más que antes: son **lo que el filtro
+    /// promete**, escrito como cifras y no como una frase.
+    ///
+    /// Cada uno está elegido para que duela:
+    ///
+    /// - `opez` es el trozo **de en medio** de un token. Un índice por palabras
+    ///   —la respuesta obvia y la que este módulo recomendaba— lo perdería, y
+    ///   quien busca un pedazo de una dirección no sabe por dónde empieza.
+    /// - `LOPEZ` en mayúsculas: `LIKE` no distingue, y eso es una promesa.
+    /// - `ana.lopez` con punto, `maria-jose` con guion: separadores para casi
+    ///   cualquier otro motor de búsqueda.
+    /// - `nuñez` lleva un carácter de dos bytes.
+    /// - `empresa.mx` casa también con `empresa.mx.otra.mx`, que es correcto:
+    ///   contiene esa cadena.
+    ///
+    /// Verificada rompiéndola el 02/11/2026 dejando el filtro de texto en
+    /// `(?7 IS NULL OR 1=1)`: falla en el primer caso, «opez», con 5 en vez
+    /// de 3.
+    ///
+    /// **Y la primera ruptura que probé no valía**, que es la lección de
+    /// siempre: poner `AND 1=1` a secas deja `?7` atado y sin usar, así que
+    /// rusqlite rechaza la consulta y la prueba cae en el `.expect("lee")`.
+    /// Salía en rojo **sin ejercitar ni un assert**. Una ruptura tiene que
+    /// quitar la garantía, no reventar el camino que lleva a ella.
+    #[test]
+    fn el_filtro_encuentra_cualquier_trozo_de_la_direccion() {
+        let (_dir, db) = base();
+        for (i, dir) in [
+            "ana.lopez@empresa.mx",
+            "Beto.Lopez@EMPRESA.MX",
+            "maria-jose@otra.com.mx",
+            "nuñez@empresa.mx",
+            "lopez@empresa.mx.otra.mx",
+        ]
+        .iter()
+        .enumerate()
+        {
+            let id = format!("a-{i}");
+            intento_para(&db, &id, dir);
+            db.anotar_suceso(
+                empresa(),
+                &desenlace_de("motor.aceptadoPorElProveedor", &id),
+            )
+            .expect("anota");
+        }
+
+        for (texto, esperados) in [
+            ("opez", 3),
+            ("lopez", 3),
+            ("LOPEZ", 3),
+            ("ana.lopez", 1),
+            ("maria-jose", 1),
+            ("nuñez", 1),
+            ("empresa.mx", 4),
+            ("@", 5),
+            ("mx", 5),
+            ("no.existe.aqui", 0),
+        ] {
+            let p = db
+                .sucesos(
+                    empresa(),
+                    &Filtro {
+                        texto: Some(texto),
+                        ..Filtro::default()
+                    },
+                )
+                .expect("lee");
+            assert_eq!(
+                p.total, esperados,
+                "buscar «{texto}» tenía que encontrar {esperados} y encontró {}",
+                p.total
+            );
+        }
+    }
+
+    /// **Un `%` o un `_` en el filtro se buscan literales, no como comodines.**
+    ///
+    /// ── EL DEFECTO QUE ESTA PRUEBA CERRÓ · 02/11/2026 ──
+    ///
+    /// La consulta pegaba el texto dentro del patrón en SQL
+    /// —`LIKE '%' || ?7 || '%'`—, así que el texto del usuario **era
+    /// sintaxis**: escribir `%` casaba con todo y `_` con cualquier carácter.
+    /// Medido antes de arreglarlo, sobre cinco direcciones: `%` devolvía las
+    /// cinco y `_` también.
+    ///
+    /// No es una pérdida de datos ni un error visible, y por eso llevaba ahí
+    /// desde la 7.4: un filtro que ante un carácter corriente contesta como si
+    /// no hubiera filtro **parece que funciona**.
+    ///
+    /// Lo encontró buscar lo contrario: al descartar el índice FTS5 había una
+    /// prueba escrita para que su lenguaje de consulta no se colara, y la
+    /// pregunta «¿y el `LIKE` tiene lenguaje propio?» tenía respuesta.
+    ///
+    /// Verificada rompiéndola el 02/11/2026 de las dos formas, que dan
+    /// resultados distintos y las dos en rojo:
+    ///
+    /// - **Quitando el `ESCAPE` de la consulta** y dejando el escapado de
+    ///   Rust: buscar `%` encuentra **0** en vez de 1, porque sin `ESCAPE` la
+    ///   barra del patrón es un carácter más y se busca `\%` literal.
+    /// - **Volviendo a la consulta de antes** (`LIKE '%' || ?7 || '%'`, sin
+    ///   escapar nada): `%` y `_` encuentran **las cinco**, que es el defecto
+    ///   original tal cual estaba en producción.
+    #[test]
+    fn un_texto_con_comodines_de_like_se_busca_literal() {
+        let (_dir, db) = base();
+        for (i, dir) in [
+            "ana@empresa.mx",
+            "beto@empresa.mx",
+            "cris@empresa.mx",
+            "dora@otra.mx",
+            "100%seguro@otra.mx",
+        ]
+        .iter()
+        .enumerate()
+        {
+            let id = format!("a-{i}");
+            intento_para(&db, &id, dir);
+            db.anotar_suceso(
+                empresa(),
+                &desenlace_de("motor.aceptadoPorElProveedor", &id),
+            )
+            .expect("anota");
+        }
+
+        for (texto, esperados) in [
+            // Los comodines, que antes devolvían las cinco.
+            ("%", 1),
+            ("_", 0),
+            ("a_a", 0),
+            ("%empresa", 0),
+            // Y la barra, que es el carácter de escape: tiene que poder
+            // buscarse sin que arrastre al siguiente.
+            ("\\", 0),
+            ("\\%", 0),
+        ] {
+            let p = db
+                .sucesos(
+                    empresa(),
+                    &Filtro {
+                        texto: Some(texto),
+                        ..Filtro::default()
+                    },
+                )
+                .expect("lee");
+            assert_eq!(
+                p.total, esperados,
+                "buscar «{texto}» encontró {} y tenía que encontrar {esperados}: \
+                 el texto del usuario se está interpretando como patrón",
+                p.total
+            );
+        }
+    }
+
+    /// **Y el patrón se arma bien, carácter a carácter.**
+    ///
+    /// La prueba de arriba pasa por la base y mide lo que el usuario ve; ésta
+    /// mira el patrón que se ata, que es donde está la regla del orden: la
+    /// barra se escapa primero. Hacerlo al revés deja un patrón que busca una
+    /// barra que nadie escribió, y eso **no se ve** en un recuento de cero.
+    ///
+    /// Verificada rompiéndola invirtiendo el orden de los `replace`: el caso de
+    /// `100%` falla con `%100\\\%%` en vez de `%100\%%`.
+    #[test]
+    fn el_patron_escapa_la_barra_antes_que_los_comodines() {
+        assert_eq!(patron_de_busqueda("ana"), "%ana%");
+        assert_eq!(patron_de_busqueda("100%"), "%100\\%%");
+        assert_eq!(patron_de_busqueda("a_b"), "%a\\_b%");
+        assert_eq!(patron_de_busqueda("c:\\x"), "%c:\\\\x%");
+        // Lo que de verdad distingue el orden: una barra seguida de un
+        // comodín. Escapando los comodines primero, la barra del escapado se
+        // volvería a escapar y el patrón buscaría dos barras.
+        assert_eq!(patron_de_busqueda("\\%"), "%\\\\\\%%");
     }
 
     /// **«Hasta» incluye su propio instante.**

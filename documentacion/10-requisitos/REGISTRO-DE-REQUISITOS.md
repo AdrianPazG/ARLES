@@ -71,9 +71,10 @@ plazo externo que no se comprime.
 |---|---|---|---|
 | **R-05** | Imagen en la firma | Embebida dispara filtros de spam y engorda cada correo; alojada hay que alojarla, y el saneado tendría que admitir `<img>` | espera decisión |
 | **R-25** | Baja automática por correo | La recomendación es IMAP: leer la bandeja y dar de baja a quien responda BAJA | espera decisión |
-| **C-2** | Filtro de la lista de contactos | El del **registro** sí existe, con seis criterios (7.4). El de la lista de contactos, no | abierto · declarado en la auditoría C |
+| **R-26** | Filtro de la lista de contactos | No existe: `listar_contactos` sólo toma página y tamaño. Está anotado desde la Fase 6, y es **otra cosa que C-2** — ver abajo | abierto |
+| **D-19** | ¿El registro tiene que dar el total exacto? | C-2 midió que **el único cambio que baja el tiempo del filtro es dejar de contar todas las coincidencias**: traer las 500 filas cuesta la mitad. Pero el total al lado es D-7C, y se pidió para que el tope no escondiera nada. Las opciones y las cifras, abajo | espera decisión |
 | **V11→V12** | Restaurar un respaldo de un esquema anterior | Hoy se rechaza con un error claro. Arreglarlo exige correr las migraciones sobre el propio respaldo, que es otra entrega | abierto |
-| **Fase 9** | Activar una campaña en segundo plano, con avance | Activar tarda 73.5 s con 451 196 destinatarios y se rompe **alrededor de los 30 000**. Hoy la interfaz se congela y no se puede cancelar | abierto · medido en la auditoría C |
+| **Fase 9** | Sacar la activación al hilo del motor | Activar tarda ~73 s con 451 196 destinatarios y el presupuesto de 2 s se rompe **alrededor de los 30 000**. Desde el 28/10 la ventana **sí responde**, dice en qué va y se puede cancelar; lo que queda es que no corra dentro de un comando | abierto · medido en la auditoría C |
 
 ---
 
@@ -116,6 +117,52 @@ Dirección lo pida.
 | **H-12** | **La firma elegida nunca se guardaba.** Todas las campañas salían con la misma, y nada fallaba | ✅ 22/10/2026 |
 | **H-07** | El límite diario se escribía y no se aplicaba: se pedía 300 y salían 50 | ✅ 22/10/2026 · D-13 |
 | **H-08** | Dos campañas con el mismo remitente salían 25 y 25, por orden de llegada | ✅ 22/10/2026 · hoy salen las dos enteras, y el paso 6 avisa de que el plazo cambia |
+| **H-13** | **Escribir `%` o `_` en el filtro del registro devolvía todas las filas.** El texto del usuario entraba dentro del patrón del `LIKE`, así que era sintaxis | ✅ 02/11/2026 · lo encontró medir C-2 |
+
+---
+
+## C-2 · el filtro del registro, cerrado al contrario de lo previsto
+
+**02/11/2026.** La auditoría C lo declaró con **3 709 ms de un presupuesto de
+1 s** y escribió la solución: FTS5. **Se construyó y es 18 veces peor.**
+
+Medido sobre 451 196 sucesos, con tres corridas de cada camino y las dos
+búsquedas que importan — la de **una persona**, que es la que alguien hace, y
+la de un dominio entero:
+
+| Camino | Una persona (1 coincidencia) | Un dominio (119 532) |
+|---|---|---|
+| `LIKE '%…%'`, el de hoy | 1 257, 1 192, 1 151 ms | 1 212, 1 222, 1 146 ms |
+| La pregunta al revés, sin índice | 1 015, 1 010, 1 145 ms | 1 192, 1 221, 1 217 ms |
+| Índice FTS5 `trigram` | 21 556, 21 906, 20 653 ms | 23 242, 23 793, 24 448 ms |
+
+**Cuatro cosas que cambian lo que se sabía:**
+
+1. **El presupuesto se incumple por un 20 %, no por 3.7×.** La cifra de la
+   auditoría no se reproduce, y no lo explica un cambio de esquema: el índice
+   que usa esa consulta es de la V10, anterior a aquella medición. No se
+   inventa la causa — aquella corrida no se guardó.
+2. **Ningún índice sirve.** El FTS5 `trigram` empeora cuanto más largo es el
+   texto, porque cada trigrama de una dirección está en casi todas las filas.
+   Un índice cubriente no cambia el plan de consulta, así que se descartó sin
+   medirlo.
+3. **La pregunta al revés gana un 13 %**: no justifica cambiar una consulta
+   correcta.
+4. **El tiempo está en el total**, no en la búsqueda. Traer las 500 filas de la
+   página cuesta la mitad. De ahí **D-19**, arriba: el total exacto es lo único
+   que baja esta cifra, y es una decisión de producto.
+
+Y los tres costes que la migración traía aparte del rendimiento, cada uno
+suficiente por sí solo: una segunda copia de una dirección de correo que hay
+que mantener sincronizada para que un ARCO no la deje encontrable; romper
+`la_cascada_calculada_es_la_que_borra_sqlite`, que es la defensa contra **F1**;
+e invalidar todos los respaldos anteriores, con un instalador ya fuera.
+
+> **Lo que esto deja construido**, aunque el índice se haya ido: el banco mide
+> los tres caminos y cualquiera puede volver a correr la comparación, en vez de
+> creerse esta tabla; H-13 arreglado; y
+> `ninguna_tabla_se_queda_fuera_del_respaldo` ya ve una tabla virtual — no la
+> veía, y la fase 8 pasó en verde con una tabla nueva sin clasificar.
 
 ---
 
@@ -153,6 +200,7 @@ no una relectura con buena voluntad.
 | **DOC-10** | Esta misma tabla: P-01 era «**lo único entre ARLES y el `.exe`**», y los bloqueos eran «los cuatro» | Son cinco. Faltaban los **dos trámites de firma**, declarados en `DISTRIBUCION_Y_FIRMA.md` §1 desde la Fase 0 como plazos externos que arrancan en la Fase 1, y ausentes de las **tres** listas de bloqueos del proyecto | ✅ 28/10/2026 · ahora los cuenta `los_bloqueos_se_cuentan_en_un_solo_sitio` |
 | **DOC-11** | `avance.json`: **89 % a 2026-10-22**, con F3W al 55 %, F5 al 70 % y F7 al 92 % | Doce tramos cerrados después de esa fecha —la 7.5 entera y D-WA entera— dejaban las tres fichas describiendo un estado que ya no existía. F7 decía «falta sólo la 7.5» con la 7.5 construida. Recalculado: **95 %** | ✅ 28/10/2026 |
 | **DOC-12** | `ADR-0002`: la base «vive en un hilo dedicado que recibe peticiones por canal», y «los lectores usan conexiones separadas» | Ni una cosa ni la otra. Cero `thread::spawn` y cero `mpsc` en `arles-db`, y **una sola** `Connection::open`: lo que hay es un `Mutex<Connection>`. Su decisión tecnológica sí está construida y es correcta; lo que no se construyó es una **mitigación** de sus consecuencias negativas | ✅ 28/10/2026 · acotado por [ADR-0015](../03-arquitectura/adr/0015-un-escritor-y-lectores-separados.md) |
+| **DOC-13** | `actividad.rs` desde la 7.4, y la auditoría C repitiéndolo el 07/10: «si algún día hiciera falta más, **la respuesta es FTS5**» | Se construyó y es **18 veces más lento** (21 556 ms contra 1 257). Ningún índice sirve para este filtro, y el tiempo está en contar el total, no en buscar. Es el peor sitio donde dejar una recomendación sin medir: un comentario del código, que el siguiente lee como una decisión tomada | ✅ 02/11/2026 · la cabecera del módulo lleva ahora las nueve cifras, y el banco repite la comparación |
 
 **Las cinco primeras llevaban ahí desde la Fase 2** y ninguna de las cuatro
 auditorías del §140 las vio, porque una auditoría mide el producto y esto es un

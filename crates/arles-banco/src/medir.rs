@@ -534,11 +534,7 @@ fn importar(
 /// El tope diario va alto **con su aceptación de riesgo** (§48): la campaña que
 /// este presupuesto describe es la de medio millón, y `crear_campana` exige
 /// constancia de que se informó antes de dejar pasar de 50.
-fn activacion(
-    db: &arles_db::Db,
-    empresa: arles_core::ids::CompanyId,
-    cuantas: usize,
-) -> Result<(std::time::Duration, u32), Box<dyn std::error::Error>> {
+fn activacion(db: &arles_db::Db, empresa: arles_core::ids::CompanyId, cuantas: usize) -> Medicion {
     use arles_db::alta_de_campana::{CampanaNueva, PorDondeSale};
     use arles_db::plantillas::Redaccion;
 
@@ -629,10 +625,15 @@ fn activacion(
 ///
 /// Lo que esto **no** mide: lo que cuesta escribirlas. Eso lo paga el motor,
 /// una por envío, y se mide en la corrida larga.
-fn filtrar_el_registro(
-    db: &arles_db::Db,
-    empresa: arles_core::ids::CompanyId,
-) -> Result<(std::time::Duration, u32), Box<dyn std::error::Error>> {
+///
+/// Una medida: cuánto tardó y sobre cuántas filas.
+///
+/// Las dos cosas juntas y no sólo el tiempo. Un camino que tarda menos y
+/// encuentra otra cosa no es más rápido: es otro filtro — y el error que eso
+/// esconde es el que convierte una mejora en un hallazgo falso.
+type Medicion = Result<(std::time::Duration, u32), Box<dyn std::error::Error>>;
+
+fn filtrar_el_registro(db: &arles_db::Db, empresa: arles_core::ids::CompanyId) -> Medicion {
     use arles_db::actividad::Filtro;
 
     db.ejecutar_en_pruebas(|c| {
@@ -647,20 +648,261 @@ fn filtrar_el_registro(
         )
     })?;
 
-    let filtro = Filtro {
-        texto: Some("ejemplo.mx"),
-        ..Filtro::default()
+    // ── DOS BÚSQUEDAS, Y LA DIFERENCIA ENTRE ELLAS ES EL HALLAZGO ─────────
+    //
+    // La auditoría C midió **una sola** búsqueda: el dominio `ejemplo.mx`, que
+    // en esta base sintética **casan 119 532 de 451 196 filas** — una de cada
+    // cuatro. Y la conclusión que sacó, «hace falta un índice», sale de ahí.
+    //
+    // Pero ésa no es la búsqueda que alguien hace. Quien abre el filtro del
+    // registro busca **a una persona**: una dirección entera o un trozo de
+    // ella, que casa con una fila o con ninguna. Un índice y un recorrido
+    // completo se comportan **al contrario** en los dos casos, así que medir
+    // uno y decidir por los dos es cómo se acaba optimizando el caso que nadie
+    // recorre — que es exactamente lo que el banco se hizo a sí mismo en la
+    // 8.5 y está escrito en el §9 de `CLAUDE.md`.
+    //
+    // Así que se miden los dos, y cada uno por los dos caminos, **sobre esta
+    // misma base y con la caché en el mismo estado**. Comparar contra el 3 709
+    // del 07/10 sería comparar dos máquinas y cinco migraciones de distancia.
+    //
+    // En cada par, el `LIKE` va primero a propósito: si fuera después se
+    // beneficiaría de las páginas que acaba de cargar la otra consulta y
+    // saldría mejor de lo que es. El orden favorece al camino viejo, que es el
+    // lado correcto por el que equivocarse al presentar una mejora propia.
+    let con_like = |texto: &str| -> Medicion {
+        let t = Instant::now();
+        let n: u32 = db.ejecutar_en_pruebas(|c| {
+            c.query_row(
+                "SELECT count(*) FROM activity_event e
+                   LEFT JOIN message_attempt a ON a.id = e.message_attempt_id
+                  WHERE e.company_id = ?1
+                    AND a.contact_address LIKE '%' || ?2 || '%'",
+                rusqlite::params![empresa.to_string(), texto],
+                |r| r.get(0),
+            )
+        })?;
+        Ok((t.elapsed(), n))
     };
-    let t = Instant::now();
-    let pagina = db.sucesos(empresa, &filtro)?;
-    let tardo = t.elapsed();
-    eprintln!(
-        "el registro filtrado devolvió {} de {} en {}",
-        pagina.sucesos.len(),
-        pagina.total,
-        ms(tardo)
-    );
-    Ok((tardo, pagina.total))
+    let con_indice = |texto: &str| -> Medicion {
+        let filtro = Filtro {
+            texto: Some(texto),
+            ..Filtro::default()
+        };
+        let t = Instant::now();
+        let pagina = db.sucesos(empresa, &filtro)?;
+        Ok((t.elapsed(), pagina.total))
+    };
+
+    // ── Y UN TERCER CAMINO, QUE NO NECESITA NINGÚN ÍNDICE ─────────────────
+    //
+    // `EXPLAIN QUERY PLAN` del camino viejo dice esto:
+    //
+    //     SEARCH e USING INDEX idx_activity_empresa_fecha (company_id=?)
+    //     SEARCH a USING INDEX sqlite_autoindex_message_attempt_1 (id=?)
+    //
+    // O sea: **no es un recorrido de tabla**. Recorre los sucesos de la
+    // empresa y, por cada uno, busca su intento por clave primaria para mirar
+    // la dirección. Con 451 196 sucesos son 451 196 búsquedas con salto
+    // aleatorio en otra tabla — y eso, no el `LIKE`, es lo que cuesta.
+    //
+    // Si la pregunta se hace al revés —primero qué intentos casan, recorriendo
+    // UNA columna de UNA tabla, y después qué sucesos son de ésos— se cambian
+    // 451 196 saltos por un recorrido secuencial y una lista. Sin migración,
+    // sin índice y **sin una segunda copia de una dirección de correo**.
+    //
+    // Se mide porque el plan lo sugiere, no porque suene mejor: es la misma
+    // regla de la 8.6, donde uno de los índices diseñados no cambiaba el plan
+    // y se descartó.
+    let con_subconsulta = |texto: &str| -> Medicion {
+        let t = Instant::now();
+        let n: u32 = db.ejecutar_en_pruebas(|c| {
+            c.query_row(
+                "SELECT count(*) FROM activity_event e
+                      WHERE e.company_id = ?1
+                        AND e.message_attempt_id IN (
+                              SELECT id FROM message_attempt
+                               WHERE contact_address LIKE '%' || ?2 || '%')",
+                rusqlite::params![empresa.to_string(), texto],
+                |r| r.get(0),
+            )
+        })?;
+        Ok((t.elapsed(), n))
+    };
+
+    // La dirección de una persona que existe de verdad en la base: buscar algo
+    // inventado mide el índice igual pero no el camino que el usuario recorre.
+    let una_persona: String = db.ejecutar_en_pruebas(|c| {
+        c.query_row(
+            "SELECT contact_address FROM message_attempt LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
+    })?;
+
+    // ── Y LA PÁGINA APARTE DEL TOTAL, QUE NO CUESTAN LO MISMO ─────────────
+    //
+    // `sucesos()` hace **dos** consultas: una cuenta todas las coincidencias y
+    // otra trae 500. Es lo que sostiene «500 de 3 412» (D-7C), y es la mitad
+    // que nadie había medido por separado.
+    //
+    // La diferencia decide el diseño: si lo que tarda es traer las 500, el
+    // problema es la búsqueda; si lo que tarda es contarlas, el problema es la
+    // cifra del total, y eso no se arregla con un índice — se arregla
+    // decidiendo si el total tiene que ser exacto, que es una decisión de
+    // producto y no mía.
+    let solo_la_pagina = |texto: &str,
+                          por_el_indice: bool|
+     -> Result<std::time::Duration, Box<dyn std::error::Error>> {
+        let donde = if por_el_indice {
+            "a.rowid IN (SELECT rowid FROM message_attempt_fts
+                              WHERE message_attempt_fts MATCH ?2)"
+        } else {
+            "a.contact_address LIKE '%' || ?2 || '%'"
+        };
+        let atado = if por_el_indice {
+            format!("\"{}\"", texto.replace('"', "\"\""))
+        } else {
+            texto.to_owned()
+        };
+        let t = Instant::now();
+        db.ejecutar_en_pruebas(|c| {
+            let mut q = c.prepare(&format!(
+                "SELECT e.id FROM activity_event e
+                       LEFT JOIN message_attempt a ON a.id = e.message_attempt_id
+                      WHERE e.company_id = ?1 AND {donde}
+                      ORDER BY e.occurred_at DESC, e.rowid DESC
+                      LIMIT 500"
+            ))?;
+            let filas = q
+                .query_map(rusqlite::params![empresa.to_string(), atado], |r| {
+                    r.get::<_, String>(0)
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(filas.len())
+        })?;
+        Ok(t.elapsed())
+    };
+
+    // ── EL ÍNDICE SE MIDE SI ESTÁ, Y HOY NO ESTÁ ──────────────────────────
+    //
+    // **El índice FTS5 se construyó, se midió y se descartó el 02/11/2026**:
+    // 21 556 ms frente a 1 257 con un `LIKE`, buscando a una persona. Las
+    // razones y las nueve cifras están en la cabecera de `patron_de_busqueda`,
+    // en `arles-db/src/actividad.rs`.
+    //
+    // Esta rama se queda porque **la medición es la conclusión**: quien vuelva
+    // a proponer un índice de texto para el registro —y lo proponían este
+    // módulo y la auditoría C— puede recrear la migración y volver a correr
+    // `banco 500000` para verlo, en vez de creerse una tabla de un documento.
+    // Sin ella habría que escribir otra vez el instrumento para repetir la
+    // medida, que es como se acaba decidiendo de memoria.
+    //
+    // Y el banco tiene que poder correr sin el índice de todas formas: medir
+    // «cuánto cuesta» exige poder medir sin él. Reventar aquí dejaría la
+    // comparación sin su término de referencia, que es lo que obligó a
+    // comparar contra una cifra del 07/10 tomada en otra máquina.
+    let hay_indice: bool = db.ejecutar_en_pruebas(|c| {
+        c.query_row(
+            "SELECT count(*) FROM sqlite_master WHERE name = 'message_attempt_fts'",
+            [],
+            |r| r.get::<_, u32>(0),
+        )
+    })? == 1;
+    if !hay_indice {
+        eprintln!("FILTRO DEL REGISTRO · sin la V17: sólo se miden los caminos sin índice");
+    }
+
+    let mut resultado = None;
+    for (que, texto) in [
+        ("una persona", una_persona.as_str()),
+        ("un dominio entero", "ejemplo.mx"),
+    ] {
+        // ── TRES CORRIDAS DE CADA UNA, Y SE PUBLICAN LAS TRES ─────────────
+        //
+        // La auditoría C publicó **3 709 ms** el 07/10/2026 y hoy la misma
+        // medición da del orden de la cuarta parte, sin que haya cambiado el
+        // esquema: `idx_activity_empresa_fecha` es de la V10, anterior a
+        // aquella medición. Esta máquina es ~20 % más rápida importando, que
+        // no explica un factor de tres.
+        //
+        // No se va a inventar la causa —la corrida de entonces no se guardó, y
+        // «una corrida que no se guarda no se puede diagnosticar»—, pero sí se
+        // deja de publicar **un número suelto de una sola corrida**, que es lo
+        // que permitió que aquella cifra no se pudiera comprobar. Es lo que se
+        // hizo con el precio de la V11: tres corridas, y las tres escritas.
+        let tres = |f: &dyn Fn(&str) -> Medicion|
+         -> Result<(Vec<std::time::Duration>, u32), Box<dyn std::error::Error>> {
+            let mut t = Vec::new();
+            let mut n = 0;
+            for _ in 0..3 {
+                let (d, cuantas) = f(texto)?;
+                t.push(d);
+                n = cuantas;
+            }
+            Ok((t, n))
+        };
+        let (ts_like, n_like) = tres(&con_like)?;
+        let (ts_sub, n_sub) = tres(&con_subconsulta)?;
+        let tresms = |ts: &[std::time::Duration]| -> String {
+            ts.iter().map(|d| ms(*d)).collect::<Vec<_>>().join(", ")
+        };
+        if n_sub != n_like {
+            return Err(format!(
+                "la subconsulta encuentra {n_sub} y el LIKE {n_like} buscando \
+                 «{texto}»: no son el mismo filtro"
+            )
+            .into());
+        }
+
+        let con_el_indice = if hay_indice {
+            let (ts_indice, n_indice) = tres(&con_indice)?;
+            if n_like != n_indice {
+                return Err(format!(
+                    "los dos caminos del filtro no encuentran lo mismo buscando \
+                     «{texto}»: LIKE {n_like}, índice {n_indice}. La cifra de la \
+                     comparación no significaría nada"
+                )
+                .into());
+            }
+            Some((ts_indice, n_indice))
+        } else {
+            None
+        };
+
+        eprintln!("FILTRO DEL REGISTRO · buscar {que} («{texto}», {n_like} coincidencias)");
+        eprintln!(
+            "   ↳ con LIKE, tres corridas:        [{}]",
+            tresms(&ts_like)
+        );
+        eprintln!(
+            "   ↳ la pregunta al revés, sin índice: [{}]",
+            tresms(&ts_sub)
+        );
+        if let Some((ts_indice, _)) = con_el_indice.as_ref() {
+            eprintln!(
+                "   ↳ con un índice FTS5 trigram:       [{}]",
+                tresms(ts_indice)
+            );
+            eprintln!(
+                "   ↳ sólo las 500 de la página, sin contar el total: \
+                 LIKE {} → índice {}",
+                ms(solo_la_pagina(texto, false)?),
+                ms(solo_la_pagina(texto, true)?),
+            );
+        }
+
+        // El presupuesto se juzga con el caso que el usuario recorre, que es
+        // el primero. El ancho se publica al lado porque es el que decide si
+        // el índice vale la pena, pero nadie busca un dominio entero.
+        if resultado.is_none() {
+            resultado = Some((
+                con_el_indice.as_ref().map_or(ts_like[0], |(ts, _)| ts[0]),
+                n_like,
+            ));
+        }
+    }
+    resultado.ok_or_else(|| "no se midió ninguna búsqueda".into())
 }
 
 fn informe(

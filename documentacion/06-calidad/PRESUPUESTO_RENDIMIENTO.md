@@ -27,7 +27,7 @@ detectar lo que está mal por un orden de magnitud — no para certificar.
 | **Abrir tabla de contactos** (la consulta) | < 500 ms | ❌ 1 424 ms | ✅ **357 ms** | ✅ arreglado en la 8.6 |
 | Simulación de campaña | < 200 ms | 5.9 ms | 6.0 ms | ✅ cumple |
 | **Calcular audiencia de campaña** (activar) | < 2 s | — | ❌ **73.5 s** | ❌ **36× por encima** |
-| **Filtro del registro por texto** | < 1 s | — | ❌ **3 709 ms** | ❌ **3.7× por encima** |
+| **Filtro del registro por texto** | < 1 s | — | ❌ 3 709 ms · **remedido 02/11: 1 151–1 257 ms** | ❌ **un 20 % por encima** · ningún índice ayuda (ver la corrección del §2) |
 | **Memoria del motor en corrida larga** | < 250 MB | — | ✅ **13.9 MB, plana** | ✅ cumple · parcial (sin webview) |
 | Arranque en frío | < 2 s | — | — | ⬜ sin medir (R-07) |
 | Desplazamiento en tabla virtualizada | 60 fps | — | — | ⬜ sin medir (R-07) |
@@ -282,6 +282,50 @@ ese recorte **lo pulsa el usuario**, no un reloj.
 
 Así que C-1 es trabajo y C-2 es una cifra declarada con su condición. Decir que
 los dos «fallan» sin esa diferencia habría sido exacto y useless.
+
+> ### Corrección del 02/11/2026 · esta medida se volvió a tomar, y sale distinta
+>
+> **Ni la cifra ni la conclusión de arriba se sostienen.** Lo de arriba se deja
+> como estaba porque es lo que se midió y lo que se decidió aquel día, y un
+> documento que se reescribe para parecer acertado deja de servir para ver cómo
+> se llegó a una decisión.
+>
+> **1 · La cifra no se reproduce.** Hoy, la misma medición sobre los mismos
+> 451 196 sucesos da **1 151 a 1 257 ms**, no 3 709. `idx_activity_empresa_fecha`
+> es de la V10, anterior a aquella medición, así que no lo explica un cambio de
+> esquema, y esta máquina es sólo ~20 % más rápida importando. **No se inventa
+> la causa**: aquella corrida no se guardó. Lo que sí cambia es cómo se publica
+> — ahora son **tres corridas** y están las tres escritas.
+>
+> Así que el presupuesto se incumple por un **20 %**, no por 3.7×.
+>
+> **2 · La solución que este documento daba por buena es 18 veces peor.** Se
+> construyó el FTS5 y se midió, con la búsqueda que alguien hace de verdad —la
+> dirección de **una persona**— al lado del caso ancho:
+>
+> | Camino | Una persona (1 coincidencia) | Un dominio (119 532) |
+> |---|---|---|
+> | `LIKE '%…%'`, el de hoy | 1 257, 1 192, 1 151 ms | 1 212, 1 222, 1 146 ms |
+> | La pregunta al revés, sin índice | 1 015, 1 010, 1 145 ms | 1 192, 1 221, 1 217 ms |
+> | Índice FTS5 `trigram` | 21 556, 21 906, 20 653 ms | 23 242, 23 793, 24 448 ms |
+>
+> Y al revés de la intuición: **cuanto más largo el texto, peor**. Una dirección
+> de 29 caracteres son 27 trigramas, y cada uno está en casi todas las filas.
+>
+> **3 · La urgencia también estaba calculada con un supuesto caducado.** «Más de
+> siete años» sale de 50 envíos diarios, y **D-13 quitó ese tope el 22/10**:
+> `AVISO_DIARIO` es un aviso (§48, §154) y el límite lo fija la campaña. A 300
+> al día los 135 000 sucesos llegan en **1.2 años**; a 600 —dos campañas sobre
+> el mismo remitente, que D-14 permite— en **7.4 meses**.
+>
+> **4 · Y el tiempo no está donde se buscaba.** Traer las 500 filas de la página
+> cuesta ~1 200 ms; contar **todas** las coincidencias para enseñar «500 de
+> 3 412» cuesta otro tanto. El único cambio que baja esta cifra es dejar de dar
+> el total exacto, y eso es **D-7C**: una decisión de producto, planteada a
+> Dirección como **D-19**.
+>
+> Esta medición vive en `banco 500000` y se puede repetir, el índice incluido.
+> El relato entero está en el registro de requisitos, sección «C-2».
 
 ### La memoria del motor en una corrida larga, que nunca se había medido
 

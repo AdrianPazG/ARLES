@@ -133,6 +133,29 @@ sin que alguien lo confirme. Quien no lo pulse en siete años llega aquí.
 está escrita en el propio módulo desde la 7.4 y sigue siendo la correcta: **FTS5**,
 no un índice sobre un `LIKE` que no lo puede aprovechar. No entra en esta fase.
 
+> #### Cerrado el 02/11/2026, y las dos frases de arriba eran falsas
+>
+> Se deja lo de arriba tal cual: es lo que se midió y lo que se concluyó aquel
+> día. Lo que pasó al hacerlo:
+>
+> - **FTS5 no era la respuesta correcta: es 18 veces peor.** Buscando la
+>   dirección de una persona, 21 556 ms contra 1 257 del `LIKE`. Un índice de
+>   trigramas empeora cuanto más largo es el texto, porque cada trigrama de una
+>   dirección está en casi todas las filas.
+> - **Los 3 709 ms no se reproducen.** Hoy, 1 151 a 1 257 ms sobre los mismos
+>   451 196 sucesos, y no lo explica un cambio de esquema. La causa no se sabe
+>   porque aquella corrida no se guardó.
+> - **Y «más de siete años» caducó seis días después de escribirse**, con D-13:
+>   los 50 diarios nunca fueron un tope. A 300 al día, 1.2 años.
+>
+> Lo que sí salió de ahí: **un defecto de verdad** —escribir `%` en el filtro
+> devolvía todas las filas, porque el texto del usuario entraba dentro del
+> patrón del `LIKE`— y una decisión para Dirección, **D-19**: el tiempo está en
+> contar el total exacto, no en buscar.
+>
+> Las nueve cifras y el por qué están en `REGISTRO-DE-REQUISITOS.md`, sección
+> «C-2», y la medición se repite con `banco 500000`.
+
 > Decir que C-1 y C-2 «fallan» sin esta diferencia habría sido exacto y
 > useless: uno es trabajo de esta semana y el otro es una nota con fecha.
 

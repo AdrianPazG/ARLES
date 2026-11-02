@@ -181,7 +181,7 @@ iniciado y nadie los esperaba. Son DOC-10 y DOC-11.
 **Lo siguiente, sin empezar:** la **Fase 9**, que es **el 5 % que queda** — las
 otras diez fases están al 100 %. Sacar la activación a segundo plano con avance
 (73.5 s con 451 196 destinatarios, y se rompe alrededor de los 30 000), el
-filtro de la lista de contactos (C-2), el mensaje de fallo al migrar que no
+filtro de la lista de contactos (R-26), el mensaje de fallo al migrar que no
 cumple el §95, los instaladores con su firma, y **R-07**: nadie ha abierto ARLES
 en un Mac.
 

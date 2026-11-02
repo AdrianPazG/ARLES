@@ -1703,6 +1703,90 @@ diez fases están al 100 %**, así que el 5 % que queda es exactamente su peso.
 > recién escrita a mano. El tablero visual también salió en rojo con su 89 %, y
 > eso ya lo vigilaba una comprobación de la fase 3 desde el 14/10.
 
+**Y el 02/11/2026, C-2 · el filtro del registro: se construyó la solución que
+este proyecto llevaba un año recomendándose, y es 18 veces peor.** El resultado
+de la entrega no es un índice: es una medición, un defecto de verdad y una
+decisión para Dirección. Está contado en `REGISTRO-DE-REQUISITOS.md`, sección
+«C-2».
+
+> **La recomendación llevaba escrita en el código desde la 7.4** —*«si algún día
+> hiciera falta más, la respuesta es FTS5»*— y la auditoría C la repitió el
+> 07/10 al declarar C-2. Se construyó: migración V17 con FTS5 `trigram`,
+> contenido externo y sus tres disparadores, con el relleno del historial
+> anterior y diez rupturas verificadas. Y medido sobre 451 196 sucesos, con tres
+> corridas de cada camino:
+>
+> | Camino | Una persona (1 coincidencia) | Un dominio (119 532) |
+> |---|---|---|
+> | `LIKE '%…%'`, el de hoy | 1 257, 1 192, 1 151 ms | 1 212, 1 222, 1 146 ms |
+> | La pregunta al revés, sin índice | 1 015, 1 010, 1 145 ms | 1 192, 1 221, 1 217 ms |
+> | Índice FTS5 `trigram` | **21 556, 21 906, 20 653 ms** | **23 242, 23 793, 24 448 ms** |
+>
+> **Y al contrario de la intuición: cuanto más largo el texto, peor.** Una
+> dirección de 29 caracteres son 27 trigramas, y cada uno está en casi todas
+> las filas. Un índice sirve cuando lo que se busca es raro; aquí cada pedazo es
+> común. **Un índice cubriente** tampoco: `EXPLAIN QUERY PLAN` dice que no
+> cambia el plan, así que se descartó sin medirlo — la regla de la 8.6.
+>
+> **Una recomendación sin medir es una afirmación como cualquier otra**, y el
+> peor sitio para dejarla es un comentario del código: el siguiente la lee como
+> una decisión ya tomada. Es DOC-13, y van trece.
+
+> **La cifra de la auditoría tampoco se reproduce: 3 709 ms entonces, 1 151 a
+> 1 257 hoy.** El índice que usa esa consulta es de la V10, anterior a aquella
+> medición, así que no lo explica un cambio de esquema, y esta máquina es sólo
+> ~20 % más rápida importando. **No se inventa la causa** — aquella corrida no
+> se guardó, y una corrida que no se guarda no se puede diagnosticar. Lo que sí
+> cambia es cómo se publica: tres corridas, y las tres escritas. Así que el
+> presupuesto se incumple por un **20 %, no por 3.7×**.
+>
+> **Y la urgencia estaba calculada con un supuesto que caducó seis días
+> después.** «Más de siete años para llegar a 135 000 sucesos» sale de 50
+> envíos diarios, y **D-13 quitó ese tope el 22/10**: a 300 al día son 1.2
+> años; a 600 —dos campañas sobre el mismo remitente, que D-14 permite— 7.4
+> meses. Una cifra de urgencia hereda los supuestos del día que se calculó.
+
+> **El defecto de verdad lo encontró buscar lo contrario (H-13).** Al descartar
+> el FTS5 había una prueba escrita para que su lenguaje de consulta no se colara
+> en el filtro, y la pregunta «¿y el `LIKE` tiene lenguaje propio?» tenía
+> respuesta: la consulta pegaba el texto dentro del patrón **en SQL**
+> —`LIKE '%' || ?7 || '%'`—, así que escribir `%` devolvía **todas** las filas y
+> `_` también. Un filtro que ante un carácter corriente contesta como si no
+> hubiera filtro parece que funciona, y por eso llevaba ahí desde la 7.4. El
+> patrón se arma ahora en Rust con `ESCAPE`, y la barra se escapa **antes** que
+> los comodines — al revés, el patrón busca una barra que nadie escribió.
+
+> **Y la decisión que queda es de producto, no técnica (D-19).** Traer las 500
+> filas de la página cuesta ~1 200 ms y **contar todas las coincidencias para
+> enseñar «500 de 3 412» cuesta otro tanto**. El único cambio que baja esta
+> cifra es dejar de dar el total exacto, y el total al lado es **D-7C**: se
+> pidió para que el tope no escondiera nada. No se decide en el código.
+
+> **Tres cosas más que esta entrega deja, aunque el índice se haya ido:**
+>
+> 1. **El banco mide los tres caminos** y la rama del índice se queda inerte
+>    tras un `hay_indice`. Quien vuelva a proponer un índice de texto recrea la
+>    migración y corre `banco 500000`, en vez de creerse una tabla.
+> 2. **`ninguna_tabla_se_queda_fuera_del_respaldo` no veía una tabla virtual.**
+>    `tablas_del_esquema_final` buscaba `CREATE TABLE`, que no casa con
+>    `CREATE VIRTUAL TABLE`, y su docstring decía dar «las tablas que existen».
+>    La fase 8 pasó en verde con una tabla nueva **sin clasificar en el
+>    manifiesto** — el patrón del §9 en la comprobación que existe para
+>    cazarlo. Verificada con el FTS5 delante: 18 de 19, nombrándola.
+> 3. **Y el FTS5 rompía `la_cascada_calculada_es_la_que_borra_sqlite`**: las
+>    tablas sombra aparecen en lo que SQLite borra de verdad, así que el
+>    preflight del archivado habría necesitado una lista de excepciones. En la
+>    defensa contra F1, que ha vuelto tres veces.
+
+> **Y dos errores míos del método, los dos del §2.** Al restaurar una ruptura
+> desde una copia **anterior a un arreglo hecho entre rupturas**, perdí el
+> arreglo de un comentario falso y volvió al archivo: la copia se refresca cada
+> vez que se edita de verdad, no sólo antes de la primera ruptura. Y una ruptura
+> salió en rojo **sin ejercitar ni un `assert`**: poner `AND 1=1` dejaba `?7`
+> atado y sin usar, rusqlite rechazaba la consulta y la prueba caía antes de
+> comprobar nada. Una ruptura tiene que quitar la garantía, no reventar el
+> camino que lleva a ella.
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |
@@ -1719,7 +1803,7 @@ del producto sino de sus comprobaciones** — una lista a mano, un alcance
 demasiado corto, un comentario que se cazaba a sí mismo. El producto aguantó
 mejor que sus instrumentos, y eso es lo que había que descubrir.
 
-**Lo que queda abierto:** C-2 (el filtro del registro, declarado), reescribir el
+**Lo que queda abierto:** reescribir el
 §97, **sacar la activación a segundo plano con avance** (Fase 9) y **R-07** —
 nada de la pasada D se ha visto en WKWebView.
 

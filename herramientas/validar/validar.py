@@ -7004,6 +7004,31 @@ def tablas_del_esquema_final():
     Contándolos, el manifiesto del respaldo tendría que clasificar cuatro tablas
     que no existen, y quien lo leyera buscaría en vano `message_attempt_nueva`
     en el esquema.
+
+    ───────────────────────────────────────────────────────────────────────────
+    Y LAS TABLAS VIRTUALES CUENTAN · ARREGLADO EL 02/11/2026
+
+    Esta función decía dar «las tablas que existen después de correr todas las
+    migraciones» y buscaba `CREATE TABLE`, que **no casa con
+    `CREATE VIRTUAL TABLE`**. Así que un índice FTS5 —una tabla de verdad, con
+    sus filas y sus tablas sombra— era invisible para
+    `ninguna_tabla_se_queda_fuera_del_respaldo`, que existe precisamente para
+    que no haya tablas fuera del respaldo sin decidirlo.
+
+    Lo encontró intentar C-2 con un FTS5 sobre `message_attempt`: la fase 8
+    pasó en verde con una tabla nueva **sin clasificar en el manifiesto**. El
+    índice se descartó por otras razones —está medido en la cabecera de
+    `patron_de_busqueda`, en `arles-db/src/actividad.rs`—, así que hoy no hay
+    ninguna tabla virtual y este arreglo no cambia ningún resultado: cambia lo
+    que pasará el día que alguien añada una, que es para lo que sirve.
+
+    Verificada rompiéndola con el propio FTS5 delante: con la V17 en el árbol,
+    la fase 8 pasa a **18 de 19** nombrando `message_attempt_fts`; sin ella,
+    vuelve a 19 de 19.
+
+    La respuesta correcta para un índice así es `Nunca`: se reconstruye de la
+    tabla de la que es copia. Pero **tiene que decidirse**, y omitirla no es
+    decidir.
     """
     import glob
 
@@ -7011,7 +7036,9 @@ def tablas_del_esquema_final():
     for sql in sorted(glob.glob(os.path.join(RAIZ, "crates/arles-db/migrations", "*.sql"))):
         with open(sql, encoding="utf-8") as f:
             texto = f.read()
-        creadas |= set(re.findall(r"CREATE TABLE (?:IF NOT EXISTS )?(\w+)", texto))
+        creadas |= set(
+            re.findall(r"CREATE (?:VIRTUAL )?TABLE (?:IF NOT EXISTS )?(\w+)", texto)
+        )
         renombradas |= set(re.findall(r"ALTER TABLE (\w+) RENAME TO", texto))
     return creadas - renombradas
 

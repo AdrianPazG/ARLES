@@ -186,7 +186,7 @@ encuentras, no hace falta que las anotes.
 | La letra no es Mont | Las versiones descargables van sin ella mientras P-01 siga abierto |
 | Windows dice «editor desconocido» | Falta el certificado de firma (Fase 9) |
 | Activar una campaña grande congela la ventana | Medido: 73,5 s con 451 196 destinatarios; se nota desde unos 30 000. Está en la Fase 9 |
-| Buscar texto en el registro tarda | Medido: 3 709 ms. Declarado como C-2 |
+| Buscar texto en el registro tarda | Medido: 3 709 ms el 07/10. **Remedido el 02/11: 1 151–1 257 ms**, y ningún índice ayuda — C-2 cerrado, ver el registro de requisitos |
 
 ---
 

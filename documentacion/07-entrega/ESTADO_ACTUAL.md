@@ -383,8 +383,8 @@ Cuatro cosas de código y una puerta:
 
 | | Qué | De dónde viene |
 |---|---|---|
-| **1** | **Sacar la activación de campañas a segundo plano**, con avance y botón de cancelar. Hoy tarda 73.5 s con 451 196 destinatarios y la interfaz no contesta; el presupuesto de 2 s se rompe hacia los **30 000**, que es una lista ordinaria | Auditoría C |
-| **2** | **El filtro de la lista de contactos** (C-2): buscar texto tarda 3 709 ms. Declarado con su cifra, no arreglado | Auditoría C |
+| **1** | **Sacar la activación de campañas al hilo del motor.** Tarda ~75 s con 451 196 destinatarios y el presupuesto de 2 s se rompe hacia los **30 000**, que es una lista ordinaria. Desde el 28/10 la ventana **sí contesta**, enseña en qué va y se puede cancelar sin dejar nada a medias; lo que falta es que no corra dentro de un comando | Auditoría C |
+| **2** | **El filtro de la lista de contactos** (R-26): no existe, `listar_contactos` sólo toma página y tamaño. Es **otra cosa que C-2**, que era el filtro del **registro** y se cerró el 02/11 — remedido en 1 151–1 257 ms, con un FTS5 construido y descartado por ser 18 veces peor | Auditoría C · C-2 cerrado |
 | **3** | **El mensaje de «fallo al migrar el esquema» no cumple el §95**: manda a cerrar y reabrir —que da el mismo error siempre— y a restaurar un respaldo que puede no existir, y no dice dónde vive la base. La salida real está hoy sólo en la guía de arranque | 08/10/2026, primer intento real |
 | **4** | **Instaladores, firma, notarización, updater y `CHANGELOG.md`** | ROADMAP Fase 9 |
 | **5** | **Restaurar un respaldo de un esquema anterior** (V11→V12). Hoy se rechaza con un error claro. Coste real hoy: cero, no hay ningún `.arles` fuera de las pruebas; dentro de un mes de uso, no | 8.3b, disparado por la V11 |
