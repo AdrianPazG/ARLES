@@ -1,5 +1,5 @@
 {
-  "cuando": "2026-11-03T16:55",
+  "cuando": "2026-11-03T21:09",
   "modo": "--rapido (las sondas se omiten)",
   "fases": {
     "0": {
@@ -15,10 +15,10 @@
       "total": 56
     },
     "2": {
-      "pasan": 38,
+      "pasan": 39,
       "fallan": 0,
       "omitidos": 4,
-      "total": 42
+      "total": 43
     },
     "3": {
       "pasan": 95,
@@ -51,10 +51,10 @@
       "total": 22
     },
     "7": {
-      "pasan": 15,
+      "pasan": 16,
       "fallan": 0,
       "omitidos": 0,
-      "total": 15
+      "total": 16
     },
     "8": {
       "pasan": 19,
