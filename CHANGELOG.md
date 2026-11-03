@@ -12,6 +12,446 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ## [Sin publicar]
 
+### Migraciones del esquema
+
+Dieciséis, y están todas aquí por una razón concreta: **cada migración deja sin
+poder restaurar los respaldos `.arles` tomados antes de ella.** ARLES rechaza un
+respaldo cuyo esquema no sea el de hoy, y lo dice con un error claro, pero quien
+guarde una copia de seguridad necesita poder leer en algún sitio cuándo dejó de
+servir. Éste es ese sitio.
+
+| | Qué cambia en la base |
+|---|---|
+| **V1** | El esquema inicial |
+| **V2** | Las preferencias de la interfaz |
+| **V3** | Un contacto tiene varios canales, no uno |
+| **V4** | Una campaña tiene etapas |
+| **V5** | De dónde salió cada lista importada |
+| **V6** | La parada de emergencia, guardada — sobrevive al cierre |
+| **V7** | Los datos de conexión de la cuenta de correo |
+| **V8** | El envío de prueba de una etapa, y cuándo deja de valer |
+| **V9** | Las plantillas de Meta y el recuento de respuestas |
+| **V10** | El registro de actividad |
+| **V11** | Los seis índices que la medición del 06/10/2026 demostró que faltaban |
+| **V12** | Retirar una plantilla o una firma sin borrarla |
+| **V13** | El cupo diario se cuenta por campaña, no por buzón |
+| **V14** | A quién va dirigida una campaña (D-15) |
+| **V15** | El descanso entre campañas (D-16) |
+| **V16** | Qué plantilla de Meta manda una etapa de WhatsApp (D-WA) |
+
+> **Esta tabla nació de una comprobación que faltaba, y lo primero que hizo fue
+> cazar seis huecos.** El formato que el propio proyecto exige
+> (`DISTRIBUCION_Y_FIRMA.md` §6) incluye una sección de migraciones desde la
+> Fase 0, y no existía. Medido el 03/11/2026: **la V5, la V7, la V8, la V9, la
+> V12 y la V16 no aparecían en ninguna línea del CHANGELOG** — seis de
+> dieciséis, y entre ellas la que dejó sin restaurar los respaldos del canal de
+> WhatsApp.
+>
+> Lo vigila ahora `toda_migracion_esta_en_el_changelog` en `--fase 3`, que lee
+> **la carpeta de migraciones** y no una lista: una migración nueva entra en la
+> vigilancia sola.
+>
+> **Y mi primera medición a mano encontró dos de las seis**, porque miré de la
+> V11 a la V16 —el rango que sospechaba— en vez de las dieciséis. Es el alcance
+> corto, el defecto que este proyecto lleva once veces arreglando, cometido
+> midiendo para arreglarlo. Las otras cuatro las encontró la comprobación.
+>
+> **Y la comprobación nació con el defecto de siempre, por duodécima vez.** Su
+> primera versión buscaba el número **en todo el documento**, y salió en verde
+> con la fila de la V16 borrada: esta nota, la que explica el hallazgo, nombra
+> las seis migraciones que faltaban, así que **el texto que cuenta el defecto lo
+> tapaba**. Acotarla a esta sección tampoco bastaba, porque la nota vive dentro.
+> Ahora exige una **fila de la tabla**, que es lo único que no se escribe de
+> pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
+> primera dentro de un documento en vez de dentro del código.
+
+### El mensaje de «fallo al migrar» decía que había una copia de tu base, y no la hay
+
+**03/11/2026.** El pendiente estaba escrito como «el mensaje no cumple el §95,
+manda a cerrar y reabrir, y no dice dónde vive la base». **Eso se arregló el
+14/10** y está contado más abajo. El renglón se quedó pidiéndolo tres semanas, y
+eso tapó dos defectos peores que nadie estaba buscando.
+
+- **El texto que se ve dentro de la ventana afirmaba que se había hecho una
+  copia de la base de datos antes de intentar la migración.** No la hay: cero
+  copias en todo el proyecto, ni al arrancar, ni al migrar, ni al recuperar. De
+  las tres partes que el §95 exige, la falsa era **la tercera** — la que existe
+  para decidir qué se puede borrar sin perder nada. Es la pantalla de la 8.4
+  diciendo «no se ha perdido nada» con 48 MB de base en disco, y con la misma
+  consecuencia: alguien borra un archivo porque le dijimos que había copia.
+- **Y un fallo del generador de números aleatorios se diagnosticaba como «tu
+  base es de una versión anterior».** Las dos cosas no tienen nada que ver.
+  Quien lo viera leería que aparte el archivo renombrándolo, con la ruta dentro
+  del mensaje — **y en el primer arranque**, que es justo cuando se pide una
+  clave nueva y cuando no hay ningún archivo que apartar.
+
+Un mensaje impreciso hace dudar; **uno equivocado manda a hacer algo.** El
+fallo del generador es ahora un error propio, con su texto y su rama en el
+diálogo del arranque, y el consejo correcto: reiniciar el equipo, porque lo que
+está roto es el sistema y no ARLES.
+
+> **Hay dos textos para este error y no son el mismo a propósito.** El del
+> arranque sale en un diálogo del sistema, **sin ventana**, cuando la base de
+> siempre no se puede migrar: ahí la salida es apartar el archivo, y por eso
+> lleva la ruta. El de dentro de la ventana sólo puede salir por un camino
+> —recuperar desde un respaldo, que abre una base nueva y vacía—, donde el
+> archivo viejo ya está apartado y mandar a apartarlo otra vez no lleva a ningún
+> sitio. La duplicación es forzada: un diálogo sin ventana no puede usar los
+> textos de la interfaz. Lo que hace falta es que cada uno diga por qué dice algo
+> distinto, y ahora lo dicen.
+
+> **Dos comprobaciones nuevas, y la razón por la que ninguna existía.** La regla
+> del §139 pregunta si cada error **tiene** texto, no si es el texto correcto —
+> y un error prestado tiene texto: el de su dueño. Ahora el error de migración
+> sólo puede nacer en el módulo de migraciones, y **ningún texto puede prometer
+> una copia de la base mientras el código no la haga**. Esa segunda mide las dos
+> cosas a la vez: el día que algo copie la base de verdad, deja de exigirlo,
+> porque entonces la frase sería cierta. Verificada también por ese lado.
+
+> **Y un hueco que queda abierto, dicho y no arreglado.** Si la recuperación
+> falla **después** de apartar la base ilegible, el error no dice con qué nombre
+> quedó el archivo. El orden actual es el correcto y no se puede invertir
+> —apartar antes de crear la clave es lo que impide dejar la base ilegible para
+> siempre—, así que el texto lo tapa diciendo el nombre entero, que es siempre
+> `arles-ilegible-AAAAMMDD.db` en la misma carpeta. **Taparlo con una frase no es
+> cerrarlo.**
+
+### C-2 · el filtro del registro: la solución que estaba escrita es 18 veces peor
+
+**02/11/2026.** La auditoría de rendimiento declaró en octubre que buscar texto
+en el registro tarda **3 709 ms de un presupuesto de 1 s**, y escribió la
+solución; el propio código la llevaba escrita desde la Fase 7: un índice de
+texto FTS5. **Se construyó, se midió y se descartó.**
+
+Medido sobre 451 196 sucesos, tres corridas de cada camino, con las dos
+búsquedas que importan — la dirección de **una persona**, que es la que alguien
+hace de verdad, y un dominio entero:
+
+| Camino | Una persona (1 coincidencia) | Un dominio (119 532) |
+|---|---|---|
+| Como está hoy | 1 257, 1 192, 1 151 ms | 1 212, 1 222, 1 146 ms |
+| La pregunta al revés, sin índice | 1 015, 1 010, 1 145 ms | 1 192, 1 221, 1 217 ms |
+| Índice FTS5 | **21 556, 21 906, 20 653 ms** | **23 242, 23 793, 24 448 ms** |
+
+**Y al contrario de la intuición: cuanto más largo el texto, peor.** Una
+dirección de 29 caracteres se parte en 27 trozos de tres letras, y cada uno está
+en casi todas las filas. Un índice sirve cuando lo que se busca es raro; aquí
+cada pedazo es común.
+
+**Cuatro cosas cambian de lo que el proyecto daba por sabido:**
+
+1. **La cifra no se reproduce.** Hoy son 1 151 a 1 257 ms sobre los mismos
+   451 196 sucesos. El índice que usa esa consulta es anterior a aquella
+   medición, así que no lo explica un cambio de esquema, y esta máquina es sólo
+   un 20 % más rápida importando. **No se inventa la causa**: aquella corrida no
+   se guardó. Así que el presupuesto se incumple por un **20 %, no por 3.7×**.
+2. **La urgencia estaba calculada con un supuesto que caducó seis días
+   después.** «Más de siete años para llegar al umbral» sale de 50 envíos
+   diarios, y D-13 quitó ese tope el 22/10. A 300 al día son 1.2 años; a 600
+   —dos campañas sobre el mismo remitente, que D-14 permite— 7.4 meses.
+3. **Un índice cubriente tampoco sirve**: el plan de consulta no cambia, así que
+   se descartó sin llegar a medirlo.
+4. **El tiempo está en contar, no en buscar.** Traer las 500 filas de la página
+   cuesta la mitad; la otra mitad es contar **todas** las coincidencias para
+   poder enseñar «500 de 3 412». El único cambio que baja esta cifra es dejar de
+   dar el total exacto, y eso **es una decisión de producto** (D-7C pidió el
+   total al lado precisamente para que el tope no escondiera nada). Planteada a
+   Dirección como **D-19**.
+
+**Y un defecto de verdad, que encontró buscar lo contrario:** escribir `%` en el
+filtro del registro **devolvía todas las filas**, y `_` también. El texto que se
+escribe entraba dentro del patrón de búsqueda, así que era sintaxis. Un filtro
+que ante un carácter corriente contesta como si no hubiera filtro parece que
+funciona, y por eso llevaba ahí desde la Fase 7.
+
+> **La migración no entró, y eso ahorra un coste real.** Un índice nuevo habría
+> dejado **sin poder restaurar todos los respaldos anteriores**, con un
+> instalador ya descargado. Y traía dos cosas más: una segunda copia de una
+> dirección de correo que hay que mantener sincronizada para que un borrado
+> legal no la deje encontrable, y rompía la comprobación que cuenta lo que un
+> borrado en cascada se lleva — la defensa contra el fallo que ya costó datos
+> tres veces.
+
+> **El banco de pruebas mide ahora los tres caminos**, con la rama del índice
+> inerte. Quien vuelva a proponer un índice de texto para el registro recrea la
+> migración y repite la medida, en vez de creerse esta tabla.
+
+> **Y una comprobación que no veía lo que decía vigilar.** La que exige que
+> ninguna tabla se quede fuera del respaldo buscaba `CREATE TABLE`, que no casa
+> con `CREATE VIRTUAL TABLE`: la fase 8 pasó en verde con una tabla nueva **sin
+> clasificar en el manifiesto**, que es exactamente lo que esa comprobación
+> existe para impedir. Arreglada y verificada con el índice delante.
+
+### El avance al día · 96 %, y la Fase 9 deja de estar «sin empezar»
+
+**02/11/2026.** `avance.json` daba la Fase 9 al 0 % y «sin empezar» **cinco días
+después** de que la activación saliera del hilo principal y la conexión de
+lectura estuviera construida. Es el mismo defecto que el 28/10 corrigió para las
+fases 3, 5 y 7, esta vez en la fase en curso.
+
+### Las notas del instalador decían tres cosas que ya no son verdad
+
+**29/10/2026.** El texto que acompaña a cada versión de prueba es lo primero que
+lee quien la descarga, y decía que no se podía lanzar una campaña por WhatsApp
+—se puede desde el 27/10—, que activar una campaña congela la ventana —desde el
+28/10 responde, dice en qué va y se puede cancelar— y que no se comprueban SPF,
+DKIM ni DMARC, que se comprueban desde el 26/10.
+
+> **Las notas de un instalador envejecen más rápido que cualquier otro texto del
+> proyecto**, porque describen el producto entero en diez líneas. Un instalador
+> que promete menos de lo que hace cuesta lo mismo en credibilidad que uno que
+> promete más: quien lo prueba deja de leerlas.
+
+### Las cuatro pantallas que más se abren ya no esperan al motor (ADR-0015)
+
+**28 y 29/10/2026.** Contactos, Registro, Actividad y Bajas leen por una
+**segunda conexión de sólo lectura**, así que abrirlas ya no espera a que el
+motor acabe de escribir. Antes, con una campaña enviando, abrir el Registro
+podía quedarse esperando el cerrojo de la única conexión que había.
+
+ADR-0002 decía desde la Fase 0 que la base «vive en un hilo dedicado que recibe
+peticiones por un canal» y que «los lectores usan conexiones separadas».
+**Ninguna de las dos cosas estaba construida**, y la primera no se va a
+construir: su premisa era una biblioteca que este proyecto nunca adoptó.
+ADR-0015 acota aquella decisión y deja escrito lo que sí hay.
+
+**Las tres incógnitas se midieron antes de decidir, y la primera contestó otra
+cosa de la que se esperaba:**
+
+- **Dos conexiones a la vez no se estorban** en el modo que usa la base, medido.
+- **Pero un lector abierto durante una importación hacía crecer el archivo
+  auxiliar de 4.0 MB a 373.3 MB**, porque mantener una lectura abierta impide
+  limpiarlo. Se cierra con un tope declarado, y se mide.
+- **La conexión de lectura no puede escribir por construcción**: lo impide un
+  ajuste de la propia base, no una convención. Cualquier intento de escritura
+  por ese camino falla siempre.
+
+> **Van cuatro de 37 lecturas movidas**, y así está escrito. La exportación de
+> un respaldo se queda para el final a propósito: recorre la base entera dentro
+> de una transacción, y es la que más hay que pensar.
+
+### Activar una campaña ya no congela la ventana
+
+**28/10/2026.** Activar una campaña de 451 196 destinatarios tarda unos 75
+segundos. Hasta hoy, durante ese tiempo **la ventana no contestaba**: ni una
+cifra de avance, ni forma de cancelar, ni manera de saber si seguía trabajando o
+se había colgado. El presupuesto para esta operación son 2 segundos, y se rompe
+alrededor de los **30 000 destinatarios**, que es una lista ordinaria.
+
+- **Dice en qué va, por fases con nombre y no con un porcentaje**: congelando la
+  audiencia, llenando la cola —con «van 240 000 de 451 196»— y cerrando.
+- **Se puede cancelar**, y no deja nada a medias: lo que se había escrito se
+  deshace entero.
+- **Y la cancelación tiene un punto a partir del cual deja de ofrecerse**,
+  porque al cerrar ya no se puede deshacer sin romper la campaña. El botón lo
+  dice en vez de desaparecer.
+
+> **El avance va por fases porque es lo único honesto.** Medido por tramos antes
+> de diseñarlo: el bucle que llena la cola es el 52-57 % del tiempo y es **el
+> único que se puede contar**. Un porcentaje global tendría que inventarse el
+> resto.
+
+> **Y la causa de los 75 segundos no era la que parecía.** La hipótesis obvia
+> eran los 451 196 pares de identificadores pidiendo aleatoriedad al sistema.
+> Medido aparte: **0.58 s, el 0.8 %**. Lo que cuesta es escribir unas 900 000
+> filas con sus índices. Sin medirlo se habría tocado la parte más delicada del
+> producto para ganar medio segundo de setenta y cinco.
+
+> **El banco de pruebas llevaba seis días sin poder medir esta cifra** y lo
+> decía como «sin medir», que se lee igual que «todavía no toca». Ahora una
+> medición que revienta sale con un código distinto y con la palabra «roto»: una
+> limitación declarada y un instrumento averiado no son lo mismo.
+
+### El estado del proyecto al día: 89 % a 95 %, y dos bloqueos que faltaban
+
+**28/10/2026.** Lo disparó una pregunta de Dirección —qué sigue y qué falta para
+una beta— y no una auditoría.
+
+- **El porcentaje estaba parado en el 89 % con doce tramos cerrados después**:
+  la 7.5 entera y el canal de WhatsApp entero. La portada del repositorio
+  enseñaba **menos trabajo hecho del que había**. Recalculado: **95 %**, y con
+  la Fase 9 pendiente las otras diez están al 100 %.
+- **Y faltaban dos bloqueos, uno de los cuales impide que la aplicación abra.**
+  El **certificado de firma de Windows** —de una a tres semanas de plazo
+  externo— y el **Apple Developer ID**, sin el cual macOS, desde Catalina, **no
+  ejecuta** una aplicación descargada: no es un aviso, es un bloqueo del
+  sistema.
+
+Los dos estaban declarados desde la Fase 0 como trámites que **arrancan en la
+Fase 1**, precisamente porque son plazos que no se comprimen. No se iniciaron, y
+**las cuatro listas de bloqueos del proyecto los omitían igual**, así que nadie
+los estaba esperando.
+
+> **Cuatro copias de acuerdo no son una comprobación**: pueden estar de acuerdo
+> en omitir lo mismo, y es lo que pasó durante nueve fases. Lo que las vio falsas
+> fue usar la lista para algo. Ahora hay una comprobación con una sola fuente,
+> que compara los identificadores en las dos direcciones **y la cifra escrita en
+> letra** — porque «los cuatro» era verdad el día que se escribió y falso el día
+> que entrara el quinto.
+
+### Siete hallazgos de diseño, encontrados mirando las dieciocho pantallas
+
+**28/10/2026.** Cinco arreglados, uno descartado con su cifra, y tres más
+descartados por falsos antes de anotarlos — **un hallazgo falso cuesta más que
+uno ausente**, y por eso los descartados también están escritos.
+
+**El primero era que la pantalla de Inicio decía que el producto no está
+terminado.** Con los seis pasos del alta completos, seguía diciendo «No hay nada
+más que puedas hacer aquí todavía» y «Lo que falta por construir · 1 paso»,
+nombrando tres secciones que tienen pantalla desde la Fase 7. Salía de un campo
+que mezclaba dos preguntas distintas: «¿tiene pantalla propia?» y «¿se puede
+hacer hoy?».
+
+> **El arreglo no fue separarlas: fue juntarlas del todo.** Separarlas habría
+> creado un paso que se puede hacer y no lleva a ningún sitio. Lo vigila una
+> comprobación **sin lista de excepciones**, que es lo que falló las tres veces
+> anteriores.
+
+Y dos medidas nuevas en la sonda de accesibilidad, las dos verificadas
+rompiéndolas: **todo botón apagado dice por qué**, y ningún texto visible lleva
+un número pegado a la palabra siguiente.
+
+### El sistema de diseño, reescrito con el código delante: cinco afirmaciones falsas
+
+**27/10/2026.** El documento que describe colores, tipografía y piezas de la
+interfaz documentaba **24 de los 64 ajustes** que no son color y **5 de las 16
+piezas**, y no mencionaba el tema claro.
+
+Las cinco llevaban ahí desde la Fase 2 y **ninguna de las cuatro auditorías de
+octubre las vio**, porque una auditoría mide el producto y esto es un documento.
+Un documento no falla: **se cree.** La peor no es la más vistosa — daba el
+anillo que marca el foco del teclado con el color equivocado, así que quien
+copiara ese fragmento tendría un anillo invisible en el tema claro, que es la
+navegación por teclado entera.
+
+> Lo caza ahora una comprobación que compara el documento con el código **en las
+> dos direcciones**: todo lo que el documento nombra existe, y todo lo que existe
+> está nombrado.
+
+### El orden del proyecto, por requisito de Dirección
+
+**27/10/2026.** Dirección pidió que las reglas de trabajo dejaran de vivir sólo
+en una conversación: qué se lee antes de tocar nada, dónde va cada archivo, qué
+documento deja de ser verdad al cerrar un tramo, y las cuatro preguntas antes de
+empujar.
+
+> **Y al escribirlo apareció el noveno documento que afirmaba de más**, el peor
+> de los nueve: decía que una comprobación vigilaba que todo documento nuevo
+> estuviera en el índice. **No lo vigilaba nadie.** Los otros ocho dicen algo
+> falso del producto; éste decía falsamente que **había una red** — y una red que
+> se cree hace dejar de mirar.
+
+### Se puede lanzar una campaña entera por WhatsApp (D-WA)
+
+**26 y 27/10/2026.** Decisión de Dirección: el canal de WhatsApp entra en la
+v1.2.0 **con campañas enteras**, no sólo con el mensaje de prueba. Ocho tramos.
+
+- **El motor recorre los dos canales.** El roadmap decía que el camino estaba
+  escrito a fuego en «correo» en siete sitios; medido, **el filtro real era
+  uno**. Lo que no estaba escrito en ninguna parte eran dos cosas de fondo: una
+  etapa de campaña no tenía dónde apuntar a una plantilla de Meta, porque el
+  texto de ésas vive en el panel de Meta y lo único que viaja es su nombre.
+  **La migración V16** le da ese sitio.
+- **El alta de un número, en un dato y una elección.** Pedía **seis campos**, y
+  cuatro de ellos sólo existen en el panel de Meta, repartidos en tres
+  pantallas: dos son números largos y parecidos, y cambiarlos de sitio da un
+  error de Meta que no dice cuál de los dos está mal. Ahora se pega el token, se
+  pulsa «Buscar mis números» y ARLES le pregunta a Meta cuáles son, con su
+  nombre, su calidad y cuántos mensajes al día permite. **Lo que se guarda viene
+  verificado por la fuente, no por quien copia.**
+- **Crear y activar una campaña de WhatsApp.** Antes, activar una campaña de
+  WhatsApp **congelaba una audiencia de correos** y llenaba la cola con
+  direcciones de correo marcadas como WhatsApp. No fallaba nada: el motor habría
+  pedido el contenido de WhatsApp y se lo habría mandado a un correo.
+- **El semáforo de calidad del número**, que es lo que Meta mira para decidir
+  cuántos mensajes al día permite.
+- **Las plantillas aprobadas de Meta se registran y se leen**, en su propia
+  sección. Sin esto, el paso del asistente que las elige habría sido un
+  desplegable vacío sin ninguna pista de dónde se registran.
+- **Y el asistente elige canal**, que es lo que cierra el canal: todo lo de
+  debajo funcionaba y **el botón no existía**.
+
+> **El 14/10 se le dijo a Dirección que el alta de WhatsApp no se podía reducir
+> como la del correo**, porque los identificadores de Meta sólo existen en su
+> panel y no hay nada de lo que inferirlos. Era verdad de inferirlos y falso de
+> **preguntárselos a Meta**, que es lo que se hace ahora.
+
+> **Lo que WhatsApp todavía no hace:** contar las respuestas. Meta las manda a
+> una dirección web que ARLES no tiene, así que esa cifra es cero en ese canal.
+> Y atender un «BAJA» automáticamente, que no se hace en ningún canal.
+
+### R-3 · ARLES frena antes de quemar el dominio
+
+**26/10/2026.** Una dirección que no existe devuelve un rechazo del servidor, y
+ARLES ya daba de baja a esa dirección en el acto desde la Fase 4. **Lo que no
+hacía era mirar cuántas van.**
+
+Muchos rechazos seguidos le dicen al filtro de quien recibe «éste no sabe a
+quién le escribe», que es la firma de una lista comprada. **El precio no lo paga
+la campaña: lo paga el dominio, durante meses, y no hay forma de retirarlo.**
+
+Las tres decisiones de Dirección:
+
+1. **Dos escalones: aviso al 2 %, freno al 5 %.** El documento de riesgos tenía
+   las dos cifras y se contradecía — el título decía 2 % y su mitigación 5 %.
+   Ahora cada una tiene su papel, y el aviso existe para poder mirar **antes** de
+   que algo pare.
+2. **Se pausa, no se detiene.** Detener cancela lo que no ha salido y su comando
+   exige escribir el nombre de la campaña a mano, justamente para que nadie lo
+   haga sin querer. Una acción irreversible tomada por un umbral, sin preguntar,
+   sería la única del producto. La pausa se deshace.
+3. Y **la decisión sigue siendo de quien mira**: ARLES frena y lo dice.
+
+### SPF, DKIM y DMARC, comprobados desde ARLES (7.5)
+
+**26/10/2026.** Tres tramos. Es el punto 8 de los ocho que ARLES revisa antes de
+dejar activar una campaña, y existía desde la Fase 6 con su texto y su sitio en
+la pantalla, cableado a «sin comprobar». **Cuatro fases enseñándoselo a todo el
+mundo.**
+
+Lo que esto evita es el fallo más caro del correo masivo, y es el que no se nota
+al enviar: sin esos registros el correo sale, el servidor lo acepta, ARLES lo
+cuenta como aceptado, y el filtro de quien recibe lo manda a no deseados. **Todas
+las cifras salen bien y no lo lee nadie.**
+
+> **Tener DMARC no es estar protegido.** Un DMARC en observación está puesto, se
+> lee sin error y no detiene a nadie que suplante el dominio. Había dos formas
+> fáciles de mentir: pintarlo verde diría que el dominio está protegido, y
+> pintarlo rojo marcaría como fallo la configuración que el propio proyecto manda
+> poner al empezar — y **un rojo sobre lo correcto enseña a ignorar los rojos**.
+> Así que es un tercer estado, con el aviso de cuántas semanas hay que esperar
+> antes de endurecerlo.
+
+> **«No está» y «no se pudo preguntar» son cosas distintas**, y confundirlas era
+> el peor fallo que esta entrega podía tener: tratar un DNS bloqueado como «te
+> faltan los registros» manda a tocar el DNS de una empresa que lo tiene bien, y
+> **un DNS mal tocado deja de entregar el correo de todo el mundo**.
+>
+> Y pasó, con las nueve pruebas en verde: escrito eso en la cabecera del
+> archivo, se corrió contra el dominio de TELEMETRY —con los tres registros bien
+> puestos— y ARLES contestó «faltan los tres». Exactamente el fallo que el
+> archivo existía para evitar, tres párrafos más abajo de donde estaba descrito.
+> **Ninguna prueba podía cazarlo**: el servidor de mentira contesta lo que se le
+> dice, y no sabe mentir como miente una red de verdad.
+
+### Seguridad · los doce avisos de dependencias, cerrados
+
+**26/10/2026.** Al pasar la puerta obligatoria antes de añadir la dependencia
+del DNS, el revisor de vulnerabilidades sacó **doce**. Ninguna de lo que se
+añadía: son anteriores, y lo más probable es que el proyecto pasara limpio la
+última vez — casi todos son avisos de 2026, y esa base de datos se actualiza
+sola.
+
+**Nueve se cerraron con actualizaciones de parche**, y dos de ellas importan más
+que las otras: tres avisos tocaban justo la pieza que limpia el HTML de las
+plantillas —contenido que no es de fiar— y uno exponía secretos de la conexión
+cifrada en el volcado de depuración, que choca de frente con la regla de que la
+contraseña entra y no sale.
+
+**Y tres se cerraron por decisión de Dirección**, subiendo una dependencia de
+versión mayor: las tres eran de una función que ARLES **no llama**. Se podían
+declarar como no aplicables; se decidió actualizar.
+
 ### Dos campañas no le escriben a la misma persona el mismo día (D-16)
 
 Quien está en dos listas recibe las dos campañas —son dos mensajes distintos—
@@ -387,6 +827,30 @@ Y con ellas, la comprobación que esto necesitaba:
 nombrando «Teléfono»— más la ida y vuelta de `arles-import`, que escribe el
 archivo y lo relee con el **mismo** `leer()` que lee el del cliente. Es el §9 en
 la única junta nueva: el único archivo que ARLES escribe para volver a leerlo.
+
+### Una plantilla retirada no se borra, y las acciones de cada fila se ven
+
+**21/10/2026.** Dirección pidió «eliminar», vio cómo quedaba y lo precisó el
+mismo día: **que quede registrado en algo que no se ve, no borrado.** Y es mejor
+diseño — el borrado tenía que **negarse** cuando una campaña había usado esa
+plantilla, porque el registro de envíos apunta a esa versión, y retirando en vez
+de borrar esa negativa desaparece: el texto se queda.
+
+**La migración V12** añade la fecha de retirada. Una fecha y no una casilla: una
+casilla dice sí o no, una fecha dice además cuándo. Y **una firma retirada deja
+de ser la de por defecto** — si siguiera marcada volvería por la puerta de
+atrás, porque la redacción de una campaña busca la de por defecto y no mira si
+está retirada.
+
+**R-09 · las acciones al final de cada fila.** Un clic que abre la ficha no
+bastaba: que un gesto funcione no es lo mismo que que se vea que existe. Dos
+iconos por fila, de 32 por 32, **con el nombre de esa persona dentro** — sin eso
+un lector de pantalla diría «Editar, Editar, Editar».
+
+**Y la guía del spam**, escrita sobre las cabeceras reales de Outlook: las cuatro
+comprobaciones de identidad pasan, así que lo que empuja el correo a no deseados
+es el contenido y la reputación. Las tres salidas con su precio, y los tres
+registros de DNS para copiar.
 
 ### El error que mandaba a un bucle infinito, arreglado
 

@@ -1870,6 +1870,60 @@ DOC-14 del registro.
 > que es siempre así—, pero taparlo con una frase no es cerrarlo. Arreglarlo de
 > verdad exige que el error lleve el nombre dentro, y eso es otro tramo.
 
+**Y el 03/11/2026, el CHANGELOG: existía, y llevaba once días parado con
+veintinueve commits detrás.** El pendiente decía «el `CHANGELOG.md`, que la
+Fase 9 requiere y no existe». Existe, con 114 entradas y el formato que el
+proyecto exige — lo que no estaba era **todo lo de esta semana y media**.
+
+> **Tercera vez en tres días que la lista de pendientes describe mal lo que
+> queda**, y las tres en la misma dirección: C-2 estaba etiquetado como el
+> filtro de otra pantalla, el mensaje de migrar llevaba tres semanas arreglado,
+> y el CHANGELOG se daba por inexistente. **Un pendiente mal descrito no es
+> ruido: hace dar el asunto por conocido**, y las dos primeras veces eso tapó un
+> defecto de verdad que nadie estaba buscando.
+>
+> Faltaban quince entradas: D-WA entera —ocho tramos, el canal de WhatsApp con
+> campañas completas—, la 7.5, los doce avisos de dependencias, R-3, el sistema
+> de diseño, los siete hallazgos de diseño, el avance y los dos bloqueos de
+> firma, ADR-0015 con la activación y la conexión de lectura, C-2 y el mensaje
+> de migrar. Escritas desde los cuerpos de los commits y no de memoria.
+
+> **Y el hallazgo que importa: seis de las dieciséis migraciones no aparecían en
+> ninguna línea.** La V5, la V7, la V8, la V9, la V12 y la V16. Eso no es una
+> omisión cosmética: `restauracion.rs` rechaza un respaldo cuyo esquema no sea
+> el de hoy, así que **cada migración deja sin poder restaurar los `.arles`
+> tomados antes**, y el CHANGELOG es donde Dirección lo lee. Una migración que
+> no se nombra es una copia de seguridad que muere sin que nadie se entere.
+>
+> El formato que `DISTRIBUCION_Y_FIRMA.md` §6 manda desde la Fase 0 **incluye
+> una sección de migraciones**, y no existía. Ahora está, con las dieciséis y
+> qué cambia cada una, y lo vigila `toda_migracion_esta_en_el_changelog` en
+> `--fase 3`, que lee **la carpeta** y no una lista.
+
+> **Dos defectos míos midiendo esto, los dos del §2.**
+>
+> 1. **Mi medición a mano encontró dos de las seis**, porque miré de la V11 a la
+>    V16 —el rango que sospechaba— en vez de las dieciséis. Es el alcance corto,
+>    cometido midiendo para arreglarlo. Las otras cuatro las encontró la
+>    comprobación en su primera corrida.
+> 2. **Y la comprobación nació cazándose a sí misma, duodécima vez.** Buscaba el
+>    número en todo el documento, y salió en verde con la fila de la V16
+>    borrada: **la nota que explica el hallazgo nombra una por una las que
+>    faltaban**, así que el texto que cuenta el defecto lo tapaba. Acotarla a su
+>    sección tampoco bastaba —la nota vive dentro—. Ahora exige una **fila de la
+>    tabla**, que es lo único que no se escribe de pasada. **Primera vez que
+>    este defecto aparece dentro de un documento y no de un comentario**, y la
+>    conclusión de la 8.6 E se amplía: se quitan los comentarios siempre, y
+>    cuando lo que se mide es prosa, se mide una **estructura** y no una
+>    aparición.
+
+> **Lo que esta comprobación no cubre, dicho en vez de darlo por cubierto:** que
+> el CHANGELOG esté **al día**. Una entrega sin migración puede quedarse fuera y
+> esto no lo ve — es exactamente lo que pasó durante once días. Medir «hay una
+> entrada por entrega» exigiría saber qué es una entrega, y eso no vive en
+> ningún archivo. Lo que sí se puede medir es lo que cuesta datos, y es lo que se
+> mide.
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |

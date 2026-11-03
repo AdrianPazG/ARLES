@@ -2864,6 +2864,122 @@ def toda_clave_de_pantalla_del_nucleo_tiene_texto():
     )
 
 
+def toda_migracion_esta_en_el_changelog():
+    """**Una migración que el CHANGELOG no nombra es un respaldo que nadie sabe que murió.**
+
+    ───────────────────────────────────────────────────────────────────────────
+    POR QUÉ ESTA ES LA COMPROBACIÓN QUE EL CHANGELOG NECESITABA
+
+    El CHANGELOG está escrito **para que lo lea Dirección** (`ESTADO_ACTUAL.md`
+    §9), y lo más caro que puede dejar fuera no es una función: es una
+    migración. `restauracion.rs` rechaza un respaldo cuyo esquema no sea el de
+    hoy, así que **cada migración que entra deja sin restaurar todos los
+    `.arles` tomados antes**. Quien guarde una copia de seguridad y no lea eso
+    en ninguna parte se enterará el día que la necesite.
+
+    Medido el 03/11/2026, antes de escribir esto: de las dieciséis migraciones,
+    **la V12 y la V16 no aparecían en ninguna línea del CHANGELOG**. La V16 es
+    de D-WA, cuyas ocho entregas no estaban recogidas; la V12 es del 21/10, y su
+    entrega entera faltaba — la retirada de plantillas sin borrarlas.
+
+    No es una lista a mano: los números salen de **la carpeta de migraciones**,
+    así que una migración nueva entra en la vigilancia sola.
+
+    ── Y SE MIDE LA TABLA, NO EL ARCHIVO · DUODÉCIMA VEZ DEL MISMO DEFECTO ──
+
+    La primera versión buscaba el número **en todo el CHANGELOG**, y salió en
+    verde con la V16 borrada de la tabla. El motivo es el de siempre con una
+    cara nueva: **la nota que explica esta comprobación nombra las seis
+    migraciones que faltaban**, así que la prosa que cuenta el defecto lo tapa.
+    Es el comentario que se caza a sí mismo por duodécima vez en el proyecto, y
+    la primera **dentro de un documento** en vez de dentro del código.
+
+    Así que se exige una **fila en la tabla de la sección «Migraciones del
+    esquema»**, que es donde alguien va a buscarla. Eso además no es una
+    convención inventada aquí: `DISTRIBUCION_Y_FIRMA.md` §6 manda una sección de
+    migraciones en el CHANGELOG desde la Fase 0, y no existía.
+
+    ── LO QUE ESTO NO COMPRUEBA, DICHO EN VEZ DE DARLO POR CUBIERTO ──
+
+    Que el CHANGELOG esté **al día**. Una entrega sin migración puede quedarse
+    fuera y esto no lo ve: el 03/11 el documento llevaba once días parado con
+    veintinueve commits detrás, y lo que lo destapó fue ir a escribirlo, no una
+    comprobación. Medir «hay una entrada por entrega» exigiría saber qué es una
+    entrega, y eso no vive en ningún archivo. Lo que sí se puede medir es esto,
+    que es lo que cuesta datos.
+
+    Verificada con cuatro rupturas: quitando la fila de la V16 —en rojo, y en
+    verde con la primera versión, que es lo que destapó el defecto de arriba—,
+    añadiendo una migración nueva sin tocar el CHANGELOG —el caso que de verdad
+    va a pasar—, quitando las menciones de la V1 a secas para comprobar que no
+    se da por nombrada leyendo la V16, y borrando la sección entera.
+    """
+    changelog = leer("CHANGELOG.md")
+    if changelog is None:
+        check(3, "toda migración está en el CHANGELOG", False,
+              "no se encontró CHANGELOG.md en la raíz")
+        return
+
+    # Sólo las FILAS de la tabla, y no la sección ni el documento. Acotar a la
+    # sección tampoco bastaba: la nota que explica esta comprobación vive dentro
+    # de ella y nombra las seis migraciones que faltaban, así que el texto que
+    # cuenta el defecto lo seguía tapando. Lo único que no se puede escribir de
+    # pasada es una fila de tabla.
+    seccion = re.search(
+        r"^###\s+Migraciones del esquema\s*$(.*?)(?=^###\s|^##\s)",
+        changelog,
+        re.S | re.M,
+    )
+    if seccion is None:
+        check(
+            3,
+            "toda migración está en el CHANGELOG",
+            False,
+            "`DISTRIBUCION_Y_FIRMA.md` §6 manda una sección de migraciones en "
+            "el CHANGELOG, y es donde alguien busca si su respaldo sigue "
+            "sirviendo",
+            "no se encontró la sección «Migraciones del esquema»",
+        )
+        return
+    changelog = seccion.group(1)
+
+    carpeta = os.path.join(RAIZ, "crates", "arles-db", "migrations")
+    numeros = sorted(
+        {
+            m.group(1)
+            for nombre in os.listdir(carpeta)
+            if nombre.endswith(".sql")
+            for m in [re.match(r"(V\d+)__", nombre)]
+            if m
+        },
+        key=lambda v: int(v[1:]),
+    )
+
+    if not numeros:
+        check(3, "hay migraciones que vigilar", False,
+              "no se encontró ninguna migración: cambió el nombre de los "
+              "archivos y esta comprobación ha dejado de mirar nada")
+        return
+
+    filas = {
+        m.group(1)
+        for m in re.finditer(r"^\|\s*\*\*(V\d+)\*\*\s*\|", changelog, re.M)
+    }
+    # `in filas` y no una expresión sobre el texto: «V1» casaría dentro de «V16»
+    # y daría catorce migraciones por nombradas leyendo una sola fila.
+    faltan = [v for v in numeros if v not in filas]
+
+    check(
+        3,
+        "toda migración está en el CHANGELOG",
+        not faltan,
+        "cada migración deja sin restaurar los respaldos anteriores, y el "
+        "CHANGELOG es donde Dirección lo lee: una que no se nombra es una "
+        "copia de seguridad que muere sin que nadie se entere",
+        f"sin nombrar: {', '.join(faltan)}" if faltan else "",
+    )
+
+
 def ningun_error_se_diagnostica_con_la_variante_de_otro():
     """**Un error se construye donde pasa, no donde venga bien.**
 
@@ -4515,6 +4631,7 @@ def fase_3(rapido):
     claves_de_error_sin_texto()
     ningun_error_se_diagnostica_con_la_variante_de_otro()
     ningun_texto_promete_una_copia_que_nadie_hace()
+    toda_migracion_esta_en_el_changelog()
     nombres_de_las_opciones()
     iconos_de_seccion()
     preferencias_fuera_del_navegador()
