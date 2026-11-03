@@ -59,7 +59,20 @@ solas, porque ninguna tiene un valor propio.
 
 ---
 
-## 2 · Las trece pantallas
+## 2 · Las dieciocho pantallas
+
+> **Esta tabla dijo «las trece pantallas» hasta el 03/11/2026**, con cinco
+> construidas después: el Registro (7.4), Respaldos, Restaurar y Archivar
+> (Fase 8) y Recuperar (8.4). Y daba Actividad por **andamio** cuando la 7.3 la
+> construyó y se llevó `PantallaPendiente.vue` con ella.
+>
+> Es el mismo defecto que las dos sondas tuvieron el 28/10 —«iban cinco
+> pantallas por detrás»— y aquí es peor por dónde vive: éste es el documento
+> que se lee para **cambiar el diseño**, así que quien buscara el archivo de
+> Respaldos no lo encontraba y quien leyera lo de Actividad iba a arreglar un
+> andamio que no existe. Lo caza ahora
+> `el_mapa_de_pantallas_nombra_todas_las_pantallas` en `--fase 2`, que lee
+> `router.ts` y no una lista.
 
 | Ruta | Archivo que la dibuja | De dónde saca los datos | Sección en la barra |
 |---|---|---|---|
@@ -74,8 +87,14 @@ solas, porque ninguna tiene un valor propio.
 | `/campanas/nueva` | `AsistenteDeCampana.vue` | `stores/campanas.ts` | Campañas (sin entrada fija) |
 | `/remitentes` | `PantallaRemitentes.vue` | `stores/remitentes.ts` | Remitentes |
 | `/remitentes/whatsapp` | `PantallaWhatsApp.vue` | `stores/whatsapp.ts` | Remitentes › WhatsApp |
-| `/actividad` | `app/PantallaPendiente.vue` | — | Actividad *(andamio)* |
+| `/actividad` | `PantallaActividad.vue` | `stores/actividad.ts` | Actividad |
+| `/actividad/registro` | `PantallaRegistro.vue` | `stores/registro.ts` | Actividad › Registro |
 | `/ajustes` | `PantallaAjustes.vue` | `stores/interfaz.ts` | Ajustes |
+| `/ajustes/respaldos` | `PantallaRespaldos.vue` | `stores/respaldo.ts` | Ajustes › Respaldos |
+| `/ajustes/restaurar` | `PantallaRestaurar.vue` | `stores/restauracion.ts` | Ajustes › Restaurar |
+| `/ajustes/archivar` | `PantallaArchivar.vue` | `stores/archivado.ts` | Ajustes › Archivar |
+| `/recuperar` | `PantallaRecuperar.vue` | `stores/recuperacion.ts` | — *(sin barra lateral: sin base no hay secciones)* |
+| `/catalogo` | `design/CatalogoDelSistema.vue` | — | — *(el catálogo del sistema de diseño, no es producto)* |
 
 **Las secciones son seis y no se tocan** (P-11). Lo que cuelga de ellas son
 subsecciones, y se declaran en `router.ts` con `meta: { seccion, subseccion }`.
@@ -184,14 +203,24 @@ aprenderlo.
 Para no prometer lo que no hay:
 
 - **La audiencia de una campaña no se filtra.** Etiquetas y listas están en el
-  esquema y no tienen pantalla (§40).
+  esquema y no tienen pantalla (§40). Es **otra cosa que el filtro de la lista
+  de contactos**, que sí existe desde el 03/11/2026 (R-26): aquél recorta lo
+  que se ve en Contactos; esto es a quién va una campaña.
 - **Una campaña creada no se edita.**
 - **Una versión de plantilla no se toca**, y eso es a propósito: guardar crea
   otra, para que una campaña activa siga mandando el texto que se aprobó.
-- **Actividad es andamio** hasta su fase. Dice qué traerá y enlaza a las dos
-  cosas que hoy sí se pueden ver —las cifras de cada campaña y la lista de
-  bajas—, porque una pantalla de la que sólo se sale por la barra lateral es un
-  callejón, y la sonda del recorrido la contaba con **cero acciones**.
+- **Un trozo de dirección no se busca**, sólo la dirección completa. No es un
+  olvido: medido el 03/11/2026, un `%@dominio` cuesta **2.1 segundos** con
+  455 470 contactos, porque un sufijo no lo acota ningún índice ordenado por el
+  principio de la cadena. Es la misma pared que C-2. La ayuda del campo lo dice
+  con esas palabras, para que nadie escriba media dirección, no encuentre nada
+  y concluya que esa persona no está.
+
+> **Este apartado decía además que «Actividad es andamio hasta su fase»**, y la
+> 7.3 la construyó el 30/09/2026 y se llevó `PantallaPendiente.vue` con ella.
+> Un documento de diseño que manda a arreglar un andamio que no existe hace
+> perder el tiempo exactamente igual que el ROADMAP pidiendo dos veces los
+> derechos ARCO.
 
 ---
 

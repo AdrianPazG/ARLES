@@ -248,3 +248,131 @@ describe('la columna de acciones', () => {
     expect(ultima?.titulo).toBe('Acciones')
   })
 })
+
+/**
+ * El filtro de la lista · R-26, 03/11/2026
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * LO QUE SÓLO ESTA CAPA PUEDE EQUIVOCAR
+ *
+ * Que el `WHERE` recorte bien lo prueban las cinco pruebas de
+ * `arles-db::contactos`, y lo que cuesta lo mide el banco. Aquí se vigilan las
+ * tres cosas que ninguna de las dos puede ver, y que son las que el usuario
+ * nota:
+ *
+ * 1. Que el texto **no busque al teclear**. No es cosmética: medido, un texto
+ *    que todavía no existe cuesta 867 ms con 455 470 contactos, así que
+ *    escribir «ana» serían tres consultas y dos y medio segundos, y las dos
+ *    primeras tiradas. Si alguien «mejora» esto poniendo un `@input`, la
+ *    pantalla se vuelve inusable con una lista de verdad y **ninguna otra
+ *    prueba lo notaría**.
+ * 2. Que buscar **vuelva a la primera página**. Quedarse en la página 4 de una
+ *    lista que acaba de pasar de 455 470 a 3 deja la tabla vacía con un total
+ *    que dice 3: se lee como «el filtro no encuentra nada».
+ * 3. Que el vacío del filtro **no sea el vacío de «no tienes contactos»**. Es
+ *    el defecto de la pantalla de recuperación del 07/10 —«no se ha perdido
+ *    nada» con 48 MB en disco—: un estado correcto para otra situación, que se
+ *    lee como una afirmación falsa sobre los datos.
+ *
+ * **Vistas en rojo** con tres rupturas: atando el texto a `@input`, llamando a
+ * `cargar(desde)` en vez de `cargar(0)`, y quitando la rama del vacío con
+ * filtro.
+ */
+describe('el filtro de la lista de contactos (R-26)', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  /** Monta la pantalla con la lista ya cargada y espía las peticiones. */
+  function conLaLista(): { pantalla: VueWrapper; desdes: number[] } {
+    const contactos = useContactosStore()
+    contactos.cargada = true
+    contactos.cargando = false
+    contactos.contactos = [UN_CONTACTO]
+    contactos.total = 1
+    const desdes: number[] = []
+    contactos.cargar = async (inicio = 0) => {
+      desdes.push(inicio)
+    }
+    const pantalla = mount(PantallaContactos, entorno)
+
+    // ── EL MONTAJE YA PIDE LA LISTA, Y POR ESO SE VACÍA AQUÍ ──
+    //
+    // `onMounted` llama a `cargar()`, así que sin esta línea `desdes` arranca
+    // con un `0` dentro. La primera versión de la prueba del tecleo cayó por
+    // eso —y las otras tres **habrían pasado por la llamada del montaje**, no
+    // por lo que vinieron a comprobar—. Una prueba que no distingue las dos
+    // llamadas no prueba nada, que es el §2 aplicado a sí misma.
+    desdes.length = 0
+    return { pantalla, desdes }
+  }
+
+  /** El campo de texto del filtro, por su etiqueta. */
+  function campoDelTexto(pantalla: VueWrapper) {
+    return pantalla
+      .findAllComponents(AEntrada)
+      .find((e) => e.props('etiqueta') === 'Nombre, apellido o empresa')
+  }
+
+  it('el texto NO busca al teclear: hay que pulsar Enter o el botón', async () => {
+    const { pantalla, desdes } = conLaLista()
+    const campo = campoDelTexto(pantalla)
+    expect(campo?.exists(), 'el campo de texto del filtro').toBe(true)
+
+    const dentro = campo?.find('input')
+    // Tres letras, como quien escribe «ana».
+    for (const v of ['a', 'an', 'ana']) {
+      await dentro?.setValue(v)
+    }
+    await nextTick()
+    expect(
+      desdes,
+      'teclear no puede pedir la lista: 867 ms por letra con medio millón de contactos',
+    ).toEqual([])
+
+    await dentro?.trigger('keyup.enter')
+    await nextTick()
+    expect(desdes, 'Enter sí busca').toEqual([0])
+  })
+
+  it('al buscar vuelve a la primera página', async () => {
+    const contactos = useContactosStore()
+    const { pantalla, desdes } = conLaLista()
+    // Como si estuviéramos en la página 4.
+    contactos.desde = 300
+    contactos.filtroTexto = 'ana'
+    await nextTick()
+
+    const boton = pantalla.findAll('button').find((b) => b.text() === 'Buscar')
+    expect(boton?.exists(), 'el botón de buscar').toBe(true)
+    await boton?.trigger('click')
+    await nextTick()
+    expect(desdes, 'quedarse en la página 4 deja la tabla vacía con un total de 3').toEqual([0])
+  })
+
+  it('los desplegables sí buscan solos: cuestan 0.1 ms', async () => {
+    const { pantalla, desdes } = conLaLista()
+    const canal = pantalla
+      .findAllComponents(ASelector)
+      .find((s) => s.props('etiqueta') === 'Tiene canal de')
+    expect(canal?.exists(), 'el desplegable de canal').toBe(true)
+    canal?.vm.$emit('update:modelValue', 'whatsapp')
+    await nextTick()
+    expect(desdes).toEqual([0])
+  })
+
+  it('sin resultados con filtro dice que la lista sigue completa, no que no haya contactos', async () => {
+    const contactos = useContactosStore()
+    const { pantalla } = conLaLista()
+    contactos.contactos = []
+    contactos.total = 0
+    contactos.filtroTexto = 'nadie'
+    await nextTick()
+
+    const texto = pantalla.text()
+    expect(texto).toContain('Ningún contacto coincide con lo que buscas')
+    expect(
+      texto,
+      'el vacío de «todavía no hay contactos» es de otra situación: con 455 470 ' +
+        'contactos detrás, decirlo es afirmar algo falso sobre los datos',
+    ).not.toContain('Todavía no has agregado')
+  })
+})

@@ -414,7 +414,21 @@ pub struct PaginaDeContactos {
     pub suprimidas: Vec<String>,
 }
 
-/// Una página de la lista de contactos.
+/// Una página de la lista de contactos, con su filtro (R-26).
+///
+/// ── LOS CUATRO CRITERIOS VIAJAN SUELTOS Y NO EN UN OBJETO ──
+///
+/// Es la regla 1 de la frontera al revés de como suena: los comandos son
+/// gruesos —uno solo trae la página, el total y las bajas— pero sus argumentos
+/// son los que son. Un objeto `filtro` tendría que declararse en TypeScript, y
+/// el 28/10/2026 quedó medido lo que cuesta un tipo que nadie lee: el del paso
+/// 6 del asistente decía `{ resultado, cuando }` cuando Rust mandaba otra cosa,
+/// y `vue-tsc` no podía cazarlo. Cuatro `Option` sueltos los compara una
+/// comprobación de la fase G, argumento por argumento.
+///
+/// Y **el canal entra como `Canal` y no como cadena**: lo deserializa el tipo
+/// del núcleo, así que «correo» mal escrito es un error de la frontera y no un
+/// filtro que calla.
 ///
 /// # Errores
 ///
@@ -423,11 +437,32 @@ pub struct PaginaDeContactos {
 pub fn listar_contactos(
     estado: tauri::State<'_, EstadoApp>,
     desde: u32,
+    texto: Option<String>,
+    direccion: Option<String>,
+    canal: Option<arles_core::canal::Canal>,
+    con_alguna_baja: Option<bool>,
 ) -> Result<PaginaDeContactos, ErrorIpc> {
     let empresa = empresa_actual(&estado)?;
+
+    // Un campo que el usuario vació llega como `Some("")`, y un filtro de
+    // cadena vacía es un `LIKE '%%'`: casa con todo, así que no filtra — pero
+    // **obliga a recorrer la tabla entera** para descubrirlo. 867 ms medidos
+    // con 455 470 contactos, pagados por un campo que está en blanco.
+    let texto = texto.as_deref().map(str::trim).filter(|t| !t.is_empty());
+    let direccion = direccion
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty());
+
+    let filtro = arles_db::FiltroDeContactos {
+        texto,
+        direccion,
+        canal,
+        con_alguna_baja,
+    };
     let pagina = estado
         .db()
-        .listar_contactos(empresa, desde, POR_PAGINA)
+        .listar_contactos(empresa, &filtro, desde, POR_PAGINA)
         .map_err(crate::AppError::Db)?;
 
     // Los canales de toda la página en una consulta, no uno por contacto.

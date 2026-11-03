@@ -284,8 +284,28 @@ impl Db {
     /// # Errores
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
+    ///
+    /// **POR LA DE ESCRITURA A PROPÓSITO:** por el mismo motivo medido que
+    /// `listar_contactos` el 03/11/2026 — la conexión de lectura es **12× más
+    /// lenta** recorriendo una tabla (306 ms contra 3 742 con la misma
+    /// consulta y la misma base). Este filtro recorre la tabla por
+    /// construcción: un `%texto%` no lo acota ningún índice, y eso lo midió y
+    /// lo dejó escrito C-2 el 02/11.
+    ///
+    /// **Y eso quiere decir que la cifra que C-2 publicó está medida por el
+    /// camino que la pantalla NO recorría.** Los 1 151–1 257 ms salieron de
+    /// correr el SQL por el escritor; la pantalla leía por la lectora, así que
+    /// el coste de verdad era del orden de **catorce segundos**. Es el mismo
+    /// error que DOC-13 —una afirmación de rendimiento sin medir el camino
+    /// real— cometido un día después de escribir esa lección, y en el mismo
+    /// archivo.
+    ///
+    /// Vuelve al escritor hasta que se diagnostique la lectora. Lo que se
+    /// pierde con eso está medido y es menor: esperar al cerrojo del motor
+    /// cuesta lo que dure una escritura suya; pasar por la lectora cuesta 12×
+    /// siempre.
     pub fn sucesos(&self, empresa: CompanyId, f: &Filtro<'_>) -> Result<Pagina, DbError> {
-        self.leer(|conn| {
+        self.con(|conn| {
             let empresa = empresa.to_string();
             // El mismo `WHERE` para contar y para leer, construido una sola
             // vez. Dos cadenas parecidas es como se acaba enseñando «500 de
@@ -572,7 +592,16 @@ fn insertar(
 /// El orden importa: la barra se escapa **primero**. Al revés, el `\` que
 /// introduce el escapado de un `%` se volvería a escapar y el patrón buscaría
 /// una barra que el usuario no escribió.
-fn patron_de_busqueda(texto: &str) -> String {
+///
+/// ── POR QUÉ ES `pub(crate)` Y NO PRIVADA ──
+///
+/// El filtro de la lista de contactos (R-26, 03/11/2026) tiene **el mismo**
+/// problema con los comodines, y H-13 demostró que no es teórico: llevaba sin
+/// verse desde la 7.4. Una segunda copia de estas cuatro líneas es una segunda
+/// copia que puede divergir, y el proyecto ya tiene escrito lo que cuesta eso
+/// —tres copias del mismo `match` en la 8.3 bis—. Vive aquí porque aquí nació,
+/// y la usan los dos filtros.
+pub(crate) fn patron_de_busqueda(texto: &str) -> String {
     let escapado = texto
         .replace('\\', "\\\\")
         .replace('%', "\\%")

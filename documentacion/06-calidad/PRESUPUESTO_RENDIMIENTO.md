@@ -27,11 +27,12 @@ detectar lo que está mal por un orden de magnitud — no para certificar.
 | **Abrir tabla de contactos** (la consulta) | < 500 ms | ❌ 1 424 ms | ✅ **357 ms** | ✅ arreglado en la 8.6 |
 | Simulación de campaña | < 200 ms | 5.9 ms | 6.0 ms | ✅ cumple |
 | **Calcular audiencia de campaña** (activar) | < 2 s | — | ❌ **73.5 s** | ❌ **36× por encima** |
-| **Filtro del registro por texto** | < 1 s | — | ❌ 3 709 ms · **remedido 02/11: 1 151–1 257 ms** | ❌ **un 20 % por encima** · ningún índice ayuda (ver la corrección del §2) |
+| **Filtro del registro por texto** | < 1 s | — | ❌ 3 709 ms · remedido 02/11: 1 151–1 257 ms **por el escritor**, y la pantalla leía por la lectora: **~14 s** | ❌ **por medir otra vez** · ver §8 |
 | **Memoria del motor en corrida larga** | < 250 MB | — | ✅ **13.9 MB, plana** | ✅ cumple · parcial (sin webview) |
 | Arranque en frío | < 2 s | — | — | ⬜ sin medir (R-07) |
 | Desplazamiento en tabla virtualizada | 60 fps | — | — | ⬜ sin medir (R-07) |
-| Filtro sobre 500 k **contactos** | < 1 s | — | — | ⬜ **no existe todavía** |
+| **Filtro de contactos · por dirección** | < 1 s | — | ✅ **0.2 ms** · no crece con la tabla | ✅ cumple · R-26, 03/11/2026 |
+| **Filtro de contactos · por texto** | < 1 s | — | ❌ **~2.6 s** (texto que no existe, 455 k) | ❌ **2.6× por encima** · ningún índice ayuda, ver §8 |
 | Preflight completo | < 3 s | — | — | ⬜ sin medir (R-24) |
 | Importar 100 k filas XLSX | < 60 s | — | — | ⬜ sin medir |
 | **Exportar un respaldo cifrado** | < 30 s | — | ✅ **244 ms / 30 k** · ~4 s / 500 k | ✅ cumple · medido en la auditoría F |
@@ -531,3 +532,68 @@ Comportamientos que indican un problema de diseño, no de ajuste fino:
 - Consultas que empeoran al crecer la base pese al índice → el plan de consulta no lo está usando
 
 Cada una de estas se investiga como bug, no como ajuste.
+
+---
+
+## 8. La conexión de lectura es 12× más lenta recorriendo una tabla
+
+**Medido el 03/11/2026**, construyendo el filtro de la lista de contactos
+(R-26). La **misma** consulta, sobre la **misma** base de 182 261 contactos,
+tres corridas de cada camino:
+
+| Por dónde pasa | Milisegundos |
+|---|---|
+| La conexión de escritura | 302, 326, 307 |
+| La conexión de lectura (ADR-0015) | **3 742, 3 741, 3 576** |
+
+Antes de llegar aquí se descartaron dos causas midiéndolas, en vez de
+suponerlas:
+
+| Qué se sospechaba | Medido | Veredicto |
+|---|---|---|
+| El `ESCAPE` del patrón del `LIKE` | 302 ms con él, 315 sin él | **no es** |
+| El recuento sin tope, que no se puede parar pronto | 335 ms, aparte | **no es**: suma ~640 con la página |
+| Por qué conexión pasa | 302 contra 3 742 | **es esto** |
+
+### Qué significa, y es más que una pantalla
+
+**Las diecisiete lecturas que ADR-0015 movió a la lectora entre el 28/10 y el
+03/11 pagan este coste cada vez que recorren algo.** Lo que la lectora arregla
+—no esperar al cerrojo del motor— sigue siendo cierto y sigue estando medido
+(0 ms contra 650 con una escritura de 800 ms en curso), pero son **dos costes
+distintos**: esperar al motor cuesta lo que dure una escritura suya, y sólo
+mientras el motor escribe; pasar por la lectora cuesta 12× **siempre**.
+
+Para una pantalla que se para en la fila 100 —la lista sin filtro, 0.2 ms— da
+igual. Para una que recorre la tabla, no:
+
+- **El filtro de contactos por texto**: 2.6 s por el escritor, 22 s por la
+  lectora.
+- **El filtro del registro**: y aquí hay una corrección que importa. Los
+  **1 151–1 257 ms** que C-2 publicó el 02/11/2026 se midieron corriendo el SQL
+  **por el escritor**, y `Db::sucesos` leía **por la lectora**. El coste real
+  de esa pantalla era del orden de **catorce segundos**, no de uno y cuarto.
+  Es el mismo error que DOC-13 —publicar una cifra de rendimiento sin medir el
+  camino que el usuario recorre— cometido **un día después** de escribir esa
+  lección, y en el mismo archivo.
+
+### Qué se hizo hoy, y qué no
+
+Las dos lecturas que recorren tabla —`listar_contactos` y `sucesos`— **vuelven
+al escritor**, con la marca `POR LA DE ESCRITURA A PROPÓSITO` y esta cifra en
+su documentación. No es el arreglo: es dejar de pagar 12× mientras se
+diagnostica.
+
+**La causa concreta no se sabe, y no se inventa.** La primera hipótesis a medir
+es el tamaño de la caché de páginas, que **ninguna de las dos conexiones
+declara** —así que las dos corren con el valor por defecto y la diferencia
+tendría que estar en otra parte—. El banco ya puede medir las dos conexiones
+(`Db::leer_en_pruebas`, y el enum `Por` de `arles-banco/src/contactos.rs`), que
+es lo que faltaba para poder contestarlo.
+
+> **Y la lección del instrumento, que es la que se repite.** Todas las
+> mediciones del banco desde la 8.5 van por el escritor, y ninguna pantalla lee
+> por ahí desde el 28/10. Un instrumento que recorre otro camino que el usuario
+> no mide — es lo que la 8.5 ya descubrió de sí misma («no era medir sin la
+> interfaz: era medir un camino que el usuario nunca recorre») y lo que volvió
+> a pasar en cuanto apareció una segunda conexión.

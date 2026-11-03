@@ -139,6 +139,43 @@ export const useContactosStore = defineStore('contactos', () => {
   const guardando = ref(false)
   const desde = ref(0)
 
+  /**
+   * El filtro de la lista (R-26). Los cuatro criterios son combinables.
+   *
+   * ── POR QUÉ VIVE EN LA TIENDA Y NO EN LA PANTALLA ──
+   *
+   * Porque la página y el total se piden **con él**, y un filtro que viviera
+   * sólo en el componente se perdería al navegar a la ficha y volver: la lista
+   * volvería entera sin decir que el filtro se fue, que es lo que hace dudar
+   * de un total.
+   *
+   * ── Y POR QUÉ NO SE FILTRA EN EL NAVEGADOR ──
+   *
+   * Porque sólo están las cien filas de la página. Filtrar aquí daría «3 de
+   * 100» sobre un total de 455 470, y los otros 455 370 no se habrían mirado:
+   * un filtro que no encuentra lo que hay es peor que no tenerlo.
+   */
+  const filtroTexto = ref('')
+  const filtroDireccion = ref('')
+  const filtroCanal = ref<Canal | ''>('')
+  /** `''` es «todos»; `'si'` y `'no'` son los dos cortes. */
+  const filtroConAlgunaBaja = ref<'' | 'si' | 'no'>('')
+
+  const hayFiltro = computed(
+    () =>
+      filtroTexto.value.trim() !== '' ||
+      filtroDireccion.value.trim() !== '' ||
+      filtroCanal.value !== '' ||
+      filtroConAlgunaBaja.value !== '',
+  )
+
+  function limpiarFiltro(): void {
+    filtroTexto.value = ''
+    filtroDireccion.value = ''
+    filtroCanal.value = ''
+    filtroConAlgunaBaja.value = ''
+  }
+
   /** Clave de i18n del error de cada canal, por índice. */
   const erroresDeCanal = ref<Record<number, string>>({})
   /** Clave de i18n del error de cada campo del contacto (nombre, apellido…). */
@@ -175,8 +212,18 @@ export const useContactosStore = defineStore('contactos', () => {
     errorGeneral.value = null
     try {
       if (hayNucleo()) {
+        // Un campo vacío se manda como `null` y no como `''`: una cadena
+        // vacía es un `LIKE '%%'`, que casa con todo y **recorre la tabla
+        // entera** para descubrirlo — 867 ms medidos con 455 470 contactos,
+        // pagados por un campo en blanco. La frontera también lo recorta, por
+        // la regla de no fiarse de la webview.
+        const oNada = (v: string): string | null => (v.trim() === '' ? null : v.trim())
         const pagina = await invocar<PaginaDeContactos>('listar_contactos', {
           desde: inicio,
+          texto: oNada(filtroTexto.value),
+          direccion: oNada(filtroDireccion.value),
+          canal: filtroCanal.value === '' ? null : filtroCanal.value,
+          conAlgunaBaja: filtroConAlgunaBaja.value === '' ? null : filtroConAlgunaBaja.value === 'si',
         })
         contactos.value = pagina.contactos
         total.value = pagina.total
@@ -296,6 +343,12 @@ export const useContactosStore = defineStore('contactos', () => {
     cargando,
     guardando,
     desde,
+    filtroTexto,
+    filtroDireccion,
+    filtroCanal,
+    filtroConAlgunaBaja,
+    hayFiltro,
+    limpiarFiltro,
     erroresDeCanal,
     erroresDeCampo,
     errorGeneral,

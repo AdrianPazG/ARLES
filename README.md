@@ -38,7 +38,7 @@ son trabajo pendiente nuestro: van aparte.
 | F6 · Campañas y mensajes | 13 % | ✅ 100 % |
 | F7 · Actividad y entregabilidad | 9 % | ✅ 100 % |
 | F8 · Respaldos y endurecimiento | 7 % | ✅ 100 % |
-| F9 · Release v1.2.0 | 5 % | 🟨 60 % |
+| F9 · Release v1.2.0 | 5 % | 🟨 70 % |
 
 **Esperando a alguien de fuera:**
 

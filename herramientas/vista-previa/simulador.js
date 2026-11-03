@@ -288,6 +288,55 @@
         // lo justo para que la pantalla se pueda recorrer y juzgar.
         case 'listar_contactos': {
           var lista = (e.contactos || []).slice();
+
+          // ── R-26 · EL SIMULADOR FILTRA DE VERDAD ──────────────────────
+          //
+          // Devolver la lista entera haría que la demostración enseñara un
+          // filtro que no filtra: se escribe un nombre, se pulsa Buscar y
+          // salen los mismos contactos. Es el patrón del §9 visto desde este
+          // lado —el decorado que no contesta lo que la pantalla pide— y lo
+          // que la 7.3 encontró en seis comandos de golpe.
+          //
+          // Las reglas son **las mismas cuatro** que el SQL: el texto en
+          // nombre, apellido o empresa; la dirección completa y normalizada;
+          // el canal; y la baja. Lo que no se replica aquí es la
+          // normalización del núcleo —no hay Rust detrás—, así que la
+          // dirección se compara en minúsculas y sin espacios: suficiente
+          // para un correo, que es lo que la demostración lleva.
+          if (args.texto) {
+            var busca = String(args.texto).trim().toLowerCase();
+            lista = lista.filter(function (c) {
+              return (
+                String(c.nombre || '').toLowerCase().indexOf(busca) !== -1 ||
+                String(c.apellido || '').toLowerCase().indexOf(busca) !== -1 ||
+                String(c.empresa || '').toLowerCase().indexOf(busca) !== -1
+              );
+            });
+          }
+          if (args.direccion) {
+            var dir = String(args.direccion).trim().toLowerCase();
+            lista = lista.filter(function (c) {
+              return (c.canales || []).some(function (k) {
+                return String(k.valorNormalizado || '').toLowerCase() === dir;
+              });
+            });
+          }
+          if (args.canal) {
+            lista = lista.filter(function (c) {
+              return (c.canales || []).some(function (k) {
+                return k.canal === args.canal;
+              });
+            });
+          }
+          if (args.conAlgunaBaja !== null && args.conAlgunaBaja !== undefined) {
+            lista = lista.filter(function (c) {
+              var tiene = (c.canales || []).some(function (k) {
+                return /(^|\.)ejemplo\./.test(k.valorNormalizado);
+              });
+              return tiene === args.conAlgunaBaja;
+            });
+          }
+
           return Promise.resolve({
             contactos: lista,
             total: lista.length,

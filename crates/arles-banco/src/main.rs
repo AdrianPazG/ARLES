@@ -71,6 +71,30 @@ fn main() {
         return;
     }
 
+    // `banco contactos 500000` mide qué cuesta cada camino candidato del
+    // filtro de la lista de contactos (R-26). Va aparte porque lo que decide
+    // es **qué criterios se pueden ofrecer**, y esa pregunta se contesta antes
+    // de escribir el filtro, no después: es la lección de C-2, donde se
+    // construyó un índice recomendado sin medir y resultó 18 veces peor.
+    if std::env::args().nth(1).as_deref() == Some("contactos") {
+        let cuantas: usize = std::env::args()
+            .nth(2)
+            .and_then(|a| a.parse().ok())
+            .unwrap_or(500_000);
+        let semilla: u64 = std::env::args()
+            .nth(3)
+            .and_then(|a| a.parse().ok())
+            .unwrap_or(20_261_103);
+        match arles_banco::contactos::correr(cuantas, semilla) {
+            Ok(c) => print!("{c}"),
+            Err(e) => {
+                eprintln!("la medición del filtro no pudo terminar: {e}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+
     let cuantas: usize = std::env::args()
         .nth(1)
         .and_then(|a| a.parse().ok())

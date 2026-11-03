@@ -52,6 +52,68 @@ pub struct ContactoGuardado {
     pub actualizado_en: String,
 }
 
+/// Con qué se recorta la lista de contactos. Todo opcional y todo combinable.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// R-26 · POR QUÉ ESTOS CUATRO CRITERIOS Y NO OTROS
+///
+/// Los decidió **medir**, y no la comodidad de escribirlos en SQL. Medido el
+/// 03/11/2026 con `cargo run --release -p arles-banco -- contactos 500000`,
+/// que corre los mismos caminos a dos tamaños para distinguir lo que se para
+/// pronto de lo que recorre la tabla entera. Los nueve caminos candidatos y
+/// sus cifras están en la cabecera de `arles-banco/src/contactos.rs`.
+///
+/// Lo que la medición dijo, y que no se podía suponer:
+///
+/// - **Una dirección exacta es gratis** —0.0 ms, y no crece con la tabla—
+///   **pero sólo si la consulta conduce desde el canal.** El índice único
+///   existe desde la V11 y la forma obvia —un `JOIN` con la empresa en el
+///   `WHERE`— lo usaba del lado inútil: 60 ms y creciendo 4.3×. **600× de
+///   diferencia entre dos consultas que devuelven lo mismo.**
+/// - **Un texto sobre el nombre cuesta lo que NO encuentra.** Buscar un nombre
+///   frecuente tarda 1.4 ms porque el tope de cien se cumple en las primeras
+///   filas; buscar uno que no existe tarda **4.5× más por cada 4× de filas**,
+///   porque para decir «no hay nada» hay que visitarlas todas. Es lo contrario
+///   de lo que dice la intuición, y es el caso que se toca **mientras se
+///   escribe**.
+/// - **Un trozo de dirección es la pared de C-2 otra vez**: un `%@dominio` es
+///   un sufijo, y ningún índice ordenado por el principio de la cadena lo
+///   acota. Así que **no se ofrece**: lo que se ofrece es la dirección
+///   completa, que es gratis, y el nombre, que al menos es la pregunta que la
+///   gente hace de memoria.
+///
+/// ── Y UNA QUE SE DESCARTÓ CON SU CIFRA ──
+///
+/// «Empieza por» sobre el nombre parecía la salida —un prefijo sí se puede
+/// indexar—, y **medido no lo es**: sin índice tarda igual que `%x%`, y con
+/// uno habría que pagar una migración que deja sin restaurar todo respaldo
+/// anterior (8.3b) más el tiempo de importación que la 8.6 midió en +78 % por
+/// seis índices. Se descarta hasta que alguien tenga una lista en la que
+/// duela, y entonces se mide con el banco en vez de suponerlo.
+#[derive(Debug, Clone, Default)]
+pub struct FiltroDeContactos<'a> {
+    /// Nombre, apellido o empresa — cualquier trozo, sin distinguir mayúsculas.
+    ///
+    /// Los tres campos juntos y no tres criterios: quien busca «Müller» no
+    /// sabe si lo tiene escrito como apellido o como empresa, y obligarle a
+    /// elegir es pedirle el dato que viene a buscar.
+    pub texto: Option<&'a str>,
+    /// Una dirección **completa**, de correo o de WhatsApp.
+    ///
+    /// Completa y no un trozo, y eso es una decisión medida: con el índice de
+    /// la V11 es gratis; en trozos cuesta un recorrido de la tabla de canales.
+    /// La pantalla lo dice con esas palabras en vez de dejarlo adivinar.
+    pub direccion: Option<&'a str>,
+    /// Sólo los que tienen al menos un canal de éste.
+    pub canal: Option<Canal>,
+    /// Sólo los que tienen alguno de sus canales dado de baja, o sólo los que
+    /// no tienen ninguno.
+    ///
+    /// Es la pregunta de «¿a quién no le va a llegar nada?», que hoy la
+    /// pantalla sólo contesta mirando la insignia fila por fila.
+    pub con_alguna_baja: Option<bool>,
+}
+
 /// Una página de la lista.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PaginaDeContactos {
@@ -275,34 +337,241 @@ impl Db {
     /// pantalla que pide de más no es un error del usuario, y devolverle un
     /// fallo la dejaría vacía en lugar de con las primeras mil filas.
     ///
+    /// Qué se puede filtrar y por qué esos criterios y no otros está en
+    /// [`FiltroDeContactos`], con las cifras que lo decidieron.
+    ///
     /// # Errores
     ///
     /// [`DbError::DatoInvalido`] si una fila guardada trae un canal
     /// desconocido; [`DbError::Sqlite`] si la consulta falla.
+    ///
+    /// **POR LA DE ESCRITURA A PROPÓSITO:** la conexión de lectura es **12×
+    /// más lenta** recorriendo esta tabla, medido el 03/11/2026 con la misma
+    /// consulta sobre la misma base de 182 261 contactos: **306 ms por el
+    /// escritor y 3 742 por la lectora**, tres corridas cada uno. Con el filtro
+    /// de texto puesto —que recorre la tabla para poder decir que no hay
+    /// nada— eso convierte 2.6 segundos en 22, y es lo que hace la pantalla
+    /// inusable.
+    ///
+    /// Esta lectura **se movió a la lectora el 03/11/2026 por la mañana** con
+    /// las otras doce, y vuelve aquí la misma tarde porque el filtro la obligó
+    /// a medirse con un recorrido de verdad: hasta entonces sólo se había
+    /// medido la página sin filtro, que se para en la fila 100 y no distingue
+    /// las dos conexiones. **Mover una lectura por la regla general y medirla
+    /// después es el orden equivocado**, y es el error de ayer.
+    ///
+    /// Lo que la lectora sí arregla —no esperar al cerrojo del motor— sigue
+    /// siendo cierto y sigue siendo lo que mide la prueba
+    /// `una_lectura_por_la_de_escritura_espera_a_que_acabe_la_escritura`. Son
+    /// dos costes distintos, y esta pantalla paga el barato: esperar a una
+    /// escritura del motor cuesta lo que dure esa escritura; pasar por la
+    /// lectora cuesta 12× **siempre**.
+    ///
+    /// **La causa concreta no se sabe y no se inventa** (la lección de C-2).
+    /// Lo medido es que las dos conexiones difieren; por qué, es el tramo
+    /// siguiente, y la primera hipótesis a medir es el tamaño de la caché de
+    /// páginas, que ninguna de las dos declara.
     pub fn listar_contactos(
         &self,
         empresa: CompanyId,
+        filtro: &FiltroDeContactos<'_>,
         desde: u32,
         tamano: u32,
     ) -> Result<PaginaDeContactos, DbError> {
         let tamano = tamano.clamp(1, MAX_POR_PAGINA);
-        self.leer_dominio(|conn| {
+        self.con_dominio(|conn| {
+            let empresa = empresa.to_string();
+
+            // ── LA DIRECCIÓN SE RESUELVE ANTES, Y ES LO QUE LA HACE GRATIS ──
+            //
+            // Medido el 03/11/2026: metida dentro del `WHERE` como
+            // `id IN (SELECT …)`, SQLite conduce desde `idx_contact_lista`
+            // por el `ORDER BY` y va probando contacto por contacto. Como una
+            // dirección casa **una** fila, el tope de cien no se cumple nunca
+            // y hay que llegar al final de la tabla: 60 ms con 73 000
+            // contactos, creciendo 4.3× por cada 4× de filas.
+            //
+            // Resuelta aquí, en su propia consulta, usa el índice único de la
+            // V11 por el lado que sirve —de la dirección al contacto— y tarda
+            // 0.0 ms sin crecer. **600× entre dos formas que devuelven lo
+            // mismo**, y ninguna prueba de resultado habría notado la
+            // diferencia.
+            let ids_de_la_direccion: Option<Vec<String>> = match filtro.direccion {
+                None => None,
+                Some(d) => {
+                    let formas = formas_normalizadas(d);
+                    let mut ids: Vec<String> = Vec::new();
+                    if !formas.is_empty() {
+                        let huecos = std::iter::repeat_n("?", formas.len())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        let mut q = conn.prepare(&format!(
+                            "SELECT DISTINCT contact_id FROM contact_channel
+                              WHERE company_id = ?1 AND deleted_at IS NULL
+                                AND value_normalized IN ({huecos})"
+                        ))?;
+                        let mut atar: Vec<&dyn rusqlite::ToSql> = vec![&empresa];
+                        for f in &formas {
+                            atar.push(f);
+                        }
+                        ids = q
+                            .query_map(atar.as_slice(), |f| f.get(0))?
+                            .collect::<Result<_, _>>()?;
+                    }
+                    Some(ids)
+                }
+            };
+
+            // Una dirección que no es de nadie da una página vacía **sin
+            // tocar `contact`**. Dejar que siga con una lista vacía obligaría
+            // a escribir un `IN ()`, que no es SQL válido.
+            if ids_de_la_direccion.as_ref().is_some_and(Vec::is_empty) {
+                return Ok(PaginaDeContactos {
+                    contactos: Vec::new(),
+                    total: 0,
+                });
+            }
+
+            // ── EL MISMO `WHERE` PARA CONTAR Y PARA LEER ──────────────────
+            //
+            // Construido una sola vez, por el motivo que el registro ya tiene
+            // escrito (7.4): dos cadenas parecidas es como se acaba enseñando
+            // «50 de 12 400» con un total que no corresponde a lo que se ve.
+            //
+            // El patrón del texto se arma en Rust con `ESCAPE` y no se pega en
+            // SQL. No es cosmética: es H-13, el defecto que el filtro del
+            // registro tuvo desde la 7.4 hasta el 02/11/2026 — escribir un `%`
+            // devolvía **todas** las filas, que es un filtro contestando como
+            // si no hubiera filtro.
+            // ── EL TEXTO SE BAJA EN RUST, NO EN SQL, Y ESO ES UN DEFECTO
+            //    QUE ENCONTRÓ UNA PRUEBA CON UN ACENTO ──
+            //
+            // `lower()` de SQLite **sólo baja ASCII**: `lower('TÉLLEZ')` da
+            // `tÉllez`, con la `É` intacta. Y `LIKE` tampoco distingue más
+            // allá del ASCII. Así que, con el texto pasado tal cual, buscar
+            // «TÉLLEZ» no encontraba a Téllez — **sin ningún error**, diciendo
+            // que esa persona no está. En un producto mexicano eso no es un
+            // caso raro: es el apellido de alguien escrito en mayúsculas.
+            //
+            // `to_lowercase()` de Rust sí conoce Unicode, así que el patrón
+            // entra ya bajado y el `lower()` de SQL sólo tiene que ocuparse de
+            // las mayúsculas ASCII de la columna, que es lo que sabe hacer.
+            //
+            // **Lo que esto NO cubre, dicho en vez de darlo por cubierto:** un
+            // dato **guardado** con mayúsculas acentuadas —un «TÉLLEZ» en la
+            // columna, no en la búsqueda— seguiría sin encontrarse al buscar
+            // «téllez». Cerrarlo del todo exige una función propia en la
+            // conexión o una columna normalizada en una migración, y ninguna
+            // de las dos cosas se hace sin medir antes si pasa de verdad.
+            let texto = filtro
+                .texto
+                .map(str::to_lowercase)
+                .map(|t| crate::actividad::patron_de_busqueda(&t));
+            let canal = filtro.canal.map(Canal::como_texto);
+            let baja = filtro.con_alguna_baja.map(i64::from);
+
+            let en_la_direccion = match &ids_de_la_direccion {
+                None => String::new(),
+                Some(ids) => format!(
+                    // Los identificadores se interpolan porque son los que
+                    // acaba de devolver la base, no texto de nadie: es el
+                    // único caso que SQLite no parametriza (lista variable),
+                    // y el mismo que los siete `format!` que la auditoría B
+                    // dejó medidos como limpios.
+                    " AND c.id IN ({})",
+                    ids.iter()
+                        .map(|i| format!("'{i}'"))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                ),
+            };
+
+            // ── UN CRITERIO QUE NO SE PIDIÓ NO ENTRA EN EL SQL ────────────
+            //
+            // ── Y ES EL HALLAZGO DE ESTA ENTREGA, ENCONTRADO MIDIENDO LO
+            //    QUE SE ENTREGÓ Y NO LOS CANDIDATOS ──
+            //
+            // La primera versión usaba el idioma del registro (7.4) para los
+            // cuatro criterios: `(?3 IS NULL OR …)`, con el `WHERE` entero
+            // siempre en la consulta y los huecos atados a `NULL` cuando no se
+            // piden. Es correcto, es legible, y **con una subconsulta
+            // correlacionada dentro cuesta veinte segundos.**
+            //
+            // Medido el 03/11/2026 sobre 455 470 contactos, tres corridas:
+            //
+            // | Camino                       | Con `IS NULL OR` | Separado |
+            // |---|---|---|
+            // | Texto que existe             | 11 390 ms | ver cabecera |
+            // | Texto que NO existe          | 21 898 ms | ver cabecera |
+            //
+            // Contra los 1.4 y 895 ms que medía la consulta suelta sin esos dos
+            // criterios. **La diferencia es que SQLite no se salta el `EXISTS`
+            // de un criterio vacío**: lo evalúa fila por fila, dos veces, para
+            // 455 470 filas, y el `?4 IS NULL` de delante no le ahorra el
+            // trabajo porque la subconsulta ya está en el plan.
+            //
+            // Con una comparación de columna —lo que hace el registro— el
+            // idioma es gratis. Con una subconsulta, no. **Copiar una forma que
+            // funciona en otro sitio no es medirla**, y ésta es la tercera vez
+            // en tres días que algo dado por bueno se cae al medirlo: el FTS5
+            // de C-2, el hilo del motor, y esto.
+            //
+            // Así que el `WHERE` se arma con **sólo los criterios pedidos**. Y
+            // sigue siendo **uno** —el mismo para contar y para leer—, que es
+            // la garantía que importa: dos cadenas parecidas es como se acaba
+            // enseñando «50 de 12 400» con un total que no corresponde.
+            let mut trozos = vec![String::from("c.company_id = ?1 AND c.deleted_at IS NULL")];
+            let mut atados: Vec<&dyn rusqlite::ToSql> = vec![&empresa];
+
+            if let Some(t) = &texto {
+                trozos.push(format!(
+                    "(lower(COALESCE(c.first_name,'')) LIKE ?{n} ESCAPE '\\'
+                   OR lower(COALESCE(c.last_name,''))  LIKE ?{n} ESCAPE '\\'
+                   OR lower(COALESCE(c.source,''))     LIKE ?{n} ESCAPE '\\')",
+                    n = atados.len() + 1
+                ));
+                atados.push(t);
+            }
+            if let Some(c) = &canal {
+                trozos.push(format!(
+                    "EXISTS (SELECT 1 FROM contact_channel k
+                              WHERE k.contact_id = c.id AND k.deleted_at IS NULL
+                                AND k.channel = ?{n})",
+                    n = atados.len() + 1
+                ));
+                atados.push(c);
+            }
+            if let Some(b) = &baja {
+                trozos.push(format!(
+                    "?{n} = EXISTS (SELECT 1 FROM contact_channel k
+                                      JOIN suppression_entry s
+                                        ON s.company_id = k.company_id
+                                       AND s.channel = k.channel
+                                       AND s.address_normalized = k.value_normalized
+                                     WHERE k.contact_id = c.id AND k.deleted_at IS NULL)",
+                    n = atados.len() + 1
+                ));
+                atados.push(b);
+            }
+            let donde = format!("{}{en_la_direccion}", trozos.join("\n             AND "));
+            let atados = atados.as_slice();
+
             let total: u32 = conn.query_row(
-                "SELECT count(*) FROM contact WHERE company_id = ?1 AND deleted_at IS NULL",
-                params![empresa.to_string()],
+                &format!("SELECT count(*) FROM contact c WHERE {donde}"),
+                atados,
                 |f| f.get(0),
             )?;
 
-            let mut consulta = conn.prepare(
-                "SELECT id, COALESCE(first_name, ''), COALESCE(last_name, ''),
-                        COALESCE(source, ''), created_at, updated_at
-                   FROM contact
-                  WHERE company_id = ?1 AND deleted_at IS NULL
-                  ORDER BY created_at DESC, id DESC
-                  LIMIT ?2 OFFSET ?3",
-            )?;
+            let mut consulta = conn.prepare(&format!(
+                "SELECT c.id, COALESCE(c.first_name, ''), COALESCE(c.last_name, ''),
+                        COALESCE(c.source, ''), c.created_at, c.updated_at
+                   FROM contact c
+                  WHERE {donde}
+                  ORDER BY c.created_at DESC, c.id DESC
+                  LIMIT {tamano} OFFSET {desde}"
+            ))?;
             let filas: Vec<(String, String, String, String, String, String)> = consulta
-                .query_map(params![empresa.to_string(), tamano, desde], |f| {
+                .query_map(atados, |f| {
                     Ok((
                         f.get(0)?,
                         f.get(1)?,
@@ -749,6 +1018,42 @@ fn escribir_canales(
     Ok(())
 }
 
+/// Las formas normalizadas que puede tener lo que alguien teclea como
+/// dirección, para buscarla con el índice de la V11.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ LAS DOS Y NO «LA SUYA»
+///
+/// La columna indexada guarda la forma **canónica**: un correo en minúsculas,
+/// un teléfono en E.164 (`+525512345678`). Y quien filtra no escribe eso:
+/// escribe `Ana@Empresa.MX`, o `55 1234 5678`, o pega lo que le llegó por
+/// WhatsApp. Comparar lo tecleado tal cual contra la columna no encontraría
+/// nada **y no daría ningún error** — el filtro parecería funcionar y diría
+/// que esa persona no está.
+///
+/// Así que se normaliza con **el validador del núcleo**, que es el único sitio
+/// donde vive esa regla (§4: un tipo validado sólo sale del validador). Y con
+/// los dos canales, porque el filtro es un campo y no dos: nadie que pega una
+/// dirección tiene que declarar antes de qué clase es.
+///
+/// Lo que no se valida como ninguno de los dos devuelve una lista **vacía**, y
+/// quien llama lo traduce en una página vacía. No es un error: «pepe» no es
+/// una dirección, y decirle «dato inválido» a quien está escribiendo todavía
+/// sería un error en medio de la frase.
+fn formas_normalizadas(escrito: &str) -> Vec<String> {
+    use arles_core::canal::ValorDeCanal;
+    let mut formas = Vec::new();
+    for canal in Canal::TODOS {
+        if let Ok(v) = ValorDeCanal::parse(*canal, escrito, "MX") {
+            let n = v.normalized().to_owned();
+            if !formas.contains(&n) {
+                formas.push(n);
+            }
+        }
+    }
+    formas
+}
+
 /// Los canales de varios contactos, en una sola consulta y ya ordenados.
 ///
 /// El orden sale de **la base**, no de reordenar en Rust: es el mismo criterio
@@ -1095,7 +1400,10 @@ mod tests {
         db.crear_contacto(empresa, &contacto(&[(Canal::Correo, "ocupado@empresa.mx")]))
             .expect("el primero entra");
 
-        let antes = db.listar_contactos(empresa, 0, 100).expect("lista").total;
+        let antes = db
+            .listar_contactos(empresa, &FiltroDeContactos::default(), 0, 100)
+            .expect("lista")
+            .total;
         let e = db.crear_contacto(
             empresa,
             &contacto(&[
@@ -1105,7 +1413,10 @@ mod tests {
         );
         assert!(e.is_err());
 
-        let despues = db.listar_contactos(empresa, 0, 100).expect("lista").total;
+        let despues = db
+            .listar_contactos(empresa, &FiltroDeContactos::default(), 0, 100)
+            .expect("lista")
+            .total;
         assert_eq!(
             antes, despues,
             "quedó un contacto a medias: guardado y sin poder recibir nada"
@@ -1176,7 +1487,12 @@ mod tests {
             .expect("crea");
 
         db.borrar_contacto(empresa, id).expect("borra");
-        assert_eq!(db.listar_contactos(empresa, 0, 10).expect("lista").total, 0);
+        assert_eq!(
+            db.listar_contactos(empresa, &FiltroDeContactos::default(), 0, 10)
+                .expect("lista")
+                .total,
+            0
+        );
         assert!(db.contacto(empresa, id).expect("lee").is_none());
 
         db.crear_contacto(empresa, &contacto(&[(Canal::Correo, "ana@empresa.mx")]))
@@ -1196,14 +1512,18 @@ mod tests {
             .expect("crea");
         }
 
-        let primera = db.listar_contactos(empresa, 0, 10).expect("lista");
+        let primera = db
+            .listar_contactos(empresa, &FiltroDeContactos::default(), 0, 10)
+            .expect("lista");
         assert_eq!(primera.contactos.len(), 10);
         assert_eq!(
             primera.total, 25,
             "el total es el de la empresa, no el de la página"
         );
 
-        let ultima = db.listar_contactos(empresa, 20, 10).expect("lista");
+        let ultima = db
+            .listar_contactos(empresa, &FiltroDeContactos::default(), 20, 10)
+            .expect("lista");
         assert_eq!(ultima.contactos.len(), 5);
 
         // Sin solaparse: la primera y la última no comparten ningún contacto.
@@ -1318,7 +1638,9 @@ mod tests {
 
         assert_eq!(resumen.importados, 2);
         assert_eq!(
-            db.listar_contactos(empresa, 0, 100).expect("lista").total,
+            db.listar_contactos(empresa, &FiltroDeContactos::default(), 0, 100)
+                .expect("lista")
+                .total,
             2
         );
 
@@ -1379,7 +1701,10 @@ mod tests {
         )
         .expect("la primera importación cabe");
 
-        let antes = db.listar_contactos(empresa, 0, 100).expect("lista").total;
+        let antes = db
+            .listar_contactos(empresa, &FiltroDeContactos::default(), 0, 100)
+            .expect("lista")
+            .total;
         let lotes_antes: i64 = db
             .ejecutar_en_pruebas(|c| {
                 c.query_row("SELECT count(*) FROM import_batch", [], |f| f.get(0))
@@ -1420,7 +1745,9 @@ mod tests {
         .expect("devuelve el tope");
 
         assert_eq!(
-            db.listar_contactos(empresa, 0, 100).expect("lista").total,
+            db.listar_contactos(empresa, &FiltroDeContactos::default(), 0, 100)
+                .expect("lista")
+                .total,
             antes,
             "quedaron contactos de la importación que falló"
         );
@@ -1463,7 +1790,9 @@ mod tests {
 
         // Sólo queda el contacto previo: ni la primera fila, que iba bien y se
         // escribió antes del choque, ni la tercera.
-        let pagina = db.listar_contactos(empresa, 0, 100).expect("lista");
+        let pagina = db
+            .listar_contactos(empresa, &FiltroDeContactos::default(), 0, 100)
+            .expect("lista");
         assert_eq!(
             pagina.total, 1,
             "quedaron {} contactos: la importación entró a medias",
@@ -1853,7 +2182,12 @@ mod tests {
         sembrar_contactos(&db, empresa, MAX_POR_PAGINA + 5);
 
         let p = db
-            .listar_contactos(empresa, 0, MAX_POR_PAGINA * 10)
+            .listar_contactos(
+                empresa,
+                &FiltroDeContactos::default(),
+                0,
+                MAX_POR_PAGINA * 10,
+            )
             .expect("no falla");
 
         assert_eq!(
@@ -1885,7 +2219,9 @@ mod tests {
         )
         .expect("crea");
 
-        let p = db.listar_contactos(empresa, 0, 10).expect("lista");
+        let p = db
+            .listar_contactos(empresa, &FiltroDeContactos::default(), 0, 10)
+            .expect("lista");
         assert!(
             p.contactos.iter().all(|c| !c.datos.canales.is_empty()),
             "algún contacto llegó sin canales"
@@ -1968,7 +2304,12 @@ mod tests {
 
         let otra = CompanyId::nuevo();
         assert!(db.contacto(otra, id).expect("lee").is_none());
-        assert_eq!(db.listar_contactos(otra, 0, 10).expect("lista").total, 0);
+        assert_eq!(
+            db.listar_contactos(otra, &FiltroDeContactos::default(), 0, 10)
+                .expect("lista")
+                .total,
+            0
+        );
         assert!(matches!(
             db.editar_contacto(otra, id, &contacto(&[(Canal::Correo, "x@empresa.mx")])),
             Err(DbError::ContactoNoExiste)
@@ -1977,6 +2318,316 @@ mod tests {
             db.borrar_contacto(otra, id),
             Err(DbError::ContactoNoExiste)
         ));
+    }
+
+    // ── R-26 · EL FILTRO DE LA LISTA ──────────────────────────────────────
+    //
+    // Las cinco pruebas son de **comportamiento**, y hay una medición aparte
+    // para lo que no se puede afirmar con tres filas: que una dirección exacta
+    // no cueste un recorrido de la tabla. Esa vive en el banco
+    // (`arles-banco/src/contactos.rs`), porque con tres contactos **toda**
+    // consulta es instantánea y una prueba verde no diría nada.
+
+    /// Tres contactos distintos, para poder comprobar que el filtro deja fuera
+    /// a los que no piden.
+    fn tres_distintos(db: &Db, empresa: CompanyId) {
+        for (nombre, apellido, emp, correo) in [
+            ("Ana", "Ruiz", "Müller Logística", "ana.ruiz@muller.mx"),
+            ("Beto", "Salas", "Café del Norte", "beto@cafenorte.mx"),
+            (
+                "Caro",
+                "Téllez",
+                "Müller Logística",
+                "caro.tellez@muller.mx",
+            ),
+        ] {
+            let d = DatosDeContacto::validar(
+                &BorradorDeContacto {
+                    nombre: nombre.into(),
+                    apellido: apellido.into(),
+                    empresa: emp.into(),
+                    canales: vec![BorradorDeCanal {
+                        canal: Canal::Correo,
+                        valor: correo.into(),
+                        principal: true,
+                    }],
+                },
+                "MX",
+            )
+            .expect("contacto válido");
+            db.crear_contacto(empresa, &d).expect("crea");
+        }
+    }
+
+    #[test]
+    fn el_texto_busca_en_el_nombre_el_apellido_y_la_empresa() {
+        let (_d, db, empresa) = base();
+        tres_distintos(&db, empresa);
+
+        // Los tres campos, uno por uno, y el total **con el filtro puesto**:
+        // es lo que la pantalla enseña al lado de la página, y si contara sin
+        // filtrar diría «1 de 3» con un 3 que no corresponde a nada.
+        for (busca, cuantos) in [
+            ("ana", 1),    // el nombre
+            ("salas", 1),  // el apellido
+            ("müller", 2), // la empresa, y casa a dos
+            ("TÉLLEZ", 1), // sin distinguir mayúsculas
+            ("z", 2),      // un trozo: Ruiz y Téllez
+            ("nadie", 0),
+        ] {
+            let f = FiltroDeContactos {
+                texto: Some(busca),
+                ..Default::default()
+            };
+            let p = db.listar_contactos(empresa, &f, 0, 100).expect("lista");
+            assert_eq!(
+                (p.contactos.len(), p.total),
+                (cuantos, u32::try_from(cuantos).expect("cabe")),
+                "buscando «{busca}»"
+            );
+        }
+    }
+
+    /// Un comodín del `LIKE` se busca como el carácter que es.
+    ///
+    /// ── LA PRIMERA VERSIÓN DE ESTA PRUEBA PASABA ROTA, Y VALE CONTARLO ──
+    ///
+    /// Comprobaba que buscar `%` diera **cero** contactos. Y quitando el
+    /// `ESCAPE` de la consulta seguía dando cero, así que **pasaba en verde
+    /// con el defecto dentro**: sin `ESCAPE`, la barra que pone
+    /// `patron_de_busqueda` deja de ser un escape y el patrón `%\%%` busca una
+    /// barra literal, que no está en ningún nombre. Cero por accidente, no por
+    /// la garantía.
+    ///
+    /// La garantía son **dos mitades** —escapar en Rust y declarar el `ESCAPE`
+    /// en SQL— y hace falta un caso que distinga las tres situaciones. Lo da un
+    /// contacto que de verdad lleve un `%` en su nombre:
+    ///
+    /// - Correcto → encuentra **ése y sólo ése**.
+    /// - Sin el `ESCAPE` en SQL → busca `\%` literal y encuentra **cero**.
+    /// - Sin escapar en Rust → el `%` es comodín y encuentra **todos**.
+    ///
+    /// **Verificada por los dos caminos, los dos en rojo.** Es H-13 otra vez,
+    /// el defecto que el filtro del registro tuvo desde la 7.4 hasta el
+    /// 02/11/2026.
+    #[test]
+    fn un_comodin_de_like_se_busca_como_el_caracter_que_es() {
+        let (_d, db, empresa) = base();
+        tres_distintos(&db, empresa);
+
+        // Un nombre con los tres caracteres que el `LIKE` trata aparte. No es
+        // un nombre verosímil, y da igual: lo que se comprueba es que un
+        // carácter del texto no cambie el significado de la consulta.
+        let raro = DatosDeContacto::validar(
+            &BorradorDeContacto {
+                nombre: "Fito".into(),
+                apellido: "100%_\\Puro".into(),
+                empresa: "Rara SA".into(),
+                canales: vec![BorradorDeCanal {
+                    canal: Canal::Correo,
+                    valor: "fito@rara.mx".into(),
+                    principal: true,
+                }],
+            },
+            "MX",
+        )
+        .expect("contacto válido");
+        db.crear_contacto(empresa, &raro).expect("crea");
+
+        for comodin in ["%", "_", "\\"] {
+            let f = FiltroDeContactos {
+                texto: Some(comodin),
+                ..Default::default()
+            };
+            let p = db.listar_contactos(empresa, &f, 0, 100).expect("lista");
+            assert_eq!(
+                p.total, 1,
+                "«{comodin}» tiene que encontrar al contacto que lo lleva en el \
+                 apellido, y sólo a ése: cero significa que el escapado no se \
+                 interpreta, y cuatro que sigue siendo un comodín"
+            );
+            assert_eq!(
+                p.contactos.first().map(|c| c.datos.nombre.as_str()),
+                Some("Fito")
+            );
+        }
+    }
+
+    /// La dirección se normaliza con el validador del núcleo, así que entra
+    /// como la escriba quien la escriba.
+    ///
+    /// **Verificada rompiéndola**: comparando lo tecleado tal cual en vez de
+    /// normalizarlo, los casos con mayúsculas y el teléfono con espacios
+    /// devuelven cero — y sin ningún error, que es lo que lo hacía peligroso.
+    #[test]
+    fn la_direccion_entra_como_la_escriba_quien_la_escriba() {
+        let (_d, db, empresa) = base();
+        // Con una dirección propia, y no la de Ana de `tres_distintos`: el
+        // índice único de `contact_channel` rechaza la segunda —correctamente,
+        // y así se vio: la primera versión de esta prueba cayó con
+        // `DireccionEnUso` antes de llegar a comprobar nada—.
+        let d = DatosDeContacto::validar(
+            &BorradorDeContacto {
+                nombre: "Elena".into(),
+                apellido: "Nava".into(),
+                empresa: "Müller".into(),
+                canales: vec![
+                    BorradorDeCanal {
+                        canal: Canal::Correo,
+                        valor: "elena.nava@muller.mx".into(),
+                        principal: true,
+                    },
+                    BorradorDeCanal {
+                        canal: Canal::WhatsApp,
+                        valor: "+52 55 1234 5678".into(),
+                        principal: false,
+                    },
+                ],
+            },
+            "MX",
+        )
+        .expect("contacto válido");
+        db.crear_contacto(empresa, &d).expect("crea");
+        tres_distintos(&db, empresa);
+
+        for escrito in [
+            "elena.nava@muller.mx",
+            "  Elena.Nava@Muller.MX  ",
+            "+525512345678",
+            "55 1234 5678",
+        ] {
+            let f = FiltroDeContactos {
+                direccion: Some(escrito),
+                ..Default::default()
+            };
+            let p = db.listar_contactos(empresa, &f, 0, 100).expect("lista");
+            assert_eq!(p.total, 1, "escribiendo «{escrito}»");
+        }
+
+        // Y lo que no es una dirección da una página vacía, no un error: quien
+        // está escribiendo todavía no ha terminado de escribir.
+        let f = FiltroDeContactos {
+            direccion: Some("pepe"),
+            ..Default::default()
+        };
+        let p = db.listar_contactos(empresa, &f, 0, 100).expect("lista");
+        assert_eq!((p.total, p.contactos.len()), (0, 0));
+    }
+
+    #[test]
+    fn el_canal_y_la_baja_recortan_la_lista() {
+        let (_d, db, empresa) = base();
+        tres_distintos(&db, empresa);
+        // Uno más, con WhatsApp.
+        let d = DatosDeContacto::validar(
+            &BorradorDeContacto {
+                nombre: "Dani".into(),
+                apellido: "Vega".into(),
+                empresa: "Müller".into(),
+                canales: vec![BorradorDeCanal {
+                    canal: Canal::WhatsApp,
+                    valor: "+52 55 9999 0000".into(),
+                    principal: true,
+                }],
+            },
+            "MX",
+        )
+        .expect("contacto válido");
+        db.crear_contacto(empresa, &d).expect("crea");
+
+        let solo_wa = FiltroDeContactos {
+            canal: Some(Canal::WhatsApp),
+            ..Default::default()
+        };
+        assert_eq!(
+            db.listar_contactos(empresa, &solo_wa, 0, 100)
+                .expect("lista")
+                .total,
+            1
+        );
+        let solo_correo = FiltroDeContactos {
+            canal: Some(Canal::Correo),
+            ..Default::default()
+        };
+        assert_eq!(
+            db.listar_contactos(empresa, &solo_correo, 0, 100)
+                .expect("lista")
+                .total,
+            3
+        );
+
+        // Una baja de la dirección de Beto.
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "INSERT INTO suppression_entry
+                    (id, company_id, channel, address_normalized, scope, reason, origin, created_at)
+                 VALUES ('s-1', ?1, 'email', 'beto@cafenorte.mx', 'channel',
+                         'unsubscribe', 'user', ?2)",
+                params![empresa.to_string(), ahora()],
+            )
+        })
+        .expect("siembra la baja");
+
+        let con_baja = FiltroDeContactos {
+            con_alguna_baja: Some(true),
+            ..Default::default()
+        };
+        let p = db
+            .listar_contactos(empresa, &con_baja, 0, 100)
+            .expect("lista");
+        assert_eq!(p.total, 1, "sólo Beto tiene una dirección dada de baja");
+        assert_eq!(
+            p.contactos.first().map(|c| c.datos.apellido.as_str()),
+            Some("Salas")
+        );
+
+        let sin_baja = FiltroDeContactos {
+            con_alguna_baja: Some(false),
+            ..Default::default()
+        };
+        assert_eq!(
+            db.listar_contactos(empresa, &sin_baja, 0, 100)
+                .expect("lista")
+                .total,
+            3,
+            "los otros tres, Dani incluido"
+        );
+    }
+
+    /// Los cuatro criterios a la vez, que es lo que ninguna prueba de uno solo
+    /// cubre: cada uno por separado puede estar bien y el `AND` mal armado.
+    #[test]
+    fn los_criterios_se_combinan_con_y_y_no_con_o() {
+        let (_d, db, empresa) = base();
+        tres_distintos(&db, empresa);
+
+        // «müller» casa a dos, y la dirección de Caro a uno. Juntos, uno.
+        let f = FiltroDeContactos {
+            texto: Some("müller"),
+            direccion: Some("caro.tellez@muller.mx"),
+            canal: Some(Canal::Correo),
+            con_alguna_baja: Some(false),
+        };
+        let p = db.listar_contactos(empresa, &f, 0, 100).expect("lista");
+        assert_eq!(p.total, 1);
+        assert_eq!(
+            p.contactos.first().map(|c| c.datos.nombre.as_str()),
+            Some("Caro")
+        );
+
+        // Y dos criterios que no se cumplen a la vez dan cero, no la unión.
+        let f = FiltroDeContactos {
+            texto: Some("café"),
+            direccion: Some("caro.tellez@muller.mx"),
+            ..Default::default()
+        };
+        assert_eq!(
+            db.listar_contactos(empresa, &f, 0, 100)
+                .expect("lista")
+                .total,
+            0,
+            "con un O aquí saldrían dos"
+        );
     }
 }
 
@@ -2012,6 +2663,7 @@ mod reproduccion_h05 {
     //! si lo que falla es la junta de arriba. Lo que faltaba era una prueba
     //! que serializara y deserializara, y es
     //! `arles-core/tests/nombres_de_la_frontera.rs`.
+    use super::FiltroDeContactos;
     use super::tests::base;
     use arles_core::Canal;
     use arles_core::contacto::{BorradorDeCanal, BorradorDeContacto, DatosDeContacto};
@@ -2021,7 +2673,7 @@ mod reproduccion_h05 {
         let (_d, db, empresa) = base();
 
         let antes = db
-            .listar_contactos(empresa, 100, 0)
+            .listar_contactos(empresa, &FiltroDeContactos::default(), 100, 0)
             .expect("leer la lista vacía");
         assert_eq!(
             antes.contactos.len(),
@@ -2049,7 +2701,7 @@ mod reproduccion_h05 {
         // trae un canal, así que `direcciones_suprimidas` recibe algo — con
         // cero contactos devolvía pronto y ese tramo no se ejercitaba.
         let despues = db
-            .listar_contactos(empresa, 0, 100)
+            .listar_contactos(empresa, &FiltroDeContactos::default(), 0, 100)
             .expect("recargar tras el alta");
         assert_eq!(despues.contactos.len(), 1, "el contacto tiene que estar");
 

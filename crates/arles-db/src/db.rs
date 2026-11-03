@@ -217,6 +217,31 @@ impl Db {
     ) -> Result<T, DbError> {
         self.con(f)
     }
+
+    /// Lo mismo, pero **por la conexión de lectura**.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ HACE FALTA, Y NO ES SIMETRÍA
+    ///
+    /// El 03/11/2026, midiendo el filtro de contactos, el camino entregado
+    /// tardó **7 010 ms** y la suma de sus dos consultas, medidas con
+    /// `ejecutar_en_pruebas`, **656**. Diez veces. Lo que las distingue no es
+    /// el SQL —se comprobó quitando el `ESCAPE` y midiendo el recuento
+    /// aparte— sino **por qué conexión pasan**: una va por el escritor y la
+    /// otra por la lectora de ADR-0015.
+    ///
+    /// Sin este método, esa diferencia no se puede medir, y lo que se publica
+    /// de cualquier pantalla sería la cifra de una conexión que la pantalla no
+    /// usa. **Un instrumento que mide otro camino del que recorre el usuario
+    /// no mide**: es la lección de la 8.5, cuando el banco medía un camino que
+    /// nadie pisa.
+    #[cfg(any(test, feature = "test-util"))]
+    pub fn leer_en_pruebas<T>(
+        &self,
+        f: impl FnOnce(&Connection) -> Result<T, rusqlite::Error>,
+    ) -> Result<T, DbError> {
+        self.leer(f)
+    }
 }
 
 #[cfg(test)]

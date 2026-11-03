@@ -129,6 +129,50 @@ onMounted(() => {
 const filas = computed(() => contactos.contactos)
 
 /**
+ * Las opciones de los dos desplegables del filtro (R-26).
+ *
+ * El primer valor es `''` y significa «todos», no «ninguno»: un filtro que
+ * arranca excluyendo algo enseña una lista recortada sin que nadie lo haya
+ * pedido, y entonces el total de al lado no corresponde a lo que hay.
+ */
+const opcionesDeCanal = computed(() => [
+  { valor: '', texto: t('contactos.filtros.todos') },
+  { valor: 'email', texto: t('contactos.canal.email') },
+  { valor: 'whatsapp', texto: t('contactos.canal.whatsapp') },
+])
+
+const opcionesDeBaja = computed(() => [
+  { valor: '', texto: t('contactos.filtros.todos') },
+  { valor: 'si', texto: t('contactos.filtros.conBaja') },
+  { valor: 'no', texto: t('contactos.filtros.sinBaja') },
+])
+
+/**
+ * Aplica el filtro y **vuelve a la primera página**.
+ *
+ * ── LOS DOS MOTIVOS DE QUE ESTO VIVA AQUÍ Y NO EN LA TIENDA ──
+ *
+ * 1. Volver a la página 1 es una decisión **del botón**: quedarse en la
+ *    página 4 de una lista que acaba de pasar de 455 470 contactos a 3 deja la
+ *    tabla vacía con un total que dice 3, y eso se lee como «el filtro no
+ *    encuentra nada» cuando los tres están en la primera página.
+ * 2. Y en la tienda no se podía **ver**. Era una función que llamaba a
+ *    `cargar` por cierre, así que una prueba que sustituye `cargar` no la
+ *    tocaba: las tres pruebas de pantalla pasaron en verde con ella, y lo que
+ *    estaban comprobando era la carga del montaje. Una indirección que no se
+ *    puede observar es una indirección que no se puede verificar.
+ */
+function buscar(): void {
+  void contactos.cargar(0)
+}
+
+/** Vacía el filtro **y vuelve a pedir la lista**, que es lo que se espera. */
+function limpiarFiltro(): void {
+  contactos.limpiarFiltro()
+  buscar()
+}
+
+/**
  * El contacto de la ficha.
  *
  * Se recalcula desde la lista en vez de guardarse una copia: tras editar, la
@@ -441,6 +485,68 @@ const errorDelDialogo = computed(() => {
       <p>{{ t('contactos.supresion.explicacion') }}</p>
     </AAviso>
 
+    <!--
+      ── R-26 · EL FILTRO, Y POR QUÉ EL TEXTO NO BUSCA AL TECLEAR ──────────
+
+      Los dos desplegables aplican solos: medido, cuestan 0.1 y 0.2 ms con
+      455 470 contactos.
+
+      El texto y la dirección **no**, y es una decisión medida y no una
+      comodidad: buscar un texto que todavía no existe —lo que pasa con cada
+      letra mientras se escribe— cuesta **867 ms**, porque para decir «no hay
+      nada» hay que visitar las 455 470 filas. Al teclear «ana» serían tres
+      consultas y dos y medio segundos, y las dos primeras tiradas.
+
+      Así que se busca al pulsar Enter o el botón. La ayuda del campo lo dice,
+      porque un campo que no responde y no se explica se lee como una avería
+      (§95, y el defecto que la 8.2c y la 8.3c tuvieron con sus botones).
+    -->
+    <AModulo :titulo="t('contactos.filtros.titulo')">
+      <div class="contactos__filtros">
+        <AEntrada
+          v-model="contactos.filtroTexto"
+          :etiqueta="t('contactos.filtros.texto')"
+          :ayuda="t('contactos.filtros.textoAyuda')"
+          @keyup.enter="buscar()"
+        />
+        <AEntrada
+          v-model="contactos.filtroDireccion"
+          :etiqueta="t('contactos.filtros.direccion')"
+          :ayuda="t('contactos.filtros.direccionAyuda')"
+          @keyup.enter="buscar()"
+        />
+        <ASelector
+          v-model="contactos.filtroCanal"
+          :etiqueta="t('contactos.filtros.canal')"
+          :opciones="opcionesDeCanal"
+          @update:model-value="buscar()"
+        />
+        <ASelector
+          v-model="contactos.filtroConAlgunaBaja"
+          :etiqueta="t('contactos.filtros.baja')"
+          :opciones="opcionesDeBaja"
+          @update:model-value="buscar()"
+        />
+      </div>
+
+      <template #acciones>
+        <ABoton
+          variante="primario"
+          icono="buscar"
+          @click="buscar()"
+        >
+          {{ t('contactos.filtros.buscar') }}
+        </ABoton>
+        <ABoton
+          v-if="contactos.hayFiltro"
+          variante="secundario"
+          @click="limpiarFiltro"
+        >
+          {{ t('contactos.filtros.limpiar') }}
+        </ABoton>
+      </template>
+    </AModulo>
+
     <EstadoCargando v-if="contactos.cargando && !contactos.cargada" />
 
     <EstadoError
@@ -449,6 +555,30 @@ const errorDelDialogo = computed(() => {
       :como="errorGeneral.como"
       :salvo="errorGeneral.salvo"
     />
+
+    <!--
+      ── DOS VACÍOS DISTINTOS, Y CONFUNDIRLOS ES EL DEFECTO ────────────────
+
+      «No tienes contactos» con un botón de importar, delante de una lista de
+      455 470 contactos que el filtro acaba de recortar a cero, es el mismo
+      defecto que la pantalla de recuperación tuvo el 07/10/2026 diciendo «no
+      se ha perdido nada» con 48 MB en disco: el estado es correcto para OTRA
+      situación, y lo que se lee es una afirmación falsa sobre los datos.
+    -->
+    <EstadoVacio
+      v-else-if="filas.length === 0 && contactos.hayFiltro"
+      :titulo="t('contactos.filtros.sinResultados.titulo')"
+      :cuerpo="t('contactos.filtros.sinResultados.cuerpo')"
+    >
+      <template #accion>
+        <ABoton
+          variante="secundario"
+          @click="limpiarFiltro"
+        >
+          {{ t('contactos.filtros.limpiar') }}
+        </ABoton>
+      </template>
+    </EstadoVacio>
 
     <EstadoVacio
       v-else-if="filas.length === 0"
@@ -802,6 +932,16 @@ const errorDelDialogo = computed(() => {
   margin: calc(-1 * var(--arles-space-2)) 0 0;
   color: var(--arles-text-muted);
   font-size: var(--arles-font-size-small);
+}
+
+/* Los cuatro filtros en rejilla, igual que los seis del registro (7.4): a
+   ancho de portátil caben en dos filas, y al estrecharse pasan a una columna
+   sin que ninguno se parta. El mínimo es el mismo —14rem— para que las dos
+   pantallas se vean de la misma familia. */
+.contactos__filtros {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--arles-space-4);
 }
 
 .contactos__cuerpo {

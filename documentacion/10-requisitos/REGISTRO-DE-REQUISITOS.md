@@ -71,7 +71,6 @@ plazo externo que no se comprime.
 |---|---|---|---|
 | **R-05** | Imagen en la firma | Embebida dispara filtros de spam y engorda cada correo; alojada hay que alojarla, y el saneado tendría que admitir `<img>` | espera decisión |
 | **R-25** | Baja automática por correo | La recomendación es IMAP: leer la bandeja y dar de baja a quien responda BAJA | espera decisión |
-| **R-26** | Filtro de la lista de contactos | No existe: `listar_contactos` sólo toma página y tamaño. Está anotado desde la Fase 6, y es **otra cosa que C-2** — ver abajo | abierto |
 | **D-19** | ¿El registro tiene que dar el total exacto? | C-2 midió que **el único cambio que baja el tiempo del filtro es dejar de contar todas las coincidencias**: traer las 500 filas cuesta la mitad. Pero el total al lado es D-7C, y se pidió para que el tope no escondiera nada. Las opciones y las cifras, abajo | espera decisión |
 | **V11→V12** | Restaurar un respaldo de un esquema anterior | Hoy se rechaza con un error claro. Arreglarlo exige correr las migraciones sobre el propio respaldo, que es otra entrega | abierto |
 | **Fase 9** | Sacar la activación al hilo del motor | Activar tarda ~73 s con 451 196 destinatarios y el presupuesto de 2 s se rompe **alrededor de los 30 000**. Desde el 28/10 la ventana **sí responde**, dice en qué va y se puede cancelar; lo que queda es que no corra dentro de un comando | abierto · medido en la auditoría C |
@@ -120,6 +119,9 @@ Dirección lo pida.
 | **H-13** | **Escribir `%` o `_` en el filtro del registro devolvía todas las filas.** El texto del usuario entraba dentro del patrón del `LIKE`, así que era sintaxis | ✅ 02/11/2026 · lo encontró medir C-2 |
 | **H-14** | **El error de «fallo al migrar» afirmaba que se había hecho una copia de la base**, y no hay ninguna copia en todo el proyecto. De las tres partes del §95, la falsa era la tercera: la que existe para decidir qué se puede borrar sin perder nada | ✅ 03/11/2026 |
 | **H-15** | **Un fallo del generador de aleatoriedad se diagnosticaba como «tu base es de una versión anterior»**, y mandaba a apartar un archivo que está bien — en el primer arranque, donde ni existe | ✅ 03/11/2026 · `DbError::SinAleatoriedad` |
+| **R-26** | **La lista de contactos no se podía filtrar**: `listar_contactos` sólo tomaba página y tamaño. Cuatro criterios combinables desde el 03/11/2026 — nombre/apellido/empresa, dirección completa, canal y si tiene alguna baja. Las cifras y lo que se descartó, en su sección | ✅ 03/11/2026 |
+| **H-16** | **Buscar «TÉLLEZ» no encontraba a Téllez.** `lower()` de SQLite sólo baja ASCII, así que la `É` quedaba intacta y el filtro decía que esa persona no está — **sin ningún error**. En un producto mexicano no es un caso raro | ✅ 03/11/2026 · lo encontró una prueba con un acento |
+| **H-17** | **El filtro del registro usaba un índice del lado inútil.** La forma obvia de buscar por dirección —un `JOIN` con la empresa en el `WHERE`— nombra el índice correcto en el plan y tarda **609 ms** donde la forma buena tarda **0.0**: SQLite conduce desde `contact` por el `ORDER BY` y prueba contacto por contacto | ✅ 03/11/2026 · lo cazó el plan, no el resultado |
 
 ---
 
@@ -168,6 +170,68 @@ e invalidar todos los respaldos anteriores, con un instalador ya fuera.
 
 ---
 
+## R-26 · el filtro de contactos, y los tres defectos que encontró medirlo
+
+**03/11/2026.** Cuatro criterios combinables en Contactos. Lo entregado es lo
+de menos: lo que esta entrega deja son **tres defectos que llevaban tiempo ahí
+y pasaban todas las pruebas**, y una cifra de ayer corregida.
+
+### Qué cuesta cada criterio, sobre 455 470 contactos
+
+| Criterio | Milisegundos | Veredicto |
+|---|---|---|
+| Dirección completa | **0.2** · no crece con la tabla | ✅ |
+| Canal | 0.1 | ✅ |
+| Texto, cuando lo encuentra | 1.4 | ✅ |
+| **Texto, cuando NO lo encuentra** | **~2 600** | ❌ 2.6× el presupuesto, declarado |
+
+**El texto cuesta lo que no encuentra**, y es lo contrario de la intuición:
+para poder decir «no hay nada» hay que visitar las 455 470 filas. Es el caso
+que se toca mientras se escribe, así que el campo no busca al teclear.
+
+**Y un trozo de dirección no se ofrece**, con su cifra: 2.1 s, porque un sufijo
+no lo acota ningún índice ordenado por el principio de la cadena. La pared de
+C-2. También se descartó «empieza por» sobre el nombre: sin índice cuesta igual
+que `%x%`, y con uno habría que pagar una migración que deja sin restaurar todo
+respaldo anterior.
+
+### Los tres defectos
+
+**H-17 · Un índice usado del lado inútil.** La forma obvia de buscar por
+dirección —un `JOIN` con la empresa en el `WHERE`— **nombra el índice correcto
+en el plan** y tarda 609 ms donde la forma buena tarda 0.0: SQLite conduce desde
+`contact` por el `ORDER BY` y prueba contacto por contacto, y como una dirección
+casa una sola fila el tope de cien no se cumple nunca. Seis mil veces, con el
+mismo índice en el plan y el mismo resultado devuelto.
+
+Y enseña el límite de lo que ya había: `las_consultas_criticas_usan_su_indice`
+pregunta si el plan **nombra** el índice, no por qué lado.
+
+**H-16 · Buscar «TÉLLEZ» no encontraba a Téllez.** `lower()` de SQLite sólo
+baja ASCII. El patrón se baja ahora en Rust.
+
+**La conexión de lectura es 12× más lenta recorriendo una tabla.** 302 ms por el
+escritor y 3 742 por la lectora, la misma consulta y la misma base de 182 261
+contactos. Es el hallazgo grande y **no es del filtro**: es de ADR-0015, y está
+contado con sus cifras y lo que se descartó en
+[`PRESUPUESTO_RENDIMIENTO.md`](../06-calidad/PRESUPUESTO_RENDIMIENTO.md) §8.
+
+> **Obliga a corregir una cifra de ayer.** Los 1 151–1 257 ms que C-2 publicó
+> para el filtro del registro se midieron corriendo el SQL **por el escritor**,
+> y la pantalla leía **por la lectora**: el coste real era del orden de
+> **catorce segundos**. Es DOC-13 otra vez, un día después de escribir esa
+> lección y en el mismo archivo. Queda **por remedir**.
+
+### Lo que esta entrega enseña del método
+
+**Medir los candidatos no es medir lo entregado.** Los nueve caminos candidatos
+daban 899 ms en el peor caso; el camino real daba 22 000. La diferencia no
+estaba en ninguno de los nueve: estaba en la junta —qué conexión, qué consultas
+de más— que ninguno de los nueve recorría. Es el patrón del §9 aplicado a una
+medición.
+
+---
+
 ## Fallos que ya costaron datos
 
 Se guardan porque **cada uno ha vuelto**, y la defensa que funcionó es la misma
@@ -207,6 +271,8 @@ no una relectura con buena voluntad.
 
 | **DOC-15** | `conexion.rs` desde el 28/10/2026: las cascadas de borrado son seguras con dos conexiones «porque la cascada necesita *triggers* recursivos y aquí están activados» | **No están activados**, y la cascada salta igual: `PRAGMA recursive_triggers` no se toca en ninguna línea del proyecto, y un borrado en cascada se midió disparando su `AFTER DELETE`. La garantía es cierta; el mecanismo con que se explicaba, no. Lo que de verdad depende de ese ajuste es `INSERT OR REPLACE`, del que hay **cero** | ✅ 03/11/2026 · el comentario explica ahora el mecanismo medido |
 | **DOC-16** | La auditoría C y `ESTADO_ACTUAL.md` §10 punto 1: «**sacar la activación de campañas al hilo del motor**» | Mover el trabajo de hilo **no suelta el cerrojo de escritura**: lo tomaría el hilo del motor en vez del del comando. Medido con una escritura de 800 ms en curso: por la conexión de lectura **0 ms**, por la de escritura **650**. Lo que descongela las pantallas es terminar ADR-0015, y es lo que se hizo — 17 de 24 lecturas movidas. Segunda recomendación de auditoría en dos días que se cae al medirla (la otra es DOC-13) | ✅ 03/11/2026 · lo vigila `toda_lectura_de_pantalla_va_por_su_conexion` |
+| **DOC-17** | `MAPA-DE-PANTALLAS.md`: «**las trece pantallas**», y «**Actividad es andamio** hasta su fase» | Son dieciocho desde la Fase 8, y Actividad la construyó la 7.3 el 30/09/2026 llevándose `PantallaPendiente.vue`. Faltaban el Registro, Respaldos, Restaurar, Archivar y Recuperar — **las cuatro últimas son todo lo que construyó la Fase 8**. Es el defecto de las sondas del 28/10 en el documento que se lee **para cambiar el diseño** | ✅ 03/11/2026 · lo vigila `el_mapa_de_pantallas_nombra_todas_las_pantallas` |
+| **DOC-18** | C-2 el 02/11/2026: el filtro del registro cuesta «**1 151–1 257 ms**» | Esa medición corrió el SQL **por la conexión de escritura**, y `Db::sucesos` leía **por la lectora**, que es 12× más lenta recorriendo una tabla. El coste real de la pantalla era del orden de **catorce segundos**. Es DOC-13 otra vez —una cifra de rendimiento medida por un camino que el usuario no recorre— **un día después de escribir esa lección y en el mismo archivo**. Queda por remedir | ⚠️ 03/11/2026 · declarado, pendiente de remedir |
 
 **Las cinco primeras llevaban ahí desde la Fase 2** y ninguna de las cuatro
 auditorías del §140 las vio, porque una auditoría mide el producto y esto es un

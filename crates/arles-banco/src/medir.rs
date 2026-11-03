@@ -234,7 +234,7 @@ pub fn correr(cuantas: usize, semilla: u64) -> Result<Corrida, Box<dyn std::erro
     // webview que aquí no hay. Se mide **la consulta**, que es la mitad que
     // este banco puede medir, y se dice que es la mitad.
     let t = Instant::now();
-    let pagina = db.listar_contactos(empresa, 0, 100)?;
+    let pagina = db.listar_contactos(empresa, &arles_db::FiltroDeContactos::default(), 0, 100)?;
     let primera = t.elapsed();
     medidas.push(Medida {
         operacion: "Abrir tabla de contactos (500 k): la consulta",

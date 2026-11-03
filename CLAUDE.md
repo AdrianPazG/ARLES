@@ -1967,6 +1967,85 @@ pantallas **no es en qué hilo corre, es con qué conexión se lee.**
 > el siguiente la dé por buena por la razón equivocada, y eso es peor que no
 > explicarla.
 
+**Y el 03/11/2026, R-26 · el filtro de la lista de contactos: cuatro criterios
+combinables, y medirlo encontró tres defectos más gordos que el que venía a
+cerrar.** Está contado en `PRESUPUESTO_RENDIMIENTO.md` §8 y en el registro de
+requisitos (R-26, H-16, H-17).
+
+> **Lo que cada criterio cuesta, medido sobre 455 470 contactos:** la dirección
+> completa **0.2 ms** y no crece; el canal 0.1; el texto **1.4 ms cuando lo
+> encuentra y ~2 600 cuando no**. El texto cuesta lo que **no** encuentra, que
+> es lo contrario de la intuición: para decir «no hay nada» hay que visitar las
+> 455 470 filas. Y es el caso que se toca mientras se escribe, así que el campo
+> **no busca al teclear** — hay una prueba que falla si alguien lo ata a cada
+> pulsación.
+>
+> **Un trozo de dirección no se ofrece**, con su cifra: 2.1 s, porque un sufijo
+> no lo acota ningún índice. Es la pared de C-2.
+
+> **El primer hallazgo: un índice usado del lado inútil.** La forma obvia de
+> buscar por dirección —un `JOIN` con la empresa en el `WHERE`— **nombra el
+> índice correcto en el plan** y tarda 609 ms donde la forma buena tarda 0.0:
+> SQLite conduce desde `contact` por el `ORDER BY`. **Seis mil veces, con el
+> mismo índice en el plan y el mismo resultado.**
+>
+> Y eso enseña el límite de lo que ya había: `las_consultas_criticas_usan_su_indice`
+> pregunta si el plan **nombra** el índice, no por qué lado. La prueba nueva
+> exige que la restricción acote algo más que la empresa — porque con una sola
+> empresa (ADR-0008), un plan que sólo acota por ella es un recorrido con otro
+> nombre.
+
+> **El segundo: buscar «TÉLLEZ» no encontraba a Téllez.** `lower()` de SQLite
+> **sólo baja ASCII**, así que la `É` quedaba intacta y el filtro decía que esa
+> persona no está, sin ningún error. En un producto mexicano no es un caso
+> raro. El patrón se baja ahora en Rust, que sí conoce Unicode, y lo que queda
+> sin cubrir —un dato **guardado** con mayúsculas acentuadas— está dicho en vez
+> de darse por cubierto.
+
+> **Y el tercero, que es el grande y no es del filtro: la conexión de lectura
+> es 12× más lenta recorriendo una tabla.** 302 ms por el escritor y 3 742 por
+> la lectora, la misma consulta y la misma base. Antes de llegar ahí se
+> descartaron dos causas **midiéndolas**: el `ESCAPE` del patrón (302 contra
+> 315) y el recuento sin tope (335 aparte).
+>
+> **Afecta a las diecisiete lecturas que ADR-0015 movió esta semana**, y obliga
+> a corregir una cifra de ayer: los 1 151–1 257 ms de C-2 se midieron por el
+> escritor y la pantalla leía por la lectora, así que el coste real del filtro
+> del registro era de **catorce segundos**. Es DOC-13 otra vez —una cifra de
+> rendimiento medida por un camino que el usuario no recorre— **un día después
+> de escribir esa lección y en el mismo archivo**.
+>
+> Las dos lecturas que recorren tabla vuelven al escritor con su cifra al lado.
+> **No es el arreglo, es dejar de pagar 12× mientras se diagnostica**, y la
+> causa no se inventa: el banco ya puede medir las dos conexiones, que es lo que
+> faltaba.
+
+> **La lección del instrumento, que es la que se repite.** Todas las mediciones
+> del banco desde la 8.5 van por el escritor, y ninguna pantalla lee por ahí
+> desde el 28/10. Es lo que la 8.5 ya descubrió de sí misma —«no era medir sin
+> la interfaz: era medir un camino que el usuario nunca recorre»— y volvió a
+> pasar en cuanto apareció una segunda conexión. **Y esta vez lo que lo destapó
+> fue medir lo entregado y no los candidatos**: los nueve caminos candidatos
+> daban 899 ms y el camino real 22 000.
+
+> **Dos defectos de mis propias pruebas.** La del comodín del `LIKE`
+> comprobaba que buscar `%` diera cero, y **sin el `ESCAPE` seguía dando
+> cero**: verde con el defecto dentro. Ahora hay un contacto con un `%` en el
+> apellido, que es lo único que distingue las tres situaciones —encuentra ése,
+> encuentra cero, encuentra todos—. Y las tres pruebas de pantalla pasaron en
+> verde midiendo **la carga del montaje**; una vigilaba una función de la
+> tienda que no se podía observar, porque llamaba a `cargar` por cierre.
+> **Una indirección que no se puede observar no se puede verificar**, así que
+> esa decisión vive ahora donde está el botón.
+
+> **Y el mapa de pantallas iba cinco por detrás**, diciendo «las trece» con
+> dieciocho construidas y dando Actividad por andamio desde el 30/09. Es el
+> defecto de las sondas del 28/10 en el documento que se lee **para cambiar el
+> diseño**. Lo caza `el_mapa_de_pantallas_nombra_todas_las_pantallas` en
+> `--fase 2`, que lee el router en las dos direcciones, comprueba que cada
+> archivo nombrado exista y vigila la cifra en letra. **Cazó dos nombres de
+> tienda mal en la tabla que yo acababa de escribir.**
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |

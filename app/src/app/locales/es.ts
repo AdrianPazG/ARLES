@@ -2891,6 +2891,41 @@ export const es = {
       whatsapp: 'WhatsApp',
     },
 
+    // ── R-26 · EL FILTRO DE LA LISTA ────────────────────────────────────
+    //
+    // Las dos ayudas dicen **lo que el filtro hace y lo que no**, y las dos
+    // frases salen de una medición, no de una preferencia:
+    //
+    // - El texto busca al pulsar Enter y no al teclear, porque un texto que
+    //   todavía no existe cuesta 867 ms con 455 470 contactos: hay que
+    //   visitarlos todos para poder decir que no hay nada.
+    // - La dirección se busca **completa**: con el índice de la V11 es
+    //   instantánea, y en trozos costaría 2.1 segundos. Decirlo aquí evita
+    //   que alguien escriba media dirección, no encuentre nada y concluya que
+    //   esa persona no está.
+    filtros: {
+      titulo: 'Buscar en la lista',
+      texto: 'Nombre, apellido o empresa',
+      textoAyuda: 'Cualquier parte. Pulsa Enter o «Buscar» para aplicarlo.',
+      direccion: 'Correo o WhatsApp',
+      direccionAyuda:
+        'La dirección completa, como la tengas guardada. Media dirección no ' +
+        'encuentra nada.',
+      canal: 'Tiene canal de',
+      baja: 'Dado de baja',
+      todos: 'Todos',
+      conBaja: 'Con alguna dirección de baja',
+      sinBaja: 'Sin ninguna de baja',
+      buscar: 'Buscar',
+      limpiar: 'Quitar el filtro',
+      sinResultados: {
+        titulo: 'Ningún contacto coincide con lo que buscas',
+        cuerpo:
+          'La lista sigue completa: lo que no encuentra es este filtro. ' +
+          'Quítalo para volver a verla entera, o prueba con menos criterios.',
+      },
+    },
+
     campo: {
       nombre: 'Nombre',
       apellido: 'Apellido',

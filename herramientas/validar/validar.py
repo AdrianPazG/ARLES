@@ -1492,6 +1492,114 @@ def toda_lectura_de_pantalla_va_por_su_conexion():
     )
 
 
+def todo_criterio_del_filtro_llega_hasta_la_pantalla():
+    """**Cada criterio de `FiltroDeContactos` tiene un control que lo pide.**
+
+    ───────────────────────────────────────────────────────────────────────────
+    POR QUÉ ESTA Y NO OTRA
+
+    Es el patrón del §9 —una pieza correcta, probada, y nadie la usa— en la
+    forma que este proyecto ya ha visto diecisiete veces. Un criterio de filtro
+    es el caso perfecto: se declara en Rust, se prueba en Rust, pasa en verde,
+    y **desde la pantalla no se puede pedir**. Nada falla; simplemente ese corte
+    de la lista no existe para quien usa ARLES.
+
+    Las comprobaciones que persiguen este patrón no lo cazarían:
+    `ningun_comando_se_queda_sin_quien_lo_llame` mira comandos registrados, y
+    aquí el comando sí se llama — lo que falta es **un argumento** de los
+    cuatro. Es la misma ceguera que dejó pasar el desenlace de la 8.6 D: «un
+    campo de una respuesta que la pantalla ignora no es un comando».
+
+    ── LAS DOS DIRECCIONES, Y POR QUÉ HACEN FALTA LAS DOS ──
+
+    De Rust a la pantalla caza el criterio construido y sin control. De la
+    pantalla a Rust caza lo contrario: un control que manda un argumento que la
+    frontera no declara, que es el H-05 —el defecto que la auditoría G midió
+    comparando 37 argumentos uno a uno—.
+
+    ── Y LOS NOMBRES SALEN DE LA ESTRUCTURA, NO DE UNA LISTA ──
+
+    Se leen los campos del `struct` en `contactos.rs`. Una lista a mano aquí
+    sería la lista a mano por enésima vez, y un criterio nuevo no entraría en
+    ella: es exactamente lo que falló con el `forbid(unsafe_code)` (2 de 7
+    crates), con los prefijos del §139 y con las rutas de las sondas.
+
+    **Verificada con cuatro rupturas, las cuatro en rojo**: quitando el control
+    del canal de la pantalla, quitando `conAlgunaBaja` de la llamada del store,
+    añadiendo un quinto campo al `struct` sin control, y mandando desde el
+    store un argumento que la frontera no declara.
+    """
+    fuente = leer("crates", "arles-db", "src", "contactos.rs") or ""
+    cuerpo = re.search(
+        r"pub struct FiltroDeContactos<'a> \{(.*?)\n\}", fuente, re.S
+    )
+    if not cuerpo:
+        check(7, "todo criterio del filtro llega hasta la pantalla", False,
+              "no se encuentra `pub struct FiltroDeContactos` en contactos.rs",
+              "")
+        return
+
+    # Los comentarios fuera **antes** de buscar nombres. Es el defecto que este
+    # proyecto lleva doce veces arreglando: la documentación de cada campo
+    # nombra a los otros al explicar por qué se eligieron, así que un criterio
+    # borrado seguiría apareciendo en la prosa de al lado.
+    sin_doc = re.sub(r"\s*///[^\n]*", "", cuerpo.group(1))
+    criterios = re.findall(r"\n\s*pub (\w+):", sin_doc)
+
+    store = leer("app", "src", "app", "stores", "contactos.ts") or ""
+    pantalla = leer("app", "src", "app", "pantallas", "PantallaContactos.vue") or ""
+    frontera = leer("crates", "arles-app", "src", "comandos.rs") or ""
+
+    def camello(n):
+        partes = n.split("_")
+        return partes[0] + "".join(p.capitalize() for p in partes[1:])
+
+    problemas = []
+    for c in criterios:
+        # El argumento que la frontera declara, en `snake_case` como Rust.
+        if f"{c}: Option<" not in frontera:
+            problemas.append(f"«{c}» no lo declara `listar_contactos` en la frontera")
+            continue
+        # Lo que el store manda, que viaja en camello.
+        if camello(c) not in store:
+            problemas.append(f"«{c}» no lo manda el store de contactos")
+            continue
+        # Y el control que lo pide. El store guarda cada criterio en un `ref`
+        # con prefijo `filtro`, y la pantalla lo ata con `v-model`.
+        esperado = "filtro" + camello(c)[0].upper() + camello(c)[1:]
+        if esperado not in pantalla:
+            problemas.append(
+                f"«{c}» se construye y se manda, pero la pantalla no tiene "
+                f"control: falta `{esperado}` en PantallaContactos.vue"
+            )
+
+    # La otra dirección: un criterio que el store manda y el filtro no tiene.
+    llamada = re.search(
+        r"invocar<PaginaDeContactos>\('listar_contactos', \{(.*?)\n\s*\}\)",
+        store,
+        re.S,
+    )
+    if llamada:
+        mandados = re.findall(r"\n\s*(\w+):", llamada.group(1))
+        conocidos = {camello(c) for c in criterios} | {"desde"}
+        for m in mandados:
+            if m not in conocidos:
+                problemas.append(
+                    f"el store manda «{m}», que no es un criterio del filtro "
+                    "ni la página: o sobra, o le falta su campo en Rust"
+                )
+
+    check(
+        7,
+        "todo criterio del filtro llega hasta la pantalla",
+        not problemas,
+        "un criterio que se construye y nadie puede pedir es el patrón del §9: "
+        "pasa todas las pruebas y ese corte de la lista no existe para quien "
+        "usa ARLES",
+        "\n      ".join(problemas),
+    )
+
+
 def el_motor_no_lee_por_la_conexion_de_pantallas():
     """**Ningún método que use `leer` puede ser llamado desde `arles-motor`.**
 
@@ -2047,6 +2155,120 @@ RE_PIEZA = re.compile(r"\b(A[A-Z][a-z][a-zA-Z]*|Estado[A-Z][a-zA-Z]*)\b")
 DOC_SISTEMA = "documentacion/05-diseno/DESIGN_SYSTEM.md"
 
 
+def el_mapa_de_pantallas_nombra_todas_las_pantallas():
+    """**Toda ruta del router tiene su fila en el mapa de pantallas.**
+
+    ───────────────────────────────────────────────────────────────────────────
+    POR QUÉ ESTA COMPROBACIÓN, Y POR QUÉ SOBRE ESTE DOCUMENTO
+
+    `MAPA-DE-PANTALLAS.md` es el documento que se lee **para cambiar el
+    diseño**: dice qué archivo dibuja cada pantalla, de dónde saca los datos y
+    dónde viven sus textos. Decía «las trece pantallas» hasta el 03/11/2026 y
+    el producto tiene dieciocho, con cinco construidas después: el Registro
+    (7.4), Respaldos, Restaurar y Archivar (Fase 8) y Recuperar (8.4).
+
+    Es el defecto de las dos sondas del 28/10 —«iban cinco pantallas por
+    detrás»— repetido en un documento, y aquí lo que cuesta es distinto: quien
+    busca el archivo de Respaldos no lo encuentra y da por hecho que no existe.
+    **Un documento no falla: se cree.**
+
+    ── LAS DOS DIRECCIONES, PORQUE UNA SOLA DEJA PASAR LO PEOR ──
+
+    Del router al mapa caza la pantalla nueva sin fila. Del mapa al router caza
+    lo contrario: una fila que nombra una ruta que ya no existe, o un archivo
+    que se renombró — y ésa es la que manda a buscar durante media hora algo
+    que no está. La tabla misma tenía dos nombres de tienda mal al escribirla,
+    y los cazó esta comprobación en su primera corrida.
+
+    ── Y LA CIFRA EN LETRA, COMO LA DE LOS BLOQUEOS ──
+
+    El encabezado dice «las dieciocho pantallas», y eso caduca el día que entre
+    la diecinueve sin que nada falle. Es exactamente lo que pasó con «los
+    cuatro bloqueos» del §8, así que se comprueba igual: el número escrito tiene
+    que ser el que hay.
+
+    **Verificada con cuatro rupturas, las cuatro en rojo**: quitando la fila de
+    Recuperar, dejando el encabezado en «trece», cambiando el archivo de
+    Respaldos por uno que no existe, y añadiendo una fila de una ruta que el
+    router no tiene.
+    """
+    router = leer("app", "src", "app", "router.ts") or ""
+    mapa = leer("documentacion", "05-diseno", "MAPA-DE-PANTALLAS.md") or ""
+
+    # ── QUÉ CUENTA COMO PANTALLA, Y POR QUÉ SE DICE AQUÍ ──
+    #
+    # Fuera la redirección de la raíz y el comodín del 404, que no son
+    # pantallas que nadie vaya a rediseñar. Y fuera `/catalogo`, que es el
+    # catálogo del sistema de diseño: una herramienta nuestra, no producto —
+    # la misma exclusión que `rutas.mjs` declara con su motivo al lado, y la
+    # razón de que todo el proyecto diga «las dieciocho pantallas».
+    #
+    # La primera corrida de esta comprobación lo contó y pidió «diecinueve».
+    # No se cambió la cifra del documento hasta igualar el criterio: ajustar el
+    # dato para que la medida calle es lo contrario de medir.
+    FUERA = ("/", "/catalogo")
+    rutas = {
+        r
+        for r in re.findall(r"path: '([^']+)'", router)
+        if r not in FUERA and "pathMatch" not in r
+    }
+
+    # Lo que la tabla nombra: primera celda de cada fila que empieza por `/`.
+    filas = dict(
+        re.findall(r"^\|\s*`(/[^`]*)`\s*\|\s*`?([^`|]*)`?\s*\|", mapa, re.M)
+    )
+
+    problemas = []
+    for r in sorted(rutas - set(filas)):
+        problemas.append(f"la ruta {r} no tiene fila en el mapa")
+    for r in sorted(set(filas) - rutas):
+        if r in FUERA:
+            continue  # documentarlo está bien; exigirlo, no.
+        problemas.append(f"el mapa nombra {r}, que el router no tiene")
+
+    # Y que el archivo que la fila nombra exista de verdad.
+    for ruta, archivo in sorted(filas.items()):
+        archivo = archivo.strip()
+        if not archivo.endswith(".vue"):
+            continue
+        hoja = os.path.basename(archivo)
+        encontrado = False
+        for base, _, nombres in os.walk(os.path.join(RAIZ, "app", "src")):
+            if "node_modules" in base:
+                continue
+            if hoja in nombres:
+                encontrado = True
+                break
+        if not encontrado:
+            problemas.append(
+                f"el mapa dice que {ruta} la dibuja `{archivo}`, y ese archivo no existe"
+            )
+
+    # La cifra escrita en letra, que es la que caduca sin que nada falle.
+    LETRAS = {
+        13: "trece", 14: "catorce", 15: "quince", 16: "dieciséis",
+        17: "diecisiete", 18: "dieciocho", 19: "diecinueve", 20: "veinte",
+        21: "veintiuna", 22: "veintidós",
+    }
+    esperada = LETRAS.get(len(rutas))
+    titulo = re.search(r"^## 2 · Las (\S+) pantallas", mapa, re.M)
+    if titulo and esperada and titulo.group(1) != esperada:
+        problemas.append(
+            f"el encabezado dice «las {titulo.group(1)} pantallas» y hay "
+            f"{len(rutas)}: {esperada}"
+        )
+
+    check(
+        2,
+        "el mapa de pantallas nombra todas las pantallas",
+        not problemas,
+        "es el documento que se lee para cambiar el diseño: una pantalla sin "
+        "fila se da por inexistente, y una fila con un archivo que no existe "
+        "manda a buscar lo que no está",
+        "\n      ".join(problemas),
+    )
+
+
 def el_sistema_de_diseno_dice_lo_que_hay():
     """El DESIGN_SYSTEM describe lo que hay, y se comprueba contra el código.
 
@@ -2549,6 +2771,7 @@ def fase_2(rapido):
     # ── Documentación ──
     print(f"{GRIS}  documentación{FIN}")
     el_sistema_de_diseno_dice_lo_que_hay()
+    el_mapa_de_pantallas_nombra_todas_las_pantallas()
     informe_para_direccion(2, "FASE-02-PARA-DIRECCION")
     manual_de_entrega()
 
@@ -9207,6 +9430,9 @@ def fase_7(rapido=False):
 
     print(f"{GRIS}  el umbral de rebotes (R-3){FIN}")
     el_umbral_de_rebotes_frena_de_verdad()
+
+    print(f"{GRIS}  el filtro de la lista de contactos (R-26){FIN}")
+    todo_criterio_del_filtro_llega_hasta_la_pantalla()
 
 
 # El canal de WhatsApp no es una fase numerada: cruza la 5 y la 6 y se entregó

@@ -47,7 +47,8 @@ pub use campanas::ResumenDeAccion;
 pub use cola::{DatosParaLaPlantilla, Recuperacion, TrabajoTomado};
 pub use conexion::{ClaveMaestra, abrir};
 pub use contactos::{
-    ContactoGuardado, DatosDelLote, MAX_POR_PAGINA, PaginaDeContactos, ResumenDeImportacion,
+    ContactoGuardado, DatosDelLote, FiltroDeContactos, MAX_POR_PAGINA, PaginaDeContactos,
+    ResumenDeImportacion,
 };
 pub use cuentas::SaludDeLaCuenta;
 pub use db::{Db, ResumenArranque};

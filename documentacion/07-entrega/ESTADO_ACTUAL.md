@@ -379,16 +379,19 @@ que importa la tenga.**
 **95 % a 2026-10-28**, y ese 5 % restante es exactamente el peso de la Fase 9.
 Las otras diez fases están al 100 %.
 
-**Tres** cosas de código y una puerta — los puntos 1 y 3 están cerrados, y de
-los cinco originales queda la mitad del 4:
+**Tres** cosas de código y una puerta. De los cinco puntos originales están
+cerrados el 1, el 2 y el 3, y del 4 queda la mitad — así que quedaban dos. **Y
+el 2 entró una nueva al cerrarse**: diagnosticar por qué la conexión de lectura
+es 12× más lenta (§8 del presupuesto). Van tres:
 
 | | Qué | De dónde viene |
 |---|---|---|
 | **1** | ~~Sacar la activación de campañas al hilo del motor~~ **cerrado el 03/11/2026, y no haciendo eso: mover el trabajo de hilo no suelta el cerrojo de escritura.** Medido: con una escritura de 800 ms en curso, una lectura por la conexión de lectura contesta en **0 ms** y por la de escritura en **650**. Lo que congela las pantallas durante una activación de 75 s no es en qué hilo corre, es que la lectura comparta conexión — así que lo que lo arregla es **terminar ADR-0015**, y van **17 de 24** lecturas de pantalla movidas, con las **7 que no pueden** marcadas con su motivo. Lo vigila `toda_lectura_de_pantalla_va_por_su_conexion` | Auditoría C · cerrado 03/11 |
-| **2** | **El filtro de la lista de contactos** (R-26): no existe, `listar_contactos` sólo toma página y tamaño. Es **otra cosa que C-2**, que era el filtro del **registro** y se cerró el 02/11 — remedido en 1 151–1 257 ms, con un FTS5 construido y descartado por ser 18 veces peor | Auditoría C · C-2 cerrado |
+| **2** | ~~El filtro de la lista de contactos~~ **cerrado el 03/11/2026**: cuatro criterios combinables —nombre/apellido/empresa, dirección completa, canal, y si tiene alguna baja—. La dirección es **gratis** (0.2 ms, y no crece), el texto cuesta **2.6 s** con 455 470 contactos y así está declarado. Y encontró dos cosas más gordas: un índice usado **del lado inútil** (609 ms contra 0.0 con el mismo índice en el plan) y que **la conexión de lectura es 12× más lenta** recorriendo una tabla — lo que obliga a remedir el filtro del registro, cuya cifra del 02/11 salió del camino que la pantalla no recorría. Está en `PRESUPUESTO_RENDIMIENTO.md` §8 | Auditoría C · cerrado 03/11 |
 | **3** | ~~El mensaje de «fallo al migrar el esquema»~~ **cerrado el 03/11/2026, y este renglón llevaba tres semanas desfasado**: el del arranque se arregló el 14/10 y cumple el §95 con la ruta dentro. Lo que de verdad quedaba era otro, y peor — el texto del catálogo afirmaba que **se había hecho una copia de la base**, y no hay ninguna. Ver el registro de requisitos, H-14 | 08/10/2026 · cerrado 03/11 |
 | **4** | **Instaladores, firma, notarización y updater.** El `CHANGELOG.md` **existe y está al día** desde el 03/11: le faltaban once días —veintinueve commits— y seis de las dieciséis migraciones no aparecían en ninguna línea. Lo que queda de él es cortar la sección `[1.2.0]`, que no se puede hacer antes de publicar | ROADMAP Fase 9 |
 | **5** | **Restaurar un respaldo de un esquema anterior** (V11→V12). Hoy se rechaza con un error claro. Coste real hoy: cero, no hay ningún `.arles` fuera de las pruebas; dentro de un mes de uso, no | 8.3b, disparado por la V11 |
+| **6** | **Diagnosticar por qué la conexión de lectura es 12× más lenta** recorriendo una tabla: 302 ms por el escritor y 3 742 por la lectora, la misma consulta y la misma base. Descartados el `ESCAPE` y el recuento, midiéndolos. Las dos lecturas que recorren tabla volvieron al escritor mientras tanto, y el filtro del registro **hay que remedirlo**. Está en `PRESUPUESTO_RENDIMIENTO.md` §8 | **nuevo** · lo encontró R-26 |
 | — | **Puerta P-01** (D-5): antes del primer instalador que se enseñe fuera del equipo, se vuelve a plantear la licencia de Mont. Plan B listo: una línea en `--arles-font-family` | ROADMAP Fase 9 |
 
 **Y una decisión que espera a Dirección:**

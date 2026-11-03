@@ -294,3 +294,86 @@ fn los_indices_de_la_v11_estan_puestos() {
         );
     }
 }
+
+/// La dirección del filtro se resuelve **desde el canal**, no desde `contact`.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// R-26 · EL DEFECTO QUE ESTA PRUEBA EXISTE PARA QUE NO VUELVA
+///
+/// `las_consultas_criticas_usan_su_indice` pregunta si el plan **nombra** el
+/// índice, y eso no basta: el 03/11/2026, la forma obvia de buscar por
+/// dirección —un `JOIN` con la empresa en el `WHERE`— nombraba
+/// `idx_channel_direccion` y tardaba **609 ms** con 455 470 contactos, contra
+/// 0.0 ms de la forma buena. Seis mil veces, con el mismo índice en el plan.
+///
+/// La diferencia no es qué índice se usa: es **por qué lado**. SQLite conducía
+/// desde `contact` por el `ORDER BY`, iba probando contacto por contacto, y
+/// como una dirección casa una sola fila el `LIMIT 100` no se cumplía nunca:
+/// había que llegar al final de la tabla.
+///
+/// Lo que distingue las dos formas en el plan es la **restricción**: del lado
+/// bueno pone `value_normalized=?`; del malo, sólo `company_id=?`. Un plan que
+/// sólo acota por la empresa, con una sola empresa (ADR-0008), es un recorrido
+/// con otro nombre — y eso ya costó una medida inútil en el banco, que salió
+/// «no barre» nueve veces de nueve.
+///
+/// **Verificada rompiéndola**: quitando `value_normalized` de la condición, el
+/// plan pasa a `(company_id=?)` y la prueba cae.
+#[test]
+fn la_direccion_del_filtro_se_resuelve_por_el_indice_y_no_recorriendo() {
+    let (_d, conn) = base();
+    let p = plan(
+        &conn,
+        // contactos.rs · Db::listar_contactos, la consulta que resuelve
+        // `FiltroDeContactos::direccion` antes de tocar `contact`.
+        "SELECT DISTINCT contact_id FROM contact_channel
+          WHERE company_id = ?1 AND deleted_at IS NULL
+            AND value_normalized IN (?2)",
+    );
+    let texto = p.join(" | ");
+    assert!(
+        texto.contains("idx_channel_direccion"),
+        "la dirección no usa su índice\n      {texto}"
+    );
+    assert!(
+        texto.contains("value_normalized"),
+        "el plan sólo acota por la empresa, así que recorre todos los canales \
+         de la empresa en vez de ir a la dirección: con una sola empresa eso es \
+         un recorrido completo\n      {texto}"
+    );
+}
+
+/// El filtro de texto **no** puede cambiar el plan de la lista.
+///
+/// Lo que cuesta un `%texto%` es inevitable —no hay índice para un trozo en
+/// medio de una cadena, y C-2 lo midió construyendo uno y descartándolo—, pero
+/// lo que **no** tiene que pasar es que además deje de usar el índice del
+/// orden: entonces, a lo que ya cuesta visitar las filas se le suma ordenarlas
+/// en memoria.
+///
+/// **Verificada rompiéndola**: mezclando las direcciones del `ORDER BY` a
+/// `created_at DESC, id ASC`, aparece el árbol temporal y la prueba cae.
+#[test]
+fn el_filtro_de_texto_no_hace_ordenar_en_memoria() {
+    let (_d, conn) = base();
+    let p = plan(
+        &conn,
+        "SELECT c.id FROM contact c
+          WHERE c.company_id = ?1 AND c.deleted_at IS NULL
+            AND (?2 IS NULL
+                 OR lower(COALESCE(c.first_name,'')) LIKE ?2 ESCAPE '\\'
+                 OR lower(COALESCE(c.last_name,''))  LIKE ?2 ESCAPE '\\'
+                 OR lower(COALESCE(c.source,''))     LIKE ?2 ESCAPE '\\')
+          ORDER BY c.created_at DESC, c.id DESC
+          LIMIT 100",
+    );
+    let texto = p.join(" | ");
+    assert!(
+        !texto.contains("TEMP B-TREE"),
+        "con el filtro de texto la lista ordena en memoria\n      {texto}"
+    );
+    assert!(
+        texto.contains("idx_contact_lista"),
+        "con el filtro de texto la lista deja de usar el índice del orden\n      {texto}"
+    );
+}

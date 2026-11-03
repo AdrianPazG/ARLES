@@ -138,7 +138,9 @@ fn importar_un_archivo_de_verdad_de_punta_a_punta() {
 
     // Y la base sigue intacta: analizar no escribe.
     assert_eq!(
-        db.listar_contactos(empresa, 0, 100).expect("lista").total,
+        db.listar_contactos(empresa, &arles_db::FiltroDeContactos::default(), 0, 100)
+            .expect("lista")
+            .total,
         0,
         "analizar escribió en la base"
     );
@@ -164,7 +166,9 @@ fn importar_un_archivo_de_verdad_de_punta_a_punta() {
     assert_eq!(resumen.importados, 2);
 
     // ── 5 · Y lo importado es lo que se leyó ────────────────────────────
-    let pagina = db.listar_contactos(empresa, 0, 100).expect("lista");
+    let pagina = db
+        .listar_contactos(empresa, &arles_db::FiltroDeContactos::default(), 0, 100)
+        .expect("lista");
     assert_eq!(pagina.total, 2);
 
     let ana = pagina
@@ -285,7 +289,9 @@ fn reimportar_el_mismo_archivo_no_duplica_a_nadie() {
 
     // La base sigue con dos, no con cuatro.
     assert_eq!(
-        db.listar_contactos(empresa, 0, 100).expect("lista").total,
+        db.listar_contactos(empresa, &arles_db::FiltroDeContactos::default(), 0, 100)
+            .expect("lista")
+            .total,
         2
     );
 }

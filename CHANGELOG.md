@@ -65,6 +65,104 @@ servir. Éste es ese sitio.
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
 
+### La lista de contactos se puede filtrar, y midiéndolo salieron tres cosas peores
+
+**03/11/2026.** Cuatro criterios combinables en Contactos: nombre, apellido o
+empresa; una dirección completa de correo o de WhatsApp; qué canal tiene; y si
+alguna de sus direcciones está dada de baja. Se busca al pulsar Enter o el
+botón, y los dos desplegables se aplican solos.
+
+**Qué cuesta cada uno, medido sobre 455 470 contactos con tres corridas:**
+
+| Criterio | Milisegundos |
+|---|---|
+| Por dirección completa | **0.2** · no crece con la tabla |
+| Por canal | 0.1 |
+| Por texto, cuando lo encuentra | 1.4 |
+| **Por texto, cuando no lo encuentra** | **~2 600** |
+
+> **El texto cuesta lo que NO encuentra, y es lo contrario de la intuición.**
+> Buscar un nombre frecuente es instantáneo porque el tope de cien se cumple a
+> las pocas filas; buscar uno que no existe obliga a visitar las 455 470 para
+> poder decir que no hay nada. Y es el caso que se toca **mientras se escribe**,
+> así que el campo no busca al teclear: lo dice su ayuda, y hay una prueba que
+> falla si alguien lo ata a cada pulsación.
+>
+> **Un trozo de dirección no se ofrece**, y es una decisión medida: un
+> `%@dominio` cuesta **2.1 segundos** porque un sufijo no lo acota ningún
+> índice ordenado por el principio de la cadena. Es la pared de C-2 otra vez. La
+> ayuda del campo pide la dirección completa con esas palabras, para que nadie
+> escriba media, no encuentre nada y concluya que esa persona no está.
+
+> **Y «empieza por» sobre el nombre se descartó con su cifra**: sin índice
+> cuesta igual que `%x%`, y con uno habría que pagar una migración que deja sin
+> restaurar todo respaldo anterior más el tiempo de importación que la 8.6
+> midió en +78 % por seis índices.
+
+### Tres defectos que encontró medir, y ninguno era del filtro
+
+**03/11/2026.** Los tres estaban antes de esta entrega y los tres pasaban todas
+las pruebas.
+
+**1 · Un índice usado del lado inútil.** La forma obvia de buscar por dirección
+—un `JOIN` con la empresa en el `WHERE`— nombra el índice correcto en el plan y
+tarda **609 ms** donde la forma buena tarda **0.0**: SQLite conduce desde
+`contact` por el `ORDER BY` y va probando contacto por contacto, y como una
+dirección casa una sola fila el tope de cien no se cumple nunca. **Seis mil
+veces, con el mismo índice en el plan y el mismo resultado devuelto.** Lo
+vigila una prueba nueva en `planes_de_consulta.rs`, que exige que la
+restricción acote algo más que la empresa.
+
+**2 · Buscar «TÉLLEZ» no encontraba a Téllez.** `lower()` de SQLite sólo baja
+ASCII, así que la `É` quedaba intacta y el filtro decía que esa persona no
+está — **sin ningún error**. En un producto mexicano no es un caso raro: es el
+apellido de alguien escrito en mayúsculas. El patrón se baja ahora en Rust, que
+sí conoce Unicode. Lo encontró una prueba con un acento dentro.
+
+**3 · La conexión de lectura es 12× más lenta recorriendo una tabla.** La misma
+consulta, la misma base de 182 261 contactos: **302 ms por el escritor y 3 742
+por la lectora**. Es el hallazgo más grande de la entrega y no es del filtro: es
+de ADR-0015, y afecta a las diecisiete lecturas que se movieron entre el 28/10 y
+hoy.
+
+> **Y obliga a corregir una cifra de ayer.** Los 1 151–1 257 ms que C-2 publicó
+> para el filtro del registro se midieron corriendo el SQL **por el escritor**,
+> y la pantalla leía **por la lectora**: el coste real era del orden de
+> **catorce segundos**. Es el mismo error que DOC-13 —publicar una cifra de
+> rendimiento sin medir el camino que el usuario recorre— cometido un día
+> después de escribir esa lección y en el mismo archivo.
+>
+> Las dos lecturas que recorren tabla vuelven al escritor con su cifra escrita
+> al lado. **No es el arreglo**: es dejar de pagar 12× mientras se diagnostica.
+> La causa concreta no se sabe y no se inventa, y el banco ya puede medir las
+> dos conexiones, que es lo que faltaba para poder contestarlo. Está contado en
+> `PRESUPUESTO_RENDIMIENTO.md` §8.
+
+> **Dos defectos de mis propias pruebas, los dos del §2.** La del comodín del
+> `LIKE` comprobaba que buscar `%` diera cero contactos, y **sin el `ESCAPE`
+> seguía dando cero**: pasaba en verde con el defecto dentro. Ahora hay un
+> contacto que lleva un `%` en el apellido, que es lo único que distingue las
+> tres situaciones. Y las tres pruebas de pantalla pasaron en verde midiendo
+> **la carga del montaje** en vez de lo que venían a comprobar; una de ellas
+> vigilaba una función de la tienda que no se podía observar, y por eso esa
+> decisión vive ahora donde está el botón.
+
+### El mapa de pantallas iba cinco pantallas por detrás
+
+**03/11/2026.** `MAPA-DE-PANTALLAS.md` decía «las trece pantallas» y el
+producto tiene dieciocho: faltaban el Registro (7.4), Respaldos, Restaurar y
+Archivar (Fase 8) y Recuperar (8.4). Y daba Actividad por **andamio** cuando la
+7.3 la construyó el 30/09 y se llevó `PantallaPendiente.vue` con ella.
+
+Es el defecto de las dos sondas del 28/10 repetido en un documento, y aquí
+cuesta distinto: éste es el documento que se lee **para cambiar el diseño**, así
+que quien buscara el archivo de Respaldos no lo encontraba. Lo caza ahora
+`el_mapa_de_pantallas_nombra_todas_las_pantallas` en `--fase 2`, que lee
+`router.ts` y no una lista, compara **en las dos direcciones**, comprueba que
+cada archivo nombrado exista y vigila la cifra escrita en letra. En su primera
+corrida cazó dos nombres de tienda mal escritos en la tabla que acababa de
+escribir.
+
 ### Diecisiete de las pantallas ya no esperan a que el motor acabe de escribir
 
 **03/11/2026.** El pendiente decía «sacar la activación de campañas al hilo del
