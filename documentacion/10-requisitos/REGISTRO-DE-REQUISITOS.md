@@ -118,6 +118,8 @@ Dirección lo pida.
 | **H-07** | El límite diario se escribía y no se aplicaba: se pedía 300 y salían 50 | ✅ 22/10/2026 · D-13 |
 | **H-08** | Dos campañas con el mismo remitente salían 25 y 25, por orden de llegada | ✅ 22/10/2026 · hoy salen las dos enteras, y el paso 6 avisa de que el plazo cambia |
 | **H-13** | **Escribir `%` o `_` en el filtro del registro devolvía todas las filas.** El texto del usuario entraba dentro del patrón del `LIKE`, así que era sintaxis | ✅ 02/11/2026 · lo encontró medir C-2 |
+| **H-14** | **El error de «fallo al migrar» afirmaba que se había hecho una copia de la base**, y no hay ninguna copia en todo el proyecto. De las tres partes del §95, la falsa era la tercera: la que existe para decidir qué se puede borrar sin perder nada | ✅ 03/11/2026 |
+| **H-15** | **Un fallo del generador de aleatoriedad se diagnosticaba como «tu base es de una versión anterior»**, y mandaba a apartar un archivo que está bien — en el primer arranque, donde ni existe | ✅ 03/11/2026 · `DbError::SinAleatoriedad` |
 
 ---
 
@@ -201,6 +203,7 @@ no una relectura con buena voluntad.
 | **DOC-11** | `avance.json`: **89 % a 2026-10-22**, con F3W al 55 %, F5 al 70 % y F7 al 92 % | Doce tramos cerrados después de esa fecha —la 7.5 entera y D-WA entera— dejaban las tres fichas describiendo un estado que ya no existía. F7 decía «falta sólo la 7.5» con la 7.5 construida. Recalculado: **95 %** | ✅ 28/10/2026 |
 | **DOC-12** | `ADR-0002`: la base «vive en un hilo dedicado que recibe peticiones por canal», y «los lectores usan conexiones separadas» | Ni una cosa ni la otra. Cero `thread::spawn` y cero `mpsc` en `arles-db`, y **una sola** `Connection::open`: lo que hay es un `Mutex<Connection>`. Su decisión tecnológica sí está construida y es correcta; lo que no se construyó es una **mitigación** de sus consecuencias negativas | ✅ 28/10/2026 · acotado por [ADR-0015](../03-arquitectura/adr/0015-un-escritor-y-lectores-separados.md) |
 | **DOC-13** | `actividad.rs` desde la 7.4, y la auditoría C repitiéndolo el 07/10: «si algún día hiciera falta más, **la respuesta es FTS5**» | Se construyó y es **18 veces más lento** (21 556 ms contra 1 257). Ningún índice sirve para este filtro, y el tiempo está en contar el total, no en buscar. Es el peor sitio donde dejar una recomendación sin medir: un comentario del código, que el siguiente lee como una decisión tomada | ✅ 02/11/2026 · la cabecera del módulo lleva ahora las nueve cifras, y el banco repite la comparación |
+| **DOC-14** | `ESTADO_ACTUAL.md` §10 punto 3 y `RELEVO.md`: «el mensaje de **fallo al migrar** no cumple el §95, manda a cerrar y reabrir, y no dice dónde vive la base» | El del arranque se arregló el **14/10/2026** y cumple el §95 con la ruta dentro. Los dos documentos lo siguieron pidiendo tres semanas, y el registro de tropiezos sí tenía el arreglo escrito. El hallazgo de verdad estaba en otro sitio y era peor (H-14): **lo tapó una descripción desfasada que sonaba a lo mismo** | ✅ 03/11/2026 |
 
 **Las cinco primeras llevaban ahí desde la Fase 2** y ninguna de las cuatro
 auditorías del §140 las vio, porque una auditoría mide el producto y esto es un

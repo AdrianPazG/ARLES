@@ -1876,10 +1876,60 @@ export const es = {
         como: 'Contacta con soporte antes de continuar.',
         salvo: 'La base de datos no se ha modificado.',
       },
+      // ── EL `salvo` DE ESTE TEXTO ERA FALSO · ARREGLADO EL 03/11/2026 ────
+      //
+      // Decía *«Se hizo una copia de tu base de datos antes de intentarlo»*, y
+      // **no hay ni una copia en todo el proyecto**: cero `fs::copy` fuera de
+      // `arles-core`. Nada copia la base antes de migrar, ni al arrancar ni al
+      // recuperar.
+      //
+      // De las tres partes del §95, la tercera es la que existe para decidir
+      // qué se puede tocar sin perder nada. Una tercera parte falsa es peor
+      // que no tenerla: es la pantalla de la 8.4 diciendo «no se ha perdido
+      // nada» con 48 MB de base en disco, y la consecuencia es la misma —
+      // alguien borra un archivo porque le dijimos que había copia.
+      //
+      // Las otras dos también estaban mal, y eso ya se sabía: el arranque las
+      // arregló el 14/10/2026 en `mostrar_fallo_de_arranque` —reabrir da el
+      // mismo error siempre, y «restaura tu último respaldo» supone que hay
+      // uno— y **este texto se quedó atrás**. Dos respuestas para el mismo
+      // error, una correcta y otra no, durante tres semanas.
+      //
+      // ── Y POR QUÉ ESTE TEXTO DICE OTRA COSA QUE EL DEL ARRANQUE ──
+      //
+      // No son el mismo sitio y no se puede hacer lo mismo. El del arranque
+      // sale en un diálogo del sistema **sin ventana**, cuando la base de
+      // siempre no se puede migrar: ahí la salida es apartar el archivo, y por
+      // eso lleva la ruta dentro.
+      //
+      // Éste sólo puede salir **dentro de la ventana**, y hoy por un camino:
+      // `recuperar_desde_respaldo` abre una base **nueva y vacía** después de
+      // apartar la ilegible (`recuperacion.rs`). Si eso no migra, el archivo
+      // viejo no es el problema —ya está apartado— y mandar a apartarlo otra
+      // vez no lleva a ningún sitio. Lo que queda es que este ARLES no puede
+      // crear su propia base, que es un fallo de la instalación.
       migracion: {
-        que: 'No se pudo actualizar la estructura de la base de datos.',
-        como: 'Cierra ARLES y vuelve a abrirlo. Si persiste, restaura tu último respaldo.',
-        salvo: 'Se hizo una copia de tu base de datos antes de intentarlo.',
+        que: 'ARLES no pudo preparar la base de datos nueva.',
+        como: 'Vuelve a instalar ARLES y repite la recuperación. Si el problema sigue, es del programa y no de tus datos: guarda el archivo .arles que elegiste y escribe a soporte con el texto de este error.',
+        // El nombre se dice entero porque el usuario puede buscarlo: lo pone
+        // `apartar_la_base_ilegible` y es siempre así. Sin él, esta frase sería
+        // verdad y no serviría de nada — que es la mitad del defecto que el
+        // 07/10 arregló para la contraseña mal teclada.
+        salvo: 'Tu respaldo .arles no se ha tocado. Y tu base anterior tampoco se ha borrado: está en la misma carpeta, renombrada como arles-ilegible-AAAAMMDD.db con la fecha de hoy.',
+      },
+      // Antes se devolvía como un fallo de migración, así que quien lo veía
+      // leía «tu base es de una versión anterior» y se le mandaba a apartar un
+      // archivo —que en el primer arranque ni siquiera existe—. Ver
+      // `DbError::SinAleatoriedad`.
+      sin_aleatoriedad: {
+        que: 'El sistema no pudo generar la clave de cifrado de ARLES.',
+        como: 'Reinicia el equipo y vuelve a intentarlo. Es un fallo del sistema operativo, no de ARLES ni de tus datos.',
+        // Lo que se afirma aquí es verdad en los dos sitios donde se pide una
+        // clave nueva —el primer arranque y la recuperación—, y a propósito: el
+        // generador falla **antes** de escribir en el llavero, así que ninguna
+        // clave nace. Lo que no se dice es que la carpeta esté intacta, porque
+        // en la recuperación la base ilegible ya se apartó antes de llegar aquí.
+        salvo: 'No se escribió ninguna clave ni se cifró nada. ARLES no arranca sin cifrado y nunca lo degrada a texto plano.',
       },
       respaldo_no_encaja: {
         // §95: qué pasó, cómo arreglarlo y qué está a salvo. Lo tercero es lo

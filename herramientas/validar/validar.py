@@ -2864,6 +2864,150 @@ def toda_clave_de_pantalla_del_nucleo_tiene_texto():
     )
 
 
+def ningun_error_se_diagnostica_con_la_variante_de_otro():
+    """**Un error se construye donde pasa, no donde venga bien.**
+
+    ───────────────────────────────────────────────────────────────────────────
+    EL DEFECTO QUE ESTO CAZA · 03/11/2026
+
+    `ClaveMaestra::generar()`, en `conexion.rs`, devolvía
+    `DbError::Migracion("el sistema operativo no pudo proporcionar
+    aleatoriedad")` cuando fallaba `getrandom`. Las dos cosas no tienen nada
+    que ver, y lo que el usuario leía era **el texto de la otra**:
+
+    - en el arranque, *«Esta base de datos es de una versión anterior de
+      ARLES… aparta el archivo renombrándolo»*, con una ruta dentro — y eso en
+      el **primer arranque**, que es justo cuando se pide una clave nueva y
+      cuando no hay ningún archivo que apartar;
+    - en la pantalla de recuperación, *«No se pudo actualizar la estructura de
+      la base de datos»*.
+
+    **Un mensaje impreciso hace dudar; un diagnóstico equivocado manda a hacer
+    algo.** Es la lección que la auditoría B dejó escrita sobre los hallazgos
+    falsos —cuestan más que uno ausente— aplicada a lo que el usuario lee.
+
+    Y no lo cazaba nada, porque las comprobaciones del §139 preguntan si cada
+    variante **tiene** texto, no si es la variante correcta. Un error prestado
+    tiene texto: el del dueño.
+
+    Lo verificable sin juzgar el español es **dónde nace cada variante**:
+    `Migracion` sólo puede construirse en `migraciones.rs`. El módulo se deriva
+    del nombre de la variante, no de una lista a mano, así que una variante
+    nueva con nombre de módulo entra en la vigilancia sola.
+
+    Verificada rompiéndola con el defecto original: devolviendo `Migracion`
+    desde `conexion.rs`, sale en rojo nombrando el archivo y la línea.
+    """
+    pares = {
+        # variante de DbError -> el único módulo que puede construirla
+        "Migracion": "migraciones.rs",
+    }
+    culpables = []
+    carpeta = os.path.join(RAIZ, "crates", "arles-db", "src")
+    for base, _, ficheros in os.walk(carpeta):
+        for fichero in ficheros:
+            if not fichero.endswith(".rs"):
+                continue
+            ruta = os.path.join(base, fichero)
+            with open(ruta, encoding="utf-8") as f:
+                texto = f.read()
+            # Los comentarios se quitan SIEMPRE: esta comprobación persigue un
+            # defecto que se explica nombrando `DbError::Migracion`, y el
+            # propio `error.rs` lo nombra al contar por qué existe la variante
+            # nueva. Es la trampa que el proyecto lleva diez veces cazando.
+            limpio = sin_comentarios_de_barras(texto)
+            # `error.rs` declara las variantes; declararlas no es construirlas.
+            if fichero == "error.rs":
+                continue
+            for variante, dueno in pares.items():
+                if fichero == dueno:
+                    continue
+                for n, linea in enumerate(limpio.splitlines(), 1):
+                    if f"DbError::{variante}" in linea or f"Self::{variante}(" in linea:
+                        culpables.append(
+                            f"{os.path.relpath(ruta, RAIZ)}:{n} construye "
+                            f"DbError::{variante}, que sólo puede nacer en {dueno}"
+                        )
+
+    check(
+        3,
+        "ningún error se diagnostica con la variante de otro",
+        not culpables,
+        "una variante prestada tiene texto —el de su dueño—, así que el §139 "
+        "pasa en verde y el usuario lee un diagnóstico de otra cosa: un "
+        "mensaje impreciso hace dudar, uno equivocado manda a hacer algo",
+        "\n".join(culpables),
+    )
+
+
+def ningun_texto_promete_una_copia_que_nadie_hace():
+    """**El `salvo` del §95 no puede prometer una copia que no existe.**
+
+    ───────────────────────────────────────────────────────────────────────────
+    EL DEFECTO QUE ESTO CAZA · 03/11/2026
+
+    `error.db.migracion` decía, en la tercera parte del §95:
+    *«Se hizo una copia de tu base de datos antes de intentarlo»*. **No hay ni
+    una copia en todo el proyecto**: cero `fs::copy` sobre la base, ni al
+    arrancar ni al migrar ni al recuperar.
+
+    De las tres partes del §95, la tercera existe para decidir qué se puede
+    tocar sin perder nada. Una tercera parte **falsa** es peor que no tenerla,
+    y la consecuencia está medida en este proyecto: es la pantalla de la 8.4
+    diciendo «no se ha perdido nada» con 48 MB de base en disco. Alguien borra
+    un archivo porque le dijimos que había copia.
+
+    Lo que se mide son las dos cosas a la vez: si el código **no copia** la
+    base, ningún texto puede decir que sí. El día que algo la copie de verdad,
+    esta comprobación deja de exigirlo — que es lo correcto, porque entonces la
+    frase sería verdad.
+
+    **Umbral medido antes de escribirla**, como manda el método: el patrón da
+    **un solo hallazgo** sobre el catálogo entero —el texto falso— y **cero**
+    después del arreglo. Con un patrón más amplio («respaldo», «copia» a secas)
+    habría nacido con hallazgos falsos: varios `salvo` legítimos dicen «tus
+    datos están intactos» y hablan del respaldo que el usuario eligió.
+
+    Verificada rompiéndola: devolviendo la frase original al catálogo, sale en
+    rojo nombrando la clave.
+    """
+    es = leer("app", "src", "app", "locales", "es.ts")
+    if es is None:
+        check(3, "ningún texto promete una copia que nadie hace", False,
+              "no se encontró el catálogo de textos")
+        return
+
+    # ¿Copia alguien la base? Se busca en el taller entero, no en un módulo:
+    # lo que importa es si la promesa es verdad en alguna parte.
+    copia = False
+    for base, _, ficheros in os.walk(os.path.join(RAIZ, "crates")):
+        if f"{os.sep}target{os.sep}" in base:
+            continue
+        for fichero in ficheros:
+            if not fichero.endswith(".rs"):
+                continue
+            with open(os.path.join(base, fichero), encoding="utf-8") as f:
+                limpio = sin_comentarios_de_barras(f.read())
+            if "fs::copy" in limpio or "std::fs::copy" in limpio:
+                copia = True
+
+    promesas = []
+    if not copia:
+        for n, linea in enumerate(sin_comentarios_de_barras(es).splitlines(), 1):
+            if re.search(r"se (?:hizo|ha hecho|hace) una copia", linea, re.I):
+                promesas.append(f"es.ts:{n}: {linea.strip()[:90]}")
+
+    check(
+        3,
+        "ningún texto promete una copia que nadie hace",
+        not promesas,
+        "la tercera parte del §95 existe para decidir qué se puede tocar sin "
+        "perder nada; si es falsa, alguien borra un archivo porque le dijimos "
+        "que había copia",
+        "\n".join(promesas),
+    )
+
+
 def claves_de_error_sin_texto():
     """Toda clave que emite Rust está declarada y tiene texto.
 
@@ -4369,6 +4513,8 @@ def fase_3(rapido):
     listas_cerradas_del_nucleo()
     claves_de_texto_del_nucleo()
     claves_de_error_sin_texto()
+    ningun_error_se_diagnostica_con_la_variante_de_otro()
+    ningun_texto_promete_una_copia_que_nadie_hace()
     nombres_de_las_opciones()
     iconos_de_seccion()
     preferencias_fuera_del_navegador()

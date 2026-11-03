@@ -326,6 +326,32 @@ pub fn explicar_fallo(e: &AppError, base: Option<&std::path::Path>) -> FalloDeAr
              la llave que lo descifra sigue en tu sistema.",
         ),
 
+        // ── EL FALLO DEL GENERADOR DE ALEATORIEDAD · 03/11/2026 ───────────
+        //
+        // Hasta hoy esto volvía como `DbError::Migracion`, así que caía en la
+        // rama de arriba y decía *«Esta base de datos es de una versión
+        // anterior de ARLES… aparta el archivo renombrándolo»* — **con la ruta
+        // dentro y en el primer arranque**, que es justo cuando se pide una
+        // clave nueva y cuando no hay ningún archivo que apartar.
+        //
+        // Un mensaje impreciso hace dudar; un diagnóstico equivocado manda a
+        // hacer algo. Es la lección de la auditoría B sobre los hallazgos
+        // falsos, aplicada a lo que el usuario lee.
+        //
+        // `getrandom` no falla casi nunca: hace falta un sistema sin
+        // `/dev/urandom` o sin su equivalente. Por eso el consejo no es
+        // «reinstala» sino «reinicia»: lo que está roto es el sistema.
+        AppError::Db(arles_db::DbError::SinAleatoriedad) => (
+            "Reinicia el equipo y vuelve a abrir ARLES. Esto no es un problema \
+             de ARLES ni de tus datos: el sistema operativo no pudo dar los \
+             números aleatorios con los que se construye la llave de cifrado.\n\n\
+             Si vuelve a pasar después de reiniciar, el sistema tiene algo roto \
+             y conviene decírselo a quien administre el equipo."
+                .to_owned(),
+            "No se escribió ninguna llave y no se tocó ningún archivo. ARLES no \
+             arranca sin cifrado y nunca lo degrada a texto plano.",
+        ),
+
         _ => (
             "Cierra ARLES y vuelve a abrirlo. Si el problema persiste, restaura \
              tu último respaldo."

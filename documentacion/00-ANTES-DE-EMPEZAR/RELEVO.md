@@ -178,12 +178,16 @@ iniciado y nadie los esperaba. Son DOC-10 y DOC-11.
 > cazarlo**: había una cuarta lista, el §6 de `ESTADO_ACTUAL.md`, que esa
 > versión no habría mirado nunca. Ahora busca los documentos por la frase.
 
-**Lo siguiente, sin empezar:** la **Fase 9**, que es **el 5 % que queda** — las
-otras diez fases están al 100 %. Sacar la activación a segundo plano con avance
-(73.5 s con 451 196 destinatarios, y se rompe alrededor de los 30 000), el
-filtro de la lista de contactos (R-26), el mensaje de fallo al migrar que no
-cumple el §95, los instaladores con su firma, y **R-07**: nadie ha abierto ARLES
-en un Mac.
+**Lo siguiente:** la **Fase 9**, que es **el 5 % que queda** — las otras diez
+fases están al 100 %. Sacar la activación **al hilo del motor** (~75 s con
+451 196 destinatarios, y el presupuesto se rompe alrededor de los 30 000; desde
+el 28/10 la ventana sí responde y se puede cancelar), el filtro de la lista de
+contactos (R-26), los instaladores con su firma, y **R-07**: nadie ha abierto
+ARLES en un Mac.
+
+Ya cerrados de esa lista: **C-2** el 02/11 —medido, y el índice que se
+recomendaba resultó 18 veces peor— y **el mensaje de «fallo al migrar»** el
+03/11.
 
 ## 6 · Cómo se cierra un tramo
 

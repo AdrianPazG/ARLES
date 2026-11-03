@@ -1787,6 +1787,89 @@ decisión para Dirección. Está contado en `REGISTRO-DE-REQUISITOS.md`, secció
 > comprobar nada. Una ruptura tiene que quitar la garantía, no reventar el
 > camino que lleva a ella.
 
+**Y el 03/11/2026, el mensaje de «fallo al migrar»: el renglón que lo pedía
+llevaba tres semanas desfasado, y eso tapó un defecto peor.** Son H-14, H-15 y
+DOC-14 del registro.
+
+> **Lo que el §10 pedía ya estaba hecho.** Decía que el mensaje «manda a cerrar
+> y reabrir, y no dice dónde vive la base», y el del **arranque** se arregló el
+> 14/10/2026 en `mostrar_fallo_de_arranque`: cumple el §95, dice que reabrir da
+> el mismo error, y lleva la ruta dentro. El registro de tropiezos sí tenía el
+> arreglo escrito; el §10 y el relevo lo siguieron pidiendo.
+>
+> **Y eso no fue sólo ruido: tapó el hallazgo de verdad.** Una descripción
+> desfasada que suena a lo que pasa hace dar el asunto por conocido. Lo que
+> había debajo:
+>
+> 1. **El texto del catálogo afirmaba que se había hecho una copia de la base**
+>    —*«Se hizo una copia de tu base de datos antes de intentarlo»*— y **no hay
+>    ni un `fs::copy` en todo el taller**. De las tres partes del §95, la falsa
+>    era la tercera: la que existe para decidir qué se puede borrar sin perder
+>    nada. Es la pantalla de la 8.4 diciendo «no se ha perdido nada» con 48 MB
+>    en disco, otra vez, y con la misma consecuencia — alguien borra un archivo
+>    porque le dijimos que había copia.
+> 2. **Y sus otras dos partes eran las viejas**, las que el arranque había
+>    corregido tres semanas antes: dos respuestas para el mismo error, una
+>    correcta y otra no. La duplicación es **forzada** —el diálogo del arranque
+>    sale sin ventana y no puede usar `vue-i18n`—, así que lo que hace falta es
+>    que cada una diga por qué dice algo distinto, y ahora lo dicen.
+>
+> **El texto nuevo no copia al del arranque a propósito**, porque no son el
+> mismo sitio: aquél sale cuando la base de siempre no se puede migrar y la
+> salida es apartar el archivo; éste sólo puede salir **dentro de la ventana**,
+> y hoy por un solo camino —`recuperar_desde_respaldo` abriendo una base nueva
+> y vacía—, donde el archivo viejo ya está apartado y mandar a apartarlo otra
+> vez no lleva a ningún sitio.
+
+> **El tercer hallazgo es un diagnóstico equivocado, que es peor que uno
+> impreciso.** `ClaveMaestra::generar()` devolvía `DbError::Migracion` cuando el
+> sistema no podía dar aleatoriedad. Las dos cosas no tienen nada que ver, y lo
+> que el usuario leía era el texto de la otra: *«Esta base de datos es de una
+> versión anterior de ARLES… aparta el archivo renombrándolo»*, **con una ruta
+> dentro y en el primer arranque** — que es justo cuando se pide una clave nueva
+> y cuando no hay ningún archivo que apartar.
+>
+> **Un mensaje impreciso hace dudar; uno equivocado manda a hacer algo.** Es la
+> lección de la auditoría B sobre los hallazgos falsos, aplicada a lo que lee el
+> usuario. Ahora es `DbError::SinAleatoriedad`, con su clave, su texto y su
+> rama en el diálogo del arranque.
+
+> **Las dos comprobaciones nuevas, y por qué son éstas.** El §139 pregunta si
+> cada variante **tiene** texto, no si es la variante correcta — y un error
+> prestado tiene texto: el de su dueño. Así que:
+>
+> - `ningun_error_se_diagnostica_con_la_variante_de_otro` (fase 3) exige que
+>   `DbError::Migracion` **sólo nazca en `migraciones.rs`**. El módulo sale del
+>   nombre de la variante y no de una lista, así que una variante nueva con
+>   nombre de módulo entra sola.
+> - `ningun_texto_promete_una_copia_que_nadie_hace` (fase 3) mide **las dos
+>   cosas a la vez**: si el código no copia la base, ningún texto puede decir
+>   que sí. El día que algo la copie, deja de exigirlo — que es lo correcto,
+>   porque entonces la frase sería verdad. Esa rama **también se verificó**,
+>   metiendo un `fs::copy` de verdad: la comprobación se calla.
+>
+> **El umbral se midió antes de escribirla**, como la de los bloqueos: el patrón
+> da **un hallazgo** en el catálogo entero —el falso— y cero después. Con
+> «copia» o «respaldo» a secas habría nacido con hallazgos falsos, porque varios
+> `salvo` legítimos dicen «tus datos están intactos» hablando del respaldo que
+> el usuario eligió.
+>
+> **Y lo que ninguna comprobación cubre, dicho en vez de darlo por cubierto:**
+> que los dos catálogos **no se contradigan**. Que las dos frases existan se
+> puede medir; que digan cosas compatibles, no. La defensa es que cada una
+> nombra a la otra en su comentario, y eso es una convención, no una red.
+
+> **Y un hueco que queda abierto, declarado y no arreglado.** En la
+> recuperación, si algo falla **después** de apartar la base ilegible, el error
+> no dice con qué nombre quedó: `nombre_de_la_apartada` sólo viaja en el `Ok`.
+> Es exactamente el defecto que la auditoría F cerró el 07/10 para la
+> contraseña mal teclada —moviendo las comprobaciones antes de tocar nada— y
+> sigue en pie para estos dos errores, porque **el orden actual es el correcto**
+> y no se puede invertir: apartar antes de crear la clave es lo que impide el
+> F2. El texto lo tapa diciendo el nombre entero —`arles-ilegible-AAAAMMDD.db`,
+> que es siempre así—, pero taparlo con una frase no es cerrarlo. Arreglarlo de
+> verdad exige que el error lleve el nombre dentro, y eso es otro tramo.
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |

@@ -35,11 +35,7 @@ impl ClaveMaestra {
     /// no hay cifrado real.
     pub fn generar() -> Result<Self, DbError> {
         let mut bytes = vec![0_u8; LONGITUD_CLAVE];
-        getrandom::fill(&mut bytes).map_err(|_| {
-            DbError::Migracion(
-                "el sistema operativo no pudo proporcionar aleatoriedad criptográfica".into(),
-            )
-        })?;
+        getrandom::fill(&mut bytes).map_err(|_| DbError::SinAleatoriedad)?;
         Ok(Self(Secret::new(bytes)))
     }
 

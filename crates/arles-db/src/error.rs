@@ -25,6 +25,28 @@ pub enum DbError {
     #[error("fallo al migrar el esquema: {0}")]
     Migracion(String),
 
+    /// El sistema operativo no pudo dar aleatoriedad criptográfica.
+    ///
+    /// ───────────────────────────────────────────────────────────────────────
+    /// POR QUÉ ES UNA VARIANTE Y NO UN `Migracion` · 03/11/2026
+    ///
+    /// Hasta hoy, `ClaveMaestra::generar()` devolvía `Migracion` cuando
+    /// `getrandom` fallaba. Las dos cosas no tienen nada que ver, y lo que el
+    /// usuario leía era el texto de la otra: *«Esta base de datos es de una
+    /// versión anterior de ARLES»* en el arranque, o *«No se pudo actualizar la
+    /// estructura de la base de datos»* en la pantalla de recuperación.
+    ///
+    /// **Las dos mandan a apartar un archivo que está perfectamente bien**, y
+    /// la del arranque además dice «renómbralo, no lo borres» con una ruta
+    /// dentro. Un diagnóstico equivocado no es un mensaje impreciso: manda a
+    /// hacer algo. Es la lección de la auditoría B —un hallazgo falso cuesta
+    /// más que uno ausente— aplicada a lo que lee el usuario.
+    ///
+    /// Aquí no se debe continuar con un valor alternativo: sin aleatoriedad
+    /// real no hay cifrado real (ADR-0011).
+    #[error("el sistema operativo no pudo proporcionar aleatoriedad criptográfica")]
+    SinAleatoriedad,
+
     /// Una fila almacenada ya no pasa la validación del dominio.
     ///
     /// Solo puede ocurrir si alguien editó la base por fuera de la aplicación o
@@ -327,6 +349,7 @@ impl DbError {
             Self::ClaveIncorrecta => "error.db.clave_incorrecta",
             Self::ClaveMalFormada { .. } => "error.db.clave_mal_formada",
             Self::Migracion(_) => "error.db.migracion",
+            Self::SinAleatoriedad => "error.db.sin_aleatoriedad",
             Self::DatoInvalido { .. } => "error.db.dato_invalido",
             Self::DireccionEnUso { .. } => "error.db.direccion_en_uso",
             Self::ContactoNoExiste => "error.db.contacto_no_existe",

@@ -47,6 +47,7 @@ const CLAVES_DEL_NUCLEO = [
   'error.db.clave_incorrecta',
   'error.db.clave_mal_formada',
   'error.db.migracion',
+  'error.db.sin_aleatoriedad',
   'error.db.sqlite',
   // Entrega 8.2b · el esquema tiene algo que un respaldo no sabe llevar. Es un
   // defecto nuestro, no del usuario, y por eso el texto no le pide arreglarlo.
