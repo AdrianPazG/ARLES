@@ -1,12 +1,12 @@
 {
-  "cuando": "2026-11-03T21:09",
+  "cuando": "2026-11-03T22:15",
   "modo": "--rapido (las sondas se omiten)",
   "fases": {
     "0": {
-      "pasan": 10,
+      "pasan": 11,
       "fallan": 0,
       "omitidos": 0,
-      "total": 10
+      "total": 11
     },
     "1": {
       "pasan": 53,
