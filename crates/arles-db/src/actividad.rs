@@ -285,27 +285,21 @@ impl Db {
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
     ///
-    /// **POR LA DE ESCRITURA A PROPÓSITO:** por el mismo motivo medido que
-    /// `listar_contactos` el 03/11/2026 — la conexión de lectura es **12× más
-    /// lenta** recorriendo una tabla (306 ms contra 3 742 con la misma
-    /// consulta y la misma base). Este filtro recorre la tabla por
-    /// construcción: un `%texto%` no lo acota ningún índice, y eso lo midió y
-    /// lo dejó escrito C-2 el 02/11.
+    /// ── POR LA LECTORA, Y LA CIFRA QUE LA SACÓ DE AQUÍ NO SE SOSTIENE ──
     ///
-    /// **Y eso quiere decir que la cifra que C-2 publicó está medida por el
-    /// camino que la pantalla NO recorría.** Los 1 151–1 257 ms salieron de
-    /// correr el SQL por el escritor; la pantalla leía por la lectora, así que
-    /// el coste de verdad era del orden de **catorce segundos**. Es el mismo
-    /// error que DOC-13 —una afirmación de rendimiento sin medir el camino
-    /// real— cometido un día después de escribir esa lección, y en el mismo
-    /// archivo.
+    /// Mismo caso que `listar_contactos`: salió a la conexión de escritura el
+    /// 03/11/2026 con una cifra de «la lectora es 12× más lenta», y **esa
+    /// cifra no se reproduce** — cinco corridas del mismo experimento dieron
+    /// el signo en los dos sentidos. Ver `PRESUPUESTO_RENDIMIENTO.md` §8.
     ///
-    /// Vuelve al escritor hasta que se diagnostique la lectora. Lo que se
-    /// pierde con eso está medido y es menor: esperar al cerrojo del motor
-    /// cuesta lo que dure una escritura suya; pasar por la lectora cuesta 12×
-    /// siempre.
+    /// **Y la corrección que esto arrastra importa para lo que se publicó de
+    /// esta pantalla.** Se dijo que los 1 151–1 257 ms de C-2 estaban medidos
+    /// «por el camino equivocado» y que el coste real era de catorce segundos.
+    /// Eso salía de la misma cifra invertida, así que **tampoco se sostiene**:
+    /// lo que hay son los 1 151–1 257 ms del 02/11, medidos tres veces, y una
+    /// diferencia entre conexiones que este contenedor no puede medir.
     pub fn sucesos(&self, empresa: CompanyId, f: &Filtro<'_>) -> Result<Pagina, DbError> {
-        self.con(|conn| {
+        self.leer(|conn| {
             let empresa = empresa.to_string();
             // El mismo `WHERE` para contar y para leer, construido una sola
             // vez. Dos cadenas parecidas es como se acaba enseñando «500 de

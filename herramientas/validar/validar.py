@@ -158,6 +158,7 @@ def fase_0(rapido):
 
     todo_documento_esta_en_el_indice()
     los_bloqueos_se_cuentan_en_un_solo_sitio()
+    ninguna_cifra_retirada_se_cita_como_viva()
 
     adrs = sorted(
         f for f in os.listdir(os.path.join(RAIZ, "documentacion/03-arquitectura/adr"))
@@ -395,6 +396,127 @@ def todo_documento_esta_en_el_indice():
         "índice diciendo «Fase 0 — Discovery» con la Fase 8 cerrada.",
         f"{len(fuera)} sin nombrar: " + ", ".join(sorted(fuera)[:6])
         if fuera else "no se pudo leer el índice",
+    )
+
+
+def ninguna_cifra_retirada_se_cita_como_viva():
+    """**Una proporción de rendimiento retirada no puede volver a citarse sin
+    decir que se retiró.**
+
+    ───────────────────────────────────────────────────────────────────────────
+    POR QUÉ ESTA COMPROBACIÓN, Y POR QUÉ ES LA QUE FALTABA
+
+    El 03/11/2026 publiqué «la conexión de lectura es 12× más lenta» de una
+    sola corrida, moví dos lecturas de pantalla con esa cifra, y dije que el
+    filtro del registro costaba catorce segundos en vez de 1 251 ms. **Cinco
+    repeticiones del mismo experimento dieron el signo en los dos sentidos** —
+    12× más lenta, 10× más rápida, 11× más rápida, 11× más rápida, 11× más
+    lenta— y el signo cambió al añadir dos `count(*)` que no debían influir.
+
+    Se retiró el mismo día, y las dos decisiones se deshicieron. Pero una
+    proporción retirada **sigue escrita en seis documentos**, porque contar lo
+    que pasó es parte del método: la nota que explica el error nombra la cifra.
+    Y eso es exactamente cómo una cifra muerta vuelve a la vida — alguien la
+    lee en una tabla, la cita sin el contexto, y a la semana es un hecho.
+
+    Es el defecto del comentario que se caza a sí mismo visto del revés: aquí
+    el texto que cuenta el error **tiene** que nombrar la cifra, así que lo que
+    se vigila no es que no aparezca, sino que **cada aparición lleve cerca la
+    salvedad**.
+
+    ── EL UMBRAL SE MIDIÓ ANTES DE ESCRIBIRLA ──
+
+    Las 31 apariciones que hay hoy en los seis documentos llevan todas la
+    salvedad a menos de 700 caracteres: **cero hallazgos falsos**. Con la
+    ventana a 200 habrían salido varios de las propias tablas de corridas, que
+    enumeran las cinco proporciones seguidas y tienen la salvedad en el párrafo
+    de arriba.
+
+    ── Y ESTA COMPROBACIÓN NACIÓ AFIRMANDO UNA VERIFICACIÓN FALSA ──
+
+    Su primera versión decía estar «verificada con tres rupturas, las tres en
+    rojo», y una de las tres **pasó en verde**: quitar «no se reproduce» del §8
+    del presupuesto. La ventana de 700 caracteres alcanza la tabla de las cinco
+    corridas, que lleva «cinco corridas» dentro, así que la salvedad seguía
+    cerca aunque la frase que retira la cifra hubiera desaparecido.
+
+    Es el defecto de siempre —una afirmación de verificación es una afirmación
+    como cualquier otra— y aquí tiene gracia: apareció en la comprobación
+    escrita para que no vuelva a publicarse una cifra sin repetir el
+    experimento.
+
+    Así que hay **dos redes y no una**:
+
+    1. Cada aparición de la proporción lleva la salvedad cerca. Caza la cita
+       suelta en un documento nuevo o en un párrafo lejano.
+    2. Y el §8 del presupuesto **tiene que seguir retirándola con esas
+       palabras**. Caza lo que la primera no puede: que el sitio donde se
+       explica el error deje de explicarlo.
+
+    **Verificada con tres rupturas, las tres en rojo con las dos redes
+    puestas**: citar el 12× en un documento nuevo sin salvedad (la red 1),
+    meterlo en un párrafo lejano de `ESTADO_ACTUAL` (la red 1), y quitar la
+    frase de retirada del §8 (la red 2 — la que la primera versión no cazaba).
+    """
+    RETIRADA = re.compile(
+        r"(?:12|11|10)\s*(?:×|x)\s*m[áa]s\s*(?:lenta|r[áa]pida)", re.I
+    )
+    # La salvedad: cualquiera de estas cerca basta. Son las formas en que el
+    # proyecto escribe «esto se retiró», no una lista cerrada de frases.
+    SALVO = re.compile(
+        r"no se reproduce|se retira|retirada|cinco corridas|no se concluye|"
+        r"dieron el signo|NO SE CONCLUYE|no se mantiene",
+        re.I,
+    )
+    VENTANA = 700
+
+    problemas = []
+    for base, _, nombres in os.walk(RAIZ):
+        if any(x in base for x in ("node_modules", os.sep + "target", os.sep + ".git")):
+            continue
+        for nombre in sorted(nombres):
+            if not nombre.endswith(".md"):
+                continue
+            # Los informes para Dirección son entregables **fechados**: no se
+            # reescribe el de septiembre. Misma excepción que la de los
+            # bloqueos, y por el mismo motivo.
+            if "-PARA-DIRECCION" in nombre:
+                continue
+            ruta = os.path.join(base, nombre)
+            try:
+                with open(ruta, encoding="utf-8") as f:
+                    txt = f.read()
+            except OSError:
+                continue
+            for m in RETIRADA.finditer(txt):
+                ini = max(0, m.start() - VENTANA)
+                fin = min(len(txt), m.end() + VENTANA)
+                if SALVO.search(txt[ini:fin]):
+                    continue
+                linea = txt[: m.start()].count("\n") + 1
+                rel = os.path.relpath(ruta, RAIZ)
+                problemas.append(f"{rel}:{linea} cita «{m.group(0)}» sin la salvedad")
+
+    # ── LA SEGUNDA RED: EL SITIO QUE LO EXPLICA SIGUE EXPLICÁNDOLO ───────
+    #
+    # La de arriba no puede cubrirlo: alrededor de la frase de retirada está la
+    # tabla de las cinco corridas, que ya lleva la salvedad. Así que se exige
+    # **la frase**, en el documento que la sostiene.
+    presupuesto = leer("documentacion", "06-calidad", "PRESUPUESTO_RENDIMIENTO.md") or ""
+    if "se retira: no se reproduce" not in presupuesto:
+        problemas.append(
+            "el §8 de PRESUPUESTO_RENDIMIENTO.md ya no dice que la proporción "
+            "«se retira: no se reproduce» — y es el único sitio que lo explica"
+        )
+
+    check(
+        0,
+        "ninguna cifra de rendimiento retirada se cita como viva",
+        not problemas,
+        "la proporción entre las dos conexiones se publicó el 03/11/2026 y se "
+        "retiró el mismo día porque no se reproduce; citarla sin decirlo es "
+        "cómo una cifra muerta vuelve a ser un hecho",
+        "\n      ".join(problemas),
     )
 
 

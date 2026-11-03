@@ -345,32 +345,30 @@ impl Db {
     /// [`DbError::DatoInvalido`] si una fila guardada trae un canal
     /// desconocido; [`DbError::Sqlite`] si la consulta falla.
     ///
-    /// **POR LA DE ESCRITURA A PROPÓSITO:** la conexión de lectura es **12×
-    /// más lenta** recorriendo esta tabla, medido el 03/11/2026 con la misma
-    /// consulta sobre la misma base de 182 261 contactos: **306 ms por el
-    /// escritor y 3 742 por la lectora**, tres corridas cada uno. Con el filtro
-    /// de texto puesto —que recorre la tabla para poder decir que no hay
-    /// nada— eso convierte 2.6 segundos en 22, y es lo que hace la pantalla
-    /// inusable.
+    /// ── POR LA LECTORA, Y LA CIFRA QUE LA SACÓ DE AQUÍ NO SE SOSTIENE ──
     ///
-    /// Esta lectura **se movió a la lectora el 03/11/2026 por la mañana** con
-    /// las otras doce, y vuelve aquí la misma tarde porque el filtro la obligó
-    /// a medirse con un recorrido de verdad: hasta entonces sólo se había
-    /// medido la página sin filtro, que se para en la fila 100 y no distingue
-    /// las dos conexiones. **Mover una lectura por la regla general y medirla
-    /// después es el orden equivocado**, y es el error de ayer.
+    /// El 03/11/2026 esta lectura se movió a la lectora por la mañana, volvió
+    /// al escritor por la tarde con una cifra de «la lectora es 12× más
+    /// lenta», y vuelve aquí: **esa cifra no se reproduce.**
     ///
-    /// Lo que la lectora sí arregla —no esperar al cerrojo del motor— sigue
-    /// siendo cierto y sigue siendo lo que mide la prueba
-    /// `una_lectura_por_la_de_escritura_espera_a_que_acabe_la_escritura`. Son
-    /// dos costes distintos, y esta pantalla paga el barato: esperar a una
-    /// escritura del motor cuesta lo que dure esa escritura; pasar por la
-    /// lectora cuesta 12× **siempre**.
+    /// Cinco corridas del mismo experimento, en el mismo contenedor y sobre la
+    /// misma base de 54 638 contactos, dieron la lectora 12× más lenta, 10×
+    /// más rápida, 11× más rápida, 11× más rápida y 11× más lenta — y el signo
+    /// cambió al añadir dos `count(*)` al principio, que no debería influir en
+    /// nada. La variable que domina en este contenedor no es la conexión, así
+    /// que **aquí no se puede medir**. Está contado con las cinco corridas en
+    /// `PRESUPUESTO_RENDIMIENTO.md` §8.
     ///
-    /// **La causa concreta no se sabe y no se inventa** (la lección de C-2).
-    /// Lo medido es que las dos conexiones difieren; por qué, es el tramo
-    /// siguiente, y la primera hipótesis a medir es el tamaño de la caché de
-    /// páginas, que ninguna de las dos declara.
+    /// Lo que **sí** se reprodujo, y es el motivo por el que esta lectura va
+    /// por la lectora, es otra cosa: con una escritura de 800 ms en curso, una
+    /// lectura por la lectora contesta en **0 ms** y por el escritor en **650**
+    /// —`una_lectura_por_la_de_escritura_espera_a_que_acabe_la_escritura`—.
+    /// Esa medición no depende de cachés ni de órdenes: mide un cerrojo.
+    ///
+    /// **Una cifra que no se reproduce no puede mover una decisión que sí está
+    /// medida.** Es la lección del 52/1 del validador: se publica el mecanismo
+    /// que se midió, no la causa que se sospecha.
+    ///
     pub fn listar_contactos(
         &self,
         empresa: CompanyId,
@@ -379,7 +377,7 @@ impl Db {
         tamano: u32,
     ) -> Result<PaginaDeContactos, DbError> {
         let tamano = tamano.clamp(1, MAX_POR_PAGINA);
-        self.con_dominio(|conn| {
+        self.leer_dominio(|conn| {
             let empresa = empresa.to_string();
 
             // ── LA DIRECCIÓN SE RESUELVE ANTES, Y ES LO QUE LA HACE GRATIS ──

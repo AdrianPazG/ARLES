@@ -27,6 +27,7 @@
 
 pub mod contactos;
 pub mod larga;
+pub mod lectora;
 pub mod medir;
 pub mod wal;
 

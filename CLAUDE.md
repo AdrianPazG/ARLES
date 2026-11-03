@@ -2002,31 +2002,53 @@ requisitos (R-26, H-16, H-17).
 > sin cubrir —un dato **guardado** con mayúsculas acentuadas— está dicho en vez
 > de darse por cubierto.
 
-> **Y el tercero, que es el grande y no es del filtro: la conexión de lectura
-> es 12× más lenta recorriendo una tabla.** 302 ms por el escritor y 3 742 por
-> la lectora, la misma consulta y la misma base. Antes de llegar ahí se
-> descartaron dos causas **midiéndolas**: el `ESCAPE` del patrón (302 contra
-> 315) y el recuento sin tope (335 aparte).
+> **Y el tercero era mío, lo publiqué, y lo retiré el mismo día.** Dije que la
+> conexión de lectura es **12× más lenta** recorriendo una tabla —302 ms por el
+> escritor y 3 742 por la lectora— y con esa proporción moví dos lecturas de la
+> lectora al escritor y afirmé que el filtro del registro costaba catorce
+> segundos en vez de 1 251 ms.
 >
-> **Afecta a las diecisiete lecturas que ADR-0015 movió esta semana**, y obliga
-> a corregir una cifra de ayer: los 1 151–1 257 ms de C-2 se midieron por el
-> escritor y la pantalla leía por la lectora, así que el coste real del filtro
-> del registro era de **catorce segundos**. Es DOC-13 otra vez —una cifra de
-> rendimiento medida por un camino que el usuario no recorre— **un día después
-> de escribir esa lección y en el mismo archivo**.
+> **No se reproduce.** Cinco corridas del mismo experimento, en el mismo
+> contenedor y sobre la misma base de 54 638 contactos:
 >
-> Las dos lecturas que recorren tabla vuelven al escritor con su cifra al lado.
-> **No es el arreglo, es dejar de pagar 12× mientras se diagnostica**, y la
-> causa no se inventa: el banco ya puede medir las dos conexiones, que es lo que
-> faltaba.
+> | | Qué cambió | Resultado |
+> |---|---|---|
+> | 1 | los caminos medidos **en bloques** | lectora **12× más lenta** |
+> | 2 | intercalar en orden fijo | lectora **10× más rápida** |
+> | 3 | **rotar** el orden, nueve rondas | lectora **11× más rápida** |
+> | 4 | cada una aislada, en los dos órdenes | lectora **11× más rápida** |
+> | 5 | lo mismo **más dos `count(*)` antes** | lectora **11× más lenta** |
+>
+> El signo cambió por añadir dos recuentos que no debían influir en nada. **Lo
+> que domina en este contenedor es la caché, no la conexión.**
+>
+> Las dos conclusiones se deshicieron: las lecturas **vuelven a la lectora** y
+> la cifra de C-2 **se mantiene**. Lo que sostiene que esas lecturas vayan por
+> la lectora es otra medición, que sí se reproduce y no depende de cachés ni de
+> órdenes: con una escritura de 800 ms en curso, 0 ms por la lectora y 650 por
+> el escritor. **Eso mide un cerrojo.**
 
-> **La lección del instrumento, que es la que se repite.** Todas las mediciones
-> del banco desde la 8.5 van por el escritor, y ninguna pantalla lee por ahí
-> desde el 28/10. Es lo que la 8.5 ya descubrió de sí misma —«no era medir sin
-> la interfaz: era medir un camino que el usuario nunca recorre»— y volvió a
-> pasar en cuanto apareció una segunda conexión. **Y esta vez lo que lo destapó
-> fue medir lo entregado y no los candidatos**: los nueve caminos candidatos
-> daban 899 ms y el camino real 22 000.
+> **Y las tres lecciones de esto, que son lo que vale de la tarde.**
+>
+> 1. **Una cifra que no se reproduce no puede mover una decisión que sí está
+>    medida.** Es el precedente del 52/1 del validador: se publica el mecanismo
+>    que se midió, no la causa que se sospecha.
+> 2. **Cada una de las cinco corridas era limpia, plana y creíble por dentro** —
+>    nueve de nueve a 95 ms contra nueve de nueve a 1 150—. Lo único que las
+>    delató fue **repetir el experimento cambiando algo que no debería
+>    importar**, y eso va antes de publicar una proporción, no después.
+> 3. **La lección del instrumento, por tercera vez.** La 8.5 descubrió que medía
+>    «un camino que el usuario nunca recorre»; hoy, que medía el **orden** en vez
+>    de la conexión. Lo que sí quedó descartado midiéndolo: el `ESCAPE` (302
+>    contra 315), el recuento aparte (335), los pragmas —las dos conexiones
+>    salen de `abrir_crudo`— y, la que había que comprobar sin falta, **que la
+>    lectora viera datos distintos**: 54 638 filas por las dos. Una lectora
+>    rápida por no ver las filas daría las mismas cifras y sería un defecto de
+>    datos; ahora lo comprueba el propio experimento antes de cronometrar.
+>
+> El experimento se queda en el repositorio —`banco lectora <n>`— con las cinco
+> corridas en su cabecera, para que quien lo retome no empiece por donde empecé
+> yo. Lo que haría falta para cerrarlo: una máquina donde la caché no decida.
 
 > **Dos defectos de mis propias pruebas.** La del comodín del `LIKE`
 > comprobaba que buscar `%` diera cero, y **sin el `ESCAPE` seguía dando

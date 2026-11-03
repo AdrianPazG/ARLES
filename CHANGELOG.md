@@ -119,24 +119,71 @@ está — **sin ningún error**. En un producto mexicano no es un caso raro: es 
 apellido de alguien escrito en mayúsculas. El patrón se baja ahora en Rust, que
 sí conoce Unicode. Lo encontró una prueba con un acento dentro.
 
-**3 · La conexión de lectura es 12× más lenta recorriendo una tabla.** La misma
-consulta, la misma base de 182 261 contactos: **302 ms por el escritor y 3 742
-por la lectora**. Es el hallazgo más grande de la entrega y no es del filtro: es
-de ADR-0015, y afecta a las diecisiete lecturas que se movieron entre el 28/10 y
-hoy.
+**Y un tercer «hallazgo» de ese día que escribí, publiqué y retiré.** Dije que
+la conexión de lectura es **12× más lenta** recorriendo una tabla, y con esa
+proporción moví dos lecturas al escritor y afirmé que el filtro del registro
+costaba catorce segundos en vez de 1 251 ms.
 
-> **Y obliga a corregir una cifra de ayer.** Los 1 151–1 257 ms que C-2 publicó
-> para el filtro del registro se midieron corriendo el SQL **por el escritor**,
-> y la pantalla leía **por la lectora**: el coste real era del orden de
-> **catorce segundos**. Es el mismo error que DOC-13 —publicar una cifra de
-> rendimiento sin medir el camino que el usuario recorre— cometido un día
-> después de escribir esa lección y en el mismo archivo.
+**No se reproduce.** Cinco corridas del mismo experimento, mismo contenedor,
+misma base de 54 638 contactos:
+
+| | Qué cambió | Resultado |
+|---|---|---|
+| **1** | los caminos medidos **en bloques** | lectora **12× más lenta** |
+| **2** | intercalar en orden fijo | lectora **10× más rápida** |
+| **3** | **rotar** el orden, nueve rondas | lectora **11× más rápida** |
+| **4** | cada una aislada, en los dos órdenes | lectora **11× más rápida** |
+| **5** | lo mismo **más dos `count(*)` antes** | lectora **11× más lenta** |
+
+El signo cambió por añadir dos recuentos antes de cronometrar, que no debían
+influir en nada. Lo que domina en este contenedor es **la caché, no la
+conexión**, así que aquí esa diferencia no se puede medir.
+
+> **Las dos conclusiones se deshicieron el mismo día**: las lecturas vuelven a
+> la conexión de lectura y la cifra de C-2 se mantiene. Lo que sostiene que
+> esas lecturas vayan por ahí es otra medición, que sí se reproduce y no
+> depende de cachés ni de órdenes: con una escritura de 800 ms en curso, 0 ms
+> por la lectora y 650 por el escritor. **Eso mide un cerrojo.**
 >
-> Las dos lecturas que recorren tabla vuelven al escritor con su cifra escrita
-> al lado. **No es el arreglo**: es dejar de pagar 12× mientras se diagnostica.
-> La causa concreta no se sabe y no se inventa, y el banco ya puede medir las
-> dos conexiones, que es lo que faltaba para poder contestarlo. Está contado en
-> `PRESUPUESTO_RENDIMIENTO.md` §8.
+> **Una cifra que no se reproduce no puede mover una decisión que sí está
+> medida.** Es el precedente del 52/1 del validador: se publica el mecanismo
+> que se midió, no la causa que se sospecha.
+
+> **Lo que sí quedó descartado, midiéndolo:** el `ESCAPE` del patrón (302 ms
+> con él, 315 sin él), el recuento sin tope (335 aparte), una diferencia de
+> pragmas —las dos conexiones salen de `abrir_crudo`— y, la que había que
+> comprobar sin falta, **que la lectora viera datos distintos**: 54 638 filas
+> por las dos. Una lectora rápida *por no ver las filas* daría exactamente las
+> mismas cifras y sería un defecto de datos, no de rendimiento; ahora lo
+> comprueba el propio experimento antes de cronometrar.
+>
+> El experimento se queda —`banco lectora <n>`— con las cinco corridas en su
+> cabecera. Está contado en `PRESUPUESTO_RENDIMIENTO.md` §8, con qué haría
+> falta para cerrarlo: una máquina donde la caché no decida.
+
+> **Y las dos redes que quedan, porque una cifra retirada sigue escrita.**
+> Contar lo que pasó es parte del método, así que la proporción del 12× está
+> nombrada en seis documentos — y así es como una cifra muerta vuelve a ser un
+> hecho: alguien la lee en una tabla y la cita sin el contexto.
+>
+> `ninguna_cifra_retirada_se_cita_como_viva` en `--fase 0` exige que **cada
+> aparición lleve la salvedad cerca**, y aparte que el §8 del presupuesto
+> **siga retirándola con esas palabras**. El umbral se midió antes de
+> escribirla: las 31 apariciones de hoy pasan, cero hallazgos falsos.
+>
+> **Y nació afirmando una verificación falsa**, en la comprobación escrita
+> precisamente para que no se publique una cifra sin repetir el experimento:
+> decía estar verificada con tres rupturas y **una pasó en verde** —quitar la
+> frase de retirada del §8—, porque la ventana alcanzaba la tabla de las cinco
+> corridas. De ahí la segunda red.
+
+> **Y el instrumento se niega a concluir.** La primera versión de este
+> experimento imprimía «ES `query_only`» y «ES el `-wal`» calculando
+> proporciones de **una** corrida, y dijo las dos cosas: las dos resultaban
+> falsas al repetirlo. Ahora la salida enseña las proporciones y dice qué haría
+> falta para concluir, en vez de concluir. **Un veredicto que una sola corrida
+> puede dar es un veredicto que no vale**, y escribirlo en la salida lo
+> convierte en una cita.
 
 > **Dos defectos de mis propias pruebas, los dos del §2.** La del comodín del
 > `LIKE` comprobaba que buscar `%` diera cero contactos, y **sin el `ESCAPE`

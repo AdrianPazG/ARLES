@@ -210,24 +210,40 @@ pregunta si el plan **nombra** el índice, no por qué lado.
 **H-16 · Buscar «TÉLLEZ» no encontraba a Téllez.** `lower()` de SQLite sólo
 baja ASCII. El patrón se baja ahora en Rust.
 
-**La conexión de lectura es 12× más lenta recorriendo una tabla.** 302 ms por el
-escritor y 3 742 por la lectora, la misma consulta y la misma base de 182 261
-contactos. Es el hallazgo grande y **no es del filtro**: es de ADR-0015, y está
-contado con sus cifras y lo que se descartó en
+**Y el tercer «hallazgo» de esa tarde era mío y lo retiré el mismo día.** Dije
+que la conexión de lectura es 12× más lenta recorriendo una tabla, con 302 ms
+por el escritor y 3 742 por la lectora. **No se reproduce.**
+
+Cinco corridas del mismo experimento, en el mismo contenedor y sobre la misma
+base: la lectora 12× más lenta, 10× más rápida, 11× más rápida, 11× más rápida
+y 11× más lenta — y el signo cambió al añadir dos `count(*)` antes de
+cronometrar, que no debería influir en nada. **Lo que domina en este contenedor
+es la caché, no la conexión**, y por eso aquí no se puede medir. Las cinco
+corridas y lo que sí quedó descartado están en
 [`PRESUPUESTO_RENDIMIENTO.md`](../06-calidad/PRESUPUESTO_RENDIMIENTO.md) §8.
 
-> **Obliga a corregir una cifra de ayer.** Los 1 151–1 257 ms que C-2 publicó
-> para el filtro del registro se midieron corriendo el SQL **por el escritor**,
-> y la pantalla leía **por la lectora**: el coste real era del orden de
-> **catorce segundos**. Es DOC-13 otra vez, un día después de escribir esa
-> lección y en el mismo archivo. Queda **por remedir**.
+> **Y lo que costó publicarla antes de repetirla:** con esa proporción moví dos
+> lecturas de la lectora al escritor y dije que el coste real del filtro del
+> registro era de catorce segundos. **Las dos cosas se deshicieron**: las
+> lecturas vuelven a la lectora —cuyo motivo sí está medido, 0 ms contra 650
+> con el cerrojo del motor tomado— y los 1 151–1 257 ms de C-2 se mantienen.
+>
+> **Una cifra que no se reproduce no puede mover una decisión que sí está
+> medida.** Es el precedente del 52/1 del validador: se publica el mecanismo
+> que se midió, no la causa que se sospecha.
 
 ### Lo que esta entrega enseña del método
 
+**Repetir el experimento cambiando algo que no debería importar.** Es lo que
+distinguió la medición mala de la buena, y lo que faltó antes de publicar el
+12×: las cinco corridas eran cada una limpia, plana y creíble por dentro —nueve
+de nueve a 95 ms contra nueve de nueve a 1 150—, y sólo compararlas entre sí
+enseñó que el instrumento medía el orden.
+
 **Medir los candidatos no es medir lo entregado.** Los nueve caminos candidatos
 daban 899 ms en el peor caso; el camino real daba 22 000. La diferencia no
-estaba en ninguno de los nueve: estaba en la junta —qué conexión, qué consultas
-de más— que ninguno de los nueve recorría. Es el patrón del §9 aplicado a una
+estaba en ninguno de los nueve: estaba en la junta —qué consultas de más, qué
+orden— que ninguno de los nueve recorría. Es el patrón del §9 aplicado a una
 medición.
 
 ---
@@ -272,7 +288,7 @@ no una relectura con buena voluntad.
 | **DOC-15** | `conexion.rs` desde el 28/10/2026: las cascadas de borrado son seguras con dos conexiones «porque la cascada necesita *triggers* recursivos y aquí están activados» | **No están activados**, y la cascada salta igual: `PRAGMA recursive_triggers` no se toca en ninguna línea del proyecto, y un borrado en cascada se midió disparando su `AFTER DELETE`. La garantía es cierta; el mecanismo con que se explicaba, no. Lo que de verdad depende de ese ajuste es `INSERT OR REPLACE`, del que hay **cero** | ✅ 03/11/2026 · el comentario explica ahora el mecanismo medido |
 | **DOC-16** | La auditoría C y `ESTADO_ACTUAL.md` §10 punto 1: «**sacar la activación de campañas al hilo del motor**» | Mover el trabajo de hilo **no suelta el cerrojo de escritura**: lo tomaría el hilo del motor en vez del del comando. Medido con una escritura de 800 ms en curso: por la conexión de lectura **0 ms**, por la de escritura **650**. Lo que descongela las pantallas es terminar ADR-0015, y es lo que se hizo — 17 de 24 lecturas movidas. Segunda recomendación de auditoría en dos días que se cae al medirla (la otra es DOC-13) | ✅ 03/11/2026 · lo vigila `toda_lectura_de_pantalla_va_por_su_conexion` |
 | **DOC-17** | `MAPA-DE-PANTALLAS.md`: «**las trece pantallas**», y «**Actividad es andamio** hasta su fase» | Son dieciocho desde la Fase 8, y Actividad la construyó la 7.3 el 30/09/2026 llevándose `PantallaPendiente.vue`. Faltaban el Registro, Respaldos, Restaurar, Archivar y Recuperar — **las cuatro últimas son todo lo que construyó la Fase 8**. Es el defecto de las sondas del 28/10 en el documento que se lee **para cambiar el diseño** | ✅ 03/11/2026 · lo vigila `el_mapa_de_pantallas_nombra_todas_las_pantallas` |
-| **DOC-18** | C-2 el 02/11/2026: el filtro del registro cuesta «**1 151–1 257 ms**» | Esa medición corrió el SQL **por la conexión de escritura**, y `Db::sucesos` leía **por la lectora**, que es 12× más lenta recorriendo una tabla. El coste real de la pantalla era del orden de **catorce segundos**. Es DOC-13 otra vez —una cifra de rendimiento medida por un camino que el usuario no recorre— **un día después de escribir esa lección y en el mismo archivo**. Queda por remedir | ⚠️ 03/11/2026 · declarado, pendiente de remedir |
+| **DOC-18** | **Mío, el 03/11/2026 por la tarde**: «la conexión de lectura es 12× más lenta recorriendo una tabla», y con eso que el filtro del registro costaba **catorce segundos** y no 1 251 | **No se reproduce.** Cinco corridas del mismo experimento dieron el signo en los dos sentidos, y cambió al añadir dos `count(*)` que no debían influir: lo que domina es la caché del contenedor. Las dos conclusiones se deshicieron el mismo día —las lecturas vuelven a la lectora y la cifra de C-2 se mantiene—. Es el único DOC que escribí yo y retiré yo, y el más instructivo: **cada corrida era limpia por dentro; sólo compararlas entre sí la delató** | ✅ 03/11/2026 · retirada, con las cinco corridas en `PRESUPUESTO_RENDIMIENTO.md` §8 |
 
 **Las cinco primeras llevaban ahí desde la Fase 2** y ninguna de las cuatro
 auditorías del §140 las vio, porque una auditoría mide el producto y esto es un

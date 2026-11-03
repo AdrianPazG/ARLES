@@ -27,12 +27,12 @@ detectar lo que está mal por un orden de magnitud — no para certificar.
 | **Abrir tabla de contactos** (la consulta) | < 500 ms | ❌ 1 424 ms | ✅ **357 ms** | ✅ arreglado en la 8.6 |
 | Simulación de campaña | < 200 ms | 5.9 ms | 6.0 ms | ✅ cumple |
 | **Calcular audiencia de campaña** (activar) | < 2 s | — | ❌ **73.5 s** | ❌ **36× por encima** |
-| **Filtro del registro por texto** | < 1 s | — | ❌ 3 709 ms · remedido 02/11: 1 151–1 257 ms **por el escritor**, y la pantalla leía por la lectora: **~14 s** | ❌ **por medir otra vez** · ver §8 |
+| **Filtro del registro por texto** | < 1 s | — | ❌ 3 709 ms · **remedido 02/11: 1 151–1 257 ms** | ❌ **un 20 % por encima** · ningún índice ayuda (ver §2 y §8) |
 | **Memoria del motor en corrida larga** | < 250 MB | — | ✅ **13.9 MB, plana** | ✅ cumple · parcial (sin webview) |
 | Arranque en frío | < 2 s | — | — | ⬜ sin medir (R-07) |
 | Desplazamiento en tabla virtualizada | 60 fps | — | — | ⬜ sin medir (R-07) |
 | **Filtro de contactos · por dirección** | < 1 s | — | ✅ **0.2 ms** · no crece con la tabla | ✅ cumple · R-26, 03/11/2026 |
-| **Filtro de contactos · por texto** | < 1 s | — | ❌ **~2.6 s** (texto que no existe, 455 k) | ❌ **2.6× por encima** · ningún índice ayuda, ver §8 |
+| **Filtro de contactos · por texto** | < 1 s | — | ❌ **~2.6 s** (texto que no existe, 455 k) | ❌ **2.6× por encima** · ningún índice ayuda. La cifra es del escritor; por la lectora no se pudo medir aquí (§8) |
 | Preflight completo | < 3 s | — | — | ⬜ sin medir (R-24) |
 | Importar 100 k filas XLSX | < 60 s | — | — | ⬜ sin medir |
 | **Exportar un respaldo cifrado** | < 30 s | — | ✅ **244 ms / 30 k** · ~4 s / 500 k | ✅ cumple · medido en la auditoría F |
@@ -535,65 +535,97 @@ Cada una de estas se investiga como bug, no como ajuste.
 
 ---
 
-## 8. La conexión de lectura es 12× más lenta recorriendo una tabla
+## 8. La diferencia entre las dos conexiones no se puede medir en este contenedor
 
-**Medido el 03/11/2026**, construyendo el filtro de la lista de contactos
-(R-26). La **misma** consulta, sobre la **misma** base de 182 261 contactos,
-tres corridas de cada camino:
+**Y la cifra que este apartado publicó el 03/11/2026 por la tarde —«la conexión
+de lectura es 12× más lenta»— se retira: no se reproduce.**
 
-| Por dónde pasa | Milisegundos |
-|---|---|
-| La conexión de escritura | 302, 326, 307 |
-| La conexión de lectura (ADR-0015) | **3 742, 3 741, 3 576** |
+Conviene contarlo entero, porque el error no fue medir mal una vez: fue
+**publicar una proporción y mover una decisión con ella** antes de comprobar
+que se repetía.
 
-Antes de llegar aquí se descartaron dos causas midiéndolas, en vez de
-suponerlas:
+### Las cinco corridas del mismo experimento
+
+Mismo contenedor, misma base de 54 638 contactos, misma consulta —el filtro de
+contactos por un texto que no existe, que recorre la tabla—:
+
+| | Qué cambió respecto a la anterior | Resultado |
+|---|---|---|
+| **1** | — (los caminos medidos **en bloques**) | la lectora **12× más lenta** |
+| **2** | intercalar las rondas en orden fijo | la lectora **10× más rápida** |
+| **3** | **rotar** el orden, nueve rondas | la lectora **11× más rápida** |
+| **4** | cada una **aislada**, nueve seguidas, en los dos órdenes | la lectora **11× más rápida** |
+| **5** | lo mismo **más dos `count(*)` al principio** | la lectora **11× más lenta** |
+
+**El signo cambió entre la 4 y la 5 por añadir dos recuentos antes de
+cronometrar**, que no debería influir en nada. Y en todas las corridas, dentro
+de cada una, la diferencia era limpia y plana: nueve de nueve a ~95 ms contra
+nueve de nueve a ~1 150. No es ruido; es que la variable que domina no es la
+que se quería medir.
+
+**Lo que domina es la caché**, y en un contenedor con la base en 50 MB y el
+`-wal` en 86 la conexión que recorrió antes se queda con ella. Rotar el orden
+no basta porque el efecto no es de posición dentro de una ronda: persiste entre
+bloques enteros.
+
+### Qué se descartó midiéndolo, y sigue descartado
+
+Esto sí se sostiene, porque las cifras van en la misma dirección en las cinco
+corridas:
 
 | Qué se sospechaba | Medido | Veredicto |
 |---|---|---|
 | El `ESCAPE` del patrón del `LIKE` | 302 ms con él, 315 sin él | **no es** |
-| El recuento sin tope, que no se puede parar pronto | 335 ms, aparte | **no es**: suma ~640 con la página |
-| Por qué conexión pasa | 302 contra 3 742 | **es esto** |
+| El recuento sin tope | 335 ms aparte; con la página suman ~640 | **no es** |
+| Una diferencia de `PRAGMA` | las dos salen de `abrir_crudo`; sólo cambia `query_only` | **no hay** |
+| Que la lectora vea datos distintos | 54 638 filas por las dos, comprobado antes de cronometrar | **no es** |
 
-### Qué significa, y es más que una pantalla
+**La última es la que había que comprobar sin falta.** Una lectora que fuera
+rápida porque no ve las filas daría exactamente las mismas cifras, y sería un
+defecto de datos y no de rendimiento: la pantalla enseñaría una lista vacía con
+todo en verde. No lo es, y ahora lo comprueba el propio experimento antes de
+medir nada.
 
-**Las diecisiete lecturas que ADR-0015 movió a la lectora entre el 28/10 y el
-03/11 pagan este coste cada vez que recorren algo.** Lo que la lectora arregla
-—no esperar al cerrojo del motor— sigue siendo cierto y sigue estando medido
-(0 ms contra 650 con una escritura de 800 ms en curso), pero son **dos costes
-distintos**: esperar al motor cuesta lo que dure una escritura suya, y sólo
-mientras el motor escribe; pasar por la lectora cuesta 12× **siempre**.
+### Qué se deshizo, y por qué
 
-Para una pantalla que se para en la fila 100 —la lista sin filtro, 0.2 ms— da
-igual. Para una que recorre la tabla, no:
+Las dos lecturas que recorren tabla —`listar_contactos` y `Db::sucesos`—
+salieron a la conexión de escritura el 03/11 por la tarde con la cifra del 12×.
+**Vuelven a la lectora**, porque:
 
-- **El filtro de contactos por texto**: 2.6 s por el escritor, 22 s por la
-  lectora.
-- **El filtro del registro**: y aquí hay una corrección que importa. Los
-  **1 151–1 257 ms** que C-2 publicó el 02/11/2026 se midieron corriendo el SQL
-  **por el escritor**, y `Db::sucesos` leía **por la lectora**. El coste real
-  de esa pantalla era del orden de **catorce segundos**, no de uno y cuarto.
-  Es el mismo error que DOC-13 —publicar una cifra de rendimiento sin medir el
-  camino que el usuario recorre— cometido **un día después** de escribir esa
-  lección, y en el mismo archivo.
+- La cifra que las sacó no se reproduce.
+- Y el motivo por el que están en la lectora **sí está medido, y con una
+  medición que no depende de cachés ni de órdenes**: con una escritura de
+  800 ms en curso, una lectura por la lectora contesta en **0 ms** y por el
+  escritor en **650**. Eso mide un cerrojo, no un recorrido.
 
-### Qué se hizo hoy, y qué no
+**Una cifra que no se reproduce no puede mover una decisión que sí está
+medida.** Es el precedente del 52/1 del validador: se vio una vez, no se pudo
+reproducir, y lo que se publicó fue el **mecanismo** —esa comprobación escribe
+en el repositorio— y no la causa que se sospechaba.
 
-Las dos lecturas que recorren tabla —`listar_contactos` y `sucesos`— **vuelven
-al escritor**, con la marca `POR LA DE ESCRITURA A PROPÓSITO` y esta cifra en
-su documentación. No es el arreglo: es dejar de pagar 12× mientras se
-diagnostica.
+### Y la corrección que esto arrastra
 
-**La causa concreta no se sabe, y no se inventa.** La primera hipótesis a medir
-es el tamaño de la caché de páginas, que **ninguna de las dos conexiones
-declara** —así que las dos corren con el valor por defecto y la diferencia
-tendría que estar en otra parte—. El banco ya puede medir las dos conexiones
-(`Db::leer_en_pruebas`, y el enum `Por` de `arles-banco/src/contactos.rs`), que
-es lo que faltaba para poder contestarlo.
+El §8 de esta tarde decía además que **los 1 151–1 257 ms de C-2 estaban
+medidos por el camino equivocado y que el coste real del filtro del registro
+era de catorce segundos**. Eso salía de la misma proporción invertida, así que
+**tampoco se sostiene**. Lo que hay son los 1 151–1 257 ms del 02/11, medidos
+tres veces, y una diferencia entre conexiones que aquí no se puede cuantificar.
 
-> **Y la lección del instrumento, que es la que se repite.** Todas las
-> mediciones del banco desde la 8.5 van por el escritor, y ninguna pantalla lee
-> por ahí desde el 28/10. Un instrumento que recorre otro camino que el usuario
-> no mide — es lo que la 8.5 ya descubrió de sí misma («no era medir sin la
-> interfaz: era medir un camino que el usuario nunca recorre») y lo que volvió
-> a pasar en cuanto apareció una segunda conexión.
+### Qué haría falta para cerrarlo
+
+- **Una máquina donde la caché no decida**: con memoria suficiente para que la
+  base, el `-wal` y las dos conexiones quepan sin expulsarse. La máquina de
+  referencia del §2 lo es; este contenedor no.
+- O **vaciar la caché del sistema entre corridas**, que necesita privilegios
+  que esta sesión no tiene.
+
+Hasta entonces, el experimento se queda en el repositorio —
+`arles-banco/src/lectora.rs`, con `banco lectora <n>`— y su cabecera lleva las
+cinco corridas. Quien lo retome no empieza por donde empecé yo.
+
+> **La lección del instrumento, por tercera vez en este proyecto.** La 8.5
+> descubrió que medía «un camino que el usuario nunca recorre». Hoy, que medía
+> el **orden** en vez de la conexión. Las dos veces el instrumento daba cifras
+> limpias, planas y creíbles. Lo único que las distinguió de una medición buena
+> fue **repetir el experimento cambiando algo que no debería importar** — y eso
+> es lo que hay que hacer antes de publicar una proporción, no después.

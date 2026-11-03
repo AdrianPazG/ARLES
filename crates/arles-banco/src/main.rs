@@ -71,6 +71,29 @@ fn main() {
         return;
     }
 
+    // `banco lectora 200000` mide POR QUÉ la conexión de lectura es más lenta
+    // que la de escritura, que es lo que R-26 encontró el 03/11/2026 y dejó
+    // sin diagnosticar. Va aparte porque no mide el producto: mide dos
+    // hipótesis sobre la misma base y deja que las cifras descarten una.
+    if std::env::args().nth(1).as_deref() == Some("lectora") {
+        let cuantas: usize = std::env::args()
+            .nth(2)
+            .and_then(|a| a.parse().ok())
+            .unwrap_or(200_000);
+        let semilla: u64 = std::env::args()
+            .nth(3)
+            .and_then(|a| a.parse().ok())
+            .unwrap_or(20_261_103);
+        match arles_banco::lectora::correr(cuantas, semilla) {
+            Ok(c) => print!("{c}"),
+            Err(e) => {
+                eprintln!("la medición de la lectora no pudo terminar: {e}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+
     // `banco contactos 500000` mide qué cuesta cada camino candidato del
     // filtro de la lista de contactos (R-26). Va aparte porque lo que decide
     // es **qué criterios se pueden ofrecer**, y esa pregunta se contesta antes
