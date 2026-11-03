@@ -100,7 +100,7 @@ impl Db {
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
     pub fn ventanas(&self, empresa: CompanyId) -> Result<Vec<VentanaGuardada>, DbError> {
-        self.con(|conn| {
+        self.leer(|conn| {
             let mut consulta = conn.prepare(
                 "SELECT id, name, days_of_week, start_hour, end_hour, timezone
                    FROM execution_window

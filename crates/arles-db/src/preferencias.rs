@@ -43,7 +43,7 @@ impl Db {
     /// y [`DbError::Sqlite`] si la consulta falla.
     pub fn preferencia(&self, clave: &str) -> Result<Option<String>, DbError> {
         exigir_clave(clave)?;
-        self.con(|conn| {
+        self.leer(|conn| {
             conn.query_row(
                 "SELECT value FROM ui_preference WHERE key = ?1",
                 params![clave],

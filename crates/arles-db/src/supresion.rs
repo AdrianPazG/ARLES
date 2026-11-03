@@ -431,7 +431,7 @@ impl Db {
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
     pub fn contar_supresiones(&self, empresa: CompanyId) -> Result<usize, DbError> {
-        self.con_dominio(|conn| {
+        self.leer_dominio(|conn| {
             let n: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM suppression_entry WHERE company_id = ?1",
                 params![empresa.to_string()],

@@ -132,6 +132,10 @@ impl Db {
     /// - [`DbError::Sqlite`] si alguna consulta falla.
     /// - [`DbError::EsquemaNoSeDejaRespaldar`] si el manifiesto no dice por qué
     ///   columna se corta el historial.
+    ///
+    /// **POR LA DE ESCRITURA A PROPÓSITO:** es el preflight de un BORRADO, y además su recuento viaja al borrado,
+    /// que se niega si el historial cambió (8.3 bis a). Una cifra de hace un
+    /// instante haría que se negara sin motivo.
     pub fn que_pasaria_al_archivar(&self, corte: &str) -> Result<QueSeArchiva, DbError> {
         let columna = columna_de_corte()?;
         self.con_dominio(|conn| {

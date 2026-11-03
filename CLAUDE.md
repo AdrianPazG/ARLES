@@ -1924,6 +1924,49 @@ proyecto exige — lo que no estaba era **todo lo de esta semana y media**.
 > ningún archivo. Lo que sí se puede medir es lo que cuesta datos, y es lo que se
 > mide.
 
+**Y el 03/11/2026, «sacar la activación al hilo del motor»: se midió antes de
+hacerlo, y mover el trabajo de hilo no arregla nada.** El pendiente llevaba
+desde la auditoría C escrito así, y lo que pedía con eso —que la ventana
+conteste, dé avance y deje cancelar— se cerró el 28/10. Lo que queda congelando
+pantallas **no es en qué hilo corre, es con qué conexión se lee.**
+
+> **La cifra, con una escritura de 800 ms en curso: por la conexión de lectura
+> 0 ms, por la de escritura 650.** El cerrojo no se suelta cambiando de hilo: lo
+> tomaría el hilo del motor en vez del del comando, y la pantalla esperaría
+> exactamente lo mismo. Escalado a una activación de 451 196 destinatarios
+> —unos 75 s—, eso es lo que espera cada pantalla que no se haya movido.
+>
+> Así que el tramo fue **terminar ADR-0015**: van **17 de 24** lecturas de
+> pantalla por la conexión de lectura, trece nuevas sobre las cuatro del 28/10.
+> **Una recomendación de una auditoría es una afirmación como cualquier otra** —
+> es la lección de C-2 el día anterior, con el FTS5, y van dos seguidas.
+
+> **Las siete que no se pueden mover llevan el motivo junto a la función, no en
+> una lista del validador**, con la marca `POR LA DE ESCRITURA A PROPÓSITO`. Son
+> tres familias: las que escriben por un ayudante —y por eso no se les ve el
+> `INSERT`—, las que llama el motor, y **los avisos previos a un borrado**,
+> donde la cifra que el usuario confirma tiene que ser la de ahora y no la de
+> hace un instante.
+>
+> Una lista en el validador sería la lista a mano por enésima vez, y además
+> viviría lejos de lo que describe. Lo vigila
+> `toda_lectura_de_pantalla_va_por_su_conexion` en `--fase 1`, que lee la
+> documentación de **esa** función y no el archivo — si no, la marca de una
+> taparía a las de al lado, que es la hoja y no la ruta otra vez.
+>
+> **El umbral se midió antes de escribirla**: quedaban siete, y tres escriben
+> por un ayudante, así que una versión sin la marca habría nacido con **tres
+> hallazgos falsos**. Verificada con tres rupturas, las tres en rojo.
+
+> **Y el comentario que destapó esto decía algo falso, escrito por mí.** Al
+> justificar por qué las cascadas de borrado son seguras con dos conexiones
+> afirmé que hacen falta los *triggers* recursivos y que la conexión los
+> activa. **No los activa, y la cascada salta igual** — medido. El riesgo de
+> verdad es otro, `INSERT OR REPLACE`, del que hay cero en el proyecto. Un
+> comentario que explica una garantía con un mecanismo que no existe hace que
+> el siguiente la dé por buena por la razón equivocada, y eso es peor que no
+> explicarla.
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |
@@ -1940,9 +1983,10 @@ del producto sino de sus comprobaciones** — una lista a mano, un alcance
 demasiado corto, un comentario que se cazaba a sí mismo. El producto aguantó
 mejor que sus instrumentos, y eso es lo que había que descubrir.
 
-**Lo que queda abierto:** reescribir el
-§97, **sacar la activación a segundo plano con avance** (Fase 9) y **R-07** —
-nada de la pasada D se ha visto en WKWebView.
+**Lo que queda abierto:** sólo **R-07** — nada de la pasada D se ha visto en
+WKWebView. El §97 lo reescribió la 8.7, y **sacar la activación a segundo plano
+con avance** se cerró el 28/10; la otra mitad de esa recomendación —el hilo del
+motor— se midió el 03/11 y **no era lo que hacía falta**: ver arriba.
 
 **C-1 lo cerró la 8.6 E**, y no como se planteó: no hay tope por número de
 destinatarios, hay un rechazo de lo que no puede terminar y un aviso de lo que

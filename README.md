@@ -10,7 +10,7 @@ Desarrollado por **TELEMETRY INSIGHT**
 <!-- AVANCE:INICIO -->
 ![Avance de la v1.2.0](https://img.shields.io/badge/avance_v1.2.0-98%25-brightgreen?style=flat-square)
 
-**98 % de la versión 1.2.0 construido y verificado**, a 2026-11-02.
+**98 % de la versión 1.2.0 construido y verificado**, a 2026-11-03.
 
 <details>
 <summary>Cómo sale ese número, y qué no mide</summary>
@@ -38,7 +38,7 @@ son trabajo pendiente nuestro: van aparte.
 | F6 · Campañas y mensajes | 13 % | ✅ 100 % |
 | F7 · Actividad y entregabilidad | 9 % | ✅ 100 % |
 | F8 · Respaldos y endurecimiento | 7 % | ✅ 100 % |
-| F9 · Release v1.2.0 | 5 % | 🟨 50 % |
+| F9 · Release v1.2.0 | 5 % | 🟨 60 % |
 
 **Esperando a alguien de fuera:**
 

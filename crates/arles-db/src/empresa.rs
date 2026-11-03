@@ -80,7 +80,7 @@ impl Db {
     /// dominio —solo posible editando la base por fuera—, y [`DbError::Sqlite`]
     /// si la consulta falla.
     pub fn empresa(&self) -> Result<Option<EmpresaGuardada>, DbError> {
-        let fila = self.con(|conn| {
+        let fila = self.leer(|conn| {
             conn.query_row(
                 "SELECT id, commercial_name, country, timezone, corporate_email, website
                  FROM company ORDER BY created_at LIMIT 1",
@@ -206,7 +206,7 @@ impl Db {
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
     pub fn recuento_de_alta(&self) -> Result<RecuentoDeAlta, DbError> {
-        self.con(|conn| {
+        self.leer(|conn| {
             conn.query_row(
                 "SELECT (SELECT count(*) FROM company),
                         (SELECT count(*) FROM email_account),

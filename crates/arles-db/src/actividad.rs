@@ -209,6 +209,9 @@ impl Db {
     /// # Errores
     ///
     /// [`DbError::Sqlite`] si la escritura falla.
+    ///
+    /// **POR LA DE ESCRITURA A PROPÓSITO:** escribe. El `INSERT` vive en el helper `insertar`, así que no se ve en
+    /// este cuerpo — y por eso hace falta decirlo.
     pub fn anotar_suceso(&self, empresa: CompanyId, s: &SucesoNuevo<'_>) -> Result<(), DbError> {
         let cuando = ahora();
         self.con(|conn| insertar(conn, empresa, s, &cuando))?;
@@ -439,6 +442,10 @@ impl Db {
     /// # Errores
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
+    ///
+    /// **POR LA DE ESCRITURA A PROPÓSITO:** es el preflight de un BORRADO. La cifra que devuelve es la que el
+    /// usuario confirma antes de que se borre, así que tiene que ser la de
+    /// ahora y no la de antes de una escritura en curso.
     pub fn cuanto_se_recortaria(&self, empresa: CompanyId, antes_de: &str) -> Result<u32, DbError> {
         self.con(|conn| {
             conn.query_row(
@@ -472,7 +479,7 @@ impl Db {
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
     pub fn clases_de_suceso(&self, empresa: CompanyId) -> Result<Vec<(String, u32)>, DbError> {
-        self.con(|conn| {
+        self.leer(|conn| {
             let mut q = conn.prepare(
                 "SELECT kind, count(*) AS n
                    FROM activity_event

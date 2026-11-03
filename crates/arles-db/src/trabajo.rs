@@ -238,6 +238,10 @@ impl Db {
     ///
     /// [`DbError::Sqlite`] si la consulta falla, o [`DbError::DatoInvalido`] si
     /// una etapa guardada no produce unos ajustes válidos.
+    ///
+    /// **POR LA DE ESCRITURA A PROPÓSITO:** la llama el MOTOR, desde `arles-app/src/motor.rs`. De aquí sale lo que
+    /// se va a enviar: con una foto anterior el motor trabajaría sobre un
+    /// estado que ya cambió. Lo vigila `el_motor_no_lee_por_la_conexion_de_pantallas`.
     pub fn etapas_en_marcha(&self, empresa: CompanyId) -> Result<Vec<EtapaEnMarcha>, DbError> {
         let empresa_txt = empresa.to_string();
 

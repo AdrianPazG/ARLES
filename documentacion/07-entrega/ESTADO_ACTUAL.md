@@ -379,11 +379,12 @@ que importa la tenga.**
 **95 % a 2026-10-28**, y ese 5 % restante es exactamente el peso de la Fase 9.
 Las otras diez fases están al 100 %.
 
-Cuatro cosas de código y una puerta:
+**Tres** cosas de código y una puerta — los puntos 1 y 3 están cerrados, y de
+los cinco originales queda la mitad del 4:
 
 | | Qué | De dónde viene |
 |---|---|---|
-| **1** | **Sacar la activación de campañas al hilo del motor.** Tarda ~75 s con 451 196 destinatarios y el presupuesto de 2 s se rompe hacia los **30 000**, que es una lista ordinaria. Desde el 28/10 la ventana **sí contesta**, enseña en qué va y se puede cancelar sin dejar nada a medias; lo que falta es que no corra dentro de un comando | Auditoría C |
+| **1** | ~~Sacar la activación de campañas al hilo del motor~~ **cerrado el 03/11/2026, y no haciendo eso: mover el trabajo de hilo no suelta el cerrojo de escritura.** Medido: con una escritura de 800 ms en curso, una lectura por la conexión de lectura contesta en **0 ms** y por la de escritura en **650**. Lo que congela las pantallas durante una activación de 75 s no es en qué hilo corre, es que la lectura comparta conexión — así que lo que lo arregla es **terminar ADR-0015**, y van **17 de 24** lecturas de pantalla movidas, con las **7 que no pueden** marcadas con su motivo. Lo vigila `toda_lectura_de_pantalla_va_por_su_conexion` | Auditoría C · cerrado 03/11 |
 | **2** | **El filtro de la lista de contactos** (R-26): no existe, `listar_contactos` sólo toma página y tamaño. Es **otra cosa que C-2**, que era el filtro del **registro** y se cerró el 02/11 — remedido en 1 151–1 257 ms, con un FTS5 construido y descartado por ser 18 veces peor | Auditoría C · C-2 cerrado |
 | **3** | ~~El mensaje de «fallo al migrar el esquema»~~ **cerrado el 03/11/2026, y este renglón llevaba tres semanas desfasado**: el del arranque se arregló el 14/10 y cumple el §95 con la ruta dentro. Lo que de verdad quedaba era otro, y peor — el texto del catálogo afirmaba que **se había hecho una copia de la base**, y no hay ninguna. Ver el registro de requisitos, H-14 | 08/10/2026 · cerrado 03/11 |
 | **4** | **Instaladores, firma, notarización y updater.** El `CHANGELOG.md` **existe y está al día** desde el 03/11: le faltaban once días —veintinueve commits— y seis de las dieciséis migraciones no aparecían en ninguna línea. Lo que queda de él es cortar la sección `[1.2.0]`, que no se puede hacer antes de publicar | ROADMAP Fase 9 |

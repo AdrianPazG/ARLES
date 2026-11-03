@@ -68,6 +68,8 @@ impl Db {
     /// - [`DbError::DatoInvalido`] si el nombre viene vacío. Una lista sin
     ///   nombre no se puede elegir en un desplegable.
     /// - [`DbError::Sqlite`] si la escritura falla.
+    ///
+    /// **POR LA DE ESCRITURA A PROPÓSITO:** escribe. El `INSERT` vive en `crear_lista_en`.
     pub fn crear_lista(&self, empresa: CompanyId, nombre: &str) -> Result<ContactListId, DbError> {
         let nombre = nombre.trim();
         if nombre.is_empty() {
@@ -89,7 +91,7 @@ impl Db {
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
     pub fn listar_listas(&self, empresa: CompanyId) -> Result<Vec<ListaGuardada>, DbError> {
-        self.con(|conn| {
+        self.leer(|conn| {
             let mut s = conn.prepare(
                 "SELECT l.id, l.name, l.created_at,
                         (SELECT count(*) FROM contact_list_member m

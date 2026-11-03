@@ -202,7 +202,7 @@ impl Db {
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
     pub fn parada_de_emergencia(&self, empresa: CompanyId) -> Result<ParadaDeEmergencia, DbError> {
-        self.con(|conn| {
+        self.leer(|conn| {
             let fila: Option<(Option<String>, Option<String>)> = conn
                 .query_row(
                     "SELECT emergency_stop_at, emergency_stop_by

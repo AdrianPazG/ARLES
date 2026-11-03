@@ -65,6 +65,44 @@ servir. Éste es ese sitio.
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
 
+### Diecisiete de las pantallas ya no esperan a que el motor acabe de escribir
+
+**03/11/2026.** El pendiente decía «sacar la activación de campañas al hilo del
+motor». **Se midió antes de hacerlo, y mover el trabajo de hilo no arregla
+nada**: el cerrojo que congela las pantallas lo tomaría el hilo del motor en vez
+del hilo del comando, y una pantalla que lea por esa misma conexión esperaría
+exactamente lo mismo.
+
+La cifra, con una escritura de 800 ms en curso: una lectura por la **conexión de
+lectura** contesta en **0 ms**; la misma lectura por la **de escritura**, en
+**650**. Escalado a una activación de 451 196 destinatarios —unos 75 segundos—,
+eso es lo que se queda esperando cada pantalla que no se haya movido.
+
+Así que lo que arregla el problema es terminar ADR-0015, y es lo que se hizo:
+**van 17 lecturas de pantalla por la conexión de lectura**, trece nuevas sobre
+las cuatro del 28/10. Abrir Inicio, Campañas, Remitentes, Plantillas, WhatsApp,
+Listas, Ajustes o la pantalla de un envío de prueba ya no espera al motor.
+
+> **Siete lecturas no se pueden mover, y el motivo va escrito junto a cada
+> una** en vez de en una lista del validador. Son tres familias: las que
+> escriben por un ayudante —y por eso no se les ve el `INSERT`—, las que llama
+> el propio motor, y **los avisos previos a un borrado**, donde la cifra que el
+> usuario confirma tiene que ser la de ahora mismo y no la de hace un instante.
+>
+> Lo vigila `toda_lectura_de_pantalla_va_por_su_conexion` en `--fase 1`, que lee
+> la documentación de cada función y no una lista. **El umbral se midió antes de
+> escribirla**: de los métodos públicos que leen por la conexión de escritura y
+> que llama la interfaz sin llamarlos el motor quedaban siete, y tres escriben
+> por un ayudante — una versión sin la marca habría nacido con **tres hallazgos
+> falsos**. Verificada con tres rupturas, las tres en rojo.
+
+> **Y el comentario que encontró esto decía una cosa falsa.** Al justificar por
+> qué las cascadas de borrado son seguras afirmé que hacen falta los
+> *triggers* recursivos y que la conexión los activa. **No los activa, y la
+> cascada salta igual** — se midió. Un comentario que explica una garantía con
+> un mecanismo que no existe hace que el siguiente dé por buena la garantía por
+> la razón equivocada.
+
 ### El mensaje de «fallo al migrar» decía que había una copia de tu base, y no la hay
 
 **03/11/2026.** El pendiente estaba escrito como «el mensaje no cumple el §95,

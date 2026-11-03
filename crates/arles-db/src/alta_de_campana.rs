@@ -468,7 +468,7 @@ impl Db {
     /// campaña que desaparece de la lista sin decir por qué es peor que un
     /// error, porque nadie la va a echar de menos hasta que pregunte por ella.
     pub fn campanas(&self, empresa: CompanyId) -> Result<Vec<CampanaGuardada>, DbError> {
-        self.con_dominio(|conn| {
+        self.leer_dominio(|conn| {
             let mut c = conn.prepare(
                 "SELECT c.id, c.name, c.status,
                         (SELECT count(*) FROM campaign_audience a

@@ -125,6 +125,10 @@ impl Db {
     ///
     /// [`DbError::Sqlite`] si la consulta falla, o [`DbError::DatoInvalido`] si
     /// la fila guarda un identificador que no lo es.
+    ///
+    /// **POR LA DE ESCRITURA A PROPÓSITO:** lo lee el envío de prueba justo antes de escribir su constancia: las
+    /// dos cosas son la misma operación, y leer de una foto anterior podría
+    /// mandar desde una cuenta que acaba de cambiar.
     pub fn remitente_de_la_etapa(&self, etapa: &str) -> Result<Option<EmailAccountId>, DbError> {
         self.con_dominio(|conn| {
             let guardado: Option<String> = conn

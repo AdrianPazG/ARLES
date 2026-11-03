@@ -195,6 +195,8 @@ impl Db {
     /// # Errores
     ///
     /// [`DbError::Sqlite`] si la escritura falla.
+    ///
+    /// **POR LA DE ESCRITURA A PROPÓSITO:** escribe. Deja constancia del acceso en `audit_log`, por un helper.
     pub fn registrar_acceso(&self, empresa: CompanyId, direccion: &str) -> Result<(), DbError> {
         self.con_dominio(|conn| {
             crate::empresa::auditar(

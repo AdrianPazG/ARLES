@@ -832,6 +832,7 @@ def fase_1(rapido):
     el_nucleo_no_toca_el_mundo()
     el_grafo_de_crates_solo_apunta_hacia_dentro()
     el_motor_no_lee_por_la_conexion_de_pantallas()
+    toda_lectura_de_pantalla_va_por_su_conexion()
     las_cifras_del_nucleo_son_las_mismas_en_la_pantalla()
     el_techo_del_dia_se_calcula_igual_en_los_dos_lados()
 
@@ -1388,6 +1389,107 @@ def nada_sale_por_correo_sin_pasar_por_el_saneado():
     check(5, "nada sale por correo sin pasar por el saneado", not problemas,
           nada_sale_por_correo_sin_pasar_por_el_saneado.__doc__,
           detalle="\n      ".join(problemas))
+
+
+def toda_lectura_de_pantalla_va_por_su_conexion():
+    """**Una lectura de pantalla por la conexión de escritura espera lo que
+    dure la escritura, y hay 650 ms medidos que lo dicen.**
+
+    ───────────────────────────────────────────────────────────────────────────
+    POR QUÉ ESTA COMPROBACIÓN Y NO «SACAR LA ACTIVACIÓN AL HILO DEL MOTOR»
+
+    La auditoría C recomendó mover la activación al hilo del motor, y lo que
+    pedía con eso —que la ventana conteste, dé avance y deje cancelar— se cerró
+    el 28/10/2026. **Mover el trabajo de hilo no suelta el cerrojo de
+    escritura**: lo tomaría el hilo del motor en vez del del comando, y las
+    lecturas que pasan por esa misma conexión esperarían exactamente lo mismo.
+
+    Medido el 03/11/2026 con la prueba
+    `una_lectura_por_la_de_escritura_espera_a_que_acabe_la_escritura`: con una
+    escritura de 800 ms en curso, la conexión de lectura contesta en **0 ms** y
+    la de escritura en **650**. Escalado a una activación de ~75 s, eso es lo
+    que espera cada pantalla que no se haya movido.
+
+    Así que lo que arregla el problema de verdad es terminar ADR-0015, y esto
+    es lo que lo vigila.
+
+    ── Y LA EXCEPCIÓN VIVE JUNTO A LA FUNCIÓN, NO AQUÍ ──
+
+    No todas las lecturas pueden moverse, y las que no son **tres familias**:
+    las que escriben por un helper (y por eso no se les ve el `INSERT`), las
+    del motor, y los preflights de un borrado — donde la cifra que el usuario
+    confirma tiene que ser la de ahora.
+
+    Una lista de excepciones en el validador sería la lista a mano por enésima
+    vez, y además viviría lejos de lo que describe. En su lugar, cada una lleva
+    en su documentación la marca **«POR LA DE ESCRITURA A PROPÓSITO»** con el
+    motivo escrito, y esta comprobación la lee. El efecto es el que importa:
+    **añadir una lectura de pantalla obliga a decidir**, y la decisión queda
+    donde la va a leer el siguiente.
+
+    **Medido antes de escribirla**, como manda el método: de los métodos
+    públicos de `impl Db` que usan la conexión de escritura y que llama
+    `arles-app` sin llamarlos el motor, quedaban **siete**, y tres de ellos
+    escriben por un helper — así que una versión sin la marca habría nacido con
+    **tres hallazgos falsos**.
+
+    Verificada con tres rupturas, las tres en rojo: quitando la marca de una de
+    las siete, devolviendo `empresa` a `self.con(` sin marcarla, y cambiando el
+    texto de la marca.
+    """
+    carpeta = os.path.join(RAIZ, "crates", "arles-db", "src")
+    MARCA = "POR LA DE ESCRITURA A PROPÓSITO"
+    ESCRITURA = re.compile(r"\b(INSERT|UPDATE|DELETE|CREATE|DROP|REPLACE|VACUUM|ALTER)\b", re.I)
+
+    def junta(ruta):
+        t = ""
+        for n in sorted(os.listdir(ruta)):
+            if n.endswith(".rs"):
+                with open(os.path.join(ruta, n), encoding="utf-8") as f:
+                    t += f.read()
+        return t
+
+    app = junta(os.path.join(RAIZ, "crates", "arles-app", "src"))
+    motor = junta(os.path.join(RAIZ, "crates", "arles-motor", "src"))
+
+    sin_marca = []
+    for nombre in sorted(os.listdir(carpeta)):
+        if not nombre.endswith(".rs"):
+            continue
+        with open(os.path.join(carpeta, nombre), encoding="utf-8") as f:
+            # Se corta por `#[cfg(test)]`: las pruebas usan la conexión de
+            # escritura a mano para sembrar, y eso es correcto.
+            src = f.read().split("#[cfg(test)]")[0]
+        for m in re.finditer(
+            r"\n(    (?:///[^\n]*\n    )*)pub fn (\w+)\s*\(&self[^\n]*\n(.*?)"
+            r"(?=\n    pub fn |\n    /// |\n\}\n)",
+            src,
+            re.S,
+        ):
+            doc, fn_, cuerpo = m.group(1), m.group(2), m.group(3)
+            if not re.search(r"self\.con\(|self\.con_dominio\(", cuerpo):
+                continue
+            if ESCRITURA.search(cuerpo):
+                continue
+            if f".{fn_}(" not in app or f".{fn_}(" in motor:
+                continue
+            # La marca se busca en la documentación de ESTA función, no en el
+            # archivo: si no, la de una la taparía para todas las de al lado.
+            if MARCA in doc:
+                continue
+            sin_marca.append(f"{nombre}::{fn_}")
+
+    check(
+        1,
+        "toda lectura de pantalla va por su conexión, o dice por qué no",
+        not sin_marca,
+        "una lectura por la conexión de escritura espera lo que dure la "
+        "escritura —650 ms medidos de una de 800—, así que durante una "
+        "activación de 75 s la pantalla se queda esperando. Si no puede "
+        "moverse, el motivo va en su documentación con la marca "
+        f"«{MARCA}»",
+        "\n".join(sin_marca),
+    )
 
 
 def el_motor_no_lee_por_la_conexion_de_pantallas():

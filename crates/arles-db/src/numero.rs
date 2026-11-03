@@ -173,7 +173,7 @@ impl Db {
     /// fila trae un modo que el núcleo no reconoce. **No se salta**: ver la
     /// nota de `ModoDeCanalDesconocido`.
     pub fn numeros(&self, empresa: CompanyId) -> Result<Vec<NumeroGuardado>, DbError> {
-        self.con_dominio(|conn| {
+        self.leer_dominio(|conn| {
             let mut consulta = conn.prepare(
                 "SELECT id, display_name, phone_e164, waba_id, phone_number_id,
                         modo, credential_ref, status,

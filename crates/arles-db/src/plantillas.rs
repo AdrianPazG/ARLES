@@ -315,7 +315,7 @@ impl Db {
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
     pub fn plantillas(&self, empresa: CompanyId) -> Result<Vec<PlantillaGuardada>, DbError> {
-        self.con_dominio(|conn| {
+        self.leer_dominio(|conn| {
             let mut c = conn.prepare(
                 "SELECT t.id, t.name,
                         v.id, v.version_number, v.subject, v.body_html, v.body_text,
@@ -672,7 +672,7 @@ impl Db {
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
     pub fn firmas(&self, empresa: CompanyId) -> Result<Vec<FirmaGuardada>, DbError> {
-        self.con_dominio(|conn| {
+        self.leer_dominio(|conn| {
             let mut c = conn.prepare(
                 "SELECT id, name, body_html, body_text, is_default
                    FROM signature

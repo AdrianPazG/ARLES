@@ -186,7 +186,7 @@ impl Db {
     ///
     /// [`DbError::Sqlite`] si la consulta falla.
     pub fn resumen_arranque(&self) -> Result<ResumenArranque, DbError> {
-        self.con(|conn| {
+        self.leer(|conn| {
             let empresas: i64 =
                 conn.query_row("SELECT count(*) FROM company", [], |f| f.get::<_, i64>(0))?;
 
@@ -318,6 +318,94 @@ mod tests {
             .leer(|conn| conn.query_row("SELECT count(*) FROM company", [], |f| f.get(0)))
             .expect("lee");
         assert_eq!(n, 0);
+    }
+
+    /// **Y una lectura por la conexión de ESCRITURA espera lo que dure.**
+    ///
+    /// ───────────────────────────────────────────────────────────────────────
+    /// LA MEDICIÓN QUE DICE CUÁNTO FALTA DE ADR-0015
+    ///
+    /// La prueba de abajo demuestra que la conexión de lectura no espera. Ésta
+    /// mide la otra mitad, que es la que decide el trabajo que queda: **lo que
+    /// pasa con las lecturas que todavía no se han movido.**
+    ///
+    /// Al 03/11/2026 son **4 por la conexión de lectura y 104 por la de
+    /// escritura**, así que durante una activación de ~75 s la mayoría de las
+    /// pantallas siguen esperando el cerrojo. Dos hilos, porque el `Mutex` no
+    /// es reentrante y medirlo en uno solo sería colgarse.
+    ///
+    /// **Importa para no construir lo que no arregla nada.** La auditoría C
+    /// recomendó «sacar la activación al hilo del motor», y lo que pedía con
+    /// eso —que la ventana conteste, dé avance y deje cancelar— se cerró el
+    /// 28/10. Mover el trabajo de hilo **no suelta este cerrojo**: lo tomaría
+    /// el hilo del motor en vez del del comando, y estas 104 lecturas
+    /// esperarían exactamente lo mismo.
+    #[test]
+    fn una_lectura_por_la_de_escritura_espera_a_que_acabe_la_escritura() {
+        use std::sync::Arc;
+        use std::time::{Duration, Instant};
+
+        let (_d, db) = base();
+        assert!(db.lectora.is_some(), "sin lectora esto no compara nada");
+        let db = Arc::new(db);
+
+        // Una escritura larga en otro hilo, como la activación de una campaña.
+        let escritor = {
+            let db = Arc::clone(&db);
+            std::thread::spawn(move || {
+                let guardia = db.conexion.lock().expect("cerrojo");
+                guardia.execute_batch("BEGIN IMMEDIATE").expect("abre");
+                std::thread::sleep(Duration::from_millis(800));
+                guardia.execute_batch("COMMIT").expect("confirma");
+            })
+        };
+
+        // Se le da tiempo a tomar el cerrojo. Sin esta espera la medición
+        // podría hacerse antes de que empiece la escritura, y entonces las dos
+        // cifras saldrían iguales **sobre código correcto**.
+        std::thread::sleep(Duration::from_millis(150));
+
+        let t = Instant::now();
+        let por_la_de_lectura: i64 = db
+            .leer(|c| c.query_row("SELECT count(*) FROM company", [], |f| f.get(0)))
+            .expect("lee");
+        let espera_de_la_lectora = t.elapsed();
+
+        let t = Instant::now();
+        let por_la_de_escritura: i64 = db
+            .con(|c| c.query_row("SELECT count(*) FROM company", [], |f| f.get(0)))
+            .expect("lee");
+        let espera_del_escritor = t.elapsed();
+
+        escritor.join().expect("el escritor termina");
+
+        assert_eq!(
+            por_la_de_lectura, por_la_de_escritura,
+            "las dos leen lo mismo"
+        );
+
+        // Los umbrales son holgados a propósito: lo que se afirma es un orden
+        // de magnitud, no un reloj. En una máquina cargada la lectora podría
+        // tardar algunas decenas de ms; lo que no puede es tardar lo que dura
+        // la escritura.
+        assert!(
+            espera_de_la_lectora < Duration::from_millis(200),
+            "la conexión de lectura esperó {} ms: ADR-0015 no está sirviendo",
+            espera_de_la_lectora.as_millis()
+        );
+        assert!(
+            espera_del_escritor > Duration::from_millis(400),
+            "la lectura por la conexión de escritura NO esperó ({} ms), así que              esta prueba no está midiendo lo que dice: o la escritura no tomó              el cerrojo, o `con` ha dejado de usarlo",
+            espera_del_escritor.as_millis()
+        );
+
+        println!(
+            "\nMIENTRAS UNA ESCRITURA DE 800 ms ESTA EN CURSO:\n  \
+             por la conexion de LECTURA:   {} ms\n  \
+             por la conexion de ESCRITURA: {} ms\n",
+            espera_de_la_lectora.as_millis(),
+            espera_del_escritor.as_millis(),
+        );
     }
 
     /// **Lo que se lee con una transacción de escritura abierta es la foto
