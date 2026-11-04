@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Conectar WhatsApp a ARLES RELAY I</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 16mm; }
+
+  :root {
+    --tinta: #10242e;
+    --tinta-suave: #46585f;
+    --borde: #d8d2c6;
+    --fondo-suave: #f6f3ec;
+    --acento: #8a5200;
+    --peligro: #9b2c2c;
+    --ok: #1f6b3a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--tinta);
+    font-size: 10.5pt;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  h1 {
+    font-size: 23pt;
+    letter-spacing: -0.5pt;
+    margin: 0 0 2mm;
+  }
+  h1 .numeral { color: var(--acento); }
+
+  .subtitulo {
+    color: var(--tinta-suave);
+    font-size: 11pt;
+    margin: 0 0 3mm;
+  }
+
+  .ficha {
+    border-top: 2px solid var(--tinta);
+    border-bottom: 1px solid var(--borde);
+    padding: 2.5mm 0;
+    font-size: 8.5pt;
+    color: var(--tinta-suave);
+    display: flex;
+    gap: 8mm;
+    margin-bottom: 7mm;
+  }
+
+  h2 {
+    font-size: 14pt;
+    margin: 9mm 0 3mm;
+    padding-bottom: 1.5mm;
+    border-bottom: 1px solid var(--borde);
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 11.5pt;
+    margin: 6mm 0 2mm;
+    page-break-after: avoid;
+  }
+
+  p { margin: 0 0 2.5mm; }
+
+  ol, ul { margin: 0 0 3mm; padding-left: 6mm; }
+  li { margin-bottom: 1.8mm; }
+
+  code {
+    font-family: Consolas, "SF Mono", Menlo, monospace;
+    background: var(--fondo-suave);
+    border: 1px solid var(--borde);
+    border-radius: 2px;
+    padding: 0.3mm 1mm;
+    font-size: 9pt;
+    word-break: break-all;
+  }
+
+  pre {
+    font-family: Consolas, "SF Mono", Menlo, monospace;
+    background: var(--fondo-suave);
+    border: 1px solid var(--borde);
+    border-left: 3px solid var(--tinta-suave);
+    border-radius: 2px;
+    padding: 2.5mm 3mm;
+    font-size: 8.5pt;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    margin: 0 0 3mm;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 4mm;
+    font-size: 9.5pt;
+    page-break-inside: avoid;
+  }
+  th, td {
+    border: 1px solid var(--borde);
+    padding: 1.8mm 2.5mm;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--fondo-suave); font-weight: 600; }
+
+  .aviso, .clave, .ok {
+    border-left: 3px solid var(--acento);
+    background: var(--fondo-suave);
+    padding: 2.5mm 3mm;
+    margin: 0 0 4mm;
+    page-break-inside: avoid;
+  }
+  .clave { border-left-color: var(--peligro); }
+  .ok { border-left-color: var(--ok); }
+  .aviso p:last-child, .clave p:last-child, .ok p:last-child { margin-bottom: 0; }
+
+  .etiqueta {
+    display: block;
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.6pt;
+    font-weight: 700;
+    margin-bottom: 1mm;
+    color: var(--acento);
+  }
+  .clave .etiqueta { color: var(--peligro); }
+  .ok .etiqueta { color: var(--ok); }
+
+  h2 + p, h2 + table, h2 + ol, h2 + .aviso, h2 + .clave { page-break-before: avoid; }
+  h3 + p, h3 + ol, h3 + table { page-break-before: avoid; }
+  ol, ul { page-break-inside: avoid; }
+
+  .paso {
+    background: var(--tinta);
+    color: #fff;
+    border-radius: 50%;
+    width: 7mm; height: 7mm;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10pt;
+    font-weight: 700;
+    margin-right: 2mm;
+  }
+
+  footer {
+    margin-top: 8mm;
+    border-top: 1px solid var(--borde);
+    padding-top: 2.5mm;
+    font-size: 8pt;
+    color: var(--tinta-suave);
+  }
+</style>
+</head>
+<body>
+
+<h1>Conectar WhatsApp a ARLES <span class="numeral">RELAY I</span></h1>
+<p class="subtitulo">De cero a un número que manda mensajes, y qué significa cada error por el camino.</p>
+
+<div class="ficha">
+  <span><strong>Versión del producto:</strong> v1.2.0</span>
+  <span><strong>Fecha:</strong> 4 de noviembre de 2026</span>
+  <span><strong>Para:</strong> Dirección</span>
+</div>
+
+<h2>1. El error que te sale, explicado</h2>
+
+<p>ARLES te está diciendo esto:</p>
+
+<pre>Meta no acepta ese token. Si es el temporal, caduca a las 24 horas:
+copia uno nuevo del panel. Si es permanente, comprueba que tenga los
+permisos «whatsapp_business_messaging» Y «whatsapp_business_management»
+— sin el segundo, ARLES no puede preguntar cuáles son tus números.
+No se ha guardado nada.</pre>
+
+<div class="clave">
+  <span class="etiqueta">Lo primero, para que no pierdas tiempo</span>
+  <p><strong>Ese mensaje cubre dos situaciones muy distintas y no te dice en cuál estás.</strong>
+  Eso es un defecto de ARLES, no un error tuyo, y está anotado para arreglarse. Mientras tanto,
+  en la sección 2 tienes cómo averiguar en dos minutos cuál de las dos es la tuya.</p>
+</div>
+
+<h3>Qué hace ARLES exactamente cuando pulsas «Buscar mis números»</h3>
+
+<p>Son dos llamadas a Meta, en este orden:</p>
+
+<ol>
+  <li><strong>Le pregunta a Meta qué puede hacer tu token</strong>, con
+  <code>GET /v21.0/debug_token</code>. De la respuesta busca el permiso
+  <code>whatsapp_business_management</code> y, dentro de él, <strong>una lista llamada
+  <code>target_ids</code></strong> con los identificadores de tus cuentas de WhatsApp Business.</li>
+  <li><strong>Con cada identificador de esa lista</strong>, pide los números:
+  <code>GET /v21.0/{cuenta}/phone_numbers</code>.</li>
+</ol>
+
+<p>Y aquí está la clave: <strong>si esa lista <code>target_ids</code> no viene, o viene vacía,
+ARLES se detiene en el paso 1 y enseña el mensaje de arriba</strong> — aunque Meta haya
+contestado correctamente y tu token sea válido para enviar mensajes.</p>
+
+<table>
+  <tr>
+    <th style="width:38%">Situación</th>
+    <th style="width:28%">Qué contesta Meta</th>
+    <th>Qué tienes que hacer</th>
+  </tr>
+  <tr>
+    <td><strong>A · El token no sirve</strong><br>caducado, mal copiado, o no es un token</td>
+    <td>Error <code>400</code> o <code>401</code></td>
+    <td>Generar otro token. Es lo que el mensaje te dice.</td>
+  </tr>
+  <tr>
+    <td><strong>B · El token sirve, pero no autoriza ninguna cuenta de WhatsApp</strong></td>
+    <td><code>200</code> correcto, sin <code>target_ids</code></td>
+    <td><strong>Generar otro token igual no arregla nada.</strong> Hay que asignarle la
+    cuenta de WhatsApp como activo, o usar un token de usuario del sistema. Sección 4.</td>
+  </tr>
+</table>
+
+<div class="aviso">
+  <span class="etiqueta">La situación B es la más probable</span>
+  <p>El propio código de ARLES la tiene marcada como <em>«el caso más probable de todos»</em>.
+  Y el <strong>token temporal</strong> del panel de desarrolladores —el que el mensaje te
+  sugiere volver a copiar— <strong>normalmente cae en la situación B</strong>: sirve para
+  mandar mensajes, pero no trae la lista de cuentas que ARLES necesita para rellenar los
+  identificadores por ti.</p>
+  <p><strong>Conclusión práctica: para dar de alta el número en ARLES, ve directo al token
+  permanente de usuario del sistema.</strong> Es la sección 4.</p>
+</div>
+
+<h2>2. Averigua en dos minutos cuál es tu caso</h2>
+
+<p>No hace falta tocar ARLES. Abre tu navegador y pega esta dirección, cambiando
+<code>TU_TOKEN</code> por el token que estás usando (las dos veces):</p>
+
+<pre>https://graph.facebook.com/v21.0/debug_token?input_token=TU_TOKEN&amp;access_token=TU_TOKEN</pre>
+
+<p>Meta te devolverá un texto. Busca dentro la palabra <code>granular_scopes</code>. Según lo
+que veas:</p>
+
+<table>
+  <tr>
+    <th style="width:48%">Lo que ves</th>
+    <th>Qué significa</th>
+  </tr>
+  <tr>
+    <td>Un error que dice <code>Invalid OAuth access token</code> o
+    <code>Session has expired</code></td>
+    <td><strong>Caso A.</strong> El token no sirve: caducó o se copió mal. Genera uno nuevo
+    siguiendo la sección 4.</td>
+  </tr>
+  <tr>
+    <td><code>"scope": "whatsapp_business_management"</code> <strong>con</strong>
+    <code>"target_ids": ["1234..."]</code></td>
+    <td><strong>Tu token está bien y ARLES debería funcionar.</strong> Si aun así falla,
+    salta a la sección 7.</td>
+  </tr>
+  <tr>
+    <td><code>whatsapp_business_messaging</code> pero <strong>no</strong>
+    <code>whatsapp_business_management</code></td>
+    <td><strong>Caso B.</strong> Falta el permiso de gestión. Sección 4, paso 5.</td>
+  </tr>
+  <tr>
+    <td><code>whatsapp_business_management</code> pero con <code>"target_ids": []</code>
+    vacío, o sin esa lista</td>
+    <td><strong>Caso B.</strong> El permiso está concedido pero no sobre tu cuenta de
+    WhatsApp. Sección 4, paso 4: hay que asignar el activo.</td>
+  </tr>
+</table>
+
+<div class="aviso">
+  <span class="etiqueta">Una cosa que conviene que sepas</span>
+  <p>Hay informes de desarrolladores —no confirmados por Meta— de que desde mediados de 2026
+  <code>debug_token</code> dejó de devolver <code>target_ids</code> en algunos tipos de token,
+  aunque el permiso siga concedido. <strong>No lo doy por seguro porque no lo he podido medir
+  contra una cuenta real.</strong> Si tu comprobación de esta sección sale correcta y ARLES
+  sigue fallando, es exactamente esa situación, y entonces el arreglo es de ARLES: hay otra
+  forma de preguntar por las cuentas que no depende de esa lista. Avísame y lo cambio.</p>
+</div>
+
+<h2>3. Lo que hace falta tener antes de empezar</h2>
+
+<p>Nada de esto lo puede hacer ARLES por ti: son trámites dentro de Meta.</p>
+
+<table>
+  <tr><th style="width:34%">Qué</th><th>Por qué</th></tr>
+  <tr>
+    <td><strong>Una cuenta de empresa en Meta Business</strong>, verificada</td>
+    <td>Es el contenedor de todo lo demás. Sin verificar, los límites de envío son mínimos.</td>
+  </tr>
+  <tr>
+    <td><strong>Una aplicación de tipo Negocios</strong> con el producto WhatsApp añadido</td>
+    <td>Es a la que se le conceden los permisos del token.</td>
+  </tr>
+  <tr>
+    <td><strong>Un número de teléfono dado de alta y verificado</strong> en esa cuenta</td>
+    <td>Un número sin verificar no manda nada, y ARLES no lo verá.</td>
+  </tr>
+  <tr>
+    <td><strong>Al menos una plantilla aprobada</strong> por Meta</td>
+    <td>WhatsApp no deja escribir texto libre a quien no te escribió primero. El texto lo
+    aprueba Meta, no ARLES.</td>
+  </tr>
+</table>
+
+<p>El número no puede estar en uso en la aplicación normal de WhatsApp salvo que actives
+<strong>Coexistencia</strong>. Si tu número ya está en WhatsApp Business del teléfono, es
+Coexistencia lo que necesitas, y ARLES te lo pregunta después de guardar.</p>
+
+<h2>4. El token que sí funciona, paso a paso</h2>
+
+<p>Este es el camino que resuelve el caso B. Son seis pasos y se hace una sola vez.</p>
+
+<p><span class="paso">1</span> Entra en <code>business.facebook.com</code> y abre
+<strong>«Configuración del negocio»</strong>.</p>
+
+<p><span class="paso">2</span> En el menú de la izquierda, ve a <strong>«Usuarios»</strong> y
+luego a <strong>«Usuarios del sistema»</strong>. Pulsa <strong>«Agregar»</strong>. Ponle un
+nombre —<code>ARLES</code> sirve— y dale el rol <strong>«Administrador»</strong>.</p>
+
+<div class="aviso">
+  <span class="etiqueta">Por qué un usuario del sistema y no tu propio usuario</span>
+  <p>Un token tuyo caduca y se invalida cada vez que cambias la contraseña de Facebook. El de
+  un usuario del sistema no depende de ninguna persona, que es lo que se necesita para algo
+  que tiene que seguir enviando mañana.</p>
+</div>
+
+<p><span class="paso">3</span> Con ese usuario seleccionado, pulsa
+<strong>«Asignar activos»</strong>.</p>
+
+<p><span class="paso">4</span> Elige <strong>tu cuenta de WhatsApp</strong> y dale
+<strong>control total</strong>. Si tienes también la aplicación como activo, asígnala
+igualmente.</p>
+
+<div class="clave">
+  <span class="etiqueta">Este paso es el que arregla el caso B</span>
+  <p><strong>Si te saltas la asignación del activo, el token se genera igual y parece
+  correcto</strong> — pero Meta no devolverá la lista de cuentas, y ARLES te dirá que el token
+  no vale. Es el error con el que estás ahora mismo.</p>
+</div>
+
+<p><span class="paso">5</span> Pulsa <strong>«Generar nuevo token»</strong>:</p>
+<ul>
+  <li>Elige tu aplicación.</li>
+  <li>Caducidad: <strong>«Nunca»</strong>.</li>
+  <li>Marca estos permisos: <code>whatsapp_business_messaging</code>,
+  <code>whatsapp_business_management</code> y, si aparece,
+  <code>business_management</code>.</li>
+</ul>
+
+<p><span class="paso">6</span> <strong>Copia el token en ese momento.</strong> Meta no lo
+vuelve a enseñar nunca. Si cierras esa ventana sin copiarlo, hay que generar otro.</p>
+
+<h3>Los dos permisos no son lo mismo, y los dos hacen falta</h3>
+
+<table>
+  <tr><th style="width:38%">Permiso</th><th>Para qué lo usa ARLES</th></tr>
+  <tr>
+    <td><code>whatsapp_business_messaging</code></td>
+    <td>Mandar los mensajes. Sin él no sale nada.</td>
+  </tr>
+  <tr>
+    <td><code>whatsapp_business_management</code></td>
+    <td><strong>Preguntar cuáles son tus números</strong>, que es lo que te ahorra copiar a
+    mano tres identificadores largos. Sin él, el alta falla aunque el token sirva para
+    enviar.</td>
+  </tr>
+</table>
+
+<h2>5. Pegarlo en ARLES</h2>
+
+<ol>
+  <li>Abre ARLES y ve a <strong>Remitentes › WhatsApp</strong>.</li>
+  <li>Pulsa <strong>«Añadir número»</strong>.</li>
+  <li>Pega el token en <strong>«Token de acceso»</strong>. Pégalo entero y sin espacios al
+  principio ni al final. Empieza por <code>EAA</code> y es largo: más de 150 caracteres.</li>
+  <li>Pulsa <strong>«Buscar mis números»</strong>. ARLES le pregunta a Meta y rellena solo el
+  teléfono, los identificadores y el tope diario que Meta te concede.</li>
+  <li>Elige el número con el que vas a escribir.</li>
+  <li>En <strong>«Cómo se va a usar»</strong> elige el modo. <strong>«Seguimiento — solo a
+  quien ya escribió»</strong> es el prudente; el otro modo te hace aceptar por escrito el
+  riesgo de escribir a quien no te lo pidió, porque eso puede costar el número.</li>
+  <li><strong>«Guardar número»</strong>.</li>
+</ol>
+
+<div class="ok">
+  <span class="etiqueta">Dónde queda el token</span>
+  <p>En el <strong>Administrador de credenciales de Windows</strong>, cifrado por el sistema.
+  Nunca en la base de datos, nunca en un archivo, y ningún comando de ARLES lo devuelve.
+  ARLES no vuelve a enseñártelo: si lo pierdes, se genera otro en Meta.</p>
+</div>
+
+<h2>6. Los demás errores, y qué significa cada uno</h2>
+
+<table>
+  <tr>
+    <th style="width:40%">Lo que dice ARLES</th>
+    <th>Qué pasó de verdad</th>
+  </tr>
+  <tr>
+    <td><strong>No se pudo hablar con Meta.</strong> Puede ser tu conexión o Meta misma.</td>
+    <td>La llamada no llegó o Meta devolvió un error que no es de autenticación. El token no
+    se toca. Reintenta en unos minutos; si persiste, mira si un antivirus o un proxy de la
+    empresa está bloqueando <code>graph.facebook.com</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>El token es correcto, pero esta cuenta no tiene ningún número de WhatsApp dado
+    de alta.</strong></td>
+    <td>Este es distinto y es buena noticia: el token funcionó y Meta contestó con la lista de
+    cuentas. Lo que falta es el número. Ve al panel de Meta y da de alta el teléfono en esa
+    cuenta de WhatsApp.</td>
+  </tr>
+  <tr>
+    <td><strong>Esto parece un identificador, no el token.</strong></td>
+    <td>Pegaste un número largo en vez del token. Los identificadores son sólo dígitos; el
+    token empieza por <code>EAA</code> y mezcla letras y números.</td>
+  </tr>
+  <tr>
+    <td><strong>Los tokens de Meta empiezan por EAA.</strong></td>
+    <td>Puede que hayas copiado otra cosa —el identificador de la aplicación, o la clave
+    secreta— o sólo un trozo del token.</td>
+  </tr>
+</table>
+
+<h2>7. Si has hecho todo esto y sigue fallando</h2>
+
+<p>Mándame estas cuatro cosas y lo cierro. <strong>No me mandes el token</strong>: no hace
+falta y no debe viajar por ningún lado.</p>
+
+<ol>
+  <li>El resultado de la comprobación de la <strong>sección 2</strong>, quitándole el token.
+  Lo que necesito ver es el bloque <code>granular_scopes</code> entero: qué permisos aparecen
+  y si traen <code>target_ids</code>.</li>
+  <li><strong>Qué tipo de token</strong> estás usando: temporal del panel, o de usuario del
+  sistema.</li>
+  <li>Si el usuario del sistema tiene <strong>la cuenta de WhatsApp asignada como activo</strong>,
+  con control total.</li>
+  <li>El mensaje exacto que ves en ARLES, que distingue entre los tres errores.</li>
+</ol>
+
+<h2>8. Lo que ARLES todavía no hace con WhatsApp</h2>
+
+<p>Esta sección es obligatoria en los documentos del proyecto, y es la que impide prometer algo
+que no se puede cumplir.</p>
+
+<table>
+  <tr><th style="width:42%">Qué</th><th>Por qué</th></tr>
+  <tr>
+    <td><strong>Vincular el número automáticamente</strong>, sin pegar un token</td>
+    <td>El flujo de Meta que lo permite exige estar dado de alta ante Meta como proveedor y
+    tener un servidor público encendido a todas horas al que Meta avisa. ARLES funciona sin
+    servidor y sin que tus datos salgan de tu equipo.</td>
+  </tr>
+  <tr>
+    <td><strong>Contar las respuestas</strong> que te manda la gente</td>
+    <td>Meta las entrega por aviso a un servidor, y ARLES no tiene ninguno. En Actividad, la
+    cifra de respuestas de WhatsApp será cero.</td>
+  </tr>
+  <tr>
+    <td><strong>Atender un «BAJA» automáticamente</strong></td>
+    <td>Las respuestas te llegan al teléfono con Coexistencia. Hay que apuntarlas a mano en
+    Contactos › Bajas, canal WhatsApp. A partir de ahí, ninguna campaña vuelve a incluir ese
+    número.</td>
+  </tr>
+  <tr>
+    <td><strong>Poner una salida de baja en el mensaje</strong></td>
+    <td>En el correo la pone ARLES y es obligatoria. En WhatsApp el texto lo aprueba Meta y no
+    hay dónde añadirla.</td>
+  </tr>
+  <tr>
+    <td><strong>Nada de esto se ha probado contra Meta de verdad</strong></td>
+    <td>Todo el canal está probado contra un servidor de mentira que imita a Meta. Tu prueba
+    es la primera contra la API real, y por eso este error es valioso.</td>
+  </tr>
+</table>
+
+<div class="clave">
+  <span class="etiqueta">Lo que este error deja arreglado en ARLES</span>
+  <p>Dos cosas, y las dos salen de tu prueba:</p>
+  <p><strong>1.</strong> El mensaje de error mezcla dos causas que mandan a hacer cosas
+  distintas, y la que sugiere —copiar otro token temporal— no arregla la más probable de las
+  dos. Hay que partirlo en dos mensajes.</p>
+  <p><strong>2.</strong> La versión que tienes instalada no lleva todavía las instrucciones
+  dentro de la pantalla. Eso ya está construido y entra en el siguiente instalador.</p>
+</div>
+
+<footer>
+  ARLES RELAY I · v1.2.0 · Guía de conexión de WhatsApp · 4 de noviembre de 2026<br>
+  Las direcciones y los nombres de los permisos son los de la API de Meta v21.0, que es la que
+  ARLES usa.
+</footer>
+
+</body>
+</html>
