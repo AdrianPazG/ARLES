@@ -116,6 +116,26 @@ avería. El manual enlaza ahora la guía, que tampoco la nombraba.
 > dicen ahora «el panel de desarrolladores de Meta» y la dirección la pinta
 > sólo la pantalla. Cinco rupturas al final, las cinco en rojo.
 
+> **Y dos cosas que encontró mirar la demostración, con todo en verde.** El
+> aviso de los dos permisos —el error que más tiempo cuesta de esta pantalla—
+> **se leía como un párrafo más**, y el título de cada sección también: los
+> tres salían en el mismo `rgb(70, 88, 95)`. `.token-ayuda p` es (0,1,1) y le
+> ganaba por especificidad a `.token-aviso`, que es (0,1,0), así que el ámbar
+> declarado **no se aplicaba nunca**. Un aviso que no avisa.
+>
+> **Una regla que se pierde por especificidad no da ningún error**, así que no
+> lo encontró leer el CSS ni ninguna prueba: lo encontró mirar la pantalla y
+> **medir el color computado**. Arreglado con `p.` delante, y medido otra vez:
+> los tres colores distintos.
+>
+> **Y lo que aquí no se puede cubrir, dicho en vez de darse por cubierto:** la
+> comprobación natural sería «todo aviso se ve distinto del texto que lo
+> rodea», y **medido antes de escribirla, el producto entero tiene cuatro
+> clases de aviso** —una de ellas ésta—. Una comprobación sobre cuatro
+> elementos es la lista a mano de siempre con otro nombre, así que no se
+> escribe. Lo que sí hay es la sonda de contraste, que mide los colores reales
+> de las dieciocho pantallas y pasó con el ámbar nuevo.
+
 > **Y dos tokens de diseño inventados, cazados antes de entrar:**
 > `--arles-font-family-code` y `--arles-surface-2` no existen —los reales son
 > `--arles-font-family-mono` y `--arles-surface-raised`—. Es la cuarta vez en el

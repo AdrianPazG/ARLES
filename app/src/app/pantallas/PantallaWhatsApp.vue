@@ -991,9 +991,18 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
 .token-ayuda li {
   margin-bottom: var(--arles-space-2);
 }
-/* El título de cada bloque sí va en el color del texto: son tres secciones
-   dentro del desplegable, y en gris apagado se leen como una sola masa. */
-.token-ayuda-titulo {
+/* El título de cada bloque sí va en el color del texto: son cuatro secciones
+   dentro del desplegable, y en gris apagado se leen como una sola masa.
+
+   ── LLEVAN `p.` DELANTE A PROPÓSITO, Y NO ES ESTÉTICA (04/11/2026) ──
+   Sin el `p.`, `.token-ayuda p` —que es (0,1,1)— le gana a `.token-aviso`
+   —(0,1,0)— y el color declarado aquí NO SE APLICA. Medido en Chromium: el
+   título, el aviso y un párrafo normal salían los tres en rgb(70, 88, 95).
+   El caro era el aviso: el de los dos permisos es el error que más tiempo
+   cuesta de esta pantalla, y se leía como un párrafo más.
+   Lo encontró mirar la demostración y medir el color computado, no leer el
+   CSS: una regla que se pierde por especificidad no da ningún error. */
+.token-ayuda p.token-ayuda-titulo {
   font-weight: var(--arles-font-weight-semibold);
   color: var(--arles-text);
 }
@@ -1013,7 +1022,7 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
   padding: var(--arles-space-1) var(--arles-space-2);
   color: var(--arles-text);
 }
-.token-aviso {
+.token-ayuda p.token-aviso {
   color: var(--arles-warning);
 }
 
