@@ -966,6 +966,151 @@ mod tests {
         assert_eq!(pedido.clave_de_idempotencia, "msgid-a");
     }
 
+    // ─── EL CANAL DE WHATSAPP, QUE NINGUNA PRUEBA DEL MOTOR RECORRÍA ───────
+
+    /// Siembra dos contactos con sus móviles y encola un intento por WhatsApp
+    /// para cada uno. La etapa de la campaña pasa a ser de WhatsApp.
+    fn preparar_whatsapp(db: &Db) {
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "INSERT INTO whatsapp_account (id, company_id, display_name,
+                                               phone_e164, waba_id, phone_number_id,
+                                               credential_ref, status,
+                                               created_at, updated_at)
+                 VALUES ('wa-1', ?1, 'Ventas', '+525512340000', 'waba-1', '1234567890',
+                         'llavero://wa', 'connected',
+                         '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
+                params![EMPRESA],
+            )?;
+            // La etapa cambia de canal: la de correo se queda sin usar.
+            c.execute(
+                "UPDATE campaign_stage
+                    SET channel = 'whatsapp', email_account_id = NULL,
+                        whatsapp_account_id = 'wa-1'
+                  WHERE id = ?1",
+                params![ETAPA],
+            )?;
+            for (id, nombre, apellido, movil) in [
+                ("k1", "Ana", "Ruiz", "+5215512345678"),
+                ("k2", "Beto", "Nava", "+5215587654321"),
+            ] {
+                c.execute(
+                    "INSERT INTO contact (id, company_id, first_name, last_name,
+                                          source, created_at, updated_at)
+                     VALUES (?1, ?2, ?3, ?4, 'Telemetry',
+                             '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
+                    params![id, EMPRESA, nombre, apellido],
+                )?;
+                c.execute(
+                    "INSERT INTO message_attempt
+                         (id, campaign_id, channel, contact_id, contact_address,
+                          idempotency_key, state, attempt_count, created_at, updated_at)
+                     VALUES (?1, ?2, 'whatsapp', ?3, ?4, ?5, 'queued', 0,
+                             '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
+                    params![format!("i-{id}"), CAMPANA, id, movil, format!("msgid-{id}")],
+                )?;
+            }
+            Ok(0)
+        })
+        .expect("siembra de WhatsApp");
+    }
+
+    /// Una plantilla aprobada con dos huecos: nombre y empresa.
+    fn plantilla_aprobada() -> arles_core::whatsapp::PlantillaDeMeta {
+        arles_core::whatsapp::PlantillaDeMeta {
+            nombre: "aviso_de_servicio".to_owned(),
+            idioma: "es_MX".to_owned(),
+            estado: arles_core::whatsapp::EstadoEnMeta::Aprobada,
+            huecos: vec![
+                arles_core::plantilla::Variable::Nombre,
+                arles_core::plantilla::Variable::Apellido,
+            ],
+            cuerpo: "Hola {{1}} {{2}}".to_owned(),
+        }
+    }
+
+    fn ajustes_de_whatsapp() -> Ajustes {
+        Ajustes {
+            canal: Canal::WhatsApp,
+            plantilla_de_whatsapp: Some(plantilla_aprobada()),
+            ..ajustes()
+        }
+    }
+
+    /// **Cada persona recibe SUS datos, no los de la primera.**
+    ///
+    /// ── POR QUÉ ESTA PRUEBA EXISTE, Y QUÉ NO CUBRÍA NADIE ──────────────
+    ///
+    /// Auditoría H, 04/11/2026. El motor tiene su rama de WhatsApp desde D-WA
+    /// y **ninguna prueba de este módulo la recorría**: las diecisiete pruebas
+    /// de WhatsApp del taller miden el núcleo, el alta de campaña, la frontera
+    /// y el adaptador — cada capa la suya— y el motor, que es quien decide qué
+    /// sale y con qué contenido, se quedaba sin ninguna. Es el hueco entre dos
+    /// capas que cada una pasa lo suyo.
+    ///
+    /// Y lo que mide es justo lo que el comentario de `valores_de_whatsapp`
+    /// dice que antes fallaba: *«el proveedor traía su contenido pegado, así
+    /// que una campaña entera habría salido con los datos del primer
+    /// contacto»*. Con un solo contacto eso no se ve. Con dos, sí.
+    #[test]
+    fn por_whatsapp_cada_persona_recibe_sus_propios_datos() {
+        let (_d, db) = base();
+        preparar_whatsapp(&db);
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+
+        for _ in 0..2 {
+            let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes_de_whatsapp());
+            t.un_paso().expect("paso");
+        }
+
+        let pedidos = p.recibidos();
+        assert_eq!(pedidos.len(), 2, "no salieron los dos mensajes de WhatsApp");
+
+        // El simulador guarda los valores de la plantilla unidos por « · ».
+        let contenidos: Vec<String> = pedidos.iter().map(|x| x.html.clone()).collect();
+        assert!(
+            contenidos.contains(&"Ana · Ruiz".to_owned()),
+            "el primer mensaje no llevó los datos de Ana: {contenidos:?}"
+        );
+        assert!(
+            contenidos.contains(&"Beto · Nava".to_owned()),
+            "el segundo mensaje no llevó los datos de Beto —la campaña entera \
+             salió con los datos de una sola persona—: {contenidos:?}"
+        );
+    }
+
+    /// **Una etapa de WhatsApp sin plantilla no manda nada**, y se para antes
+    /// de gastar el intento.
+    ///
+    /// En correo se manda aunque falte el cuerpo (H-15: un correo vacío se ve,
+    /// una campaña muda no). En WhatsApp no cabe esa salida: Meta rechaza lo
+    /// que no es una plantilla aprobada, así que mandarlo gastaría el intento y
+    /// quemaría reputación del número para nada.
+    #[test]
+    fn por_whatsapp_sin_plantilla_no_se_manda_ni_se_gasta_el_intento() {
+        let (_d, db) = base();
+        preparar_whatsapp(&db);
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+
+        let sin_plantilla = Ajustes {
+            canal: Canal::WhatsApp,
+            plantilla_de_whatsapp: None,
+            ..ajustes()
+        };
+        let t = Trabajador::nuevo(&db, &p, &e, &f, sin_plantilla);
+
+        assert_eq!(t.un_paso().expect("paso"), Paso::SinPlantillaDeWhatsapp);
+        assert_eq!(
+            p.cuantos_pedidos(),
+            0,
+            "se llamó al proveedor sin una plantilla aprobada"
+        );
+    }
+
     // ─── Las cuatro puertas de antes de enviar ──────────────────────────────
 
     /// **Fuera de horario no sale nada, y ni siquiera se toma el trabajo.**

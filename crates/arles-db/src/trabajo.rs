@@ -207,7 +207,16 @@ const SELECT_DE_LA_ETAPA: &str = "SELECT e.id,
            JOIN execution_window v ON v.id = e.execution_window_id";
 
 impl Db {
-    /// Las etapas de correo que están enviando ahora mismo.
+    /// Las etapas que están enviando ahora mismo, **de los dos canales**.
+    ///
+    /// ── ESTE RENGLÓN DECÍA «LAS ETAPAS DE CORREO» ────────────────────────
+    ///
+    /// Y era verdad hasta D-WA (26/10/2026), que le dio a WhatsApp campañas
+    /// enteras. La consulta **no filtra por canal** —nunca lo hizo— así que
+    /// trae las dos; lo que estaba desfasado era la frase. Lo encontró la
+    /// auditoría H (04/11/2026) persiguiendo la misma afirmación en
+    /// `CLAUDE.md` y en el manual de usuario, donde costaba más: decían que
+    /// una campaña por WhatsApp no se puede lanzar, y se puede.
     ///
     /// ─────────────────────────────────────────────────────────────────────
     /// LAS TRES CONDICIONES, Y POR QUÉ SON TRES

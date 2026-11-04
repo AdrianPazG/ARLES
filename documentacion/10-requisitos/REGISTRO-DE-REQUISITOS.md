@@ -333,6 +333,90 @@ las columnas que el respaldo **declaraba** con las que entrega puesto al día.
 
 ---
 
+## Auditoría H · funcionalidad y flujo, 04/11/2026
+
+Dirección pidió auditar la aplicación entera, verificar la funcionalidad y
+corregir lo que apareciera. Primera pasada, con las diez fases en verde al
+empezar. **Tres hallazgos, los tres arreglados**, dos descartados por falsos y
+dos defectos del instrumento de medida.
+
+| Id | Qué | Estado |
+|---|---|---|
+| **H-18** | Tres documentos decían que **no se puede lanzar una campaña por WhatsApp**, y se puede desde D-WA. Faltaban además las pruebas del motor del canal | ✅ |
+| **H-19** | El paso 6 del asistente bloqueaba los pasos 7, 8 y 9 **en la demostración**, con una cifra pegada de otro escenario | ✅ |
+| **H-20** | «Activar campaña» apagado **sin decir por qué** a un lector de pantalla, y la sonda medía 1 de los 9 pasos | ✅ |
+
+### H-18 · el §9 al revés: el documento promete de menos
+
+`CLAUDE.md` afirmaba dos cosas contradictorias — que el canal está completo
+«campañas enteras incluidas» y que «el motor solo recorre `Canal::Correo`».
+Medido en las cuatro capas, la segunda es falsa desde el 26/10: la consulta de
+etapas **no filtra por canal** y nunca lo hizo, la fábrica monta el adaptador
+de Meta, y el motor arma su contenido con los valores de cada persona.
+
+**Es la primera vez en el proyecto que un documento promete de menos**, y el
+coste no es menor: la misma frase estaba en el manual que lee Dirección, así
+que una función construida, probada y pagada se quedaba sin usar porque el
+producto decía que no existía.
+
+Lo que faltaba de verdad era la red: las diecisiete pruebas de WhatsApp del
+taller miden el núcleo, el alta, la frontera y el adaptador —cada capa la
+suya— y **ninguna tocaba el motor**. Ya hay dos, y la primera manda a **dos**
+contactos a propósito: con uno no se ve que cada quien reciba sus datos, que
+es lo que D-WA vino a arreglar.
+
+### H-19 · un decorado que impide recorrer la demostración
+
+Las cifras del paso 6 estaban **pegadas** de otro escenario —1 303 días y
+386 046 sin enviar, que salen de los 451 196 contactos del banco—, así que con
+la audiencia del decorado la pantalla decía a la vez «esta campaña enviará 3
+correos» y «386 046 mensajes se quedarían sin enviar».
+
+Y como el paso 6 bloquea «Continuar» cuando el desenlace impide activar
+(8.6 E), **los pasos 7, 8 y 9 no se podían revisar**. Es el defecto de la 7.3
+otra vez. Ahora la estimación **se calcula** de la audiencia: una cifra
+derivada no se puede desalinear de aquello de lo que deriva.
+
+### H-20 · el botón más importante, mudo para un lector de pantalla
+
+El texto «Vuelve al paso 7» estaba desde D-04, **pintado y sin enlazar**. No lo
+cazó nada porque la sonda abre cada ruta y mide **el estado inicial**: en el
+asistente, el paso 1 de 9, con la ruta contada como pantalla medida. Es el
+defecto del 28/10 un nivel más abajo — allí faltaban rutas, aquí faltan
+estados dentro de una ruta.
+
+La sonda **recorre** ahora las pantallas con pasos, detectándolas por «Paso N
+de M» y no por una lista de rutas. Verificado quitando el `aria-describedby`:
+lo caza en las cuatro ventanas, nombrando el paso.
+
+### Lo que salió limpio
+
+**76 comandos y 108 argumentos**: lo que las pantallas mandan es exactamente lo
+que los comandos declaran, en las dos direcciones — y la auditoría G lo midió a
+mano el 22/10 **sin dejar comprobación**, así que llevaba dos semanas sin
+mirarse. Ningún comando sin llamador. La máquina de estados de una campaña, con
+sus trece pruebas y el estado comprobado dentro de la transacción que escribe.
+Los pasos 1 a 8 del asistente. Las tres sondas: 18 pantallas por cuatro
+ventanas, 1 980 textos, 147 paradas de tabulador.
+
+### Los dos hallazgos falsos, y los dos defectos del instrumento
+
+Descartados antes de anotarlos: que el simulador del motor no pudiera afirmar
+qué sale por WhatsApp (sí puede) y que el paso 6 no explicara su botón apagado
+(lo explica, con `aria-describedby`).
+
+Y el medidor de argumentos nació diciendo que `activar_campana` «no existe en
+Rust» y que ocho comandos no los llama nadie. Las dos falsas: no cubría
+`#[tauri::command(async)]` ni los atributos intermedios, y sólo veía llamadas
+con el nombre literal. Al corregirlo, los comandos pasaron de 74 a 76.
+
+**Tercera vez que el instrumento es el defecto** —la 8.5 medía un camino que el
+usuario no recorre, el 03/11 medía el orden en vez de la conexión—, y la
+conclusión se repite: antes de creerle a un instrumento nuevo hay que comprobar
+sus cifras contra algo que ya se sepa.
+
+---
+
 ## Fallos que ya costaron datos
 
 Se guardan porque **cada uno ha vuelto**, y la defensa que funcionó es la misma

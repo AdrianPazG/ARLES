@@ -1657,17 +1657,29 @@ function rotulo(clave: string): string {
             </ABoton>
           </div>
 
+          <!-- `aria-describedby` y no sólo el renglón de abajo. El texto
+               «Vuelve al paso 7…» estaba desde D-04, **pintado y sin
+               enlazar**, así que quien usa un lector de pantalla oía un botón
+               apagado y nada más — en el botón más importante del producto.
+               Lo encontró la auditoría H (04/11/2026) recorriendo el asistente
+               paso a paso: la sonda abre `/campanas/nueva` en el paso 1 y
+               medía 1 de 9. Es el caso exacto que la medida 10 de
+               `auditoria.mjs` describe para Bajas el 28/10. -->
           <ABoton
             v-else
             variante="primario"
             :deshabilitado="!sePuedeActivar"
             :ocupado="campanas.trabajando"
+            :aria-describedby="
+              !sePuedeActivar && !campanas.comoVa ? 'asistente-bloqueada' : undefined
+            "
             @click="activar"
           >
             {{ t('asistente.paso.activacion.activar') }}
           </ABoton>
           <p
             v-if="!sePuedeActivar && !campanas.comoVa"
+            id="asistente-bloqueada"
             class="asistente__nota"
           >
             {{ t('asistente.paso.activacion.bloqueada') }}

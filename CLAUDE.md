@@ -389,10 +389,28 @@ funciona, no que otro módulo la use, y el hueco vive justo entre dos capas que
 cada una pasa lo suyo. Lo caza `lo_que_se_construye_se_usa()` en la fase W del
 validador — escrita antes de arreglar el hueco, para verla marcarlo en rojo.
 
-**Lo que WhatsApp todavía NO hace:** el motor solo recorre `Canal::Correo`, así
-que **no se puede lanzar una campaña entera por WhatsApp**, solo el envío de
-prueba. Y las respuestas no se pueden contar sin el «relay ciego» que Dirección
-decidió el 29/09/2026 y que no existe todavía.
+> **Este párrafo decía que el motor «solo recorre `Canal::Correo`, así que no
+> se puede lanzar una campaña entera por WhatsApp», y lleva desfasado desde
+> D-WA** (26/10/2026). Lo encontró la auditoría H el 04/11/2026, midiendo las
+> cuatro capas: `etapas_en_marcha` **no filtra por canal** y nunca lo hizo,
+> `proveedor_de_la_etapa` monta el adaptador de Meta, y el motor arma su
+> `Contenido::Whatsapp` con los valores de cada persona.
+>
+> Y es el §9 **al revés**, que es la primera vez que pasa en este proyecto: el
+> documento no promete de más, promete **de menos**. El coste no es menor —
+> estaba escrito igual en el manual que lee Dirección, así que una función
+> construida, probada y pagada se quedaba sin usar porque el producto decía
+> que no existía.
+>
+> Lo que faltaba de verdad era la red: **ninguna prueba de `arles-motor`
+> recorría el canal**. Las diecisiete pruebas de WhatsApp del taller miden el
+> núcleo, el alta, la frontera y el adaptador —cada capa la suya— y el motor,
+> que es quien decide qué sale y con qué contenido, se quedaba sin ninguna. Ya
+> tiene dos, y la primera manda a **dos** contactos a propósito: con uno solo
+> no se ve que cada quien reciba sus datos, que es lo que D-WA vino a arreglar.
+
+**Lo que WhatsApp todavía NO hace:** las respuestas no se pueden contar sin el
+«relay ciego» que Dirección decidió el 29/09/2026 y que no existe todavía.
 
 **Cerrada la 6.8** —el editor de plantillas y firmas—, que era lo que
 bloqueaba crear una campaña entera desde la interfaz.

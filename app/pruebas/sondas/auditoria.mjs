@@ -452,9 +452,47 @@ for (const [ancho, alto] of ANCHOS) {
     await pagina.goto(`file://${ARCHIVO}${ruta}`, { waitUntil: 'load' })
     await pagina.waitForTimeout(1000)
 
-    const r = await pagina.evaluate(MEDIR, SUELO_DESHABILITADO)
-    const donde = `${ruta} @ ${ancho}×${alto}`
+    // ── UNA PANTALLA CON PASOS SE RECORRE, NO SE MIRA ──────────────────
+    //
+    // Hallazgo de la auditoría H (04/11/2026). Esta sonda abría cada ruta y
+    // medía **el estado inicial**. En el asistente de campañas eso es el paso
+    // 1 de 9, y los otros ocho no los medía nadie — con la ruta contada como
+    // «pantalla medida», que es peor que no medirla, porque se cree. Es el
+    // defecto del 28/10 con las cinco pantallas que faltaban, un nivel más
+    // abajo: ahí faltaban rutas, aquí faltan estados dentro de una ruta.
+    //
+    // Y lo que dejaba pasar no era menor: el botón **«Activar campaña»** del
+    // paso 9 estaba apagado sin `aria-describedby`, así que quien usa un
+    // lector de pantalla oía un botón muerto en el punto donde se decide
+    // mandar una campaña entera.
+    //
+    // Se detecta por «Paso N de M» y no por la ruta: una lista de rutas con
+    // pasos sería la lista a mano de siempre, y la pantalla que se añadiera
+    // mañana no entraría en ella.
+    let vuelta = 0
+    for (;;) {
+      const r = await pagina.evaluate(MEDIR, SUELO_DESHABILITADO)
+      const paso = await pagina.evaluate(() => {
+        const m = (document.querySelector('main')?.innerText || '').match(/Paso (\d+) de (\d+)/)
+        return m ? `paso ${m[1]}/${m[2]}` : null
+      })
+      const donde = `${ruta}${paso ? ' · ' + paso : ''} @ ${ancho}×${alto}`
+      reportar(r, donde, consola)
+      consola.length = 0
 
+      if (!paso) break
+      vuelta += 1
+      // Tope por si una pantalla no avanza nunca: mide lo que haya y sigue.
+      if (vuelta > 12) break
+      if (!(await avanzarUnPaso(pagina))) break
+    }
+  }
+  await pagina.close()
+  console.log(`✓ ${RUTAS.length} pantallas medidas a ${ancho}×${alto}.`)
+}
+
+/** Vuelca una medición en los hallazgos. */
+function reportar(r, donde, consola) {
     consola.forEach((c) => mal(`${donde} · consola: ${c.slice(0, 200)}`))
     r.desbordes.forEach((d) =>
       mal(`${donde} · ${d.motivo}: ${d.sel} — ${d.cabe}px disponibles, ${d.necesita}px necesarios`),
@@ -476,9 +514,51 @@ for (const [ancho, alto] of ANCHOS) {
     r.numerosDeCorrido.forEach((n) =>
       mal(`${donde} · número de corrido: ${n} — tiene que pasar por numeroLegible()`),
     )
+}
+
+/**
+ * Rellena lo que falte del paso actual y pulsa el botón de avanzar.
+ *
+ * Devuelve `false` cuando ya no se puede seguir, que es la condición de
+ * parada del recorrido. Rellenar es necesario: los pasos nacen con el botón
+ * apagado a propósito, y sin datos la sonda mediría siempre el primero.
+ */
+async function avanzarUnPaso(pagina) {
+  for (const campo of await pagina.locator('main input:visible').all()) {
+    if (await campo.isDisabled()) continue
+    const tipo = await campo.getAttribute('type')
+    if (tipo === 'checkbox' || tipo === 'radio') {
+      if (!(await campo.isChecked())) await campo.check().catch(() => {})
+    } else if (tipo === 'number') {
+      if (!(await campo.inputValue())) await campo.fill('40').catch(() => {})
+    } else if (!(await campo.inputValue())) {
+      await campo.fill('Campaña de la sonda').catch(() => {})
+    }
   }
-  await pagina.close()
-  console.log(`✓ ${RUTAS.length} pantallas medidas a ${ancho}×${alto}.`)
+  for (const lista of await pagina.locator('main select:visible').all()) {
+    if (await lista.isDisabled()) continue
+    for (const opcion of await lista.locator('option').all()) {
+      const v = await opcion.getAttribute('value')
+      if (v) {
+        await lista.selectOption(v).catch(() => {})
+        break
+      }
+    }
+  }
+  await pagina.waitForTimeout(300)
+
+  // Primero avanzar; si no se puede, la acción que el paso pide.
+  for (const patron of [/^Continuar/i, /^Siguiente/i, /^Mandar la prueba/i]) {
+    for (const boton of await pagina.locator('main button:visible').all()) {
+      const t = (await boton.innerText()).trim()
+      if (patron.test(t) && !(await boton.isDisabled())) {
+        await boton.click()
+        await pagina.waitForTimeout(900)
+        return true
+      }
+    }
+  }
+  return false
 }
 
 // ── 7 · el foco se ve ──────────────────────────────────────────────────

@@ -1252,16 +1252,31 @@
             // devuelven. Es el mismo tipo de hueco que el del tipo de
             // TypeScript que mentía, y por la misma razón: nadie lo leía.
             //
-            // Se simula el caso interesante —una audiencia que no termina— a
-            // propósito: es el que la 8.6 E vino a enseñar, y en la
-            // demostración hay que poder verlo.
-            estimacion: {
-              desenlace: { desenlace: 'noCabeEnElHorizonte', faltan: 386046 },
-              audiencia: (e.contactos || DEMO.contactos).length,
-              techoDiario: 50,
-              quienManda: 'elTopeDelDia',
-              diasConEnvio: 1303,
-            },
+            // ── Y DESDE LA AUDITORÍA H (04/11/2026), CALCULADA ─────────────
+            //
+            // Esto traía las cifras **pegadas** de otro escenario: 1 303 días
+            // y 386 046 sin enviar, que salen de los 451 196 contactos del
+            // banco. Con la audiencia del decorado —tres— la pantalla decía a
+            // la vez «esta campaña enviará 3 correos», «caben 50 al día» y «la
+            // campaña no termina en cinco años: 386 046 mensajes se quedarían
+            // sin enviar». Las tres cifras juntas son un disparate visible.
+            //
+            // Y costaba algo más que credibilidad: el paso 6 **bloquea
+            // Continuar** cuando el desenlace impide activar (8.6 E), así que
+            // los pasos 7, 8 y 9 del asistente **no se podían revisar en la
+            // demostración**. Es el defecto de la 7.3 otra vez — un decorado
+            // que impide recorrer lo que la demostración existe para enseñar.
+            //
+            // La intención de enseñar el caso de «no termina» era buena, pero
+            // con tres contactos ese caso **no puede ser verdad**: harían falta
+            // más de 91 000. Lo que sí vigila ese aviso es la prueba de
+            // pantalla de la 8.6 E, que no depende del decorado.
+            //
+            // Calculado y no escrito: una cifra derivada de la audiencia no se
+            // puede desalinear de ella.
+            estimacion: estimacionDeLaDemostracion(
+              (e.contactos || DEMO.contactos).length,
+            ),
             diagnostico: null,
             // Las campañas que ya envían con este remitente. El decorado enseña
             // el caso interesante —una, compartiendo— porque es el que el aviso
@@ -1657,6 +1672,47 @@
       }
     },
   };
+
+  /**
+   * Lo que va a tardar la campaña del decorado, **derivado de su audiencia**.
+   *
+   * No reproduce el bucle hora a hora del núcleo —`arles_core::duracion`
+   * recorre la ventana de ejecución—, y no hace falta: lo que esta función
+   * tiene que garantizar es que las cifras que la pantalla enseña **sean
+   * coherentes entre sí**. Una audiencia de tres que «no termina en cinco
+   * años» no es una aproximación: es un disparate.
+   *
+   * El horizonte son cinco años, como `HORIZONTE_DIAS` en el núcleo.
+   */
+  function estimacionDeLaDemostracion(audiencia) {
+    var TECHO_DIARIO = 50;
+    var HORIZONTE_DIAS = 365 * 5;
+    var cabenEnElHorizonte = TECHO_DIARIO * HORIZONTE_DIAS;
+    var dias = Math.max(1, Math.ceil(audiencia / TECHO_DIARIO));
+
+    var desenlace;
+    if (audiencia > cabenEnElHorizonte) {
+      desenlace = {
+        desenlace: 'noCabeEnElHorizonte',
+        faltan: audiencia - cabenEnElHorizonte,
+      };
+      dias = HORIZONTE_DIAS;
+    } else {
+      // La fecha de fin, a partir de hoy. Se da en el mismo formato ISO que
+      // manda Rust, que es lo que la pantalla sabe leer.
+      var fin = new Date();
+      fin.setDate(fin.getDate() + dias);
+      desenlace = { desenlace: 'termina', cuando: fin.toISOString() };
+    }
+
+    return {
+      desenlace: desenlace,
+      audiencia: audiencia,
+      techoDiario: TECHO_DIARIO,
+      quienManda: 'elTopeDelDia',
+      diasConEnvio: dias,
+    };
+  }
 
   function configuracion(e) {
     var hay = !!e.empresa;

@@ -275,7 +275,6 @@ nada que no se pueda cumplir.
 |---|---|
 | **No dice si un correo llegó** | Nadie puede saberlo. ARLES dice «aceptado» —el servidor lo tomó— y nunca «entregado», porque sería mentira |
 | **No dice si alguien abrió un mensaje** | Eso exige un píxel espía. Se decidió no ponerlo |
-| **No se puede lanzar una campaña entera por WhatsApp** | Sólo el envío de prueba. El motor todavía recorre únicamente el correo |
 | **No se puede filtrar la audiencia** de una campaña | Entra la lista entera. El filtro del **registro** sí existe, con seis criterios |
 | **Una campaña creada no se puede editar** | Hay que crear otra |
 | **No se puede restaurar un respaldo hecho con una versión MÁS NUEVA** | Uno de una versión **anterior** sí entra: ARLES lo pone al día antes de restaurarlo, y te lo dice. Al revés no se puede, porque esta versión no conoce los cambios que trae ese archivo. La salida es actualizar ARLES |
@@ -283,6 +282,12 @@ nada que no se pueda cumplir.
 | **Una firma no puede llevar una imagen** | Sólo texto, con negrita y cursiva. Está pendiente de decidir cómo: embebida engorda cada correo y dispara filtros de spam; alojada hay que alojarla en algún sitio |
 | **El número de WhatsApp nunca ha hablado con Meta** | Todo lo de WhatsApp está probado contra un servidor de mentira. Falta una cuenta de empresa verificada con Coexistencia |
 | **No lee las respuestas de WhatsApp, así que una baja pedida por ahí se apunta a mano** | Las respuestas te llegan al teléfono con Coexistencia. Apúntalas en Contactos › Bajas, canal WhatsApp, y ninguna campaña vuelve a incluir ese número. En el correo la salida la pone ARLES y es obligatoria; en WhatsApp el texto lo aprueba Meta y no hay dónde añadirla |
+
+> **Y una que dejó de ser cierta el 26/10/2026 y seguía escrita aquí hasta el
+> 04/11:** que no se puede lanzar una campaña entera por WhatsApp. **Sí se
+> puede** desde D-WA — se crea con el asistente igual que una de correo,
+> eligiendo el número y una plantilla aprobada por Meta. Lo que sigue sin
+> poderse es contar las respuestas.
 
 > **Y otra que dejó de ser cierta el 04/11/2026:** hasta ese día ARLES
 > rechazaba cualquier respaldo hecho antes de una actualización, así que cada
