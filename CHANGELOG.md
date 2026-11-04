@@ -73,6 +73,85 @@ exactamente por dónde pasan.
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
 
+### El documento del estado citaba un avance de seis días antes
+
+**04/11/2026.** `ESTADO_ACTUAL.md` §10 decía «el avance está al **95 % a
+2026-10-28**» con el README diciendo **99 % a 2026-11-04** desde la portada del
+repositorio. El §1 bis da **un solo sitio** al porcentaje —`avance.json`— y la
+comprobación que lo vigilaba compara el README con esa fuente: **este documento
+no entraba en la comparación**, así que podía citar cualquier cifra.
+
+Importa porque es el documento por el que empieza quien retoma el trabajo, y ya
+había hecho esto mismo: siguió pidiendo la 7.5 seis días después de construirla.
+Es DOC-21.
+
+> **El umbral se midió antes de escribir la comprobación**, como en los
+> bloqueos: `N % a AAAA-MM-DD` aparece **cuatro** veces en el proyecto y **tres
+> son narraciones de lo que un documento decía**. Un patrón que exigiera que
+> todas cuadren habría nacido con tres hallazgos falsos. Lo que distingue a la
+> cita viva es la **fecha**, así que se exige que exista una con la de
+> `avance.json` y que cuadre — y una narración de una cifra vieja ni se mira,
+> porque un hito pasado no caduca.
+>
+> Verificada con tres rupturas, las tres en rojo, y la tercera es la que
+> importa: **callar la cifra** también falla. Un documento que calla pasaría
+> cualquier comprobación que sólo mire lo que hay escrito.
+
+### El primer día de un cliente, de punta a punta, en una sola prueba
+
+**04/11/2026.** Hasta hoy, el recorrido que hace cualquiera el primer día
+—configurar la empresa, cargar contactos, escribir una plantilla, dar de alta un
+remitente, crear la campaña con el asistente, activarla y verla enviar— estaba
+cubierto **por capas**: el alta de campaña en `arles-db`, la frontera en
+`arles-app`, el motor en `arles-motor`. Cada capa pasaba lo suyo y **nadie
+comprobaba que lo que sale de una entre en la siguiente.**
+
+`camino_completo.rs` lo recorre entero, en el orden en que lo recorre una
+persona, y acaba contando las filas de `message_attempt` en `sent`. No afirma
+que las piezas funcionen —eso ya lo afirman 1 257 pruebas—: afirma que **están
+conectadas**.
+
+> **Verificada con dos rupturas, las dos en rojo.** Dejando la etapa en `ready`
+> al activar, y dejando la campaña en `ready`: en los dos casos el alta
+> funciona, la audiencia se congela, la cifra de destinatarios es correcta y las
+> pruebas de `alta_de_campana.rs` siguen en verde — **y el motor no encuentra
+> nada que enviar**. Es el patrón del §9 de `CLAUDE.md` en su forma más cara: la
+> aplicación compila, arranca y no manda un solo mensaje, con todo en verde.
+
+### Las notas del instalador vuelven a ir cinco días por detrás, y ahora hay red
+
+**04/11/2026.** La versión de prueba publicada hoy (`prueba-20261104-0457`,
+commit `bc63dca`) salió diciendo **«Al 29/10/2026»** en la frase que afirma el
+estado del producto, con cinco días de trabajo dentro: el filtro de la lista de
+contactos, el del registro, restaurar un respaldo de una versión anterior y la
+auditoría H. La nota prometía **de menos** sobre el `.exe` que Dirección tenía
+ya descargado.
+
+**Es la segunda vez en seis días.** El 29/10 se arreglaron tres frases desfasadas
+de esta misma nota —a mano, y sin dejar nada que lo vigilara—. La fecha estaba
+escrita a mano **en la plantilla**, así que no se desfasaba una vez: se
+desfasaba en cada publicación posterior.
+
+Ahora la frase trae su fecha y su commit del propio commit que se empaqueta
+(`git log -1`), y lo vigilan dos comprobaciones en `--fase 1`:
+`la nota del instalador no fecha el estado a mano` y
+`el flujo calcula la fecha del commit que empaqueta`.
+
+> **Son dos y no una por la razón del 09/10 con `cargo arles`: exigir que el
+> bueno esté no impide que el malo siga ahí.** Verificadas con cuatro rupturas,
+> las cuatro en rojo — entre ellas dejar la interpolación en su sitio y colar
+> además una fecha a mano, y quitar el paso que la calcula dejando la frase
+> intacta. En esa segunda, la primera comprobación sigue en verde: es lo que
+> prueba que la otra hace falta.
+
+> **Y un comentario del propio flujo afirmaba de más.** Decía que el flujo sólo
+> se puede lanzar con una etiqueta mientras viva en una rama de desarrollo,
+> porque GitHub no enseña el botón «Run workflow». Lo del botón es cierto; lo
+> que no es cierto es la conclusión, y leerla hace creer que **hay que fusionar
+> a `main` para poder construir un instalador**. El mismo `workflow_dispatch`
+> pedido por la API, con `ref` apuntando a la rama de trabajo, construyó la
+> versión de hoy — ejecución 14, `head_branch` = `claude/loving-faraday-5chmmy`.
+
 ### Un respaldo de una versión anterior se puede restaurar
 
 **04/11/2026.** Era la limitación más cara que la Fase 8 dejó declarada y la

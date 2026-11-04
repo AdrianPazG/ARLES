@@ -2171,6 +2171,68 @@ en silencio.** Está contado en `REGISTRO-DE-REQUISITOS.md`, sección «V11→V1
 > una tabla que el esencial no lleva rellenará menos—; y hace falta **espacio en
 > disco** para una base del tamaño del respaldo.
 
+**Y el 04/11/2026, el primer día de un cliente en una sola prueba, más tres
+documentos que iban por detrás.** Lo disparó una pregunta de Dirección —si todo
+lo de estos días está en GitHub y si clonando el repositorio se puede construir
+el `.exe`— y no una auditoría.
+
+> **El recorrido que hace cualquiera el primer día estaba cubierto por capas y
+> por nadie entero.** Configurar la empresa, cargar contactos, escribir una
+> plantilla, dar de alta un remitente, crear la campaña con el asistente,
+> activarla y verla enviar: el alta de campaña lo probaba `arles-db`, la
+> frontera `arles-app`, el motor `arles-motor`. Cada capa pasaba lo suyo y
+> **nadie comprobaba que lo que sale de una entre en la siguiente.**
+>
+> `crates/arles-app/tests/camino_completo.rs` lo recorre en el orden en que lo
+> recorre una persona y acaba contando las filas de `message_attempt` en
+> `sent`. No afirma que las piezas funcionen —eso lo afirman 1 257 pruebas—:
+> afirma que **están conectadas**.
+>
+> **Verificada con dos rupturas**, dejando la etapa en `ready` al activar y
+> dejando la campaña en `ready`: en los dos casos el alta funciona, la audiencia
+> se congela, la cifra de destinatarios es correcta, las pruebas de
+> `alta_de_campana.rs` siguen en verde — **y el motor no encuentra nada que
+> enviar**. Es el patrón del §9 en su forma más cara: la aplicación compila,
+> arranca y no manda un solo mensaje, con todo verde.
+
+> **Las notas del instalador volvieron a ir cinco días por detrás, y es la
+> segunda vez en seis días.** La versión publicada hoy —`prueba-20261104-0457`,
+> commit `bc63dca`— salió diciendo **«Al 29/10/2026»** en la frase que afirma el
+> estado del producto, con el filtro de contactos, el del registro, restaurar un
+> respaldo de una versión anterior y la auditoría H dentro. El 29/10 se
+> arreglaron tres frases de esa misma nota **a mano y sin dejar red**, y la fecha
+> estaba escrita a mano **en la plantilla**: no se desfasaba una vez, se
+> desfasaba en cada publicación.
+>
+> Ahora la frase trae su fecha y su commit de `git log -1`, y lo vigilan **dos**
+> comprobaciones en `--fase 1` —`la nota del instalador no fecha el estado a
+> mano` y `el flujo calcula la fecha del commit que empaqueta`—, porque exigir
+> que el bueno esté no impide que el malo siga ahí (la lección del 09/10 con
+> `cargo arles`). Cuatro rupturas, las cuatro en rojo.
+
+> **Y el documento del estado citaba un avance de seis días antes.** El §10 de
+> `ESTADO_ACTUAL.md` decía «95 % a 2026-10-28» con el README en **99 % a
+> 2026-11-04**. La comprobación que vigila el porcentaje compara el README con
+> `avance.json` —las dos fuentes del §1 bis— y **ese documento no entraba en la
+> comparación**, así que podía citar cualquier cifra sin que nada fallara.
+>
+> Lo caza `el_estado_cita_el_avance_que_hay` en `--fase 0`, y **el umbral se
+> midió antes de escribirla**: `N % a AAAA-MM-DD` aparece cuatro veces en el
+> proyecto y **tres son narraciones** —dos en este archivo—, así que un patrón a
+> secas habría nacido con tres hallazgos falsos. Lo que distingue a la viva es
+> la fecha. Tres rupturas, y la que importa es la tercera: **callar la cifra
+> también falla**, porque un documento que calla pasaría cualquier comprobación
+> que sólo mire lo que hay escrito.
+
+> **Lo que esta tarde dejó dicho y no arreglado:** `origin/main` sigue en el
+> commit del **31/08/2026**, con **285 commits** de diferencia medidos hoy, así
+que **clonar
+> el repositorio no da la aplicación** — da la versión de agosto. Fusionar a
+> `main` necesita permiso explícito de Dirección, igual que abrir un pull
+> request. Y para probar el `.exe` **no hace falta clonar ni compilar**: el
+> flujo `entrega-de-prueba.yml` lo construye y lo publica como prerelease, y se
+> puede lanzar sobre la rama de trabajo (ver DOC-20).
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |

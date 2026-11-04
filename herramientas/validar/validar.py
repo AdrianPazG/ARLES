@@ -158,6 +158,7 @@ def fase_0(rapido):
 
     todo_documento_esta_en_el_indice()
     los_bloqueos_se_cuentan_en_un_solo_sitio()
+    el_estado_cita_el_avance_que_hay()
     ninguna_cifra_retirada_se_cita_como_viva()
 
     adrs = sorted(
@@ -517,6 +518,72 @@ def ninguna_cifra_retirada_se_cita_como_viva():
         "retiró el mismo día porque no se reproduce; citarla sin decirlo es "
         "cómo una cifra muerta vuelve a ser un hecho",
         "\n      ".join(problemas),
+    )
+
+
+def el_estado_cita_el_avance_que_hay():
+    """`ESTADO_ACTUAL.md` cita el porcentaje de `avance.json`, no otro.
+
+    ── QUÉ PASÓ ──────────────────────────────────────────────────────────────
+
+    El §1 bis de `CLAUDE.md` da **un solo sitio** al porcentaje de avance:
+    `avance.json`, de donde se genera la insignia del README. Y había una
+    comprobación comparando esas dos — las dos fuentes.
+
+    `ESTADO_ACTUAL.md` no entra en esa comparación, así que podía citar
+    cualquier cifra, y la citaba: el 04/11/2026 su §10 decía **«95 % a
+    2026-10-28»** con el README diciendo 99 % y seis días de trabajo cerrados
+    en medio. Es el documento por el que empieza quien retoma el trabajo, y es
+    el §9 de `CLAUDE.md` en el documento que existe para no tenerlo — igual que
+    cuando siguió pidiendo la 7.5 seis días después de construirla.
+
+    ── POR QUÉ MIRA LA FECHA Y NO EL NÚMERO ──────────────────────────────────
+
+    **El umbral se midió antes de escribirla**, como en los bloqueos y en el
+    texto de la copia. El patrón `N % a AAAA-MM-DD` aparece **cuatro** veces en
+    el proyecto, y **tres son narraciones de lo que un documento decía** —dos en
+    `CLAUDE.md` y una en la tabla de documentos del registro de requisitos—. Una
+    comprobación que exigiera que toda aparición cuadre habría nacido con
+    **tres hallazgos falsos**, que en este proyecto cuestan más que un hueco.
+
+    Lo que distingue a la cita viva de las narraciones es la **fecha**: la viva
+    lleva la de `avance.json`. Así que se exige lo justo y verificable:
+
+      1. que exista al menos una cita con la fecha de `avance.json`, y
+      2. que todas las citas con esa fecha lleven su porcentaje.
+
+    Una narración de una cifra vieja lleva una fecha vieja y no se mira, que es
+    lo correcto: un hito pasado no caduca. Y el día que el avance se recalcule
+    sin tocar este documento, el punto 1 falla — que es el caso que ocurrió.
+
+    ── VERIFICADA CON TRES RUPTURAS, LAS TRES EN ROJO (04/11/2026) ───────────
+
+      1. Devolver el «95 % a 2026-10-28» al §10: no hay ninguna cita con la
+         fecha de hoy, y cae el punto 1.
+      2. Dejar la fecha de hoy y cambiar el número a 97: cae el punto 2.
+      3. Quitar la frase entera: cae el punto 1, y es la ruptura que importa,
+         porque un documento que **calla** la cifra pasaría cualquier
+         comprobación que sólo mirase las que hay escritas.
+    """
+    import json
+
+    bruto = leer("documentacion", "07-entrega", "avance.json")
+    estado = leer("documentacion", "07-entrega", "ESTADO_ACTUAL.md")
+    if bruto is None or estado is None:
+        check(0, "el estado cita el avance que hay", False, "Falta avance.json o ESTADO_ACTUAL.md.")
+        return
+
+    datos = json.loads(bruto)
+    fecha = datos["actualizado"]
+    total = round(sum(f["peso"] * f["hecho"] for f in datos["fases"]))
+
+    citas = re.findall(rf"(\d{{1,3}}) % a {re.escape(fecha)}\b", estado)
+    check(
+        0,
+        "el estado cita el avance que hay",
+        bool(citas) and all(int(c) == total for c in citas),
+        "El documento por el que empieza quien retoma el trabajo citaba 95 % con el README en 99 %.",
+        f"avance.json: {total} % a {fecha} · en ESTADO_ACTUAL con esa fecha: {citas or 'ninguna'}",
     )
 
 
@@ -892,6 +959,68 @@ def la_aplicacion_se_construye_como_aplicacion():
         "el instalador se construye con tauri-action, que activa custom-protocol",
         construye_con_tauri,
         "Un `cargo build` a secas en el flujo da un instalador que abre la ventana pidiendo localhost.",
+    )
+
+    # ── Y LA NOTA QUE DIRECCIÓN LEE AL DESCARGARLO ───────────────────────────
+    #
+    # El cuerpo del release afirma el estado del producto, y lo afirmaba con una
+    # fecha escrita a mano en la plantilla: «Al 29/10/2026, con las diez fases
+    # del validador en verde». La versión del 04/11/2026 salió con esa frase y
+    # cinco días de trabajo dentro —el filtro de contactos, el del registro,
+    # restaurar un respaldo de una versión anterior y la auditoría H—, así que
+    # la nota prometía **de menos** sobre lo que Dirección tenía en la mano.
+    #
+    # Es el §9 de CLAUDE.md en el único documento que se lee con la aplicación
+    # ya descargada, y una fecha a mano en una plantilla no se desfasa una vez:
+    # se desfasa en **cada** publicación posterior, sin que nada falle.
+    #
+    # Lo que se mide es una estructura y no una aparición —la lección del
+    # CHANGELOG del 03/11—: la frase que afirma el estado tiene que traer su
+    # fecha de una salida de paso. Las fechas de la tabla «Lo nuevo» y las
+    # referencias tipo «D-WA, 27/10/2026» quedan fuera a propósito: son hitos
+    # pasados, y un hito pasado no caduca.
+    #
+    # Verificada con cuatro rupturas, las cuatro en rojo (04/11/2026):
+    #
+    #   1. Volver a poner la fecha literal del 29/10 en esa frase.
+    #   2. Quitar el paso que la calcula **dejando la frase intacta** — y ahí
+    #      la primera sigue en verde, que es lo que prueba que la segunda hace
+    #      falta.
+    #   3. Dejar la interpolación Y colar además una fecha a mano en la misma
+    #      frase. Es el caso del 09/10 con `cargo arles`: exigir que el bueno
+    #      esté no impide que el malo siga ahí.
+    #   4. Quitar la interpolación sin poner ninguna fecha, que dejaría la
+    #      frase afirmando el estado sin decir de cuándo.
+    frase = re.search(
+        r"^.*diez fases del validador.*$",
+        sin_comentarios,
+        re.M,
+    )
+    # El `${{ … }}` puede quedar en la línea anterior, así que se mira el
+    # párrafo: de «Las dieciocho pantallas» hasta la línea en blanco.
+    parrafo = re.search(
+        r"Las dieciocho pantallas.*?(?:\n\s*\n)",
+        sin_comentarios,
+        re.S,
+    )
+    cuerpo = parrafo.group(0) if parrafo else ""
+    check(
+        1,
+        "la nota del instalador no fecha el estado a mano",
+        bool(frase)
+        and "steps.origen.outputs" in cuerpo
+        and not re.search(r"\b\d{2}/\d{2}/\d{4}\b", cuerpo),
+        "Una fecha a mano en la plantilla se desfasa en cada publicación: la nota diría «al 29/10» con el trabajo de noviembre dentro.",
+        f"Párrafo: {' '.join(cuerpo.split())[:160]}",
+    )
+    # Y que el paso que la calcula siga ahí: la frase podría referirse a una
+    # salida que ya no existe, y entonces el release saldría con un hueco.
+    check(
+        1,
+        "el flujo calcula la fecha del commit que empaqueta",
+        re.search(r"id:\s*origen", sin_comentarios) is not None
+        and "git log -1 --format=%cd" in sin_comentarios,
+        "Sin ese paso, la nota interpola una salida vacía y Dirección lee «Construido del commit , del».",
     )
 
 

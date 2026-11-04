@@ -31,6 +31,13 @@
 #      (`main`). Mientras esto viva en `claude/…`, el botón no aparece — no es
 #      un fallo del flujo, es cómo funciona GitHub. Queda declarado para que
 #      funcione el día que esto llegue a `main`.
+#   3. **El mismo `workflow_dispatch`, pedido por la API** con `ref` apuntando
+#      a la rama de desarrollo. Eso sí funciona hoy, y es como se publicó la
+#      versión del 04/11/2026 (ejecución 14, `head_branch` =
+#      `claude/loving-faraday-5chmmy`). El punto 2 habla del BOTÓN, que no
+#      aparece; el flujo en sí se puede disparar. Queda escrito porque leer
+#      sólo el punto 2 hace creer que hay que fusionar a `main` para poder
+#      construir un instalador, y no hace falta.
 #
 # Lo que NO hay es un disparo por cada push. Una versión sin firmar que se
 # publica sola acaba instalada en algún sitio donde nadie la pidió.
@@ -152,6 +159,18 @@ jobs:
             echo "valor=prueba-$(date -u +'%Y%m%d-%H%M')" >> "$GITHUB_OUTPUT"
           fi
 
+      # La fecha de la nota sale del commit que se empaqueta, no escrita a
+      # mano. La versión del 04/11 se publicó diciendo «al 29/10/2026» con
+      # cinco días de trabajo dentro: el filtro de contactos, el del registro,
+      # restaurar un respaldo de una versión anterior y la auditoría H. Una
+      # cifra escrita a mano en una plantilla se desfasa sin que nada falle, y
+      # ésta la lee Dirección para saber qué está probando.
+      - name: La fecha y el commit de lo que se empaqueta
+        id: origen
+        run: |
+          echo "fecha=$(git log -1 --format=%cd --date=format:'%d/%m/%Y')" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git log -1 --format=%h)" >> "$GITHUB_OUTPUT"
+
       - name: Publicar
         uses: softprops/action-gh-release@v2
         with:
@@ -175,8 +194,10 @@ jobs:
 
             ### Qué se puede hacer con esto
 
-            **Las dieciocho pantallas, y ARLES manda de verdad.** Al 29/10/2026,
-            con las diez fases del validador en verde y 0 fallos:
+            **Las dieciocho pantallas, y ARLES manda de verdad.** Construido
+            del commit `${{ steps.origen.outputs.commit }}`, del
+            ${{ steps.origen.outputs.fecha }}, con las diez fases del validador
+            en verde y 0 fallos:
 
             - Configurar la empresa y **cargar contactos** desde CSV o XLSX, con
               los choques revisados antes de importar; bajas y derechos ARCO.
@@ -201,6 +222,9 @@ jobs:
             | **Activar ya no congela la ventana**, enseña en qué va y **se puede cancelar** sin dejar nada a medias | 28/10 |
             | Siete arreglos de diseño mirando las dieciocho pantallas, e Inicio deja de decir que el producto no está terminado | 28/10 |
             | Las pantallas de Contactos, Registro, Actividad y Bajas **leen por su propia conexión**, así que no esperan al motor | 29/10 |
+            | **Buscar en el registro** deja de devolver todas las filas cuando se escribe un `%` o un `_` | 02/11 |
+            | **Filtrar la lista de contactos** por canal, dirección completa o un trozo de nombre | 03/11 |
+            | **Un respaldo tomado antes de una actualización ya se puede restaurar**, y eso incluye la pantalla de recuperación del llavero perdido | 04/11 |
 
             ### Lo que todavía NO hace
 
@@ -209,7 +233,10 @@ jobs:
               es cero en ese canal.
             - **Atender un «BAJA» automáticamente**, en ningún canal. Se apunta
               a mano en Contactos › Bajas.
-            - **Filtrar la audiencia** y **editar una campaña ya creada**.
+            - **Filtrar la audiencia de una campaña.** La lista de contactos y
+              el registro sí se filtran; lo que una campaña se lleva sigue
+              siendo la lista entera que se le elige.
+            - **Editar una campaña ya creada.**
             - **Gmail y Outlook con su botón.** Se dan de alta por SMTP con
               contraseña de aplicación, que funciona y está probado contra una
               cuenta real.

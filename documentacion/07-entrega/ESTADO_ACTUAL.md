@@ -376,8 +376,23 @@ que importa la tenga.**
 ## 10. Lo siguiente
 
 **La Fase 9 · Release**, que es **lo único que queda**: el avance está al
-**95 % a 2026-10-28**, y ese 5 % restante es exactamente el peso de la Fase 9.
-Las otras diez fases están al 100 %.
+**99 % a 2026-11-04**, y ese 1 % restante es lo que le falta a la Fase 9. Las
+otras diez fases están al 100 %.
+
+> **Este renglón decía «95 % a 2026-10-28» hasta el 04/11/2026**, con seis días
+> de trabajo cerrados después y el README diciendo 99 % desde la portada del
+> repositorio. La comprobación que ya existía compara el README con
+> `avance.json` —las dos únicas fuentes del §1 bis— y **este documento no entra
+> en esa comparación**, así que podía citar cualquier cifra sin que nada
+> fallara. Es DOC-21.
+>
+> Lo caza ahora `el_estado_cita_el_avance_que_hay` en `--fase 0`, y no con un
+> patrón a secas: medido antes de escribirla, `N % a AAAA-MM-DD` aparece cuatro
+> veces en el proyecto y **tres son narraciones de lo que un documento decía**
+> —en `CLAUDE.md` y en el propio registro de requisitos—. Un patrón sin más
+> habría nacido con tres hallazgos falsos. Lo que distingue a la viva es la
+> fecha: la comprobación exige que exista una cita con la fecha de `avance.json`
+> y que cuadre, y no mira ninguna otra.
 
 **Dos** cosas de código y una puerta. De los seis puntos están cerrados el 1, el
 2, el 3 y el **5** —éste el 04/11/2026—, así que quedan el 4 (los instaladores,
