@@ -97,6 +97,48 @@ const descubiertos = ref<NumeroDescubierto[]>([])
 const elegido = ref('')
 
 /**
+ * Las dos direcciones del panel de Meta, y por qué están aquí y no en el
+ * catálogo de textos.
+ *
+ * **No son textos: son datos.** No se traducen, y el catálogo es lo que se
+ * traduce. En Remitentes la dirección de las contraseñas de aplicación vive
+ * igual fuera del catálogo, en `PROVEEDORES`.
+ *
+ * Y están **escritas en la pantalla** además de en el botón de copiar, porque
+ * el portapapeles puede estar negado: lo que no puede pasar es que la única
+ * forma de tener la dirección sea un botón (la lección de Remitentes del
+ * 14/10/2026).
+ */
+const PANEL_DE_DESARROLLADORES = 'developers.facebook.com'
+const PANEL_DEL_NEGOCIO = 'business.facebook.com'
+
+/** Cuál de las dos direcciones se acaba de copiar, o cadena vacía. */
+const copiada = ref('')
+const falloAlCopiar = ref(false)
+
+/**
+ * Copia una de las dos direcciones del panel de Meta.
+ *
+ * Igual que en Remitentes: si el portapapeles falla **se dice**, porque un
+ * botón que no hace nada se lee como una avería (§95). La dirección sigue en
+ * pantalla y se puede seleccionar a mano, así que no bloquea nada.
+ */
+async function copiarLaDireccion(donde: string): Promise<void> {
+  falloAlCopiar.value = false
+  try {
+    await navigator.clipboard.writeText(donde)
+    copiada.value = donde
+    // El acuse se borra solo: un «Copiada» permanente deja de decir que acaba
+    // de pasar algo.
+    window.setTimeout(() => {
+      copiada.value = ''
+    }, 2000)
+  } catch {
+    falloAlCopiar.value = true
+  }
+}
+
+/**
  * Le pregunta a Meta qué números tiene este token.
  *
  * El token **no se guarda aquí**: viaja al comando, se usa para preguntar y se
@@ -415,6 +457,107 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
         >
           {{ avisoToken }}
         </p>
+
+        <!-- ══ DE DÓNDE SALE EL TOKEN · pedido por Dirección el 04/11/2026 ══
+             La pantalla pedía el token y no decía dónde se consigue. Los seis
+             pasos están escritos desde la Fase W en
+             `documentacion/07-entrega/COMO-CONFIGURAR-WHATSAPP.md`, y ninguna
+             pantalla los enlazaba: el H-06 otra vez —un campo obligatorio sin
+             pista de dónde sale su valor— con el agravante de que quien
+             instala ARLES **no tiene el repositorio**, así que esa guía no
+             existe para él.
+
+             Plegado, como la guía de Gmail en Remitentes: quien ya tiene su
+             token no necesita leerlo, y quien no, se atasca justo aquí. Es un
+             `<details>` nativo porque el navegador ya sabe abrirlo con el
+             teclado y anunciarlo a un lector de pantalla.
+
+             Y va ANTES del botón de buscar, no después: el orden de la
+             pantalla es el orden en que se hacen las cosas, y este paso va
+             antes de poder buscar nada. -->
+        <details class="token-ayuda">
+          <summary>{{ t('numeroDeWhatsapp.comoSacarElToken.resumen') }}</summary>
+
+          <p>{{ t('numeroDeWhatsapp.comoSacarElToken.entradilla') }}</p>
+
+          <!-- El temporal primero a propósito: desatasca la primera prueba en
+               dos minutos. Poner el permanente delante hace abandonar en el
+               paso 3 de seis. -->
+          <p class="token-ayuda-titulo">
+            {{ t('numeroDeWhatsapp.comoSacarElToken.temporalTitulo') }}
+          </p>
+          <ol>
+            <li>
+              {{ t('numeroDeWhatsapp.comoSacarElToken.temporalPaso1') }}
+              <span class="token-donde">
+                <code>{{ PANEL_DE_DESARROLLADORES }}</code>
+                <ABoton
+                  variante="secundario"
+                  tamano="compacto"
+                  @click="copiarLaDireccion(PANEL_DE_DESARROLLADORES)"
+                >
+                  {{ copiada === PANEL_DE_DESARROLLADORES
+                    ? t('numeroDeWhatsapp.comoSacarElToken.copiada')
+                    : t('numeroDeWhatsapp.comoSacarElToken.copiar') }}
+                </ABoton>
+              </span>
+            </li>
+            <li>{{ t('numeroDeWhatsapp.comoSacarElToken.temporalPaso2') }}</li>
+          </ol>
+          <p>{{ t('numeroDeWhatsapp.comoSacarElToken.temporalNota') }}</p>
+
+          <p class="token-ayuda-titulo">
+            {{ t('numeroDeWhatsapp.comoSacarElToken.permanenteTitulo') }}
+          </p>
+          <ol>
+            <li>
+              {{ t('numeroDeWhatsapp.comoSacarElToken.permanentePaso1') }}
+              <span class="token-donde">
+                <code>{{ PANEL_DEL_NEGOCIO }}</code>
+                <ABoton
+                  variante="secundario"
+                  tamano="compacto"
+                  @click="copiarLaDireccion(PANEL_DEL_NEGOCIO)"
+                >
+                  {{ copiada === PANEL_DEL_NEGOCIO
+                    ? t('numeroDeWhatsapp.comoSacarElToken.copiada')
+                    : t('numeroDeWhatsapp.comoSacarElToken.copiar') }}
+                </ABoton>
+              </span>
+            </li>
+            <li>{{ t('numeroDeWhatsapp.comoSacarElToken.permanentePaso2') }}</li>
+            <li>{{ t('numeroDeWhatsapp.comoSacarElToken.permanentePaso3') }}</li>
+            <li>{{ t('numeroDeWhatsapp.comoSacarElToken.permanentePaso4') }}</li>
+            <li>{{ t('numeroDeWhatsapp.comoSacarElToken.permanentePaso5') }}</li>
+            <li>{{ t('numeroDeWhatsapp.comoSacarElToken.permanentePaso6') }}</li>
+          </ol>
+
+          <p
+            v-if="falloAlCopiar"
+            class="token-aviso"
+          >
+            {{ t('numeroDeWhatsapp.comoSacarElToken.noSePudoCopiar') }}
+          </p>
+
+          <!-- El error que más tiempo cuesta: con sólo el primer permiso el
+               token sirve para enviar, así que parece bueno, y ARLES lo
+               rechaza. -->
+          <p class="token-aviso">
+            {{ t('numeroDeWhatsapp.comoSacarElToken.losDosPermisos') }}
+          </p>
+
+          <p class="token-ayuda-titulo">
+            {{ t('numeroDeWhatsapp.comoSacarElToken.siNoTienesNadaTitulo') }}
+          </p>
+          <p>{{ t('numeroDeWhatsapp.comoSacarElToken.siNoTienesNadaCuerpo') }}</p>
+
+          <!-- La pregunta de Dirección del 04/11/2026, contestada donde se
+               hace y no sólo en un documento. -->
+          <p class="token-ayuda-titulo">
+            {{ t('numeroDeWhatsapp.comoSacarElToken.porQueNoEsAutomaticoTitulo') }}
+          </p>
+          <p>{{ t('numeroDeWhatsapp.comoSacarElToken.porQueNoEsAutomaticoCuerpo') }}</p>
+        </details>
 
         <ABoton
           variante="secundario"
@@ -822,6 +965,55 @@ function tonoDeCalidad(n: Numero): 'exito' | 'aviso' | 'peligro' | 'neutro' {
 .aviso-de-pegado {
   margin: 0;
   font-size: var(--arles-font-size-small);
+  color: var(--arles-warning);
+}
+
+/* ── Los pasos para sacar el token (04/11/2026) ──
+   Mismo tratamiento que la guía de Gmail en Remitentes: un recuadro plegado
+   que no compite con los campos. §17, todo de tokens. */
+.token-ayuda {
+  border: var(--arles-border-width) solid var(--arles-border);
+  border-radius: var(--arles-radius-md);
+  padding: var(--arles-space-3) var(--arles-space-4);
+}
+.token-ayuda summary {
+  cursor: pointer;
+  font-weight: var(--arles-font-weight-semibold);
+  color: var(--arles-text);
+}
+.token-ayuda p,
+.token-ayuda ol {
+  margin: var(--arles-space-3) 0 0;
+  font-size: var(--arles-font-size-small);
+  color: var(--arles-text-muted);
+  line-height: var(--arles-line-height-body);
+}
+.token-ayuda li {
+  margin-bottom: var(--arles-space-2);
+}
+/* El título de cada bloque sí va en el color del texto: son tres secciones
+   dentro del desplegable, y en gris apagado se leen como una sola masa. */
+.token-ayuda-titulo {
+  font-weight: var(--arles-font-weight-semibold);
+  color: var(--arles-text);
+}
+/* La dirección y su botón, en su propia línea: dentro del renglón del paso,
+   el botón empuja el texto y parte la frase a media palabra. */
+.token-donde {
+  display: flex;
+  align-items: center;
+  gap: var(--arles-space-2);
+  flex-wrap: wrap;
+  margin-top: var(--arles-space-2);
+}
+.token-donde code {
+  font-family: var(--arles-font-family-mono);
+  background: var(--arles-surface-raised);
+  border-radius: var(--arles-radius-sm);
+  padding: var(--arles-space-1) var(--arles-space-2);
+  color: var(--arles-text);
+}
+.token-aviso {
   color: var(--arles-warning);
 }
 

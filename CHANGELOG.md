@@ -73,6 +73,58 @@ exactamente por dónde pasan.
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
 
+### El alta de WhatsApp dice de dónde sale el token
+
+**04/11/2026.** Pedido por Dirección. El formulario pedía el token, explicaba
+dónde se guarda y qué permisos necesita — y **no decía de dónde se saca**. Los
+seis pasos están escritos desde la Fase W en `COMO-CONFIGURAR-WHATSAPP.md`, y
+**ninguna pantalla los enlazaba**.
+
+Es el **H-06 por cuarta vez** —un campo obligatorio sin pista de dónde sale su
+valor, como el horario vacío, el paso 4 del asistente y las plantillas de Meta—
+con un agravante propio: **quien instala ARLES desde el instalador no tiene el
+repositorio**, así que esa guía no existe para él. Un archivo en el repositorio
+no es documentación del producto.
+
+Ahora el alta lleva un desplegable con los dos caminos: el token temporal —dos
+pasos, para la primera prueba— y el permanente —seis pasos, para trabajar—, los
+dos permisos y por qué hacen falta los dos, qué hacer si no hay nada dado de
+alta en Meta todavía, y por qué no basta con escribir el número. Las dos
+direcciones del panel van en un bloque que se puede copiar, y si el
+portapapeles falla **se dice**: un botón que no hace nada se lee como una
+avería. El manual enlaza ahora la guía, que tampoco la nombraba.
+
+> **Lo vigila `la_pantalla_dice_de_donde_sale_el_token` en `--fase W`**: los
+> cuatro datos que no se pueden inventar —los dos paneles y los dos permisos—
+> tienen que estar **en la guía y en la aplicación**, y la pantalla tiene que
+> pintar el bloque. Si Meta renombra un panel y sólo se corrige la guía, el
+> formulario manda a una dirección que ya no existe sin que nada falle.
+>
+> **El umbral se midió antes**: cuatro datos, cuatro candidatos, cero falsos.
+> No se miden «los seis pasos» porque un paso es una frase y se puede
+> reescribir entera sin dejar de ser correcta; una dirección y el nombre de un
+> permiso, no.
+
+> **Y las dos primeras rupturas estaban mal elegidas, lo que encontró un
+> defecto de verdad.** Quitar los dominios del catálogo salió en verde, y no era
+> la comprobación: viven en la pantalla, como constantes, porque son datos y no
+> textos traducibles. Rehacerlas sobre la pantalla **también** salió en verde, y
+> ahí sí había algo: la dirección estaba escrita **dos veces** —en la constante
+> que copia el botón y dentro del texto del paso—. El mismo dato en dos sitios,
+> en un tramo escrito para arreglar justo eso, y el día que Meta renombre un
+> panel el paso mandaría a una dirección y el botón copiaría otra. Los textos
+> dicen ahora «el panel de desarrolladores de Meta» y la dirección la pinta
+> sólo la pantalla. Cinco rupturas al final, las cinco en rojo.
+
+> **Y dos tokens de diseño inventados, cazados antes de entrar:**
+> `--arles-font-family-code` y `--arles-surface-2` no existen —los reales son
+> `--arles-font-family-mono` y `--arles-surface-raised`—. Es la cuarta vez en el
+> proyecto, y el navegador resuelve un `var()` inexistente **a nada, sin
+> error**. De paso: mi primera medición de los diez tokens dio los diez como
+> inexistentes, incluidos los que esta misma pantalla ya usaba. **El
+> instrumento era el defecto, cuarta vez**: miraba una carpeta que no es la de
+> los tokens.
+
 ### D-20 · `main` espera a la auditoría y a la inspección de calidad
 
 **04/11/2026.** Dirección decidió que ARLES no pasa a `main` hasta estar

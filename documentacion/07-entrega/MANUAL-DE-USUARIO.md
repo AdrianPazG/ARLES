@@ -323,6 +323,7 @@ Y conviene saber por qué, porque van a parecer tozudez:
 | Abrir ARLES por primera vez | [`COMO-ABRIR-ARLES.md`](COMO-ABRIR-ARLES.md) |
 | Probarlo sin compilar nada | [`COMO-PROBAR-ARLES-SIN-COMPILAR.md`](COMO-PROBAR-ARLES-SIN-COMPILAR.md) |
 | Conectar correo y WhatsApp de verdad | [`GUIA-DE-CONEXION-REAL.md`](GUIA-DE-CONEXION-REAL.md) |
+| **Conseguir el token de WhatsApp**, paso a paso con el panel de Meta delante | [`COMO-CONFIGURAR-WHATSAPP.md`](COMO-CONFIGURAR-WHATSAPP.md) |
 | Qué hace cada pantalla, por dentro | [`MAPA-FUNCIONAL.md`](../05-diseno/MAPA-FUNCIONAL.md) |
 | El estado del proyecto, en gráficos | `tablero/ARLES-tablero.html` (doble clic) |
 | Un error que encontraste | [`BITACORA-DE-PRUEBAS.md`](../06-calidad/BITACORA-DE-PRUEBAS.md) |

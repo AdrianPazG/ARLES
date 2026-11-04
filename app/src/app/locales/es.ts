@@ -3878,6 +3878,105 @@ export const es = {
       'Se guarda en el llavero de tu equipo, nunca en la base de datos. ' +
       'ARLES no vuelve a enseñártelo: si lo pierdes, genera uno nuevo en Meta.',
 
+    // ── DE DÓNDE SALE EL TOKEN · pedido por Dirección el 04/11/2026 ──
+    //
+    // La pantalla pedía el token y no decía dónde se consigue. La guía
+    // `COMO-CONFIGURAR-WHATSAPP.md` tiene los seis pasos desde la Fase W, y
+    // **ninguna pantalla la enlazaba**: es el H-06 otra vez —un campo
+    // obligatorio sin pista de dónde sale su valor— y aquí con un agravante,
+    // porque quien instala ARLES desde el instalador **no tiene el
+    // repositorio**, así que esa guía no existe para él.
+    //
+    // Van los pasos enteros y no un «consulta la documentación»: el token se
+    // pide una vez y se tarda veinte minutos en conseguirlo. Mandar a buscar
+    // un archivo es mandar a no hacerlo.
+    comoSacarElToken: {
+      resumen: '¿De dónde saco este token?',
+      entradilla:
+        'Hay dos tokens distintos y el que te sirve depende de para qué. Los ' +
+        'dos se copian del panel de Meta, y ARLES no puede pedírselos por ti ' +
+        '(abajo está por qué).',
+
+      // El temporal primero: es el que desatasca la primera prueba en dos
+      // minutos. Poner el permanente delante hace abandonar en el paso 3.
+      temporalTitulo: 'Para la primera prueba · caduca a las 24 horas',
+      // La dirección NO se escribe aquí: la pinta la pantalla al lado, en el
+      // bloque que se puede copiar. Escribirla en el texto además de en la
+      // constante era el mismo dato en dos sitios — y el día que Meta
+      // renombre un panel, el paso mandaría a una dirección y el botón
+      // copiaría otra. Lo encontró romper la comprobación de este tramo:
+      // quitar la dirección de la pantalla pasaba en verde porque el texto la
+      // repetía.
+      temporalPaso1:
+        'Entra en el panel de desarrolladores de Meta, abre tu aplicación y ' +
+        've a la sección de WhatsApp.',
+      temporalPaso2:
+        'Verás «Token de acceso temporal». Pulsa «Copiar» y pégalo aquí ' +
+        'arriba.',
+      temporalNota:
+        'Cuando caduque, ARLES te dirá que el token ya no vale y vuelves a ' +
+        'copiar otro. No se pierde nada de lo que hayas configurado.',
+
+      permanenteTitulo: 'Para trabajar · no caduca',
+      // Igual que el paso 1 del temporal: la dirección la pinta la pantalla.
+      permanentePaso1:
+        'Entra en el panel del negocio de Meta y abre «Configuración del ' +
+        'negocio».',
+      permanentePaso2:
+        'Ve a «Usuarios», luego «Usuarios del sistema», y pulsa «Agregar». ' +
+        'Ponle un nombre —ARLES sirve— y rol «Administrador».',
+      permanentePaso3:
+        'Pulsa «Asignar activos», elige tu cuenta de WhatsApp y dale control ' +
+        'total.',
+      permanentePaso4:
+        'Pulsa «Generar nuevo token», elige tu aplicación y pon caducidad ' +
+        '«Nunca».',
+      permanentePaso5:
+        'Marca los dos permisos: whatsapp_business_messaging y ' +
+        'whatsapp_business_management.',
+      permanentePaso6:
+        'Copia el token en ese momento. Meta no lo vuelve a enseñar, y si lo ' +
+        'cierras hay que generar otro.',
+
+      // Este aviso existe porque es el error que más tiempo cuesta: el token
+      // sirve para enviar, así que parece bueno, y ARLES lo rechaza.
+      losDosPermisos:
+        'Los dos permisos hacen falta y no son lo mismo. El de messaging es ' +
+        'para mandar mensajes; el de management es para que ARLES pueda ' +
+        'preguntarle a Meta cuáles son tus números, que es lo que te ahorra ' +
+        'copiar los identificadores a mano. Con sólo el primero, ARLES te ' +
+        'dirá que el token no vale aunque sirva para enviar.',
+
+      // §95 aplicado a un formulario: decir qué hacer si no se tiene nada.
+      siNoTienesNadaTitulo: 'Si todavía no tienes nada de esto en Meta',
+      siNoTienesNadaCuerpo:
+        'Hace falta una cuenta de empresa verificada en Meta, una aplicación ' +
+        'de tipo Negocios con WhatsApp añadido, y tu número dado de alta ' +
+        'ahí. Son trámites de Meta, no de ARLES, y el número tiene que estar ' +
+        'verificado antes de que ARLES pueda mandar nada con él.',
+
+      // Lo que Dirección preguntó el 04/11/2026, contestado donde se hace la
+      // pregunta y no sólo en un documento.
+      // El botón de copiar y sus dos acuses. Van en este bloque y no se
+      // prestan de `remitentes`: la comprobación del §139 resuelve la ruta
+      // entera, y un texto leído desde otra pantalla es el mismo dato en dos
+      // sitios la primera vez que alguien reescriba el de allá.
+      copiar: 'Copiar',
+      copiada: 'Copiada',
+      noSePudoCopiar:
+        'No se pudo copiar. La dirección está aquí al lado: selecciónala y ' +
+        'cópiala a mano.',
+
+      porQueNoEsAutomaticoTitulo: '¿Por qué no basta con escribir el número?',
+      porQueNoEsAutomaticoCuerpo:
+        'Porque Meta no deja vincular un número desde una aplicación de ' +
+        'escritorio. El enlace automático que usan otras plataformas exige ' +
+        'estar dado de alta ante Meta como proveedor y tener un servidor ' +
+        'propio encendido a todas horas al que Meta le avisa. ARLES funciona ' +
+        'sin servidor y sin que tus datos salgan de tu equipo, así que el ' +
+        'token se pega a mano. Se hace una vez.',
+    },
+
     modo: 'Cómo se va a usar',
     modoAyuda:
       'Se puede cambiar dando de alta el número otra vez, así que elige con ' +

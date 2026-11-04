@@ -6521,6 +6521,109 @@ def fase_6(rapido):
 # ─── Fase W · El canal de WhatsApp ───────────────────────────────────────────
 
 
+def la_pantalla_dice_de_donde_sale_el_token():
+    """El alta de WhatsApp dice cómo conseguir el token, dentro de ARLES.
+
+    ── QUÉ PASÓ, Y POR QUÉ NO BASTA CON TENER LA GUÍA ────────────────────────
+
+    Dirección lo pidió el 04/11/2026: *«al momento de añadir un número de
+    WhatsApp, dar instrucciones o un manual para conocer cómo conseguir el
+    token»*. El formulario pedía el token, explicaba dónde se guarda y qué
+    permisos necesita — y **no decía de dónde se saca**.
+
+    Los seis pasos existen escritos desde la Fase W, en
+    `COMO-CONFIGURAR-WHATSAPP.md`, y **ninguna pantalla los enlazaba**: es el
+    H-06 por cuarta vez —un campo obligatorio sin pista de dónde sale su
+    valor, como el horario vacío, el paso 4 del asistente y las plantillas de
+    Meta—. Con un agravante propio: **quien instala ARLES desde el instalador
+    no tiene el repositorio**, así que esa guía no existe para él. Un archivo
+    en el repositorio no es documentación del producto.
+
+    ── QUÉ MIDE, Y EL UMBRAL ─────────────────────────────────────────────────
+
+    Los cuatro datos que no se pueden inventar —los dos paneles de Meta y los
+    dos permisos del token— tienen que estar **en la guía y en la
+    aplicación**. Si Meta renombra un panel y sólo se corrige la guía, el
+    formulario manda a una dirección que ya no existe, sin que nada falle.
+
+    **El umbral se midió antes de escribirla**, como siempre: son cuatro datos,
+    cuatro candidatos y cero falsos. Los dos permisos ya estaban en el
+    catálogo desde D-WA —en el error de token rechazado—; los dos paneles
+    estaban **sólo** en la guía, que es lo que esta comprobación habría cazado
+    el día que se escribió.
+
+    No se mide «los seis pasos»: un paso es una frase y se puede reescribir
+    entera sin dejar de ser correcta. Lo que no se puede reescribir es una
+    dirección ni el nombre de un permiso.
+
+    ── VERIFICADA CON CINCO RUPTURAS, LAS CINCO EN ROJO (04/11/2026) ─────────
+
+      1. Quitar `developers.facebook.com` de la pantalla, que es donde vive.
+      2. Quitar `business.facebook.com` de la pantalla.
+      3. Quitar `whatsapp_business_management` del catálogo — el permiso cuya
+         falta hace que un token que sirve para enviar sea rechazado.
+      4. Quitar el desplegable entero de la pantalla dejando los textos en el
+         catálogo: un texto que ninguna pantalla pinta es el §9 por el otro
+         lado, y sin esta cuarta la comprobación se conformaría con que las
+         frases existan en un archivo.
+      5. Quitar `business.facebook.com` de la guía, dejándolo en la pantalla:
+         la comprobación tiene dos direcciones, y la guía es la que se lee
+         para arreglar un tropiezo.
+
+    ── Y LAS DOS PRIMERAS RUPTURAS ESTABAN MAL, Y ESO ENCONTRÓ UN DEFECTO ────
+
+    Las escribí quitando los dominios **del catálogo**, y salieron en verde. No
+    era la comprobación: los dominios viven en la pantalla, como constantes,
+    porque son datos y no textos traducibles — así que quitarlos del catálogo
+    no quitaba la garantía. Es la regla de la 8.6 D: **una ruptura que deja el
+    síntoma en pie no prueba nada.**
+
+    Pero rehacerlas sobre la pantalla **también** salió en verde, y ahí sí
+    había un defecto: yo había escrito la dirección **dos veces** —en la
+    constante que copia el botón y dentro del texto del paso—. El mismo dato en
+    dos sitios, en un tramo escrito para arreglar justo eso. El día que Meta
+    renombre un panel, el paso mandaría a una dirección y el botón copiaría
+    otra. Los textos dicen ahora «el panel de desarrolladores de Meta» y la
+    dirección la pinta sólo la pantalla.
+
+    **Una ruptura en verde significa dos cosas y no son la misma**: que la
+    comprobación no caza el defecto, o que la ruptura no quitó la garantía.
+    Aquí fue lo segundo las dos veces, y la segunda dejó un hallazgo.
+    """
+    guia = leer("documentacion", "07-entrega", "COMO-CONFIGURAR-WHATSAPP.md")
+    catalogo = leer("app", "src", "app", "locales", "es.ts")
+    pantalla = leer("app", "src", "app", "pantallas", "PantallaWhatsApp.vue")
+    if guia is None or catalogo is None or pantalla is None:
+        check("W", "la pantalla dice de dónde sale el token", False, "Falta la guía, el catálogo o la pantalla.")
+        return
+
+    # Los cuatro datos que no se pueden inventar ni reescribir.
+    faltan = []
+    for dato in (
+        "developers.facebook.com",
+        "business.facebook.com",
+        "whatsapp_business_messaging",
+        "whatsapp_business_management",
+    ):
+        if dato not in guia:
+            faltan.append(f"{dato}: no está en la guía")
+        if dato not in catalogo and dato not in pantalla:
+            faltan.append(f"{dato}: está en la guía y NO en la aplicación")
+
+    # Y que la pantalla los pinte de verdad. Sin esto, la comprobación se
+    # conformaría con que las frases existan en un archivo que nadie lee.
+    if "comoSacarElToken" not in sin_comentarios_de_barras(pantalla):
+        faltan.append("la pantalla no pinta el bloque de cómo sacar el token")
+
+    check(
+        "W",
+        "la pantalla dice de dónde sale el token",
+        not faltan,
+        "El formulario pedía el token sin decir de dónde se saca, y quien instala ARLES no tiene el repositorio donde está la guía.",
+        " · ".join(faltan),
+    )
+
+
 def lo_que_se_construye_se_usa():
     """**La comprobación que faltaba, y que habría cazado dos huecos.**
 
@@ -7079,6 +7182,7 @@ def fase_w(rapido):
 
     print(f"{GRIS}  el cable entre las capas{FIN}")
     lo_que_se_construye_se_usa()
+    la_pantalla_dice_de_donde_sale_el_token()
     ninguna_tabla_se_queda_sin_escritor()
     toda_pantalla_se_puede_abrir()
     ningun_comando_se_queda_sin_quien_lo_llame()
