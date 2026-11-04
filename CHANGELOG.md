@@ -73,6 +73,47 @@ exactamente por dónde pasan.
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
 
+### D-20 · `main` espera a la auditoría y a la inspección de calidad
+
+**04/11/2026.** Dirección decidió que ARLES no pasa a `main` hasta estar
+terminado, auditado y aprobado por calidad. El trabajo sigue en la rama, que es
+donde está todo —285 commits por delante de `main` ese día—.
+
+La consecuencia se deja escrita porque es real: **clonar el repositorio no da la
+aplicación**, da la versión del 31/08/2026. Quien quiera probar ARLES descarga
+el instalador de la prerelease, que se puede construir sobre la rama de trabajo.
+
+> **Lo que D-20 añade no es la rama, que ya era la única autorizada: es la
+> condición de salida.** Antes no estaba escrita en ningún sitio, así que no se
+> podía comprobar si se cumplía.
+
+### H-03 estaba cerrado en el registro y pendiente en `CLAUDE.md`, veintiún días
+
+**04/11/2026.** El hallazgo de la ronda de Dirección del 13 y 14/10 —no se pudo
+dar de alta una cuenta de Gmail— lo cerró **R-01 el 14/10/2026**, y la tabla de
+`CLAUDE.md` siguió marcándolo **«faltan tres datos de Dirección»**. Dos
+documentos diciendo lo contrario del mismo hallazgo, y el que estaba mal es el
+que se lee al abrir el proyecto. Es DOC-22.
+
+Lo encontró una pregunta de Dirección —«¿en funcionalidad estamos completos?»—
+que obligó a recorrer la lista en vez de recordarla. **Es la misma lección que
+los bloqueos del 28/10: lo que ve falsa una lista es usarla para algo.**
+
+> **Y el cierre se precisó en vez de dejarlo en «cerrado por R-01».** Lo que
+> `PROVEEDORES` cubre está medido: Gmail con `smtp.gmail.com:587` y STARTTLS,
+> los 16 caracteres que exige una contraseña de aplicación, el enlace a dónde se
+> crea, y **quitarle los espacios** con que Google la enseña — las tres causas
+> plausibles del fallo original. Lo que **no** se ha hecho es dar de alta una
+> cuenta de Gmail real desde entonces: R-24 se cerró contra Titan. La causa está
+> cubierta; la verificación de punta a punta, no, y así está escrito.
+
+> **Lo vigila `ningun_hallazgo_esta_abierto_y_cerrado_a_la_vez` en `--fase 0`**,
+> con el registro como fuente única. **El umbral se midió antes**: `CLAUDE.md`
+> nombra tres hallazgos y el registro dieciséis, y discrepaba uno — un hallazgo
+> real y cero falsos. La dirección contraria no se mide a propósito: repetir el
+> registro entero en el archivo de reglas es lo que crea estas contradicciones.
+> Tres rupturas, las tres en rojo, incluido un `H-99` que sólo existiría ahí.
+
 ### El documento del estado citaba un avance de seis días antes
 
 **04/11/2026.** `ESTADO_ACTUAL.md` §10 decía «el avance está al **95 % a

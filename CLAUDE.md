@@ -17,7 +17,11 @@ del código, documentación, mensajes de commit. El equipo es mexicano y el
 producto también.
 
 **Rama de trabajo: `claude/loving-faraday-5chmmy`.** Nunca se empuja a otra sin
-permiso explícito de Dirección.
+permiso explícito de Dirección. **Y `main` espera a que ARLES esté terminado,
+auditado y pasado por inspección de calidad** — Dirección lo decidió el
+04/11/2026 (D-20). Hasta entonces `main` se queda en el commit del 31/08/2026,
+y la consecuencia hay que decirla cuando salga: **clonar el repositorio no da
+la aplicación.** Para probarla se descarga el instalador de la prerelease.
 
 **Nunca abras un pull request** salvo que Dirección lo pida con esas palabras.
 
@@ -2610,7 +2614,7 @@ usando.
 |---|---|---|
 | **H-01** | Remitentes decía «todavía no has configurado los datos de tu empresa» **después** de configurarla | ✅ Arreglado |
 | **H-02** | Las tres partes de un error salían **pegadas**: «…con el servidor.El servidor no ofrece…» | ✅ Arreglado |
-| **H-03** | **No se pudo dar de alta una cuenta de Gmail** | 🔎 Faltan tres datos de Dirección |
+| **H-03** | **No se pudo dar de alta una cuenta de Gmail** | ✅ Cerrado por R-01 el 14/10/2026. **Este renglón dijo «faltan tres datos de Dirección» veintiún días**, contradiciendo al registro — DOC-22 |
 | **R-01** | Dar de alta un correo era «demasiado complicado» | ✅ Hecho |
 | **R-02** | Lo mismo con WhatsApp | ✅ Hecho, con un límite declarado |
 

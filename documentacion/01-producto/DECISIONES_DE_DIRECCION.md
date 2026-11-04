@@ -943,6 +943,34 @@ fácil de encontrar**, no una letra pequeña.
 
 ---
 
+### D-20 · ARLES no pasa a `main` hasta estar auditado y aprobado por calidad
+
+**Fecha:** 4 de noviembre de 2026 · **Pedida por:** Dirección · **Gobierna:**
+la rama de trabajo y cuándo se fusiona
+
+> «Me gustaría pasar ARLES a main hasta que esté completamente terminada,
+> auditada y sea pasado por inspección de calidad, así que por el momento
+> mantenlo en la rama.»
+
+**Qué significa en la práctica.** El trabajo sigue en
+`claude/loving-faraday-5chmmy`, que es donde está todo —285 commits por delante
+de `main` el día de esta decisión—. `main` se queda en el commit del
+31/08/2026 hasta que Dirección lo autorice.
+
+**Lo que esta decisión cuesta, dicho porque es una consecuencia real y no un
+detalle:** **clonar el repositorio no da la aplicación**, da la versión de
+agosto. Quien quiera probar ARLES no clona: descarga el instalador de la
+prerelease que construye `entrega-de-prueba.yml`, que **sí** se puede lanzar
+sobre la rama de trabajo. Está escrito en
+[`COMO-PROBAR-ARLES-SIN-COMPILAR.md`](../07-entrega/COMO-PROBAR-ARLES-SIN-COMPILAR.md).
+
+**Y lo que no cambia:** nada de cómo se trabaja. La rama ya era la única
+autorizada por el §1 de `CLAUDE.md` desde el principio; lo que D-20 añade es
+**la condición de salida** —auditada y pasada por calidad—, que antes no estaba
+escrita en ningún sitio y por tanto no se podía comprobar.
+
+---
+
 ## Decisiones pendientes
 
 Ver **`02-auditoria/PREGUNTAS_ABIERTAS.md`** para el registro completo.

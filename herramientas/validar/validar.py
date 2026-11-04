@@ -159,6 +159,7 @@ def fase_0(rapido):
     todo_documento_esta_en_el_indice()
     los_bloqueos_se_cuentan_en_un_solo_sitio()
     el_estado_cita_el_avance_que_hay()
+    ningun_hallazgo_esta_abierto_y_cerrado_a_la_vez()
     ninguna_cifra_retirada_se_cita_como_viva()
 
     adrs = sorted(
@@ -518,6 +519,83 @@ def ninguna_cifra_retirada_se_cita_como_viva():
         "retiró el mismo día porque no se reproduce; citarla sin decirlo es "
         "cómo una cifra muerta vuelve a ser un hecho",
         "\n      ".join(problemas),
+    )
+
+
+def ningun_hallazgo_esta_abierto_y_cerrado_a_la_vez():
+    """Un hallazgo que `CLAUDE.md` nombra dice lo mismo que el registro.
+
+    ── QUÉ PASÓ ──────────────────────────────────────────────────────────────
+
+    El §1 bis da **un solo sitio** a los requisitos y los hallazgos:
+    `REGISTRO-DE-REQUISITOS.md`. `CLAUDE.md` repite tres de ellos en la tabla de
+    la ronda de Dirección del 13 y 14/10/2026, y el 04/11 uno de los tres
+    —H-03, el alta de una cuenta de Gmail— seguía marcado **«faltan tres datos
+    de Dirección»** mientras el registro lo daba por **cerrado por R-01 desde
+    el 14/10**. Veintiún días de dos documentos diciendo lo contrario del mismo
+    hallazgo, y el que se lee al abrir el proyecto era el que estaba mal.
+
+    Lo encontró una pregunta de Dirección —«¿en funcionalidad estamos
+    completos?»— que obligó a recorrer la lista en vez de recordarla. Es la
+    misma lección que los bloqueos del 28/10: **lo que ve falsa una lista es
+    usarla para algo.**
+
+    ── QUÉ MIDE, Y EL UMBRAL ─────────────────────────────────────────────────
+
+    El registro manda. Así que: todo `H-NN` que `CLAUDE.md` nombre en una fila
+    de tabla tiene que existir en el registro, y si el registro lo da por
+    cerrado, la fila de `CLAUDE.md` **no puede marcarlo como pendiente**.
+
+    **El umbral se midió antes de escribirla**, como en los bloqueos y en el
+    avance: `CLAUDE.md` nombra **tres** hallazgos y el registro **dieciséis**,
+    y de los tres **discrepaba uno**. Así que nace con un hallazgo real y cero
+    falsos. La dirección contraria —exigir que `CLAUDE.md` nombre los dieciséis—
+    no se mide a propósito: repetir el registro entero en el archivo de reglas
+    es justo lo que crea estas contradicciones.
+
+    ── VERIFICADA CON TRES RUPTURAS, LAS TRES EN ROJO (04/11/2026) ───────────
+
+      1. Devolver el «🔎 Faltan tres datos de Dirección» a H-03.
+      2. Marcar H-01 como pendiente, que el registro da por cerrado — para ver
+         que no es una comprobación escrita para un solo renglón.
+      3. Nombrar en `CLAUDE.md` un `H-99` que el registro no tiene: un
+         hallazgo que sólo existe en el archivo de reglas no lo cuenta nadie.
+    """
+    reglas = leer("CLAUDE.md")
+    registro = leer("documentacion", "10-requisitos", "REGISTRO-DE-REQUISITOS.md")
+    if reglas is None or registro is None:
+        check(0, "ningún hallazgo está abierto y cerrado a la vez", False, "Falta CLAUDE.md o el registro.")
+        return
+
+    # Del registro: qué hallazgos hay y cuáles están cerrados.
+    cerrados = set()
+    todos = set()
+    for fila in registro.splitlines():
+        m = re.match(r"\|\s*\*\*(H-\d+)\*\*\s*\|(.*)$", fila)
+        if not m:
+            continue
+        todos.add(m.group(1))
+        if "✅" in m.group(2):
+            cerrados.add(m.group(1))
+
+    # De CLAUDE.md: las filas de tabla que nombran un hallazgo.
+    malos = []
+    for fila in reglas.splitlines():
+        m = re.match(r"\|\s*\*\*(H-\d+)\*\*\s*\|(.*)$", fila)
+        if not m:
+            continue
+        ide, resto = m.group(1), m.group(2)
+        if ide not in todos:
+            malos.append(f"{ide}: CLAUDE.md lo nombra y el registro no lo tiene")
+        elif ide in cerrados and "✅" not in resto:
+            malos.append(f"{ide}: el registro lo da por cerrado y CLAUDE.md no")
+
+    check(
+        0,
+        "ningún hallazgo está abierto y cerrado a la vez",
+        not malos,
+        "H-03 llevaba veintiún días pendiente en CLAUDE.md y cerrado en el registro.",
+        " · ".join(malos),
     )
 
 
