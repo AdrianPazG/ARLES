@@ -199,6 +199,27 @@ function fecha(iso: string): string {
       </AAviso>
 
       <template v-else>
+        <!-- De una versión anterior: se puede, poniéndolo al día. En esta
+             pantalla es la diferencia entre tener salida y no tenerla, así que
+             se dice antes de lo que va a pasar. -->
+        <AAviso
+          v-if="r.revisado.hayQuePonerloAlDia"
+          tono="aviso"
+          :titulo="$t('restaurar.alDia.titulo')"
+        >
+          {{
+            $t(
+              'restaurar.alDia.cuerpo',
+              {
+                delRespaldo: r.revisado.esquemaDelRespaldo,
+                deLaBase: r.revisado.esquemaDeLaBase,
+                migraciones: r.revisado.migracionesQueFaltan,
+              },
+              r.revisado.migracionesQueFaltan,
+            )
+          }}
+        </AAviso>
+
         <AAviso
           tono="info"
           :titulo="$t('recuperar.loQueVaAPasar.titulo')"

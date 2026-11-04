@@ -78,6 +78,22 @@ pub struct EstadoApp {
     /// ─────────────────────────────────────────────────────────────────────
     respaldo_elegido: Mutex<Option<std::path::PathBuf>>,
 
+    /// La carpeta de datos de ARLES, la que contiene la base.
+    ///
+    /// ── PARA QUÉ, Y POR QUÉ NO SE VUELVE A RESOLVER DONDE HAGA FALTA ──
+    ///
+    /// Poner al día un respaldo de un esquema anterior necesita levantar una
+    /// base desechable en algún sitio, y ese sitio tiene que ser **el mismo
+    /// volumen que la base**: la carpeta temporal del sistema puede estar en
+    /// otro disco, con otro tamaño y otras reglas de borrado, y lo que se
+    /// escribe ahí son los contactos y las bajas de una empresa.
+    ///
+    /// Resolverla otra vez en el comando sería pedirle al sistema operativo una
+    /// respuesta que ya se tuvo al arrancar, y abrir la puerta a que las dos no
+    /// coincidan. Aquí no cruza la frontera (regla 4): sólo la usan funciones
+    /// de Rust.
+    datos: std::path::PathBuf,
+
     /// Lo que ya se sabe del DNS de cada dominio (7.5).
     ///
     /// Vive en el estado y no en cada llamada porque el preflight y la
@@ -204,6 +220,7 @@ impl EstadoApp {
             motor,
             importacion: Mutex::new(None),
             respaldo_elegido: Mutex::new(None),
+            datos: rutas.datos().clone(),
             dominios: crate::entregabilidad::Dominios::default(),
             activacion_en_curso: Mutex::new(None),
         })
@@ -212,6 +229,13 @@ impl EstadoApp {
     #[must_use]
     pub fn db(&self) -> &Db {
         &self.db
+    }
+
+    /// La carpeta de datos, para el trabajo que necesita disco. **No cruza la
+    /// frontera.**
+    #[must_use]
+    pub(crate) fn datos(&self) -> &std::path::Path {
+        &self.datos
     }
 
     /// Toma la vez para activar una campaña, o dice que ya hay una en curso.

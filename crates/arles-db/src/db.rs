@@ -242,6 +242,37 @@ impl Db {
     ) -> Result<T, DbError> {
         self.leer(f)
     }
+
+    /// Abre una base **detenida en una versión del esquema**. Solo para tests.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ HACE FALTA, Y QUÉ NO SE PODÍA PROBAR SIN ESTO
+    ///
+    /// La base de un usuario nunca se queda a medias: [`Db::abrir`] migra. Pero
+    /// **un respaldo sí es de una versión anterior**, y la única forma de tener
+    /// un `.arles` de verdad del esquema V11 es exportarlo de una base V11 con
+    /// el mismo exportador que escribe los de hoy.
+    ///
+    /// Sin esto, la prueba de la puesta al día tendría que **fabricar** el
+    /// archivo —una cabecera a mano y unas filas inventadas—, y entonces no
+    /// probaría el camino que el usuario recorre: probaría que mi idea de cómo
+    /// era el esquema V11 encaja con mi idea de cómo se migra. Es la lección de
+    /// la 8.6 F: lo que hay que poder afirmar no es «el archivo se escribió»,
+    /// es «el archivo se podrá abrir el día que haga falta».
+    #[cfg(any(test, feature = "test-util"))]
+    pub fn abrir_en_la_version(
+        ruta: &Path,
+        clave: &ClaveMaestra,
+        version: i32,
+    ) -> Result<Self, DbError> {
+        let mut escritora = conexion::abrir_crudo(ruta, clave)?;
+        crate::migraciones::aplicar_hasta(&mut escritora, version)?;
+        let lectora = conexion::abrir_para_leer(ruta, clave).ok().map(Mutex::new);
+        Ok(Self {
+            conexion: Mutex::new(escritora),
+            lectora,
+        })
+    }
 }
 
 #[cfg(test)]

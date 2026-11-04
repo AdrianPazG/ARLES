@@ -119,8 +119,9 @@ function fecha(iso: string): string {
         <dd>{{ $t('restaurar.traeFilas', { filas: cifra(r.revisado.totalDeFilas) }) }}</dd>
       </dl>
 
-      <!-- De otro esquema: no se puede, y se dice aquí en vez de dejar pulsar
-           un botón que va a fallar. -->
+      <!-- De una versión MÁS NUEVA: no se puede, y lo que hay que hacer es
+           actualizar ARLES. Se dice aquí en vez de dejar pulsar un botón que va
+           a fallar. -->
       <AAviso
         v-if="!r.revisado.sePuedeRestaurar"
         tono="peligro"
@@ -155,6 +156,32 @@ function fecha(iso: string): string {
               {{ $t(`restaurar.tabla.${p.tabla}`) }} — {{ cifra(p.filas) }}
             </li>
           </ul>
+        </AAviso>
+
+        <!-- De una versión anterior: SÍ se puede, poniéndolo al día.
+             ── POR QUÉ VA AQUÍ Y NO ARRIBA ──
+             Su primera versión iba antes de todo, y eso lo dejaba **por delante
+             del aviso de lo que no vuelve** — que es el único irreversible de
+             la pantalla y lleva escrito en su comentario que va primero. Lo
+             encontró mirar la demostración. Tono de aviso y no de peligro
+             porque no es un problema: es que tarda más y que lo que entra son
+             los datos del archivo pasados por las migraciones. -->
+        <AAviso
+          v-if="r.revisado.hayQuePonerloAlDia"
+          tono="aviso"
+          :titulo="$t('restaurar.alDia.titulo')"
+        >
+          {{
+            $t(
+              'restaurar.alDia.cuerpo',
+              {
+                delRespaldo: r.revisado.esquemaDelRespaldo,
+                deLaBase: r.revisado.esquemaDeLaBase,
+                migraciones: r.revisado.migracionesQueFaltan,
+              },
+              r.revisado.migracionesQueFaltan,
+            )
+          }}
         </AAviso>
 
         <!-- Las bajas: la promesa que no se negocia. -->
@@ -258,6 +285,19 @@ function fecha(iso: string): string {
             { cuentas: r.hecho.cuentasAReconectar },
             r.hecho.cuentasAReconectar,
           )
+        }}
+      </p>
+      <!-- Si hubo que poner el respaldo al día, se dice — y se dicen las DOS
+           cifras cuando no coinciden. Una migración puede quitar filas con todo
+           el derecho; lo que no puede es que nadie lo cuente (§94). -->
+      <p v-if="r.hecho.sePusoAlDia">
+        {{
+          r.hecho.filasDelArchivo === r.hecho.filasAlDia
+            ? $t('restaurar.hecho.alDia', { filas: cifra(r.hecho.filasDelArchivo) })
+            : $t('restaurar.hecho.alDiaConDiferencia', {
+              delArchivo: cifra(r.hecho.filasDelArchivo),
+              alDia: cifra(r.hecho.filasAlDia),
+            })
         }}
       </p>
     </AAviso>

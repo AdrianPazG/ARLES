@@ -263,6 +263,121 @@ fn cuanto_cuesta_un_respaldo_entero() {
     );
 }
 
+/// **Cuánto cuesta restaurar un respaldo de un esquema anterior** (04/11/2026).
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTA CIFRA HACE FALTA Y NO SE PUEDE DEDUCIR DE LA DE ARRIBA
+///
+/// Poner al día un respaldo recorre sus filas **tres veces**: del archivo a una
+/// base desechable, las migraciones sobre ella, y de ahí a la base real. La de
+/// arriba mide una. Multiplicar por tres sería una estimación, y este proyecto
+/// tiene escrito lo que cuestan las estimaciones publicadas sin medir — la
+/// recomendación del FTS5 que resultó 18 veces peor (C-2, 02/11/2026).
+///
+/// Y es una cifra que el usuario espera mirando una pantalla quieta: el aviso
+/// de la pantalla dice «tarda un poco más», y eso sólo se puede afirmar con un
+/// número detrás.
+#[test]
+#[ignore = "siembra decenas de miles de filas: se corre a mano con --ignored"]
+fn cuanto_cuesta_poner_al_dia_un_respaldo() {
+    use arles_db::puesta_al_dia::{RespaldoAlDia, Veredicto, que_se_puede_hacer};
+    use arles_db::{ClaveMaestra, Db};
+
+    // Un esquema anterior de verdad, no uno inventado: el respaldo sale de una
+    // base detenida en la V11, escrito por el exportador de siempre.
+    const DESDE: i32 = 11;
+
+    let dir = tempfile::tempdir().expect("temporal");
+    let clave = ClaveMaestra::generar().expect("genera");
+    let vieja = Db::abrir_en_la_version(&dir.path().join("vieja.db"), &clave, DESDE)
+        .expect("abre detenida en la V11");
+
+    let sembrando = Instant::now();
+    sembrar(&vieja, CONTACTOS);
+    println!(
+        "sembrar {CONTACTOS} contactos en el esquema V{DESDE}: {:.1} s",
+        sembrando.elapsed().as_secs_f64()
+    );
+
+    let archivo = dir.path().join("de-la-v11.arles");
+    escribir(&vieja, &archivo, None);
+
+    let (cabecera, salta) = crate::restauracion::leer_la_cabecera(&archivo).expect("cabecera");
+    assert_eq!(cabecera.esquema, format!("V{DESDE}"));
+    let migraciones = match que_se_puede_hacer(&cabecera.esquema) {
+        Veredicto::SePuedePonerAlDia { migraciones, .. } => migraciones,
+        otro => panic!("un respaldo V{DESDE} dio {otro:?}"),
+    };
+
+    let antes = residente();
+
+    // ── 1 · Poner al día: llenar la base desechable y migrarla ──
+    let reloj = Instant::now();
+    let mut al_dia = RespaldoAlDia::nuevo(
+        &mut crate::restauracion::LeeElArchivo::nuevo(&archivo, &cabecera, salta, None)
+            .expect("lector"),
+        &cabecera.esquema,
+        &cabecera.columnas,
+        &cabecera.alcance,
+        dir.path(),
+    )
+    .expect("pone al día");
+    let poner_al_dia = reloj.elapsed();
+    let tras_poner_al_dia = residente();
+
+    let del_archivo = al_dia.filas_del_respaldo();
+    let ya_al_dia = al_dia.filas_al_dia();
+
+    // ── 2 · Y restaurarlo en otra base ──
+    let otra = dir.path().join("otra.db");
+    let clave_nueva = ClaveMaestra::generar().expect("genera");
+    let destino = Db::abrir(&otra, &clave_nueva).expect("abre la otra");
+    let reloj = Instant::now();
+    let esquema = al_dia.esquema().to_owned();
+    let columnas = al_dia.columnas().clone();
+    destino
+        .restaurar(
+            &mut al_dia,
+            &esquema,
+            &columnas,
+            cabecera.alcance.clone(),
+            "el banco",
+            "2026-11-04T12:00:00Z",
+        )
+        .expect("restaura el respaldo puesto al día");
+    let restaurar = reloj.elapsed();
+    let tras_restaurar = residente();
+
+    // Que de verdad llegaron, por lo mismo que arriba: una restauración vacía
+    // sería la más rápida de todas y la cifra sería un elogio a un fallo.
+    let cuantos: u64 = destino
+        .ejecutar_en_pruebas(|c| c.query_row("SELECT COUNT(*) FROM contact", [], |f| f.get(0)))
+        .expect("cuenta");
+    assert_eq!(
+        cuantos as usize, CONTACTOS,
+        "la restauración no trajo los contactos: la medida no mide nada"
+    );
+
+    let mb = |b: Option<u64>| {
+        b.map_or_else(
+            || "sin /proc".to_owned(),
+            |v| format!("{:.0} MB", v as f64 / 1_048_576.0),
+        )
+    };
+    println!(
+        "\n── RESPALDO V{DESDE} DE {CONTACTOS} CONTACTOS, PUESTO AL DÍA ──\n\
+         poner al día ({migraciones} migraciones) : {:>8.0} ms\n\
+         restaurar en otra base            : {:>8.0} ms\n\
+         filas: {del_archivo} en el archivo → {ya_al_dia} al día\n\
+         memoria: antes {} · tras poner al día {} · tras restaurar {}",
+        poner_al_dia.as_secs_f64() * 1000.0,
+        restaurar.as_secs_f64() * 1000.0,
+        mb(antes),
+        mb(tras_poner_al_dia),
+        mb(tras_restaurar),
+    );
+}
+
 /// Escribe un respaldo completo con el orquestador de verdad.
 fn escribir(db: &arles_db::Db, ruta: &std::path::Path, contrasena: Option<&str>) {
     let mut destino = crate::respaldo::ElArchivo::nuevo(

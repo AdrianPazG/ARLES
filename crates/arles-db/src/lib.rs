@@ -34,6 +34,7 @@ pub mod plantillas_whatsapp;
 pub mod preferencias;
 pub mod presupuesto;
 pub mod prueba;
+pub mod puesta_al_dia;
 pub mod respaldo;
 pub mod respuestas;
 pub mod restauracion;

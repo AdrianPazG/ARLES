@@ -379,11 +379,10 @@ que importa la tenga.**
 **95 % a 2026-10-28**, y ese 5 % restante es exactamente el peso de la Fase 9.
 Las otras diez fases están al 100 %.
 
-**Tres** cosas de código y una puerta. De los cinco puntos originales están
-cerrados el 1, el 2 y el 3, y del 4 queda la mitad — así que quedaban dos. **Y
-el 2 entró una nueva al cerrarse**: diagnosticar por qué la conexión de lectura
-es más lenta recorriendo una tabla — y de momento, por qué **no se puede medir
-aquí** (§8 del presupuesto). Van tres:
+**Dos** cosas de código y una puerta. De los seis puntos están cerrados el 1, el
+2, el 3 y el **5** —éste el 04/11/2026—, así que quedan el 4 (los instaladores,
+que esperan la firma) y el 6, que es una medición que **aquí no se puede hacer**
+(§8 del presupuesto). Van dos:
 
 | | Qué | De dónde viene |
 |---|---|---|
@@ -391,7 +390,7 @@ aquí** (§8 del presupuesto). Van tres:
 | **2** | ~~El filtro de la lista de contactos~~ **cerrado el 03/11/2026**: cuatro criterios combinables —nombre/apellido/empresa, dirección completa, canal, y si tiene alguna baja—. La dirección es **gratis** (0.2 ms, y no crece), el texto cuesta **2.6 s** con 455 470 contactos y así está declarado. Y encontró dos defectos reales: un índice usado **del lado inútil** (609 ms contra 0.0 con el mismo índice en el plan) y que buscar «TÉLLEZ» no encontraba a Téllez. **El tercer «hallazgo» de esa tarde —que la lectora es 12× más lenta— se retiró el mismo día: no se reproduce** (§8) | Auditoría C · cerrado 03/11 |
 | **3** | ~~El mensaje de «fallo al migrar el esquema»~~ **cerrado el 03/11/2026, y este renglón llevaba tres semanas desfasado**: el del arranque se arregló el 14/10 y cumple el §95 con la ruta dentro. Lo que de verdad quedaba era otro, y peor — el texto del catálogo afirmaba que **se había hecho una copia de la base**, y no hay ninguna. Ver el registro de requisitos, H-14 | 08/10/2026 · cerrado 03/11 |
 | **4** | **Instaladores, firma, notarización y updater.** El `CHANGELOG.md` **existe y está al día** desde el 03/11: le faltaban once días —veintinueve commits— y seis de las dieciséis migraciones no aparecían en ninguna línea. Lo que queda de él es cortar la sección `[1.2.0]`, que no se puede hacer antes de publicar | ROADMAP Fase 9 |
-| **5** | **Restaurar un respaldo de un esquema anterior** (V11→V12). Hoy se rechaza con un error claro. Coste real hoy: cero, no hay ningún `.arles` fuera de las pruebas; dentro de un mes de uso, no | 8.3b, disparado por la V11 |
+| **5** | ~~Restaurar un respaldo de un esquema anterior~~ **cerrado el 04/11/2026**: ARLES lo **pone al día** levantando una base desechable en la versión del respaldo, metiéndole sus filas y corriéndole las migraciones que faltan — el mismo SQL que recorrió la base de quien actualizó. **Donde más importa es en la recuperación de un llavero perdido**, donde no hay otra salida. Medido: poner al día 1 134–1 255 ms y restaurar 1 117–1 671 con 30 000 contactos, contra 1 410 ms directo (`PRESUPUESTO_RENDIMIENTO.md` §9). Sigue sin poderse uno de una versión **posterior**, y ese error manda a actualizar ARLES | 8.3b · cerrado 04/11 |
 | **6** | **Medir la diferencia entre las dos conexiones en una máquina donde se pueda.** Aquí no: cinco corridas del mismo experimento dieron la lectora 12× más lenta, 10× más rápida, 11× más rápida, 11× más rápida y 11× más lenta — el signo cambió al añadir dos `count(*)` que no debían influir. Lo que domina es la caché, no la conexión. Descartados midiéndolos el `ESCAPE`, el recuento, los pragmas y que la lectora viera datos distintos. El experimento se queda: `banco lectora <n>`. Está en `PRESUPUESTO_RENDIMIENTO.md` §8 | **nuevo** · lo abrió y lo cerró R-26 |
 | — | **Puerta P-01** (D-5): antes del primer instalador que se enseñe fuera del equipo, se vuelve a plantear la licencia de Mont. Plan B listo: una línea en `--arles-font-family` | ROADMAP Fase 9 |
 

@@ -697,19 +697,12 @@ impl Db {
             // traiga un hijo sin su padre tiene que fallar, no entrar a medias.
             tx.execute_batch("PRAGMA foreign_keys=ON")?;
 
-            let incluidas: Vec<&'static str> = MANIFIESTO
-                .iter()
-                .filter(|e| match &alcance {
-                    Alcance::Completo => e.alcance.entra_en_el_completo(),
-                    Alcance::Esencial => e.alcance.entra_en_el_esencial(),
-                    // Inalcanzable: la comprobación de arriba ya salió. Se
-                    // escribe igual porque un `_ =>` aquí dejaría que un
-                    // alcance futuro cayera en «no se lleva nada» —y un
-                    // reemplazo que no trae nada es una base vacía—.
-                    Alcance::Historial { .. } => false,
-                })
-                .map(|e| e.tabla)
-                .collect();
+            // Un alcance que no se puede restaurar ya salió arriba, así que
+            // aquí sólo llegan los dos que sí. `tablas_del_alcance` es la
+            // **única** copia de ese filtro: cuando era un `match` escrito aquí,
+            // un alcance nuevo podía caer en «no se lleva nada» —y un reemplazo
+            // que no trae nada es una base vacía—.
+            let incluidas: Vec<&'static str> = crate::respaldo::tablas_del_alcance(&alcance);
             let orden = crate::respaldo::orden_de_insercion(&tx, &incluidas)?;
 
             // ── 1 · Las bajas de ahora, a salvo, antes de borrar nada ──
@@ -724,51 +717,7 @@ impl Db {
             }
 
             // ── 3 · Meter lo del respaldo, por NOMBRE de columna ──
-            //
-            // Nunca por posición: una migración que mueva una columna metería
-            // el apellido donde va la empresa sin que una sola fila falle. Es
-            // el arreglo que la 8.2b le hizo al formato de la 8.1.
-            let mut filas = 0_u64;
-            let mut bajas_del_respaldo = 0_u64;
-            let mut sentencias: BTreeMap<String, String> = BTreeMap::new();
-            while let Some((tabla, valores)) = origen.siguiente()? {
-                let cols = columnas
-                    .iter()
-                    .find(|(t, _)| *t == tabla)
-                    .map(|(_, c)| c)
-                    .ok_or_else(|| DbError::RespaldoNoEncaja {
-                        motivo: format!("el respaldo trae filas de «{tabla}» sin declarar sus columnas"),
-                    })?;
-                if cols.len() != valores.len() {
-                    return Err(DbError::RespaldoNoEncaja {
-                        motivo: format!(
-                            "una fila de «{tabla}» trae {} valores y la cabecera declara {} columnas",
-                            valores.len(),
-                            cols.len()
-                        ),
-                    });
-                }
-                let sql = match sentencias.get(&tabla) {
-                    Some(s) => s.clone(),
-                    None => {
-                        comprobar_que_encajan(&tx, &tabla, cols)?;
-                        let nombres = cols
-                            .iter()
-                            .map(|c| format!("\"{c}\""))
-                            .collect::<Vec<_>>()
-                            .join(", ");
-                        let huecos = vec!["?"; cols.len()].join(", ");
-                        let s = format!("INSERT INTO \"{tabla}\" ({nombres}) VALUES ({huecos})");
-                        sentencias.insert(tabla.clone(), s.clone());
-                        s
-                    }
-                };
-                tx.execute(&sql, rusqlite::params_from_iter(valores.iter()))?;
-                filas += 1;
-                if tabla == "suppression_entry" {
-                    bajas_del_respaldo += 1;
-                }
-            }
+            let (filas, bajas_del_respaldo) = meter_las_filas(&tx, origen, columnas)?;
 
             // ── 4 · Las bajas vuelven, unidas ──
             //
@@ -886,6 +835,79 @@ impl Db {
             })
         })
     }
+}
+
+/// Mete las filas de un respaldo en una base **ya vaciada**, por NOMBRE de
+/// columna, y devuelve `(filas, de ellas bajas)`.
+///
+/// Nunca por posición: una migración que mueva una columna metería el apellido
+/// donde va la empresa sin que una sola fila falle. Es el arreglo que la 8.2b
+/// le hizo al formato de la 8.1.
+///
+/// ── POR QUÉ ESTO ES UNA FUNCIÓN Y NO EL CUERPO DE `restaurar` ──
+///
+/// Porque hay **dos** sitios que meten las filas de un respaldo en una base: la
+/// restauración de verdad y la base desechable de
+/// [`crate::puesta_al_dia`], que levanta el esquema del respaldo para que las
+/// migraciones corran sobre sus datos. Escribir el bucle dos veces sería dos
+/// sitios donde arreglar el siguiente defecto del formato —y la 8.1 ya ha
+/// tenido cuatro—, con el agravante de que el de la puesta al día no lo vigila
+/// ninguna de las pruebas de la restauración.
+///
+/// `conn` tiene que ser la transacción en curso: aquí no se abre ninguna, y una
+/// fila metida fuera de la transacción de `restaurar` no se desharía.
+///
+/// # Errores
+///
+/// [`DbError::RespaldoNoEncaja`] si una tabla o columna no existe aquí, o si una
+/// fila no trae tantos valores como columnas declara su tabla.
+pub(crate) fn meter_las_filas<O: Origen>(
+    conn: &Connection,
+    origen: &mut O,
+    columnas: &crate::respaldo::ColumnasPorTabla,
+) -> Result<(u64, u64), DbError> {
+    let mut filas = 0_u64;
+    let mut bajas = 0_u64;
+    let mut sentencias: BTreeMap<String, String> = BTreeMap::new();
+    while let Some((tabla, valores)) = origen.siguiente()? {
+        let cols = columnas
+            .iter()
+            .find(|(t, _)| *t == tabla)
+            .map(|(_, c)| c)
+            .ok_or_else(|| DbError::RespaldoNoEncaja {
+                motivo: format!("el respaldo trae filas de «{tabla}» sin declarar sus columnas"),
+            })?;
+        if cols.len() != valores.len() {
+            return Err(DbError::RespaldoNoEncaja {
+                motivo: format!(
+                    "una fila de «{tabla}» trae {} valores y la cabecera declara {} columnas",
+                    valores.len(),
+                    cols.len()
+                ),
+            });
+        }
+        let sql = match sentencias.get(&tabla) {
+            Some(s) => s.clone(),
+            None => {
+                comprobar_que_encajan(conn, &tabla, cols)?;
+                let nombres = cols
+                    .iter()
+                    .map(|c| format!("\"{c}\""))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let huecos = vec!["?"; cols.len()].join(", ");
+                let s = format!("INSERT INTO \"{tabla}\" ({nombres}) VALUES ({huecos})");
+                sentencias.insert(tabla.clone(), s.clone());
+                s
+            }
+        };
+        conn.execute(&sql, rusqlite::params_from_iter(valores.iter()))?;
+        filas += 1;
+        if tabla == "suppression_entry" {
+            bajas += 1;
+        }
+    }
+    Ok((filas, bajas))
 }
 
 /// Las columnas que la base tiene para esta tabla, en su orden.

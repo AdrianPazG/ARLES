@@ -27,6 +27,20 @@ export interface LoQueTraeElRespaldo {
   readonly esquemaDeLaBase: string
   readonly llevaContrasena: boolean
   readonly sePuedeRestaurar: boolean
+  /**
+   * `true` si el respaldo es de una versión anterior y hay que ponerlo al día
+   * antes de restaurarlo. **Se puede**, y por eso no apaga el botón; se dice
+   * porque tarda más y porque lo que entra son los datos del archivo pasados
+   * por las migraciones, no el archivo tal cual.
+   */
+  readonly hayQuePonerloAlDia: boolean
+  /** Cuántas migraciones se le aplicarán. Cero si ya está al día. */
+  readonly migracionesQueFaltan: number
+  /**
+   * `true` si lo hizo una versión MÁS NUEVA de ARLES. Es el único caso sin
+   * salida desde aquí, y la salida es actualizar ARLES — no buscar otra copia.
+   */
+  readonly esDeUnArlesPosterior: boolean
   readonly tablas: readonly TablaQueVuelve[]
   readonly totalDeFilas: number
   readonly noVuelven: readonly LoQueNoVuelve[]
@@ -44,6 +58,17 @@ export interface RespaldoRestaurado {
   readonly bajasDespues: number
   readonly bajasQueSeSalvaron: number
   readonly cuentasAReconectar: number
+  /** `true` si hubo que poner el respaldo al día antes de restaurarlo. */
+  readonly sePusoAlDia: boolean
+  /**
+   * Cuántas filas traía el archivo, y cuántas quedaron tras ponerlo al día.
+   *
+   * Iguales si no hubo que migrar nada. Distintas si una migración quitó filas,
+   * que puede hacerlo con todo el derecho — lo que no puede es hacerlo sin que
+   * nadie lo cuente (§94).
+   */
+  readonly filasDelArchivo: number
+  readonly filasAlDia: number
 }
 
 /**

@@ -207,9 +207,16 @@ los datos de tu empresa.
 > lo único que se puede hacer. Dirección lo vio el 13/10/2026 al abrir el primer
 > instalador descargable sobre una base de la versión anterior.
 >
-> **Lo que funciona: apartar la base.** No la borres — la llave sigue en el
-> llavero, así que esos datos se podrán recuperar el día que exista la entrega
-> que migra un respaldo de otro esquema.
+> **Lo que funciona: apartar la base.** No la borres: la llave sigue en el
+> llavero, así que el archivo no está perdido.
+>
+> **Y aquí hay una precisión que conviene no confundir.** Desde el 04/11/2026
+> ARLES **sí** restaura un respaldo `.arles` de una versión anterior: lo pone al
+> día antes. Eso no es lo mismo que esto. Lo que no se puede abrir aquí es una
+> **base** cuya huella de migración diverge, y para ésa no hay camino: si
+> tienes un respaldo de aquellos datos, restáuralo y entra sin problema; si no
+> lo tienes, el archivo se queda apartado hasta que exista una entrega que lo
+> lea.
 >
 > **Sin terminal, que es lo que no se puede escribir mal:**
 >

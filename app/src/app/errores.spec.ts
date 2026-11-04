@@ -53,6 +53,13 @@ const CLAVES_DEL_NUCLEO = [
   // defecto nuestro, no del usuario, y por eso el texto no le pide arreglarlo.
   'error.db.esquema_no_se_deja_respaldar',
   'error.db.respaldo_no_encaja',
+  // 04/11/2026 · un respaldo de otro esquema. Son dos y van aparte de
+  // `respaldo_no_encaja` porque las tres salidas son distintas: uno de una
+  // versión anterior se pone al día y no da error; uno de una versión
+  // posterior manda a **actualizar ARLES**, que es una instrucción que se
+  // puede seguir; y si la puesta al día falla, la base no se ha tocado.
+  'error.db.respaldo_de_un_arles_posterior',
+  'error.db.no_se_pudo_poner_al_dia',
   // Entrega 8.3 bis · archivar el historial (D-8D). Son dos y no uno porque
   // mandan a hacer cosas distintas: uno a elegir otro archivo, el otro a
   // volver a archivar.

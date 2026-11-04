@@ -34,6 +34,21 @@ pub fn ultima_version() -> Option<i32> {
         .max()
 }
 
+/// Las versiones que este binario sabe aplicar, de menor a mayor.
+///
+/// Se usa para contestar «¿conozco el esquema de este respaldo?» sin dar por
+/// supuesto que las versiones van de 1 a N sin huecos.
+#[must_use]
+pub fn versiones() -> Vec<i32> {
+    let mut v: Vec<i32> = embebidas::migrations::runner()
+        .get_migrations()
+        .iter()
+        .map(refinery::Migration::version)
+        .collect();
+    v.sort_unstable();
+    v
+}
+
 /// Pone el esquema al día.
 ///
 /// # Errores
@@ -41,6 +56,38 @@ pub fn ultima_version() -> Option<i32> {
 /// [`DbError::Migracion`] con el detalle del fallo.
 pub fn aplicar(conn: &mut Connection) -> Result<(), DbError> {
     embebidas::migrations::runner()
+        .run(conn)
+        .map(|_| ())
+        .map_err(|e| DbError::Migracion(e.to_string()))
+}
+
+/// Aplica las migraciones **hasta una versión concreta** y se detiene ahí.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// PARA QUÉ EXISTE ESTO, QUE NO ES PARA NINGUNA BASE DE VERDAD
+///
+/// La base del usuario siempre va al día: la abre [`aplicar`] y no hay ninguna
+/// forma de quedarse a medias. Esto existe para **poner al día un respaldo de
+/// un esquema anterior** (`puesta_al_dia`): se levanta una base desechable en
+/// la versión que el respaldo declara, se le meten sus filas, y entonces se
+/// corren las migraciones que faltan **sobre los datos**, que es lo mismo que
+/// le pasó a la base de quien actualizó ARLES.
+///
+/// Es la diferencia entre migrar el respaldo y «restaurar lo que encaje»: el
+/// SQL que transforma los datos es el mismo que ya corrió en producción, no
+/// una traducción escrita aparte que habría que mantener en dos sitios.
+///
+/// Una versión mayor que la última conocida **no es un error aquí**: refinery
+/// la ignora y aplica todo lo que tiene. Quien tiene que rechazar un respaldo
+/// del futuro es su lector, con un mensaje que diga que hay que actualizar
+/// ARLES — y lo hace.
+///
+/// # Errores
+///
+/// [`DbError::Migracion`] con el detalle del fallo.
+pub fn aplicar_hasta(conn: &mut Connection, version: i32) -> Result<(), DbError> {
+    embebidas::migrations::runner()
+        .set_target(refinery::Target::Version(version))
         .run(conn)
         .map(|_| ())
         .map_err(|e| DbError::Migracion(e.to_string()))

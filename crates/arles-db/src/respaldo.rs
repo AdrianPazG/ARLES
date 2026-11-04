@@ -64,6 +64,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use arles_core::formato_de_respaldo::Alcance;
 use arles_core::respaldo::MANIFIESTO;
 use rusqlite::Connection;
 use rusqlite::types::ValueRef;
@@ -317,6 +318,26 @@ pub fn tablas_incluidas(que: QueSeLleva<'_>) -> Vec<&'static str> {
         .collect()
 }
 
+/// Qué tablas se lleva un [`Alcance`], que es el que viaja **en la cabecera**
+/// de un respaldo ya escrito.
+///
+/// Es la misma pregunta que [`tablas_incluidas`] con la otra mitad del par:
+/// `QueSeLleva` es lo que se le pide al exportador —y lleva la fecha de corte
+/// dentro—, y `Alcance` es lo que queda escrito en el archivo. Delega en vez de
+/// repetir el `match`, y por un motivo que se puede comprobar: **la fecha no
+/// decide qué tablas entran**, sólo qué filas de cada una, así que aquí se pasa
+/// una cualquiera. Una segunda copia del filtro sería el defecto que
+/// `tablas_incluidas` ya documenta, con el agravante de que ésta la usa quien
+/// **vacía** la base de destino.
+#[must_use]
+pub fn tablas_del_alcance(alcance: &Alcance) -> Vec<&'static str> {
+    tablas_incluidas(match alcance {
+        Alcance::Completo => QueSeLleva::Todo,
+        Alcance::Esencial => QueSeLleva::LoEsencialDesde(""),
+        Alcance::Historial { hasta } => QueSeLleva::ElHistorialAnteriorA(hasta),
+    })
+}
+
 /// Por qué columna y en qué dirección se recorta una tabla.
 ///
 /// El operador va dentro y no se da por supuesto: hasta la 8.3 bis era un `>=`
@@ -386,7 +407,7 @@ pub(crate) fn version_del_esquema(conn: &Connection) -> Result<String, DbError> 
 ///
 /// [`DbError::Sqlite`], o [`DbError::EsquemaNoSeDejaRespaldar`] si la tabla no
 /// tiene columnas — que sólo puede significar que no existe.
-fn columnas_de(conn: &Connection, tabla: &str) -> Result<Vec<String>, DbError> {
+pub(crate) fn columnas_de(conn: &Connection, tabla: &str) -> Result<Vec<String>, DbError> {
     // El nombre se interpola porque SQLite no deja parametrizar un
     // identificador. No es una inyección: `tabla` sale de `MANIFIESTO`, que es
     // una constante de `arles-core`, y nunca de nada que escriba nadie. Lo
@@ -580,7 +601,7 @@ fn fijar(hueco: &mut Option<String>, nuevo: &Option<String>) {
 /// cambiado sin que nada fallara. Hoy el esquema no tiene ni una columna
 /// binaria, y `ninguna_columna_del_respaldo_guarda_binario` lo comprueba contra
 /// una base migrada de verdad: si alguien añade una, se entera ahí.
-fn valor_como_texto(tabla: &str, v: ValueRef<'_>) -> Result<Option<String>, DbError> {
+pub(crate) fn valor_como_texto(tabla: &str, v: ValueRef<'_>) -> Result<Option<String>, DbError> {
     Ok(match v {
         ValueRef::Null => None,
         ValueRef::Integer(n) => Some(n.to_string()),

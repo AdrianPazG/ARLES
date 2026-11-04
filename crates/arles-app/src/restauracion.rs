@@ -41,6 +41,7 @@ use std::io::Read as _;
 
 use arles_core::cifrado_de_respaldo::SobreQueSeAbre;
 use arles_core::formato_de_respaldo::{self as formato, Cabecera, Cifrado, SumaEnCurso};
+use arles_db::puesta_al_dia::{self, Veredicto};
 use arles_db::restauracion::{FilaDelRespaldo, Origen};
 
 use crate::error::ErrorIpc;
@@ -63,10 +64,21 @@ pub struct LoQueTraeElRespaldo {
     pub esquema_del_respaldo: String,
     pub esquema_de_la_base: String,
     pub lleva_contrasena: bool,
-    /// `false` cuando el respaldo es de otro esquema: entonces **no se puede
-    /// restaurar**, y la pantalla tiene que decirlo aquí en vez de dejar pulsar
-    /// un botón que va a fallar.
+    /// `false` cuando el respaldo **no** se puede restaurar de ninguna forma:
+    /// hoy, sólo si lo escribió un ARLES posterior. La pantalla tiene que
+    /// decirlo aquí en vez de dejar pulsar un botón que va a fallar.
     pub se_puede_restaurar: bool,
+    /// `true` si es de un esquema anterior y hay que ponerlo al día antes de
+    /// restaurarlo. **Se puede, y por eso no es un «no»** — pero se dice, porque
+    /// tarda más y porque conviene saber que lo que entra no es literalmente lo
+    /// que hay en el archivo: son sus datos pasados por las migraciones.
+    pub hay_que_ponerlo_al_dia: bool,
+    /// Cuántas migraciones se le aplicarán. Cero si ya está al día.
+    pub migraciones_que_faltan: u32,
+    /// `true` si el respaldo es de un ARLES **posterior**. Es el único caso sin
+    /// salida desde aquí, y la salida es actualizar ARLES, no buscar otra copia:
+    /// la pantalla lo dice con esas palabras.
+    pub es_de_un_arles_posterior: bool,
     pub tablas: Vec<TablaQueVuelve>,
     pub total_de_filas: u64,
     /// Lo que se pierde sin volver, que es la mitad importante del preflight.
@@ -104,6 +116,17 @@ pub struct RespaldoRestaurado {
     pub bajas_despues: u64,
     pub bajas_que_se_salvaron: u64,
     pub cuentas_a_reconectar: u64,
+    /// `true` si el respaldo era de un esquema anterior y hubo que ponerlo al
+    /// día. La pantalla lo dice en el acuse: lo que entró no es literalmente lo
+    /// que había en el archivo, son sus datos pasados por las migraciones.
+    pub se_puso_al_dia: bool,
+    /// Cuántas filas traía el archivo, y cuántas quedaron tras migrarlo.
+    ///
+    /// Iguales cuando no hubo que poner nada al día. Distintas cuando una
+    /// migración quita filas, que puede hacerlo con todo el derecho — lo que no
+    /// puede es hacerlo sin que nadie lo cuente (§94).
+    pub filas_del_archivo: u64,
+    pub filas_al_dia: u64,
 }
 
 /// Elige un respaldo y dice qué pasaría. **No toca la base.**
@@ -145,6 +168,11 @@ pub fn revisar_respaldo(
         .que_pasaria_al_restaurar(alcance.clone(), &filas)
         .map_err(crate::AppError::Db)?;
 
+    // Qué se puede hacer con este esquema. Se pregunta **antes** de guardar la
+    // ruta: un respaldo que no se puede restaurar de ninguna forma no debería
+    // quedar elegido.
+    let veredicto = puesta_al_dia::que_se_puede_hacer(&cabecera.esquema);
+
     // Se guarda **después** de poder leer la cabecera: dejar puesta la ruta de
     // un archivo que no es un respaldo permitiría pulsar «Restaurar» sobre él.
     estado.guardar_respaldo_elegido(ruta.clone());
@@ -160,7 +188,16 @@ pub fn revisar_respaldo(
         esquema_del_respaldo: cabecera.esquema.clone(),
         esquema_de_la_base: pasaria.esquema_de_la_base.clone(),
         lleva_contrasena: cabecera.cifrado.lleva_contrasena(),
-        se_puede_restaurar: cabecera.esquema == pasaria.esquema_de_la_base,
+        se_puede_restaurar: !matches!(&veredicto, Veredicto::EsDeUnArlesPosterior { .. })
+            && !matches!(&veredicto, Veredicto::NoSeEntiende),
+        hay_que_ponerlo_al_dia: matches!(&veredicto, Veredicto::SePuedePonerAlDia { .. }),
+        migraciones_que_faltan: match &veredicto {
+            Veredicto::SePuedePonerAlDia { migraciones, .. } => {
+                u32::try_from(*migraciones).unwrap_or(u32::MAX)
+            }
+            _ => 0,
+        },
+        es_de_un_arles_posterior: matches!(&veredicto, Veredicto::EsDeUnArlesPosterior { .. }),
         tablas: pasaria
             .tablas
             .iter()
@@ -212,29 +249,88 @@ pub fn restaurar_respaldo(
 
     let mut origen = LeeElArchivo::nuevo(&ruta, &cabecera, cuanto_ocupa, contrasena.as_deref())?;
 
-    let columnas: arles_db::respaldo::ColumnasPorTabla = cabecera.columnas.clone();
+    // ── EL CAMINO SE ELIGE AQUÍ, Y SON DOS ──
+    //
+    // Un respaldo del esquema de hoy entra tal cual. Uno de un esquema anterior
+    // pasa primero por `RespaldoAlDia`, que levanta una base desechable en su
+    // versión, le mete sus filas y le corre las migraciones que faltan — las
+    // mismas que corrieron en la base de quien actualizó ARLES.
+    //
+    // **Lo que llega a `restaurar` es idéntico en los dos casos**: un `Origen`
+    // que entrega filas, con el esquema y las columnas que esas filas tienen. El
+    // restaurador no sabe de dónde vienen, y eso es lo que hace que el camino
+    // nuevo no tenga su propia copia del protocolo de D-8C —las bajas unidas,
+    // las cuentas a reconectar, la empresa reapuntada—, que es donde habría
+    // estado el defecto.
+    let al_dia = match puesta_al_dia::que_se_puede_hacer(&cabecera.esquema) {
+        Veredicto::SePuedePonerAlDia { .. } => Some(
+            puesta_al_dia::RespaldoAlDia::nuevo(
+                &mut origen,
+                &cabecera.esquema,
+                &cabecera.columnas,
+                &cabecera.alcance,
+                estado.datos(),
+            )
+            .map_err(crate::AppError::Db)?,
+        ),
+        // Los demás veredictos los decide `restaurar`, que ya los rechaza con
+        // su error. Repetir el rechazo aquí sería un segundo sitio donde
+        // mantener el criterio.
+        _ => None,
+    };
+    let se_puso_al_dia = al_dia.is_some();
 
-    let paso = estado.db().restaurar(
-        &mut origen,
-        &cabecera.esquema,
-        &columnas,
-        cabecera.alcance,
-        "dirección",
-        crate::respaldo::ahora_utc().as_str(),
-    );
+    let paso = match al_dia {
+        Some(mut al_dia) => {
+            let esquema = al_dia.esquema().to_owned();
+            let columnas = al_dia.columnas().clone();
+            let filas_del_archivo = al_dia.filas_del_respaldo();
+            let filas_al_dia = al_dia.filas_al_dia();
+            let r = estado.db().restaurar(
+                &mut al_dia,
+                &esquema,
+                &columnas,
+                cabecera.alcance,
+                "dirección",
+                crate::respaldo::ahora_utc().as_str(),
+            );
+            // Las dos cifras se guardan antes de soltar la base desechable: lo
+            // que el archivo traía y lo que quedó al migrarlo. No tienen por qué
+            // ser iguales —una migración puede quitar filas— y el usuario tiene
+            // derecho a ver la diferencia en vez de descubrirla contando.
+            r.map(|p| (p, filas_del_archivo, filas_al_dia))
+        }
+        None => estado
+            .db()
+            .restaurar(
+                &mut origen,
+                &cabecera.esquema,
+                &cabecera.columnas,
+                cabecera.alcance,
+                "dirección",
+                crate::respaldo::ahora_utc().as_str(),
+            )
+            .map(|p| {
+                let n = p.filas;
+                (p, n, n)
+            }),
+    };
 
     // Se suelta pase lo que pase: dejarla puesta permitiría restaurar otra vez
     // sin volver a revisar, y entonces el preflight que se leyó ya no
     // describiría la base.
     estado.soltar_respaldo_elegido();
 
-    let paso = paso.map_err(crate::AppError::Db)?;
+    let (paso, filas_del_archivo, filas_al_dia) = paso.map_err(crate::AppError::Db)?;
     Ok(RespaldoRestaurado {
         filas: paso.filas,
         bajas_antes: paso.bajas_antes,
         bajas_despues: paso.bajas_despues,
         bajas_que_se_salvaron: paso.bajas_que_se_salvaron,
         cuentas_a_reconectar: paso.cuentas_a_reconectar,
+        se_puso_al_dia,
+        filas_del_archivo,
+        filas_al_dia,
     })
 }
 
@@ -528,6 +624,14 @@ mod tests {
         let dir = tempfile::tempdir().expect("temporal");
         let clave = ClaveMaestra::generar().expect("genera");
         let db = Db::abrir(&dir.path().join("arles.db"), &clave).expect("abre");
+        sembrar(&db);
+        (dir, db)
+    }
+
+    /// Lo que siembran las dos bases de prueba. Una sola copia: dos siembras
+    /// que se parecen son dos que se separan, y entonces la prueba del esquema
+    /// anterior compararía otros datos que la del esquema de hoy.
+    fn sembrar(db: &Db) {
         db.ejecutar_en_pruebas(|c| {
             c.execute_batch(
                 "INSERT INTO company (id, commercial_name, country, timezone, corporate_email, created_at, updated_at)
@@ -545,6 +649,27 @@ mod tests {
             )
         })
         .expect("siembra");
+    }
+
+    /// La misma siembra, en una base **detenida en una versión anterior**.
+    ///
+    /// Es lo que permite tener un `.arles` de verdad del esquema V11, escrito
+    /// por el exportador de siempre, en vez de fabricar una cabecera a mano —que
+    /// sólo probaría que mi idea del esquema viejo encaja con mi idea de la
+    /// migración.
+    ///
+    /// **Límite de esta prueba, no del producto:** exporta una base V11 con el
+    /// manifiesto de hoy, y eso funciona porque de la V11 a la V16 ninguna
+    /// migración añade una tabla. El día que una lo haga, este helper fallará al
+    /// exportar —el manifiesto pedirá una tabla que la base vieja no tiene— y
+    /// habrá que sembrar el archivo de otra manera. En producción no pasa: una
+    /// base V11 la exporta el ARLES de su época.
+    fn base_con_datos_en_la_version(version: i32) -> (tempfile::TempDir, Db) {
+        let dir = tempfile::tempdir().expect("temporal");
+        let clave = ClaveMaestra::generar().expect("genera");
+        let db = Db::abrir_en_la_version(&dir.path().join("vieja.db"), &clave, version)
+            .expect("abre detenida");
+        sembrar(&db);
         (dir, db)
     }
 
@@ -568,6 +693,18 @@ mod tests {
         db.exportar(QueSeLleva::Todo, &mut destino)
             .expect("exporta");
         destino.cerrar().expect("cierra");
+    }
+
+    /// Las columnas que una `ColumnasPorTabla` declara para una tabla.
+    fn columnas_de_la_tabla(
+        columnas: &arles_db::respaldo::ColumnasPorTabla,
+        tabla: &str,
+    ) -> Vec<String> {
+        columnas
+            .iter()
+            .find(|(t, _)| t == tabla)
+            .map(|(_, c)| c.clone())
+            .unwrap_or_default()
     }
 
     fn contactos(db: &Db) -> Vec<(String, Option<String>)> {
@@ -641,6 +778,152 @@ mod tests {
                     .any(|(n, _)| n == "Beto con\tun tabulador"),
                 "el tabulador no sobrevivió"
             );
+        }
+    }
+
+    /// **El viaje que hasta hoy no se podía hacer: un respaldo de un esquema
+    /// anterior entra en la base de hoy.**
+    ///
+    /// Base V11 poblada → archivo V11 → **las migraciones V12 a V16 sobre esos
+    /// datos** → base V16 con los mismos contactos. Con y sin contraseña, por lo
+    /// mismo que la prueba de arriba: el camino del cifrado es otro.
+    ///
+    /// Antes de esto, cada migración dejaba sin poder restaurar todos los
+    /// `.arles` anteriores — y eso no es una molestia, es una copia de seguridad
+    /// que muere sin que nadie se entere: el archivo sigue ahí, se puede
+    /// revisar, y el día que haga falta no entra.
+    ///
+    /// Lo que la prueba comprueba además de los datos es que **el esquema de
+    /// salida es el de hoy** y que una columna que la V12 añadió existe en las
+    /// filas restauradas. Comparar sólo los contactos dejaría pasar una puesta
+    /// al día que no hubiera corrido ni una migración.
+    #[test]
+    fn un_respaldo_de_un_esquema_anterior_se_pone_al_dia_y_entra() {
+        use arles_db::puesta_al_dia::RespaldoAlDia;
+
+        let hoy = format!("V{}", arles_db::ultima_version().expect("hay migraciones"));
+        for contrasena in [None, Some("una contraseña larga de verdad")] {
+            let (_d1, vieja) = base_con_datos_en_la_version(11);
+            let dir = tempfile::tempdir().expect("temporal");
+            let ruta = dir.path().join("de-la-v11.arles");
+            escribir(&vieja, &ruta, contrasena);
+
+            let esperados = contactos(&vieja);
+            assert_eq!(esperados.len(), 2);
+
+            let (cabecera, salta) = leer_la_cabecera(&ruta).expect("cabecera");
+            assert_eq!(
+                cabecera.esquema, "V11",
+                "la siembra tenía que dar un respaldo del esquema V11"
+            );
+            assert_ne!(cabecera.esquema, hoy, "entonces esta prueba no prueba nada");
+
+            let (_d2, destino_db) = base_vacia();
+            let mut lector =
+                LeeElArchivo::nuevo(&ruta, &cabecera, salta, contrasena).expect("abre el lector");
+
+            // Tal cual, se rechaza: es la limitación que esto viene a cerrar.
+            // Se comprueba aquí para que la prueba falle el día que el rechazo
+            // deje de existir y nadie se acuerde de por qué estaba.
+            assert!(
+                destino_db
+                    .restaurar(
+                        &mut lector,
+                        &cabecera.esquema,
+                        &cabecera.columnas,
+                        cabecera.alcance.clone(),
+                        "dirección",
+                        "2026-11-03T12:00:00Z",
+                    )
+                    .is_err(),
+                "un respaldo de otro esquema entró sin ponerse al día"
+            );
+
+            // Y ahora el camino nuevo, con el lector desde el principio.
+            let mut lector =
+                LeeElArchivo::nuevo(&ruta, &cabecera, salta, contrasena).expect("abre el lector");
+            let mut al_dia = RespaldoAlDia::nuevo(
+                &mut lector,
+                &cabecera.esquema,
+                &cabecera.columnas,
+                &cabecera.alcance,
+                dir.path(),
+            )
+            .expect("pone al día");
+
+            assert_eq!(al_dia.esquema(), hoy, "no quedó en el esquema de hoy");
+            assert_eq!(
+                al_dia.filas_del_respaldo(),
+                cabecera.total_de_filas(),
+                "se perdieron filas al llenar la base desechable"
+            );
+
+            let esquema = al_dia.esquema().to_owned();
+            let columnas = al_dia.columnas().clone();
+            let paso = destino_db
+                .restaurar(
+                    &mut al_dia,
+                    &esquema,
+                    &columnas,
+                    cabecera.alcance.clone(),
+                    "dirección",
+                    "2026-11-03T12:00:00Z",
+                )
+                .expect("restaura el respaldo puesto al día");
+
+            assert_eq!(
+                contactos(&destino_db),
+                esperados,
+                "con contraseña {contrasena:?} los contactos no volvieron iguales"
+            );
+            assert!(paso.filas > 0);
+
+            // ── LA MEDIDA QUE DISTINGUE UNA PUESTA AL DÍA DE UN PASEO ──
+            //
+            // La primera versión de esto preguntaba por `template.retired_at`
+            // **en la base de destino**, y no probaba nada: esa base la abre
+            // `Db::abrir`, así que tiene la columna de la V12 pase lo que pase.
+            // Un `assert` que no puede fallar es un comentario que se caza a sí
+            // mismo con otra cara.
+            //
+            // Lo que sí distingue es comparar las columnas **que el respaldo
+            // declaraba** con las que entrega puesto al día: si no hubiera
+            // corrido ninguna migración, serían las mismas.
+            let antes = columnas_de_la_tabla(&cabecera.columnas, "template");
+            let despues = columnas_de_la_tabla(&columnas, "template");
+            assert!(
+                !antes.contains(&"retired_at".to_owned()),
+                "el respaldo V11 no podía traer la columna de la V12"
+            );
+            assert!(
+                despues.contains(&"retired_at".to_owned()),
+                "puesto al día, «template» sigue sin la columna que añadió la V12: \
+                 las migraciones no corrieron"
+            );
+        }
+    }
+
+    /// **Un respaldo de un ARLES más nuevo no se pone al día: se dice que hay
+    /// que actualizar ARLES.**
+    ///
+    /// Es el error contrario y la salida es la contraria. Las migraciones que
+    /// trajeron ese respaldo hasta ahí no están en este binario, y no se
+    /// inventan: decirle «este archivo no sirve» mandaría a buscar otra copia
+    /// que tampoco entraría.
+    #[test]
+    fn un_respaldo_de_un_arles_posterior_manda_a_actualizar() {
+        use arles_db::puesta_al_dia::{Veredicto, que_se_puede_hacer};
+
+        let ultima = arles_db::ultima_version().expect("hay migraciones");
+        match que_se_puede_hacer(&format!("V{}", ultima + 3)) {
+            Veredicto::EsDeUnArlesPosterior {
+                version,
+                el_de_aqui,
+            } => {
+                assert_eq!(version, ultima + 3);
+                assert_eq!(el_de_aqui, ultima);
+            }
+            otro => panic!("un respaldo del futuro dio {otro:?}"),
         }
     }
 

@@ -72,7 +72,6 @@ plazo externo que no se comprime.
 | **R-05** | Imagen en la firma | Embebida dispara filtros de spam y engorda cada correo; alojada hay que alojarla, y el saneado tendría que admitir `<img>` | espera decisión |
 | **R-25** | Baja automática por correo | La recomendación es IMAP: leer la bandeja y dar de baja a quien responda BAJA | espera decisión |
 | **D-19** | ¿El registro tiene que dar el total exacto? | C-2 midió que **el único cambio que baja el tiempo del filtro es dejar de contar todas las coincidencias**: traer las 500 filas cuesta la mitad. Pero el total al lado es D-7C, y se pidió para que el tope no escondiera nada. Las opciones y las cifras, abajo | espera decisión |
-| **V11→V12** | Restaurar un respaldo de un esquema anterior | Hoy se rechaza con un error claro. Arreglarlo exige correr las migraciones sobre el propio respaldo, que es otra entrega | abierto |
 | **Fase 9** | Sacar la activación al hilo del motor | Activar tarda ~73 s con 451 196 destinatarios y el presupuesto de 2 s se rompe **alrededor de los 30 000**. Desde el 28/10 la ventana **sí responde**, dice en qué va y se puede cancelar; lo que queda es que no corra dentro de un comando | abierto · medido en la auditoría C |
 
 ---
@@ -245,6 +244,92 @@ daban 899 ms en el peor caso; el camino real daba 22 000. La diferencia no
 estaba en ninguno de los nueve: estaba en la junta —qué consultas de más, qué
 orden— que ninguno de los nueve recorría. Es el patrón del §9 aplicado a una
 medición.
+
+---
+
+## V11→V12 · restaurar un respaldo de un esquema anterior, cerrado el 04/11/2026
+
+Era la limitación más cara que la Fase 8 dejó declarada (8.3b) y la V11 la
+disparó por primera vez: ARLES rechazaba todo `.arles` cuyo esquema no fuera el
+de hoy, así que **cada migración mataba las copias de seguridad anteriores**.
+
+El archivo seguía en el disco, la pantalla podía revisarlo y contar lo que
+traía, y el día que hiciera falta no entraba. Es el peor sitio donde puede vivir
+una limitación: una copia de seguridad que existe, parece correcta y no abre.
+
+### Cómo se cerró, y la salida que estaba descartada por escrito
+
+La 8.3b dejó dos caminos y uno descartado: *«restaurar lo que encaje»*, que
+dejaría un apellido nulo y una fecha basura en una base que arranca y parece
+funcionar. El otro era correr las migraciones sobre los datos del respaldo, y la
+forma de hacerlo **sin escribir una línea de SQL nueva** es levantar una base
+desechable en la versión que el respaldo declara, meterle sus filas, y
+aplicarle las migraciones que faltan.
+
+El SQL que transforma los datos es **el mismo que ya corrió en producción**. No
+hay una segunda traducción que mantener: ésa es la parte que se habría quedado
+atrás en la primera migración posterior a esta entrega.
+
+La base desechable **va cifrada** con una clave nueva de usar y tirar —lleva los
+contactos y las bajas de una empresa, y §29 no admite «menos en este caso»— y se
+borra al soltarla, lo que comprueba una prueba.
+
+### Donde más importaba: el llavero perdido
+
+En `/recuperar` no hay otra salida. El cifrado no tiene puerta de atrás y la
+pantalla lo dice con esas palabras, así que un respaldo de antes de la última
+migración era, **ahí**, ningún respaldo.
+
+Y la puesta al día ocurre **antes** de apartar la base ilegible y de crear la
+clave nueva, que es la regla que la auditoría F estableció el 07/10: *nada
+irreversible ocurre hasta que todo lo comprobable está comprobado*. Leer el
+archivo entero y migrar sus datos es la comprobación más fuerte que se puede
+hacer sin tocar nada, y hacerla después habría añadido un disparador nuevo al
+F2 —una migración que no se puede aplicar a esos datos—.
+
+### Lo que cuesta
+
+Treinta mil contactos (60 002 filas), tres corridas, 04/11/2026: poner al día
+**1 134–1 255 ms** y restaurar **1 117–1 671**, contra **1 410 ms** de restaurar
+directo en la misma máquina. Un 70 % más en total, una vez, y sólo si el
+respaldo es viejo. Memoria 16 → 23 MB. Está en `PRESUPUESTO_RENDIMIENTO.md` §9.
+
+### Lo que sigue sin poderse
+
+| Qué | Por qué, y qué se dice |
+|---|---|
+| Un respaldo de una versión **posterior** | Sus migraciones no están en este binario y no se inventan. Error aparte, que manda a **actualizar ARLES** en vez de a buscar otra copia |
+| Un **esencial** puesto al día puede no dar lo mismo que la base completa migrada | Una migración que rellene una columna leyendo una tabla que el esencial no lleva no tiene de dónde leer. Es inherente al alcance |
+| Espacio en disco | Hace falta para una base del tamaño del respaldo. Un disco lleno falla con la base real intacta |
+
+### Lo que esta entrega enseña del método
+
+**La prueba se eligió midiendo, no suponiendo.** De la V11 a la V16 ninguna
+migración mueve datos que viajen en un respaldo —son columnas nuevas e
+índices—, así que una prueba V11 → V16 habría pasado en verde con un módulo que
+sólo copiara filas. La prueba de verdad arranca en la **V2**, donde la V3
+traslada el correo del contacto a su canal y la V4 convierte cada campaña en una
+con etapa: dos tablas que **no existían** cuando se tomó ese respaldo.
+
+**Y la comprobación nueva nació con el defecto que persigue, y van trece.** Su
+primera ruptura salió **en verde**: buscaba el nombre de la función en el
+archivo entero, y la llamada de **la prueba del mismo archivo** la satisfacía.
+La pieza se habría quedado sin llamador en producción con todo verde — el patrón
+del §9 dentro de la comprobación escrita para cazarlo. Es la misma familia que
+el comentario que se caza a sí mismo: **medir en un sitio donde la respuesta no
+cuenta**. De ahí `solo_produccion` en el validador, que corta las pruebas además
+de los comentarios.
+
+**Y un defecto que cazó mi propia prueba antes de entrar:** `version_de("V-3")`
+devolvía `-3`, porque `parse::<i32>` acepta negativos. Con eso, la base
+desechable habría nacido vacía y el fallo habría llegado dos pasos después
+diciendo que *el respaldo trae una tabla que esta base no tiene* — un
+diagnóstico equivocado, que manda a hacer algo (DOC-14).
+
+**Y un `assert` que no podía fallar.** La primera versión de la prueba de ida y
+vuelta comprobaba que `template.retired_at` existiera **en la base de destino**,
+que la tiene siempre. Lo que distingue una puesta al día de un paseo es comparar
+las columnas que el respaldo **declaraba** con las que entrega puesto al día.
 
 ---
 

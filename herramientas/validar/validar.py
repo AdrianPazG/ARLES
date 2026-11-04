@@ -926,6 +926,32 @@ def sin_comentarios_de_barras(texto):
     )
 
 
+def solo_produccion(texto):
+    """El código de un archivo de Rust **sin sus comentarios y sin sus pruebas**.
+
+    ── EL DEFECTO QUE ESTO EXISTE PARA NO REPETIR, Y ES DE ESTA MISMA TARDE ──
+
+    Las comprobaciones que persiguen el patrón del §9 —*una pieza correcta,
+    probada, y nadie la usa*— preguntan si alguien llama a una función. Si la
+    pregunta se hace sobre el archivo entero, **la llamada de la prueba
+    satisface la comprobación**: la pieza sigue sin llamador en producción y
+    todo sale en verde.
+
+    Pasó el 04/11/2026 con `la_puesta_al_dia_tiene_quien_la_llame`: la primera
+    ruptura —quitar la llamada de `restaurar_respaldo`— salió **en verde**,
+    porque la prueba del mismo archivo también la nombra. Es el defecto que la
+    comprobación venía a cazar, dentro de la comprobación, y es la misma familia
+    que el comentario que se caza a sí mismo: **medir en un sitio donde la
+    respuesta no cuenta**.
+
+    Corta en el primer `#[cfg(test)]`, que en este proyecto es siempre lo último
+    del archivo: los módulos de prueba van al final, y la convención la
+    comprueba el propio corte —si alguien pusiera código detrás, dejaría de
+    verse y la comprobación saldría en rojo, no en verde falso—.
+    """
+    return sin_comentarios_de_barras(texto).split("#[cfg(test)]", 1)[0]
+
+
 def fase_1(rapido):
     titulo("FASE 1 · Cimientos")
 
@@ -8045,6 +8071,126 @@ def el_restaurador_tiene_quien_lo_llame():
     )
 
 
+def la_puesta_al_dia_tiene_quien_la_llame():
+    """**El §9 en la pieza que decide si una copia de seguridad sirve o no.**
+
+    `arles_db::puesta_al_dia` levanta una base desechable en el esquema que el
+    respaldo declara, le mete sus filas y le corre las migraciones que faltan.
+    Construida y sin llamador, el producto seguiría rechazando todos los
+    `.arles` anteriores a la última migración, con sus once pruebas en verde —
+    que es el patrón del §9 por decimoséptima vez, y aquí lo que se pierde no es
+    una función: son los datos de una empresa el día del incendio.
+
+    Mira los cuatro tramos del cable, que es lo que ninguna prueba puede mirar:
+
+        arles-db::RespaldoAlDia → restaurar_respaldo → recuperar_desde_respaldo
+                                → y una pantalla que lo diga
+
+    ─────────────────────────────────────────────────────────────────────────
+    Y LA RED QUE DE VERDAD HACÍA FALTA: NADIE COMPARA ESQUEMAS A MANO
+
+    El criterio «¿este respaldo se puede restaurar?» estaba escrito **dos
+    veces** antes del 04/11/2026 —`cabecera.esquema == esquema_de_la_base` en
+    `restauracion.rs` y `cabecera.esquema != ultimo` en `recuperacion.rs`—, y es
+    la familia de defecto que este proyecto lleva contando desde la Fase 5: dos
+    copias del mismo criterio son dos sitios donde cambiar uno y no el otro.
+
+    Si mañana alguien escribe un tercer sitio que compare las cadenas a mano, la
+    puesta al día no se aplicará ahí: ese camino volverá a rechazar un respaldo
+    perfectamente recuperable, y **ninguna prueba de los otros dos lo verá**.
+    Así que el criterio se pregunta en un solo sitio y aquí se comprueba que no
+    haya vuelto a aparecer a mano.
+
+    **Umbral medido antes de escribirla** (04/11/2026): cero apariciones en
+    `arles-app` y **una** en `arles-db::restaurar`, que es la puerta final y
+    legítima —la misma forma que la del alcance (8.3 bis a)—, así que la red se
+    acota a `arles-app`, donde vive la decisión. Con `arles-db` dentro habría
+    nacido con un hallazgo falso.
+
+    ─────────────────────────────────────────────────────────────────────────
+    VERIFICADA CON SEIS RUPTURAS, Y LA PRIMERA SALIÓ EN VERDE
+
+    Las seis: quitar la llamada en `restauracion.rs`, quitarla en
+    `recuperacion.rs`, no consultar el veredicto en ninguno de los dos, que cada
+    pantalla deje de decirlo, y meter una comparación de esquemas a mano. Las
+    seis en rojo ahora.
+
+    Pero la primera versión pasaba en verde la ruptura 1, y el motivo es el
+    propio patrón que esta comprobación persigue: buscaba el nombre en el
+    archivo entero, y **la llamada de la prueba del mismo archivo la
+    satisfacía**. La pieza se habría quedado sin llamador en producción con todo
+    en verde. De ahí `solo_produccion`, que corta las pruebas además de los
+    comentarios — y ahí está contado por qué es la misma familia que el
+    comentario que se caza a sí mismo.
+    """
+    faltan = []
+
+    app_sin = ""
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "crates", "arles-app", "src")):
+        for f in sorted(ficheros):
+            if f.endswith(".rs"):
+                with open(os.path.join(carpeta, f), encoding="utf-8") as fh:
+                    app_sin += solo_produccion(fh.read())
+    assert app_sin, "no se leyó el código de arles-app"
+
+    if "RespaldoAlDia::nuevo(" not in app_sin:
+        faltan.append("arles_db::puesta_al_dia::RespaldoAlDia — nadie en arles-app la construye")
+    if "que_se_puede_hacer(" not in app_sin:
+        faltan.append("puesta_al_dia::que_se_puede_hacer — el veredicto no se consulta")
+
+    # Los dos caminos por los que se restaura. Se busca cada uno en SU archivo:
+    # buscarlos en el montón dejaría que la llamada de uno tapase la del otro,
+    # que es «la hoja y no la ruta» —el defecto que la 7.7 arregló en la del
+    # §139—.
+    for archivo, que in [
+        ("restauracion.rs", "restaurar desde Ajustes"),
+        ("recuperacion.rs", "recuperar un llavero perdido"),
+    ]:
+        texto = leer("crates", "arles-app", "src", archivo) or ""
+        if "RespaldoAlDia::nuevo(" not in solo_produccion(texto):
+            faltan.append(f"{archivo} — {que} no pone al día un respaldo anterior")
+
+    # Y la pantalla lo dice: un campo que viaja y nadie pinta deja a alguien
+    # esperando sin saber por qué tarda (el hueco de la 8.6 D).
+    frontend = ""
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "app", "src")):
+        for f in sorted(ficheros):
+            if f.endswith((".ts", ".vue")):
+                with open(os.path.join(carpeta, f), encoding="utf-8") as fh:
+                    frontend += fh.read()
+    pantallas = [
+        p
+        for p in ("PantallaRestaurar.vue", "PantallaRecuperar.vue")
+        if "hayQuePonerloAlDia" not in sin_comentarios_de_barras(
+            leer("app", "src", "app", "pantallas", p) or ""
+        )
+    ]
+    for p in pantallas:
+        faltan.append(f"{p} — no dice que el respaldo se va a poner al día")
+
+    # La red: ninguna comparación de esquemas a mano en la frontera.
+    a_mano = []
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "crates", "arles-app", "src")):
+        for f in sorted(ficheros):
+            if not f.endswith(".rs"):
+                continue
+            with open(os.path.join(carpeta, f), encoding="utf-8") as fh:
+                cuerpo = solo_produccion(fh.read())
+            for linea in cuerpo.splitlines():
+                if re.search(r"cabecera\.esquema\s*[!=]=|esquema\s*[!=]=\s*ultimo", linea):
+                    a_mano.append(f"{f}: {linea.strip()}")
+    for a in a_mano:
+        faltan.append(f"compara esquemas a mano en vez de preguntar al veredicto — {a}")
+
+    check(
+        8,
+        "la puesta al día tiene quien la llame",
+        not faltan,
+        la_puesta_al_dia_tiene_quien_la_llame.__doc__,
+        detalle="\n      ".join(faltan),
+    )
+
+
 def el_archivado_tiene_quien_lo_llame():
     """**El §9 en la pieza destructiva, que es donde más duele.**
 
@@ -9491,6 +9637,9 @@ def fase_8(rapido=False):
 
     print(f"{GRIS}  restaurar de verdad (8.3b y 8.3c){FIN}")
     el_restaurador_tiene_quien_lo_llame()
+
+    print(f"{GRIS}  restaurar un respaldo de un esquema anterior{FIN}")
+    la_puesta_al_dia_tiene_quien_la_llame()
 
     print(f"{GRIS}  el llavero perdido (8.4){FIN}")
     la_clave_perdida_tiene_salida()

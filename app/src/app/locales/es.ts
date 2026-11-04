@@ -595,10 +595,31 @@ export const es = {
         'El respaldo no guarda contraseñas, así que {cuentas} cuentas volverán pidiendo que las reconectes. Tus campañas no saldrán hasta que lo hagas.',
     },
 
+    // ── ESTE AVISO CAMBIÓ DE SIGNIFICADO EL 04/11/2026 ──
+    //
+    // Antes salía para CUALQUIER esquema distinto del de hoy, porque ninguno
+    // entraba. Ahora un respaldo de una versión ANTERIOR sí entra —ARLES lo
+    // pone al día, y eso lo dice el aviso de abajo—, así que esto queda sólo
+    // para el caso contrario: un archivo de una versión MÁS NUEVA, cuyas
+    // migraciones esta versión no tiene. Y entonces lo que hay que hacer no es
+    // buscar otra copia: es actualizar ARLES.
     otroEsquema: {
-      titulo: 'Este respaldo no se puede restaurar aquí',
+      titulo: 'Este respaldo lo hizo una versión más nueva de ARLES',
       cuerpo:
-        'Lo hizo una versión de ARLES con otra estructura de datos ({delRespaldo}, y esta base usa {deLaBase}). Restaurarlo a medias dejaría tu base incompleta sin avisar, así que ARLES prefiere no tocar nada.',
+        'El archivo usa la estructura de datos {delRespaldo} y esta base usa {deLaBase}. Actualiza ARLES a la última versión y vuelve a intentarlo: el archivo está bien, no hace falta buscar otra copia.',
+    },
+
+    alDia: {
+      titulo: 'Este respaldo es de una versión anterior',
+      // Pluralizado, como las cuentas: «1 cambios» es de manual técnico.
+      //
+      // Dice las dos cosas que conviene saber antes de pulsar: que tarda más y
+      // que lo que entra son los datos del archivo actualizados, no el archivo
+      // tal cual. Lo que NO dice es «puede fallar», porque si falla no se toca
+      // la base — y decirlo aquí daría a entender un riesgo que no hay.
+      cuerpo:
+        'ARLES lo pondrá al día antes de restaurarlo: aplicará {migraciones} cambio de estructura a sus datos ({delRespaldo} → {deLaBase}). Tarda un poco más, y si algo no cuadrara no se tocaría nada de lo que hay ahora. | ' +
+        'ARLES lo pondrá al día antes de restaurarlo: aplicará {migraciones} cambios de estructura a sus datos ({delRespaldo} → {deLaBase}). Tarda un poco más, y si algo no cuadrara no se tocaría nada de lo que hay ahora.',
     },
 
     contrasena: 'Contraseña del respaldo',
@@ -622,6 +643,14 @@ export const es = {
       cuentas:
         'Reconecta tu cuenta en Remitentes antes de lanzar nada. | ' +
         'Reconecta tus {cuentas} cuentas en Remitentes antes de lanzar nada.',
+      alDia:
+        'El respaldo era de una versión anterior y se puso al día antes de restaurarlo. Entraron sus {filas} filas, sin perder ninguna.',
+      // Dos cifras cuando no coinciden, y no una. Una migración puede quitar
+      // filas con todo el derecho —el cupo de envíos del día de entonces, por
+      // ejemplo, que no tiene sentido restaurar— y la diferencia se dice en vez
+      // de dejar que la descubra quien cuente (§94).
+      alDiaConDiferencia:
+        'El respaldo era de una versión anterior y se puso al día antes de restaurarlo. El archivo traía {delArchivo} filas y, al actualizarlas, quedaron {alDia}: la diferencia son datos que la versión de hoy ya no guarda igual.',
     },
 
     // Los nombres de tabla en español, para que el aviso de arriba no diga
@@ -1935,8 +1964,33 @@ export const es = {
         // §95: qué pasó, cómo arreglarlo y qué está a salvo. Lo tercero es lo
         // que importa aquí: quien ve este error acaba de intentar reemplazar
         // toda su base, y lo primero que necesita saber es que no se tocó.
+        // Y lo que este texto YA NO dice, desde el 04/11/2026: «comprueba que
+        // el archivo sea de esta misma versión». Un respaldo de una versión
+        // anterior sí se puede restaurar — ARLES lo pone al día antes—, así que
+        // esa instrucción mandaba a descartar un archivo perfectamente bueno.
+        // Lo que queda aquí es el archivo que no se entiende: una tabla o una
+        // columna que esta versión no tiene, o una fila mal formada.
         que: 'Este respaldo no encaja con esta versión de ARLES, así que no se restauró nada.',
-        como: 'Comprueba que el archivo sea de esta misma versión. Si lo hiciste con una versión más nueva, actualiza ARLES antes de restaurarlo.',
+        como: 'El archivo puede estar dañado o haber sido modificado. Prueba con otra copia.',
+        salvo: 'Tus datos están intactos: no se borró ni se cambió una sola fila.',
+      },
+      respaldo_de_un_arles_posterior: {
+        // Aparte de `respaldo_no_encaja` porque la salida es otra y se puede
+        // seguir: no hay que buscar otra copia, hay que actualizar ARLES. Un
+        // respaldo de una versión ANTERIOR sí entra —ARLES lo pone al día—, así
+        // que éste es el único caso en el que un archivo bueno no se puede usar
+        // todavía.
+        que: 'Este respaldo lo hizo una versión de ARLES más nueva que la que tienes instalada.',
+        como: 'Actualiza ARLES a la última versión y vuelve a intentarlo. El archivo está bien: no hace falta buscar otra copia.',
+        salvo: 'Tus datos están intactos: no se borró ni se cambió una sola fila.',
+      },
+      no_se_pudo_poner_al_dia: {
+        // El respaldo es de una versión anterior y la puesta al día falló. No es
+        // un fallo de migrar ESTA base: la base no se ha tocado, y decir
+        // «aparta el archivo» como hace el mensaje del arranque mandaría a
+        // mover algo que aquí no estorba (DOC-14, 03/11/2026).
+        que: 'Este respaldo es de una versión anterior de ARLES y no se pudo poner al día.',
+        como: 'Prueba con un respaldo más reciente. Si es el único que tienes, guarda el archivo y avísanos: los datos siguen dentro de él.',
         salvo: 'Tus datos están intactos: no se borró ni se cambió una sola fila.',
       },
       eso_es_un_archivo_de_historial: {

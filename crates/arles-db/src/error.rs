@@ -326,6 +326,35 @@ pub enum DbError {
     #[error("esto es un archivo de historial, no un respaldo: no se puede restaurar")]
     EsoEsUnArchivoDeHistorial,
 
+    /// El respaldo lo escribió un ARLES **posterior** a éste: su esquema es más
+    /// nuevo que la última migración que este binario conoce.
+    ///
+    /// ── POR QUÉ NO ES UN `RespaldoNoEncaja` ──
+    ///
+    /// Porque la salida es la contraria. Un respaldo de un esquema **anterior**
+    /// se pone al día pasándolo por las migraciones que faltan
+    /// ([`crate::puesta_al_dia`]); uno del futuro no se puede, porque las
+    /// migraciones que lo trajeron hasta ahí no están aquí — y no se inventan.
+    /// Lo que hay que decirle a quien lo intenta es **«actualiza ARLES»**, que
+    /// es una instrucción que se puede seguir, y no «este archivo no sirve»,
+    /// que mandaría a buscar otra copia que no arreglaría nada.
+    ///
+    /// Es el mismo reparto que [`arles_core::CoreError::RespaldoDeVersionFutura`]
+    /// hace con la versión del **formato**. Van aparte porque son dos números
+    /// distintos: el formato cambia casi nunca y el esquema con cada migración.
+    #[error("este respaldo es del esquema V{version} y este ARLES llega hasta V{el_de_aqui}")]
+    RespaldoDeUnArlesPosterior { version: i32, el_de_aqui: i32 },
+
+    /// El respaldo es de un esquema anterior y **no se pudo poner al día**: una
+    /// de las migraciones que faltaban falló sobre sus datos.
+    ///
+    /// No es un `RespaldoNoEncaja` —el archivo está bien y ARLES lo entiende—
+    /// ni un [`DbError::Migracion`], que habla de **la base de este equipo** y
+    /// manda a apartar un archivo que aquí no hay que apartar: la base no se ha
+    /// tocado. Un diagnóstico prestado manda a hacer algo (DOC-14, 03/11/2026).
+    #[error("este respaldo no se pudo poner al día: {motivo}")]
+    NoSePudoPonerAlDia { motivo: String },
+
     /// El historial de la base cambió entre archivarlo y borrarlo, así que
     /// **no se borra nada** (segunda condición de D-8D).
     ///
@@ -372,6 +401,8 @@ impl DbError {
             Self::EsquemaNoSeDejaRespaldar { .. } => "error.db.esquema_no_se_deja_respaldar",
             Self::RespaldoNoEncaja { .. } => "error.db.respaldo_no_encaja",
             Self::EsoEsUnArchivoDeHistorial => "error.db.eso_es_un_archivo_de_historial",
+            Self::RespaldoDeUnArlesPosterior { .. } => "error.db.respaldo_de_un_arles_posterior",
+            Self::NoSePudoPonerAlDia { .. } => "error.db.no_se_pudo_poner_al_dia",
             Self::ElHistorialCambio { .. } => "error.db.el_historial_cambio",
             Self::Sqlite(_) => "error.db.sqlite",
         }

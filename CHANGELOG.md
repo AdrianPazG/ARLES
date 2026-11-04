@@ -14,11 +14,19 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ### Migraciones del esquema
 
-Dieciséis, y están todas aquí por una razón concreta: **cada migración deja sin
-poder restaurar los respaldos `.arles` tomados antes de ella.** ARLES rechaza un
-respaldo cuyo esquema no sea el de hoy, y lo dice con un error claro, pero quien
-guarde una copia de seguridad necesita poder leer en algún sitio cuándo dejó de
-servir. Éste es ese sitio.
+Dieciséis, y están todas aquí porque **un respaldo `.arles` tomado antes de una
+migración se restaura pasando sus datos por las que faltan**: esta tabla dice
+exactamente por dónde pasan.
+
+> **Esta entradilla decía lo contrario hasta el 04/11/2026**, y era verdad el
+> día que se escribió: *«cada migración deja sin poder restaurar los respaldos
+> tomados antes de ella»*. Lo arregló la puesta al día (ver más abajo). Se deja
+> dicho porque una afirmación que deja de ser cierta y se queda escrita es el §9
+> de `CLAUDE.md`, y aquí habría mandado a tirar copias de seguridad buenas.
+>
+> Lo que **sigue sin poder restaurarse** es un respaldo de una versión
+> **posterior**: sus migraciones no están en este binario. Ese error manda a
+> actualizar ARLES, que es una instrucción que se puede seguir.
 
 | | Qué cambia en la base |
 |---|---|
@@ -65,6 +73,67 @@ servir. Éste es ese sitio.
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
 
+### Un respaldo de una versión anterior se puede restaurar
+
+**04/11/2026.** Era la limitación más cara que la Fase 8 dejó declarada y la
+V11 la disparó por primera vez: ARLES rechazaba todo `.arles` cuyo esquema no
+fuera el de hoy, así que **cada migración mataba las copias de seguridad
+anteriores** — el archivo seguía en el disco, se podía revisar, y el día del
+incendio no entraba.
+
+Ahora ARLES lo **pone al día**: levanta una base desechable en la versión que el
+respaldo declara, le mete sus filas y le corre las migraciones que faltan. El
+SQL que transforma los datos es **el mismo que ya corrió** en la base de quien
+actualizó ARLES; no hay una segunda traducción que mantener, que es la parte que
+se habría quedado atrás en la primera migración posterior.
+
+Lo que llega al restaurador es idéntico en los dos casos —un origen de filas con
+su esquema y sus columnas—, así que el protocolo de D-8C no tiene una segunda
+copia: las bajas se unen, las cuentas vuelven a reconectar y la empresa se
+reapunta por el mismo camino de siempre.
+
+**Donde más importa es en la recuperación de un llavero perdido.** Ahí no hay
+otra salida —el cifrado no tiene puerta de atrás, y la pantalla lo dice con esas
+palabras—, así que un respaldo de antes de la última migración era, en esa
+pantalla, **ningún respaldo**.
+
+**Lo que cuesta, medido (30 000 contactos, 60 002 filas, tres corridas):** poner
+al día 1 134–1 255 ms y restaurar 1 117–1 671 ms, contra 1 410 ms de restaurar
+directo en la misma máquina. Un 70 % más en total, una vez, y sólo si el
+respaldo es viejo. Memoria 16 → 23 MB: el cursor por tandas mantiene la promesa
+de la 8.2b. Está en `PRESUPUESTO_RENDIMIENTO.md` §9.
+
+> **Tres cosas que esto NO hace, dichas en vez de darse por cubiertas:**
+>
+> 1. **Un respaldo de una versión posterior no se puede poner al día.** Las
+>    migraciones que lo trajeron hasta ahí no están aquí, y no se inventan. Es
+>    un error aparte —`respaldo_de_un_arles_posterior`— porque la salida es otra:
+>    actualizar ARLES, no buscar otra copia.
+> 2. **Un respaldo esencial puesto al día puede no dar lo mismo que la base
+>    completa migrada.** Una migración que rellene una columna leyendo una tabla
+>    que el esencial no lleva no tiene de dónde leer. Es inherente al alcance, no
+>    de este camino.
+> 3. **Hace falta espacio en disco** para una base del tamaño del respaldo. Un
+>    disco lleno a mitad falla con la base real intacta, que es el lado correcto.
+
+> **La prueba que da sentido al tramo arranca en la V2, y la medición de por qué
+> es ésa va antes que el código.** De la V11 a la V16 ninguna migración mueve
+> datos que viajen en un respaldo —son columnas nuevas e índices—, así que una
+> prueba V11 → V16 habría pasado en verde con un módulo que sólo copiara filas.
+> Desde la V2 pasan dos cosas de verdad: la **V3** traslada el correo del
+> contacto a su canal y la **V4** convierte cada campaña en una campaña con
+> etapa. Las dos tablas **no existían** cuando se tomó ese respaldo, así que no
+> venían en el archivo: salen de migrar sus datos.
+
+> **Y la comprobación nueva nació con el defecto que persigue.** Su primera
+> ruptura —quitar la llamada en `restaurar_respaldo`— salió **en verde**, porque
+> buscaba el nombre en el archivo entero y **la llamada de la prueba del mismo
+> archivo la satisfacía**. La pieza se habría quedado sin llamador en producción
+> con todo verde, que es exactamente el patrón del §9 que esa comprobación
+> existe para cazar. De ahí `solo_produccion`, que corta las pruebas además de
+> los comentarios: es la misma familia que el comentario que se caza a sí mismo
+> —medir donde la respuesta no cuenta— y van trece.
+
 ### La lista de contactos se puede filtrar, y midiéndolo salieron tres cosas peores
 
 **03/11/2026.** Cuatro criterios combinables en Contactos: nombre, apellido o
@@ -95,9 +164,11 @@ botón, y los dos desplegables se aplican solos.
 > escriba media, no encuentre nada y concluya que esa persona no está.
 
 > **Y «empieza por» sobre el nombre se descartó con su cifra**: sin índice
-> cuesta igual que `%x%`, y con uno habría que pagar una migración que deja sin
-> restaurar todo respaldo anterior más el tiempo de importación que la 8.6
-> midió en +78 % por seis índices.
+> cuesta igual que `%x%`, y con uno habría que pagar una migración más el tiempo
+> de importación que la 8.6 midió en +78 % por seis índices. (Esta nota decía
+> además que la migración «deja sin restaurar todo respaldo anterior». Dejó de
+> ser verdad al día siguiente — ver la puesta al día, abajo—, y lo que queda del
+> argumento es el coste de importación, que es el que pesaba.)
 
 ### Tres defectos que encontró medir, y ninguno era del filtro
 

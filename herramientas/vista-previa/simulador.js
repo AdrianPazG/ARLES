@@ -1527,10 +1527,24 @@
             nombreDelArchivo: 'arles-20260921-esencial.arles',
             creadoEn: '2026-09-21T09:30:00Z',
             alcance: 'esencial',
+            // ── Y DE UN ESQUEMA ANTERIOR, A PROPÓSITO (04/11/2026) ────────
+            //
+            // Por el mismo motivo que las pérdidas de arriba: lo que hay que
+            // poder revisar es la pantalla **con sus avisos puestos**. Un
+            // respaldo del esquema de hoy no enseñaría el aviso de la puesta
+            // al día, que es el que explica por qué restaurar va a tardar más
+            // y qué entra exactamente.
+            //
+            // El número de la base va escrito porque aquí no hay Rust que lo
+            // diga; si se queda atrás, lo único que pasa es que el decorado
+            // enseña un salto de versiones más corto.
             esquemaDelRespaldo: 'V11',
-            esquemaDeLaBase: 'V11',
+            esquemaDeLaBase: 'V16',
             llevaContrasena: true,
             sePuedeRestaurar: true,
+            hayQuePonerloAlDia: true,
+            migracionesQueFaltan: 5,
+            esDeUnArlesPosterior: false,
             tablas: [
               { tabla: 'company', ahora: 1, enElRespaldo: 1 },
               { tabla: 'contact', ahora: (e.contactos || []).length || 1342, enElRespaldo: 1289 },
@@ -1609,10 +1623,18 @@
             nombreDelArchivo: 'arles-20260921-completo.arles',
             creadoEn: '2026-09-21T09:30:00Z',
             alcance: 'completo',
+            // Y aquí TAMBIÉN de un esquema anterior, por la misma razón que
+            // arriba y con más motivo: ésta es la pantalla donde esa limitación
+            // dolía más —sin llavero no hay otra salida—, así que su aviso es
+            // justo el que hay que poder revisar. El camino sin aviso lo cubre
+            // la prueba de pantalla, que recorre los tres casos.
             esquemaDelRespaldo: 'V11',
-            esquemaDeLaBase: 'V11',
+            esquemaDeLaBase: 'V16',
             llevaContrasena: true,
             sePuedeRestaurar: true,
+            hayQuePonerloAlDia: true,
+            migracionesQueFaltan: 5,
+            esDeUnArlesPosterior: false,
             // Sin base legible no hay con qué comparar, y el núcleo tampoco lo
             // inventa: aquí van vacías por lo mismo.
             tablas: [],

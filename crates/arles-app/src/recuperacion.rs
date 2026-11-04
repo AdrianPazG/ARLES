@@ -40,6 +40,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use arles_db::Db;
+use arles_db::puesta_al_dia::{self, Veredicto};
 
 use crate::error::{AppError, ErrorIpc};
 use crate::llavero::Llavero;
@@ -139,7 +140,7 @@ pub fn revisar_respaldo_para_recuperar(
     let esquema_de_la_base = arles_db::ultima_version()
         .map(|v| format!("V{v}"))
         .unwrap_or_default();
-    // ── EL VEREDICTO MIRA DOS COSAS, Y ANTES MIRABA UNA ──────────────────
+    // ── EL VEREDICTO MIRA TRES COSAS, Y EMPEZÓ MIRANDO UNA ───────────────
     //
     // Hasta la auditoría de la Fase 8 (07/10/2026) esto era sólo la comparación
     // de esquemas, y el campo se llama `se_puede_restaurar`. Así que ante un
@@ -152,7 +153,22 @@ pub fn revisar_respaldo_para_recuperar(
     // Un archivo de historial no se puede restaurar **nunca** (D-8C y la 8.3
     // bis a): reemplazar con él vaciaría la base entera. El restaurador ya lo
     // rechaza; lo que faltaba era decirlo **antes** de que alguien confirme.
-    let se_puede = cabecera.esquema == esquema_de_la_base && cabecera.alcance.se_puede_restaurar();
+    //
+    // ── Y LA TERCERA, DEL 04/11/2026: UN ESQUEMA ANTERIOR TAMBIÉN VALE ───
+    //
+    // Ésta es la pantalla donde la limitación de la 8.3b dolía más. Quien pierde
+    // el llavero no tiene otra salida —el cifrado no tiene puerta de atrás, y
+    // esta pantalla lo dice con esas palabras—, así que un respaldo de antes de
+    // la última migración era, aquí, **ningún respaldo**: el archivo estaba en
+    // el disco, se podía revisar, y la única salida que el producto ofrece
+    // contestaba que no.
+    let veredicto = puesta_al_dia::que_se_puede_hacer(&cabecera.esquema);
+    let hay_que_ponerlo_al_dia = matches!(&veredicto, Veredicto::SePuedePonerAlDia { .. });
+    let se_puede = cabecera.alcance.se_puede_restaurar()
+        && matches!(
+            &veredicto,
+            Veredicto::YaEstaAlDia | Veredicto::SePuedePonerAlDia { .. }
+        );
 
     estado
         .respaldo_elegido
@@ -172,6 +188,14 @@ pub fn revisar_respaldo_para_recuperar(
         esquema_de_la_base,
         lleva_contrasena: cabecera.cifrado.lleva_contrasena(),
         se_puede_restaurar: se_puede,
+        hay_que_ponerlo_al_dia,
+        migraciones_que_faltan: match &veredicto {
+            Veredicto::SePuedePonerAlDia { migraciones, .. } => {
+                u32::try_from(*migraciones).unwrap_or(u32::MAX)
+            }
+            _ => 0,
+        },
+        es_de_un_arles_posterior: matches!(&veredicto, Veredicto::EsDeUnArlesPosterior { .. }),
         // Sin base no hay con qué comparar, y **no se inventa**: una tabla con
         // «ahora: 0» al lado daría a entender que se comprobó algo.
         tablas: Vec::new(),
@@ -259,7 +283,13 @@ pub fn recuperar_desde_respaldo(
     // primero aquí, a propósito, y sólo entonces se toca algo.
     let (cabecera, salta) = crate::restauracion::leer_la_cabecera(&ruta)?;
     let contrasena = contrasena.filter(|c| !c.is_empty());
-    comprobar_el_respaldo_antes_de_tocar_nada(&ruta, &cabecera, salta, contrasena.as_deref())?;
+    let mut al_dia = preparar_el_respaldo_antes_de_tocar_nada(
+        &ruta,
+        &cabecera,
+        salta,
+        contrasena.as_deref(),
+        estado.rutas.datos(),
+    )?;
 
     // ── 2 · Y AHORA SÍ: apartar, crear la clave y restaurar ─────────────
     let base = estado.rutas.base_de_datos();
@@ -268,21 +298,43 @@ pub fn recuperar_desde_respaldo(
     let clave = estado.llavero.crear()?;
     let db = Db::abrir(&base, &clave).map_err(AppError::Db)?;
 
-    // Se vuelve a abrir desde el principio: el que se usó para comprobar ya
-    // gastó el primer trozo.
-    let mut origen =
-        crate::restauracion::LeeElArchivo::nuevo(&ruta, &cabecera, salta, contrasena.as_deref())?;
-
-    let paso = db
-        .restaurar(
-            &mut origen,
-            &cabecera.esquema,
-            &cabecera.columnas,
-            cabecera.alcance,
-            "recuperación",
-            crate::respaldo::ahora_utc().as_str(),
-        )
-        .map_err(AppError::Db)?;
+    let paso = match al_dia.as_mut() {
+        // Puesto al día: las filas vienen de la base desechable, que ya se
+        // llenó y se migró arriba — **antes** de apartar nada. El archivo ya
+        // se leyó entero y su suma cuadró, así que aquí no queda nada que
+        // pueda fallar por culpa del respaldo.
+        Some(al_dia) => {
+            let esquema = al_dia.esquema().to_owned();
+            let columnas = al_dia.columnas().clone();
+            db.restaurar(
+                al_dia,
+                &esquema,
+                &columnas,
+                cabecera.alcance,
+                "recuperación",
+                crate::respaldo::ahora_utc().as_str(),
+            )
+        }
+        // Ya estaba al día: se vuelve a abrir el archivo desde el principio,
+        // porque el que se usó para comprobar ya gastó el primer trozo.
+        None => {
+            let mut origen = crate::restauracion::LeeElArchivo::nuevo(
+                &ruta,
+                &cabecera,
+                salta,
+                contrasena.as_deref(),
+            )?;
+            db.restaurar(
+                &mut origen,
+                &cabecera.esquema,
+                &cabecera.columnas,
+                cabecera.alcance,
+                "recuperación",
+                crate::respaldo::ahora_utc().as_str(),
+            )
+        }
+    }
+    .map_err(AppError::Db)?;
 
     estado
         .respaldo_elegido
@@ -316,7 +368,8 @@ pub struct Recuperado {
     pub nombre_de_la_apartada: String,
 }
 
-/// Comprueba **todo lo que se puede saber** antes de tocar la base y el llavero.
+/// Comprueba **y prepara** todo lo que se puede antes de tocar la base y el
+/// llavero.
 ///
 /// ─────────────────────────────────────────────────────────────────────────
 /// LA REGLA QUE ESTA FUNCIÓN EXISTE PARA CUMPLIR
@@ -334,8 +387,8 @@ pub struct Recuperado {
 /// 1. **El alcance.** Un archivo de historial no se restaura nunca (D-8C): con
 ///    él, reemplazar vaciaría la base entera. Se sabe de la cabecera.
 /// 2. **El esquema.** La base que se va a crear es nueva, así que su esquema es
-///    el último; un respaldo de otro esquema no entra, y eso también se sabe de
-///    la cabecera.
+///    el último. Uno **anterior** se pone al día aquí mismo; uno **posterior**
+///    no se puede, y se dice.
 /// 3. **Que se abra y se descifre.** Pide la primera fila, porque el cifrado
 ///    autenticado **no se puede comprobar sin descifrar** (8.2a): el sobre no
 ///    sabe si la contraseña es buena hasta que una etiqueta cuadra.
@@ -344,38 +397,75 @@ pub struct Recuperado {
 /// abre, no que traiga datos. Quien exportó una base recién creada tiene
 /// derecho a restaurarla.
 ///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ AQUÍ SE **PREPARA** Y NO SÓLO SE COMPRUEBA
+///
+/// Poner un respaldo al día lee el archivo entero, lo descifra, comprueba su
+/// suma y corre las migraciones sobre sus datos. Todo eso puede fallar, y todo
+/// eso se puede hacer **sin tocar nada**: la base desechable vive en su propia
+/// carpeta y se borra sola.
+///
+/// Dejarlo para después de apartar la base y crear la clave sería repetir
+/// exactamente el defecto que la auditoría F encontró el 07/10 — convertir en
+/// definitivo un problema reversible—, con un disparador más: una migración que
+/// no se puede aplicar a esos datos. Así que se prepara aquí y lo que vuelve es
+/// el respaldo ya listo, o `None` si no hacía falta.
+///
 /// # Errores
 ///
-/// Lo que falle en cualquiera de los tres pasos. **Y entonces no se sigue**,
-/// que es todo el punto.
-fn comprobar_el_respaldo_antes_de_tocar_nada(
+/// Lo que falle en cualquiera de los pasos. **Y entonces no se sigue**, que es
+/// todo el punto.
+fn preparar_el_respaldo_antes_de_tocar_nada(
     ruta: &Path,
     cabecera: &arles_core::formato_de_respaldo::Cabecera,
     salta: usize,
     contrasena: Option<&str>,
-) -> Result<(), ErrorIpc> {
+    datos: &Path,
+) -> Result<Option<puesta_al_dia::RespaldoAlDia>, ErrorIpc> {
     use arles_db::restauracion::Origen as _;
 
     if !cabecera.alcance.se_puede_restaurar() {
         return Err(AppError::Db(arles_db::DbError::EsoEsUnArchivoDeHistorial).into());
     }
 
-    let ultimo = arles_db::ultima_version()
-        .map(|v| format!("V{v}"))
-        .unwrap_or_default();
-    if cabecera.esquema != ultimo {
-        let del_respaldo = &cabecera.esquema;
-        return Err(AppError::Db(arles_db::DbError::RespaldoNoEncaja {
-            motivo: format!(
-                "el respaldo es del esquema {del_respaldo} y esta base va por el {ultimo}"
-            ),
+    match puesta_al_dia::que_se_puede_hacer(&cabecera.esquema) {
+        Veredicto::YaEstaAlDia => {
+            let mut origen =
+                crate::restauracion::LeeElArchivo::nuevo(ruta, cabecera, salta, contrasena)?;
+            origen.siguiente().map_err(AppError::Db)?;
+            Ok(None)
+        }
+        Veredicto::SePuedePonerAlDia { .. } => {
+            let mut origen =
+                crate::restauracion::LeeElArchivo::nuevo(ruta, cabecera, salta, contrasena)?;
+            let al_dia = puesta_al_dia::RespaldoAlDia::nuevo(
+                &mut origen,
+                &cabecera.esquema,
+                &cabecera.columnas,
+                &cabecera.alcance,
+                datos,
+            )
+            .map_err(AppError::Db)?;
+            Ok(Some(al_dia))
+        }
+        Veredicto::EsDeUnArlesPosterior {
+            version,
+            el_de_aqui,
+        } => Err(AppError::Db(arles_db::DbError::RespaldoDeUnArlesPosterior {
+            version,
+            el_de_aqui,
         })
-        .into());
+        .into()),
+        Veredicto::NoSeEntiende => {
+            let del_respaldo = &cabecera.esquema;
+            Err(AppError::Db(arles_db::DbError::RespaldoNoEncaja {
+                motivo: format!(
+                    "la cabecera dice que el esquema es «{del_respaldo}», que no es una versión que ARLES sepa leer"
+                ),
+            })
+            .into())
+        }
     }
-
-    let mut origen = crate::restauracion::LeeElArchivo::nuevo(ruta, cabecera, salta, contrasena)?;
-    origen.siguiente().map_err(AppError::Db)?;
-    Ok(())
 }
 
 /// Aparta la base que no se puede leer, con fecha en el nombre.
@@ -700,11 +790,12 @@ mod tests {
         );
 
         // La comprobación previa pasa con la buena…
-        comprobar_el_respaldo_antes_de_tocar_nada(
+        preparar_el_respaldo_antes_de_tocar_nada(
             &respaldo,
             &cabecera,
             salta,
             Some(CLAVE_DEL_RESPALDO),
+            dir.path(),
         )
         .expect("con la contraseña buena el respaldo se abre");
 
@@ -763,7 +854,7 @@ mod tests {
     /// Esto comprueba la garantía nueva: con la contraseña mala, la
     /// comprobación previa falla y **nada se ha movido**.
     ///
-    /// Verificada quitando la llamada a `comprobar_el_respaldo_antes_de_tocar_nada` del
+    /// Verificada quitando la llamada a `preparar_el_respaldo_antes_de_tocar_nada` del
     /// comando: la contraseña mala pasa el filtro y revienta dentro de
     /// `restaurar`, con la base ya apartada.
     #[test]
@@ -796,14 +887,21 @@ mod tests {
 
         // La comprobación previa rechaza la contraseña mala.
         assert!(
-            comprobar_el_respaldo_antes_de_tocar_nada(&respaldo, &cabecera, salta, Some("la mala"))
-                .is_err(),
+            preparar_el_respaldo_antes_de_tocar_nada(
+                &respaldo,
+                &cabecera,
+                salta,
+                Some("la mala"),
+                dir.path(),
+            )
+            .is_err(),
             "una contraseña equivocada tiene que rechazarse ANTES de tocar nada"
         );
 
         // Y sin contraseña también, que es el otro descuido posible.
         assert!(
-            comprobar_el_respaldo_antes_de_tocar_nada(&respaldo, &cabecera, salta, None).is_err(),
+            preparar_el_respaldo_antes_de_tocar_nada(&respaldo, &cabecera, salta, None, dir.path())
+                .is_err(),
             "un respaldo cifrado sin contraseña tiene que rechazarse"
         );
 
@@ -943,11 +1041,13 @@ mod tests {
                 .map(|v| format!("V{v}"))
                 .unwrap_or_default(),
         );
-        let error = comprobar_el_respaldo_antes_de_tocar_nada(
+        let dir = tempfile::tempdir().expect("temporal");
+        let error = preparar_el_respaldo_antes_de_tocar_nada(
             Path::new("/no/existe/archivo-de-historial.arles"),
             &cabecera,
             0,
             None,
+            dir.path(),
         )
         .expect_err("un archivo de historial tiene que rechazarse");
 
@@ -957,32 +1057,125 @@ mod tests {
         );
     }
 
-    /// **Un respaldo de otro esquema tampoco llega a tocar nada.**
+    /// **Llavero perdido y el único respaldo es de un esquema anterior: ahora
+    /// hay salida.**
     ///
-    /// La base que la recuperación va a crear es **nueva**, así que su esquema
-    /// es siempre el último; un respaldo anterior no entra (8.3b) y hoy no hay
-    /// forma de migrarlo. Saberlo cuesta una comparación de cadenas, y no
-    /// saberlo cuesta una clave nueva en el llavero.
+    /// Es el peor caso que esta pantalla tiene que atender y el que la
+    /// limitación de la 8.3b dejaba sin cubrir. Quien pierde la entrada del
+    /// llavero no tiene otro camino —el cifrado no tiene puerta de atrás, y la
+    /// pantalla lo dice con esas palabras—, así que un `.arles` de antes de la
+    /// última migración era, aquí, **ningún respaldo**.
     ///
-    /// El `"V1"` es deliberado: cualquier migración futura lo mantiene distinto
-    /// del último, que es lo que la prueba necesita. Verificada quitando la
-    /// comparación de esquemas.
+    /// Y comprueba además el orden, que en esta pantalla es la mitad de la
+    /// garantía: la puesta al día ocurre **antes** de apartar la base y de
+    /// crear la clave, así que si fallara, no se habría tocado nada. Aquí sale
+    /// bien, y lo que se mide es que los datos llegaron y la base vieja sigue
+    /// en su sitio con su nombre nuevo.
     #[test]
-    fn un_respaldo_de_otro_esquema_no_llega_a_tocar_nada() {
+    fn se_recupera_de_un_respaldo_de_un_esquema_anterior() {
+        use arles_db::{ClaveMaestra, Db, QueSeLleva};
+
+        let dir = tempfile::tempdir().expect("temporal");
+        let base = dir.path().join("arles.db");
+        let respaldo = dir.path().join("vieja.arles");
+
+        // Una base V11 con datos, y su respaldo: lo que habría dejado un ARLES
+        // de antes de la migración de los índices.
+        {
+            let vieja_base = dir.path().join("la-de-entonces.db");
+            let clave = ClaveMaestra::generar().expect("genera");
+            let db = Db::abrir_en_la_version(&vieja_base, &clave, 11).expect("abre en la V11");
+            sembrar(&db);
+            let mut destino = crate::respaldo::ElArchivo::nuevo(
+                &respaldo,
+                "completo",
+                None,
+                Box::new(|_| {}),
+                "2026-10-01T12:00:00Z".to_owned(),
+            )
+            .expect("abre el archivo");
+            db.exportar(QueSeLleva::Todo, &mut destino)
+                .expect("exporta");
+            destino.cerrar().expect("cierra");
+        }
+
+        // Y una base ilegible en su sitio: es la situación de la pantalla.
+        std::fs::write(&base, b"esto no se puede descifrar").expect("escribe");
+
+        let (cabecera, salta) = crate::restauracion::leer_la_cabecera(&respaldo).expect("cabecera");
+        assert_eq!(cabecera.esquema, "V11", "el respaldo tenía que ser V11");
+
+        let mut al_dia =
+            preparar_el_respaldo_antes_de_tocar_nada(&respaldo, &cabecera, salta, None, dir.path())
+                .expect("se prepara sin tocar nada")
+                .expect("un respaldo V11 tiene que venir puesto al día");
+
+        // Antes de tocar nada: la base ilegible sigue donde estaba.
+        assert!(base.exists(), "la base se movió antes de hora");
+
+        let apartada = apartar_la_base_ilegible(&base, "20261104").expect("aparta");
+        let clave_nueva = ClaveMaestra::generar().expect("genera");
+        let db = Db::abrir(&base, &clave_nueva).expect("abre la base nueva");
+
+        let esquema = al_dia.esquema().to_owned();
+        let columnas = al_dia.columnas().clone();
+        db.restaurar(
+            &mut al_dia,
+            &esquema,
+            &columnas,
+            cabecera.alcance,
+            "recuperación",
+            "2026-11-04T13:00:00Z",
+        )
+        .expect("recupera de un respaldo de otro esquema");
+
+        let nombre: String = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row("SELECT first_name FROM contact WHERE id='C1'", [], |f| {
+                    f.get(0)
+                })
+            })
+            .expect("lee");
+        assert_eq!(nombre, "Ana");
+        assert!(apartada.exists(), "la base ilegible se perdió");
+    }
+
+    /// **Un respaldo de un ARLES posterior no llega a tocar nada.**
+    ///
+    /// Antes esta prueba decía «de otro esquema» y usaba `"V1"`, porque
+    /// **ningún** esquema distinto del último entraba (8.3b). Desde el
+    /// 04/11/2026 uno anterior se pone al día, así que el caso sin salida es
+    /// sólo el contrario: un archivo escrito por una versión más nueva, cuyas
+    /// migraciones no están en este binario.
+    ///
+    /// Y la diferencia importa en esta pantalla más que en ninguna: saberlo
+    /// cuesta una comparación de números, y no saberlo cuesta una clave nueva en
+    /// el llavero (F2 de la Fase 1).
+    ///
+    /// La ruta no existe a propósito: si la puerta del veredicto no estuviera
+    /// **antes** de abrir el archivo, el error sería de E/S y la prueba cae.
+    #[test]
+    fn un_respaldo_de_un_arles_posterior_no_llega_a_tocar_nada() {
         use arles_core::formato_de_respaldo::Alcance;
 
-        let cabecera = cabecera_de(Alcance::Completo, "V1");
-        let error = comprobar_el_respaldo_antes_de_tocar_nada(
-            Path::new("/no/existe/respaldo-viejo.arles"),
+        let del_futuro = format!(
+            "V{}",
+            arles_db::ultima_version().expect("hay migraciones") + 1
+        );
+        let cabecera = cabecera_de(Alcance::Completo, &del_futuro);
+        let dir = tempfile::tempdir().expect("temporal");
+        let error = preparar_el_respaldo_antes_de_tocar_nada(
+            Path::new("/no/existe/respaldo-del-futuro.arles"),
             &cabecera,
             0,
             None,
+            dir.path(),
         )
-        .expect_err("un respaldo de otro esquema tiene que rechazarse");
+        .expect_err("un respaldo de un ARLES posterior tiene que rechazarse");
 
-        assert!(
-            error.clave == "error.db.respaldo_no_encaja",
-            "se rechazó, pero por otro motivo — la comparación de esquemas no está antes de abrir: {error:?}"
+        assert_eq!(
+            error.clave, "error.db.respaldo_de_un_arles_posterior",
+            "se rechazó, pero por otro motivo — la puerta del veredicto no está antes de abrir: {error:?}"
         );
     }
 }

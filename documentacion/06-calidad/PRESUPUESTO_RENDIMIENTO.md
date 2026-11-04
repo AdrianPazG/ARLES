@@ -629,3 +629,62 @@ cinco corridas. Quien lo retome no empieza por donde empecé yo.
 > limpias, planas y creíbles. Lo único que las distinguió de una medición buena
 > fue **repetir el experimento cambiando algo que no debería importar** — y eso
 > es lo que hay que hacer antes de publicar una proporción, no después.
+
+---
+
+## 9. Restaurar un respaldo de un esquema anterior · medido el 04/11/2026
+
+Hasta hoy, cada migración dejaba sin poder restaurar todos los `.arles`
+anteriores: la limitación que la 8.3b dejó declarada y que la V11 disparó por
+primera vez. Ahora ARLES **pone el respaldo al día** antes de restaurarlo,
+pasando sus datos por las mismas migraciones que recorrió la base de quien
+actualizó.
+
+Eso recorre las filas tres veces en vez de una —del archivo a una base
+desechable, las migraciones sobre ella, y de ahí a la base real—, así que la
+cifra no se puede deducir de la del §0: se mide.
+
+**30 000 contactos (60 002 filas), respaldo del esquema V11, tres corridas de
+cada camino. `cargo test --release -p arles-app --lib presupuesto -- --ignored`:**
+
+| Qué | Corrida 1 | 2 | 3 |
+|---|---|---|---|
+| Poner al día (las cinco de la V11 a la V16) | 1 176 ms | 1 134 ms | 1 255 ms |
+| Restaurar desde la base desechable | 1 671 ms | 1 206 ms | 1 117 ms |
+| **Restaurar directo**, un respaldo del esquema de hoy | 1 410 ms | — | — |
+
+**Memoria residente: 16 → 19 MB tras poner al día → 23 MB tras restaurar**, las
+tres corridas igual. El cursor por tandas de 500 filas mantiene la promesa de
+memoria acotada de la 8.2b: la base desechable no se lee a un `Vec`.
+
+### Qué dicen estas cifras
+
+**El camino largo cuesta unos 2.4 s donde el corto cuesta 1.4: un 70 % más, una
+vez, y sólo si el respaldo es de una versión anterior.** Es lo que respalda la
+frase que la pantalla enseña antes de que nadie pulse —«tarda un poco más»—, y
+sin la cifra esa frase sería un adjetivo (§94).
+
+**Restaurar desde la base desechable cuesta lo mismo que restaurar desde el
+archivo** (1 117–1 671 contra 1 410 ms, con los rangos solapados). Es la cifra
+que había que comprobar y no dar por buena: el cursor por `rowid` podría haber
+sido más caro que leer un archivo secuencial, y no lo es. Lo que cuesta de más
+es el tramo de poner al día, que es trabajo nuevo y no una pérdida.
+
+**Extrapolado al techo declarado** —500 000 contactos, unas 16 veces estas
+filas— serían del orden de 40 s de puesta al día. No hay presupuesto declarado
+para esta operación porque no existía cuando se escribió el §0; se propone
+**120 s**, por lo mismo que el respaldo: es una operación que se hace una vez,
+a mano, con una pantalla delante que avisa.
+
+### Lo que no se midió, dicho en vez de darse por medido
+
+- **Un salto de muchas más migraciones.** Se midió V11 → V16, que son cinco. Un
+  respaldo de la V1 recorrería dieciséis, y dos de ellas —la V3 y la V4—
+  **transforman datos** en vez de añadir columnas. Esa prueba existe
+  (`una_migracion_que_mueve_datos_los_mueve_tambien_en_el_respaldo`, con un
+  respaldo V2) pero con un puñado de filas: lo que vigila es que el traslado
+  ocurra, no cuánto tarda.
+- **El disco.** La operación necesita espacio para una base del tamaño del
+  respaldo, a la vez que el respaldo y la base real. Con 30 000 contactos son
+  unos 8 MB de archivo; no se midió el pico de disco, y un disco lleno a mitad
+  falla con la base real intacta, que es el lado correcto.

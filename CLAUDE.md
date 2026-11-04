@@ -727,9 +727,8 @@ los seis tramos.
 > `--arles-text-muted` y `--arles-border`.
 
 > **Lo que todavía NO hace:** archivar el historial a un disco externo (D-8D,
-> la 8.3 bis), y **restaurar un respaldo de un esquema anterior** — hoy se
-> rechaza con un error claro, y arreglarlo exigiría correr las migraciones sobre
-> el propio respaldo.
+> la 8.3 bis). **Lo de restaurar un respaldo de un esquema anterior se cerró el
+> 04/11/2026** — ver más abajo.
 
 **Cerrada la 8.4 · el llavero perdido** (`arles-app/src/recuperacion.rs` y
 `/recuperar`). Cinco pruebas, y `la_clave_perdida_tiene_salida` escrita **antes**
@@ -2067,6 +2066,92 @@ requisitos (R-26, H-16, H-17).
 > `--fase 2`, que lee el router en las dos direcciones, comprueba que cada
 > archivo nombrado exista y vigila la cifra en letra. **Cazó dos nombres de
 > tienda mal en la tabla que yo acababa de escribir.**
+
+**Y el 04/11/2026, restaurar un respaldo de un esquema anterior: era la
+limitación más cara que la Fase 8 dejó declarada, y mataba copias de seguridad
+en silencio.** Está contado en `REGISTRO-DE-REQUISITOS.md`, sección «V11→V12».
+
+> **Hasta hoy, cada migración dejaba sin poder restaurar todos los `.arles`
+> anteriores.** El archivo seguía en el disco, la pantalla lo revisaba y contaba
+> lo que traía, y el día del incendio no entraba. Es el peor sitio donde puede
+> vivir una limitación: una copia que existe, parece correcta y no abre.
+>
+> Ahora `arles-db/src/puesta_al_dia.rs` levanta una **base desechable** en la
+> versión que el respaldo declara, le mete sus filas y le corre las migraciones
+> que faltan. El SQL que transforma los datos es **el mismo que ya corrió** en
+> la base de quien actualizó ARLES: no hay una segunda traducción que mantener,
+> que es la parte que se habría quedado atrás en la primera migración posterior.
+>
+> Y lo que llega al restaurador es **idéntico** en los dos casos —un `Origen` de
+> filas con su esquema y sus columnas—, así que el protocolo de D-8C no tiene
+> una segunda copia: las bajas se unen, las cuentas vuelven a reconectar y la
+> empresa se reapunta por el camino de siempre. Ahí habría estado el defecto.
+
+> **La base desechable va cifrada, y no es ceremonia.** Lleva los contactos y
+> las bajas de una empresa; escribirla en claro sería el único sitio de ARLES
+> donde esos datos tocan el disco sin cifrar, y §29 no admite «menos en este
+> caso». Su clave es nueva, de usar y tirar, y no va al llavero: si algo se
+> interrumpe, lo que queda es un archivo que nadie puede abrir y que el borrado
+> de la carpeta se lleva.
+
+> **Donde más importaba es la recuperación de un llavero perdido.** Ahí no hay
+> otra salida —el cifrado no tiene puerta de atrás, y la pantalla lo dice con
+> esas palabras—, así que un respaldo de antes de la última migración era, en
+> esa pantalla, **ningún respaldo**.
+>
+> Y la puesta al día ocurre **antes** de apartar la base ilegible y de crear la
+> clave: es la regla que la auditoría F estableció el 07/10 —*nada irreversible
+> ocurre hasta que todo lo comprobable está comprobado*—, y hacerla después
+> habría añadido un disparador nuevo al F2: una migración que no se puede
+> aplicar a esos datos.
+
+> **La suma del archivo se comprueba antes, y eso refuerza la garantía de la
+> 8.3c.** Restaurar sin poner al día la comprueba **dentro** de la transacción,
+> al llegar a la línea de cierre. Poniendo al día, el archivo se lee entero
+> antes de tocar la base real, así que un archivo cortado o manipulado falla con
+> la base intacta y sin haber tomado su cerrojo.
+
+> **Lo que cuesta, medido con tres corridas** (30 000 contactos, 60 002 filas):
+> poner al día **1 134–1 255 ms** y restaurar **1 117–1 671**, contra **1 410
+> ms** de restaurar directo en la misma máquina. Un 70 % más en total, una vez,
+> y sólo si el respaldo es viejo. Memoria 16 → 23 MB: el cursor por tandas de
+> 500 filas mantiene la promesa de la 8.2b. Está en
+> `PRESUPUESTO_RENDIMIENTO.md` §9.
+
+> **La prueba que da sentido al tramo se eligió midiendo.** De la V11 a la V16
+> ninguna migración mueve datos que viajen en un respaldo —son columnas nuevas
+> e índices—, así que una prueba V11 → V16 habría pasado en verde con un módulo
+> que **sólo copiara filas**. La de verdad arranca en la **V2**: la V3 traslada
+> el correo del contacto a su canal y la V4 convierte cada campaña en una con
+> etapa, y las dos tablas **no existían** cuando se tomó ese respaldo.
+
+> **Y la comprobación nueva nació con el defecto que persigue, por decimotercera
+> vez.** Su primera ruptura —quitar la llamada de `restaurar_respaldo`— salió
+> **en verde**, porque buscaba el nombre en el archivo entero y **la llamada de
+> la prueba del mismo archivo la satisfacía**. La pieza se habría quedado sin
+> llamador en producción con todo verde: el patrón del §9 dentro de la
+> comprobación escrita para cazarlo.
+>
+> Es la misma familia que el comentario que se caza a sí mismo —**medir en un
+> sitio donde la respuesta no cuenta**— y la conclusión se amplía otra vez: se
+> quitan los comentarios **y las pruebas** antes de preguntar quién llama a
+> algo. Lo hace `solo_produccion` en el validador.
+
+> **Dos defectos míos más, los dos cazados antes de entrar.** `version_de("V-3")`
+> devolvía `-3` porque `parse::<i32>` acepta negativos: la base desechable habría
+> nacido vacía y el fallo habría llegado dos pasos después diciendo que *el
+> respaldo trae una tabla que esta base no tiene* — el diagnóstico equivocado de
+> DOC-14 otra vez. Y un `assert` que **no podía fallar**: comprobaba que la
+> columna de la V12 existiera en la base de **destino**, que la tiene siempre.
+> Lo que distingue una puesta al día de un paseo es comparar las columnas que el
+> respaldo declaraba con las que entrega.
+
+> **Lo que sigue sin poderse, dicho en vez de darse por cubierto:** un respaldo
+> de una versión **posterior** (sus migraciones no están aquí, y el error manda
+> a actualizar ARLES, no a buscar otra copia); que un **esencial** puesto al día
+> dé exactamente lo mismo que la base completa migrada —una migración que lea
+> una tabla que el esencial no lleva rellenará menos—; y hace falta **espacio en
+> disco** para una base del tamaño del respaldo.
 
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
