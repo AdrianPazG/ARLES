@@ -73,6 +73,52 @@ exactamente por dónde pasan.
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
 
+### El alta de WhatsApp encuentra la cuenta por dos caminos, no por uno
+
+**05/11/2026.** El primer contacto del producto con la API de Meta de verdad, y
+falló. Dirección recorrió la guía entera —cuenta de empresa, aplicación de tipo
+Negocios, usuario del sistema con la aplicación y la cuenta de WhatsApp en
+**acceso total**— y el alta seguía diciendo **«Meta no acepta ese token»**.
+
+**El token era bueno.** ARLES preguntaba a `debug_token` y buscaba los
+`target_ids` del permiso de gestión; Meta sólo los pone cuando el permiso está
+concedido **sobre un activo concreto**, y hay tokens válidos a los que no se los
+pone. Con una sola vía, la lista venía vacía y el producto acusaba al token. Es
+H-21.
+
+Ahora, cuando esa lista viene vacía, ARLES pregunta por el otro lado: qué
+negocios administra el token y qué cuentas de WhatsApp cuelgan de cada uno —
+las propias y **las que otro negocio le compartió**, porque quien gestiona el
+WhatsApp de un cliente las tiene en la segunda lista y mirar sólo la primera le
+diría que no tiene ninguna.
+
+> **Las dos vías y no sólo la segunda.** La primera es una llamada y la segunda
+> son tres como mínimo. Quien tenga los `target_ids` no paga ese viaje.
+
+> **Y el error se parte en dos, que es la mitad del arreglo.** Un token que Meta
+> rechaza y un token que Meta acepta y del que no cuelga ninguna cuenta son
+> cosas distintas y mandan a sitios opuestos: el primero se cambia, el segundo
+> **no se arregla cambiándolo**. `NingunaCuenta` manda ahora a mirar los activos
+> del usuario del sistema, y su texto empieza diciendo lo contrario del
+> anterior: *«Meta acepta tu token»*.
+>
+> Es DOC-14 otra vez —un diagnóstico equivocado no hace dudar, manda a hacer
+> algo— y costó una tarde entera de Dirección generando tokens que no eran el
+> problema.
+
+> **Tres rupturas, las tres en rojo**, y la primera es exactamente el estado de
+> ayer: quitar la segunda vía. Las otras dos, mirar sólo las cuentas propias y
+> devolver el error viejo. El servidor de mentira tiene un guion nuevo —
+> `SoloPorLosNegocios`— que reproduce el caso de Dirección: el mismo
+> `debug_token` mudo, y la cuenta apareciendo por el otro camino.
+
+> **Lo que esto no cierra, dicho en vez de darse por cubierto:** la segunda vía
+> usa `me/businesses`, que puede pedir el permiso `business_management`. Si el
+> token no lo lleva, esa vía tampoco encuentra nada — y entonces el error que se
+> ve es el nuevo, que manda al sitio correcto en vez de a generar otro token.
+> **No se ha podido probar contra Meta de verdad**: todo está medido contra el
+> servidor de mentira.
+
 ### El alta de WhatsApp dice de dónde sale el token
 
 **04/11/2026.** Pedido por Dirección. El formulario pedía el token, explicaba

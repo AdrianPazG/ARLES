@@ -3851,6 +3851,24 @@ export const es = {
         'No se pudo hablar con Meta. Puede ser tu conexión o Meta misma. ' +
         'Vuelve a intentarlo en unos minutos: tu token está bien, no lo ' +
         'cambies. No se ha guardado nada.',
+
+      // ── EL CASO QUE ANTES SE CONFUNDÍA CON UN TOKEN MALO (05/11/2026) ──
+      //
+      // Meta acepta el token y no hay ninguna cuenta de WhatsApp detrás. El
+      // texto NO manda a generar otro token, que es lo único que seguro no lo
+      // arregla: manda a mirar los activos del usuario del sistema.
+      //
+      // Dirección llegó aquí con la configuración correcta y leyendo «Meta no
+      // acepta ese token», así que la primera frase dice lo contrario de
+      // aquélla: el token se acepta.
+      ningunaCuenta:
+        'Meta acepta tu token, pero no encuentra ninguna cuenta de WhatsApp ' +
+        'detrás de él. No generes otro token: eso no lo arregla. En ' +
+        'business.facebook.com, en Configuración del negocio › Usuarios › ' +
+        'Usuarios del sistema, elige el tuyo y comprueba que en «Activos ' +
+        'asignados» aparezca tu cuenta de WhatsApp con acceso total, y ' +
+        'también tu aplicación. Si ya está así, mándanos una captura de esa ' +
+        'pantalla: es un caso que queremos ver. No se ha guardado nada.',
       ningunNumero:
         'El token es correcto, pero esta cuenta no tiene ningún número de ' +
         'WhatsApp dado de alta. Añádelo en el panel de Meta y vuelve a ' +

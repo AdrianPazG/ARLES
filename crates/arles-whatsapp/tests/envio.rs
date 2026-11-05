@@ -313,33 +313,68 @@ fn un_token_rechazado_se_distingue_de_una_red_caida() {
     assert_eq!(r, Err(arles_whatsapp::NoSePudoPreguntar::ElTokenNoVale));
 }
 
-/// **Un token que sirve para mandar y no para preguntar manda a cambiar el
-/// token, no al panel de Meta.**
+/// **Un token que Meta acepta y del que no cuelga ninguna cuenta NO es un
+/// token inválido**, y decirlo así manda a generar otro, que es lo único que
+/// seguro no lo arregla.
 ///
-/// Es el fallo más probable del alta —la guía lo advierte en el paso 4— y el
-/// que ningún error de Meta delata: `debug_token` contesta **200**, con el
-/// permiso de mensajería y sin el de gestión, y la lista de WABA viene vacía.
+/// `debug_token` contesta **200**, con el permiso de mensajería y sin el de
+/// gestión, y la lista de WABA viene vacía por las dos vías.
 ///
-/// Los dos desenlaces posibles mandan a sitios opuestos: «genera otro token
-/// con los dos permisos» o «ve al panel a dar de alta un número». Confundirlos
-/// es media tarde buscando un número que sí existe.
+/// ── ESTE DESENLACE CAMBIÓ EL 05/11/2026, Y ÉSA ES LA ENTREGA ──────────────
+///
+/// Antes devolvía `ElTokenNoVale`, y su texto mandaba a generar otro token.
+/// Dirección recorrió la guía entera —cuenta de empresa, aplicación, usuario
+/// del sistema, y la cuenta de WhatsApp asignada con **acceso total**— y
+/// siguió leyendo «Meta no acepta ese token» con todo bien puesto. El
+/// diagnóstico era el equivocado, que es el defecto que DOC-14 dejó escrito:
+/// uno impreciso hace dudar, uno equivocado manda a hacer algo.
 ///
 /// **Esta prueba existe porque su ruptura salió en verde** (§2, 27/10/2026):
-/// cambiar este desenlace a `NingunNumero` no hacía fallar nada, así que la
-/// distinción entre los dos motivos no estaba verificada por ninguna de las
-/// once pruebas del módulo. Verificada ahora rompiéndola **en los dos
-/// sentidos**, con `una_cuenta_sin_numeros_no_acusa_al_token`: cada una caza
-/// la suya y ninguna caza las dos.
+/// cambiar este desenlace a `NingunNumero` no hacía fallar nada. Verificada
+/// rompiéndola **en los dos sentidos**, con
+/// `una_cuenta_sin_numeros_no_acusa_al_token`: cada una caza la suya y
+/// ninguna caza las dos.
 #[test]
-fn un_token_sin_el_permiso_de_gestion_no_parece_una_cuenta_sin_numeros() {
+fn un_token_sin_cuentas_detras_no_acusa_al_token() {
     let servidor = ServidorDeMentira::arrancar(Guion::TokenSinGestion).expect("arranca");
 
     let r = arles_whatsapp::numeros_del_token(&servidor.base(), TOKEN);
     assert_eq!(
         r,
-        Err(arles_whatsapp::NoSePudoPreguntar::ElTokenNoVale),
-        "sin el permiso de gestión no hay dónde mirar: el token es lo que falta"
+        Err(arles_whatsapp::NoSePudoPreguntar::NingunaCuenta),
+        "Meta contestó bien: lo que falta es la cuenta, no el token"
     );
+}
+
+/// **La segunda vía: la cuenta aparece aunque `debug_token` no la liste.**
+///
+/// Es el caso exacto que Dirección encontró el 05/11/2026, y la razón de esta
+/// entrega. Su configuración era correcta —usuario del sistema «Arles» con la
+/// aplicación y «Test WhatsApp Account» en acceso total— y `debug_token`
+/// seguía sin devolver los `target_ids` del permiso de gestión.
+///
+/// Meta sólo los pone cuando el permiso está concedido **sobre un activo
+/// concreto**, y hay tokens válidos a los que no se los pone. Con una sola
+/// vía, ARLES le decía que su token no valía — y valía.
+///
+/// Aquí el `debug_token` es **el mismo que calla** en la prueba de arriba. Lo
+/// único que cambia es que los negocios sí contestan, y eso es lo que tiene
+/// que bastar.
+///
+/// La cuenta cuelga de `client_` y no de `owned_` a propósito: es el caso de
+/// quien gestiona el WhatsApp de otro, y mirar sólo `owned_` le diría que no
+/// tiene ninguna.
+#[test]
+fn la_cuenta_aparece_por_sus_negocios_cuando_el_token_no_la_lista() {
+    let servidor = ServidorDeMentira::arrancar(Guion::SoloPorLosNegocios).expect("arranca");
+
+    let r = arles_whatsapp::numeros_del_token(&servidor.base(), TOKEN).expect("se encuentra");
+
+    assert_eq!(r.len(), 1, "la cuenta estaba, por el otro camino");
+    let n = r.first().expect("acaba de comprobarse que hay uno");
+    assert_eq!(n.waba_id, "waba-1");
+    assert_eq!(n.phone_number_id, "pn-1");
+    assert_eq!(n.telefono, "+52 55 1234 5678");
 }
 
 /// **Y al revés: una cuenta de verdad sin ningún número manda al panel.**

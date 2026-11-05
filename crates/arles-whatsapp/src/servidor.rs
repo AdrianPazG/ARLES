@@ -56,6 +56,17 @@ pub enum Guion {
     /// Es el único de los tres que manda al panel de Meta a dar de alta un
     /// número en vez de a tocar el token.
     SinNumeros,
+    /// `debug_token` no trae los `target_ids` y **la cuenta sí aparece por la
+    /// vía de los negocios**.
+    ///
+    /// Es el caso que Dirección encontró el 05/11/2026 con la configuración
+    /// correcta: usuario del sistema, aplicación y cuenta de WhatsApp con
+    /// acceso total, y esta lista vacía igual. Con una sola vía, el producto
+    /// decía que el token no valía.
+    ///
+    /// Reproduce exactamente eso: el mismo `debug_token` mudo que
+    /// `TokenSinGestion`, y los dos bordes del negocio contestando.
+    SoloPorLosNegocios,
 }
 
 /// Lo que el servidor recibió, para poder comprobarlo.
@@ -242,10 +253,38 @@ fn atender(mut flujo: TcpStream, guion: &Guion, recibido: &Arc<Mutex<Vec<LoQueLl
         ),
         Guion::SinNumeros if ruta.contains("phone_numbers") => http(200, r#"{"data":[]}"#),
 
-        // Fuera de sus dos rutas, los dos guiones nuevos no tienen nada que
-        // decir: un 500 y no un 200, para que una prueba que llegue aquí por
-        // error falle en vez de creerse una respuesta inventada.
-        Guion::TokenSinGestion | Guion::SinNumeros => http(
+        // ── LA SEGUNDA VÍA DEL DESCUBRIMIENTO (05/11/2026) ───────────────
+        //
+        // `debug_token` calla igual que en `TokenSinGestion` —ésa es la
+        // gracia— y la cuenta aparece preguntando por los negocios.
+        Guion::SoloPorLosNegocios if ruta.contains("debug_token") => http(
+            200,
+            r#"{"data":{"app_id":"1","granular_scopes":[
+                {"scope":"whatsapp_business_messaging","target_ids":["waba-1"]}]}}"#,
+        ),
+        Guion::SoloPorLosNegocios if ruta.contains("me/businesses") => {
+            http(200, r#"{"data":[{"id":"negocio-1","name":"Pruebas"}]}"#)
+        }
+        // La cuenta cuelga de `client_` y no de `owned_`, a propósito: es el
+        // caso de quien gestiona el WhatsApp de otro, y mirar sólo `owned_`
+        // le diría que no tiene ninguna.
+        Guion::SoloPorLosNegocios if ruta.contains("client_whatsapp_business_accounts") => http(
+            200,
+            r#"{"data":[{"id":"waba-1","name":"Test WhatsApp Account"}]}"#,
+        ),
+        Guion::SoloPorLosNegocios if ruta.contains("owned_whatsapp_business_accounts") => {
+            http(200, r#"{"data":[]}"#)
+        }
+        Guion::SoloPorLosNegocios if ruta.contains("phone_numbers") => http(
+            200,
+            r#"{"data":[{"verified_name":"Telemetry","display_phone_number":"+52 55 1234 5678",
+                "id":"pn-1","quality_rating":"GREEN","messaging_limit_tier":"TIER_1K"}]}"#,
+        ),
+
+        // Fuera de sus rutas, los guiones del descubrimiento no tienen nada
+        // que decir: un 500 y no un 200, para que una prueba que llegue aquí
+        // por error falle en vez de creerse una respuesta inventada.
+        Guion::TokenSinGestion | Guion::SinNumeros | Guion::SoloPorLosNegocios => http(
             500,
             r#"{"error":{"message":"este guion solo contesta al descubrimiento","type":"OAuthException","code":1,"fbtrace_id":"x"}}"#,
         ),

@@ -494,9 +494,15 @@ permisos «whatsapp_business_messaging» Y «whatsapp_business_management»
 — sin el segundo, ARLES no puede preguntar cuáles son tus números.
 No se ha guardado nada.</pre>
 
-<div class="clave">
-  <span class="etiqueta">Ese mensaje cubre dos causas y no te dice cuál es la tuya</span>
-  <p>Es un defecto de ARLES, no un error tuyo, y está anotado para arreglarse.</p>
+<div class="ok">
+  <span class="etiqueta">Arreglado el 5 de noviembre de 2026</span>
+  <p><strong>Ese mensaje cubría dos causas y no decía cuál era la tuya</strong>, y la salida que
+  sugería —generar otro token— no arregla la más probable. Era un defecto de ARLES, no un error
+  tuyo.</p>
+  <p>Desde el 5 de noviembre, ARLES busca tu cuenta de WhatsApp <strong>por dos caminos</strong>
+  en vez de uno, y si aun así no la encuentra lo dice con otras palabras y te manda al sitio
+  correcto. <strong>Necesitas un instalador del 5 de noviembre o posterior</strong>: con uno
+  anterior seguirás viendo el mensaje viejo.</p>
 </div>
 
 <h3>Qué hace ARLES cuando pulsas «Buscar mis números»</h3>
@@ -523,10 +529,12 @@ arriba — aunque Meta haya contestado bien y tu token sirva para enviar.</p>
     <td>Generar otro, que es lo que el mensaje dice.</td>
   </tr>
   <tr>
-    <td><strong>B · El token sirve pero no autoriza ninguna cuenta de WhatsApp</strong></td>
+    <td><strong>B · El token sirve pero ARLES no encuentra ninguna cuenta de WhatsApp</strong></td>
     <td><code>200</code> correcto, lista vacía</td>
-    <td><strong>Generar otro token no arregla nada.</strong> Es la parte 6, paso 4: asignar la
-    cuenta de WhatsApp como activo.</td>
+    <td><strong>Generar otro token no arregla nada.</strong> Desde el 5 de noviembre ARLES lo
+    intenta por un segundo camino antes de rendirse, y si falla te dice «Meta acepta tu token,
+    pero no encuentra ninguna cuenta». Entonces es la parte 6, paso 4: asignar la cuenta de
+    WhatsApp como activo.</td>
   </tr>
 </table>
 

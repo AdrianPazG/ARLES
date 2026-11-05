@@ -74,15 +74,32 @@ pub struct NumeroDescubierto {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NoSePudoPreguntar {
     /// Meta no acepta el token: caducado, revocado, o mal pegado.
+    ///
+    /// **Sólo nace de un 400 o un 401**, que es Meta diciendo que no reconoce
+    /// el token. Ver `NingunaCuenta` para el otro caso, que antes caía aquí.
     ElTokenNoVale,
     /// No se llegó a Meta: sin red, o Meta caída.
     NoSeLlego,
-    /// Meta contestó, y este token no tiene ningún número detrás.
+    /// Meta contestó bien y **no se encontró ninguna cuenta de WhatsApp**.
+    ///
+    /// ── POR QUÉ ESTA VARIANTE EXISTE, Y LO QUE COSTÓ QUE NO EXISTIERA ──
+    ///
+    /// Hasta el 05/11/2026 este caso devolvía `ElTokenNoVale`, y su texto
+    /// mandaba a **generar otro token**. Dirección recorrió la guía entera —
+    /// cuenta de empresa, aplicación, usuario del sistema, la cuenta de
+    /// WhatsApp asignada con acceso total— y siguió viendo «Meta no acepta ese
+    /// token» con todo bien puesto.
+    ///
+    /// Son dos cosas distintas y mandan a sitios distintos: un token que Meta
+    /// rechaza se cambia; un token que Meta acepta y del que no cuelga ninguna
+    /// cuenta **no se arregla cambiándolo**. Es el defecto de DOC-14 otra vez:
+    /// un diagnóstico equivocado no hace dudar, manda a hacer algo.
+    NingunaCuenta,
+    /// Meta contestó, hay cuenta, y no tiene ningún número dado de alta.
     ///
     /// **No es un fallo del token**: es una cuenta sin número de WhatsApp dado
-    /// de alta todavía, que es lo que le pasa a casi todo el mundo la primera
-    /// vez. Por eso se distingue: mandar a revisar el token a quien lo tiene
-    /// bien es una tarde perdida.
+    /// de alta todavía. Por eso se distingue: mandar a revisar el token a
+    /// quien lo tiene bien es una tarde perdida.
     NingunNumero,
 }
 
@@ -93,6 +110,7 @@ impl NoSePudoPreguntar {
         match self {
             Self::ElTokenNoVale => "numeroDeWhatsapp.descubrir.tokenNoVale",
             Self::NoSeLlego => "numeroDeWhatsapp.descubrir.noSeLlego",
+            Self::NingunaCuenta => "numeroDeWhatsapp.descubrir.ningunaCuenta",
             Self::NingunNumero => "numeroDeWhatsapp.descubrir.ningunNumero",
         }
     }
@@ -131,13 +149,36 @@ pub fn numeros_del_token(
         token
     );
     let texto = pedir(&agente, &url, token)?;
-    let wabas = extraer_ids(&texto);
+    let mut wabas = extraer_ids(&texto);
+
+    // ── PASO 1 BIS · LA SEGUNDA VÍA, CUANDO LA PRIMERA NO DA NADA ──
+    //
+    // `debug_token` sólo devuelve `target_ids` cuando el permiso está
+    // concedido **sobre un activo concreto**, y hay tokens perfectamente
+    // válidos a los que no se los pone: Meta cambió qué devuelve aquí durante
+    // 2026, y el token temporal del panel nunca los trae.
+    //
+    // El 05/11/2026 Dirección recorrió la guía entera con el usuario del
+    // sistema y la cuenta de WhatsApp asignada con **acceso total**, y esta
+    // lista seguía viniendo vacía. Con una sola vía, el producto le decía que
+    // su token no valía — y valía.
+    //
+    // Así que se pregunta por el otro lado: qué negocios administra este
+    // token, y qué cuentas de WhatsApp cuelgan de cada negocio. Es la misma
+    // información por un camino que no depende de los scopes granulares.
+    //
+    // **Las dos vías, y no sólo la segunda**: la primera es una llamada y la
+    // segunda son tres como mínimo. Quien tenga los `target_ids` no paga ese
+    // viaje.
+    if wabas.is_empty() {
+        wabas = wabas_por_sus_negocios(&agente, base, token);
+    }
 
     if wabas.is_empty() {
-        // Meta contestó y el token no autoriza ningún WABA. Es un token que no
-        // sirve para esto, no una cuenta sin números: la diferencia se nota en
-        // que ni siquiera hay dónde mirar.
-        return Err(NoSePudoPreguntar::ElTokenNoVale);
+        // Meta contestó bien por las dos vías y no hay ninguna cuenta de
+        // WhatsApp detrás de este token. **No es un token inválido**, y
+        // decirlo así mandaba a generar otro, que es lo que no lo arregla.
+        return Err(NoSePudoPreguntar::NingunaCuenta);
     }
 
     // ── PASO 2 · QUÉ NÚMEROS CUELGAN DE CADA WABA ──
@@ -159,6 +200,68 @@ pub fn numeros_del_token(
         return Err(NoSePudoPreguntar::NingunNumero);
     }
     Ok(todos)
+}
+
+/// Las cuentas de WhatsApp a las que llega este token, por la vía de los
+/// negocios que administra.
+///
+/// ── POR QUÉ NO DEVUELVE UN `Result` ────────────────────────────────────────
+///
+/// Porque es la **segunda** vía: se llama cuando la primera ya no dio nada, y
+/// lo único que puede aportar son cuentas. Si falla —por permisos, por red, o
+/// porque Meta cambie estas rutas— lo que corresponde es seguir sin cuentas y
+/// que el llamador dé `NingunaCuenta`, no sustituir un diagnóstico por otro.
+///
+/// Un error de red aquí **ya se habría visto en la primera llamada**, que usa
+/// el mismo agente y el mismo camino.
+///
+/// ── LAS DOS LISTAS DE CADA NEGOCIO, Y POR QUÉ LAS DOS ──────────────────────
+///
+/// `owned_` son las cuentas que el negocio posee y `client_` las que otro
+/// negocio le compartió. Una agencia que gestiona el WhatsApp de su cliente
+/// las tiene en la segunda, y mirar sólo la primera le diría que no tiene
+/// ninguna.
+fn wabas_por_sus_negocios(agente: &ureq::Agent, base: &str, token: &str) -> Vec<String> {
+    let v = crate::cloud::VERSION_DE_LA_API;
+
+    let Ok(texto) = pedir(agente, &format!("{base}/{v}/me/businesses"), token) else {
+        return Vec::new();
+    };
+
+    let mut cuentas = Vec::new();
+    for negocio in ids_de_data(&texto) {
+        for borde in [
+            "owned_whatsapp_business_accounts",
+            "client_whatsapp_business_accounts",
+        ] {
+            let url = format!("{base}/{v}/{negocio}/{borde}");
+            // Un borde que falla no tumba el otro: con `owned` vacío y
+            // `client` lleno, rendirse en el primero sería no encontrar la
+            // cuenta que sí está.
+            if let Ok(t) = pedir(agente, &url, token) {
+                for id in ids_de_data(&t) {
+                    if !cuentas.contains(&id) {
+                        cuentas.push(id);
+                    }
+                }
+            }
+        }
+    }
+    cuentas
+}
+
+/// Los `id` de los objetos de un `data: [...]` de Meta.
+///
+/// Se lee a mano y no con `serde_json` por la misma razón que el resto del
+/// módulo: la forma es fija y pequeña, y así se ve de un vistazo qué se está
+/// leyendo de una respuesta que viene de fuera.
+fn ids_de_data(texto: &str) -> Vec<String> {
+    // El corte por `{` deja fuera la cabecera de la respuesta y da un trozo
+    // por objeto, que es justo lo que `campo` sabe leer.
+    texto
+        .split('{')
+        .filter_map(|trozo| campo(trozo, "id"))
+        .collect()
 }
 
 /// Una llamada GET a Meta, con el token en la cabecera.
