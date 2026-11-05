@@ -27,7 +27,7 @@
 
 use rusqlite::{Connection, OptionalExtension, params};
 
-use arles_core::ids::{CompanyId, ContactListId};
+use arles_core::ids::{CompanyId, ContactId, ContactListId};
 
 use crate::db::Db;
 use crate::empresa::ahora;
@@ -79,6 +79,95 @@ impl Db {
         }
         let cuando = ahora();
         self.con_dominio(|conn| crear_lista_en(conn, empresa, nombre, &cuando))
+    }
+
+    /// Crea una lista **con los contactos que alguien marcó**.
+    ///
+    /// ── POR QUÉ ESTO EXISTE (05/11/2026) ─────────────────────────────────
+    ///
+    /// Dirección quiso mandar una prueba a los últimos contactos que había
+    /// dado de alta y no pudo: el paso 2 del asistente sólo ofrecía «toda la
+    /// empresa» o una lista **importada de un archivo**. Con cincuenta
+    /// contactos en la base y ninguna importación, no había forma de escribir
+    /// a tres de ellos.
+    ///
+    /// Lo que faltaba no era un camino nuevo, sino **un escritor**: las dos
+    /// tablas están en el esquema desde la V1, la campaña sabe ir a una lista
+    /// desde D-15, y lo único que las llenaba era la importación. Es el patrón
+    /// del §9 de `CLAUDE.md` —una pieza correcta sin quien la use— en su
+    /// versión más barata de cerrar.
+    ///
+    /// ── LO QUE ESTA FUNCIÓN NO HACE, Y NO ES UN OLVIDO ───────────────────
+    ///
+    /// **No comprueba que los contactos tengan canal ni que estén de alta.**
+    /// Eso lo decide la campaña al congelar su audiencia, con el canal de su
+    /// etapa delante (`alta_de_campana.rs`), y decidirlo aquí sería la misma
+    /// regla en dos sitios: el día que cambie una, la otra se queda. Una lista
+    /// es «esta gente», no «esta gente a la que se puede escribir hoy».
+    ///
+    /// **Y no quita los repetidos a mano**: lo hace el `OR IGNORE` contra la
+    /// clave primaria `(list_id, contact_id)`. Marcar dos veces al mismo
+    /// contacto no lo mete dos veces.
+    ///
+    /// # Errores
+    ///
+    /// - [`DbError::DatoInvalido`] si el nombre viene vacío, o si no se marcó
+    ///   ningún contacto. Una lista vacía se puede elegir en el asistente y da
+    ///   una campaña que se activa y no manda nada — el defecto que la
+    ///   auditoría G encontró con el límite diario en cero.
+    /// - [`DbError::Sqlite`] si la escritura falla.
+    ///
+    /// **POR LA DE ESCRITURA A PROPÓSITO:** escribe.
+    pub fn crear_lista_con(
+        &self,
+        empresa: CompanyId,
+        nombre: &str,
+        contactos: &[ContactId],
+    ) -> Result<ContactListId, DbError> {
+        let nombre = nombre.trim();
+        if nombre.is_empty() {
+            return Err(DbError::DatoInvalido {
+                motivo: "contact_list.name",
+            });
+        }
+        if contactos.is_empty() {
+            return Err(DbError::DatoInvalido {
+                motivo: "contact_list.sin_contactos",
+            });
+        }
+        let cuando = ahora();
+        self.con_dominio(|conn| {
+            // **Entero o nada.** Una lista creada a la que le faltan miembros
+            // porque la escritura se cortó a mitad es peor que no tenerla: se
+            // elige en el asistente, enseña su cifra, y la campaña sale a
+            // menos gente de la que alguien marcó. Sin que nada falle.
+            let tx = conn.unchecked_transaction()?;
+            let lista = crear_lista_en(&tx, empresa, nombre, &cuando)?;
+            {
+                let mut s = tx.prepare(
+                    "INSERT OR IGNORE INTO contact_list_member (list_id, contact_id, added_at)
+                     SELECT ?1, c.id, ?3
+                       FROM contact c
+                      WHERE c.id = ?2 AND c.company_id = ?4 AND c.deleted_at IS NULL",
+                )?;
+                for contacto in contactos {
+                    // **El contacto se busca, no se inserta a ciegas.** El
+                    // `SELECT` con la empresa dentro es lo que impide que un
+                    // id de otra empresa —o de un contacto borrado— entre en
+                    // la lista por venir en la llamada. La frontera no se fía
+                    // de la webview (regla 4 de la IPC), y esto es lo mismo un
+                    // piso más abajo.
+                    s.execute(params![
+                        lista.to_string(),
+                        contacto.to_string(),
+                        cuando,
+                        empresa.to_string()
+                    ])?;
+                }
+            }
+            tx.commit()?;
+            Ok(lista)
+        })
     }
 
     /// Las listas de la empresa, con su gente y sus campañas.
@@ -274,6 +363,144 @@ mod tests {
             ))
         })
         .expect("siembra el contacto");
+    }
+
+    /// **Marcar tres contactos y guardarlos da una lista de tres.**
+    ///
+    /// Es el camino que Dirección pidió el 05/11/2026: cincuenta contactos en
+    /// la base, una prueba a unos pocos, sin importar ningún archivo.
+    #[test]
+    fn una_lista_hecha_a_mano_lleva_los_contactos_que_se_marcaron() {
+        let (_d, db) = base();
+        for (n, c) in [
+            ("01930000-0000-7000-8000-000000000001", "a@t.mx"),
+            ("01930000-0000-7000-8000-000000000002", "b@t.mx"),
+            ("01930000-0000-7000-8000-000000000003", "d@t.mx"),
+        ] {
+            contacto(&db, n, c);
+        }
+        let marcados = [
+            "01930000-0000-7000-8000-000000000001",
+            "01930000-0000-7000-8000-000000000003",
+        ]
+        .iter()
+        .map(|s| s.parse().expect("id"))
+        .collect::<Vec<ContactId>>();
+
+        let lista = db
+            .crear_lista_con(empresa(), "Prueba de hoy", &marcados)
+            .expect("crea");
+
+        let guardadas = db.listar_listas(empresa()).expect("lista");
+        assert_eq!(guardadas.len(), 1);
+        let g = guardadas.first().expect("acaba de comprobarse que hay una");
+        assert_eq!(g.id, lista);
+        assert_eq!(g.cuantos, 2, "entraron los dos marcados y no el tercero");
+    }
+
+    /// **Un contacto de otra empresa no entra aunque venga en la llamada.**
+    ///
+    /// La frontera no se fía de la webview (regla 4 de la IPC), y esto es lo
+    /// mismo un piso más abajo: el `INSERT … SELECT` lleva la empresa dentro,
+    /// así que un id ajeno no encuentra fila y no se inserta.
+    ///
+    /// Sin esto, bastaría con mandar un id cualquiera para meter en una lista
+    /// —y en una campaña— a alguien de otra empresa.
+    #[test]
+    fn un_contacto_de_otra_empresa_no_entra_en_la_lista() {
+        let (_d, db) = base();
+        contacto(&db, "01930000-0000-7000-8000-000000000001", "a@t.mx");
+        // Un contacto que existe pero cuelga de otra empresa.
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(
+                "INSERT INTO company (id, commercial_name, country, timezone,
+                                      corporate_email, created_at, updated_at)
+                 VALUES ('00000000-0000-4000-8000-000000000002', 'OTRA', 'MX',
+                         'America/Mexico_City', 'x@o.mx',
+                         '2026-10-23T10:00:00Z', '2026-10-23T10:00:00Z');
+                 INSERT INTO contact (id, company_id, first_name, created_at, updated_at)
+                 VALUES ('01930000-0000-7000-8000-000000000009',
+                         '00000000-0000-4000-8000-000000000002', 'Ajeno',
+                         '2026-10-23T10:00:00Z', '2026-10-23T10:00:00Z');",
+            )
+        })
+        .expect("siembra la otra empresa");
+
+        let marcados = [
+            "01930000-0000-7000-8000-000000000001",
+            "01930000-0000-7000-8000-000000000009",
+        ]
+        .iter()
+        .map(|s| s.parse().expect("id"))
+        .collect::<Vec<ContactId>>();
+        db.crear_lista_con(empresa(), "Mezclada", &marcados)
+            .expect("crea");
+
+        let guardadas = db.listar_listas(empresa()).expect("lista");
+        assert_eq!(
+            guardadas.first().expect("hay una").cuantos,
+            1,
+            "el de la otra empresa se quedó fuera"
+        );
+    }
+
+    /// **Una lista sin nadie no se crea.**
+    ///
+    /// Se podría elegir en el asistente, enseñaría «0 contactos» y daría una
+    /// campaña que se activa y no manda nada. Es el defecto del límite diario
+    /// en cero que encontró la auditoría G, con otra cara.
+    #[test]
+    fn una_lista_sin_contactos_no_se_crea() {
+        let (_d, db) = base();
+        let r = db.crear_lista_con(empresa(), "Vacía", &[]);
+        assert!(matches!(
+            r,
+            Err(DbError::DatoInvalido {
+                motivo: "contact_list.sin_contactos"
+            })
+        ));
+        assert!(db.listar_listas(empresa()).expect("lista").is_empty());
+    }
+
+    /// **Marcar al mismo contacto dos veces no lo mete dos veces.**
+    ///
+    /// Lo garantiza la clave primaria `(list_id, contact_id)`, no un filtro en
+    /// Rust: una lista con un duplicado dentro daría una campaña que escribe
+    /// dos veces a la misma persona.
+    ///
+    /// **Y por eso esta prueba vigila el ESQUEMA y no este código**, que es
+    /// algo que hay que decir en vez de dejar creer. Verificado el
+    /// 05/11/2026: cambiar el `OR IGNORE` por `OR REPLACE` la deja en verde,
+    /// porque los dos respetan la clave primaria. Lo único que la haría fallar
+    /// es quitar esa clave de la tabla.
+    ///
+    /// No es inútil —si una migración futura tocara esa clave, las campañas
+    /// empezarían a escribir dos veces en silencio— pero es de la familia de
+    /// las dos pruebas del BOM de la auditoría C: vigilan a otro, y están
+    /// etiquetadas.
+    #[test]
+    fn un_contacto_marcado_dos_veces_entra_una() {
+        let (_d, db) = base();
+        contacto(&db, "01930000-0000-7000-8000-000000000001", "a@t.mx");
+        let repetido = [
+            "01930000-0000-7000-8000-000000000001",
+            "01930000-0000-7000-8000-000000000001",
+        ]
+        .iter()
+        .map(|s| s.parse().expect("id"))
+        .collect::<Vec<ContactId>>();
+
+        db.crear_lista_con(empresa(), "Repetida", &repetido)
+            .expect("crea");
+
+        assert_eq!(
+            db.listar_listas(empresa())
+                .expect("lista")
+                .first()
+                .expect("hay una")
+                .cuantos,
+            1
+        );
     }
 
     /// Crear la misma lista dos veces devuelve la misma, no dos.
