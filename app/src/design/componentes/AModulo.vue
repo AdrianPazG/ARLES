@@ -153,8 +153,28 @@ withDefaults(
 
    Ahora son los 24 px que la H-09 quería, escritos en un solo sitio y sin
    depender de un `gap` que no está. D-03 de
-   `10-requisitos/HALLAZGOS-DE-DISENO.md`. */
-.modulo :deep(.campo + .campo) {
+   `10-requisitos/HALLAZGOS-DE-DISENO.md`.
+
+   ── Y SÓLO ENTRE HIJOS DIRECTOS DEL CUERPO (05/11/2026) ───────────────────
+
+   Dirección mandó una captura de los filtros de Contactos con los cuatro
+   cuadros **desalineados**: el primero 24 px más arriba que los otros tres.
+   Medido: el primero con `margin-top: 0` y los otros con 24.
+
+   Era esta regla. Los cuatro filtros viven en una **rejilla de columnas**, y
+   `.campo + .campo` los veía como campos apilados: a cada uno menos al
+   primero le ponía el margen de arriba, que en una fila horizontal no separa
+   nada — sólo baja tres columnas de cuatro.
+
+   El `>` lo acota a los hijos directos del cuerpo, que son los campos
+   apilados de verdad. Un contenedor que coloca campos en rejilla o en fila
+   pone su propio `gap`, y sus campos ya no son hijos del cuerpo.
+
+   **Y no se arregla con una excepción por nombre de pantalla**, que sería la
+   lista a mano de siempre: el día que otra pantalla ponga filtros en columnas
+   volvería a pasar. La regla ahora dice lo que quería decir desde el
+   principio — «dos campos, uno debajo del otro». */
+.modulo :deep(.cuerpo > .campo + .campo) {
   margin-top: var(--arles-space-5);
 }
 
