@@ -217,8 +217,32 @@ const error = computed(() =>
  */
 const listasConGente = computed(() => listasStore.conGente)
 
+/**
+ * «Toda la empresa» dice **por qué canal**, y no siempre «con correo».
+ *
+ * ── LO QUE DECÍA, Y POR QUÉ ERA FALSO (05/11/2026) ────────────────────────
+ *
+ * Decía «Toda la empresa · todos tus contactos con correo» **fijo**, con
+ * WhatsApp elegido en el paso anterior. Dirección lo vio al crear una campaña
+ * de WhatsApp y preguntó dónde estaba la opción de sus contactos de WhatsApp.
+ *
+ * **La opción era ésa**: desde D-WA la audiencia se congela filtrando por el
+ * canal de la etapa —`INSERT … SELECT` con el canal como parámetro, canal
+ * activo y dirección no suprimida—, así que una campaña de WhatsApp ya iba
+ * sólo a quien tiene WhatsApp. Lo que mentía era la etiqueta.
+ *
+ * Es el §9 de `CLAUDE.md` al revés, como el motor en la auditoría H: el
+ * producto hacía lo correcto y el texto decía que no. Y cuesta lo mismo — ahí
+ * una función construida se quedó sin usar; aquí Dirección buscó durante un
+ * rato una opción que ya estaba elegida.
+ */
 const opcionesDeLista = computed(() => [
-  { valor: '', texto: t('asistente.paso.audiencia.todaLaEmpresa') },
+  {
+    valor: '',
+    texto: esWhatsapp.value
+      ? t('asistente.paso.audiencia.todaLaEmpresaWhatsapp')
+      : t('asistente.paso.audiencia.todaLaEmpresa'),
+  },
   ...listasConGente.value.map((l) => ({
     valor: l.id,
     texto: t('asistente.paso.audiencia.conGente', {

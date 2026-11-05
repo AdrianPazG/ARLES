@@ -2496,7 +2496,12 @@ export const es = {
         // La opción de siempre, nombrada. Se queda la primera porque es la que
         // hacían todas las campañas hasta hoy, y esconderla haría pensar que
         // ya no se puede.
+        // Son dos textos y no uno con un hueco porque **la frase cambia de
+        // sujeto**: «con correo» y «con WhatsApp» no son dos valores de la
+        // misma cosa, son dos audiencias distintas. Un `{canal}` dentro haría
+        // creer que se puede elegir, y el canal ya se eligió en el paso 1.
         todaLaEmpresa: 'Toda la empresa · todos tus contactos con correo',
+        todaLaEmpresaWhatsapp: 'Toda la empresa · todos tus contactos con WhatsApp',
         // §94: el nombre nunca va solo. «Videovigilancia» puede tener
         // trescientos o doce, y elegirla sin la cifra es elegir a ciegas.
         conGente: '{nombre} · {n} contactos',
