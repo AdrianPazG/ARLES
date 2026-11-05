@@ -313,6 +313,33 @@ fn un_token_rechazado_se_distingue_de_una_red_caida() {
     assert_eq!(r, Err(arles_whatsapp::NoSePudoPreguntar::ElTokenNoVale));
 }
 
+/// **Un permiso que falta no es una red caída**, y decirlo así manda a mirar
+/// el antivirus cuando lo que falla es el token.
+///
+/// Meta devuelve **403** cuando reconoce el token y le falta un permiso para
+/// esa ruta. Hasta el 05/11/2026 eso caía en `NoSeLlego` —«no se pudo hablar
+/// con Meta»—, que es falso: se habló, y Meta contestó.
+///
+/// Es el mismo defecto que H-21 un escalón más abajo, y lo encontró **validar
+/// las cuatro rutas contra la API real de Meta**: las cuatro contestan con un
+/// cuerpo de error, así que «no se pudo hablar» nunca describe una respuesta
+/// de Meta.
+#[test]
+fn un_permiso_que_falta_no_se_confunde_con_una_red_caida() {
+    let servidor = ServidorDeMentira::arrancar(Guion::Falla {
+        http: 403,
+        codigo: 200,
+    })
+    .expect("arranca");
+
+    let r = arles_whatsapp::numeros_del_token(&servidor.base(), TOKEN);
+    assert_eq!(
+        r,
+        Err(arles_whatsapp::NoSePudoPreguntar::ElTokenNoVale),
+        "Meta contestó: lo que falta es un permiso del token, no la red"
+    );
+}
+
 /// **Un token que Meta acepta y del que no cuelga ninguna cuenta NO es un
 /// token inválido**, y decirlo así manda a generar otro, que es lo único que
 /// seguro no lo arregla.

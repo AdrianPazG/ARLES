@@ -273,10 +273,22 @@ fn pedir(agente: &ureq::Agent, url: &str, token: &str) -> Result<String, NoSePud
 
     let mut r = match respuesta {
         Ok(r) => r,
-        // 400 y 401 son «este token no vale». Cualquier otro estado es un
-        // problema de Meta o del camino, y mandar a revisar el token por un
-        // 502 es mandar a buscar donde no está.
-        Err(ureq::Error::StatusCode(401 | 400)) => return Err(NoSePudoPreguntar::ElTokenNoVale),
+        // 400, 401 y 403 son «este token no sirve para esto»: el primero es
+        // una petición que Meta no entiende, el segundo un token que no
+        // reconoce, y el tercero —**añadido el 05/11/2026**— un token que sí
+        // reconoce y al que le falta permiso. Los tres mandan al mismo sitio:
+        // a mirar el token y sus permisos.
+        //
+        // **El 403 estaba cayendo en `NoSeLlego`**, que dice «no se pudo
+        // hablar con Meta». Es falso y es el mismo defecto que H-21: sí se
+        // habló, y Meta contestó que falta un permiso. Un diagnóstico
+        // equivocado manda a mirar la red cuando lo que falla es el token.
+        // Lo encontró validar las rutas contra la API real.
+        Err(ureq::Error::StatusCode(400 | 401 | 403)) => {
+            return Err(NoSePudoPreguntar::ElTokenNoVale);
+        }
+        // Cualquier otro estado es un problema de Meta o del camino, y mandar
+        // a revisar el token por un 502 es mandar a buscar donde no está.
         Err(_) => return Err(NoSePudoPreguntar::NoSeLlego),
     };
 

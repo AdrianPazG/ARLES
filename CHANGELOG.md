@@ -73,6 +73,26 @@ exactamente por dónde pasan.
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
 
+### Un permiso que falta ya no se confunde con una red caída
+
+**05/11/2026.** Lo encontró validar las cuatro rutas que ARLES llama **contra
+la API real de Meta**, a petición de Dirección: las cuatro existen en la v21.0 y
+las cuatro contestan con un cuerpo de error.
+
+Y ahí estaba el defecto: Meta devuelve **403** cuando reconoce el token y le
+falta un permiso para esa ruta, y ARLES lo clasificaba como *«no se pudo hablar
+con Meta»*. **Es falso: se habló, y Meta contestó.** Mandaba a mirar la conexión
+y el antivirus cuando lo que falla es el token.
+
+Es el mismo defecto que H-21 un escalón más abajo, el mismo día y en el mismo
+módulo. Ahora 400, 401 y 403 van juntos: los tres son «este token no sirve para
+esto» y los tres mandan a mirar el token y sus permisos.
+
+> **Verificado rompiéndolo**: quitar el 403 del grupo devuelve `NoSeLlego`, y la
+> prueba falla nombrando los dos. Lo que no se puede probar aquí es que Meta
+> mande un 403 en este caso concreto — eso sale de su documentación, no de una
+> medición, y así está dicho.
+
 ### El alta de WhatsApp encuentra la cuenta por dos caminos, no por uno
 
 **05/11/2026.** El primer contacto del producto con la API de Meta de verdad, y
