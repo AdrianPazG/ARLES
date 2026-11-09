@@ -663,7 +663,11 @@ export const useCampanasStore = defineStore('campanas', () => {
    * Eso no es un defecto cosmético: es alguien mirando un estado que no es.
    */
   async function aplicar(
-    comando: 'pausar_campana' | 'reanudar_campana' | 'detener_campana',
+    comando:
+      | 'pausar_campana'
+      | 'reanudar_campana'
+      | 'detener_campana'
+      | 'borrar_campana',
     argumentos: Record<string, unknown>,
   ): Promise<boolean> {
     trabajando.value = true
@@ -692,6 +696,20 @@ export const useCampanasStore = defineStore('campanas', () => {
    */
   const detener = (id: string, nombreEscrito: string): Promise<boolean> =>
     aplicar('detener_campana', { id, nombreEscrito })
+
+  /**
+   * Borrar una campaña **en borrador** (05/11/2026).
+   *
+   * Va por el mismo camino que las otras tres por lo mismo: para que la lista
+   * se refresque. Una campaña borrada que sigue en la pantalla hasta que
+   * alguien recargue se lee como que no se borró, y se pulsa otra vez.
+   *
+   * Quién decide qué se puede borrar es el núcleo, y quién lo impide son las
+   * tres puertas de `Db::borrar_borrador`. Aquí no hay ningún `if` sobre el
+   * estado a propósito: una comprobación que sólo vive en la webview la salta
+   * cualquier otro camino, y además sería la misma regla en dos sitios.
+   */
+  const borrar = (id: string): Promise<boolean> => aplicar('borrar_campana', { id })
 
   /**
    * La parada de emergencia: **todas las campañas a la vez**.
@@ -794,5 +812,6 @@ export const useCampanasStore = defineStore('campanas', () => {
     pausar,
     reanudar,
     detener,
+    borrar,
   }
 })

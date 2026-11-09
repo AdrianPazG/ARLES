@@ -73,6 +73,82 @@ exactamente por dónde pasan.
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
 
+### Una campaña se puede mandar a los contactos que elijas marcándolos
+
+**05/11/2026.** Dirección quiso probar con unos pocos de los contactos que
+había dado de alta y no pudo: *«no seleccioné una tabla y no me permitió
+seleccionar contactos de mi lista de contactos»*. El paso 2 del asistente
+ofrecía **toda la empresa** o una lista **importada de un archivo**, así que
+con cincuenta contactos a mano y ninguna importación no había forma de
+escribir a tres.
+
+Lo que faltaba no era un camino nuevo, sino **un escritor**: `contact_list` y
+`contact_list_member` están en el esquema desde la V1, la campaña sabe ir a una
+lista desde D-15, y lo único que las llenaba era la importación. Es el patrón
+del §9 de `CLAUDE.md` en su versión más barata de cerrar.
+
+Ahora cada fila de Contactos lleva una casilla, hay un botón que marca **lo que
+el filtro dejó** —que es el camino: filtrar y quedarse con lo que salió— y una
+bandeja que dice cuántos van marcados y los guarda con un nombre. **Sin tope de
+cuántos**, que Dirección lo pidió con esas palabras. Guardar con el nombre de
+una lista que ya existe **añade** a esa lista, que es el caso real: se prueba
+con tres y luego se quieren añadir diez.
+
+> **La cifra del acuse se lee de la base, no se cuenta de los marcados.** Son
+> dos números distintos: marcar dos veces al mismo lo mete una, un id que no es
+> de esta empresa no entra, y añadir a una lista existente suma a lo que tenía.
+> Decir «5 contactos» con la lista en doce es §65 al revés, en la cifra con la
+> que después se elige a quién se le escribe.
+>
+> **Y la prueba que cierra la junta** arranca en `crear_lista_con` y termina
+> contando a quién le tocó mensaje al activar: las dos piezas tenían pruebas y
+> lo que no tenía ninguna es que lo que sale de una entre en la otra. Verificada
+> dejando la campaña sin su lista: `left: 2, right: 1`.
+>
+> La casilla va envuelta en su etiqueta, que es el objetivo de 32 px del §22 —el
+> navegador dibuja un `checkbox` de 13—, y esta tabla respira 4 px menos por
+> celda: la columna nueva cuesta 36 px y a 1024 px los cuatro rótulos sólo
+> tenían diez de holgura entre todos. Repartir los `fr` no lo arregla, y
+> volver a intentarlo era el error del 22/10/2026 — el primer intento de hoy
+> dejó «WhatsApp» necesitando 16 px.
+
+### Un borrador se puede borrar, y nada más que un borrador
+
+**05/11/2026.** Dirección salió del asistente a mitad para hacer una
+comprobación y al volver encontró la campaña guardada en borrador: *«no me
+gustaría ver esa campaña, me gustaría tener la oportunidad de poder eliminarla,
+pero no sé qué tan recomendable sea hacer eso»*.
+
+La respuesta a esa pregunta es la regla que se construyó: un borrador no ha
+mandado nada y no hay nada que perder; **una campaña que envió no se borra
+jamás**, porque su historial es con lo que se contesta qué se le mandó a quién.
+
+> **Tres puertas, y ninguna sobra.** La regla vive en el tipo del núcleo
+> —`EstadoDeCampana::se_puede_borrar`, con el `match` exhaustivo para que un
+> estado octavo obligue a decidir—; el `DELETE` exige `status = 'draft'` en su
+> `WHERE`; y antes de borrar se **cuentan los envíos** de esa campaña y se para
+> si hay uno. La tercera es la única que mira los datos en vez de la etiqueta
+> que los describe: si una restauración dejara una campaña con historial
+> marcada como borrador, `ON DELETE CASCADE` se llevaría ese historial sin que
+> nada protestara. Es el fallo F1 de la Fase 1, que ya ha vuelto tres veces.
+>
+> **Verificadas las tres rompiéndolas**: con la del núcleo rota el borrado no
+> ocurre y el error cambia —la segunda puerta actuando sola—; quitando también
+> el `status`, la campaña terminada se borra de verdad; y sin el recuento, un
+> borrador con un envío dentro se lleva su historial.
+>
+> Y lo vigila `Ningún borrado de campaña se salta las tres puertas` en
+> `--fase 1`: `DELETE FROM campaign` sólo puede vivir en `borrar_borrador` y
+> tiene que nombrar el estado. Verificada por los dos caminos, y comprobado
+> además que un `DELETE` dentro de un `#[cfg(test)]` no la hace saltar.
+
+> **Un defecto de mi propia prueba, cazado al romperla.** La que recorre los
+> seis estados que no se borran filtraba con `se_puede_borrar()` —la función
+> que vigila—, así que con `Terminada => true` ese estado **salía del
+> recorrido** y la prueba pasaba en verde mientras una campaña terminada se
+> dejaba borrar. Ahora filtra por la regla que afirma —todo lo que no es
+> borrador—, que no depende de lo que mide.
+
 ### Un permiso que falta ya no se confunde con una red caída
 
 **05/11/2026.** Lo encontró validar las cuatro rutas que ARLES llama **contra

@@ -372,6 +372,13 @@ y activarla.**
 puede filtrar, una campaña creada no se puede editar, y no hay pantalla para
 escribir plantillas ni firmas —los comandos están, el editor no—.
 
+> **De las tres, dos se cerraron después y este párrafo las siguió
+> prometiendo.** El editor de plantillas lo cerró la 6.8, y la audiencia el
+> 05/11/2026: no con un filtro dentro del asistente —que sigue sin existir—
+> sino eligiendo **antes** a quién va, marcando contactos en su pantalla con el
+> filtro de R-26 delante. Lo que queda en pie es que una campaña creada no se
+> edita.
+
 **Cerrado el canal de WhatsApp** (W.1 a W.8): el núcleo con sus dos modos, el
 adaptador de Cloud API con su servidor de mentira, el número en el llavero con
 Coexistencia y la aceptación de riesgo, el procesador de avisos, la puerta del
@@ -2236,6 +2243,39 @@ que **clonar
 > request. Y para probar el `.exe` **no hace falta clonar ni compilar**: el
 > flujo `entrega-de-prueba.yml` lo construye y lo publica como prerelease, y se
 > puede lanzar sobre la rama de trabajo (ver DOC-20).
+
+**Y el 05/11/2026, dos peticiones de Dirección probando ARLES: elegir a mano a
+quién va una campaña (R-27) y poder borrar un borrador (H-22).** Las dos son el
+patrón del §9, y está contado en
+[`ESTADO_ACTUAL.md`](documentacion/07-entrega/ESTADO_ACTUAL.md) §16.
+
+> **La primera no necesitaba un camino nuevo, sino un escritor.**
+> `contact_list` y `contact_list_member` llevan en el esquema desde la V1, la
+> campaña sabe ir a una lista desde D-15, y **lo único que las llenaba era la
+> importación**: con cincuenta contactos dados de alta a mano y ningún archivo
+> cargado, no había forma de escribir a tres de ellos. Ahora se marcan en la
+> tabla —o todos los que deje el filtro— y se guardan con un nombre, sin tope
+> de cuántos.
+>
+> Y la prueba que de verdad hacía falta no es de ninguna de las dos capas, es
+> de la junta: arranca en `crear_lista_con` y acaba contando a quién le tocó
+> mensaje al activar. Cada pieza tenía las suyas y **nadie comprobaba que lo
+> que sale de una entre en la otra**.
+
+> **La segunda se construyó con tres puertas, y la tercera es la que importa.**
+> El tipo del núcleo decide (`se_puede_borrar`, exhaustivo), el `DELETE` exige
+> `status = 'draft'`, y antes de borrar **se cuentan los envíos de esa
+> campaña**: es la única que mira los datos en vez de la etiqueta que los
+> describe, y sin ella una campaña con historial mal marcada perdería ese
+> historial por `ON DELETE CASCADE` — el fallo F1, por cuarta vez. Lo vigila
+> `Ningún borrado de campaña se salta las tres puertas` en `--fase 1`.
+>
+> **Y la prueba que recorre los seis estados que no se borran nació con el
+> defecto de siempre**: filtraba con `se_puede_borrar()`, la función que
+> vigila, así que al romper el núcleo ese estado salía del recorrido y la
+> prueba pasaba en verde sobre una campaña terminada que sí se borraba. Medir
+> en un sitio donde la respuesta no cuenta, otra vez. Ahora filtra por la regla
+> que afirma —todo lo que no es borrador—, que no depende de lo que mide.
 
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 

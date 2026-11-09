@@ -113,6 +113,12 @@ const CLAVES_DEL_NUCLEO = [
   // que deshace la transacción, pero su texto es un acuse y no un fallo: quien
   // lo ve pulsó «cancelar».
   'error.db.activacion_cancelada',
+  // 05/11/2026 · borrar una campaña. Son dos claves y no una porque mandan a
+  // hacer cosas distintas: la primera a detener la campaña —o a dejarla, si ya
+  // envió— y la segunda a no tocar nada y contarlo, porque un borrador con
+  // historial no debería existir.
+  'error.db.solo_se_borra_un_borrador',
+  'error.db.la_campana_tiene_historial',
   // Entrega 6.6 · el aviso de volumen del §48. No es un límite: es la
   // constancia de que se informó antes de crear la campaña.
   'error.db.falta_aceptar_el_volumen',

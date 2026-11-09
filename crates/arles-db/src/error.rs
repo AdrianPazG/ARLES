@@ -169,6 +169,32 @@ pub enum DbError {
     #[error("esa acción no procede desde el estado actual de la campaña")]
     AccionDeCampanaImposible { clave: &'static str },
 
+    /// Se pidió borrar una campaña que ya no es un borrador (05/11/2026).
+    ///
+    /// **Lleva el estado dentro** porque el §95 no se puede cumplir sin él: lo
+    /// que hay que hacer con una campaña enviando es detenerla, y con una
+    /// terminada, nada. Un solo mensaje para los seis estados mandaría a la
+    /// mitad de la gente a buscar un botón que en su caso no existe.
+    #[error("sólo se puede borrar un borrador, y esta campaña está en {estado}")]
+    SoloSeBorraUnBorrador { estado: &'static str },
+
+    /// Se pidió borrar una campaña que tiene envíos registrados.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ ESTO EXISTE SI EL ESTADO YA LO IMPIDE
+    ///
+    /// Porque un borrador **no debería** tener ni un envío, y esta es la única
+    /// comprobación que no depende de que eso sea verdad. El estado es un
+    /// `TEXT` con su `CHECK`: si una migración futura, una restauración o un
+    /// defecto dejaran una campaña con envíos marcada como `draft`, el
+    /// `DELETE` se llevaría su historial por `ON DELETE CASCADE` —el fallo F1
+    /// de la Fase 1, que ha vuelto tres veces—.
+    ///
+    /// Cuesta un `COUNT` sobre un índice y es lo único que mira **los datos**
+    /// en vez de la etiqueta que los describe.
+    #[error("esta campaña tiene {cuantos} envíos registrados y no se puede borrar")]
+    LaCampanaTieneHistorial { cuantos: u32 },
+
     /// Se pidió más de 50 diarios sin aceptar el aviso del §48.
     ///
     /// **No es un límite**: ARLES no bloquea el volumen (§154). Lo que no se
@@ -390,6 +416,8 @@ impl DbError {
             Self::ActivacionCancelada => "error.db.activacion_cancelada",
             Self::CuentaDeCorreoNoExiste => "error.db.cuenta_de_correo_no_existe",
             Self::AccionDeCampanaImposible { clave } => clave,
+            Self::SoloSeBorraUnBorrador { .. } => "error.db.solo_se_borra_un_borrador",
+            Self::LaCampanaTieneHistorial { .. } => "error.db.la_campana_tiene_historial",
             Self::FaltaAceptarElVolumen => "error.db.falta_aceptar_el_volumen",
             Self::LimiteDeEnviosEnCero => "error.db.limite_de_envios_en_cero",
             Self::SinSalidaDeBaja => "error.db.sin_salida_de_baja",

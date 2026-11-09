@@ -193,6 +193,37 @@ pub fn detener_campana(
     aplicar(&estado, &id, arles_core::campana::AccionDeCampana::Detener)
 }
 
+/// Borra una campaña **en borrador** (05/11/2026).
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTE NO PIDE ESCRIBIR EL NOMBRE Y DETENER SÍ
+///
+/// Porque lo que protege la escritura del nombre es **detener la equivocada**
+/// de tres campañas en marcha: eso cancela envíos y no se deshace. Un borrador
+/// no ha mandado nada, así que equivocarse cuesta volver a abrir el asistente.
+/// Pedir el nombre para todo enseña a confirmar sin leer, y entonces la
+/// confirmación que importa —la de detener— tampoco se lee (§167).
+///
+/// La confirmación sí existe, con el nombre dentro, en la pantalla.
+///
+/// Las reglas de qué se puede borrar viven en el núcleo
+/// (`EstadoDeCampana::se_puede_borrar`) y las obedece `arles-db` con sus tres
+/// puertas. Este comando no decide nada: convierte el error en algo que la
+/// pantalla pueda pintar.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si la campaña no existe en esta empresa, si ya no es un
+/// borrador —con el estado dentro—, o si tiene envíos registrados.
+#[tauri::command]
+pub fn borrar_campana(estado: tauri::State<'_, EstadoApp>, id: String) -> Result<(), ErrorIpc> {
+    let empresa = crate::comandos::empresa_actual(&estado)?;
+    estado
+        .db()
+        .borrar_borrador(empresa, &id)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))
+}
+
 /// ¿El nombre escrito es el de la campaña?
 ///
 /// Se comparan **sin espacios de sobra**: quien copia el nombre de la pantalla

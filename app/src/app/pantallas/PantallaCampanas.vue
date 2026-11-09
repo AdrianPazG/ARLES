@@ -106,6 +106,18 @@ function sePuedeDetener(estado: string): boolean {
   return sePuedePausar(estado) || sePuedeReanudar(estado)
 }
 
+/**
+ * Y borrar, que **sólo vale para un borrador** (05/11/2026).
+ *
+ * Quién lo decide es el núcleo —`EstadoDeCampana::se_puede_borrar`— y quién lo
+ * impide son las tres puertas de `Db::borrar_borrador`. Esta función decide
+ * sólo **qué botón se enseña**, igual que las tres de arriba: enseñar uno de
+ * más termina en un error del núcleo, que es feo pero seguro.
+ */
+function sePuedeBorrar(estado: string): boolean {
+  return estado === 'campana.estado.borrador'
+}
+
 /** La campaña que se está deteniendo, y lo que el usuario lleva escrito. */
 const deteniendo = ref<{ id: string; nombre: string; cuantos: number } | null>(null)
 const nombreEscrito = ref('')
@@ -136,6 +148,24 @@ async function confirmarDetener(): Promise<void> {
   if (!deteniendo.value || !puedeConfirmar.value) return
   const ok = await campanas.detener(deteniendo.value.id, nombreEscrito.value)
   if (ok) cerrarDetener()
+}
+
+/** El borrador que se va a borrar, con su nombre para la confirmación. */
+const borrando = ref<{ id: string; nombre: string } | null>(null)
+
+function pedirBorrar(c: { id: string; nombre: string }): void {
+  borrando.value = { id: c.id, nombre: c.nombre }
+}
+
+function cerrarBorrar(): void {
+  borrando.value = null
+}
+
+async function confirmarBorrar(): Promise<void> {
+  if (!borrando.value) return
+  // Sólo se cierra si se borró. Cerrar con un error puesto escondería el aviso
+  // junto con el diálogo, y la campaña seguiría en la lista sin explicación.
+  if (await campanas.borrar(borrando.value.id)) cerrarBorrar()
 }
 </script>
 
@@ -319,6 +349,13 @@ async function confirmarDetener(): Promise<void> {
                 >
                   {{ t('campana.accion.detener') }}
                 </ABoton>
+                <ABoton
+                  v-if="sePuedeBorrar(c.estado)"
+                  variante="peligro"
+                  @click="pedirBorrar(c)"
+                >
+                  {{ t('campana.accion.borrar') }}
+                </ABoton>
               </div>
             </td>
           </tr>
@@ -374,6 +411,47 @@ async function confirmarDetener(): Promise<void> {
           @click="confirmarDetener"
         >
           {{ t('campana.accion.detener') }}
+        </ABoton>
+      </template>
+    </AModal>
+
+    <!--
+      ── BORRAR UN BORRADOR ───────────────────────────────────────────────
+      No pide escribir el nombre, y detener sí: lo que la escritura protege es
+      cancelar envíos de la campaña equivocada, y aquí no hay envíos. Pedirlo
+      para todo enseña a confirmar sin leer, y entonces la confirmación que
+      importa tampoco se lee.
+
+      Lleva las tres cosas que la pantalla de Archivar aprendió el 07/10/2026:
+      el nombre dentro, la frase llana de que no se deshace, y una salida al
+      lado del botón rojo.
+    -->
+    <AModal
+      :abierto="borrando !== null"
+      :titulo="t('campana.accion.borrar')"
+      destructiva
+      @cerrar="cerrarBorrar"
+    >
+      <p>
+        {{ t('campana.accion.confirmarBorrar', { nombre: borrando?.nombre ?? '' }) }}
+      </p>
+      <p class="campanas__salvo">
+        {{ t('campana.accion.soloBorradores') }}
+      </p>
+
+      <template #acciones>
+        <ABoton
+          variante="secundario"
+          @click="cerrarBorrar"
+        >
+          {{ t('campana.accion.mejorNo') }}
+        </ABoton>
+        <ABoton
+          variante="peligro"
+          :cargando="campanas.trabajando"
+          @click="confirmarBorrar"
+        >
+          {{ t('campana.accion.borrar') }}
         </ABoton>
       </template>
     </AModal>

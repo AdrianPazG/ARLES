@@ -684,15 +684,54 @@
 
         // ── D-15 · las listas de contactos ───────────────────────────
         //
-        // La demostración trae dos para que el paso 2 del asistente se pueda
-        // **recorrer**, no sólo mirar: con una sola opción el desplegable no
-        // enseña nada, y con ninguna el aviso de «todavía no has cargado»
-        // taparía el caso normal.
+        // El decorado está al final del archivo con las demás, que es donde se
+        // puede cambiar sin leer el resto. Vivía aquí dentro, y por eso el
+        // `case` de abajo —que añade una lista hecha a mano— no las veía.
         case 'listas_de_contactos':
-          return Promise.resolve(e.listas || (e.listas = [
-            { id: 'lst-1', nombre: 'Videovigilancia', cuantos: 312, campanas: 1 },
-            { id: 'lst-2', nombre: 'Desarrollo de aplicaciones', cuantos: 148, campanas: 0 },
-          ]));
+          return Promise.resolve(e.listas || DEMO.listas);
+
+        // ── Guardar como lista los contactos marcados (05/11/2026) ────
+        //
+        // **La lista se añade de verdad al estado**, y eso es lo que da valor
+        // a esto en la demostración: se marcan dos contactos, se guardan, y la
+        // lista aparece en el paso 2 del asistente. Devolver un identificador
+        // sin tocar `e.listas` dejaría la pantalla acusando una lista que no
+        // está en ninguna parte — el defecto que `sonda:supresion` cazó con
+        // «Apuntada» sobre una lista que no cambiaba.
+        //
+        // Y con el mismo nombre **suma**, igual que en Rust: `crear_lista`
+        // devuelve la que ya se llamaba así.
+        case 'crear_lista_con_contactos': {
+          var nomLista = String(args.nombre || '').trim();
+          var cuantosMarcados = (args.contactos || []).length;
+          // Copia de los objetos y no sólo del array: mutar `cuantos` sobre la
+          // fila de `DEMO` dejaría el decorado cambiado para el resto de la
+          // sesión, y la demostración empieza siempre igual.
+          //
+          // Y la suma es **de los marcados**, no de los que no estuvieran ya
+          // dentro: aquí no se sabe quién pertenece a una lista —el decorado
+          // sólo lleva la cifra—. En Rust la cifra se lee de la base después de
+          // escribir, por eso ahí sí es exacta.
+          e.listas = (e.listas || DEMO.listas).map(function (l) {
+            return { id: l.id, nombre: l.nombre, cuantos: l.cuantos, campanas: l.campanas };
+          });
+          var yaEstaba = e.listas.filter(function (l) {
+            return l.nombre.toLowerCase() === nomLista.toLowerCase();
+          })[0];
+          if (yaEstaba) {
+            yaEstaba.cuantos += cuantosMarcados;
+          } else {
+            yaEstaba = {
+              id: nuevoId(), nombre: nomLista, cuantos: cuantosMarcados, campanas: 0,
+            };
+            e.listas.push(yaEstaba);
+            e.listas.sort(function (a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
+          }
+          escribir(e);
+          return Promise.resolve({
+            id: yaEstaba.id, nombre: yaEstaba.nombre, cuantos: yaEstaba.cuantos,
+          });
+        }
 
         case 'suprimir_contacto':
           return Promise.resolve({ nuevas: 1, yaEstaban: 0 });
@@ -856,6 +895,29 @@
           e.campanas = lista;
           escribir(e);
           return Promise.resolve({ estado: destino, cancelados: cancelados, etapas: 1 });
+        }
+
+        // ── Borrar un borrador (05/11/2026) ───────────────────────────
+        //
+        // **Rechaza lo que Rust rechaza.** Un simulador más blando que el
+        // núcleo enseña un control que el producto real no acepta, y aquí
+        // sería el peor de los casos: la demostración borrando una campaña
+        // con historial que la aplicación de verdad protege.
+        case 'borrar_campana': {
+          var cams = (e.campanas || DEMO.campanas).slice();
+          var cual = cams.findIndex(function (c) { return c.id === (args.id || ''); });
+          if (cual < 0) {
+            return Promise.reject({ clave: 'error.db.campana_no_existe', detalle: '' });
+          }
+          if (cams[cual].estado !== 'campana.estado.borrador') {
+            return Promise.reject({
+              clave: 'error.db.solo_se_borra_un_borrador', detalle: '',
+            });
+          }
+          cams.splice(cual, 1);
+          e.campanas = cams;
+          escribir(e);
+          return Promise.resolve(null);
         }
 
         case 'parar_todo': {
@@ -1830,6 +1892,21 @@
           { canal: 'whatsapp', valorRaw: '+52 81 3333 3333', valorNormalizado: '+528133333333', principal: true },
         ],
       },
+    ],
+
+    // ── D-15 · las listas de contactos ────────────────────────────────
+    //
+    // Dos, para que el paso 2 del asistente se pueda **recorrer** y no sólo
+    // mirar: con una sola opción el desplegable no enseña nada, y con ninguna
+    // el aviso de «todavía no has cargado» taparía el caso normal.
+    //
+    // Estaban escritas dentro del `case`, que es donde no se pueden cambiar
+    // sin leer el resto del archivo —justo lo que este objeto existe para
+    // evitar— y, sobre todo, donde no las ve el `case` que escribe una lista
+    // nueva (05/11/2026).
+    listas: [
+      { id: 'lst-1', nombre: 'Videovigilancia', cuantos: 312, campanas: 1 },
+      { id: 'lst-2', nombre: 'Desarrollo de aplicaciones', cuantos: 148, campanas: 0 },
     ],
 
     remitentes: [{

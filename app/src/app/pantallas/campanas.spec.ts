@@ -12,6 +12,8 @@ import {
   type PlantillaDeMeta,
 } from '@/app/stores/whatsapp'
 
+import { AModal } from '@/design/componentes'
+
 import AsistenteDeCampana from './AsistenteDeCampana.vue'
 import PantallaCampanas from './PantallaCampanas.vue'
 
@@ -138,6 +140,135 @@ describe('la lista de campañas', () => {
     const texto = mount(PantallaCampanas, entorno).text()
     expect(texto).toContain('1,342')
     expect(texto).toContain('87')
+  })
+})
+
+/**
+ * Borrar un borrador · 05/11/2026
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * LO QUE PIDIÓ DIRECCIÓN, Y LA PREGUNTA QUE HIZO CON ELLO
+ *
+ *   «no me gustaría ver esa campaña, me gustaría tener la oportunidad de poder
+ *    eliminarla, pero no sé qué tan recomendable sea hacer eso»
+ *
+ * Salió del asistente a mitad para hacer una comprobación y al volver encontró
+ * la campaña guardada en borrador. La respuesta a su pregunta es la regla que
+ * esta pantalla obedece: un borrador sí, lo demás no.
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * LO QUE SÓLO ESTA CAPA PUEDE EQUIVOCAR
+ *
+ * Que el borrado respete las tres puertas lo prueban las cuatro pruebas de
+ * `arles-db::campanas`, y que la regla sea la que es, las dos del núcleo. Aquí
+ * se vigilan las tres cosas que ninguna de ellas puede ver:
+ *
+ * 1. Que el botón **no aparezca** en una campaña que envió. Aparecer y fallar
+ *    al pulsar se lee como una avería (§95).
+ * 2. Que la confirmación lleve el nombre, diga que no se deshace y explique
+ *    por qué sólo los borradores — las tres cosas que la pantalla de Archivar
+ *    aprendió el 07/10/2026 por las malas.
+ * 3. Que confirmar llame al comando con el id de **esa** campaña.
+ *
+ * **Vistas en rojo** con tres rupturas: enseñar el botón en todos los estados,
+ * quitar el párrafo de «sólo se borran los borradores», y borrar al pulsar el
+ * botón de la fila sin pasar por la confirmación.
+ */
+describe('borrar un borrador', () => {
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    await router.push('/campanas')
+    await router.isReady()
+  })
+
+  const BORRADOR: Campana = {
+    ...CAMPANA,
+    id: '01900000-0000-7000-8000-0000000000c9',
+    nombre: 'Pruebas',
+    estado: 'campana.estado.borrador',
+    audiencia: 0,
+    aceptados: 0,
+  }
+
+  /** Monta la lista con las campañas dadas y espía al almacén. */
+  function conLista(campanas: Campana[]): { pantalla: ReturnType<typeof mount>; pedidos: string[] } {
+    const store = useCampanasStore()
+    store.campanas = campanas
+    store.cargada = true
+    const pedidos: string[] = []
+    store.borrar = async (id) => {
+      pedidos.push(id)
+      return true
+    }
+    return { pantalla: mount(PantallaCampanas, entorno), pedidos }
+  }
+
+  /**
+   * Los botones de las filas, y **sólo** los de las filas.
+   *
+   * `AModal` no desmonta lo que lleva dentro al cerrarse —está documentado en
+   * `PantallaContactos.vue`—, así que su botón de confirmar existe en el DOM
+   * desde el montaje. La primera versión de estas pruebas buscaba «Borrar» en
+   * toda la pantalla y contaba dos con una sola campaña enviando: contaba el
+   * del diálogo cerrado.
+   */
+  function botonesDeFila(pantalla: ReturnType<typeof mount>, texto: string) {
+    return pantalla
+      .findAll('.campanas__acciones button')
+      .filter((b) => b.text() === texto)
+  }
+
+  /** El diálogo de borrar, por su título. */
+  function dialogo(pantalla: ReturnType<typeof mount>) {
+    const cual = pantalla.findAllComponents(AModal).find((m) => m.props('titulo') === 'Borrar')
+    expect(cual, 'el diálogo de borrar').toBeDefined()
+    return cual
+  }
+
+  it('la campaña que ya envió no enseña el botón de borrar', () => {
+    const { pantalla } = conLista([CAMPANA])
+    expect(
+      botonesDeFila(pantalla, 'Borrar').length,
+      'un botón que aparece y falla al pulsarlo se lee como una avería',
+    ).toBe(0)
+    expect(dialogo(pantalla)?.props('abierto'), 'y el diálogo está cerrado').toBe(false)
+  })
+
+  it('el borrador sí, y la confirmación dice el nombre, que no se deshace y por qué sólo los borradores', async () => {
+    const { pantalla, pedidos } = conLista([CAMPANA, BORRADOR])
+    const abrir = botonesDeFila(pantalla, 'Borrar')
+    expect(abrir.length, 'uno, el del borrador').toBe(1)
+
+    await abrir[0]?.trigger('click')
+    const modal = dialogo(pantalla)
+    expect(modal?.props('abierto')).toBe(true)
+
+    // El texto se mira **dentro del diálogo**: en toda la pantalla, dos de
+    // las tres frases estarían ahí desde el montaje y la prueba pasaría sin
+    // haber abierto nada.
+    const texto = modal?.text() ?? ''
+    expect(texto).toContain('«Pruebas»')
+    expect(texto).toContain('no se puede deshacer')
+    expect(texto).toContain('Sólo se borran los borradores')
+    // Una salida al lado del botón rojo: es lo que le faltaba a Archivar.
+    expect(texto).toContain('Mejor no')
+    expect(pedidos, 'abrir el diálogo no borra nada').toEqual([])
+  })
+
+  it('al confirmar borra esa campaña, y no otra', async () => {
+    const { pantalla, pedidos } = conLista([CAMPANA, BORRADOR])
+    await botonesDeFila(pantalla, 'Borrar')[0]?.trigger('click')
+    // Sin esta línea la prueba no distingue «borra al confirmar» de «borra al
+    // pulsar la fila»: con el botón de la fila llamando al almacén directo,
+    // pasaba en verde. Lo cazó romperlo.
+    expect(pedidos, 'el botón de la fila sólo abre la confirmación').toEqual([])
+
+    const confirmar = dialogo(pantalla)
+      ?.findAll('button')
+      .filter((b) => b.text() === 'Borrar')
+    await confirmar?.[confirmar.length - 1]?.trigger('click')
+
+    expect(pedidos).toEqual([BORRADOR.id])
   })
 })
 

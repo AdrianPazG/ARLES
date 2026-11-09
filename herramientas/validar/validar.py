@@ -1270,6 +1270,53 @@ def fase_1(rapido):
           "… DROP COLUMN; sólo se reconstruyen tablas de las que no cuelga nada.",
           detalle="revisado sobre la última migración")
 
+    # ── NINGÚN OTRO CAMINO BORRA UNA CAMPAÑA (05/11/2026) ────────────────
+    #
+    # `Db::borrar_borrador` protege el historial con tres puertas: el tipo del
+    # núcleo, el `status` del `WHERE` y el recuento de envíos. Las tres viven
+    # en una función, y lo que ninguna prueba puede ver es **un segundo
+    # `DELETE FROM campaign`** escrito en otro sitio —una limpieza, un ARCO,
+    # una migración de datos—: `campaign_stage`, `campaign_audience` y
+    # `message_attempt` cuelgan de ahí con `ON DELETE CASCADE`, así que se
+    # llevaría el registro de qué se mandó y a quién sin un solo error.
+    #
+    # Es el fallo F1 de la Fase 1 —la audiencia congelada y el registro de
+    # envíos perdidos por una cascada— que ya ha vuelto tres veces, y la
+    # defensa que ha funcionado las tres es la misma: contar antes, y no
+    # confiar en que nadie escriba el borrado de otra forma.
+    #
+    # Se mide sobre el código **sin pruebas ni comentarios** (`solo_produccion`):
+    # el `DELETE` de una prueba satisface cualquier búsqueda sobre el archivo
+    # entero, que es el defecto del 04/11 dentro de la comprobación que venía
+    # a cazarlo.
+    borrados = []
+    sin_estado = []
+    for base, _, nombres in os.walk(os.path.join(RAIZ, "crates")):
+        for n in nombres:
+            if not n.endswith(".rs"):
+                continue
+            ruta = os.path.join(base, n)
+            with open(ruta, encoding="utf-8") as f:
+                codigo = solo_produccion(f.read())
+            rel = os.path.relpath(ruta, RAIZ)
+            # `campaign` a secas: `campaign_stage` y `campaign_audience` son
+            # otras tablas, y borrar en ellas es legítimo.
+            for sentencia in re.findall(
+                r"DELETE FROM campaign\b(?:(?!DELETE FROM)[\s\S])*?(?=\"|;)", codigo
+            ):
+                borrados.append(rel)
+                if "status" not in sentencia:
+                    sin_estado.append(rel)
+
+    check(1, "Ningún borrado de campaña se salta las tres puertas",
+          borrados == ["crates/arles-db/src/campanas.rs"] and not sin_estado,
+          "`DELETE FROM campaign` sólo vive en `Db::borrar_borrador`, y su "
+          "WHERE exige `status`. Un segundo borrado en otro sitio se llevaría "
+          "en cascada la audiencia congelada y el registro de envíos — el "
+          "fallo F1 de la Fase 1, que ya ha vuelto tres veces.",
+          detalle=f"borran campañas: {borrados or 'nadie'}"
+          + (f" · sin exigir el estado: {sin_estado}" if sin_estado else ""))
+
     check(1, "El consentimiento es append-only y no bloquea el borrado",
           "consent_entry_sin_update" in esquema
           and "consent_entry_sin_delete" in esquema

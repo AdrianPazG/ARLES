@@ -121,6 +121,51 @@ impl EstadoDeCampana {
         matches!(self, Self::Programada | Self::Enviando | Self::EnPausa)
     }
 
+    /// ¿Se puede borrar una campaña en este estado? (05/11/2026)
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ SÓLO EL BORRADOR, Y POR QUÉ LA REGLA VIVE AQUÍ
+    ///
+    /// Dirección probó el asistente, salió a mitad, y al volver encontró una
+    /// campaña en borrador que no quería: *«no me gustaría ver esa campaña, me
+    /// gustaría tener la oportunidad de poder eliminarla, pero no sé qué tan
+    /// recomendable sea hacer eso»*.
+    ///
+    /// Un borrador no ha mandado nada, no tiene audiencia congelada ni cola, y
+    /// no hay nada que perder. **Cualquier otro estado sí.** Una campaña que
+    /// envió es el registro de qué se mandó y a quién, y es con lo que se
+    /// contesta una solicitud de datos: borrarla se llevaría `campaign_stage`
+    /// y `message_attempt` por `ON DELETE CASCADE` —el fallo que en la Fase 1
+    /// costó la audiencia congelada y el registro de envíos, y que ha vuelto
+    /// tres veces—.
+    ///
+    /// Una campaña `Lista` tampoco se borra, y no es por prudencia: pasó el
+    /// preflight, así que puede activarse de un clic desde otra pantalla, y lo
+    /// que hay que hacer con ella es detenerla o dejarla.
+    ///
+    /// La regla está **en el tipo** y no en la consulta ni en la pantalla, por
+    /// lo mismo que `Alcance::se_puede_restaurar()` de la 8.3 bis: es la única
+    /// forma de que añadir un estado octavo obligue a decidir aquí en vez de
+    /// caer en una rama por defecto. Por eso el `match` es exhaustivo y **no
+    /// lleva `_ =>`**.
+    ///
+    /// No es la única puerta: `Db::borrar_borrador` exige además el estado en
+    /// el `WHERE` del `DELETE` y se niega si hay un solo envío registrado. Una
+    /// regla que sólo vive en un `if` la salta quien escriba el segundo
+    /// llamador.
+    #[must_use]
+    pub const fn se_puede_borrar(self) -> bool {
+        match self {
+            Self::Borrador => true,
+            Self::Lista
+            | Self::Programada
+            | Self::Enviando
+            | Self::EnPausa
+            | Self::Detenida
+            | Self::Terminada => false,
+        }
+    }
+
     /// La clave de texto del estado (§139).
     #[must_use]
     pub const fn clave_i18n(self) -> &'static str {
@@ -308,6 +353,42 @@ mod tests {
     use super::*;
     use AccionDeCampana::{Detener, Pausar, Reanudar};
     use EstadoDeCampana as E;
+
+    /// **Sólo un borrador se puede borrar, y se recorren los siete.**
+    ///
+    /// No se escriben seis `assert!(!…)` a mano: se recorre `TODOS` y se exige
+    /// que el único que diga sí sea el borrador. Una lista a mano es el defecto
+    /// que este proyecto lleva más veces cometiendo, y aquí además dejaría al
+    /// estado octavo fuera de la comprobación el día que se añada.
+    ///
+    /// Verificado rompiéndolo el 05/11/2026: con `Self::Terminada => true` la
+    /// prueba falla nombrando «Terminada».
+    #[test]
+    fn solo_un_borrador_se_puede_borrar() {
+        for estado in EstadoDeCampana::TODOS {
+            assert_eq!(
+                estado.se_puede_borrar(),
+                *estado == E::Borrador,
+                "{estado:?} no decide lo que debe sobre borrar"
+            );
+        }
+    }
+
+    /// Y lo que se borra es **lo que no tiene nada que perder**: un borrador no
+    /// tiene cola viva, y nada con cola viva se borra.
+    ///
+    /// Son dos preguntas distintas del mismo tipo y conviene que no se
+    /// contradigan: borrar algo con cola viva dejaría intentos apuntando a una
+    /// campaña que ya no existe —o se los llevaría en cascada—.
+    #[test]
+    fn nada_con_cola_viva_se_puede_borrar() {
+        for estado in EstadoDeCampana::TODOS {
+            assert!(
+                !(estado.tiene_cola_viva() && estado.se_puede_borrar()),
+                "{estado:?} se podría borrar con la cola viva"
+            );
+        }
+    }
 
     /// **Una campaña detenida no se reanuda. Nunca.**
     ///

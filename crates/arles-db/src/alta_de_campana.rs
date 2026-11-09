@@ -1915,6 +1915,66 @@ mod tests {
         assert_eq!(quien, "ana@x.mx", "beto@x.mx no estaba invitado");
     }
 
+    /// **Y la campaña va a la lista que alguien hizo marcando contactos.**
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ NO BASTA CON LA PRUEBA DE ARRIBA
+    ///
+    /// Esa siembra la pertenencia con SQL a mano, así que comprueba la
+    /// **consulta de la audiencia** y nada más. Lo que Dirección pidió el
+    /// 05/11/2026 recorre dos piezas: `Db::crear_lista_con` escribe la lista
+    /// desde la pantalla de Contactos, y `activar_campana` la lee. Cada una
+    /// tiene sus pruebas, y **el hueco vive en la junta** — es el patrón del
+    /// §9 de `CLAUDE.md`, y aquí se parece mucho al caso real: una lista que
+    /// se guarda bien y una campaña que sale a todo el padrón, sin un solo
+    /// error.
+    ///
+    /// Dos contactos y sólo uno marcado, por lo mismo que la de arriba: con
+    /// uno, la audiencia saldría de 1 con filtro y sin él.
+    ///
+    /// Verificada rompiéndola el 05/11/2026: dejando la campaña sin su lista
+    /// —`contact_list_id` a `NULL`— sale `left: 2, right: 1` y nombra a
+    /// `beto@x.mx`.
+    #[test]
+    fn una_lista_hecha_a_mano_recorta_la_audiencia_de_la_campana() {
+        let (_d, db, v) = base();
+        // UUIDs porque `crear_lista_con` recibe `ContactId`, que es un tipo
+        // validado: un «k1» no se puede ni construir. Lo paró el tipo antes
+        // que ninguna prueba, que es el orden que este proyecto busca.
+        const ANA: &str = "01930000-0000-7000-8000-00000000000a";
+        const BETO: &str = "01930000-0000-7000-8000-00000000000b";
+        contacto(&db, ANA, "ana@x.mx");
+        contacto(&db, BETO, "beto@x.mx");
+
+        let lista = db
+            .crear_lista_con(empresa(), "Prueba de hoy", &[ANA.parse().expect("id")])
+            .expect("crea la lista");
+
+        let c = una_campana(&db, v);
+        db.ejecutar_en_pruebas(|conn| {
+            conn.execute(
+                "UPDATE campaign SET contact_list_id = ?1 WHERE id = ?2",
+                params![lista.to_string(), c.to_string()],
+            )
+            .map(|_| ())
+        })
+        .expect("ata la campaña a la lista");
+
+        let r = db.activar_campana(empresa(), c).expect("activa");
+        assert_eq!(r.en_la_audiencia, 1, "sólo el que se marcó");
+
+        let quien: String = db
+            .ejecutar_en_pruebas(|conn| {
+                conn.query_row(
+                    "SELECT contact_address FROM message_attempt WHERE campaign_id = ?1",
+                    params![c.to_string()],
+                    |f| f.get(0),
+                )
+            })
+            .expect("lee");
+        assert_eq!(quien, "ana@x.mx", "beto@x.mx no se marcó");
+    }
+
     /// **Con lista, una baja sigue mandando sobre la invitación.**
     ///
     /// ─────────────────────────────────────────────────────────────────────

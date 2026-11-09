@@ -196,6 +196,111 @@ impl Db {
         })
     }
 
+    /// Borra una campaña **en borrador**, y sólo en borrador (05/11/2026).
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ ESTO EXISTE
+    ///
+    /// Dirección empezó una campaña, salió del asistente a mitad para hacer
+    /// una comprobación, y al volver la encontró guardada en borrador:
+    /// *«no me gustaría ver esa campaña, me gustaría tener la oportunidad de
+    /// poder eliminarla, pero no sé qué tan recomendable sea hacer eso»*.
+    ///
+    /// Un borrador no ha mandado nada y no hay nada que perder. Lo que no se
+    /// borra nunca es una campaña que envió: su historial es la prueba de qué
+    /// se mandó y a quién, y es con lo que se contesta una solicitud de datos.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// LAS TRES PUERTAS, Y POR QUÉ NO SOBRA NINGUNA
+    ///
+    /// 1. **El tipo.** `EstadoDeCampana::se_puede_borrar()` es quien decide, y
+    ///    su `match` es exhaustivo: un estado octavo obliga a decidir ahí.
+    /// 2. **El `WHERE` del `DELETE`.** Lleva `status = 'draft'` dentro, así que
+    ///    por construcción no puede tocar otra cosa — ni con el estado leído
+    ///    fuera de la transacción, ni si alguien escribe un segundo llamador
+    ///    que se salte el punto 1.
+    /// 3. **El recuento de envíos.** Es la única que mira **los datos** en vez
+    ///    de la etiqueta que los describe. Un borrador no debería tener ni un
+    ///    envío; si una restauración o una migración dejaran una campaña con
+    ///    historial marcada como `draft`, `ON DELETE CASCADE` se llevaría ese
+    ///    historial sin que nada protestara. Es el fallo F1 de la Fase 1, que
+    ///    ya ha vuelto tres veces, y la defensa que ha funcionado las tres es
+    ///    la misma: contar antes de borrar.
+    ///
+    /// **Las tres verificadas rompiéndolas** el 05/11/2026, y las tres se
+    /// vieron en rojo con lo que importa:
+    ///
+    /// · con `Terminada => true` en el núcleo, el borrado **no ocurre** y el
+    ///   error pasa a ser `CampanaNoExiste` — que es la puerta 2 actuando sola;
+    /// · quitando además el `status` del `WHERE`, la campaña terminada se borra
+    ///   de verdad (`Ok(())`), que es lo que prueba que esa puerta hace falta;
+    /// · con el recuento de envíos fuera, un borrador con un envío dentro se
+    ///   borra y su historial se va en cascada.
+    ///
+    /// La puerta de la empresa **no se puede ver fallar desde aquí**, y se dice
+    /// en vez de darse por verificada: `leer_estado` ya filtra por empresa, así
+    /// que una campaña ajena da `CampanaNoExiste` antes de llegar al `DELETE`.
+    /// Sigue en el `WHERE` porque es la que no depende de que esa lectura siga
+    /// estando mañana.
+    ///
+    /// Todo dentro de **una transacción**: el estado se lee y se cuenta donde
+    /// se escribe, no antes.
+    ///
+    /// Lo que se va con la campaña es su etapa (`campaign_stage`), que es
+    /// configuración de la propia campaña y no tiene sentido sin ella.
+    ///
+    /// # Errores
+    ///
+    /// - [`DbError::CampanaNoExiste`] si no hay tal campaña en esta empresa.
+    /// - [`DbError::SoloSeBorraUnBorrador`] con el estado dentro, si ya no lo es.
+    /// - [`DbError::LaCampanaTieneHistorial`] si tiene algún envío registrado.
+    /// - [`DbError::Sqlite`] si la escritura falla.
+    ///
+    /// **POR LA DE ESCRITURA A PROPÓSITO:** escribe.
+    pub fn borrar_borrador(&self, empresa: CompanyId, campana: &str) -> Result<(), DbError> {
+        self.con_dominio(|conn| {
+            let tx = conn.unchecked_transaction()?;
+
+            let estaba = leer_estado(&tx, empresa, campana)?;
+            if !estaba.se_puede_borrar() {
+                return Err(DbError::SoloSeBorraUnBorrador {
+                    estado: estaba.como_texto(),
+                });
+            }
+
+            let envios: i64 = tx.query_row(
+                "SELECT COUNT(*) FROM message_attempt WHERE campaign_id = ?1",
+                params![campana],
+                |f| f.get(0),
+            )?;
+            if envios > 0 {
+                return Err(DbError::LaCampanaTieneHistorial {
+                    cuantos: u32::try_from(envios).unwrap_or(u32::MAX),
+                });
+            }
+
+            let borradas = tx.execute(
+                "DELETE FROM campaign
+                  WHERE id = ?1 AND company_id = ?2 AND status = ?3",
+                params![
+                    campana,
+                    empresa.to_string(),
+                    EstadoDeCampana::Borrador.como_texto()
+                ],
+            )?;
+            if borradas == 0 {
+                // El estado se leyó hace tres líneas dentro de esta misma
+                // transacción, así que esto no debería pasar. Si pasa, lo que
+                // no puede quedar es un «se borró» sobre una campaña que
+                // sigue ahí: se deshace y se dice que no existe.
+                return Err(DbError::CampanaNoExiste);
+            }
+
+            tx.commit()?;
+            Ok(())
+        })
+    }
+
     /// ¿Está puesta la parada de emergencia, y desde cuándo?
     ///
     /// # Errores
@@ -760,5 +865,160 @@ mod tests {
             db.hay_que_parar(empresa(), "no-existe").expect("consulta"),
             "ante la duda, no se envía"
         );
+    }
+
+    // ─── Borrar un borrador (05/11/2026) ────────────────────────────────────
+
+    /// Siembra una campaña con su etapa, en el estado que se diga.
+    fn campana(db: &Db, id: &str, empresa_id: &str, estado: &str) {
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                 VALUES (?1, ?2, 'Pruebas', ?3, ?4, ?4)",
+                params![id, empresa_id, estado, AHORA],
+            )?;
+            // La etapa va con la cuenta de la base: el `CHECK` de la V4 exige
+            // que una etapa de correo tenga cuenta de correo y ninguna de
+            // WhatsApp. Lo que esto siembra es la cascada, no un alta válida.
+            c.execute(
+                "INSERT INTO campaign_stage
+                     (id, campaign_id, position, channel, email_account_id,
+                      status, created_at, updated_at)
+                 VALUES (?1, ?2, 1, 'email', 'cuenta-1', 'draft', ?3, ?3)",
+                params![format!("etapa-{id}"), id, AHORA],
+            )
+        })
+        .expect("siembra la campaña");
+    }
+
+    fn cuantas_campanas(db: &Db) -> i64 {
+        db.ejecutar_en_pruebas(|c| c.query_row("SELECT COUNT(*) FROM campaign", [], |f| f.get(0)))
+            .expect("cuenta")
+    }
+
+    fn cuantas_etapas(db: &Db) -> i64 {
+        db.ejecutar_en_pruebas(|c| {
+            c.query_row("SELECT COUNT(*) FROM campaign_stage", [], |f| f.get(0))
+        })
+        .expect("cuenta")
+    }
+
+    /// **Un borrador se borra, con su etapa y sin tocar lo demás.**
+    ///
+    /// Es el camino que Dirección pidió: una campaña que se quedó a medias en
+    /// el asistente y que no quiere ver en la lista.
+    ///
+    /// La etapa se va con ella —es configuración de la propia campaña— y la
+    /// prueba lo comprueba contando: si la cascada no se la llevara, quedaría
+    /// una etapa apuntando a una campaña que no existe. Y la campaña
+    /// «enviando» de la base sigue en su sitio, que es lo que distingue un
+    /// borrado de un destrozo.
+    #[test]
+    fn un_borrador_se_borra_con_su_etapa() {
+        let (_d, db) = base();
+        campana(&db, "bor", EMPRESA, "draft");
+        assert_eq!(cuantas_campanas(&db), 2);
+        assert_eq!(cuantas_etapas(&db), 2);
+
+        db.borrar_borrador(empresa(), "bor").expect("borra");
+
+        assert_eq!(cuantas_campanas(&db), 1, "sólo se fue el borrador");
+        assert_eq!(cuantas_etapas(&db), 1, "y su etapa se fue con él");
+        assert_eq!(
+            db.estado_de_campana(empresa(), "camp").expect("lee"),
+            E::Enviando,
+            "la que estaba enviando no se tocó"
+        );
+    }
+
+    /// **Lo que ya envió no se borra, y el error dice en qué estado está.**
+    ///
+    /// Con un solo mensaje para los seis estados, la mitad de la gente iría a
+    /// buscar un botón que en su caso no existe: lo que hay que hacer con una
+    /// campaña enviando es detenerla, y con una terminada, nada (§95).
+    ///
+    /// ── POR QUÉ EL FILTRO NO USA `se_puede_borrar` (05/11/2026) ──────────
+    ///
+    /// Porque esta prueba vigila a esa función, y su primera versión recorría
+    /// `TODOS.filter(|e| !e.se_puede_borrar())`: con `Terminada => true` en el
+    /// núcleo, Terminada **salía del recorrido** y la prueba pasaba en verde
+    /// mientras una campaña terminada se dejaba borrar de verdad. Lo cazó
+    /// romperlo, no leerlo.
+    ///
+    /// Es el defecto de medir en un sitio donde la respuesta ya no cuenta —el
+    /// mismo del comentario que se caza a sí mismo— y la salida no es escribir
+    /// los seis a mano, que es el otro defecto de siempre: es filtrar por **la
+    /// regla que esta prueba afirma** (todo lo que no es borrador), que no
+    /// depende de la implementación que mide.
+    #[test]
+    fn una_campana_que_no_es_borrador_no_se_borra() {
+        let (_d, db) = base();
+        for estado in EstadoDeCampana::TODOS.iter().filter(|e| **e != E::Borrador) {
+            let id = format!("c-{}", estado.como_texto());
+            campana(&db, &id, EMPRESA, estado.como_texto());
+
+            let r = db.borrar_borrador(empresa(), &id);
+            assert!(
+                matches!(r, Err(DbError::SoloSeBorraUnBorrador { estado: e }) if e == estado.como_texto()),
+                "{estado:?} se dejó borrar o dio otro error: {r:?}"
+            );
+            assert_eq!(
+                db.estado_de_campana(empresa(), &id).expect("sigue ahí"),
+                *estado
+            );
+        }
+    }
+
+    /// **Y un borrador con envíos registrados tampoco, que es la puerta que
+    /// protege el historial.**
+    ///
+    /// Un borrador no debería tener ni un envío. Esta prueba siembra
+    /// exactamente la incoherencia que no debería existir —`draft` con un
+    /// intento dentro— porque es la única situación en la que el `DELETE`
+    /// cumpliría lo que se le pide y **se llevaría el historial en cascada**.
+    /// Es el fallo F1 de la Fase 1, que ha vuelto tres veces.
+    ///
+    /// Lo que se comprueba no es sólo el error: es que el intento **sigue en
+    /// la base** después.
+    #[test]
+    fn un_borrador_con_envios_no_se_borra() {
+        let (_d, db) = base();
+        campana(&db, "bor", EMPRESA, "draft");
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "INSERT INTO message_attempt
+                     (id, campaign_id, channel, contact_address, idempotency_key,
+                      state, attempt_count, created_at, updated_at)
+                 VALUES ('int-1', 'bor', 'email', 'ana@t.mx', 'msgid-1', 'sent', 1, ?1, ?1)",
+                params![AHORA],
+            )
+        })
+        .expect("siembra el envío");
+
+        let r = db.borrar_borrador(empresa(), "bor");
+        assert!(
+            matches!(r, Err(DbError::LaCampanaTieneHistorial { cuantos: 1 })),
+            "{r:?}"
+        );
+        assert_eq!(cuantas_campanas(&db), 2, "la campaña sigue");
+        assert_eq!(
+            estado_del_intento(&db, "int-1"),
+            "sent",
+            "y su envío registrado sigue siendo lo que era"
+        );
+    }
+
+    /// El borrador de otra empresa no existe para ésta.
+    ///
+    /// No se distingue «no existe» de «es de otra empresa», por lo mismo que en
+    /// los contactos: decirlo filtraría la existencia de datos ajenos.
+    #[test]
+    fn un_borrador_de_otra_empresa_no_se_borra() {
+        let (_d, db) = base();
+        campana(&db, "ajena", OTRA, "draft");
+
+        let r = db.borrar_borrador(empresa(), "ajena");
+        assert!(matches!(r, Err(DbError::CampanaNoExiste)), "{r:?}");
+        assert_eq!(cuantas_campanas(&db), 2, "la ajena sigue ahí");
     }
 }

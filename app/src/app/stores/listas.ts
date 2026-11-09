@@ -45,9 +45,25 @@ export interface ListaDeContactos {
   readonly campanas: number
 }
 
+/** Lo que devuelve crear una lista marcando contactos. */
+export interface ListaCreada {
+  readonly id: string
+  /** Ya recortado: es el nombre que quedó guardado, no el que se escribió. */
+  readonly nombre: string
+  /**
+   * Cuánta gente tiene la lista **al terminar**, no cuántos se marcaron.
+   *
+   * Son dos cifras distintas y el acuse necesita ésta: marcar a alguien dos
+   * veces lo mete una, y guardar con el nombre de una lista que ya existía
+   * suma a lo que tenía.
+   */
+  readonly cuantos: number
+}
+
 export const useListasStore = defineStore('listas', () => {
   const listas = ref<readonly ListaDeContactos[]>([])
   const cargando = ref(false)
+  const guardando = ref(false)
   const errorGeneral = ref<string | null>(null)
 
   /** Las que tienen a alguien dentro. Una lista vacía no se puede enviar. */
@@ -71,5 +87,43 @@ export const useListasStore = defineStore('listas', () => {
     }
   }
 
-  return { listas, cargando, errorGeneral, conGente, cargar }
+  /**
+   * Crea una lista con los contactos que se marcaron en la tabla.
+   *
+   * ── POR QUÉ RECARGA ANTES DE DEVOLVER ────────────────────────────────────
+   *
+   * Porque las dos pantallas que usan este almacén enseñan la cifra de cada
+   * lista: dejar `listas` como estaba haría que el asistente ofreciera la
+   * nueva sin gente dentro —o no la ofreciera— hasta que alguien volviera a
+   * entrar. Es la misma razón por la que `contactos.crear` llama a `recargar`.
+   *
+   * Devuelve `null` si falló, con la clave en `errorGeneral`: es lo que
+   * distingue «no se guardó» de «se guardó y no hay nada que acusar».
+   */
+  async function crearCon(
+    nombre: string,
+    contactos: readonly string[],
+  ): Promise<ListaCreada | null> {
+    guardando.value = true
+    errorGeneral.value = null
+    try {
+      if (!hayNucleo()) {
+        errorGeneral.value = 'error.app.sin_nucleo'
+        return null
+      }
+      const creada = await invocar<ListaCreada>('crear_lista_con_contactos', {
+        nombre,
+        contactos,
+      })
+      await cargar()
+      return creada
+    } catch (e) {
+      errorGeneral.value = claveDelError(e)
+      return null
+    } finally {
+      guardando.value = false
+    }
+  }
+
+  return { listas, cargando, guardando, errorGeneral, conGente, cargar, crearCon }
 })

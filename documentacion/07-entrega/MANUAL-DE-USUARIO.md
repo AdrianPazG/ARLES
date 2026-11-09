@@ -206,6 +206,11 @@ campañas, al momento. Se vuelve a levantar cuando quieras.
 fecha. Se puede filtrar por seis criterios y nunca enseña más de 500 filas de
 golpe, con el total al lado.
 
+**Un borrador que te sobra se borra**, con el botón de su fila en Campañas.
+Pasa al salir del asistente a mitad: ARLES guarda lo que llevabas escrito, y
+esa campaña se queda en la lista. Sólo se borran los borradores — una que ya
+envió se queda, porque su registro es con lo que contestas qué se mandó.
+
 ---
 
 ## 5 · Lo que ARLES guarda, y dónde
@@ -275,13 +280,24 @@ nada que no se pueda cumplir.
 |---|---|
 | **No dice si un correo llegó** | Nadie puede saberlo. ARLES dice «aceptado» —el servidor lo tomó— y nunca «entregado», porque sería mentira |
 | **No dice si alguien abrió un mensaje** | Eso exige un píxel espía. Se decidió no ponerlo |
-| **No se puede filtrar la audiencia** de una campaña | Entra la lista entera. El filtro del **registro** sí existe, con seis criterios |
+| **No hay un filtro dentro del paso 2** de la campaña | A quién va se elige **antes**: toda la empresa, una lista importada, o una lista que haces en Contactos marcando a quien quieras —con el filtro de esa pantalla delante—. Lo que no hay es un buscador dentro del asistente |
 | **Una campaña creada no se puede editar** | Hay que crear otra |
 | **No se puede restaurar un respaldo hecho con una versión MÁS NUEVA** | Uno de una versión **anterior** sí entra: ARLES lo pone al día antes de restaurarlo, y te lo dice. Al revés no se puede, porque esta versión no conoce los cambios que trae ese archivo. La salida es actualizar ARLES |
 | **Nadie ha abierto ARLES en un Mac** | Está construido para macOS y **no se ha probado ahí**. Hasta que alguien lo haga, no se puede afirmar que funcione |
 | **Una firma no puede llevar una imagen** | Sólo texto, con negrita y cursiva. Está pendiente de decidir cómo: embebida engorda cada correo y dispara filtros de spam; alojada hay que alojarla en algún sitio |
 | **El número de WhatsApp nunca ha hablado con Meta** | Todo lo de WhatsApp está probado contra un servidor de mentira. Falta una cuenta de empresa verificada con Coexistencia |
 | **No lee las respuestas de WhatsApp, así que una baja pedida por ahí se apunta a mano** | Las respuestas te llegan al teléfono con Coexistencia. Apúntalas en Contactos › Bajas, canal WhatsApp, y ninguna campaña vuelve a incluir ese número. En el correo la salida la pone ARLES y es obligatoria; en WhatsApp el texto lo aprueba Meta y no hay dónde añadirla |
+
+> **Y dos que dejaron de ser ciertas el 05/11/2026.** La primera: una campaña
+> ya no tiene que ir a toda la lista. En **Contactos** marcas a quien quieras
+> —uno a uno, o todos los que deje el filtro— y los guardas con un nombre; esa
+> lista aparece en el paso 2 del asistente. No hay tope de cuántos, y si
+> escribes el nombre de una lista que ya tienes, se añaden a ella.
+>
+> La segunda: **una campaña en borrador se puede borrar**. Pasa al salir del
+> asistente a mitad, porque ARLES guarda lo que llevas escrito. Lo que no se
+> borra nunca es una campaña que ya envió: su registro es con lo que contestas
+> qué se le mandó a quién, y eso es lo que pide la ley.
 
 > **Y una que dejó de ser cierta el 26/10/2026 y seguía escrita aquí hasta el
 > 04/11:** que no se puede lanzar una campaña entera por WhatsApp. **Sí se

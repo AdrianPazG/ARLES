@@ -680,3 +680,84 @@ verificadas rompiéndolas.
 
 **Con esto los siete hallazgos de la revisión del 28/10 están cerrados**: seis
 arreglados y uno descartado con su cifra.
+
+---
+
+## 16. Dos peticiones de Dirección usando ARLES · 05/11/2026
+
+Las dos salieron de probar el producto, no de una auditoría, y las dos son el
+patrón del §9: una pieza correcta sin quien la use, y una pantalla sin salida.
+
+### R-27 · una campaña a los contactos que elijas
+
+Dirección dio de alta cincuenta contactos a mano, quiso mandar una prueba a
+tres y no pudo: *«no seleccioné una tabla y no me permitió seleccionar
+contactos de mi lista de contactos»*. El paso 2 del asistente ofrecía **toda la
+empresa** o una lista **importada de un archivo**.
+
+Lo que faltaba era **un escritor**: `contact_list` y `contact_list_member`
+están en el esquema desde la V1, la campaña sabe ir a una lista desde D-15, y
+lo único que las llenaba era la importación.
+
+Ahora cada fila lleva una casilla, un botón marca **lo que el filtro dejó**
+—filtrar y quedarse con lo que salió es el camino— y la bandeja los guarda con
+un nombre. **Sin tope de cuántos**, que Dirección lo pidió así; lo que marca el
+techo de verdad es lo que la campaña puede terminar de enviar, y eso ya lo dice
+el paso 6 con su cifra desde la 8.6 E.
+
+> **La cifra del acuse se lee de la base, no se cuenta de los marcados.** Marcar
+> dos veces al mismo lo mete una, un id ajeno no entra, y guardar con el nombre
+> de una lista que ya existe **suma** a lo que tenía — que es el caso real: se
+> prueba con tres y luego se añaden diez.
+>
+> **La prueba que importa no es ninguna de las dos capas, es la junta**:
+> arranca en `Db::crear_lista_con` y termina contando a quién le tocó mensaje
+> al activar la campaña. Cada pieza tenía sus pruebas y **nadie comprobaba que
+> lo que sale de una entre en la otra**. Verificada dejando la campaña sin su
+> lista: `left: 2, right: 1`.
+
+> **Y lo que encontró medir la pantalla:** la columna de la casilla cuesta
+> 36 px y a 1024 px los cuatro rótulos tenían **diez de holgura entre todos**,
+> así que tres se cortaron. Repartir los `fr` no lo arregla —reparten el
+> espacio, no lo crean— y el primer intento dejó «WhatsApp» necesitando 16 px:
+> es el error que esta misma pantalla cometió el 22/10/2026. Lo que sí crea
+> espacio es el relleno, 4 px menos por lado en cinco columnas.
+>
+> Y mirando la demostración, una que ninguna sonda puede cazar porque es un
+> color correcto: **las casillas salían del azul del sistema**, el único azul
+> del producto.
+
+### H-22 · un borrador que no se podía quitar
+
+Al salir del asistente a mitad —Dirección fue a hacer una comprobación del paso
+7— la campaña ya está creada como borrador, que es lo que guarda lo escrito. Y
+no había forma de quitarla: *«no me gustaría ver esa campaña, me gustaría tener
+la oportunidad de poder eliminarla, pero no sé qué tan recomendable sea hacer
+eso»*.
+
+La respuesta a esa pregunta es la regla: **un borrador sí, lo demás nunca.** Una
+campaña que envió es el registro de qué se mandó y a quién, y es con lo que se
+contesta un ARCO.
+
+> **Tres puertas, y ninguna sobra.** La regla vive en el tipo
+> —`EstadoDeCampana::se_puede_borrar`, exhaustivo para que un estado octavo
+> obligue a decidir—; el `DELETE` exige `status = 'draft'`; y antes de borrar se
+> **cuentan los envíos** de esa campaña. La tercera es la única que mira los
+> datos en vez de la etiqueta que los describe: una campaña con historial
+> marcada como borrador haría que `ON DELETE CASCADE` se llevara ese historial
+> sin que nada protestara — el fallo F1, que ya ha vuelto tres veces.
+>
+> Verificadas rompiendo las tres, y una de ellas prueba a la siguiente: con la
+> del núcleo rota, el borrado **no ocurre** y el error cambia.
+
+> **Y un defecto de mi propia prueba, cazado al romperla.** La que recorre los
+> seis estados que no se borran filtraba con `se_puede_borrar()` —la función que
+> vigila—, así que al romper el núcleo ese estado **salía del recorrido** y la
+> prueba pasaba en verde sobre una campaña terminada que sí se borraba. Es
+> medir en un sitio donde la respuesta no cuenta, la misma familia que el
+> comentario que se caza a sí mismo. Ahora filtra por la regla que afirma.
+
+**Lo vigila `Ningún borrado de campaña se salta las tres puertas`** en
+`--fase 1`: `DELETE FROM campaign` sólo puede vivir en `borrar_borrador` y
+tiene que nombrar el estado. Se mide sobre el código sin pruebas ni
+comentarios, y está verificada por los dos caminos.

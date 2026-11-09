@@ -1151,6 +1151,30 @@ export const es = {
       // porque obliga a mirar cuál se está deteniendo.
       escribeElNombre: 'Para confirmar, escribe el nombre de la campaña:',
       nombreEsperado: 'Escribe «{nombre}»',
+
+      // ── BORRAR UN BORRADOR (05/11/2026) ─────────────────────────────
+      //
+      // Dirección salió del asistente a mitad para hacer una comprobación y
+      // al volver encontró la campaña guardada en borrador: *«no me gustaría
+      // ver esa campaña, me gustaría tener la oportunidad de poder
+      // eliminarla»*.
+      //
+      // La confirmación lleva **el nombre dentro** —el riesgo es borrar el
+      // que no era— y la frase llana de que no se deshace, que es la que
+      // faltaba en Archivar hasta el 07/10/2026 aunque los tres avisos
+      // dijeran qué se pierde.
+      //
+      // Y dice **por qué sólo un borrador**: sin eso, no encontrar el botón
+      // en una campaña que ya envió se lee como un defecto.
+      borrar: 'Borrar',
+      confirmarBorrar:
+        '¿Borrar el borrador «{nombre}»? Esto no se puede deshacer, y para ' +
+        'volver a tenerlo habría que recorrer el asistente otra vez.',
+      soloBorradores:
+        'Sólo se borran los borradores. Una campaña que ya envió se queda: su ' +
+        'registro es con lo que puedes contestar a quien pregunte qué se le ' +
+        'mandó y cuándo.',
+      mejorNo: 'Mejor no',
     },
 
     parada: {
@@ -2119,6 +2143,28 @@ export const es = {
         como: 'Actualiza la lista de campañas para ver cómo está ahora.',
         salvo: 'No se modificó nada, y no salió ningún mensaje.',
       },
+      // ── BORRAR UNA CAMPAÑA (05/11/2026) ─────────────────────────────
+      //
+      // Los dos errores existen aparte y no juntos porque mandan a hacer
+      // cosas distintas: el primero a detener la campaña, y el segundo a no
+      // tocarla. Un solo mensaje para los dos haría buscar un botón que en su
+      // caso no existe (§95, y la lección de DOC-14).
+      solo_se_borra_un_borrador: {
+        que: 'Esta campaña ya no es un borrador, así que no se puede borrar.',
+        como:
+          'Si todavía está enviando, deténla desde su tarjeta. Una campaña ' +
+          'que ya envió se queda: su registro es con lo que puedes contestar ' +
+          'a quien pregunte qué se le mandó.',
+        salvo: 'No se borró nada y la campaña sigue como estaba.',
+      },
+      la_campana_tiene_historial: {
+        que: 'Esta campaña tiene envíos registrados, así que no se borra.',
+        como:
+          'Es un borrador con historial, que no debería pasar: cuéntalo antes ' +
+          'de tocar nada. Borrarla se llevaría por delante el registro de lo ' +
+          'que ya salió.',
+        salvo: 'No se borró nada: la campaña y su registro de envíos siguen enteros.',
+      },
       falta_aceptar_el_volumen: {
         que: 'Pediste más de 50 correos al día y no confirmaste que entiendes el riesgo.',
         como:
@@ -2943,11 +2989,59 @@ export const es = {
       email: 'Correo',
       whatsapp: 'WhatsApp',
       acciones: 'Acciones',
+      marca: 'Marcar',
     },
 
     canal: {
       email: 'Correo',
       whatsapp: 'WhatsApp',
+    },
+
+    // ── MARCAR CONTACTOS Y GUARDARLOS COMO LISTA (05/11/2026) ───────────
+    //
+    // Lo pidió Dirección después de probar: *«no seleccioné una tabla y no me
+    // permitió seleccionar contactos de mi lista de contactos»*. El paso 2 del
+    // asistente ofrecía toda la empresa o una lista **importada de un
+    // archivo**, así que con cincuenta contactos dados de alta a mano y
+    // ninguna importación no había forma de escribir a tres de ellos.
+    //
+    // La bandeja dice **las dos cosas**: cuántos hay marcados y para qué
+    // sirven. Una cifra sola —«3 marcados»— no dice qué hacer con ellos, y el
+    // botón de al lado sería el único sitio donde enterarse.
+    marcar: {
+      uno: 'Marcar a {nombre}',
+      todos: 'Marcar el que se está viendo | Marcar los {n} que se están viendo',
+      ninguno: 'Quitar las marcas',
+      cuantos: '{n} contacto marcado | {n} contactos marcados',
+      paraQue:
+        'Guárdalos como una lista y podrás enviarles una campaña sólo a ' +
+        'ellos, sin cargar ningún archivo.',
+      crear: 'Guardar como lista',
+      dialogo: {
+        titulo: 'Guardar 1 contacto como lista | Guardar {n} contactos como lista',
+        nombre: 'Nombre de la lista',
+        // Que un nombre repetido **añada** en vez de fallar no es un detalle
+        // de implementación: es el camino real —se prueba con tres, funciona,
+        // y se quieren añadir otros diez— y hay que decirlo antes de pulsar,
+        // porque la otra lectura posible es que se cree una lista duplicada.
+        nombreAyuda:
+          'Si ya tienes una lista con ese nombre, estos contactos se añaden ' +
+          'a ella.',
+        faltaElNombre: 'Escribe un nombre para poder elegir la lista después.',
+        confirmar: 'Guardar la lista',
+      },
+      hecha: {
+        titulo: 'Lista «{nombre}» guardada',
+        // La cifra es la de la lista **al terminar**, no la de los marcados:
+        // marcar dos veces al mismo lo mete una, y añadir a una lista que ya
+        // existía suma a lo que tenía (§65).
+        cuerpo:
+          'Tiene {cuantos} contacto. Ya puedes elegirla en el paso 2 del ' +
+          'asistente de campaña, en «A quién va dirigida». | ' +
+          'Tiene {cuantos} contactos. Ya puedes elegirla en el paso 2 del ' +
+          'asistente de campaña, en «A quién va dirigida».',
+        ir: 'Crear una campaña para esta lista',
+      },
     },
 
     // ── R-26 · EL FILTRO DE LA LISTA ────────────────────────────────────

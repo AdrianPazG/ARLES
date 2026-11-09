@@ -5,6 +5,7 @@ import { nextTick } from 'vue'
 
 import { i18n } from '@/app/i18n'
 import { useContactosStore } from '@/app/stores/contactos'
+import { useListasStore } from '@/app/stores/listas'
 import { useSupresionStore } from '@/app/stores/supresion'
 
 import { AEntrada, ASelector } from '@/design/componentes'
@@ -246,6 +247,167 @@ describe('la columna de acciones', () => {
     const ultima = columnas[columnas.length - 1]
     expect(ultima?.id, 'la columna de acciones va al final de la fila').toBe('acciones')
     expect(ultima?.titulo).toBe('Acciones')
+  })
+})
+
+/**
+ * Marcar contactos y guardarlos como lista · 05/11/2026
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * LO QUE PIDIÓ DIRECCIÓN, Y POR QUÉ NO ERA UNA COMODIDAD
+ *
+ *   «no seleccioné una tabla y no me permitió seleccionar contactos de mi
+ *    lista de contactos, por eso la petición de poder seleccionar los
+ *    contactos»
+ *
+ * El paso 2 del asistente ofrecía toda la empresa o una lista **importada de
+ * un archivo**. Con cincuenta contactos dados de alta a mano y ninguna
+ * importación, no había forma de escribir a tres de ellos: no faltaba una
+ * comodidad, faltaba el único camino que servía para probar.
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * POR QUÉ SE PULSA «MARCAR LOS QUE SE ESTÁN VIENDO» Y NO LAS CASILLAS
+ *
+ * `ATabla` es virtualizada y en jsdom todo mide cero, así que **no pinta ni
+ * una fila** y el slot de la casilla no llega a existir — lo mismo que ya
+ * documenta la prueba de la columna de acciones. Lo que sí vive fuera de la
+ * tabla es el botón que marca lo que el filtro dejó, que además es el camino
+ * que Dirección va a recorrer: filtrar y quedarse con lo que salió.
+ *
+ * Que las casillas se ven y se pulsan se comprueba en Chromium con la vista
+ * previa, que es como este proyecto mira lo visual desde el 29/09/2026.
+ *
+ * **Vistas en rojo el 05/11/2026** con tres rupturas: vaciar las marcas tras
+ * un fallo (1 en rojo), dejar guardar con el nombre vacío (1), y marcar sólo
+ * el primero de los que se están viendo (3).
+ */
+describe('marcar contactos y guardarlos como lista', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  const OTRO = { ...UN_CONTACTO, id: 'c-2', nombre: 'Beto' }
+
+  /** Monta la pantalla con dos contactos y espía al almacén de listas. */
+  function conDos(): { pantalla: VueWrapper; pedidos: string[] } {
+    const contactos = useContactosStore()
+    contactos.cargada = true
+    contactos.cargando = false
+    contactos.contactos = [UN_CONTACTO, OTRO]
+    contactos.total = 2
+    contactos.cargar = async () => {}
+
+    const listas = useListasStore()
+    const pedidos: string[] = []
+    listas.crearCon = async (nombre, ids) => {
+      pedidos.push(`${nombre}:${[...ids].join(',')}`)
+      return { id: 'lst-9', nombre, cuantos: ids.length }
+    }
+
+    return { pantalla: mount(PantallaContactos, entorno), pedidos }
+  }
+
+  function boton(pantalla: VueWrapper, texto: string) {
+    return pantalla.findAll('button').find((b) => b.text() === texto)
+  }
+
+  it('marca los que se están viendo y dice cuántos son y para qué sirven', async () => {
+    const { pantalla } = conDos()
+    await boton(pantalla, 'Marcar los 2 que se están viendo')?.trigger('click')
+    await nextTick()
+
+    const texto = pantalla.text()
+    expect(texto).toContain('2 contactos marcados')
+    // La cifra sola deja el botón de al lado como el único sitio donde
+    // enterarse de que esos contactos pueden convertirse en una campaña.
+    expect(texto).toContain('Guárdalos como una lista')
+  })
+
+  it('guarda los marcados con el nombre escrito, y acusa la cifra de la lista', async () => {
+    const { pantalla, pedidos } = conDos()
+    await boton(pantalla, 'Marcar los 2 que se están viendo')?.trigger('click')
+    await nextTick()
+    await boton(pantalla, 'Guardar como lista')?.trigger('click')
+    await nextTick()
+
+    const nombre = pantalla
+      .findAllComponents(AEntrada)
+      .find((e) => e.props('etiqueta') === 'Nombre de la lista')
+    expect(nombre?.exists(), 'el campo del nombre').toBe(true)
+    await nombre?.find('input').setValue('Prueba de hoy')
+    await boton(pantalla, 'Guardar la lista')?.trigger('click')
+    await nextTick()
+
+    expect(pedidos, 'los dos marcados, con su nombre').toEqual([
+      'Prueba de hoy:c-1,c-2',
+    ])
+    const texto = pantalla.text()
+    expect(texto).toContain('Lista «Prueba de hoy» guardada')
+    // La salida: sin ella hay que adivinar que la lista se elige en el paso 2.
+    expect(texto).toContain('asistente de campaña')
+    expect(texto, 'guardadas, las marcas se quitan').not.toContain('2 contactos marcados')
+  })
+
+  /**
+   * **Sin nombre no se guarda, y el botón apagado dice por qué.**
+   *
+   * Con `title` y no con un renglón debajo: quien usa un lector de pantalla
+   * oiría un botón muerto y nada más. Es el defecto que la 8.2c, la 8.3c y la
+   * 8.6 E tuvieron cada una con su botón, y que la sonda vigila desde el 28/10.
+   */
+  it('sin nombre, el botón de guardar está apagado y dice por qué', async () => {
+    const { pantalla, pedidos } = conDos()
+    await boton(pantalla, 'Marcar los 2 que se están viendo')?.trigger('click')
+    await nextTick()
+    await boton(pantalla, 'Guardar como lista')?.trigger('click')
+    await nextTick()
+
+    const guardar = boton(pantalla, 'Guardar la lista')
+    expect(guardar?.attributes('disabled')).toBeDefined()
+    expect(guardar?.attributes('title')).toContain('Escribe un nombre')
+
+    await guardar?.trigger('click')
+    await nextTick()
+    expect(pedidos, 'una lista sin nombre no se puede elegir después').toEqual([])
+  })
+
+  /**
+   * **Si falla, las marcas se quedan.**
+   *
+   * Quitarlas con el error en pantalla dejaría a quien mire sin saber qué pasó
+   * con su selección, y con los cincuenta contactos por marcar otra vez.
+   */
+  it('si falla al guardar, las marcas siguen puestas y el error se enseña', async () => {
+    const { pantalla } = conDos()
+    const listas = useListasStore()
+    listas.crearCon = async () => {
+      listas.errorGeneral = 'error.db.sqlite'
+      return null
+    }
+
+    await boton(pantalla, 'Marcar los 2 que se están viendo')?.trigger('click')
+    await nextTick()
+    await boton(pantalla, 'Guardar como lista')?.trigger('click')
+    await nextTick()
+    const nombre = pantalla
+      .findAllComponents(AEntrada)
+      .find((e) => e.props('etiqueta') === 'Nombre de la lista')
+    await nombre?.find('input').setValue('Prueba')
+    await boton(pantalla, 'Guardar la lista')?.trigger('click')
+    await nextTick()
+
+    expect(pantalla.text()).toContain('Ocurrió un error al acceder a los datos')
+    expect(pantalla.text(), 'las marcas no se tiran por un fallo').toContain(
+      '2 contactos marcados',
+    )
+  })
+
+  it('la casilla va en la primera columna de la tabla', () => {
+    const { pantalla } = conDos()
+    const columnas = pantalla.findComponent({ name: 'ATabla' }).props('columnas') as readonly {
+      id: string
+      titulo: string
+    }[]
+    expect(columnas[0]?.id, 'marcar va antes del nombre').toBe('marca')
+    expect(columnas[0]?.titulo, 'el rótulo existe para el lector de pantalla').toBe('Marcar')
   })
 })
 

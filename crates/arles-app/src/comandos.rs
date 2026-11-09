@@ -976,6 +976,93 @@ pub fn listas_de_contactos(
         .collect())
 }
 
+/// Una lista recién hecha, con la cifra que la pantalla acusa.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListaCreadaParaLaPantalla {
+    pub id: String,
+    /// El nombre **ya recortado**, que es el que quedó guardado. Devolverlo
+    /// tal cual lo escribió el usuario haría que el acuse dijera
+    /// « Videovigilancia » y el desplegable «Videovigilancia».
+    pub nombre: String,
+    /// Cuánta gente tiene la lista **al terminar**, no cuántos se marcaron.
+    ///
+    /// Son dos cifras distintas y el acuse necesita ésta: marcar a alguien dos
+    /// veces lo mete una, y añadir a una lista que ya existía suma a lo que
+    /// tenía. Decir «5 contactos» porque se marcaron cinco, cuando la lista
+    /// tiene doce, es §65 al revés —lo que se dice no es lo que se hizo— en la
+    /// cifra con la que después se elige a quién se le escribe.
+    pub cuantos: u32,
+}
+
+/// Crea una lista con los contactos que se marcaron en la tabla (05/11/2026).
+///
+/// ── POR QUÉ ESTE COMANDO EXISTE ──────────────────────────────────────────
+///
+/// Dirección quiso mandar una prueba a los últimos contactos que había dado de
+/// alta y no pudo: *«no seleccioné una tabla y no me permitió seleccionar
+/// contactos de mi lista de contactos»*. El paso 2 del asistente ofrecía
+/// «toda la empresa» o una lista **importada de un archivo**, así que con
+/// cincuenta contactos en la base y ninguna importación no había forma de
+/// escribir a tres de ellos.
+///
+/// ── POR QUÉ RECIBE EL NOMBRE Y NO UN IDENTIFICADOR ───────────────────────
+///
+/// Igual que `confirmar_importacion`, y por la misma razón: `crear_lista_con`
+/// se apoya en `crear_lista`, que devuelve la que ya se llamaba así. Eso hace
+/// que marcar tres contactos más y guardar con el mismo nombre **los añada** a
+/// esa lista en vez de crear «Prueba 2», que es el camino real —se prueba con
+/// tres, funciona, y se quieren añadir otros diez—.
+///
+/// ── SIN TOPE DE CUÁNTOS, Y ES UNA DECISIÓN ───────────────────────────────
+///
+/// Dirección lo pidió con esas palabras: *«no limites el colocar solo 5
+/// contactos, qué tal si me gustaría colocar más o tal vez menos»*. Lo que
+/// marca el techo de verdad es lo que la campaña puede terminar de enviar, y
+/// eso ya lo dice el paso 6 con su cifra (8.6 E). Un tope aquí sería una
+/// limitación de producto para evitar un problema que no existe: son `uuid`s
+/// en una transacción, y 455 470 de ellos es lo que la activación ya mide.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si la empresa no está configurada, si el nombre viene vacío,
+/// si no se marcó ningún contacto, o si la escritura falla. **Si falla, no se
+/// crea la lista**: va en una transacción.
+#[tauri::command]
+pub fn crear_lista_con_contactos(
+    estado: tauri::State<'_, EstadoApp>,
+    nombre: String,
+    contactos: Vec<arles_core::ids::ContactId>,
+) -> Result<ListaCreadaParaLaPantalla, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let lista = estado
+        .db()
+        .crear_lista_con(empresa, &nombre, &contactos)
+        .map_err(crate::AppError::Db)?;
+
+    // La cifra se **lee** en vez de contarse aquí. Contar los marcados daría
+    // una cifra que no es la de la lista: los repetidos entran una vez, un id
+    // que no es de esta empresa no entra, y un nombre que ya existía suma a lo
+    // que tenía. Y es justo la cifra con la que después se elige la lista en el
+    // asistente, así que las dos tienen que salir del mismo sitio.
+    let guardadas = estado
+        .db()
+        .listar_listas(empresa)
+        .map_err(crate::AppError::Db)?;
+    let encontrada = guardadas.into_iter().find(|l| l.id == lista);
+
+    Ok(ListaCreadaParaLaPantalla {
+        id: lista.to_string(),
+        // Si no se encuentra —no debería: se acaba de escribir— se devuelve lo
+        // que se sabe en vez de fallar. La lista existe; lo que faltaría es su
+        // cifra, y tirar el acuse por eso dejaría creer que no se guardó.
+        nombre: encontrada
+            .as_ref()
+            .map_or_else(|| nombre.trim().to_owned(), |l| l.nombre.clone()),
+        cuantos: encontrada.map_or(0, |l| l.cuantos),
+    })
+}
+
 /// Descarta la importación en curso.
 ///
 /// La llama la pantalla al cerrar el asistente. Sin esto, el archivo se queda

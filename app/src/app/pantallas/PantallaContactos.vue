@@ -57,6 +57,7 @@ import {
   type Canal,
   type Contacto,
 } from '@/app/stores/contactos'
+import { useListasStore, type ListaCreada } from '@/app/stores/listas'
 import {
   CLAVE_DEL_MOTIVO,
   MOTIVOS_A_MANO,
@@ -83,6 +84,7 @@ import FormularioDeContacto from './FormularioDeContacto.vue'
 
 const contactos = useContactosStore()
 const supresion = useSupresionStore()
+const listas = useListasStore()
 const { t } = useI18n()
 
 /** ¿Además de la baja, apuntar que no se le vuelva a escribir? */
@@ -95,7 +97,34 @@ const opcionesDeMotivo = computed(() =>
 )
 
 /** Qué diálogo está abierto. `null` es «ninguno». */
-const dialogo = ref<'alta' | 'edicion' | 'baja' | null>(null)
+const dialogo = ref<'alta' | 'edicion' | 'baja' | 'lista' | null>(null)
+
+/**
+ * Los contactos marcados para hacer una lista con ellos (05/11/2026).
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * POR QUÉ LAS MARCAS SOBREVIVEN AL FILTRO
+ *
+ * Marcar diez de una búsqueda, buscar otra cosa y marcar cinco más es el
+ * camino que esto viene a servir: *«quiero poder seleccionar los contactos que
+ * te aparezcan para seleccionar, y ya tú escoges cuáles quieres incorporar»*.
+ * Vaciarlas al filtrar obligaría a hacer la lista de una sola búsqueda.
+ *
+ * El riesgo de conservarlas es el contrario —marcas que ya no se ven—, y por
+ * eso **la bandeja está siempre visible mientras haya alguna**, con su cifra y
+ * con «Quitar las marcas» al lado. Una marca invisible sin forma de quitarla
+ * sería lo que convertiría esto en una trampa.
+ *
+ * Es un `Set` y no un array: la pregunta que se hace en cada fila pintada es
+ * «¿está marcado?», y con 100 filas por página un `includes` es 100 recorridos
+ * del array en cada repintado.
+ */
+const marcados = ref<Set<string>>(new Set())
+
+/** La lista que se acaba de guardar, para el acuse. `null` es «ninguna». */
+const listaHecha = ref<ListaCreada | null>(null)
+/** El nombre que se escribe en el diálogo. */
+const nombreDeLaLista = ref('')
 
 /**
  * Cuántas veces se ha abierto un diálogo. Es la clave del formulario.
@@ -207,7 +236,53 @@ function celdaDeCanal(c: Contacto, canal: Canal): string {
   return otros > 0 ? `${principal}  +${otros}` : principal
 }
 
+function estaMarcado(id: string): boolean {
+  return marcados.value.has(id)
+}
+
+/**
+ * Marca o desmarca un contacto.
+ *
+ * El `Set` se **reemplaza** en vez de mutarse. `ref(new Set())` es reactivo en
+ * Vue 3, pero las filas de la tabla son un `v-for` sobre un virtualizador que
+ * no vuelve a pedir `estaMarcado` por una mutación de una colección que no
+ * lee directamente: la casilla se quedaba sin pintar al marcarla.
+ */
+function alternarMarca(id: string): void {
+  const siguiente = new Set(marcados.value)
+  if (!siguiente.delete(id)) siguiente.add(id)
+  marcados.value = siguiente
+}
+
+/** Marca los que se están viendo, que es lo que la cifra de al lado dice. */
+function marcarLosVisibles(): void {
+  const siguiente = new Set(marcados.value)
+  for (const c of filas.value) siguiente.add(c.id)
+  marcados.value = siguiente
+}
+
+function quitarLasMarcas(): void {
+  marcados.value = new Set()
+}
+
 const columnas = computed<readonly ColumnaDeTabla<Contacto>[]>(() => [
+  {
+    // ── LA CASILLA, PRIMERA Y SIN RÓTULO DIBUJADO ────────────────────────
+    //
+    // `valor` devuelve vacío porque lo que se pinta es el slot, igual que en
+    // «acciones». El título existe —es el nombre accesible de la columna— y no
+    // se dibuja: una cabecera «Marcar» encima de cuatro casillas no añade nada
+    // y le quita a «Empresa» los píxeles que ya se midieron el 22/10/2026 para
+    // que su rótulo no se cortara a 1024 px.
+    //
+    // 2.25rem: la casilla con su objetivo mínimo de 32 px (§22) y el relleno
+    // de la celda.
+    id: 'marca',
+    titulo: t('contactos.columna.marca'),
+    tituloOculto: true,
+    ancho: '2.25rem',
+    valor: () => '',
+  },
   {
     id: 'nombre',
     titulo: t('contactos.columna.nombre'),
@@ -308,10 +383,39 @@ function abrirBaja(c: Contacto): void {
   notasDeLaBaja.value = ''
 }
 
+/** Abre el diálogo que pregunta cómo se va a llamar la lista. */
+function abrirLista(): void {
+  listas.errorGeneral = null
+  listaHecha.value = null
+  nombreDeLaLista.value = ''
+  dialogo.value = 'lista'
+}
+
+const sePuedeGuardarLaLista = computed(
+  () => nombreDeLaLista.value.trim() !== '' && marcados.value.size > 0,
+)
+
+/**
+ * Guarda los marcados como lista.
+ *
+ * **Las marcas se quitan sólo si se guardó.** Dejarlas puestas tras un fallo
+ * es lo que permite volver a intentarlo sin marcar otra vez los cincuenta; y
+ * quitarlas con el error en pantalla dejaría a quien mire sin saber qué pasó
+ * con su selección.
+ */
+async function confirmarLista(): Promise<void> {
+  const creada = await listas.crearCon(nombreDeLaLista.value, [...marcados.value])
+  if (creada === null) return
+  listaHecha.value = creada
+  marcados.value = new Set()
+  dialogo.value = null
+}
+
 function cerrar(): void {
   dialogo.value = null
   contactos.limpiarErrores()
   supresion.errorGeneral = null
+  listas.errorGeneral = null
 }
 
 /** Abre la ficha al activar una fila (doble clic o Intro). */
@@ -394,6 +498,13 @@ async function confirmarBaja(): Promise<void> {
  * `contactos.errorGeneral`, ese fallo no diría nada: el diálogo se quedaría
  * quieto al pulsar y se leería como una avería (§95).
  */
+/** El error del diálogo de la lista, que es de otro almacén. */
+const errorDeLaLista = computed(() =>
+  dialogo.value === 'lista' && listas.errorGeneral
+    ? resolverError({ clave: listas.errorGeneral, detalle: '' })
+    : null,
+)
+
 const errorDelDialogo = computed(() => {
   if (dialogo.value !== 'baja') return null
   const clave = supresion.errorGeneral ?? contactos.errorGeneral
@@ -544,8 +655,84 @@ const errorDelDialogo = computed(() => {
         >
           {{ t('contactos.filtros.limpiar') }}
         </ABoton>
+        <!-- ── MARCAR DE GOLPE LO QUE EL FILTRO DEJÓ ────────────────────
+             Va aquí y no encima de la tabla porque es la acción que cierra
+             esta búsqueda: Dirección lo pidió como *«que solo aparezcan los
+             últimos 100 registrados»* para poder escribirles a ésos, y el
+             camino es filtrar y quedarse con lo que salió.
+
+             Dice la cifra y no «todos» (§94): «todos» con un filtro puesto se
+             lee como los 455 470 de la base, que es lo contrario de lo que
+             hace. -->
+        <ABoton
+          v-if="filas.length > 0"
+          variante="sutil"
+          @click="marcarLosVisibles"
+        >
+          {{ t('contactos.marcar.todos', { n: filas.length }, filas.length) }}
+        </ABoton>
       </template>
     </AModulo>
+
+    <!-- ── LA BANDEJA DE LO MARCADO (05/11/2026) ──────────────────────────
+         Va encima de la tabla y **no desaparece al filtrar**: las marcas
+         sobreviven a la búsqueda a propósito —se marca de dos búsquedas
+         distintas—, así que ésta es la única pista de que hay algo marcado que
+         puede no estarse viendo. Sin ella serían marcas invisibles.
+
+         Dice las dos cosas: la cifra y para qué sirve. Una cifra sola deja el
+         botón de al lado como el único sitio donde enterarse de que esos
+         contactos pueden convertirse en una campaña. -->
+    <AAviso
+      v-if="marcados.size > 0"
+      tono="info"
+      :titulo="t('contactos.marcar.cuantos', { n: marcados.size }, marcados.size)"
+    >
+      <p>{{ t('contactos.marcar.paraQue') }}</p>
+      <div class="contactos__bandeja">
+        <ABoton
+          variante="primario"
+          icono="mas"
+          @click="abrirLista"
+        >
+          {{ t('contactos.marcar.crear') }}
+        </ABoton>
+        <ABoton
+          variante="secundario"
+          @click="quitarLasMarcas"
+        >
+          {{ t('contactos.marcar.ninguno') }}
+        </ABoton>
+      </div>
+    </AAviso>
+
+    <!-- El acuse de lo que se guardó, con la cifra de la lista y a dónde ir
+         con ella. Un «se guardó» sin la salida obliga a adivinar que la lista
+         se elige en el paso 2 del asistente. -->
+    <AAviso
+      v-if="listaHecha"
+      tono="exito"
+      :titulo="t('contactos.marcar.hecha.titulo', { nombre: listaHecha.nombre })"
+    >
+      <p>
+        {{
+          t(
+            'contactos.marcar.hecha.cuerpo',
+            { cuantos: listaHecha.cuantos },
+            listaHecha.cuantos,
+          )
+        }}
+      </p>
+      <div class="contactos__bandeja">
+        <ABoton
+          variante="secundario"
+          icono="campanas"
+          a="/campanas/nueva"
+        >
+          {{ t('contactos.marcar.hecha.ir') }}
+        </ABoton>
+      </div>
+    </AAviso>
 
     <EstadoCargando v-if="contactos.cargando && !contactos.cargada" />
 
@@ -623,6 +810,35 @@ const errorDelDialogo = computed(() => {
         @update:seleccionada="alElegir"
         @activar="verFicha"
       >
+        <!-- ── LA CASILLA DE CADA FILA ───────────────────────────────────
+             `.stop` en el clic por lo mismo que en los iconos: pulsar la
+             casilla no tiene que abrir además la ficha del contacto.
+
+             `.stop` en el teclado por otra razón, y hace falta: la rejilla
+             usa el espacio para mover su selección y hace `preventDefault`,
+             así que sin esto el espacio sobre una casilla enfocada **no la
+             marcaría** — el único gesto que un teclado tiene para una
+             casilla. -->
+        <template #celda-marca="{ fila }">
+          <!-- La casilla va **envuelta en su etiqueta**, y no es decoración:
+               un `input[type=checkbox]` lo dibuja el navegador a 13 px, y el
+               §22 pide 32. La etiqueta es el objetivo que se pulsa; el nombre
+               accesible sigue viniendo del `aria-label` de la casilla, porque
+               una etiqueta sin texto no nombra nada. -->
+          <label
+            class="contactos__marca"
+            @click.stop
+          >
+            <input
+              type="checkbox"
+              :checked="estaMarcado((fila as Contacto).id)"
+              :aria-label="t('contactos.marcar.uno', { nombre: nombreVisible(fila as Contacto) || t('contactos.sinNombre') })"
+              @keydown.stop
+              @change="alternarMarca((fila as Contacto).id)"
+            >
+          </label>
+        </template>
+
         <template #celda-acciones="{ fila }">
           <div class="contactos__acciones">
             <!-- `.stop` para que pulsar un icono no abra además la ficha
@@ -768,6 +984,54 @@ const errorDelDialogo = computed(() => {
       />
     </AModal>
 
+    <!-- ── GUARDAR LO MARCADO COMO LISTA ──────────────────────────────── -->
+    <AModal
+      :abierto="dialogo === 'lista'"
+      :titulo="t('contactos.marcar.dialogo.titulo', { n: marcados.size }, marcados.size)"
+      @cerrar="cerrar"
+    >
+      <AEntrada
+        v-model="nombreDeLaLista"
+        :etiqueta="t('contactos.marcar.dialogo.nombre')"
+        :ayuda="t('contactos.marcar.dialogo.nombreAyuda')"
+        @keyup.enter="sePuedeGuardarLaLista && confirmarLista()"
+      />
+
+      <AAviso
+        v-if="errorDeLaLista"
+        tono="peligro"
+        :titulo="errorDeLaLista.que"
+        urgente
+      >
+        <p>{{ errorDeLaLista.como }}</p>
+        <p class="contactos__salvo">
+          {{ errorDeLaLista.salvo }}
+        </p>
+      </AAviso>
+
+      <template #acciones>
+        <ABoton
+          variante="secundario"
+          @click="cerrar"
+        >
+          {{ t('comun.cancelar') }}
+        </ABoton>
+        <!-- El botón apagado dice por qué, y con `title` y no con un renglón
+             debajo: quien usa un lector de pantalla oiría un botón muerto y
+             nada más. Es el defecto que la 8.2c, la 8.3c y la 8.6 E tuvieron
+             cada una con su botón. -->
+        <ABoton
+          variante="primario"
+          :deshabilitado="!sePuedeGuardarLaLista"
+          :ocupado="listas.guardando"
+          :title="sePuedeGuardarLaLista ? undefined : t('contactos.marcar.dialogo.faltaElNombre')"
+          @click="confirmarLista"
+        >
+          {{ t('contactos.marcar.dialogo.confirmar') }}
+        </ABoton>
+      </template>
+    </AModal>
+
     <AModal
       :abierto="dialogo === 'baja'"
       :titulo="t('contactos.bajaDialogo.titulo')"
@@ -895,6 +1159,60 @@ const errorDelDialogo = computed(() => {
 .contactos__acciones {
   display: flex;
   gap: var(--arles-space-1);
+}
+
+/* Los botones de la bandeja de lo marcado, dentro del aviso. */
+.contactos__bandeja {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--arles-space-3);
+  margin-top: var(--arles-space-3);
+}
+
+/* La etiqueta que envuelve la casilla **es** el objetivo (§22): el `input` lo
+   dibuja el navegador a 13 px y aquí no hay texto al lado que lo agrande. */
+.contactos__marca {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--arles-objetivo-minimo);
+  min-height: var(--arles-objetivo-minimo);
+  cursor: pointer;
+}
+
+/* La casilla marcada la pinta el navegador de su azul del sistema, que es el
+   único azul del producto. Se vio mirando la demostración, con las tres sondas
+   en verde: un color correcto no es un hallazgo para nada que mida contraste.
+   `accent-color` lo lleva al oro del tema, y el navegador elige la palomita
+   según la luminancia, así que funciona en los dos temas. */
+.contactos__marca input {
+  accent-color: var(--arles-accent-ink);
+}
+
+/* El relleno de la primera celda se quita para que esos 32 px quepan: la
+   columna mide 36 y `.celda` gasta 12 por lado. Agrandar la columna en vez de
+   esto le quitaría 56 px a «Empresa» y «WhatsApp», que están medidos al píxel
+   desde el 22/10/2026 para que su rótulo no se corte a 1024 px. */
+.contactos__tabla :deep(.celda:first-child) {
+  padding: 0;
+}
+
+/* ── POR QUÉ ESTA TABLA RESPIRA MENOS QUE LAS DEMÁS ───────────────────────
+   La columna de la casilla cuesta 36 px, y a 1024 px —el portátil al 150 %—
+   los cuatro rótulos sólo tenían unos 10 px de holgura entre todos: medido el
+   05/11/2026, «Nombre», «Empresa» y «Correo» se cortaban por 2, 2 y 6 px.
+
+   Repartir los `fr` no lo arregla, y volver a intentarlo es el error que esta
+   pantalla ya cometió el 22/10/2026: reparten el espacio, no lo crean, así
+   que cada ajuste robaba a una columna y cortaba otra —el primer intento de
+   hoy dejó «WhatsApp» necesitando 16 px—.
+
+   Lo que sí crea espacio es el relleno: 4 px menos por lado en cinco columnas
+   son 40 px, más de lo que cuesta la casilla. Va sólo en esta tabla porque las
+   otras están medidas con el relleno de `ATabla`, y cambiarlo allí las movería
+   todas para arreglar ésta. */
+.contactos__tabla :deep(.celda) {
+  padding-inline: var(--arles-space-2);
 }
 
 /* El objetivo mínimo del §22: 32 px, más alto que el 24 del WCAG 2.2. Es lo
