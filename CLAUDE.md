@@ -2302,6 +2302,22 @@ mismo paso — **ocho pasos en vez de nueve**.
 > defendido el defecto en vez de cazarlo. Van dos en dos días: una prueba que
 > afirma de más es tan cara como una que falta.
 
+**Y el paso 4 enseña cómo queda el correo (R-29).** Con el asunto rellenado y
+el cuerpo con su firma, **con los datos de un contacto de la lista** y no con
+nombres de ejemplo: lo que se mira es si el texto encaja con los datos que hay.
+
+> **Lo redacta Rust con el mismo `redactar` que el motor**, y es la decisión
+> del tramo: hacerlo en TypeScript eran cuatro líneas y una segunda verdad
+> sobre lo que ARLES manda —el escapado dentro del HTML, el asunto que no se
+> escapa, la firma y qué cuenta como variable que falta son del núcleo—. El día
+> que las dos copias discrepen, la que se ve es la buena y el defecto vive en
+> el envío. Lo vigila `la previsualización usa el redactor de verdad` en las
+> dos direcciones.
+>
+> **Va en un `iframe` con `sandbox` vacío**: aísla los estilos —con `v-html`,
+> el CSS de ARLES maquetaría el correo y no se vería lo que llega a una
+> bandeja— y deja el HTML inerte aunque el saneado fallara.
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |

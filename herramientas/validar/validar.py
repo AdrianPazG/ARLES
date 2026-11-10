@@ -6443,6 +6443,99 @@ def una_version_de_plantilla_no_se_edita():
           f"archivos: {sorted(culpables)}")
 
 
+
+def la_previsualizacion_usa_el_redactor_de_verdad():
+    """**Lo que el paso 4 enseña lo redacta el mismo código que envía.**
+
+    ───────────────────────────────────────────────────────────────────────────
+    POR QUÉ ESTA COMPROBACIÓN, Y QUÉ IMPIDE
+
+    Dirección pidió el 05/11/2026 ver el correo antes de elegir la plantilla
+    (R-29). Lo obvio es reemplazar `{{nombre}}` en TypeScript con cuatro
+    líneas, y sería **una segunda verdad sobre lo que ARLES manda**: el
+    escapado de los datos dentro del HTML, el trato distinto del asunto —que no
+    es HTML y por eso no se escapa—, la firma detrás de su regla y qué cuenta
+    como variable que falta son decisiones del núcleo.
+
+    El día que las dos copias discrepen, la pantalla promete un correo y sale
+    otro — y lo que se vería en la previsualización sería **lo correcto**,
+    porque es lo que alguien acaba de mirar. El defecto viviría en el envío,
+    que es donde nadie mira.
+
+    ── LAS DOS DIRECCIONES, PORQUE UNA SOLA DEJA PASAR LO PEOR ──
+
+    Que el comando llame a `redactar` caza que alguien lo sustituya por una
+    consulta a pelo. Que el frontend **no** sustituya `{{…}}` caza lo contrario:
+    que alguien «mejore» la previsualización haciéndola en la pantalla y deje
+    el comando sin llamador.
+
+    El umbral de la segunda se midió antes de escribirla: hoy hay **cero**
+    sustituciones de `{{…}}` en `app/src`, así que no nace con hallazgos
+    falsos.
+
+    **Verificada con tres rupturas, las tres en rojo**: quitando la llamada a
+    `redactar` del comando, poniendo un `replace(/\{\{(\w+)\}\}/…)` en el
+    asistente, y dejando el comando sin registrar en `generate_handler!`.
+    """
+    app = leer("crates", "arles-app", "src", "campanas.rs") or ""
+    lib = leer("crates", "arles-app", "src", "lib.rs") or ""
+
+    # El cuerpo del comando, no el archivo: la cabecera del módulo y los
+    # comentarios de al lado nombran `redactar` al explicar por qué existe, y
+    # medir sobre el archivo entero sería el comentario que se caza a sí mismo
+    # —catorce veces ya en este proyecto—. Se corta en el siguiente `pub fn`.
+    cuerpo = ""
+    inicio = app.find("pub fn previsualizar_plantilla")
+    if inicio >= 0:
+        resto = app[inicio:]
+        fin = resto.find("\npub fn ", 1)
+        cuerpo = sin_comentarios_de_barras(resto if fin < 0 else resto[:fin])
+
+    problemas = []
+    if inicio < 0:
+        problemas.append("no existe `previsualizar_plantilla` en arles-app")
+    elif "redactar(" not in cuerpo:
+        problemas.append(
+            "`previsualizar_plantilla` no llama a `redactar`: lo que enseña ya "
+            "no es lo que el motor manda"
+        )
+    if "campanas::previsualizar_plantilla" not in lib:
+        problemas.append("el comando no está registrado, así que nadie puede pedirlo")
+
+    # Y que la pantalla no se lo guise. Se busca en todo `app/src` porque el
+    # sitio donde aparecería mañana no tiene por qué ser el asistente.
+    #
+    # ── LAS BARRAS SE QUITAN ANTES DE MIRAR, Y HIZO FALTA ────────────────
+    #
+    # La forma real de escribir esto en TypeScript es una expresión regular
+    # —`replace(/\{\{(\w+)\}\}/g, …)`—, y ahí las llaves van **escapadas**:
+    # el texto del archivo dice `\{\{`, no `{{`. La primera versión buscaba
+    # `{{` tal cual y la ruptura salió **en verde** con la sustitución puesta.
+    # Es el defecto que esta comprobación persigue, dentro de la comprobación.
+    culpables = []
+    for base, _, nombres in os.walk(os.path.join(RAIZ, "app", "src")):
+        for n in nombres:
+            if not n.endswith((".ts", ".vue")):
+                continue
+            ruta = os.path.join(base, n)
+            with open(ruta, encoding="utf-8") as f:
+                texto = f.read()
+            for i, linea in enumerate(texto.splitlines(), 1):
+                desnuda = linea.replace("\\", "")
+                if ".replace(" in desnuda and "{{" in desnuda:
+                    culpables.append(f"{os.path.relpath(ruta, RAIZ)}:{i}")
+    if culpables:
+        problemas.append(
+            "la pantalla sustituye variables por su cuenta: " + ", ".join(culpables)
+        )
+
+    check(6, "la previsualización usa el redactor de verdad", not problemas,
+          "El escapado dentro del HTML, el asunto que no se escapa, la firma y "
+          "qué cuenta como variable que falta son del núcleo. Dos copias "
+          "discrepan, y la que se ve es la buena: el defecto vive en el envío.",
+          " · ".join(problemas))
+
+
 def el_manual_dice_los_pasos_que_hay():
     """**El manual dice cuántos pasos tiene el asistente, y tienen que ser ésos.**
 
@@ -6708,6 +6801,7 @@ def fase_6(rapido):
     una_version_de_plantilla_no_se_edita()
     el_preflight_no_se_rellena_a_mano()
     el_manual_dice_los_pasos_que_hay()
+    la_previsualizacion_usa_el_redactor_de_verdad()
     la_revision_descuenta_las_bajas()
     el_envio_de_prueba_llega_al_preflight()
     el_aviso_de_volumen_lo_exige_el_nucleo()

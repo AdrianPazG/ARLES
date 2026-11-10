@@ -249,6 +249,110 @@ pub fn plantillas(estado: tauri::State<'_, EstadoApp>) -> Result<Vec<PlantillaIp
         .collect())
 }
 
+/// Cómo queda el mensaje, con los datos de alguien de verdad.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrevisualizacionIpc {
+    /// El asunto ya rellenado. **No es HTML**: viaja en una cabecera.
+    pub asunto: String,
+    /// El cuerpo con la firma detrás, saneado y con los datos escapados.
+    pub html: String,
+    /// Con quién está hecha la muestra, para poder decirlo. Vacío si no hay
+    /// ningún contacto todavía.
+    pub con_quien: String,
+    /// Qué variables se quedaron en blanco **con esta persona** (§94).
+    pub faltaron: Vec<String>,
+}
+
+/// Enseña cómo va a quedar el correo antes de crear la campaña (R-29).
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTE COMANDO Y NO SUSTITUIR LAS VARIABLES EN LA PANTALLA
+///
+/// Dirección lo pidió el 05/11/2026 para el paso 4 del asistente: ver el
+/// mensaje antes de elegirlo. Lo obvio sería reemplazar `{{nombre}}` en
+/// TypeScript con cuatro líneas, y sería **una segunda verdad sobre lo que
+/// ARLES manda**: el escapado de los datos dentro del HTML, el trato distinto
+/// del asunto —que no es HTML—, la firma detrás de su regla, y qué cuenta como
+/// variable que falta son decisiones del núcleo, no de una pantalla.
+///
+/// Así que esto llama a `arles_core::plantilla::redactar`, **la misma función
+/// que usa el motor al enviar** (`arles-motor/src/bucle.rs`). Lo que se
+/// previsualiza es literalmente lo que sale.
+///
+/// Lo vigila `la_previsualizacion_usa_el_redactor_de_verdad` en `--fase 6`.
+///
+/// ── Y POR QUÉ CON UN CONTACTO Y NO CON DATOS DE EJEMPLO ──────────────────
+///
+/// Porque lo que se mira es si el texto encaja con los datos que hay. Con
+/// nombres inventados, una plantilla que se rompe con los datos de verdad se
+/// ve perfecta. Si no hay ningún contacto todavía, se dice —`conQuien` vacío—
+/// en vez de inventarse uno.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si no hay empresa configurada, si la versión o la cuenta no
+/// son de esta empresa, o si la consulta falla.
+#[tauri::command]
+pub fn previsualizar_plantilla(
+    estado: tauri::State<'_, EstadoApp>,
+    version: arles_core::ids::TemplateVersionId,
+    firma: Option<arles_core::ids::SignatureId>,
+    lista: Option<String>,
+    cuenta: String,
+) -> Result<PrevisualizacionIpc, ErrorIpc> {
+    use arles_core::plantilla::{SiFalta, Valores, Variable, frase_de_baja, redactar};
+
+    let empresa = crate::comandos::empresa_actual(&estado)?;
+    let redaccion = estado
+        .db()
+        .redaccion_de_una_version(empresa, version, firma, &cuenta)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    let muestra = estado
+        .db()
+        .contacto_de_muestra(empresa, lista.as_deref())
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    // Los mismos valores que arma el motor, en el mismo orden y con la misma
+    // frase de baja: una previsualización que los arme distinto enseña otro
+    // correo.
+    let mut valores = Valores::nuevos()
+        .con(Variable::MiEmpresa, &redaccion.mi_empresa)
+        .con(Variable::Baja, &frase_de_baja(&redaccion.remitente));
+    if let Some(c) = muestra.as_ref() {
+        valores = valores
+            .con(Variable::Nombre, &c.nombre)
+            .con(Variable::Apellido, &c.apellido)
+            .con(Variable::Empresa, &c.empresa);
+    }
+
+    // `SiFalta::Nada` por lo mismo que el motor: poner «cliente» por nuestra
+    // cuenta es escribir en nombre de quien redactó. Lo que falta se queda en
+    // blanco **y se dice cuál**, que es justo lo que esta pantalla viene a
+    // enseñar.
+    let correo = redactar(
+        &redaccion.asunto,
+        &redaccion.cuerpo_html,
+        redaccion.firma_html.as_deref(),
+        &valores,
+        SiFalta::Nada,
+    );
+
+    Ok(PrevisualizacionIpc {
+        asunto: correo.asunto,
+        html: correo.html,
+        con_quien: muestra
+            .map(|c| format!("{} {}", c.nombre, c.apellido).trim().to_owned())
+            .unwrap_or_default(),
+        faltaron: correo
+            .faltaron
+            .iter()
+            .map(|v| v.clave().to_owned())
+            .collect(),
+    })
+}
+
 /// Guarda una plantilla nueva y devuelve la lista entera.
 ///
 /// **El cuerpo llega sin sanear y se sanea en Rust** (§6.2). Lo que la webview

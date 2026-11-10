@@ -786,6 +786,37 @@ async function comprobar(): Promise<void> {
 }
 
 /**
+ * La previsualización del paso 4 (R-29, 05/11/2026).
+ *
+ * ── CUÁNDO SE PIDE, Y POR QUÉ ASÍ ────────────────────────────────────────
+ *
+ * Al cambiar la plantilla o la firma, y al entrar en el paso con algo ya
+ * elegido. **No habla con nadie de fuera**: son dos consultas a la base, así
+ * que pedirla a cada cambio no hace esperar a nadie — al revés que el
+ * preflight, que sondea el SMTP y por eso no se repite solo.
+ *
+ * Es de correo y no de WhatsApp: el cuerpo de una plantilla de Meta lo aprueba
+ * Meta palabra por palabra y ya se enseña entero ahí mismo, con sus huecos.
+ */
+function pedirLaPrevisualizacion(): void {
+  if (esWhatsapp.value) return
+  void campanas.previsualizar(
+    versionDePlantilla.value,
+    firma.value === '' ? null : firma.value,
+    lista.value === '' ? null : lista.value,
+    cuenta.value,
+  )
+}
+
+watch([versionDePlantilla, firma], () => {
+  if (paso.value === 4) pedirLaPrevisualizacion()
+})
+
+watch(paso, (ahora) => {
+  if (ahora === 4 && versionDePlantilla.value !== '') pedirLaPrevisualizacion()
+})
+
+/**
  * ¿El punto de SPF, DKIM y DMARC quedó sin pasar?
  *
  * Es el único de los ocho que **no bloquea** (§154), así que es el único que
@@ -1238,7 +1269,13 @@ function rotulo(clave: string): string {
             v-if="plantillaElegida?.version"
             class="asistente__variables"
           >
-            <p>{{ t('asistente.paso.mensaje.asunto') }}: {{ plantillaElegida.version.asunto }}</p>
+            <!-- El asunto **sin rellenar**, que es lo que enseña qué variables
+                 lleva la plantilla. Se calla cuando hay previsualización: ahí
+                 abajo está el mismo asunto ya con los datos, y verlos dos
+                 veces seguidos se lee como que algo se repitió. -->
+            <p v-if="!campanas.previsualizacion">
+              {{ t('asistente.paso.mensaje.asunto') }}: {{ plantillaElegida.version.asunto }}
+            </p>
             <p v-if="plantillaElegida.version.variables.length > 0">
               {{ t('asistente.paso.mensaje.variables') }}:
               <AInsignia
@@ -1250,6 +1287,76 @@ function rotulo(clave: string): string {
               </AInsignia>
             </p>
           </div>
+
+          <!-- ── CÓMO QUEDA, CON LOS DATOS DE ALGUIEN DE VERDAD (R-29) ───
+               Lo pidió Dirección el 05/11/2026. Lo que se enseña lo arma
+               **Rust con el mismo redactor que el motor**: las variables
+               puestas, los datos escapados dentro del HTML, el asunto sin
+               escapar —no es HTML— y la firma detrás de su regla.
+
+               Con un contacto de la lista elegida y no con nombres de
+               ejemplo, porque lo que se mira es si el texto encaja con los
+               datos que hay: «Hola {'{{'}nombre{'}}'},» se lee distinto con
+               «Ana» que con «FERRETERÍA EL TORNILLO SA DE CV». -->
+          <template v-if="campanas.previsualizacion">
+            <h3 class="asistente__subtitulo">
+              {{ t('asistente.paso.mensaje.asiSeVe') }}
+            </h3>
+            <p class="asistente__nota">
+              {{
+                campanas.previsualizacion.conQuien === ''
+                  ? t('asistente.paso.mensaje.asiSeVeSinContactos')
+                  : t('asistente.paso.mensaje.asiSeVeCon', {
+                    quien: campanas.previsualizacion.conQuien,
+                  })
+              }}
+            </p>
+
+            <p class="asistente__asunto">
+              <strong>{{ t('asistente.paso.mensaje.asunto') }}:</strong>
+              {{ campanas.previsualizacion.asunto }}
+            </p>
+
+            <!-- ── POR QUÉ UN IFRAME Y NO `v-html` ──────────────────────
+                 Por dos razones, y la segunda importa tanto como la primera:
+
+                 1. **Aísla.** Dentro va el correo con sus estilos, fuera la
+                    aplicación con los suyos. Pintado con `v-html`, el CSS de
+                    ARLES maquetaría el mensaje y lo que se vería no sería lo
+                    que llega a una bandeja.
+                 2. **No ejecuta nada.** El `sandbox` vacío —sin
+                    `allow-scripts`— deja el HTML inerte aunque el saneado de
+                    Rust fallara. Es defensa en profundidad sobre algo que ya
+                    se sanea dos veces (§6.2), en el único sitio del producto
+                    donde se pinta HTML que vino de fuera. -->
+            <iframe
+              class="asistente__previsualizacion"
+              sandbox=""
+              :title="t('asistente.paso.mensaje.asiSeVe')"
+              :srcdoc="campanas.previsualizacion.html"
+            />
+
+            <!-- Lo que se quedó en blanco **con esta persona**, que es la
+                 pregunta que una previsualización contesta y una lista de
+                 variables no: el preflight dirá a cuántos les falta, esto
+                 enseña el hueco. -->
+            <AAviso
+              v-if="campanas.previsualizacion.faltaron.length > 0"
+              tono="aviso"
+              :titulo="t('asistente.paso.mensaje.faltaron')"
+            >
+              <p>
+                {{ t('asistente.paso.mensaje.faltaronDetalle') }}
+                <AInsignia
+                  v-for="v in campanas.previsualizacion.faltaron"
+                  :key="`falta-${v}`"
+                  tono="aviso"
+                >
+                  {{ rotulo(`plantilla.variable.${v}`) }}
+                </AInsignia>
+              </p>
+            </AAviso>
+          </template>
         </template>
       </template>
 
@@ -1975,6 +2082,21 @@ function rotulo(clave: string): string {
   border-top: var(--arles-border-width) solid var(--arles-border);
   font-size: var(--arles-font-size-h3);
   line-height: var(--arles-line-height-h3);
+}
+
+/* El correo, dentro de su marco: lo que se ve es el mensaje, no una parte más
+   del formulario. El alto es fijo y con barra propia porque una plantilla
+   larga empujaría los botones de navegación fuera de la pantalla. */
+.asistente__previsualizacion {
+  width: 100%;
+  height: var(--arles-alto-previsualizacion);
+  border: var(--arles-border-width) solid var(--arles-border);
+  border-radius: var(--arles-radius-md);
+  background: var(--arles-surface);
+}
+
+.asistente__asunto {
+  margin: var(--arles-space-4) 0 var(--arles-space-2);
 }
 
 .asistente__nota,

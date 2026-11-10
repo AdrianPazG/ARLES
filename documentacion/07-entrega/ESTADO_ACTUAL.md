@@ -808,3 +808,30 @@ pasos** desde hoy.
 preflight que el núcleo declara` —leídos de `Punto::clave_i18n`, no de una
 lista— y `el manual dice los pasos que tiene el asistente`, porque «Son nueve
 pasos» estaba escrito a mano y la cifra de la cabecera se corrigió sola.
+
+### R-29 · el paso 4 enseña cómo va a quedar el correo
+
+Hasta hoy el paso 4 enseñaba el asunto **con sus `{{variables}}` sin rellenar**
+y una lista de qué datos lleva. Eso dice lo que el motor sustituye; no dice lo
+que se lee. Ahora se ve el asunto rellenado y el cuerpo con la firma detrás,
+con los datos de un contacto de la lista a la que va la campaña.
+
+> **Lo redacta Rust con el mismo `redactar` que el motor**, y ésa es la
+> decisión del tramo: sustituir `{{nombre}}` en TypeScript eran cuatro líneas y
+> una segunda verdad sobre lo que ARLES manda. El escapado dentro del HTML, el
+> asunto que **no** se escapa —no es HTML—, la firma detrás de su regla y qué
+> cuenta como variable que falta son del núcleo. El día que las dos copias
+> discrepen, la que se ve es la buena y el defecto vive en el envío, que es
+> donde nadie mira.
+
+> **El correo va en un `iframe` con `sandbox` vacío.** Aísla los estilos —con
+> `v-html` el CSS de ARLES maquetaría el mensaje y lo que se vería no sería lo
+> que llega a una bandeja— y deja el HTML inerte aunque el saneado fallara. Es
+> el único sitio del producto donde se pinta HTML que vino de fuera.
+
+> **Y dos defectos de mis propias comprobaciones.** La prueba del filtro de
+> lista sembraba los dos contactos el mismo día, así que pasaba con filtro y
+> sin él. Y la comprobación que prohíbe sustituir variables en la pantalla
+> buscaba `{{` tal cual, cuando en una expresión regular las llaves van
+> escapadas: la ruptura salió en verde con la sustitución puesta. Las dos las
+> cazó romperlas.

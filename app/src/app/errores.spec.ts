@@ -117,6 +117,9 @@ const CLAVES_DEL_NUCLEO = [
   // hacer cosas distintas: la primera a detener la campaña —o a dejarla, si ya
   // envió— y la segunda a no tocar nada y contarlo, porque un borrador con
   // historial no debería existir.
+  // 05/11/2026 · previsualizar con una versión que ya no está. Desde la
+  // pantalla no puede pasar; lo que cubre es un id llegado por la frontera.
+  'error.db.plantilla_no_existe',
   'error.db.solo_se_borra_un_borrador',
   'error.db.la_campana_tiene_historial',
   // Entrega 6.6 · el aviso de volumen del §48. No es un límite: es la

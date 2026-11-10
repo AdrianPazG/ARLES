@@ -333,6 +333,13 @@ encima de los 24 px del WCAG 2.2 a propósito.
 > su línea sin un píxel de relleno. A ojo un enlace corto no se ve pequeño, que
 > es por lo que hacía falta medirlo.
 
+**El correo previsualizado va en un marco de alto fijo**,
+`--arles-alto-previsualizacion` (320px), con su propia barra de
+desplazamiento. No es estético: una plantilla larga empujaría los botones de
+navegación del asistente fuera de la pantalla, y entonces la previsualización
+impediría seguir. Vive en el token y no en la pantalla porque el §17 no admite
+un píxel suelto en un componente.
+
 #### Deshabilitado no es opacidad — corregido en la Fase 2
 
 La primera implementación atenuaba el botón entero con `opacity: 0.45`. Medido
@@ -581,13 +588,13 @@ alguien acaba de ver fallar una campaña.
 
 ## 11 · Los tokens: dónde vive cada cosa
 
-**89 tokens, en dos sitios que no se solapan.** La separación no es
+**90 tokens, en dos sitios que no se solapan.** La separación no es
 organizativa: es lo que hace que el contraste se pueda verificar.
 
 | | Cuántos | Dónde | Por qué ahí |
 |---|---|---|---|
 | **Color** | 25 | [`herramientas/design-tokens/tokens.json`](../../herramientas/design-tokens/README.md) → `dist/arles-tokens.css` | Cada color lleva su valor en los dos temas y sus contratos de contraste. Es lo único que pasa por la verificación de CI |
-| **Todo lo demás** | 64 | `app/src/design/base.css` | Escala, tipografía, movimiento, geometría del armazón. No tienen contraste que verificar |
+| **Todo lo demás** | 65 | `app/src/design/base.css` | Escala, tipografía, movimiento, geometría del armazón. No tienen contraste que verificar |
 
 Los 25 colores van en cinco grupos —superficies, contenido y acento,
 semánticos, tintas sobre relleno, y marca—, con **39 contratos** de contraste y
@@ -687,7 +694,7 @@ cosas **leyendo el código** y no una segunda lista:
 3. **Toda pieza que este archivo nombra existe.** La dirección contraria: caza
    una pieza renombrada o retirada que el documento siga dando por viva.
 4. **Las cifras de este archivo son las que hay.** Los recuentos del §11 —25
-   colores, 64 tokens, 39 contratos— y las dieciséis piezas del §6 se cuentan de
+   colores, 65 tokens, 39 contratos— y las dieciséis piezas del §6 se cuentan de
    la fuente. Una cifra a mano en un documento es exactamente lo que el tablero
    tiene prohibido.
 

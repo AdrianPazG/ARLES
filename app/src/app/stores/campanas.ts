@@ -100,6 +100,23 @@ export interface Estimacion {
   readonly diasConEnvio: number
 }
 
+/**
+ * Lo que devuelve `previsualizar_plantilla`. Coincide con `PrevisualizacionIpc`.
+ *
+ * El `html` llega **saneado desde Rust** y con los datos del contacto
+ * escapados: lo arma el mismo `redactar` que usa el motor al enviar.
+ */
+export interface Previsualizacion {
+  /** El asunto ya rellenado. No es HTML: viaja en una cabecera del correo. */
+  readonly asunto: string
+  /** El cuerpo con la firma detrás. */
+  readonly html: string
+  /** Con quién está hecha la muestra. Vacío si no hay ningún contacto. */
+  readonly conQuien: string
+  /** Qué variables se quedaron en blanco con esa persona. */
+  readonly faltaron: readonly string[]
+}
+
 /** Lo que devuelve `revisar_campana`. Coincide con `RevisionDeCampana`. */
 export interface Revision {
   readonly preflight: {
@@ -289,6 +306,18 @@ export const useCampanasStore = defineStore('campanas', () => {
   const cargando = ref(false)
   const trabajando = ref(false)
   const errorGeneral = ref<string | null>(null)
+
+    /**
+   * Cómo queda el correo, con los datos de alguien de verdad (R-29).
+   *
+   * Lo arma **Rust con el mismo redactor que el motor**, no esta tienda: el
+   * escapado de los datos dentro del HTML, el trato distinto del asunto y qué
+   * cuenta como variable que falta son decisiones del núcleo. Sustituir
+   * `{{nombre}}` aquí serían cuatro líneas y una segunda verdad sobre lo que
+   * ARLES manda.
+   */
+  const previsualizacion = ref<Previsualizacion | null>(null)
+  const previsualizando = ref(false)
 
   /** La última revisión pedida. `null` mientras no se haya pedido ninguna. */
   const revision = ref<Revision | null>(null)
@@ -520,6 +549,43 @@ export const useCampanasStore = defineStore('campanas', () => {
       return null
     } finally {
       trabajando.value = false
+    }
+  }
+
+  /**
+   * Pide cómo queda el correo con la plantilla y la firma elegidas (R-29).
+   *
+   * **No habla con nadie de fuera**: son dos consultas a la base, así que se
+   * puede pedir al cambiar el desplegable sin que nadie espere. Es lo
+   * contrario del preflight, que sondea el SMTP y por eso no se repite solo.
+   *
+   * Si falla, la previsualización se **pierde** en vez de quedarse la
+   * anterior: enseñar el correo de la plantilla de antes mientras se acaba de
+   * elegir otra es la peor forma de mentir en esta pantalla.
+   */
+  async function previsualizar(
+    version: string,
+    firma: string | null,
+    lista: string | null,
+    cuenta: string,
+  ): Promise<void> {
+    if (!hayNucleo() || version === '' || cuenta === '') {
+      previsualizacion.value = null
+      return
+    }
+    previsualizando.value = true
+    try {
+      previsualizacion.value = await invocar<Previsualizacion>('previsualizar_plantilla', {
+        version,
+        firma,
+        lista,
+        cuenta,
+      })
+    } catch (e) {
+      previsualizacion.value = null
+      recordarError(e)
+    } finally {
+      previsualizando.value = false
     }
   }
 
@@ -790,6 +856,9 @@ export const useCampanasStore = defineStore('campanas', () => {
     trabajando,
     revisando,
     revision,
+    previsualizacion,
+    previsualizando,
+    previsualizar,
     revisionDeWhatsapp,
     revisarWhatsapp,
     errorGeneral,

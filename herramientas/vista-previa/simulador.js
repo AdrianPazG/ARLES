@@ -1393,6 +1393,54 @@
           });
         }
 
+        // ── R-29 · cómo queda el correo, en el paso 4 (05/11/2026) ────
+        //
+        // En el producto esto lo arma `arles_core::plantilla::redactar`, el
+        // mismo redactor que usa el motor. Aquí se imita lo justo para poder
+        // **mirar la pantalla**: la plantilla del decorado con los datos del
+        // primer contacto y la firma detrás, con su regla.
+        //
+        // Y se dice en vez de darlo por hecho: esto **no es el redactor**. Un
+        // escapado o un caso de variable que falte sólo se pueden verificar
+        // con la prueba de Rust; lo que esta rama enseña es la maquetación.
+        case 'previsualizar_plantilla': {
+          var pls = e.plantillas || DEMO.plantillas;
+          var ver = null;
+          pls.forEach(function (pl) {
+            if (pl.version && pl.version.id === args.version) { ver = pl.version; }
+          });
+          if (!ver) {
+            return Promise.reject({ clave: 'error.db.plantilla_no_existe', detalle: '' });
+          }
+          var quien = (e.contactos || DEMO.contactos)[0] || null;
+          var datos = {
+            nombre: quien ? quien.nombre : '',
+            apellido: quien ? quien.apellido : '',
+            empresa: quien ? quien.empresa : '',
+            mi_empresa: (e.empresa || DEMO.empresa).nombreComercial,
+            baja: 'Si no quieres recibir más correos, responde BAJA.',
+          };
+          var faltaron = [];
+          var poner = function (texto) {
+            return String(texto || '').replace(/\{\{(\w+)\}\}/g, function (_, v) {
+              if (!datos[v]) { if (faltaron.indexOf(v) < 0) { faltaron.push(v); } return ''; }
+              return datos[v];
+            });
+          };
+          var firmas = e.firmas || DEMO.firmas;
+          var laFirma = firmas.filter(function (f) {
+            return args.firma ? f.id === args.firma : f.porDefecto;
+          })[0];
+          var cuerpo = poner(ver.cuerpoHtml || '<p>' + (ver.asunto || '') + '</p>');
+          if (laFirma) { cuerpo += '<p>—</p>' + poner(laFirma.cuerpoHtml); }
+          return Promise.resolve({
+            asunto: poner(ver.asunto),
+            html: cuerpo,
+            conQuien: quien ? (quien.nombre + ' ' + quien.apellido).trim() : '',
+            faltaron: faltaron,
+          });
+        }
+
         case 'probar_envio_de_la_cuenta':
           // Aceptado, **que no es entregado** (§65). El simulador no manda nada.
           return Promise.resolve({

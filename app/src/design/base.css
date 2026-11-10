@@ -31,6 +31,14 @@
      verdad tiene quien trabaja al 200 %. */
   --arles-objetivo-minimo: 32px;
 
+  /* El alto del marco donde se enseña un correo redactado (R-29). Fijo y con
+     barra propia a propósito: una plantilla larga empujaría los botones de
+     navegación del asistente fuera de la pantalla, y entonces la
+     previsualización impediría seguir. Vive aquí porque es una medida del
+     producto y no de una pantalla — el §17 no admite un píxel suelto en un
+     componente. */
+  --arles-alto-previsualizacion: 320px;
+
   /* Proporción áurea. Dirección la pidió para la composición: la rejilla de
      módulos reparte el ancho en 1.618 : 1 en vez de partirlo por la mitad.
      Vive aquí y no en una pantalla para que sea la misma en todas. */

@@ -772,6 +772,97 @@ describe('el asistente de campaña', () => {
     expect(w.text()).not.toContain('no sale nada de ninguna campaña')
   })
 
+  // ── R-29 · CÓMO QUEDA EL CORREO, EN EL PASO 4 (05/11/2026) ─────────────
+  //
+  // Dirección lo pidió para ver el mensaje antes de elegirlo. Lo que se vigila
+  // aquí son las dos cosas que sólo esta capa puede equivocar:
+  //
+  // 1. Que la previsualización **se pida** al elegir plantilla o firma. Sin
+  //    eso el comando existe y nadie lo llama — el patrón del §9.
+  // 2. Que lo que se enseña venga **de Rust**: el asunto y el cuerpo que
+  //    manda el comando, no un texto armado aquí. Que la sustitución sea
+  //    correcta lo prueban `arles-core` y `arles-db`; lo que esta prueba
+  //    puede ver es que la pantalla no se lo invente.
+  //
+  // **Vistas en rojo** con dos rupturas: quitando el `watch` que la pide, y
+  // dejando de pintar el asunto que llega.
+
+  const PREVIA = {
+    asunto: 'Hola Ana, gracias por escribirnos',
+    html: '<p>Hola Ana,</p>',
+    conQuien: 'Ana Ruiz',
+    faltaron: [],
+  }
+
+  /** Monta el asistente en el paso 4 con una plantilla elegida. */
+  async function enElPaso4(): Promise<{
+    p: ReturnType<typeof mount>
+    pedidas: { n: number }
+  }> {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.plantillas = [
+      {
+        id: 'pl-1',
+        nombre: 'Bienvenida',
+        version: {
+          id: 'v-1',
+          numero: 1,
+          asunto: 'Hola {{nombre}}',
+          cuerpoHtml: '<p>Hola {{nombre}}</p>',
+          variables: ['nombre'],
+        },
+      },
+    ]
+    const pedidas = { n: 0 }
+    campanas.previsualizar = async () => {
+      pedidas.n += 1
+      campanas.previsualizacion = PREVIA
+    }
+
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 4
+    p.vm.paso = 4
+    // @ts-expect-error la cuenta elegida en el paso 3
+    p.vm.cuenta = CUENTA.id
+    await p.vm.$nextTick()
+    return { p, pedidas }
+  }
+
+  it('al elegir la plantilla se pide cómo queda el correo', async () => {
+    const { p, pedidas } = await enElPaso4()
+    expect(pedidas.n, 'sin plantilla elegida no hay nada que enseñar').toBe(0)
+
+    // @ts-expect-error la versión que se elige en el desplegable
+    p.vm.versionDePlantilla = 'v-1'
+    await p.vm.$nextTick()
+    expect(pedidas.n, 'elegirla la pide').toBe(1)
+  })
+
+  it('enseña el asunto y con quién está hecha la muestra', async () => {
+    const { p } = await enElPaso4()
+    // @ts-expect-error la versión que se elige en el desplegable
+    p.vm.versionDePlantilla = 'v-1'
+    await p.vm.$nextTick()
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto, 'el asunto ya rellenado, tal como llega de Rust').toContain(
+      'Hola Ana, gracias por escribirnos',
+    )
+    // Con quién, porque el correo cambia con cada persona y ésta es una sola.
+    expect(texto).toContain('Ana Ruiz')
+    // El cuerpo va dentro de un iframe aislado: no se puede leer con `text()`,
+    // y eso es lo que queremos — el CSS de ARLES no maqueta el correo.
+    const marco = p.find('iframe')
+    expect(marco.exists(), 'el correo va en su marco').toBe(true)
+    expect(marco.attributes('srcdoc')).toContain('<p>Hola Ana,</p>')
+    expect(
+      marco.attributes('sandbox'),
+      'sin `allow-scripts`: el HTML queda inerte aunque el saneado fallara',
+    ).toBe('')
+  })
+
   // ── COMPROBAR Y PROBAR SON UN SOLO PASO (05/11/2026) ───────────────────
   //
   // Dirección llegó al paso 7 con puntos «sin comprobar», no pudo activar, y

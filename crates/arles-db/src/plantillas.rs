@@ -730,7 +730,146 @@ pub struct RedaccionDeLaCampana {
     pub remitente: String,
 }
 
+/// Un contacto de verdad para enseñar cómo queda el mensaje.
+///
+/// ── POR QUÉ UN CONTACTO Y NO DATOS INVENTADOS ────────────────────────────
+///
+/// Porque lo que se mira en una previsualización es **si el texto encaja con
+/// los datos que hay**: «Hola {{nombre}},» con un contacto que se llama
+/// «FERRETERÍA EL TORNILLO SA DE CV» se lee distinto que con «Ana». Un
+/// decorado con nombres bonitos enseña una plantilla que funciona siempre.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuestraDeContacto {
+    pub nombre: String,
+    pub apellido: String,
+    pub empresa: String,
+}
+
 impl Db {
+    /// Lo que mandaría una plantilla **que todavía no es de ninguna campaña**.
+    ///
+    /// ── POR QUÉ NO VALE `redaccion_de_la_campana` ────────────────────────
+    ///
+    /// Porque ésa lee de `campaign_stage`, y en el paso 4 del asistente **la
+    /// campaña no existe**: se crea al salir del paso 5. Lo que hay son las
+    /// piezas sueltas que se acaban de elegir —la versión, la firma y la
+    /// cuenta—, y con ellas se arma la misma estructura que el motor recibe,
+    /// para que lo que se enseña y lo que sale sean lo mismo.
+    ///
+    /// La firma es la elegida; si no se eligió ninguna, la de por defecto —el
+    /// mismo `COALESCE` que hace la consulta de la campaña, por la misma razón:
+    /// es lo que la casilla de esa firma promete.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::PlantillaNoExiste`] si la versión o la cuenta no son de
+    /// esta empresa — que es lo que convierte un id ajeno llegado por la
+    /// frontera en un error con su texto, y no en una pantalla en blanco.
+    /// [`DbError::Sqlite`] si la consulta falla.
+    ///
+    /// **POR LA DE ESCRITURA A PROPÓSITO:** no, lee; va por la de lectura.
+    pub fn redaccion_de_una_version(
+        &self,
+        empresa: CompanyId,
+        version: TemplateVersionId,
+        firma: Option<SignatureId>,
+        cuenta: &str,
+    ) -> Result<RedaccionDeLaCampana, DbError> {
+        let fila = self.leer(|conn| {
+            conn.query_row(
+                "SELECT tv.subject, tv.body_html, co.commercial_name,
+                        COALESCE(
+                            (SELECT s.body_html FROM signature s
+                              WHERE s.id = ?3 AND s.company_id = co.id
+                                AND s.retired_at IS NULL),
+                            (SELECT s.body_html FROM signature s
+                              WHERE s.company_id = co.id AND s.is_default = 1
+                                AND s.retired_at IS NULL
+                              LIMIT 1)
+                        ),
+                        ea.email_address
+                   FROM template_version tv
+                   JOIN template t ON t.id = tv.template_id
+                   JOIN company co ON co.id = t.company_id
+                   JOIN email_account ea ON ea.id = ?4 AND ea.company_id = co.id
+                  WHERE tv.id = ?1 AND t.company_id = ?2",
+                params![
+                    version.to_string(),
+                    empresa.to_string(),
+                    firma.map(|f| f.to_string()),
+                    cuenta
+                ],
+                |f| {
+                    Ok(RedaccionDeLaCampana {
+                        asunto: f.get(0)?,
+                        cuerpo_html: f.get(1)?,
+                        mi_empresa: f.get(2)?,
+                        firma_html: f
+                            .get::<_, Option<String>>(3)?
+                            .filter(|h| !h.trim().is_empty()),
+                        remitente: f.get(4)?,
+                    })
+                },
+            )
+            .optional()
+        })?;
+        fila.ok_or(DbError::PlantillaNoExiste)
+    }
+
+    /// Un contacto de la lista elegida —o de la empresa— para previsualizar.
+    ///
+    /// ── LO QUE ESTA CONSULTA NO HACE, Y NO ES UN OLVIDO ──────────────────
+    ///
+    /// **No aplica las bajas ni los filtros de la audiencia.** Quien decide a
+    /// quién se le escribe es `activar_campana` al congelarla, y esa regla no
+    /// se copia aquí: aquí no se decide nada, se elige a quién enseñar. Si el
+    /// contacto de muestra resultara estar de baja, el mensaje se vería igual
+    /// de bien y no le llegaría a nadie de más.
+    ///
+    /// Lo que sí exige es **tener correo**: un contacto sin canal de correo no
+    /// recibiría esta campaña, y enseñar su nombre haría creer que sí.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla. `None` cuando no hay ninguno,
+    /// que es el caso real de una empresa que todavía no ha importado nada.
+    ///
+    /// **POR LA DE ESCRITURA A PROPÓSITO:** no, lee; va por la de lectura.
+    pub fn contacto_de_muestra(
+        &self,
+        empresa: CompanyId,
+        lista: Option<&str>,
+    ) -> Result<Option<MuestraDeContacto>, DbError> {
+        self.leer(|conn| {
+            conn.query_row(
+                // `?2 IS NULL` deja la misma consulta servir para los dos
+                // casos —con lista y sin ella— en vez de dos textos que se
+                // desalinean el día que alguien toque uno.
+                "SELECT COALESCE(c.first_name, ''), COALESCE(c.last_name, ''),
+                        COALESCE(c.source, '')
+                   FROM contact c
+                  WHERE c.company_id = ?1
+                    AND c.deleted_at IS NULL
+                    AND EXISTS (SELECT 1 FROM contact_channel ch
+                                 WHERE ch.contact_id = c.id AND ch.channel = 'email')
+                    AND (?2 IS NULL
+                         OR EXISTS (SELECT 1 FROM contact_list_member m
+                                     WHERE m.contact_id = c.id AND m.list_id = ?2))
+                  ORDER BY c.created_at DESC, c.id
+                  LIMIT 1",
+                params![empresa.to_string(), lista],
+                |f| {
+                    Ok(MuestraDeContacto {
+                        nombre: f.get(0)?,
+                        apellido: f.get(1)?,
+                        empresa: f.get(2)?,
+                    })
+                },
+            )
+            .optional()
+        })
+    }
+
     /// Qué manda esta campaña: su plantilla congelada, su firma y su empresa.
     ///
     /// ── LA VERSIÓN ES LA QUE LA CAMPAÑA ELIGIÓ, NO LA VIGENTE ──────────────
@@ -1497,5 +1636,183 @@ mod tests {
 
         assert_eq!(db.plantillas(empresa()).expect("lista").len(), 1, "intacta");
         assert_eq!(db.firmas(empresa()).expect("lista").len(), 1, "intacta");
+    }
+
+    // ─── R-29 · previsualizar antes de que exista la campaña ───────────────
+
+    /// Siembra una cuenta de correo y devuelve su id.
+    fn cuenta(db: &Db) -> &'static str {
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO email_account (id, company_id, display_name, email_address,
+                                            provider_kind, credential_ref, status,
+                                            daily_limit, hourly_limit,
+                                            created_at, updated_at)
+                 VALUES ('cta-1', '{EMPRESA}', 'Ventas', 'ventas@t.mx', 'smtp',
+                         'llavero://v', 'connected', 50, 10,
+                         '2026-11-05T00:00:00Z', '2026-11-05T00:00:00Z');"
+            ))
+        })
+        .expect("cuenta");
+        "cta-1"
+    }
+
+    /// Siembra un contacto con su correo. `lista` lo mete además en una lista.
+    ///
+    /// La fecha entra como parámetro porque la muestra se elige por **el más
+    /// reciente**, y sin poder ordenarlos a propósito una prueba del filtro de
+    /// lista no distingue nada: ver `la_muestra_sale_de_la_lista_elegida`.
+    fn contacto_con_correo(db: &Db, id: &str, nombre: &str, cuando: &str, lista: Option<&str>) {
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO contact (id, company_id, first_name, last_name, source,
+                                      created_at, updated_at)
+                 VALUES ('{id}', '{EMPRESA}', '{nombre}', 'Ruiz', 'Ferretería',
+                         '{cuando}', '{cuando}');
+                 INSERT INTO contact_channel (id, company_id, contact_id, channel,
+                                              value_raw, value_normalized, status,
+                                              created_at, updated_at)
+                 VALUES ('ch-{id}', '{EMPRESA}', '{id}', 'email', '{id}@t.mx',
+                         '{id}@t.mx', 'active', '{cuando}', '{cuando}');"
+            ))
+        })
+        .expect("contacto");
+        if let Some(l) = lista {
+            db.ejecutar_en_pruebas(|c| {
+                c.execute_batch(&format!(
+                    "INSERT OR IGNORE INTO contact_list (id, company_id, name,
+                                                         created_at, updated_at)
+                     VALUES ('{l}', '{EMPRESA}', 'Prueba',
+                             '2026-11-05T00:00:00Z', '2026-11-05T00:00:00Z');
+                     INSERT INTO contact_list_member (list_id, contact_id, added_at)
+                     VALUES ('{l}', '{id}', '2026-11-05T00:00:00Z');"
+                ))
+            })
+            .expect("lista");
+        }
+    }
+
+    /// **La previsualización usa la firma de por defecto si no se elige otra.**
+    ///
+    /// Es el mismo `COALESCE` que la consulta de la campaña, y por la misma
+    /// razón: es literalmente lo que promete la casilla de esa firma. Si aquí
+    /// cayera en «sin firma», la previsualización enseñaría un correo sin
+    /// firma y saldría con ella.
+    #[test]
+    fn previsualizar_sin_elegir_firma_usa_la_de_por_defecto() {
+        let (_d, db) = base();
+        let cta = cuenta(&db);
+        let (_, v) = db
+            .crear_plantilla(
+                empresa(),
+                "Bienvenida",
+                &redaccion("Hola {{nombre}}", "<p>Hola</p>"),
+            )
+            .expect("crea");
+        db.crear_firma(empresa(), "Comercial", "<p>Equipo</p>", true)
+            .expect("crea");
+
+        let r = db
+            .redaccion_de_una_version(empresa(), v, None, cta)
+            .expect("lee");
+
+        assert_eq!(
+            r.asunto, "Hola {{nombre}}",
+            "sin rellenar: eso lo hace el núcleo"
+        );
+        assert_eq!(r.firma_html.as_deref(), Some("<p>Equipo</p>"));
+        assert_eq!(r.mi_empresa, "TELEMETRY");
+        assert_eq!(
+            r.remitente, "ventas@t.mx",
+            "la dirección de la cuenta elegida, que es la que va en la frase de baja"
+        );
+    }
+
+    /// **Y la elegida manda sobre la de por defecto.**
+    #[test]
+    fn previsualizar_con_firma_elegida_usa_esa() {
+        let (_d, db) = base();
+        let cta = cuenta(&db);
+        let (_, v) = db
+            .crear_plantilla(empresa(), "Bienvenida", &redaccion("A", "<p>a</p>"))
+            .expect("crea");
+        db.crear_firma(empresa(), "Comercial", "<p>Equipo</p>", true)
+            .expect("crea");
+        let otra = db
+            .crear_firma(empresa(), "Dirección", "<p>Adrián</p>", false)
+            .expect("crea");
+
+        let r = db
+            .redaccion_de_una_version(empresa(), v, Some(otra), cta)
+            .expect("lee");
+        assert_eq!(r.firma_html.as_deref(), Some("<p>Adrián</p>"));
+    }
+
+    /// **Una versión de otra empresa no se previsualiza.**
+    ///
+    /// La webview no es de fiar (regla 4 de la IPC): el id llega de fuera, y
+    /// sin el filtro de empresa esto enseñaría el correo de otra.
+    #[test]
+    fn una_version_ajena_no_se_previsualiza() {
+        let (_d, db) = base();
+        let cta = cuenta(&db);
+        let (_, v) = db
+            .crear_plantilla(empresa(), "Mía", &redaccion("A", "<p>a</p>"))
+            .expect("crea");
+
+        let ajena: CompanyId = "22222222-2222-4222-8222-222222222222".parse().expect("id");
+        let r = db.redaccion_de_una_version(ajena, v, None, cta);
+        assert!(matches!(r, Err(DbError::PlantillaNoExiste)), "{r:?}");
+    }
+
+    /// **El contacto de muestra sale de la lista cuando hay lista.**
+    ///
+    /// ── POR QUÉ BETO ES EL MÁS RECIENTE, Y NO ES UN DETALLE ─────────────
+    ///
+    /// Porque la muestra se elige por el más reciente, así que con los dos
+    /// sembrados el mismo día **la prueba pasaba con el filtro y sin él**:
+    /// quitar el `EXISTS` de la lista la dejaba en verde. Lo cazó romperla, no
+    /// leerla.
+    ///
+    /// Con Beto un día después, sin filtro la muestra sería él — y es dos
+    /// contactos y no uno por la misma razón que la prueba de la página de
+    /// contactos que este proyecto ya documenta.
+    #[test]
+    fn la_muestra_sale_de_la_lista_elegida() {
+        let (_d, db) = base();
+        contacto_con_correo(&db, "k1", "Ana", "2026-11-05T00:00:00Z", Some("lst-1"));
+        contacto_con_correo(&db, "k2", "Beto", "2026-11-06T00:00:00Z", None);
+
+        let m = db
+            .contacto_de_muestra(empresa(), Some("lst-1"))
+            .expect("lee")
+            .expect("hay uno");
+        assert_eq!(m.nombre, "Ana", "Beto no está en esa lista");
+        assert_eq!(m.empresa, "Ferretería", "la empresa vive en `source` (V1)");
+    }
+
+    /// **Un contacto sin correo no sirve de muestra.**
+    ///
+    /// No recibiría esta campaña, así que enseñar su nombre haría creer que
+    /// sí. Y sin contactos con correo se devuelve `None` en vez de inventar
+    /// uno: la pantalla lo dice.
+    #[test]
+    fn sin_contactos_con_correo_no_hay_muestra() {
+        let (_d, db) = base();
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO contact (id, company_id, first_name, created_at, updated_at)
+                 VALUES ('k9', '{EMPRESA}', 'Solo WhatsApp',
+                         '2026-11-05T00:00:00Z', '2026-11-05T00:00:00Z');"
+            ))
+        })
+        .expect("contacto");
+
+        assert!(
+            db.contacto_de_muestra(empresa(), None)
+                .expect("lee")
+                .is_none(),
+            "sin canal de correo no es una muestra de esta campaña"
+        );
     }
 }

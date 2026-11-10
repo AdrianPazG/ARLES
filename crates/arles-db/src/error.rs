@@ -91,6 +91,15 @@ pub enum DbError {
     #[error("esa cuenta de correo no existe")]
     CuentaDeCorreoNoExiste,
 
+    /// No hay tal versión de plantilla en esta empresa.
+    ///
+    /// Nace al previsualizar con una versión o una cuenta que no son de aquí.
+    /// Desde la pantalla no puede pasar —las dos salen de listas que la propia
+    /// empresa devolvió—, así que lo que esto cubre es un id llegado por la
+    /// frontera: la webview no es de fiar (regla 4 de la IPC).
+    #[error("esa plantilla no existe")]
+    PlantillaNoExiste,
+
     /// Se intentó activar una campaña sin nadie a quien escribir.
     ///
     /// **Es un error y no un éxito con cero.** Una campaña activada sin
@@ -415,6 +424,7 @@ impl DbError {
             Self::LaCampanaNoAvanza => "error.db.la_campana_no_avanza",
             Self::ActivacionCancelada => "error.db.activacion_cancelada",
             Self::CuentaDeCorreoNoExiste => "error.db.cuenta_de_correo_no_existe",
+            Self::PlantillaNoExiste => "error.db.plantilla_no_existe",
             Self::AccionDeCampanaImposible { clave } => clave,
             Self::SoloSeBorraUnBorrador { .. } => "error.db.solo_se_borra_un_borrador",
             Self::LaCampanaTieneHistorial { .. } => "error.db.la_campana_tiene_historial",

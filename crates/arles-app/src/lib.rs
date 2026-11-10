@@ -149,6 +149,7 @@ pub fn run() {
             whatsapp::plantillas_de_meta,
             whatsapp::anotar_plantilla_de_meta,
             campanas::plantillas,
+            campanas::previsualizar_plantilla,
             campanas::guardar_plantilla,
             // R-06 (17/10/2026). `nueva_version_de_plantilla` estaba en
             // `arles-db` desde la 6.3, probada, y sin registrar aquí: una

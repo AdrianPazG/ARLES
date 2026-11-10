@@ -2149,6 +2149,13 @@ export const es = {
       // cosas distintas: el primero a detener la campaña, y el segundo a no
       // tocarla. Un solo mensaje para los dos haría buscar un botón que en su
       // caso no existe (§95, y la lección de DOC-14).
+      plantilla_no_existe: {
+        que: 'Esa plantilla ya no está.',
+        como:
+          'Vuelve a elegirla en la lista: puede que se haya retirado desde ' +
+          'otra ventana mientras creabas la campaña.',
+        salvo: 'No se guardó ni se envió nada.',
+      },
       solo_se_borra_un_borrador: {
         que: 'Esta campaña ya no es un borrador, así que no se puede borrar.',
         como:
@@ -2611,6 +2618,26 @@ export const es = {
       },
 
       mensaje: {
+        // ── R-29 · CÓMO QUEDA EL CORREO, EN EL PASO 4 (05/11/2026) ────
+        //
+        // Dirección lo pidió para ver el mensaje antes de elegirlo. Lo arma
+        // Rust con el mismo redactor que el motor, así que lo que se enseña
+        // es literalmente lo que sale.
+        asiSeVe: 'Así se va a ver',
+        // Se dice CON QUIÉN, porque el mensaje cambia con cada persona y ésta
+        // es una sola: sin el nombre, la previsualización se lee como si
+        // valiera para todos.
+        asiSeVeCon:
+          'Con los datos de {quien}, que es de la lista a la que va esta ' +
+          'campaña. A cada persona le llega con los suyos.',
+        asiSeVeSinContactos:
+          'Todavía no tienes contactos con correo, así que los datos de cada ' +
+          'persona salen en blanco. Carga tu lista y vuelve a mirar.',
+        faltaron: 'A esta persona le faltan datos',
+        faltaronDetalle:
+          'Lo que falta se queda en blanco: ARLES no se inventa un «cliente» ' +
+          'en tu nombre. La comprobación previa te dirá a cuánta gente le ' +
+          'pasa. Lo que falta aquí es:',
         // ── D-WA · el mensaje cuando el canal es WhatsApp ──
         //
         // No hay firma ni texto que escribir: el de una plantilla de Meta lo

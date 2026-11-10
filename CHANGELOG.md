@@ -73,6 +73,46 @@ exactamente por dónde pasan.
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
 
+### El paso 4 enseña cómo va a quedar el correo
+
+**05/11/2026.** R-29, pedido por Dirección: ver el mensaje antes de elegir la
+plantilla. El paso 4 enseña ahora el asunto rellenado y el cuerpo con la firma
+detrás, **con los datos de un contacto de verdad** de la lista a la que va la
+campaña, y dice con quién está hecha la muestra.
+
+> **Lo redacta Rust, no la pantalla, y ésa es la decisión del tramo.** Lo
+> obvio era reemplazar `{{nombre}}` en TypeScript con cuatro líneas, y sería
+> una segunda verdad sobre lo que ARLES manda: el escapado de los datos dentro
+> del HTML, el trato distinto del asunto —que no es HTML y por eso no se
+> escapa—, la firma detrás de su regla y qué cuenta como variable que falta
+> son decisiones del núcleo.
+>
+> El comando llama a `arles_core::plantilla::redactar`, **la misma función que
+> usa el motor al enviar**. Lo vigila `la previsualización usa el redactor de
+> verdad` en `--fase 6`, que lo mide en las dos direcciones: que el comando
+> llame a `redactar`, y que ninguna pantalla sustituya `{{…}}` por su cuenta.
+>
+> **Con un contacto y no con nombres de ejemplo**, porque lo que se mira es si
+> el texto encaja con los datos que hay: «Hola {nombre},» se lee distinto con
+> «Ana» que con «FERRETERÍA EL TORNILLO SA DE CV». Sin contactos todavía se
+> dice, en vez de inventar uno.
+
+> **El correo va en un `iframe` con `sandbox` vacío, y por dos razones.**
+> Aísla —dentro el correo con sus estilos, fuera la aplicación con los suyos;
+> con `v-html` el CSS de ARLES maquetaría el mensaje y lo que se vería no
+> sería lo que llega a una bandeja— y no ejecuta nada, que es defensa en
+> profundidad sobre un HTML que ya se sanea dos veces (§6.2). Es el único
+> sitio del producto donde se pinta HTML que vino de fuera.
+
+> **Dos defectos de mis propias comprobaciones, los dos cazados al romperlas.**
+> La prueba del filtro de lista sembraba los dos contactos el mismo día, así
+> que **pasaba con el filtro y sin él**; ahora el de fuera de la lista es el
+> más reciente, que es lo único que distingue las dos consultas. Y la
+> comprobación que prohíbe sustituir variables en la pantalla buscaba `{{` tal
+> cual: en una expresión regular las llaves van **escapadas**, así que la
+> ruptura salió en verde con la sustitución puesta — el defecto que la
+> comprobación persigue, dentro de la comprobación.
+
 ### Comprobar y probar son un solo paso, y la comprobación se hace sola
 
 **05/11/2026.** Dirección llegó al paso 7 con puntos «sin comprobar», no pudo
