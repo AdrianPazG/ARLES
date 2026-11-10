@@ -851,12 +851,70 @@ cuenta como una baja—, la migración **V17**, que permite guardarla con el ori
 que la distingue de la que alguien apunta a mano, y **el lector del buzón**
 (`arles-email/src/buzon.rs`).
 
-**Lo que no:** el cable. Nadie llama al lector todavía, así que hoy el correo de
-baja sigue llegando a un buzón que nadie mira solo y se apunta a mano en
-Contactos › Bajas. Está declarado como hueco del §9 **a propósito**, igual que
-la 8.2b dejó el exportador sin botón: el comando, el ajuste y el registro son el
-tramo siguiente, y su comprobación de llamador se escribe **antes** de
-escribirlo, para verla en rojo.
+**Y el cable, el mismo día: ARLES revisa el buzón y aplica las bajas.** Se
+enciende por cuenta en Remitentes, con su servidor de lectura, y se revisa con
+un botón. La migración **V18** guarda las tres cosas que eso necesita: dónde se
+lee, si está encendido, y hasta qué correo se leyó.
+
+**Lo que R-25 no hace, dicho en vez de darse por hecho:** no se revisa solo cada
+cierto tiempo — hay que pulsar el botón. ARLES no tiene un programador de tareas
+y añadirlo es otra decisión, no un detalle de este tramo.
+
+### El cable, y el orden que no se puede invertir
+
+**Leer → juzgar → escribir.** Al revés sería dar de baja primero y mirar después
+qué decía el correo, y una baja **no se puede levantar con un botón**: la pidió
+la persona, así que el producto no la deshace. Un error en esa dirección no
+tiene arreglo dentro de ARLES, y por eso el orden lo vigila el validador dentro
+de la función que trabaja.
+
+**Todo va en una transacción**, y el motivo no es la pulcritud: si la marca del
+buzón avanzara aparte y la escritura fallara, esos correos quedarían **por
+debajo de la marca y no se volverían a mirar nunca**. Quien pidió no recibir
+seguiría en la lista de envío sin que nada protestara.
+
+**Un buzón que no contesta no tumba los demás.** Su motivo viaja con la clave
+del §139 y los otros se revisan igual.
+
+**Lo que cruza la frontera no tiene dónde meter una dirección de correo** —la
+misma regla que el resumen exportable de la 7.6—, así que a quién se dio de baja
+se ve en Contactos › Bajas.
+
+### Los seis defectos de mi propia comprobación, en un día
+
+La escribí **antes** del cable y la vi fallar nombrando los seis tramos. Luego,
+al construirlo, salió en rojo sobre código correcto tres veces y **en verde con
+el código roto** dos más:
+
+| | Qué medía mal |
+|---|---|
+| 1 | El origen de la supresión, buscado en `arles-app` cuando lo escribe `arles-db` |
+| 2 | La bitácora, igual |
+| 3 | El orden, medido en el cuerpo del comando — que **delega**, así que ahí no hay ninguna llamada al lector |
+| 4 | `solo_produccion` aplicado a **todos los archivos pegados**: corta en el primer `#[cfg(test)]` y deja fuera todo lo que venga detrás por orden alfabético |
+| 5 | La bitácora, en verde con la línea de la baja quitada: **encender** el buzón también audita |
+| 6 | «El frontend nombra el comando» dado por «hay un botón» — el hueco exacto de la W.8 |
+
+Los seis son la misma familia: **medir en un sitio donde la respuesta no
+cuenta.** Y el 3 lo tenía escrito `el_archivado_tiene_quien_lo_llame` desde el
+06/10 con otras palabras — el sitio donde una pregunta tiene respuesta no es
+siempre el que lleva el nombre.
+
+Verificada al final con **siete rupturas, las siete en rojo**.
+
+### Dos defectos que encontró mirar, con las tres sondas sin hallazgos
+
+- **«14 correo(s) nuevos revisados · 2 dado(s) de baja»** — los «(s)» son el
+  defecto que la 8.3c ya arregló con «2 cuenta(s)». Pluralizado de verdad.
+- **La casilla medía 1 086 px de ancho**, todo el módulo: un clic en el vacío,
+  lejos de ella, encendía la lectura del buzón de alguien. Es el mismo número
+  que el botón del Registro del 28/10, por la misma razón — un hijo de un flex
+  en columna se estira.
+
+Y una prueba de restauración que la **V18 rompió**: su molde de columnas es a
+mano y rellena con nulo lo que no nombra, así que una columna `NOT NULL` nueva
+la tumba. En producción no ocurre, así que lo que estaba mal era el molde. Es lo
+que el CLAUDE.md advierte desde la 8.6.
 
 ### El lector: sólo lectura, y eso son dos comandos del protocolo
 

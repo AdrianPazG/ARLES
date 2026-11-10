@@ -33,13 +33,25 @@ corporate_email, default_signature_id, created_at, updated_at
 Cuenta remitente.
 
 > Ampliada en la **V7** (entrega 5.3): las cuatro columnas de SMTP.
+> Y en la **V18** (R-25, 10/11/2026): las tres de leer el buzón.
 
 ```
 id, company_id, display_name, email_address, provider_kind,
 credential_ref, status, daily_limit, hourly_limit,
 consecutive_failures, circuit_open_until, created_at, updated_at,
-smtp_host, smtp_port, smtp_security, smtp_username
+smtp_host, smtp_port, smtp_security, smtp_username,
+imap_host, inbox_scan_enabled, inbox_last_uid
 ```
+
+**Las tres de la V18, y por qué son éstas.** `imap_host` **se guarda y no se
+deduce**: cambiar `smtp.` por `imap.` acierta en Gmail, Titan y Zoho y falla en
+cuanto un proveedor no sigue esa convención — y entonces ARLES se inventa un
+servidor, se conecta a un nombre que no existe y el usuario lee «no se pudo
+entrar al buzón», que apunta a su red. Es la misma decisión que la V7 tomó con
+`smtp_host`. `inbox_scan_enabled` nace en **0**: leer el buzón de alguien se
+enciende a mano, nunca por una actualización. Y `inbox_last_uid` es `NULL`
+cuando nunca se ha leído —que no es lo mismo que 0— porque sin esa marca cada
+pasada volvería a registrar las mismas bajas en la bitácora.
 
 **`credential_ref` es una referencia al llavero del sistema operativo, nunca una credencial.** Ver `04-seguridad/MODELO_DE_SECRETOS.md`.
 

@@ -1369,6 +1369,8 @@ def fase_1(rapido):
           detalle=f"comandos que escriben en buzon.rs: {escribe}"
           if escribe else "no existe crates/arles-email/src/buzon.rs")
 
+    las_bajas_del_buzon_tienen_quien_las_aplique()
+
     check(1, "El consentimiento es append-only y no bloquea el borrado",
           "consent_entry_sin_update" in esquema
           and "consent_entry_sin_delete" in esquema
@@ -3419,6 +3421,11 @@ MIGRACIONES_PUBLICADAS = {
     # puebla en la V16 y compara fila a fila después.
     "V17__baja_pedida_por_correo.sql":
         "9e97148ed77a39de73bbd80af73c2ec700e174a60bf6fd6ed61a8e760099cd0c",
+    # R-25 tramo 3, 10/11/2026: dónde se lee el buzón, si está encendido y
+    # hasta qué correo se leyó. Tres `ADD COLUMN` en `email_account`, sin
+    # recrear la tabla: no hay ningún `CHECK` que ampliar.
+    "V18__leer_el_buzon.sql":
+        "10b20f3f8b0885888e3b7f6b755eff574e2b9a9aa3eecd7f83ead2872365ca63",
 }
 
 
@@ -8973,6 +8980,180 @@ def el_archivado_tiene_quien_lo_llame():
         "el archivado tiene quien lo llame, y en su orden",
         not faltan,
         el_archivado_tiene_quien_lo_llame.__doc__,
+        detalle="\n      ".join(faltan),
+    )
+
+
+def las_bajas_del_buzon_tienen_quien_las_aplique():
+    """**El §9 en el camino que decide si alguien vuelve a recibir correo.**
+
+    R-25 se construyó en tres tramos, y los dos primeros dejaron a propósito la
+    pieza sin llamador: `arles_core::baja_por_correo` decide qué cuenta como una
+    baja y `arles_email::buzon` trae los correos, y **nadie los llamaba**. Es el
+    mismo hueco que la 8.2b dejó con el exportador y la 8.3 bis a con el
+    archivado — las dos veces declarado, las dos veces cerrado por su tramo
+    siguiente.
+
+    Aquí hay una vuelta que no tenían las anteriores: lo que falta **no es una
+    función que no existe**. Es que una persona pidió que no le escribieran, su
+    correo llegó al buzón, y ARLES le escribe otra vez en la campaña siguiente
+    mientras todo está en verde. Por eso esta comprobación no pregunta sólo si
+    las piezas se llaman: vigila **los seis tramos del cable y su orden**.
+
+        el lector del buzón → el veredicto del núcleo → la supresión
+        → la bitácora → el comando registrado → la pantalla
+
+    **El orden importa en un sitio concreto y se mide dentro de la función:**
+    preguntar al núcleo tiene que ocurrir **antes** de escribir la supresión.
+    Al revés sería dar de baja primero y mirar después qué decía el correo, que
+    es exactamente el error que los tres veredictos existen para no cometer — y
+    una baja no se puede levantar con un botón (`se_puede_levantar`).
+
+    Escrita **antes** de enchufar nada, para verla fallar nombrando los seis
+    tramos.
+    """
+    faltan = []
+
+    # Sin comentarios NI pruebas: los tramos se explican en comentarios que los
+    # nombran, y una llamada desde un `#[cfg(test)]` deja la pieza sin llamador
+    # en producción con todo en verde. Son los defectos del 04/11 y del 10/11,
+    # los dos dentro de comprobaciones escritas para cazar este mismo patrón.
+    #
+    # ── Y SE APLICA ARCHIVO POR ARCHIVO, NO A LA CONCATENACIÓN ──
+    #
+    # `solo_produccion` corta en el primer `#[cfg(test)]`, que en un archivo es
+    # siempre lo último. Sobre **todos los archivos pegados** corta en el
+    # primero que tenga pruebas y deja fuera todo lo que venga detrás: la
+    # primera versión de esta comprobación salió en rojo sobre código correcto
+    # porque `archivo.rs` va antes que `bajas_del_buzon.rs` por orden
+    # alfabético. Es el mismo defecto que persigue —medir donde la respuesta no
+    # está— dentro de la comprobación escrita para cazarlo.
+    app_produccion = ""
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "crates", "arles-app", "src")):
+        for f in ficheros:
+            if f.endswith(".rs"):
+                with open(os.path.join(carpeta, f), encoding="utf-8") as fh:
+                    app_produccion += solo_produccion(fh.read())
+    assert app_produccion, "no se leyó el código de arles-app"
+
+    if "buzon::correos_recientes" not in app_produccion:
+        faltan.append(
+            "arles_email::buzon::correos_recientes — nadie en arles-app lee el buzón"
+        )
+    if "baja_por_correo::leer" not in app_produccion:
+        faltan.append(
+            "baja_por_correo::leer — nadie pregunta al núcleo qué es cada correo"
+        )
+
+    # ── El origen y la bitácora, MEDIDOS DONDE SE ESCRIBEN ──
+    #
+    # Los dos viven en `arles-db`, porque es quien escribe la supresión. La
+    # primera versión de esta comprobación los buscaba en `arles-app` y salió
+    # en rojo sobre código correcto: **medir en un sitio donde la respuesta no
+    # está**, que es la misma familia que el comentario que se caza a sí mismo.
+    escritor = leer("crates", "arles-db", "src", "buzon.rs")
+    if escritor is None:
+        faltan.append("no existe crates/arles-db/src/buzon.rs")
+    else:
+        suyo = solo_produccion(escritor)
+        if "PeticionPorCorreo" not in suyo:
+            faltan.append(
+                "OrigenDeSupresion::PeticionPorCorreo — la baja no entraría con su "
+                "origen, y se guardaría como si la hubiera apuntado el usuario"
+            )
+        if "suppression_entry" not in suyo:
+            faltan.append("arles-db no escribe ninguna supresión: no da de baja a nadie")
+        # La bitácora no es ceremonia: una baja aplicada sola, sin rastro de
+        # qué correo la causó, no se puede defender meses después.
+        #
+        # Y se mide DENTRO de `aplicar_bajas_del_buzon`, no en el archivo: la
+        # primera versión buscaba `auditar(` en todo el módulo y **salió en
+        # verde con la línea de la baja quitada**, porque encender el buzón
+        # también audita. Medir en un sitio donde la respuesta no cuenta, otra
+        # vez, y en la comprobación escrita para cazar eso.
+        escribe = re.search(
+            r"pub fn aplicar_bajas_del_buzon\b.*?\n    \}", suyo, re.S
+        )
+        if not escribe:
+            faltan.append("no se encuentra el cuerpo de aplicar_bajas_del_buzon")
+        elif "auditar(" not in escribe.group(0):
+            faltan.append("ninguna baja del buzón queda en la bitácora")
+
+    # ── El orden, medido en la función que TRABAJA ──
+    modulo = leer("crates", "arles-app", "src", "bajas_del_buzon.rs")
+    if modulo is None:
+        faltan.append("no existe crates/arles-app/src/bajas_del_buzon.rs")
+    else:
+        produccion = solo_produccion(modulo)
+        if "aplicar_bajas_del_buzon" not in produccion:
+            faltan.append("el cable no llama a quien escribe las bajas")
+
+        # `revisar_el_buzon` es el comando y **delega**: la primera versión de
+        # esta comprobación medía el orden en su cuerpo y salió en rojo sobre
+        # código correcto, porque ahí no hay ninguna llamada al lector. Es el
+        # defecto que `el_archivado_tiene_quien_lo_llame` ya documentó con
+        # otras palabras: el sitio donde una pregunta tiene respuesta no es
+        # siempre el que lleva el nombre.
+        cuerpo = re.search(r"fn revisar_uno\b.*?\n\}", produccion, re.S)
+        if not cuerpo:
+            faltan.append("no se encuentra el cuerpo de revisar_uno")
+        else:
+            texto = cuerpo.group(0)
+            pos_lee = texto.find("correos_de")
+            pos_veredicto = texto.find("baja_por_correo::leer")
+            pos_escribe = texto.find("aplicar_bajas_del_buzon")
+            if pos_lee == -1:
+                faltan.append("revisar_uno no lee el buzón")
+            elif pos_veredicto == -1:
+                faltan.append(
+                    "revisar_uno no pregunta al núcleo: aplicaría bajas por su cuenta"
+                )
+            elif pos_escribe == -1:
+                faltan.append("revisar_uno no escribe ninguna baja")
+            elif not pos_lee < pos_veredicto < pos_escribe:
+                faltan.append(
+                    "el orden no es leer → juzgar → escribir, y una baja no se "
+                    "puede levantar con un botón"
+                )
+
+    lib = leer("crates", "arles-app", "src", "lib.rs") or ""
+    if "revisar_el_buzon" not in lib:
+        faltan.append("revisar_el_buzon — no está en generate_handler!")
+
+    # ── Y EL ÚLTIMO TRAMO SON DOS, NO UNO ──
+    #
+    # «El frontend nombra el comando» y «una pantalla tiene el botón» son
+    # preguntas distintas, y la primera versión de esta comprobación sólo hacía
+    # la primera: salió **en verde** quitando la llamada de la pantalla, porque
+    # el store seguía nombrando el comando. Ése es exactamente el hueco de la
+    # W.8 —`enviar_whatsapp_de_prueba` probado de punta a punta y sin botón—,
+    # dentro de la comprobación escrita para cazar ese patrón.
+    tiendas = ""
+    pantallas = ""
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "app", "src")):
+        for f in ficheros:
+            ruta = os.path.join(carpeta, f)
+            if f.endswith(".ts") and not f.endswith(".spec.ts"):
+                with open(ruta, encoding="utf-8") as fh:
+                    tiendas += fh.read()
+            elif f.endswith(".vue"):
+                with open(ruta, encoding="utf-8") as fh:
+                    pantallas += fh.read()
+
+    if "revisar_el_buzon" not in tiendas + pantallas:
+        faltan.append("revisar_el_buzon — nadie en el frontend invoca el comando")
+    elif "revisarElBuzon" not in pantallas:
+        faltan.append(
+            "revisarElBuzon — el comando tiene quien lo invoque pero NINGÚN BOTÓN: "
+            "es el hueco de la W.8, donde se podía mandar un WhatsApp de prueba "
+            "por código y no desde la aplicación"
+        )
+
+    check(
+        1,
+        "Las bajas del buzón tienen quien las aplique",
+        not faltan,
+        las_bajas_del_buzon_tienen_quien_las_aplique.__doc__,
         detalle="\n      ".join(faltan),
     )
 

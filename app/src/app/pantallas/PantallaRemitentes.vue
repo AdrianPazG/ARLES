@@ -41,6 +41,7 @@ import {
   proveedorDe,
   useRemitentesStore,
   type BorradorDeCuenta,
+  type ComoEstaUnBuzon,
   type Remitente,
 } from '@/app/stores/remitentes'
 import { useActividadStore, type Cupo } from '@/app/stores/actividad'
@@ -69,7 +70,41 @@ const { t, te } = useI18n()
 onMounted(() => {
   void store.cargar()
   void cifras.cargar()
+  void store.cargarLosBuzones()
 })
+
+// ── Las bajas que llegan al buzón (R-25, D-21 · 10/11/2026) ────────────────
+//
+// Lo que se escribe aquí es **el servidor de lectura**, y la pantalla lo
+// propone sin darlo por bueno: cambiar `smtp.` por `imap.` acierta en Gmail,
+// Titan y Zoho, y falla en cuanto un proveedor no sigue esa convención. Si
+// ARLES lo diera por hecho, se conectaría a un nombre que no existe y el
+// usuario leería «no se pudo entrar al buzón» — que apunta a su red o a su
+// contraseña. Ver la cabecera de la migración V18.
+const servidorQueSeEscribe = ref<Record<string, string>>({})
+
+/** Lo escrito, o lo guardado, o lo propuesto. En ese orden. */
+function servidorDe(buzon: ComoEstaUnBuzon): string {
+  return (
+    servidorQueSeEscribe.value[buzon.cuenta] ??
+    buzon.servidorDeLectura ??
+    store.servidorDeLecturaPropuesto(buzon.servidorDeEnvio)
+  )
+}
+
+async function cambiarElBuzon(buzon: ComoEstaUnBuzon, encendido: boolean): Promise<void> {
+  await store.configurarLaLecturaDelBuzon(buzon.cuenta, servidorDe(buzon), encendido)
+}
+
+/** El motivo de que un buzón no se pudiera revisar, con sus tres partes. */
+function porQueNo(clave: string) {
+  return resolverError({ clave, detalle: '' })
+}
+
+/** ¿Hay algún buzón encendido que se pueda revisar ahora? */
+const hayBuzonQueRevisar = computed(() =>
+  store.buzones.some((b) => b.encendido && (b.servidorDeLectura ?? '') !== ''),
+)
 
 /**
  * El cupo real de un remitente, o `undefined` mientras no haya cargado.
@@ -967,6 +1002,127 @@ async function probarGuardada(r: Remitente): Promise<void> {
         </p>
       </form>
     </AModulo>
+
+    <!-- ── Las bajas que llegan al buzón (R-25, D-21 · 10/11/2026) ──
+         Va al final y no dentro del formulario de una cuenta a propósito: se
+         configura una vez por cuenta y después sólo se revisa, así que no
+         pertenece al camino de dar de alta un remitente. -->
+    <AModulo
+      v-if="store.buzones.length > 0"
+      :titulo="t('remitentes.buzon.titulo')"
+    >
+      <p class="remitentes__buzonEntradilla">
+        {{ t('remitentes.buzon.entradilla') }}
+      </p>
+      <p class="remitentes__buzonEntradilla">
+        {{ t('remitentes.buzon.soloLectura') }}
+      </p>
+
+      <div
+        v-for="buzon in store.buzones"
+        :key="buzon.cuenta"
+        class="remitentes__buzon"
+      >
+        <p class="remitentes__buzonCuenta">
+          {{ buzon.nombreVisible }} · {{ buzon.direccion }}
+        </p>
+
+        <AEntrada
+          :model-value="servidorDe(buzon)"
+          :etiqueta="t('remitentes.buzon.servidor')"
+          :ayuda="t('remitentes.buzon.servidorAyuda')"
+          @update:model-value="servidorQueSeEscribe[buzon.cuenta] = $event"
+        />
+
+        <label class="remitentes__casilla">
+          <input
+            type="checkbox"
+            :checked="buzon.encendido"
+            @change="
+              cambiarElBuzon(buzon, ($event.target as HTMLInputElement).checked)
+            "
+          >
+          {{ t('remitentes.buzon.encender') }}
+        </label>
+      </div>
+
+      <div class="remitentes__acciones">
+        <ABoton
+          variante="secundario"
+          :deshabilitado="!hayBuzonQueRevisar || store.revisandoElBuzon"
+          :title="hayBuzonQueRevisar ? undefined : t('remitentes.buzon.nadaQueRevisar')"
+          :ocupado="store.revisandoElBuzon"
+          @click="store.revisarElBuzon()"
+        >
+          {{
+            store.revisandoElBuzon
+              ? t('remitentes.buzon.revisando')
+              : t('remitentes.buzon.revisar')
+          }}
+        </ABoton>
+      </div>
+
+      <!-- Lo que trajo la revisión. §94: cifras y no adjetivos, y una por
+           concepto — «dadas de baja» y «ya estaban» son dos cosas, y fundirlas
+           haría leer las tres bajas de ayer como nuevas. -->
+      <template v-if="store.loQueTrajoElBuzon">
+        <AAviso
+          v-for="(resultado, i) in store.loQueTrajoElBuzon"
+          :key="i"
+          :tono="resultado.noSePudo ? 'aviso' : 'exito'"
+          :titulo="resultado.buzon"
+        >
+          <!-- Las tres partes del §95, igual que cualquier otro error de
+               esta pantalla: qué pasó, cómo se arregla y qué está a salvo. La
+               tercera es la que importa aquí — leer un buzón no cambia nada en
+               él, y decirlo evita que alguien crea que quedó a medias. -->
+          <template v-if="resultado.noSePudo">
+            <strong>{{ porQueNo(resultado.noSePudo).que }}</strong>
+            <span>{{ porQueNo(resultado.noSePudo).como }}</span>
+            <span>{{ porQueNo(resultado.noSePudo).salvo }}</span>
+          </template>
+          <template v-else>
+            <p>
+              {{
+                t(
+                  'remitentes.buzon.resultado',
+                  { mirados: resultado.mirados.toLocaleString('es-MX') },
+                  resultado.mirados,
+                )
+              }}
+              ·
+              {{
+                resultado.dadasDeBaja === 0
+                  ? t('remitentes.buzon.sinBajas')
+                  : t(
+                    'remitentes.buzon.resultadoBajas',
+                    { bajas: resultado.dadasDeBaja.toLocaleString('es-MX') },
+                    resultado.dadasDeBaja,
+                  )
+              }}
+            </p>
+            <p v-if="resultado.yaEstaban > 0">
+              {{
+                t(
+                  'remitentes.buzon.yaEstaban',
+                  { n: resultado.yaEstaban.toLocaleString('es-MX') },
+                  resultado.yaEstaban,
+                )
+              }}
+            </p>
+            <p v-if="resultado.paraMirar > 0">
+              {{
+                t(
+                  'remitentes.buzon.paraMirar',
+                  { n: resultado.paraMirar.toLocaleString('es-MX') },
+                  resultado.paraMirar,
+                )
+              }}
+            </p>
+          </template>
+        </AAviso>
+      </template>
+    </AModulo>
   </div>
 </template>
 
@@ -1291,5 +1447,46 @@ async function probarGuardada(r: Remitente): Promise<void> {
   margin: 0;
   font-size: var(--arles-font-size-caption);
   color: var(--arles-text-muted);
+}
+
+/* ── Las bajas que llegan al buzón (R-25) ── */
+
+.remitentes__buzonEntradilla {
+  margin: 0 0 var(--arles-space-3);
+  font-size: var(--arles-font-size-caption);
+  color: var(--arles-text-muted);
+}
+
+.remitentes__buzon {
+  display: flex;
+  flex-direction: column;
+  gap: var(--arles-space-2);
+  padding: var(--arles-space-3) 0;
+  border-top: var(--arles-border-width) solid var(--arles-border);
+}
+
+.remitentes__buzonCuenta {
+  margin: 0;
+  font-weight: var(--arles-font-weight-medium);
+}
+
+/* El objetivo mínimo de ARLES es más alto que el del WCAG 2.2 a propósito
+   (§22), y una casilla con su etiqueta al lado se queda corta sin esto: es el
+   defecto que la auditoría D midió en cinco enlaces de 20 px.
+
+   `align-self: flex-start` NO es cosmética, y lo encontró mirar la pantalla:
+   sin ella el `<label>` ocupaba **1 086 px de ancho** —todo el módulo— y un
+   clic en el vacío, a medio metro de la casilla, encendía la lectura del buzón
+   de alguien. Un objetivo grande es bueno; uno que llega donde nadie espera
+   que haya nada, no. Es el mismo número que el botón del Registro del
+   28/10/2026, por la misma razón: un hijo de un flex en columna se estira. */
+.remitentes__casilla {
+  display: flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--arles-space-2);
+  min-height: var(--arles-objetivo-minimo);
+  font-size: var(--arles-font-size-caption);
+  cursor: pointer;
 }
 </style>

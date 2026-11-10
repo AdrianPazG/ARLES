@@ -3937,6 +3937,55 @@ export const es = {
 
     seEstaProbando: 'Esto puede tardar unos segundos.',
 
+    // ── Las bajas que llegan al buzón (R-25, D-21 · 10/11/2026) ─────────
+    //
+    // Lo que esta sección tiene que dejar claro, en este orden: qué se va a
+    // hacer con el buzón de alguien, que es **sólo leer**, y que lo dudoso no
+    // da de baja a nadie. Lo tercero importa porque la cifra «2 para mirar»
+    // sin explicación se lee como «2 bajas que no se aplicaron por un fallo».
+    buzon: {
+      titulo: 'Bajas que llegan por correo',
+      entradilla:
+        'Quien recibe una campaña puede pedir la baja de dos formas: con el ' +
+        'botón de cancelar suscripción de su correo, o contestando la ' +
+        'palabra BAJA. Las dos llegan a tu buzón, y ARLES puede revisarlo y ' +
+        'aplicarlas.',
+      // Dicho con esas palabras porque es la garantía que Dirección autorizó,
+      // y porque «ARLES va a leer tu correo» sin este matiz es alarmante con
+      // razón.
+      soloLectura:
+        'ARLES sólo lee: no borra, no mueve y no marca nada como leído. De ' +
+        'cada correo se queda con la dirección de quien escribió, nunca con ' +
+        'lo que escribió.',
+      servidor: 'Servidor de lectura',
+      servidorAyuda:
+        'Suele ser el de envío cambiando «smtp» por «imap». Revísalo: si no ' +
+        'es el correcto, ARLES no podrá entrar al buzón.',
+      encender: 'Revisar este buzón para aplicar las bajas',
+      revisar: 'Revisar el buzón ahora',
+      revisando: 'Revisando el buzón…',
+      nadaQueRevisar:
+        'Primero marca al menos un buzón y escribe su servidor de lectura.',
+      // Pluralizado de verdad y no con «(s)», que es el defecto que la 8.3c
+      // ya arregló con «2 cuenta(s)»: mirar la pantalla lo volvió a encontrar
+      // aquí. Las tres cifras van en frases separadas porque son tres cosas
+      // distintas, y la de «para mirar» no puede ir sin su explicación.
+      resultado:
+        'Un correo nuevo revisado | {mirados} correos nuevos revisados',
+      resultadoBajas: 'Una baja aplicada | {bajas} bajas aplicadas',
+      sinBajas: 'Ninguna baja nueva.',
+      yaEstaban:
+        'Una ya estaba en la lista de bajas de antes | ' +
+        '{n} ya estaban en la lista de bajas de antes',
+      // La parte que no se puede callar: una cifra sin esta frase se lee como
+      // un fallo, y lo que pasa es que ARLES no decide por nadie.
+      paraMirar:
+        'Un correo habla de la baja sin pedirla claramente, así que no se dio ' +
+        'de baja a nadie por él: míralo en tu correo | ' +
+        '{n} correos hablan de la baja sin pedirla claramente, así que no se ' +
+        'dio de baja a nadie por ellos: míralos en tu correo',
+    },
+
     // ── El envío de prueba (entrega 5.5) ────────────────────────────────
     //
     // «Probar conexión» dice si la cuenta autentica. Esto es otra cosa: manda

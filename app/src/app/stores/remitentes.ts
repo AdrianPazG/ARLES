@@ -262,6 +262,40 @@ export interface ResultadoDelEnvio {
   readonly aDonde: string
 }
 
+/**
+ * Cómo está la lectura del buzón de una cuenta. Coincide con
+ * `arles_app::bajas_del_buzon::ComoEstaUnBuzonEnPantalla`.
+ */
+export interface ComoEstaUnBuzon {
+  readonly cuenta: string
+  readonly nombreVisible: string
+  readonly direccion: string
+  /** De aquí sale el servidor de lectura que se **propone**, no se decide. */
+  readonly servidorDeEnvio: string
+  readonly servidorDeLectura: string | null
+  readonly encendido: boolean
+  readonly yaSeLeyo: boolean
+}
+
+/**
+ * Lo que trajo una revisión del buzón. Coincide con
+ * `arles_app::bajas_del_buzon::LoQueTrajoUnBuzon`.
+ *
+ * **Sin una sola dirección dentro**, y es la misma regla que el resumen
+ * exportable de la 7.6: la estructura no tiene dónde meter una, así que no
+ * depende de que nadie se acuerde. A quién se dio de baja se ve en
+ * Contactos › Bajas.
+ */
+export interface LoQueTrajoUnBuzon {
+  readonly buzon: string
+  readonly mirados: number
+  readonly dadasDeBaja: number
+  readonly yaEstaban: number
+  readonly paraMirar: number
+  /** Clave del motivo si el buzón no se pudo revisar (§139). */
+  readonly noSePudo: string | null
+}
+
 export const useRemitentesStore = defineStore('remitentes', () => {
   const remitentes = ref<readonly Remitente[]>([])
   const cargada = ref(false)
@@ -298,6 +332,80 @@ export const useRemitentesStore = defineStore('remitentes', () => {
     errorGeneral.value = null
     diagnostico.value = null
     laCuentaSirve.value = false
+  }
+
+  // ── Las bajas que llegan al buzón (R-25, D-21 · 10/11/2026) ──────────────
+
+  /** Lo que trajo la última revisión, por buzón. */
+  const loQueTrajoElBuzon = ref<readonly LoQueTrajoUnBuzon[] | null>(null)
+  const revisandoElBuzon = ref(false)
+  /** Cómo está la lectura del buzón en cada cuenta. */
+  const buzones = ref<readonly ComoEstaUnBuzon[]>([])
+
+  /** Lee cómo está cada buzón. */
+  async function cargarLosBuzones(): Promise<void> {
+    try {
+      if (hayNucleo()) {
+        buzones.value = await invocar<ComoEstaUnBuzon[]>('como_estan_los_buzones')
+      }
+    } catch (e) {
+      errorGeneral.value = claveDelError(e)
+    }
+  }
+
+  /**
+   * El servidor de lectura que le correspondería a un servidor de envío.
+   *
+   * **Se propone, no se decide.** El campo queda editable y lo que se guarda
+   * es lo que haya ahí: cambiar `smtp.` por `imap.` acierta en Gmail, Titan y
+   * Zoho, y falla en cuanto un proveedor no sigue esa convención. Si ARLES lo
+   * diera por bueno, intentaría conectarse a un nombre que no existe y el
+   * usuario leería «no se pudo entrar al buzón» — que apunta a su red o a su
+   * contraseña. Ver la cabecera de la migración V18.
+   */
+  function servidorDeLecturaPropuesto(servidorDeEnvio: string): string {
+    const limpio = servidorDeEnvio.trim()
+    if (limpio === '') return ''
+    return limpio.startsWith('smtp.') ? `imap.${limpio.slice('smtp.'.length)}` : limpio
+  }
+
+  /** Enciende o apaga la lectura del buzón de una cuenta. */
+  async function configurarLaLecturaDelBuzon(
+    cuenta: string,
+    servidor: string,
+    encendido: boolean,
+  ): Promise<boolean> {
+    errorGeneral.value = null
+    try {
+      if (hayNucleo()) {
+        await invocar('configurar_la_lectura_del_buzon', { cuenta, servidor, encendido })
+      }
+      await cargarLosBuzones()
+      return true
+    } catch (e) {
+      errorGeneral.value = claveDelError(e)
+      return false
+    }
+  }
+
+  /** Revisa los buzones encendidos y aplica las bajas que lleguen. */
+  async function revisarElBuzon(): Promise<void> {
+    if (revisandoElBuzon.value) return
+    revisandoElBuzon.value = true
+    errorGeneral.value = null
+    // El resultado anterior se borra **antes**, no al terminar: si no, un «2
+    // dadas de baja» de hace diez minutos se queda en pantalla mientras la
+    // revisión nueva corre, y se lee como si fuera de ahora.
+    loQueTrajoElBuzon.value = null
+    try {
+      if (hayNucleo()) {
+        loQueTrajoElBuzon.value = await invocar<LoQueTrajoUnBuzon[]>('revisar_el_buzon')
+      }
+    } catch (e) {
+      errorGeneral.value = claveDelError(e)
+    } finally {
+      revisandoElBuzon.value = false
+    }
   }
 
   async function cargar(): Promise<void> {
@@ -506,5 +614,13 @@ export const useRemitentesStore = defineStore('remitentes', () => {
     mandarCorreoDePrueba,
     guardar,
     limpiarAvisos,
+    // Las bajas que llegan al buzón (R-25, D-21)
+    buzones,
+    loQueTrajoElBuzon,
+    revisandoElBuzon,
+    servidorDeLecturaPropuesto,
+    cargarLosBuzones,
+    configurarLaLecturaDelBuzon,
+    revisarElBuzon,
   }
 })

@@ -81,6 +81,14 @@ use crate::error::ErrorDeCorreo;
 /// variantes como en `tls.rs` porque aquí no hay nada que elegir — IMAP no
 /// tiene un `STARTTLS` universal que valga la pena, y ofrecerlo sería crear la
 /// opción mala.
+/// El tipo del certificado que se le pasa al lector al confiar en uno de más.
+///
+/// Se reexporta para que quien pruebe este lector —`arles-app`— no tenga que
+/// declarar `rustls` como dependencia suya sólo para nombrar un tipo. La pila
+/// de TLS es un detalle de este crate.
+#[cfg(any(test, feature = "test-util"))]
+pub type CertificadoDePrueba<'a> = CertificateDer<'a>;
+
 pub const PUERTO_IMAP_TLS: u16 = 993;
 
 /// Lo más grande que se acepta en un literal del servidor: 64 KiB.

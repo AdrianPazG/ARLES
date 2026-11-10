@@ -14,7 +14,7 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ### Migraciones del esquema
 
-Diecisiete, y están todas aquí porque **un respaldo `.arles` tomado antes de una
+Dieciocho, y están todas aquí porque **un respaldo `.arles` tomado antes de una
 migración se restaura pasando sus datos por las que faltan**: esta tabla dice
 exactamente por dónde pasan.
 
@@ -47,6 +47,7 @@ exactamente por dónde pasan.
 | **V15** | El descanso entre campañas (D-16) |
 | **V16** | Qué plantilla de Meta manda una etapa de WhatsApp (D-WA) |
 | **V17** | Una baja puede venir de quien recibe el correo, y no sólo de dentro (R-25) |
+| **V18** | Dónde se lee el buzón, si está encendido, y hasta qué correo se leyó (R-25) |
 
 > **Esta tabla nació de una comprobación que faltaba, y lo primero que hizo fue
 > cazar seis huecos.** El formato que el propio proyecto exige
@@ -73,6 +74,113 @@ exactamente por dónde pasan.
 > Ahora exige una **fila de la tabla**, que es lo único que no se escribe de
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
+
+### El cable: las bajas del buzón se aplican solas
+
+**10/11/2026.** Tercer y último tramo de R-25. **ARLES revisa el buzón del
+remitente y aplica las bajas que llegaron.** Se enciende por cuenta en
+Remitentes, con su servidor de lectura, y se revisa con un botón.
+
+Con esto los dos tramos anteriores dejan de ser piezas sueltas: la regla del
+núcleo decide, el lector trae, `arles-db` escribe la supresión con su origen, y
+la bitácora guarda qué correo la causó.
+
+> **La prueba que el tramo existía para tener.** Un correo en el buzón, y una
+> dirección en la lista de supresión. Las tres piezas tenían sus pruebas —el
+> núcleo juzga, el lector trae, la base escribe— y **nadie comprobaba que lo
+> que sale de una entre en la siguiente**. Es el patrón del §9, y es lo único
+> que lo cierra.
+
+> **El orden es leer → juzgar → escribir, y no se puede invertir.** Al revés
+> sería dar de baja primero y mirar después qué decía el correo, y una baja
+> **no se puede levantar con un botón** (`se_puede_levantar`): la pidió la
+> persona, así que el producto no la deshace. Un error en esa dirección no
+> tiene arreglo dentro de ARLES, y por eso el orden lo vigila el validador
+> dentro de la función que trabaja.
+
+> **Todo va en una transacción, y el motivo no es la pulcritud.** Las
+> supresiones, su línea de bitácora y el avance de la marca del buzón entran o
+> no entran juntos. Si la marca avanzara aparte y la escritura fallara, esos
+> correos quedarían **por debajo de la marca y no se volverían a mirar nunca**:
+> quien pidió no recibir seguiría en la lista de envío sin que nada protestara.
+
+> **Un buzón que no contesta no tumba los demás.** Su motivo viaja dentro del
+> resultado con la clave del §139 y los otros buzones se revisan igual: parar
+> todo porque un servidor no contesta dejaría sin aplicar bajas ya leídas. Y
+> los tres errores del tramo anterior se ganan su sitio aquí — el de la
+> contraseña rechazada manda a **activar IMAP en el proveedor**, que es un
+> estado real y confuso: manda bien y no puede leer.
+
+> **La V18 guarda el servidor de lectura en vez de deducirlo.** Cambiar `smtp.`
+> por `imap.` acierta en Gmail, Titan y Zoho, y falla en cuanto un proveedor no
+> sigue esa convención — y entonces ARLES **se inventa un servidor**, intenta
+> conectarse a un nombre que no existe y lo que el usuario lee es «no se pudo
+> entrar al buzón», que apunta a su red o a su contraseña. La pantalla lo
+> **propone** como texto editable, que es distinto de darlo por bueno. Es la
+> misma decisión que la V7 tomó con `smtp_host`.
+
+> **Nace apagado.** Leer el buzón de alguien es lo que Dirección autorizó para
+> su cuenta, no una opción que ARLES active por su cuenta en la de nadie. Una
+> actualización que empezara a leer buzones sin que nadie lo pidiera sería
+> exactamente lo que ningún programa debería hacer.
+
+> **Y hace falta guardar hasta qué correo se leyó.** El lector busca por fecha
+> porque `EXAMINE` no marca nada como leído (la garantía del tramo 2), así que
+> sin marca **cada pasada volvería a registrar las mismas bajas en la
+> bitácora** y el registro de por qué alguien está en la lista se llenaría de
+> copias del mismo correo. La marca sólo avanza: un valor menor que el guardado
+> no la mueve.
+
+> **Lo que cruza la frontera no tiene dónde meter una dirección de correo**, y
+> es la misma regla que el resumen exportable de la 7.6: no es cuestión de
+> acordarse. A quién se dio de baja se ve en Contactos › Bajas, que es la
+> pantalla que existe para eso.
+
+> **Verificado con siete rupturas, las siete en rojo**, y dos de ellas lo
+> encontraron después de que mi comprobación saliera en verde:
+>
+> - **La bitácora se medía en el archivo y no en la función.** Quitar la línea
+>   que registra una baja salió **en verde**, porque *encender* el buzón
+>   también audita. Medir en un sitio donde la respuesta no cuenta, otra vez.
+> - **«El frontend nombra el comando» y «hay un botón» son dos preguntas.**
+>   Quitar la llamada de la pantalla salió **en verde** porque el store seguía
+>   invocando el comando — que es exactamente el hueco de la W.8, donde se
+>   podía mandar un WhatsApp de prueba por código y no desde la aplicación.
+>   Ahora son dos medidas.
+
+> **Y tres defectos más de esa misma comprobación, los tres de ámbito**, vistos
+> al correrla por primera vez: el origen de la supresión y la bitácora se
+> buscaban en `arles-app` cuando los escribe `arles-db`, y el orden se medía en
+> el cuerpo del comando, que **delega** — así que ahí no hay ninguna llamada al
+> lector. Es el defecto que `el_archivado_tiene_quien_lo_llame` ya documentó:
+> el sitio donde una pregunta tiene respuesta no es siempre el que lleva el
+> nombre.
+
+> **Y el peor de los seis: `solo_produccion` sobre la concatenación de
+> archivos.** Corta en el primer `#[cfg(test)]`, que en un archivo es lo
+> último; sobre **todos los archivos pegados** corta en el primero que tenga
+> pruebas y deja fuera el resto. La comprobación salió en rojo sobre código
+> correcto porque `archivo.rs` va antes que `bajas_del_buzon.rs` por orden
+> alfabético. Ahora se aplica archivo por archivo.
+
+> **Dos defectos que encontró mirar la demostración**, con todo en verde y las
+> tres sondas sin hallazgos:
+>
+> - **«14 correo(s) nuevos revisados · 2 dado(s) de baja».** Los «(s)» son el
+>   defecto que la 8.3c ya arregló con «2 cuenta(s)». Pluralizado de verdad.
+> - **La casilla medía 1 086 px de ancho**, todo el módulo: un clic en el
+>   vacío, lejos de la casilla, encendía la lectura del buzón de alguien. Un
+>   objetivo grande es bueno; uno que llega donde nadie espera que haya nada,
+>   no. Es el mismo número que el botón del Registro del 28/10, por la misma
+>   razón: un hijo de un flex en columna se estira.
+
+> **Y una prueba de restauración que la V18 rompió.** Su molde de columnas es
+> **a mano** y rellena con nulo lo que no nombra, así que una columna
+> `NOT NULL` nueva la tumba. En producción no ocurre —un respaldo de una base
+> real siempre trae valor, y uno de un esquema anterior lo recibe de la propia
+> migración al ponerse al día—, así que lo que estaba mal era el molde. Es lo
+> que el CLAUDE.md advierte desde la 8.6: al añadir una migración, hay que
+> mirar qué pruebas fijan el esquema a mano.
 
 ### El lector del buzón, sólo lectura
 

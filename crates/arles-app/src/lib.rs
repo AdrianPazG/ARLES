@@ -7,6 +7,7 @@
 #![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 
 pub mod archivo;
+pub mod bajas_del_buzon;
 pub mod campanas;
 mod cifras;
 pub mod comandos;
@@ -202,6 +203,13 @@ pub fn run() {
             // antes.
             archivo::revisar_archivado,
             archivo::archivar_historial,
+            // Las bajas que llegan al buzón (R-25, D-21). El primero configura
+            // y el segundo revisa; sin el primero, el segundo no encuentra
+            // ningún buzón encendido — y eso es lo correcto, porque leer el
+            // buzón de alguien se enciende a mano.
+            bajas_del_buzon::como_estan_los_buzones,
+            bajas_del_buzon::configurar_la_lectura_del_buzon,
+            bajas_del_buzon::revisar_el_buzon,
         ])
         .run(tauri::generate_context!());
 

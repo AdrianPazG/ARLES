@@ -70,7 +70,7 @@ plazo externo que no se comprime.
 | Id | Qué | Planteado | Estado |
 |---|---|---|---|
 | **R-05** | Imagen en la firma | Embebida dispara filtros de spam y engorda cada correo; alojada hay que alojarla, y el saneado tendría que admitir `<img>` | espera decisión |
-| ~~**R-25**~~ | ~~Baja automática por correo~~ | **Decidido el 10/11/2026: ARLES lee el buzón del remitente, sólo lectura.** Ver abajo | en construcción |
+| ~~**R-25**~~ | ~~Baja automática por correo~~ | **Cerrado el 10/11/2026: ARLES revisa el buzón del remitente —sólo lectura— y aplica las bajas.** Ver abajo | ✅ hecho |
 | **D-19** | ¿El registro tiene que dar el total exacto? | C-2 midió que **el único cambio que baja el tiempo del filtro es dejar de contar todas las coincidencias**: traer las 500 filas cuesta la mitad. Pero el total al lado es D-7C, y se pidió para que el tope no escondiera nada. Las opciones y las cifras, abajo | espera decisión |
 | **Fase 9** | Sacar la activación al hilo del motor | Activar tarda ~73 s con 451 196 destinatarios y el presupuesto de 2 s se rompe **alrededor de los 30 000**. Desde el 28/10 la ventana **sí responde**, dice en qué va y se puede cancelar; lo que queda es que no corra dentro de un comando | abierto · medido en la auditoría C |
 
@@ -183,9 +183,39 @@ migración **V17** —que permite guardar la baja con el origen que la distingue
 la que alguien apunta a mano— y **el lector del buzón**
 (`arles-email/src/buzon.rs`), con su servidor IMAP de mentira.
 
-**Sin hacer:** el cable. Nadie llama al lector todavía, así que hoy el correo de
-baja sigue llegando a un buzón que nadie mira solo. Está declarado como hueco
-del §9 **a propósito**, igual que la 8.2b dejó el exportador sin botón.
+**Y el cable, el mismo día:** el comando, el ajuste por cuenta en Remitentes, el
+botón y el registro en la bitácora, con la migración **V18** para guardar dónde
+se lee cada buzón, si está encendido y hasta qué correo se leyó.
+
+**Lo que R-25 no hace, dicho en vez de darse por hecho:** no se revisa solo cada
+cierto tiempo — hay que pulsar el botón. ARLES no tiene un programador de tareas
+y añadirlo es otra decisión.
+
+### El orden del cable, y por qué no se puede invertir
+
+**Leer → juzgar → escribir.** Al revés sería dar de baja primero y mirar después
+qué decía el correo, y una baja **no se puede levantar con un botón**
+(`se_puede_levantar`): la pidió la persona. Un error en esa dirección no tiene
+arreglo dentro de ARLES.
+
+Y todo va en **una transacción** —las supresiones, su bitácora y la marca del
+buzón—: si la marca avanzara aparte y la escritura fallara, esos correos
+quedarían por debajo de la marca y **no se volverían a mirar nunca**.
+
+### Los seis defectos de la comprobación que vigila esto
+
+Escrita **antes** del cable y vista fallar nombrando los seis tramos. Después,
+al construirlo, falló de seis formas distintas: tres en rojo sobre código
+correcto —el origen y la bitácora buscados en el crate equivocado, y el orden
+medido en el cuerpo de un comando que **delega**— y dos **en verde con el código
+roto**: la bitácora se satisfacía con la auditoría de *encender* el buzón, y
+«el frontend nombra el comando» se daba por «hay un botón», que es el hueco
+exacto de la W.8.
+
+El sexto es el más instructivo: **`solo_produccion` aplicado a la concatenación
+de archivos** corta en el primer `#[cfg(test)]` y deja fuera todo lo que venga
+detrás por orden alfabético. Los seis son la misma familia — medir en un sitio
+donde la respuesta no cuenta.
 
 ### Las tres defensas del «sólo lectura», y dónde vive cada una
 

@@ -2369,9 +2369,9 @@ llavero para enviar sirve para leer—. Está contado en
 > únicamente se ve correr sobre una base recién creada».
 
 **Y el lector del buzón, el mismo día** (`arles-email/src/buzon.rs`), con su
-servidor IMAP de mentira. **Sigue sin haber quien lo llame**: el comando, el
-ajuste y el registro son el tramo siguiente, y su comprobación de llamador se
-escribe **antes**, para verla en rojo.
+servidor IMAP de mentira — **y el cable, que lo cierra**: `arles-app` revisa el
+buzón y aplica las bajas, se enciende por cuenta en Remitentes, y la V18 guarda
+dónde se lee cada uno, si está encendido y hasta qué correo se leyó.
 
 > **«Sólo lectura» no es una promesa: son dos comandos del protocolo.**
 > **`EXAMINE` y no `SELECT`** abre el buzón en *read-only* y el servidor
@@ -2411,6 +2411,63 @@ escribe **antes**, para verla en rojo.
 > decimocuarta vez. Verificada por los dos caminos — en rojo con un `SELECT`,
 > un `BODY[` y un `STORE` de verdad, y en verde con esas mismas palabras sólo
 > en un comentario.
+
+> **La prueba que R-25 existía para tener:** un correo en el buzón, y una
+> dirección en la lista de supresión. Las tres piezas tenían las suyas —el
+> núcleo juzga, el lector trae, la base escribe— y **nadie comprobaba que lo
+> que sale de una entre en la siguiente**.
+
+> **El orden es leer → juzgar → escribir, y no se puede invertir.** Al revés
+> sería dar de baja primero y mirar después qué decía el correo, y una baja
+> **no se puede levantar con un botón**: la pidió la persona. Un error en esa
+> dirección no tiene arreglo dentro de ARLES. Y todo va en **una transacción**
+> —supresiones, bitácora y la marca del buzón—: si la marca avanzara aparte y
+> la escritura fallara, esos correos quedarían por debajo de ella y **no se
+> volverían a mirar nunca**.
+
+> **Seis defectos de una sola comprobación, en un día, y todos la misma
+> familia: medir en un sitio donde la respuesta no cuenta.** La escribí antes
+> del cable y la vi fallar nombrando los seis tramos; después, al construirlo,
+> salió **en rojo sobre código correcto** tres veces y **en verde con el código
+> roto** dos más:
+>
+> 1. El origen de la supresión, buscado en `arles-app` cuando lo escribe
+>    `arles-db`.
+> 2. La bitácora, igual.
+> 3. El orden, medido en el cuerpo del **comando**, que delega — así que ahí no
+>    hay ninguna llamada al lector. `el_archivado_tiene_quien_lo_llame` ya lo
+>    tenía escrito el 06/10 con otras palabras: **el sitio donde una pregunta
+>    tiene respuesta no es siempre el que lleva el nombre**.
+> 4. **`solo_produccion` aplicado a la concatenación de archivos**, que corta
+>    en el primer `#[cfg(test)]` y deja fuera todo lo que venga detrás por orden
+>    alfabético. Se aplica archivo por archivo.
+> 5. La bitácora otra vez, **en verde** con la línea de la baja quitada: porque
+>    *encender* el buzón también audita. Se mide dentro de la función.
+> 6. «El frontend nombra el comando» dado por «hay un botón» — **en verde** al
+>    quitar la llamada de la pantalla, porque el store seguía invocándolo. Es el
+>    hueco exacto de la W.8, donde se podía mandar un WhatsApp de prueba por
+>    código y no desde la aplicación. Ahora son dos medidas.
+>
+> Verificada al final con siete rupturas, las siete en rojo.
+
+> **Dos defectos que encontró mirar, con las tres sondas sin hallazgos** (2 036
+> textos): «14 correo(s) nuevos revisados · 2 dado(s) de baja» —los «(s)» que
+> la 8.3c ya arregló con «2 cuenta(s)»— y **la casilla con 1 086 px de ancho**,
+> todo el módulo, así que un clic en el vacío encendía la lectura del buzón de
+> alguien. Es el mismo número que el botón del Registro del 28/10 y por la
+> misma razón: un hijo de un flex en columna se estira.
+
+> **Y una prueba de restauración que la V18 rompió:** su molde de columnas es
+> **a mano** y rellena con nulo lo que no nombra, así que una columna
+> `NOT NULL` nueva la tumba. En producción no ocurre —un respaldo real siempre
+> trae valor, y uno de un esquema anterior lo recibe de la propia migración al
+> ponerse al día—, así que lo que estaba mal era el molde. Es lo que este
+> archivo advierte desde la 8.6: al añadir una migración, hay que mirar qué
+> pruebas fijan el esquema a mano.
+
+> **Lo que R-25 no hace, dicho en vez de darse por hecho:** no se revisa solo
+> cada cierto tiempo. ARLES no tiene un programador de tareas, así que hay que
+> pulsar «Revisar el buzón ahora» — y está en el manual con esas palabras.
 
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 

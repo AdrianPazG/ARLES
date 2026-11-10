@@ -1338,6 +1338,18 @@ mod tests_de_restaurar {
                 "smtp_port" => Some("587"),
                 "smtp_security" => Some("starttls"),
                 "smtp_username" => Some("hola@telemetry.mx"),
+                // La V18 (R-25) añadió esta columna como `NOT NULL`, y este
+                // molde es **a mano**: lo que no nombra entra como nulo.
+                //
+                // Por eso hay que mirarlo al añadir una migración, y es lo que
+                // el CLAUDE.md advierte desde la 8.6 con los `"V10"` escritos
+                // a mano. En producción no ocurre —un respaldo de una base
+                // real siempre trae un valor para una columna `NOT NULL`, y uno
+                // de un esquema anterior lo recibe de la propia migración al
+                // ponerse al día—, así que lo que estaba mal era el molde y no
+                // la migración. Un nulo ahí revienta la transacción entera y
+                // no restaura nada, que es lo correcto.
+                "inbox_scan_enabled" => Some("0"),
                 _ => None,
             })
             .collect();

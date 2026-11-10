@@ -1767,6 +1767,63 @@
         case 'archivar_historial':
           return Promise.reject({ clave: 'error.app.archivo_no_se_pudo_leer', detalle: '' });
 
+        // ── LAS BAJAS QUE LLEGAN AL BUZÓN (R-25, D-21) ───────────────────
+        //
+        // Dos cuentas, y **una con el buzón apagado**: es lo que permite
+        // revisar que la casilla y el aviso de «nada que revisar» se ven, que
+        // es la mitad de esta sección. Con las dos encendidas, el camino del
+        // botón apagado no se podría mirar.
+        case 'como_estan_los_buzones':
+          return Promise.resolve([
+            {
+              cuenta: 'cuenta-1',
+              nombreVisible: 'Enlace',
+              direccion: 'enlace@telemetrymx.com',
+              servidorDeEnvio: 'smtp.titan.email',
+              servidorDeLectura: 'imap.titan.email',
+              encendido: true,
+              yaSeLeyo: true,
+            },
+            {
+              cuenta: 'cuenta-2',
+              nombreVisible: 'Ventas',
+              direccion: 'ventas@telemetrymx.com',
+              servidorDeEnvio: 'smtp.gmail.com',
+              // Sin servidor guardado: la pantalla propone el deducido y lo
+              // deja editable, que es la decisión de la V18.
+              servidorDeLectura: null,
+              encendido: false,
+              yaSeLeyo: false,
+            },
+          ]);
+
+        case 'configurar_la_lectura_del_buzon':
+          return Promise.resolve(null);
+
+        // Las tres cifras que la pantalla tiene que poder enseñar a la vez —
+        // dadas de baja, ya estaban y para mirar— más **un buzón que no se
+        // pudo revisar**, que es el caso cuyo texto más falta hace revisar: ahí
+        // se leen las tres partes del §95.
+        case 'revisar_el_buzon':
+          return Promise.resolve([
+            {
+              buzon: 'Enlace',
+              mirados: 14,
+              dadasDeBaja: 2,
+              yaEstaban: 1,
+              paraMirar: 3,
+              noSePudo: null,
+            },
+            {
+              buzon: 'Ventas',
+              mirados: 0,
+              dadasDeBaja: 0,
+              yaEstaban: 0,
+              paraMirar: 0,
+              noSePudo: 'error.correo.buzon_rechazo_contrasena',
+            },
+          ]);
+
         // ── RECUPERAR, EL LLAVERO PERDIDO (8.4) ──────────────────────────
         //
         // La vista previa puede enseñar esta pantalla porque es la que menos

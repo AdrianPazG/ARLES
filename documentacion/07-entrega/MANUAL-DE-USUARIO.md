@@ -213,6 +213,52 @@ envió se queda, porque su registro es con lo que contestas qué se mandó.
 
 ---
 
+## 4 bis · Las bajas que llegan por correo
+
+Quien recibe una campaña puede pedir la baja de dos formas, y las dos las pone
+ARLES en cada correo:
+
+1. **El botón «Cancelar suscripción»** que su propio Gmail u Outlook enseña
+   arriba del mensaje. Es un clic y no hay que escribir nada. ARLES manda la
+   cabecera que lo habilita; que el botón se vea depende de su proveedor de
+   correo, así que no está garantizado — por eso también va lo segundo.
+2. **Contestar la palabra BAJA**, que es lo que dice el pie de cada correo.
+
+**Las dos llegan a tu buzón**, y ARLES puede revisarlo y aplicarlas: entra en
+**Remitentes**, baja hasta «Bajas que llegan por correo», revisa el servidor de
+lectura de cada cuenta, marca la casilla y pulsa **«Revisar el buzón ahora»**.
+
+> **ARLES sólo lee.** No borra, no mueve y **no marca nada como leído**: tu
+> buzón queda exactamente como estaba. De cada correo se queda con la dirección
+> de quien escribió, nunca con lo que escribió.
+
+> **La contraseña es la misma con la que ARLES envía**, así que no hay que
+> escribir ninguna nueva. Si el envío funciona y la lectura no, lo que suele
+> faltar es **activar IMAP** en tu proveedor: en Gmail es una casilla de la
+> configuración de la cuenta.
+
+**Lo que dice al terminar son tres cifras, y la tercera importa:**
+
+- **Cuántas bajas aplicó.** Esas direcciones ya no reciben nada, de ninguna
+  campaña.
+- **Cuántas ya estaban** en la lista de antes. No es un error: pedir la baja dos
+  veces no cambia nada.
+- **Cuántos correos hablan de la baja sin pedirla claramente.** Ésos **no dan de
+  baja a nadie** y hay que mirarlos tú en el correo. ARLES no decide por ti
+  entre «quítame de la lista» y «no quiero darme de baja, me encanta lo que
+  mandan», porque las dos frases llevan las mismas palabras — y una baja no se
+  puede deshacer con un botón.
+
+> **Un mensaje de ausencia no da de baja a nadie**, aunque diga «estoy de baja
+> hasta marzo». ARLES lo reconoce como automático y lo deja pasar.
+
+> **A quién se dio de baja** se ve en Contactos › Bajas. Y en el registro
+> interno queda, por cada una, qué correo la pidió y si fue por el botón o
+> contestando — que es lo que permite contestar meses después «¿cómo pidió la
+> baja esta persona?».
+
+---
+
 ## 5 · Lo que ARLES guarda, y dónde
 
 | Qué | Dónde |
@@ -286,7 +332,8 @@ nada que no se pueda cumplir.
 | **Nadie ha abierto ARLES en un Mac** | Está construido para macOS y **no se ha probado ahí**. Hasta que alguien lo haga, no se puede afirmar que funcione |
 | **Una firma no puede llevar una imagen** | Sólo texto, con negrita y cursiva. Está pendiente de decidir cómo: embebida engorda cada correo y dispara filtros de spam; alojada hay que alojarla en algún sitio |
 | **El número de WhatsApp nunca ha hablado con Meta** | Todo lo de WhatsApp está probado contra un servidor de mentira. Falta una cuenta de empresa verificada con Coexistencia |
-| **No lee las respuestas de WhatsApp, así que una baja pedida por ahí se apunta a mano** | Las respuestas te llegan al teléfono con Coexistencia. Apúntalas en Contactos › Bajas, canal WhatsApp, y ninguna campaña vuelve a incluir ese número. En el correo la salida la pone ARLES y es obligatoria; en WhatsApp el texto lo aprueba Meta y no hay dónde añadirla |
+| **No lee las respuestas de WhatsApp, así que una baja pedida por ahí se apunta a mano** | Las respuestas te llegan al teléfono con Coexistencia. Apúntalas en Contactos › Bajas, canal WhatsApp, y ninguna campaña vuelve a incluir ese número. **En el correo ya no hace falta**: ARLES revisa el buzón y las aplica (ver §4 bis) |
+| **No revisa el buzón solo cada cierto tiempo** | Las bajas que llegan por correo se aplican al pulsar «Revisar el buzón ahora» en Remitentes. ARLES no tiene un programador de tareas, así que hay que entrar y pulsarlo |
 
 > **Y dos que dejaron de ser ciertas el 05/11/2026.** La primera: una campaña
 > ya no tiene que ir a toda la lista. En **Contactos** marcas a quien quieras
