@@ -1,16 +1,34 @@
 <script setup lang="ts">
 /**
- * El asistente de campaña · nueve pasos (entrega 6.6).
+ * El asistente de campaña · ocho pasos (entrega 6.6; eran nueve hasta el
+ * 05/11/2026).
  *
  * `UX_NAVEGACION.md` §5, §40 del brief.
  *
  * ─────────────────────────────────────────────────────────────────────────
- * POR QUÉ NUEVE PASOS Y NO UN FORMULARIO LARGO
+ * POR QUÉ VARIOS PASOS Y NO UN FORMULARIO LARGO
  *
  * Porque tres de ellos **no son campos que rellenar sino cosas que leer**: la
  * simulación de duración, el preflight y el resumen de activación. En un
  * formulario largo se bajan de un scroll sin verlos, y son justo los que hacen
  * que alguien reconsidere antes de mandar mil correos.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * POR QUÉ COMPROBAR Y PROBAR SON UN SOLO PASO (05/11/2026)
+ *
+ * Dirección llegó al paso 7 con puntos «sin comprobar», no pudo activar, y
+ * **tuvo que retroceder para que la comprobación se volviera a hacer**: era lo
+ * único que la disparaba —salir del paso 5—. Pidió que se hiciera sola y que
+ * desapareciera el paso del envío de prueba.
+ *
+ * El envío de prueba **no se puede quitar**: es obligatorio (§45) y es uno de
+ * los ocho puntos del propio preflight. Lo que sí se puede es dejar de
+ * pretender que son dos momentos distintos — comprobar y probar es el mismo
+ * acto, *«¿esto sale de verdad?»*, y partirlo en dos pantallas obligaba a
+ * cruzar una frontera para ver el resultado de la otra.
+ *
+ * Así que el 7 hace las dos cosas, **se comprueba solo al entrar** y lleva su
+ * botón para repetirlo sin moverse de ahí.
  *
  * ─────────────────────────────────────────────────────────────────────────
  * DÓNDE EMPIEZA LO IRREVERSIBLE, Y DÓNDE NO
@@ -105,7 +123,15 @@ const router = useRouter()
 const listasStore = useListasStore()
 const { t, te } = useI18n()
 
-/** Los nueve pasos, en orden. El índice es el paso menos uno. */
+/**
+ * Los ocho pasos, en orden. El índice es el paso menos uno.
+ *
+ * **Eran nueve hasta el 05/11/2026**: `prueba` vivía entre `preflight` y
+ * `activacion` y ahora es la mitad de abajo del propio preflight. No se borró
+ * nada —el envío de prueba es obligatorio (§45) y además es uno de los ocho
+ * puntos que el preflight mira—: se dejó de partir en dos pantallas lo que es
+ * una sola pregunta.
+ */
 const PASOS = [
   'informacion',
   'audiencia',
@@ -114,7 +140,6 @@ const PASOS = [
   'limites',
   'simulacion',
   'preflight',
-  'prueba',
   'activacion',
 ] as const
 
@@ -206,7 +231,7 @@ const error = computed(() =>
  *
  * ── POR QUÉ SÓLO LAS QUE TIENEN GENTE ───────────────────────────────────
  *
- * Una lista vacía activa una campaña que para con `AudienciaVacia` nueve pasos
+ * Una lista vacía activa una campaña que para con `AudienciaVacia` siete pasos
  * después. Ofrecerla es construir un camino que termina en un rechazo, que es
  * el defecto que este asistente ya tuvo con las cuentas rotas en el paso 3 y
  * con la plantilla en el paso 4.
@@ -386,7 +411,7 @@ const opcionesDeVentana = computed(() =>
 // el asistente la exigía para avanzar.
 //
 // Se resuelve AQUÍ y no en otra pantalla porque mandar a definir un horario a
-// otra sección, a mitad de un asistente de nueve pasos, es perder lo tecleado
+// otra sección, a mitad del asistente, es perder lo tecleado
 // o volver con el hilo roto. Y lo que hace falta casi siempre es un horario de
 // oficina, que no hay por qué construir campo a campo.
 const noHayHorarios = computed(() => campanas.ventanas.length === 0)
@@ -655,16 +680,20 @@ const sePuedeSeguir = computed(() => {
       // el envío de prueba, que habla con el servidor— para fallar al final:
       // es exactamente el defecto que el aviso de volumen evita pidiéndolo
       // antes de escribir nada, y que CLAUDE.md nombra como lo que no hay que
-      // hacer («rechaza al final nueve pasos de formulario»).
+      // hacer («rechaza al final nueve pasos de formulario», que decía
+      // CLAUDE.md cuando eran nueve).
       //
       // Lo que se puede hacer es volver al paso 5 y subir los topes, que es lo
       // que el aviso dice. Por eso se bloquea «Continuar» y no «Atrás».
       const d = campanas.revision?.estimacion.desenlace.desenlace
       return d !== 'noAvanza' && d !== 'noCabeEnElHorizonte'
     }
-    case 8:
+    case 7:
       // La prueba es obligatoria (§45). Y vale la que el servidor aceptó: una
       // rechazada demuestra lo contrario de lo que se quería demostrar.
+      //
+      // Vive en el 7 desde el 05/11/2026, con el preflight: eran dos pasos y
+      // son una sola pregunta.
       return resultadoDePrueba.value?.aceptado === true
     default:
       return true
@@ -706,7 +735,7 @@ const porQueNoSeSigue = computed<string | null>(() => {
       return 'asistente.falta.aviso'
     case 6:
       return 'asistente.falta.desenlace'
-    case 8:
+    case 7:
       return 'asistente.falta.prueba'
     default:
       return null
@@ -731,6 +760,75 @@ const sePuedeActivar = computed(() =>
     ? campanas.revisionDeWhatsapp?.sePuedeActivar === true
     : campanas.revision?.preflight.resultado.resultado === 'lista',
 )
+
+/**
+ * Pide el preflight del canal que sea (05/11/2026).
+ *
+ * ── POR QUÉ ESTO EXISTE, Y QUÉ PASABA ANTES ──────────────────────────────
+ *
+ * La revisión **sólo se pedía al salir del paso 5**. Dirección llegó al 7, vio
+ * puntos «sin comprobar», no pudo activar, y para volver a comprobar tuvo que
+ * retroceder hasta el 5 — *«por eso la solicitud de hacer la comprobación
+ * automática, para no tener que salir de la pestaña»*.
+ *
+ * Son dos comandos porque son dos preguntas: el de correo sondea el servidor
+ * SMTP y los registros del dominio; el de WhatsApp mira las dos cifras de
+ * permiso, Coexistencia, el riesgo aceptado y las plantillas aprobadas.
+ */
+async function comprobar(): Promise<void> {
+  const id = creada.value?.id
+  if (id === undefined || campanas.revisando) return
+  if (esWhatsapp.value) {
+    await campanas.revisarWhatsapp(id)
+  } else {
+    await campanas.revisar(id)
+  }
+}
+
+/**
+ * ¿El punto de SPF, DKIM y DMARC quedó sin pasar?
+ *
+ * Es el único de los ocho que **no bloquea** (§154), así que es el único que
+ * puede quedarse en amarillo con la campaña lista para activar — y entonces
+ * hay que decir qué significa, porque la nota de «sin comprobar impide
+ * activar» ya no se enseña.
+ */
+const registrosSinMirar = computed(
+  () =>
+    campanas.revision?.preflight.puntos.some(
+      (p) => p.punto === 'losRegistrosDelDominio' && p.veredicto !== 'pasa',
+    ) === true,
+)
+
+/** ¿Hay una revisión del canal de esta campaña, de la que fiarse? */
+const hayRevision = computed(() =>
+  esWhatsapp.value
+    ? campanas.revisionDeWhatsapp !== null
+    : campanas.revision !== null,
+)
+
+/**
+ * Al entrar en el paso 7 se comprueba **si no hay revisión**.
+ *
+ * ── POR QUÉ NO SIEMPRE, Y POR QUÉ NO NUNCA ───────────────────────────────
+ *
+ * No siempre, porque la revisión de correo **sondea el servidor SMTP** y puede
+ * tardar hasta un minuto (`ESPERA_MAXIMA`), y en macOS además abre un diálogo
+ * del llavero. Al salir del paso 5 ya se pide una —el paso 6 la necesita para
+ * su estimación—, así que repetirla al entrar sería la sonda de más que la
+ * auditoría de la Fase 6 quitó el 29/09/2026 por exactamente este motivo.
+ *
+ * Y no nunca, porque la revisión **se pierde cuando falla** (el store la pone
+ * a `null` a propósito: dejar la anterior haría creer que ese veredicto sigue
+ * siendo el de ahora). Sin esto, un fallo de red en el paso 5 dejaba el 7 en
+ * blanco y sin forma de repetir la pregunta.
+ *
+ * Repetirla cuando ya hay una es cosa del botón, que es una decisión de quien
+ * mira y no un efecto de navegar.
+ */
+watch(paso, (ahora) => {
+  if (ahora === 7 && !hayRevision.value) void comprobar()
+})
 
 // ── Navegación ──
 
@@ -1463,7 +1561,22 @@ function rotulo(clave: string): string {
              `revisar_campana_de_whatsapp` existía desde W.5 y estuvo
              desregistrado desde la 7.7 por no tener quien lo llamara. Éste es
              el llamador. -->
-        <template v-if="esWhatsapp">
+
+        <!-- Comprobar habla con el servidor y puede tardar hasta un minuto
+             (§97: toda espera de más de un segundo se dice). Y se dice **por
+             qué** tarda: sin eso, un minuto en blanco se lee como que la
+             aplicación se colgó. -->
+        <EstadoCargando
+          v-if="campanas.revisando"
+          :lineas="3"
+          :explicacion="
+            esWhatsapp
+              ? t('asistente.paso.preflight.comprobandoWhatsapp')
+              : t('asistente.paso.preflight.comprobando')
+          "
+        />
+
+        <template v-else-if="esWhatsapp">
           <template v-if="campanas.revisionDeWhatsapp">
             <ul class="asistente__puntos">
               <li>
@@ -1556,18 +1669,58 @@ function rotulo(clave: string): string {
             {{ t(`preflight.${p.punto}`) }}
           </li>
         </ul>
-        <!-- «Sin comprobar» no es un aprobado, y el texto lo dice. Es del
-             preflight de correo: el de WhatsApp no tiene puntos de red. -->
+        <!-- ── «SIN COMPROBAR» NO ES UN APROBADO, Y A VECES SÍ ──────────
+             La nota dice que un punto sin comprobar **impide activar igual que
+             uno que falla**, y eso es verdad de siete de los ocho: el de los
+             registros del dominio es el único que no bloquea (§154).
+
+             Visto mirando la demostración el 05/11/2026: con todo en verde
+             menos ése, la pantalla decía «impide activar» justo debajo de la
+             lista en la que **nada impedía activar**. Ahora la nota se enseña
+             cuando el preflight bloquea de verdad, y quien decide eso es el
+             resultado que manda Rust — la regla no se copia aquí. -->
         <p
-          v-if="!esWhatsapp"
+          v-if="!esWhatsapp && !campanas.revisando && !sePuedeActivar"
           class="asistente__nota"
         >
           {{ t('preflight.sinComprobarDetalle') }}
         </p>
-      </template>
 
-      <!-- 8 · Envío de prueba · del canal que sea -->
-      <template v-else-if="paso === 8">
+        <!-- Y el aviso del punto que no bloquea, que llevaba desde la Fase 6
+             escrito en el catálogo **sin que nadie lo llamara** — el patrón
+             del §9. Es el que contesta la pregunta que deja la insignia
+             amarilla cuando ya se puede activar: qué pasa si se activa así. -->
+        <AAviso
+          v-if="!esWhatsapp && !campanas.revisando && registrosSinMirar"
+          tono="aviso"
+          :titulo="t('preflight.losRegistrosDelDominio')"
+        >
+          <p>{{ t('preflight.losRegistrosDelDominioAviso') }}</p>
+        </AAviso>
+
+        <!-- ── VOLVER A COMPROBAR, SIN SALIR DE AQUÍ ─────────────────────
+             Es la petición de Dirección del 05/11/2026. Lo que había que
+             hacer antes para repetir la comprobación era **retroceder hasta
+             el paso 5**, porque salir de ahí era lo único que la disparaba:
+             un punto «sin comprobar» por un corte de red dejaba la campaña
+             bloqueada sin ninguna forma visible de reintentarlo. -->
+        <ABoton
+          variante="secundario"
+          icono="buscar"
+          :ocupado="campanas.revisando"
+          @click="comprobar"
+        >
+          {{ t('asistente.paso.preflight.volverAComprobar') }}
+        </ABoton>
+
+        <!-- ── Y AQUÍ ABAJO, EL QUE ERA EL PASO 8 ────────────────────────
+             El envío de prueba no se quitó: es obligatorio (§45) y es **uno
+             de los ocho puntos que el preflight de arriba mira**, así que
+             tenerlo en otra pantalla obligaba a cruzar una frontera para
+             arreglar lo que la de antes acababa de señalar en rojo. -->
+        <h3 class="asistente__subtitulo">
+          {{ t('asistente.paso.prueba.titulo') }}
+        </h3>
         <p>
           {{
             esWhatsapp
@@ -1611,7 +1764,7 @@ function rotulo(clave: string): string {
         </AAviso>
       </template>
 
-      <!-- 9 · Activación -->
+      <!-- 8 · Activación -->
       <template v-else>
         <div v-if="activacion === null">
           <p class="asistente__frase">
@@ -1811,6 +1964,17 @@ function rotulo(clave: string): string {
   margin: 0 0 var(--arles-space-3);
   font-size: var(--arles-font-size-h3);
   color: var(--arles-text);
+}
+
+/* La raya que separa las dos mitades del paso 7: arriba lo que ARLES
+   comprueba, abajo lo que tienes que hacer tú. Sin ella los dos bloques se
+   leen como una sola lista de cosas sueltas. */
+.asistente__subtitulo {
+  margin: var(--arles-space-6) 0 0;
+  padding-top: var(--arles-space-5);
+  border-top: var(--arles-border-width) solid var(--arles-border);
+  font-size: var(--arles-font-size-h3);
+  line-height: var(--arles-line-height-h3);
 }
 
 .asistente__nota,

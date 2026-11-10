@@ -10,7 +10,7 @@
 
 ## 1. En una frase
 
-**ARLES ya manda correos, y ya sabe qué mandar.** La parte de correo de la Fase 5 está cerrada entera (5.1 a 5.6), y la Fase 6 está cerrada: plantillas con variables, saneado en Rust, versiones que no se editan, campañas con la audiencia congelada al activar, el preflight de ocho puntos enchufado de verdad, y el asistente de nueve pasos.
+**ARLES ya manda correos, y ya sabe qué mandar.** La parte de correo de la Fase 5 está cerrada entera (5.1 a 5.6), y la Fase 6 está cerrada: plantillas con variables, saneado en Rust, versiones que no se editan, campañas con la audiencia congelada al activar, el preflight de ocho puntos enchufado de verdad, y el asistente de campaña.
 
 **Se puede crear una campaña de principio a fin y activarla**, con las nueve pantallas del asistente, el simulador de duración, las ocho comprobaciones y el correo de prueba obligatorio.
 
@@ -168,10 +168,13 @@ nadie lo preguntara, por fin llega a su punto. Vale **sólo con el remitente que
 la etapa usa hoy**: si se cambia de cuenta, la prueba anterior demostró que otra
 cuenta podía enviar.
 
-**6.6 · El asistente de nueve pasos** — `app/src/app/pantallas/`
+**6.6 · El asistente de campaña** — `app/src/app/pantallas/`
 Nombre, a quién, desde qué cuenta, qué se manda, ritmo y horario, cuánto va a
-tardar, las ocho comprobaciones, el correo de prueba y activar. Tres de los
-nueve pasos no piden nada: se leen, y son los que hacen reconsiderar.
+tardar, las ocho comprobaciones con el correo de prueba, y activar. Tres pasos
+no piden nada: se leen, y son los que hacen reconsiderar.
+
+> **Nació con nueve pasos y tiene ocho desde el 05/11/2026**: comprobar y
+> probar eran dos pantallas y son una sola pregunta. Ver §16.
 
 La pantalla **no decide** ninguna de las tres reglas que parece decidir: si se
 puede activar lo dice el preflight, el aviso del §48 lo exige `crear_campana`, y
@@ -761,3 +764,47 @@ contesta un ARCO.
 `--fase 1`: `DELETE FROM campaign` sólo puede vivir en `borrar_borrador` y
 tiene que nombrar el estado. Se mide sobre el código sin pruebas ni
 comentarios, y está verificada por los dos caminos.
+
+### Y el mismo día, el paso 7: comprobar y probar
+
+Dirección llegó al preflight con puntos «sin comprobar», no pudo activar, y
+**tuvo que retroceder para que la comprobación se repitiera** — salir del paso
+5 era lo único que la disparaba. Pidió dos cosas: que se hiciera sola, y que el
+paso del envío de prueba desapareciera.
+
+Las dos están hechas, y la segunda no como se pidió: **el envío de prueba no se
+puede quitar** —es obligatorio (§45) y es uno de los ocho puntos que el
+preflight mira—, así que se fundió dentro del 7. El asistente tiene **ocho
+pasos** desde hoy.
+
+> **La comprobación no se repite al entrar si ya hay una.** No es ahorro:
+> sondea el servidor SMTP, puede tardar un minuto y en macOS abre un diálogo
+> del llavero. Es exactamente la sonda de más que la auditoría de la Fase 6
+> quitó el 29/09/2026. Lo que sí hay es un botón que la repite, porque eso es
+> una decisión de quien mira y no un efecto de navegar.
+
+> **Mirar la demostración encontró dos defectos, los dos con las diez fases en
+> verde.**
+>
+> 1. El simulador devolvía **seis nombres de punto inventados**, un veredicto
+>    inexistente (`avisa`) y un resultado que mezclaba la clave de texto con el
+>    discriminante. Se leían **siete claves en crudo** en la pantalla donde se
+>    decide mandar, y el botón de activar estaba apagado para siempre: la
+>    acción que el producto existe para hacer no se podía enseñar. Es el
+>    defecto de la 7.3 —un decorado que impide recorrer la demostración— en el
+>    paso que más importa.
+> 2. La nota de «un punto sin comprobar impide activar» se enseñaba siempre, y
+>    es verdad de **siete de los ocho**: el de SPF, DKIM y DMARC no bloquea
+>    (§154). Con todo en verde menos ése, la pantalla contradecía a su propio
+>    botón. Y el texto que explica ese punto llevaba desde la Fase 6 escrito y
+>    **sin que nadie lo llamara**.
+
+> **Y una prueba que afirmaba algo falso, cazada por el mismo camino.** La que
+> vigilaba la nota la pedía **siempre**, así que habría defendido el defecto en
+> vez de cazarlo. Ahora son dos, una por cada caso, y quien decide cuál es no
+> es la pantalla: es el resultado que manda Rust.
+
+**Lo vigilan dos comprobaciones nuevas**: `el simulador enseña los puntos de
+preflight que el núcleo declara` —leídos de `Punto::clave_i18n`, no de una
+lista— y `el manual dice los pasos que tiene el asistente`, porque «Son nueve
+pasos» estaba escrito a mano y la cifra de la cabecera se corrigió sola.

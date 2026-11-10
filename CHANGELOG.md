@@ -73,6 +73,54 @@ exactamente por dónde pasan.
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
 
+### Comprobar y probar son un solo paso, y la comprobación se hace sola
+
+**05/11/2026.** Dirección llegó al paso 7 con puntos «sin comprobar», no pudo
+activar, y **tuvo que retroceder para que la comprobación se repitiera**: salir
+del paso 5 era lo único que la disparaba. *«Por eso la solicitud de hacer la
+comprobación automática, para no tener que salir de la pestaña.»* Y pidió que
+desapareciera el paso del envío de prueba.
+
+Ahora al entrar en el paso 7 se comprueba solo si no hay revisión, hay un botón
+**«Volver a comprobar»** que la repite sin moverse de ahí, y el envío de prueba
+vive en esa misma pantalla. El asistente pasa de **nueve pasos a ocho**.
+
+> **El envío de prueba no se podía quitar, y por eso se fundió.** Es
+> obligatorio (§45) y además es **uno de los ocho puntos que el preflight de
+> arriba mira**, así que tenerlo en la pantalla siguiente obligaba a cruzar una
+> frontera para arreglar lo que la anterior acababa de marcar en rojo.
+>
+> **La comprobación no se repite al entrar si ya hay una**, y tampoco es
+> ahorro: sondea el servidor SMTP, puede tardar un minuto y en macOS abre un
+> diálogo del llavero. Es la sonda de más que la auditoría de la Fase 6 quitó
+> el 29/09/2026. Repetirla cuando ya hay una es decisión de quien mira, y para
+> eso está el botón.
+
+> **Y mirar la demostración encontró dos defectos que ninguna sonda ve.**
+>
+> El primero: el simulador devolvía **seis nombres de punto inventados**, un
+> veredicto que no existe (`avisa`) y un resultado que mezclaba la clave de
+> texto con el discriminante. En el paso 7 se leían **siete claves en crudo**
+> —`preflight.hayPlantilla` en vez de su frase— y, peor, el botón de activar
+> estaba **apagado para siempre**, porque el veredicto no era ninguno de los
+> que el producto entiende: la acción que ARLES existe para hacer no se podía
+> enseñar. Lo vigila ahora `el simulador enseña los puntos de preflight que el
+> núcleo declara`, que los lee de `Punto::clave_i18n` y no de una lista.
+>
+> El segundo: la nota de que «un punto sin comprobar impide activar igual que
+> uno que falla» se enseñaba **siempre**, y es verdad de siete de los ocho —el
+> de SPF, DKIM y DMARC es el único que no bloquea (§154)—. Con todo en verde
+> menos ése, la pantalla decía «impide activar» debajo de una lista en la que
+> nada lo impedía. Y el texto que explica ese punto llevaba **desde la Fase 6
+> en el catálogo sin que nadie lo llamara**: el patrón del §9 otra vez.
+
+> **La cifra de los pasos ya no se puede desfasar.** «Son nueve pasos» estaba
+> escrito a mano en el manual; la de la cabecera sale de `PASOS.length` y se
+> corrigió sola. Lo vigila `el manual dice los pasos que tiene el asistente`,
+> y **el umbral se midió antes de escribirla**: «nueve pasos» aparecía en ocho
+> sitios y seis son narraciones fechadas —documentos de fase e informes— a las
+> que exigirles la cifra de hoy sería pedirles que mientan sobre su fecha.
+
 ### Una campaña se puede mandar a los contactos que elijas marcándolos
 
 **05/11/2026.** Dirección quiso probar con unos pocos de los contactos que

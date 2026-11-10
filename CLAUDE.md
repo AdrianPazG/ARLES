@@ -2277,6 +2277,31 @@ patrón del §9, y está contado en
 > en un sitio donde la respuesta no cuenta, otra vez. Ahora filtra por la regla
 > que afirma —todo lo que no es borrador—, que no depende de lo que mide.
 
+**Y el mismo 05/11/2026, el paso 7: comprobar y probar son uno solo (R-28).**
+La comprobación previa **sólo se hacía al salir del paso 5**, así que un punto
+«sin comprobar» por un corte de red dejaba la campaña bloqueada sin forma
+visible de reintentarlo: había que retroceder. Ahora se hace sola al entrar si
+no hay revisión, hay botón para repetirla, y el envío de prueba vive en el
+mismo paso — **ocho pasos en vez de nueve**.
+
+> **No se repite al entrar si ya hay una**, y eso es deliberado: sondea el SMTP
+> hasta un minuto y en macOS abre un diálogo del llavero. Es la sonda de más
+> que la auditoría de la Fase 6 quitó el 29/09/2026.
+
+> **Y mirar la demostración encontró dos defectos con las diez fases en
+> verde.** El simulador devolvía **seis nombres de punto inventados** y un
+> veredicto que no existe, así que el paso 7 enseñaba **siete claves en crudo**
+> y el botón de activar estaba apagado para siempre — la acción que el producto
+> existe para hacer no se podía enseñar (H-23). Y la nota de «un punto sin
+> comprobar impide activar» se decía **siempre**, cuando el de SPF, DKIM y
+> DMARC es el único que no bloquea: la pantalla contradecía a su propio botón,
+> y el texto que explica ese punto llevaba desde la Fase 6 **sin llamador**
+> (H-24).
+>
+> **La prueba que vigilaba esa nota la pedía siempre**, así que habría
+> defendido el defecto en vez de cazarlo. Van dos en dos días: una prueba que
+> afirma de más es tan cara como una que falta.
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |

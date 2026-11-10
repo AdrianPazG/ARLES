@@ -2416,7 +2416,7 @@ export const es = {
   },
 
   /**
-   * Las campañas y el asistente de nueve pasos (entrega 6.6).
+   * Las campañas y el asistente paso a paso (entrega 6.6).
    *
    * ── DOS PALABRAS QUE NO APARECEN AQUÍ ──
    *
@@ -2823,7 +2823,24 @@ export const es = {
       },
 
       preflight: {
-        titulo: 'Comprobaciones',
+        // ── EL TÍTULO DICE LAS DOS COSAS (05/11/2026) ──────────────────
+        //
+        // Este paso era «Comprobaciones» y el siguiente «Envío de prueba».
+        // Son el mismo acto —«¿esto sale de verdad?»— y la prueba es además
+        // uno de los puntos que se comprueban aquí arriba, así que tenerlos
+        // en dos pantallas obligaba a cruzar una frontera para arreglar lo
+        // que la anterior acababa de marcar en rojo.
+        titulo: 'Comprobar y probar',
+
+        // Lo que tarda y **por qué** tarda. Un minuto en blanco se lee como
+        // que la aplicación se colgó (§97).
+        comprobando:
+          'Comprobando… ARLES está hablando con tu servidor de correo y ' +
+          'mirando los registros de tu dominio. Puede tardar hasta un minuto.',
+        comprobandoWhatsapp:
+          'Comprobando… ARLES le está preguntando a Meta por el permiso de ' +
+          'tu número y por tus plantillas aprobadas.',
+        volverAComprobar: 'Volver a comprobar',
 
         // ── D-WA · el preflight del canal de WhatsApp (W.5) ──
         //

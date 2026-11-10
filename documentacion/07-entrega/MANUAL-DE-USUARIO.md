@@ -144,7 +144,7 @@ sustituye por los datos de cada contacto.
 
 ### Paso 5 y 6 · La campaña
 
-**Campañas → Nueva campaña.** Son nueve pasos y el asistente te lleva.
+**Campañas → Nueva campaña.** Son ocho pasos y el asistente te lleva.
 
 Tres cosas que te va a decir y conviene entender:
 

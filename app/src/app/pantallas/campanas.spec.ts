@@ -306,7 +306,7 @@ describe('el asistente de campaña', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
   /**
-   * **Los nueve pasos tienen título, y ninguno enseña su clave en crudo.**
+   * **Los ocho pasos tienen título, y ninguno enseña su clave en crudo.**
    *
    * Sin esto, un paso sin texto sale como `asistente.paso.preflight.titulo` en
    * la cabecera, y sólo se ve llegando a ese paso concreto — que es el séptimo.
@@ -314,8 +314,12 @@ describe('el asistente de campaña', () => {
    * Ya pasó: al escribir estas pruebas faltaba justo el del preflight, y las
    * demás pasaban en verde con el aviso de `vue-i18n` en la salida de error,
    * donde nadie lo mira.
+   *
+   * **`prueba` sigue en la lista aunque ya no sea un paso** (05/11/2026): su
+   * bloque se pinta dentro del 7 y su título encabeza esa mitad, así que un
+   * texto que falte se vería igual de crudo que antes.
    */
-  it('los nueve pasos tienen su título', () => {
+  it('los ocho pasos tienen su título', () => {
     const PASOS = [
       'informacion',
       'audiencia',
@@ -345,7 +349,7 @@ describe('el asistente de campaña', () => {
 
   /** §94: dónde estás, con números, no «ya casi». */
   it('dice en qué paso vas de cuántos', () => {
-    expect(montar().text()).toContain('Paso 1 de 9')
+    expect(montar().text()).toContain('Paso 1 de 8')
   })
 
   /**
@@ -398,16 +402,32 @@ describe('el asistente de campaña', () => {
   })
 
   /**
-   * **«Sin comprobar» no se lee como un aprobado.**
+   * **«Sin comprobar» no se lee como un aprobado… cuando de verdad bloquea.**
    *
-   * Es la regla que gobierna el preflight entero: un punto sin comprobar
-   * bloquea igual que uno que falla. Si la pantalla lo pintara como un aviso
-   * menor, el botón apagado no tendría explicación visible.
+   * Es la regla que gobierna el preflight: un punto sin comprobar bloquea
+   * igual que uno que falla. Si la pantalla lo pintara como un aviso menor, el
+   * botón apagado no tendría explicación visible.
+   *
+   * ── LO QUE ESTA PRUEBA AFIRMABA Y ERA FALSO (05/11/2026) ────────────────
+   *
+   * Lo pedía **siempre**, y siete de los ocho puntos bloquean: el de los
+   * registros del dominio es el único que no (§154). Visto mirando la
+   * demostración, con todo en verde menos ése: la pantalla decía «impide
+   * activar» justo debajo de una lista en la que **nada impedía activar**, y
+   * con el botón de continuar encendido.
+   *
+   * Así que ahora se comprueban los dos casos, y quien decide cuál es no es la
+   * pantalla: es el resultado que manda Rust.
    */
-  it('en el preflight, lo que no se pudo mirar se dice', async () => {
+  it('con el preflight bloqueado dice que lo sin comprobar no es un aprobado', async () => {
     const campanas = useCampanasStore()
     campanas.cargada = true
-    campanas.revision = revision()
+    campanas.revision = revision({
+      preflight: {
+        puntos: [{ punto: 'hayConexion', veredicto: 'sinComprobar' }],
+        resultado: { resultado: 'bloqueada', fallan: 0, sinComprobar: 1 },
+      },
+    })
 
     const p = montar()
     // @ts-expect-error acceso al estado interno para situarse en el paso 7
@@ -418,6 +438,40 @@ describe('el asistente de campaña', () => {
     expect(texto).toContain('Sin comprobar')
     expect(texto).toContain('no lo da por bueno')
     expect(texto).toContain('impide activar')
+  })
+
+  /**
+   * **Y el único punto que no bloquea dice lo suyo, en vez de mentir.**
+   *
+   * `losRegistrosDelDominioAviso` llevaba escrito en el catálogo desde la Fase
+   * 6 **sin que ninguna pantalla lo llamara** — el patrón del §9. Es el texto
+   * que contesta la pregunta que deja la insignia amarilla cuando la campaña
+   * ya se puede activar: qué pasa si se activa así.
+   */
+  it('con la campaña lista, los registros del dominio avisan sin decir que bloquean', async () => {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    // El fixture por defecto: todo pasa menos los registros, y el resultado es
+    // «lista» — que es el caso real de un dominio sin DMARC.
+    campanas.revision = revision()
+
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 7
+    p.vm.paso = 7
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto, 'la insignia sigue amarilla').toContain('Sin comprobar')
+    expect(texto, 'y se dice qué significa').toContain('entregan peor, pero entregan')
+    expect(texto, 'con su frase: no impide activar').toContain('no impide activar')
+    // Se busca la nota **genérica** por su primera frase y no por «impide
+    // activar»: ese trozo está dentro de «no impide activar», que es justo lo
+    // que aquí tiene que leerse. La primera versión de este `assert` salió en
+    // rojo por eso — midiendo una subcadena de la frase correcta.
+    expect(
+      texto,
+      'la nota de «sin comprobar bloquea» no cabe donde nada bloquea',
+    ).not.toContain('no lo da por bueno')
   })
 
   /**
@@ -440,8 +494,8 @@ describe('el asistente de campaña', () => {
     })
 
     const p = montar()
-    // @ts-expect-error acceso al estado interno para situarse en el paso 9
-    p.vm.paso = 9
+    // @ts-expect-error acceso al estado interno para situarse en el paso 8
+    p.vm.paso = 8
     await p.vm.$nextTick()
 
     const boton = p.findAll('button').find((b) => b.text().includes('Activar campaña'))
@@ -461,8 +515,8 @@ describe('el asistente de campaña', () => {
     campanas.revision = revision()
 
     const p = montar()
-    // @ts-expect-error acceso al estado interno para situarse en el paso 9
-    p.vm.paso = 9
+    // @ts-expect-error acceso al estado interno para situarse en el paso 8
+    p.vm.paso = 8
     await p.vm.$nextTick()
 
     const texto = p.text()
@@ -718,6 +772,94 @@ describe('el asistente de campaña', () => {
     expect(w.text()).not.toContain('no sale nada de ninguna campaña')
   })
 
+  // ── COMPROBAR Y PROBAR SON UN SOLO PASO (05/11/2026) ───────────────────
+  //
+  // Dirección llegó al paso 7 con puntos «sin comprobar», no pudo activar, y
+  // **tuvo que retroceder para que la comprobación se repitiera**: salir del
+  // paso 5 era lo único que la disparaba. *«Por eso la solicitud de hacer la
+  // comprobación automática, para no tener que salir de la pestaña.»*
+  //
+  // Lo que se vigila aquí son las tres cosas que sólo esta pantalla puede
+  // equivocar, y que ninguna prueba de Rust ve:
+  //
+  // 1. Que al entrar en el 7 **sin revisión** se pida sola.
+  // 2. Que **no se pida otra vez** si ya hay una. No es ahorro: la revisión de
+  //    correo sondea el servidor SMTP y puede tardar un minuto, y en macOS
+  //    abre un diálogo del llavero. Es la sonda de más que la auditoría de la
+  //    Fase 6 quitó el 29/09/2026.
+  // 3. Que el botón la repita **estando ya hecha**, que es justo lo que no se
+  //    podía hacer sin retroceder.
+  //
+  // **Vistas en rojo el 05/11/2026** con tres rupturas: quitar el `watch`,
+  // llamar siempre al entrar, y dejar el botón sin su `@click`.
+
+  /** Monta el asistente situado en un paso, con la campaña ya creada. */
+  async function enElPaso(
+    n: number,
+    revision_: Revision | null = null,
+  ): Promise<{ p: ReturnType<typeof mount>; cuenta: { n: number } }> {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.revision = revision_
+    const cuenta = { n: 0 }
+    campanas.revisar = async () => {
+      cuenta.n += 1
+      campanas.revision = revision()
+    }
+
+    const p = montar()
+    // @ts-expect-error la campaña ya creada: del 6 en adelante todo lee de ella
+    p.vm.creada = { id: 'c-1' }
+    // @ts-expect-error acceso al estado interno para situarse en el paso
+    p.vm.paso = n
+    await p.vm.$nextTick()
+    await p.vm.$nextTick()
+    return { p, cuenta }
+  }
+
+  it('al entrar en el paso 7 sin revisión, la comprobación se hace sola', async () => {
+    const { cuenta } = await enElPaso(7, null)
+    expect(cuenta.n, 'sin esto hay que retroceder al paso 5 para repetirla').toBe(1)
+  })
+
+  it('y no se repite si ya hay una: es una sonda SMTP de hasta un minuto', async () => {
+    const { cuenta } = await enElPaso(7, revision())
+    expect(cuenta.n).toBe(0)
+  })
+
+  it('el botón de volver a comprobar la repite sin salir del paso', async () => {
+    const { p, cuenta } = await enElPaso(7, revision())
+    expect(cuenta.n, 'con revisión puesta, entrar no la repite').toBe(0)
+
+    const boton = p.findAll('button').find((b) => b.text() === 'Volver a comprobar')
+    expect(boton, 'el botón de repetir la comprobación').toBeTruthy()
+    await boton?.trigger('click')
+    await p.vm.$nextTick()
+
+    expect(cuenta.n, 'pulsarlo sí la repite, que es lo que no se podía hacer').toBe(1)
+  })
+
+  /**
+   * **El envío de prueba está en el paso 7, y sigue siendo obligatorio.**
+   *
+   * Dirección pidió quitar su paso. No se quitó la prueba —es obligatoria
+   * (§45) y es uno de los ocho puntos del preflight de arriba—: se dejó de
+   * partir en dos pantallas lo que es una sola pregunta.
+   */
+  it('el envío de prueba vive en el paso 7, y sin él no se continúa', async () => {
+    const { p } = await enElPaso(7, revision())
+
+    const texto = p.text()
+    expect(texto, 'los puntos del preflight').toContain('Sin comprobar')
+    expect(texto, 'y el envío de prueba, en la misma pantalla').toContain(
+      'Mandar la prueba',
+    )
+
+    const seguir = p.findAll('button').find((b) => b.text() === 'Continuar')
+    expect(seguir?.attributes('disabled'), 'sin prueba aceptada no se sigue').toBeDefined()
+    expect(texto).toContain('Manda el envío de prueba')
+  })
+
   // ── EL AVANCE DE LA ACTIVACIÓN (Fase 9) ────────────────────────────────
 
   /**
@@ -735,8 +877,8 @@ describe('el asistente de campaña', () => {
     const campanas = useCampanasStore()
     const p = montar()
     campanas.comoVa = { fase: 'congelando', sePuedeCancelar: true }
-    // @ts-expect-error acceso al estado interno para situarse en el paso 9
-    p.vm.paso = 9
+    // @ts-expect-error acceso al estado interno para situarse en el paso 8
+    p.vm.paso = 8
     // @ts-expect-error la campaña ya creada, para llegar al bloque de activar
     p.vm.creada = { id: 'c-1' }
     await p.vm.$nextTick()
@@ -752,8 +894,8 @@ describe('el asistente de campaña', () => {
     const campanas = useCampanasStore()
     const p = montar()
     campanas.comoVa = { fase: 'cola', van: 12000, de: 180552, sePuedeCancelar: true }
-    // @ts-expect-error acceso al estado interno para situarse en el paso 9
-    p.vm.paso = 9
+    // @ts-expect-error acceso al estado interno para situarse en el paso 8
+    p.vm.paso = 8
     // @ts-expect-error la campaña ya creada
     p.vm.creada = { id: 'c-1' }
     await p.vm.$nextTick()
@@ -777,8 +919,8 @@ describe('el asistente de campaña', () => {
     const campanas = useCampanasStore()
     const p = montar()
     campanas.comoVa = { fase: 'cerrando', sePuedeCancelar: false }
-    // @ts-expect-error acceso al estado interno para situarse en el paso 9
-    p.vm.paso = 9
+    // @ts-expect-error acceso al estado interno para situarse en el paso 8
+    p.vm.paso = 8
     // @ts-expect-error la campaña ya creada
     p.vm.creada = { id: 'c-1' }
     await p.vm.$nextTick()
@@ -797,8 +939,8 @@ describe('el asistente de campaña', () => {
   /** Sin activación en curso, el botón que se ve es el de activar. */
   it('sin activación en curso no hay avance ni botón de cancelar', async () => {
     const p = montar()
-    // @ts-expect-error acceso al estado interno para situarse en el paso 9
-    p.vm.paso = 9
+    // @ts-expect-error acceso al estado interno para situarse en el paso 8
+    p.vm.paso = 8
     // @ts-expect-error la campaña ya creada
     p.vm.creada = { id: 'c-1' }
     await p.vm.$nextTick()
@@ -895,7 +1037,7 @@ describe('la firma del pie en el asistente', () => {
   /**
    * **Vacío viaja como `null`, no como cadena vacía.** Una cadena vacía no es
    * una firma que exista: la clave ajena de `campaign_stage` la rechazaría y
-   * la campaña entera fallaría al crearse, después de nueve pasos.
+   * la campaña entera fallaría al crearse, después del asistente entero.
    */
   it('sin elegir firma manda null y no una cadena vacía', async () => {
     const p = enElPaso4([])

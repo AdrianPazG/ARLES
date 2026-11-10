@@ -850,7 +850,16 @@
 
         // §65: se dice «aceptado», nunca «entregado». ARLES no puede saber si
         // llegó a la bandeja, y la demostración no va a decir lo contrario.
+        //
+        // **Y queda apuntado que se hizo** (05/11/2026): el preflight de abajo
+        // lo lee, así que al volver a comprobar ese punto pasa de «sin
+        // comprobar» a «bien» y la campaña se puede activar. Sin esto, la
+        // demostración enseñaba un paso 7 que no cambiaba nunca — y el botón
+        // de activar apagado para siempre, que es la acción que el producto
+        // existe para hacer.
         case 'enviar_correo_de_prueba':
+          e.pruebaHecha = true;
+          escribir(e);
           return Promise.resolve({
             aceptado: true, aDonde: String(args.para || 'tu@ejemplo.mx'),
           });
@@ -1280,23 +1289,53 @@
         case 'cancelar_activacion':
           return Promise.resolve(false);
 
-        case 'revisar_campana':
-          // El preflight de ocho puntos, en verde menos los tres de red, que
-          // desde un navegador **no se pueden contestar**: van como «sin
-          // comprobar» y no como aprobados, que es lo que hace el producto.
+        case 'revisar_campana': {
+          // ── LOS OCHO PUNTOS, CON LOS NOMBRES QUE EL NÚCLEO USA ────────
+          //
+          // Hasta el 05/11/2026 esta lista llevaba **seis nombres
+          // inventados** —`hayRemitente`, `hayPlantilla`, `hayAudiencia`,
+          // `hayHorario`, `seEnvioUnaPrueba`, `registrosDelDominio`—, un
+          // veredicto que no existe (`avisa`) y un resultado que mezclaba la
+          // clave de texto con el discriminante
+          // (`resultado: 'preflight.conAvisos'`).
+          //
+          // Lo que se veía: **siete claves en crudo** en la pantalla donde se
+          // decide mandar una campaña, y el botón de activar apagado para
+          // siempre, porque `sePuedeActivar` compara con `'lista'`. Lo
+          // encontró mirar la demostración, con las diez fases en verde: el
+          // §9 otra vez, y en el decorado que existe para enseñar el producto.
+          //
+          // Los de verdad son `Punto::TODOS` y `Veredicto` en
+          // `arles-core/src/preflight.rs`, y los vigila ahora
+          // `el_simulador_enseña_los_puntos_que_existen` en `--fase 7`.
+          //
+          // ── POR QUÉ LA PRUEBA MANDA, Y LOS DE RED NO ──
+          //
+          // Los tres de red van en «bien» porque en un navegador no hay SMTP
+          // ni DNS que preguntar, y una demostración que no puede llegar a
+          // activar no enseña el producto. El que se deja en «sin comprobar»
+          // es el **envío de prueba**, que sí se puede hacer desde aquí: así
+          // la demostración enseña los dos estados —bloqueada y lista— y el
+          // botón «Volver a comprobar» cambia algo cuando se pulsa.
+          var hecha = e.pruebaHecha === true;
           return Promise.resolve({
             preflight: {
               puntos: [
-                { punto: 'hayRemitente', veredicto: 'pasa' },
-                { punto: 'laCuentaAutentica', veredicto: 'sinComprobar' },
-                { punto: 'hayConexion', veredicto: 'sinComprobar' },
-                { punto: 'registrosDelDominio', veredicto: 'sinComprobar' },
-                { punto: 'hayPlantilla', veredicto: 'pasa' },
-                { punto: 'hayAudiencia', veredicto: 'pasa' },
-                { punto: 'hayHorario', veredicto: 'pasa' },
-                { punto: 'seEnvioUnaPrueba', veredicto: 'avisa' },
+                { punto: 'laCuentaAutentica', veredicto: 'pasa' },
+                { punto: 'laCredencialSirve', veredicto: 'pasa' },
+                { punto: 'laAudienciaNoEstaVacia', veredicto: 'pasa' },
+                { punto: 'lasVariablesSeResuelven', veredicto: 'pasa' },
+                { punto: 'elHorarioAlcanza', veredicto: 'pasa' },
+                { punto: 'hayConexion', veredicto: 'pasa' },
+                { punto: 'seHizoElEnvioDePrueba', veredicto: hecha ? 'pasa' : 'sinComprobar' },
+                { punto: 'losRegistrosDelDominio', veredicto: 'sinComprobar' },
               ],
-              resultado: { resultado: 'preflight.conAvisos', avisos: 1, sinComprobar: 3 },
+              // `losRegistrosDelDominio` es el único punto que **no bloquea**
+              // (§154), así que con la prueba hecha el resultado es «lista»
+              // con un aviso, no «bloqueada».
+              resultado: hecha
+                ? { resultado: 'lista', avisos: 1 }
+                : { resultado: 'bloqueada', fallan: 0, sinComprobar: 1 },
             },
             audiencia: (e.contactos || DEMO.contactos).length,
             contactosConHuecos: 0,
@@ -1352,6 +1391,7 @@
                 return { nombre: c.nombre, limiteDiario: 50 };
               }),
           });
+        }
 
         case 'probar_envio_de_la_cuenta':
           // Aceptado, **que no es entregado** (§65). El simulador no manda nada.

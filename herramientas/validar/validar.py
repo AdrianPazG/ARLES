@@ -1562,7 +1562,7 @@ def las_cifras_del_nucleo_son_las_mismas_en_la_pantalla():
       `app/src/app/stores/campanas.ts`). Si el núcleo sube a 100 y la pantalla
       se queda en 50, el asistente **exige aceptar un aviso que el núcleo ya no
       pide**. Al revés es peor: la pantalla no enseña el aviso, el usuario
-      rellena nueve pasos, y `crear_campana` lo rechaza al final con un error
+      rellena el asistente entero, y `crear_campana` lo rechaza al final con un error
       que no vio venir.
     - **Los meses del historial = 12** (`MESES_EN_EL_ESENCIAL` en el núcleo y
       el primer valor de `MESES_QUE_SE_OFRECEN` en el archivado). Si no
@@ -4817,6 +4817,90 @@ def el_simulador_rechaza_con_claves_que_existen():
     )
 
 
+
+def el_simulador_ensena_los_puntos_que_existen():
+    """**Los puntos y veredictos del preflight que el simulador emite son los del núcleo.**
+
+    ───────────────────────────────────────────────────────────────────────────
+    SIETE CLAVES EN CRUDO EN LA PANTALLA DONDE SE DECIDE MANDAR
+
+    Encontrado el 05/11/2026 **mirando la demostración**, con las diez fases en
+    verde. El `case 'revisar_campana'` llevaba seis nombres de punto inventados
+    —`hayRemitente`, `hayPlantilla`, `hayAudiencia`, `hayHorario`,
+    `seEnvioUnaPrueba`, `registrosDelDominio`—, un veredicto que no existe
+    (`avisa`) y un resultado que mezclaba la clave de texto con el
+    discriminante (`resultado: 'preflight.conAvisos'`).
+
+    Lo que se veía en el paso 7: siete renglones diciendo `preflight.hayPlantilla`
+    en vez de su frase, y una insignia que decía `preflight.avisa`.
+
+    Y costaba algo peor que el aspecto: `sePuedeActivar` compara el resultado
+    con `'lista'`, así que en la demostración **el botón de activar estaba
+    apagado para siempre**. La acción que el producto existe para hacer no se
+    podía enseñar — el defecto de la 7.3 otra vez, en el decorado que existe
+    para enseñar el producto.
+
+    ── POR QUÉ NINGUNA COMPROBACIÓN LO VEÍA ──
+
+    `las claves con las que rechaza el simulador existen en es.ts` mira las
+    claves de **error**. «La vista previa contesta lo que las pantallas piden»
+    compara **qué comandos** se piden y se contestan, no lo que devuelven. Y el
+    §139 recorre los `clave_i18n()` de Rust, que el simulador no usa. Cada una
+    pasaba lo suyo y el hueco vivía en medio: es el patrón del §9.
+
+    ── QUÉ SE MIDE, Y CONTRA QUÉ ──
+
+    Contra `arles-core/src/preflight.rs`, que es quien los declara: los nombres
+    salen de `Punto::clave_i18n` y los veredictos de `Veredicto::clave_i18n`, no
+    de una lista a mano. Un punto nuevo en el núcleo entra solo en la
+    vigilancia.
+
+    **Verificada con tres rupturas, las tres en rojo**: devolviendo
+    `hayRemitente`, devolviendo el veredicto `avisa`, y devolviendo
+    `resultado: 'preflight.conAvisos'`.
+    """
+    sim = leer("herramientas", "vista-previa", "simulador.js") or ""
+    # Sin comentarios: la cabecera del propio `case` nombra los seis inventados
+    # al contar el defecto, y buscarlos en el archivo entero haría que el texto
+    # que explica el fallo lo volviera a disparar. Es el comentario que se caza
+    # a sí mismo, que en este proyecto ya ha salido trece veces.
+    sim = re.sub(r"^\s*//.*$", "", sim, flags=re.M)
+    nucleo = leer("crates", "arles-core", "src", "preflight.rs") or ""
+
+    # Lo que el núcleo declara, de los tres enums a la vez: `Punto`,
+    # `Veredicto` y `Resultado` escriben todas sus claves con el prefijo
+    # `preflight.`, y lo que importa es que lo que el simulador diga esté
+    # dentro, venga del enum que venga.
+    puntos = set(re.findall(r'=> "preflight\.(\w+)"', nucleo))
+
+    # Lo que el simulador emite. Un veredicto puede llevar un condicional
+    # dentro —`hecha ? 'pasa' : 'sinComprobar'`—, así que de esa línea se
+    # recogen **las dos** cadenas: quedándose con la primera se escaparía justo
+    # la rama que no se mira al leer.
+    emitidos = set(re.findall(r"punto:\s*'(\w+)'", sim))
+    # El `resultado` se captura **con sus puntos** —`[\w.]+` y no `\w+`—, y
+    # eso es exactamente lo que faltaba: la primera versión de esta
+    # comprobación salió **en verde** con `resultado: 'preflight.conAvisos'`
+    # puesto a propósito, porque ese patrón no casa una cadena con punto y el
+    # intruso ni siquiera llegaba al conjunto. Una ruptura en verde significa
+    # que la comprobación no caza el defecto, y era el defecto original.
+    emitidos |= set(re.findall(r"resultado:\s*'([\w.]+)'", sim))
+    for linea in re.findall(r"veredicto:[^\n]*", sim):
+        emitidos |= set(re.findall(r"'(\w+)'", linea))
+
+    intrusos = sorted(e for e in emitidos if e not in puntos)
+    check(
+        3,
+        "el simulador enseña los puntos de preflight que el núcleo declara",
+        bool(puntos) and bool(emitidos) and not intrusos,
+        el_simulador_ensena_los_puntos_que_existen.__doc__,
+        detalle=(
+            f"el simulador emite: {sorted(emitidos)}\n"
+            f"que el núcleo no declara: {intrusos or 'ninguno'}"
+        ),
+    )
+
+
 def la_vista_previa_no_miente_sobre_las_rutas():
     """El simulador de la vista previa lleva a donde lleva el núcleo.
 
@@ -5377,6 +5461,7 @@ def fase_3(rapido):
     la_vista_previa_no_miente_sobre_las_rutas()
     el_nombre_repetido_se_compara_igual_en_las_tres_capas()
     el_simulador_rechaza_con_claves_que_existen()
+    el_simulador_ensena_los_puntos_que_existen()
     el_informe_de_acceso_no_deja_cruzar_una_ruta()
     ajustes_es_de_la_aplicacion_y_no_del_negocio()
     la_barra_dice_en_que_seccion_estas()
@@ -6358,6 +6443,71 @@ def una_version_de_plantilla_no_se_edita():
           f"archivos: {sorted(culpables)}")
 
 
+def el_manual_dice_los_pasos_que_hay():
+    """**El manual dice cuántos pasos tiene el asistente, y tienen que ser ésos.**
+
+    ───────────────────────────────────────────────────────────────────────────
+    POR QUÉ ESTA COMPROBACIÓN
+
+    El 05/11/2026 el asistente pasó de nueve pasos a ocho —comprobar y probar
+    eran dos pantallas y son una sola pregunta—, y «Son nueve pasos» estaba
+    escrito a mano en el manual que lee Dirección. La cifra que ve el usuario
+    en la cabecera sale de `PASOS.length` y se corrigió sola; la del manual no,
+    y **nada la miraba**.
+
+    Es el patrón de «los cuatro bloqueos» del §8 y el de «las trece pantallas»
+    del mapa: un número escrito a mano que era verdad el día que se escribió.
+    Un documento no falla, se cree — y éste lo lee quien está aprendiendo a
+    usar el producto, así que contar un paso de más manda a buscar una pantalla
+    que no existe.
+
+    ── POR QUÉ SÓLO EL MANUAL, Y NO TODO DOCUMENTO QUE DIGA «N PASOS» ──
+
+    **Medido antes de escribirla**: «nueve pasos» aparecía en ocho sitios y
+    **seis son narraciones fechadas** —los documentos de fase y los informes
+    `-PARA-DIRECCION`, que describen lo que se entregó aquel día y no se
+    reescriben— más `avance.json`, que cuenta lo que cerró la Fase 6. Exigirles
+    la cifra de hoy sería pedirles que mientan sobre su fecha. El manual es el
+    único que afirma lo que el producto es **ahora**.
+
+    **Verificada con tres rupturas, las tres en rojo**: quitando un paso de
+    `PASOS`, cambiando la cifra del manual, y borrando la frase entera —ésta
+    importa, porque un documento que calla pasa cualquier comprobación que sólo
+    mire lo que hay escrito (la lección de `el_estado_cita_el_avance_que_hay`).
+    """
+    asistente = leer("app", "src", "app", "pantallas", "AsistenteDeCampana.vue") or ""
+    manual = leer("documentacion", "07-entrega", "MANUAL-DE-USUARIO.md") or ""
+
+    bloque = re.search(r"const PASOS = \[(.*?)\] as const", asistente, re.S)
+    pasos = re.findall(r"'([a-z]+)'", bloque.group(1)) if bloque else []
+
+    LETRAS = {
+        4: "cuatro", 5: "cinco", 6: "seis", 7: "siete", 8: "ocho",
+        9: "nueve", 10: "diez", 11: "once", 12: "doce",
+    }
+    esperada = LETRAS.get(len(pasos))
+    dicho = re.search(r"Son (\S+) pasos", manual)
+
+    problemas = []
+    if not pasos:
+        problemas.append("no se pudo leer `PASOS` del asistente")
+    elif esperada is None:
+        problemas.append(f"{len(pasos)} pasos y no hay letra para ese número")
+    elif dicho is None:
+        # Callar también es un hallazgo: el manual tiene que decir cuántos son.
+        problemas.append("el manual no dice cuántos pasos tiene el asistente")
+    elif dicho.group(1) != esperada:
+        problemas.append(
+            f"el manual dice «Son {dicho.group(1)} pasos» y son {len(pasos)}: {esperada}"
+        )
+
+    check(6, "el manual dice los pasos que tiene el asistente", not problemas,
+          "La cifra de la cabecera sale de `PASOS.length` y se corrige sola; la "
+          "del manual se escribe a mano y caduca sin que nada falle. Es «los "
+          "cuatro bloqueos» del §8 en el documento que lee Dirección.",
+          " · ".join(problemas))
+
+
 def el_preflight_no_se_rellena_a_mano():
     """Los tres puntos que exigen salir a la red no se afirman a mano.
 
@@ -6547,7 +6697,7 @@ def fase_6(rapido):
         ("crates/arles-db/src/ventanas.rs", "Los horarios de envío, validados al guardarlos."),
         ("crates/arles-app/src/campanas.rs", "Los comandos de campañas, plantillas, firmas y horarios."),
         ("app/src/app/pantallas/PantallaCampanas.vue", "La lista de campañas. Aceptados, nunca entregados (§65)."),
-        ("app/src/app/pantallas/AsistenteDeCampana.vue", "El asistente de nueve pasos."),
+        ("app/src/app/pantallas/AsistenteDeCampana.vue", "El asistente de campaña, paso a paso."),
         ("app/src/app/pantallas/campanas.spec.ts", "Lo que estas dos pantallas no pueden dejar de decir."),
     ]:
         check(6, f"existe {ruta}", os.path.exists(os.path.join(RAIZ, ruta)), porque)
@@ -6557,6 +6707,7 @@ def fase_6(rapido):
     el_html_se_sanea_en_rust()
     una_version_de_plantilla_no_se_edita()
     el_preflight_no_se_rellena_a_mano()
+    el_manual_dice_los_pasos_que_hay()
     la_revision_descuenta_las_bajas()
     el_envio_de_prueba_llega_al_preflight()
     el_aviso_de_volumen_lo_exige_el_nucleo()

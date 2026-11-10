@@ -130,7 +130,7 @@ const MEDIR = () => {
   //
   // Se busca en TODO el documento menos la navegación, y no sólo dentro de
   // `<main>`: el pie de un asistente vive fuera, y la primera versión de esta
-  // sonda daba cero acciones en el asistente de nueve pasos por eso.
+  // sonda daba cero acciones en el asistente de campaña por eso.
   //
   // Y se cuentan los controles de formulario además de los botones: Ajustes
   // ofrece un desplegable de tema y ninguna otra cosa, así que contando sólo

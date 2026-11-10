@@ -679,7 +679,7 @@ const tituloDelEditor = computed(() => {
       <!-- ── R-7 · la salida de quien recibe ────────────────────────────
            Avisa y no bloquea: la salida puede venir de la firma, y aquí no se
            sabe cuál se va a usar. Quien impide es `activar_campana`, que sí lo
-           sabe. Esto es para que no se descubra al final de nueve pasos.
+           sabe. Esto es para que no se descubra al final del asistente.
 
            Tono de aviso y no de peligro: lo que hay delante no está roto —
            puede que la firma lo traiga—. El peligro es el error del activado,
