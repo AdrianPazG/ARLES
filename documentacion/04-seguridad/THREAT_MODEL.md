@@ -37,6 +37,11 @@ Todo dato que entra desde fuera es no confiable. Las fuentes reales:
 3. **Contenido que el usuario pega** en plantillas y firmas
 4. **Archivos de respaldo `.arles`** restaurados
 5. **Respuestas HTTP** del updater y de las consultas DNS
+6. **El buzón de correo del remitente** (R-25, 10/11/2026) — la superficie más
+   nueva, y la única donde **lo que entra lo escribió un desconocido**: un
+   archivo importado lo eligió quien usa ARLES, y una respuesta SMTP viene del
+   servidor de la propia cuenta. Un correo de vuelta lo manda cualquiera. Ver
+   §4.8.
 
 ---
 
@@ -149,6 +154,30 @@ Todo dato que entra desde fuera es no confiable. Las fuentes reales:
 | **Tampering** | Una importación borra supresiones | **Estructural:** la importación no tiene camino de código que elimine entradas de supresión (§39) |
 | **Bypass** | Baja entre el cálculo de audiencia y el envío | Comprobación **en el momento del envío**, no sólo al construir la audiencia |
 | **Bypass** | Borrar y reimportar el contacto | La clave de supresión es `email_normalized`, **no `contact_id`** |
+
+---
+
+### 4.8 El buzón de lectura (`arles-email::buzon`) — R-25, 10/11/2026
+
+ARLES lee el buzón del remitente para aplicar las bajas que llegan por correo.
+Es la superficie donde **lo que entra lo escribió alguien de fuera**, así que
+las mitigaciones no son de estilo.
+
+| Amenaza | Vector | Mitigación |
+|---|---|---|
+| **Tampering** | ARLES cambia el buzón de una persona: borra, mueve o marca correos como leídos | **Estructural, y en el protocolo:** `EXAMINE` abre el buzón en *read-only* y el servidor **rechaza** cualquier cambio; `BODY.PEEK` no marca nada como leído. Y los ocho comandos que escriben **no están escritos** — lo vigila `El lector del buzón no sabe escribir` en `--fase 1`, y las dos primeras se miden desde el servidor de mentira, no leyendo el código |
+| **Spoofing** | Alguien falsifica el `From` y da de baja a otra persona | **Aceptado, y cae del lado seguro.** El daño es que alguien deja de recibir publicidad; el error contrario —seguir escribiendo a quien pidió que no— es el que no tiene arreglo. Es el mismo criterio que las bajas reapuntadas de la 8.3b |
+| **Elevation** | Un correo con la dirección de otro en el cuerpo da de baja a quien no escribió | **Estructural:** el veredicto del núcleo **no lleva ninguna dirección dentro**, así que no hay forma de usar la del texto por descuido. La única que se puede dar de baja es la del `From` |
+| **DoS** | Un servidor hostil o roto declara un literal de 4 GiB, una línea sin fin o diez mil correos | Topes en los tres: 64 KiB por literal, 8 KiB por línea, 200 correos por pasada. El tamaño se comprueba **antes de reservar memoria** |
+| **Info disclosure** | El cuerpo de un correo ajeno acaba en la base o en una bitácora | **No hay dónde guardarlo:** la estructura se construye, se le pregunta al núcleo y se tira. Lo que entra en la base es la dirección, el motivo y la fecha, igual que una baja apuntada a mano |
+| **Info disclosure** | La contraseña viaja en claro | Sólo el puerto 993 con TLS desde el primer byte. **No hay un `Modo` que elegir**: el 143 no se ofrece (§29) |
+| **Tampering** | Un servidor suplantado se hace pasar por el del buzón | Las **mismas raíces de confianza que el envío** (`webpki-roots`), no el almacén del sistema: un equipo con las raíces tocadas validaría distinto que el de al lado |
+| **DoS** | Un aviso de ausencia da de baja a quien no lo pidió | Lo automático se descarta **antes** de todo lo demás, por cuatro cabeceras — y `Auto-Submitted: no` se trata como lo que es: un correo de una persona |
+
+**Lo que esta superficie no cubre, dicho en vez de darse por cubierto:** un
+correo **sólo HTML** llega sin su parte de texto y, al quitarle las etiquetas,
+puede no decir exactamente la palabra. Eso sale **dudoso** y lo mira una
+persona. No se escribe un intérprete de HTML en el camino de una baja.
 
 ---
 

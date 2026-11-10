@@ -847,14 +847,84 @@ alternativa elegida no monta ningún servidor: **ARLES lee el buzón del
 remitente, sólo lectura.**
 
 **Lo que está hecho:** la regla —`arles_core::baja_por_correo`, que decide qué
-cuenta como una baja— y la migración **V17**, que permite guardarla con el
-origen que la distingue de la que alguien apunta a mano.
+cuenta como una baja—, la migración **V17**, que permite guardarla con el origen
+que la distingue de la que alguien apunta a mano, y **el lector del buzón**
+(`arles-email/src/buzon.rs`).
 
-**Lo que no:** el lector del buzón y el cable que lo llama. Hoy el correo de
-baja sigue llegando a un buzón que nadie mira solo, y se apunta a mano en
+**Lo que no:** el cable. Nadie llama al lector todavía, así que hoy el correo de
+baja sigue llegando a un buzón que nadie mira solo y se apunta a mano en
 Contactos › Bajas. Está declarado como hueco del §9 **a propósito**, igual que
-la 8.2b dejó el exportador sin botón: el lector es el tramo siguiente, y su
-comprobación de llamador se escribe **antes** de escribirlo, para verla en rojo.
+la 8.2b dejó el exportador sin botón: el comando, el ajuste y el registro son el
+tramo siguiente, y su comprobación de llamador se escribe **antes** de
+escribirlo, para verla en rojo.
+
+### El lector: sólo lectura, y eso son dos comandos del protocolo
+
+Los cuatro límites que autorizó Dirección se podían escribir como un comentario
+y confiar en que nadie los tocara. Tres están en algo mejor:
+
+1. **`EXAMINE` y no `SELECT`.** Son el mismo comando con una diferencia: el
+   primero abre el buzón en modo *read-only* y el servidor **rechaza** cualquier
+   cambio. No es que ARLES no pida borrar nada: es que si lo pidiera, el
+   servidor diría no.
+2. **`BODY.PEEK[…]` y no `BODY[…]`.** La segunda forma **marca el correo como
+   leído** como efecto secundario de leerlo. Con `PEEK`, quien abra el buzón
+   después ve sus correos sin leer igual que antes.
+3. **No existe ninguna función que escriba**, y lo vigila el validador: busca
+   los ocho comandos que cambian un buzón y falla si alguno aparece.
+
+El cuarto —no guardar el cuerpo— no cabe en el protocolo, porque hay que leerlo
+para saber si dice «BAJA». Lo que sí se puede es que **no haya dónde
+guardarlo**: la estructura se construye, se le pregunta al núcleo y se tira.
+
+**Las dos primeras se comprueban desde el otro lado del cable.** El servidor de
+mentira apunta todo lo que el cliente le dice, así que la prueba no mira el
+código del lector —eso comprobaría que está bien escrito— sino lo que salió.
+
+### Cero dependencias nuevas, y está medido
+
+La única biblioteca de IMAP de Rust con uso real está en **`3.0.0-alpha.15`** y
+su TLS por defecto valida con el almacén del sistema, no con el mismo que usa el
+envío. Una dependencia alfa en el camino que **da de baja a personas** no se
+sostiene, y lo que hace falta de IMAP son cuatro comandos.
+
+`cargo tree -p arles-email -e normal` ya enseñaba `rustls 0.23.46` y
+`webpki-roots 1.0.11` **dentro de `lettre`**: lo único que cambia es que ahora se
+nombran en el `Cargo.toml` en vez de recibirse de rebote. **Ni un byte más en el
+instalador**, y `cargo deny` no tiene nada nuevo que aprobar.
+
+### El MIME se desenvuelve en el adaptador, y sin eso no funcionaría nada
+
+Quien contesta desde Gmail manda `multipart/alternative`, así que `BODY[TEXT]`
+**no empieza donde escribió la persona**: empieza con un delimitador
+—`--000000000000abc`— y las cabeceras de la primera parte. El núcleo mira la
+primera línea con algo, de modo que dárselo tal cual haría que esa línea fuera
+**siempre el delimitador** y ni una respuesta a mano daría de baja a nadie.
+
+Desenvolver MIME es saber de correo, que es lo que `arles-email` sabe y el núcleo
+no (cero I/O). El límite está declarado: un correo **sólo HTML** pierde sus
+etiquetas y puede salir dudoso, que es el lado seguro.
+
+### Cuatro cosas más que salieron de un caso real y no de un diseño
+
+- **Se busca por fecha y no por «sin leer»**, y es consecuencia de la garantía
+  anterior: con `EXAMINE` nada se marca como leído, así que un correo seguiría
+  saliendo en `UNSEEN` para siempre y se procesaría en cada pasada.
+- **`Auto-Submitted: no` es lo que pone un correo de una persona.** Comprobar
+  sólo que la cabecera esté daría por automática —y perdería— la baja de quien
+  escribe con un cliente que la declara.
+- **Una cabecera larga llega partida en dos líneas siempre**, y sin unirlas el
+  asunto queda cortado. «Baja» no se cortaría nunca, pero una frase que lo
+  nombre sí, y eso cambia un dudoso por un «no es nada».
+- **La contraseña va entre comillas y escapada.** Una con una comilla rompería
+  el comando y el servidor contestaría `BAD`, que se leería como «esa contraseña
+  no vale» — mandando a cambiar una contraseña correcta. Es el defecto de los
+  espacios de la contraseña de Google (15/10/2026) con otra cara.
+
+Y lo que llega del servidor **no es de fiar**, que es la regla de `arles-import`
+aplicada aquí: un literal IMAP declara su propio tamaño y nada impide que diga
+`{4294967295}`. Hay tope para el literal (64 KiB), para la línea (8 KiB) y para
+cuántos correos se miran de una vez (200, los más recientes).
 
 ### La mitad estaba construida, y nadie lo sabía
 

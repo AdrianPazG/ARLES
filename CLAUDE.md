@@ -2368,10 +2368,49 @@ llavero para enviar sirve para leer—. Está contado en
 > escrito en su propio comentario: `abrir_crudo`, «sin esto, una migración
 > únicamente se ve correr sobre una base recién creada».
 
-> **Lo que este tramo NO hace:** el lector del buzón, que es lo siguiente. Hoy
-> el correo de baja sigue llegando a un buzón que nadie mira solo. Declarado a
-> propósito, igual que la 8.2b dejó el exportador sin botón — y su comprobación
-> de llamador se escribe **antes** del lector, para verla en rojo.
+**Y el lector del buzón, el mismo día** (`arles-email/src/buzon.rs`), con su
+servidor IMAP de mentira. **Sigue sin haber quien lo llame**: el comando, el
+ajuste y el registro son el tramo siguiente, y su comprobación de llamador se
+escribe **antes**, para verla en rojo.
+
+> **«Sólo lectura» no es una promesa: son dos comandos del protocolo.**
+> **`EXAMINE` y no `SELECT`** abre el buzón en *read-only* y el servidor
+> **rechaza** cualquier cambio — no es que ARLES no pida borrar nada, es que si
+> lo pidiera le dirían no—; y **`BODY.PEEK[…]` y no `BODY[…]`**, porque la
+> segunda forma marca el correo como leído al leerlo. La tercera defensa la
+> pone el validador: `El lector del buzón no sabe escribir` busca los ocho
+> comandos que cambian un buzón.
+>
+> Y las dos primeras **se miden desde el otro lado del cable**: el servidor de
+> mentira apunta lo que el cliente le dijo, así que la prueba no comprueba que
+> el lector esté bien escrito, sino lo que salió.
+
+> **Cero dependencias nuevas, y medido antes de decidir.** La única biblioteca
+> de IMAP de Rust con uso real está en **`3.0.0-alpha.15`** y su TLS valida con
+> el almacén del sistema y no con el del envío: una dependencia alfa en el
+> camino que **da de baja a personas** no se sostiene, y lo que hace falta de
+> IMAP son cuatro comandos. `cargo tree -p arles-email -e normal` ya enseñaba
+> `rustls` y `webpki-roots` **dentro de `lettre`**, así que lo único que cambia
+> es que ahora se nombran en el `Cargo.toml`. Ni un byte más en el instalador.
+
+> **El defecto que habría dejado el lector inservible, con todo en verde.**
+> Quien contesta desde Gmail manda `multipart/alternative`, así que
+> `BODY[TEXT]` **no empieza donde escribió la persona**: empieza con un
+> delimitador y las cabeceras de la primera parte. El núcleo mira la primera
+> línea con algo, de modo que pasárselo tal cual haría que esa línea fuera
+> **siempre el delimitador** — y ni una respuesta a mano daría de baja a nadie.
+> Lo desenvuelve el adaptador, porque saber de MIME es saber de correo y el
+> núcleo no sabe de formatos de transporte.
+
+> **Y la comprobación nueva midió su umbral antes de existir.** Los ocho
+> comandos dan **cero** en el código de producción de `buzon.rs` y
+> **diecinueve** en el archivo entero, porque la cabecera del módulo los nombra
+> uno a uno al explicar por qué no están y las pruebas los buscan para
+> comprobar que no salieron por el cable. Sin `solo_produccion` habría nacido
+> con diecinueve hallazgos falsos: el comentario que se caza a sí mismo, por
+> decimocuarta vez. Verificada por los dos caminos — en rojo con un `SELECT`,
+> un `BODY[` y un `STORE` de verdad, y en verde con esas mismas palabras sólo
+> en un comentario.
 
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 

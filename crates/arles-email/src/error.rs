@@ -49,6 +49,27 @@ pub enum ErrorDeCorreo {
     /// Es un fallo nuestro, no del servidor ni de la cuenta: llega antes de
     /// abrir ninguna conexión.
     NoSePudoArmarElMensaje,
+    /// No se llegó al servidor de lectura del buzón (R-25).
+    ///
+    /// Es el de siempre: el nombre está mal, no hay red, o el puerto está
+    /// cerrado. Lo que está a salvo es **todo**: las bajas que ya estaban
+    /// aplicadas siguen, y leer el buzón no cambia nada en él.
+    NoSePudoEntrarAlBuzon,
+    /// El servidor del buzón dijo que esa contraseña no vale.
+    ///
+    /// **Variante propia y no la de conectar**, porque el arreglo es otro: aquí
+    /// no se reintenta, se revisa la contraseña de aplicación. Y separada del
+    /// envío a propósito: la contraseña es la misma, pero un proveedor puede
+    /// tener **IMAP apagado** con el SMTP funcionando —en Gmail es una casilla
+    /// de la cuenta—, así que «manda bien y no puede leer» es un estado real y
+    /// su texto tiene que decir dónde se enciende.
+    ElBuzonRechazoLaContrasena,
+    /// El servidor del buzón contestó algo que no se entiende.
+    ///
+    /// Incluye los topes: un literal más grande de lo que se acepta, una línea
+    /// interminable o más correos de los que caben en una pasada. Lo que está a
+    /// salvo es todo, por lo mismo que arriba.
+    ElBuzonContestoAlgoRaro,
 }
 
 impl ErrorDeCorreo {
@@ -60,6 +81,9 @@ impl ErrorDeCorreo {
             Self::ElServidorNoVale => "error.correo.el_servidor_no_vale",
             Self::LaDireccionDelRemitenteNoVale => "error.correo.remitente_no_vale",
             Self::NoSePudoArmarElMensaje => "error.correo.no_se_pudo_armar",
+            Self::NoSePudoEntrarAlBuzon => "error.correo.no_se_pudo_entrar_al_buzon",
+            Self::ElBuzonRechazoLaContrasena => "error.correo.buzon_rechazo_contrasena",
+            Self::ElBuzonContestoAlgoRaro => "error.correo.buzon_contesto_raro",
         }
     }
 }
@@ -82,12 +106,45 @@ impl std::error::Error for ErrorDeCorreo {}
 mod tests {
     use super::*;
 
-    const TODOS: [ErrorDeCorreo; 4] = [
+    const TODOS: [ErrorDeCorreo; 7] = [
         ErrorDeCorreo::NoSePudoCifrar,
         ErrorDeCorreo::ElServidorNoVale,
         ErrorDeCorreo::LaDireccionDelRemitenteNoVale,
         ErrorDeCorreo::NoSePudoArmarElMensaje,
+        ErrorDeCorreo::NoSePudoEntrarAlBuzon,
+        ErrorDeCorreo::ElBuzonRechazoLaContrasena,
+        ErrorDeCorreo::ElBuzonContestoAlgoRaro,
     ];
+
+    /// **`TODOS` es una lista a mano, y esto es lo que impide que se quede
+    /// atrás.**
+    ///
+    /// Es el defecto que este proyecto lleva once veces arreglando: una lista
+    /// escrita a mano que deja de cubrir lo que dice cubrir. Aquí no se puede
+    /// leer el enum de ninguna carpeta —Rust no tiene reflexión sobre
+    /// variantes—, así que lo que hace el trabajo es el **compilador**: este
+    /// `match` es exhaustivo, de modo que una variante nueva no compila hasta
+    /// que alguien la nombre aquí, y al nombrarla el `assert` exige que esté
+    /// también en `TODOS`.
+    ///
+    /// Verificada añadiendo una variante de prueba al enum: **no compila**,
+    /// que es antes todavía que el rojo de una prueba.
+    #[test]
+    fn la_lista_de_todos_los_errores_los_tiene_a_todos() {
+        for e in TODOS {
+            // El `match` no se usa para nada más que forzar la exhaustividad.
+            let nombrada = match e {
+                ErrorDeCorreo::NoSePudoCifrar
+                | ErrorDeCorreo::ElServidorNoVale
+                | ErrorDeCorreo::LaDireccionDelRemitenteNoVale
+                | ErrorDeCorreo::NoSePudoArmarElMensaje
+                | ErrorDeCorreo::NoSePudoEntrarAlBuzon
+                | ErrorDeCorreo::ElBuzonRechazoLaContrasena
+                | ErrorDeCorreo::ElBuzonContestoAlgoRaro => true,
+            };
+            assert!(nombrada && TODOS.contains(&e), "{e:?} no está en TODOS");
+        }
+    }
 
     /// **Ningún error se queda sin clave, y ninguna clave se repite** (§139).
     ///

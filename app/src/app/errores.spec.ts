@@ -158,6 +158,13 @@ const CLAVES_DEL_NUCLEO = [
   'error.correo.el_servidor_no_vale',
   'error.correo.remitente_no_vale',
   'error.correo.no_se_pudo_armar',
+  // R-25 · leer el buzón para aplicar las bajas (10/11/2026). Son tres y no
+  // una porque el arreglo de cada una es distinto: revisar la red, activar
+  // IMAP en el proveedor —un estado real: manda bien y no puede leer—, o
+  // avisarnos de un fallo nuestro.
+  'error.correo.no_se_pudo_entrar_al_buzon',
+  'error.correo.buzon_rechazo_contrasena',
+  'error.correo.buzon_contesto_raro',
 ] as const
 
 describe('resolución de errores del núcleo', () => {

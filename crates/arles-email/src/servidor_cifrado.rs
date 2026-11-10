@@ -4,11 +4,17 @@
 //! POR QUÉ ESTO VIVE SÓLO EN LAS PRUEBAS
 //!
 //! El módulo entero está detrás de `#[cfg(test)]`, y no es por orden: es para
-//! que **`rustls` y `rcgen` no entren en el programa que se entrega**. Son un
-//! motor de TLS y un generador de certificados; ARLES no necesita ninguno de
-//! los dos para mandar correo —de eso se encarga `lettre`—, y meter un
-//! generador de certificados en un instalador es superficie de ataque a cambio
+//! que **`rcgen` no entre en el programa que se entrega**. Es un generador de
+//! certificados, y meter uno en un instalador es superficie de ataque a cambio
 //! de nada.
+//!
+//! > **Esta nota decía «`rustls` y `rcgen`» hasta el 10/11/2026**, con el
+//! > motivo escrito de que «ARLES no necesita un motor de TLS para mandar
+//! > correo: de eso se encarga `lettre`». Sigue siendo verdad del envío y dejó
+//! > de serlo del producto: el lector del buzón ([`crate::buzon`], R-25) habla
+//! > IMAP, y `lettre` no habla IMAP. Así que `rustls` es ahora una dependencia
+//! > normal — lo que no cambia es el instalador, porque ya venía dentro de
+//! > `lettre`. `rcgen` sigue fuera.
 //!
 //! ─────────────────────────────────────────────────────────────────────────
 //! LO QUE ESTO HACE POSIBLE

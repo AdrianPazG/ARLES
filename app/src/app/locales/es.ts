@@ -1658,6 +1658,43 @@ export const es = {
           'con lo que aparece en esta pantalla.',
         salvo: 'No se envió nada y no se marcó a nadie.',
       },
+      // ── LEER EL BUZÓN PARA APLICAR LAS BAJAS (R-25, 10/11/2026) ──────────
+      //
+      // Las tres dicen lo mismo en «salvo», y es verdad y conviene decirlo:
+      // leer un buzón no cambia nada en él (`EXAMINE` lo abre en sólo lectura)
+      // y las bajas que ya estaban aplicadas siguen aplicadas.
+      no_se_pudo_entrar_al_buzon: {
+        que: 'No se pudo entrar al buzón para buscar las bajas.',
+        como:
+          'Revisa el nombre del servidor de lectura y que haya conexión. Si ' +
+          'acabas de cambiar de red, vuelve a intentarlo en un momento.',
+        salvo:
+          'No se cambió nada en tu buzón y las bajas que ya estaban siguen ' +
+          'aplicadas. Quien pidió la baja volverá a aparecer en el próximo ' +
+          'intento.',
+      },
+      buzon_rechazo_contrasena: {
+        que: 'El servidor del buzón no aceptó la contraseña.',
+        // Variante propia y no la de conectar: el arreglo es distinto, y hay
+        // un estado real que confunde —manda bien y no puede leer— cuando el
+        // proveedor tiene IMAP apagado. Decirlo aquí evita buscar una hora.
+        como:
+          'Es la misma contraseña con la que ARLES envía, así que si el envío ' +
+          'funciona, lo que suele faltar es activar IMAP en tu proveedor: en ' +
+          'Gmail es una casilla de la configuración de la cuenta.',
+        salvo:
+          'No se cambió nada en tu buzón y las bajas que ya estaban siguen ' +
+          'aplicadas.',
+      },
+      buzon_contesto_raro: {
+        que: 'El servidor del buzón contestó algo que ARLES no entiende.',
+        como:
+          'Vuelve a intentarlo. Si se repite, es un fallo de ARLES: avísanos ' +
+          'con lo que aparece en esta pantalla.',
+        salvo:
+          'No se cambió nada en tu buzón y no se dio de baja a nadie por una ' +
+          'respuesta que no se entendió.',
+      },
     },
 
     cifrado_desconocido: {

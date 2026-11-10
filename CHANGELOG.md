@@ -74,6 +74,119 @@ exactamente por dónde pasan.
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
 
+### El lector del buzón, sólo lectura
+
+**10/11/2026.** Segundo tramo de R-25. `arles-email/src/buzon.rs` entra al buzón
+del remitente por IMAP, trae los correos de los últimos días y los deja listos
+para que el núcleo decida. **Sigue sin haber quien lo llame**: el comando, el
+ajuste y el registro son el tramo siguiente.
+
+> **Sólo lectura no es una promesa: son dos comandos del protocolo.**
+>
+> 1. **`EXAMINE` y no `SELECT`.** Son el mismo comando con una diferencia: el
+>    primero abre el buzón en modo *read-only* y el servidor **rechaza**
+>    cualquier cambio (RFC 3501 §6.3.2). No es que ARLES no pida borrar nada:
+>    es que si lo pidiera, el servidor diría no.
+> 2. **`BODY.PEEK[…]` y no `BODY[…]`.** La segunda forma **marca el correo como
+>    leído** como efecto secundario de leerlo. Con `PEEK`, quien abra el buzón
+>    después ve sus correos sin leer igual que antes.
+>
+> Y las dos se comprueban **desde el otro lado del cable**: el servidor de
+> mentira apunta todo lo que el cliente le dijo, así que la prueba no mira el
+> código del lector —eso comprobaría que está bien escrito— sino lo que salió.
+> Es el patrón del §9, veinte veces visto aquí.
+
+> **Cero dependencias nuevas, y está medido.** La única biblioteca de IMAP de
+> Rust con uso real está en `3.0.0-alpha.15` y su TLS por defecto valida con el
+> almacén del sistema, no con el mismo que usa el envío: una dependencia alfa en
+> el camino que **da de baja a personas** no se sostiene. Y lo que hace falta de
+> IMAP son cuatro comandos. `cargo tree -p arles-email -e normal` ya enseñaba
+> `rustls 0.23.46` y `webpki-roots 1.0.11` **dentro de `lettre`**, así que lo
+> único que cambia es que ahora se nombran en el `Cargo.toml` en vez de
+> recibirse de rebote. Ni un byte más en el instalador.
+>
+> **Y la prueba de eso es el `Cargo.lock`:** el diff entero son **dos líneas**,
+> los nombres añadidos a la lista de `arles-email`. **Ningún `[[package]]`
+> nuevo** — ni un crate descargado, ni una versión movida. `cargo-deny` no está
+> instalado en este contenedor y se dice, pero no hay nada nuevo que pudiera
+> auditar: evalúa el árbol, y el árbol es idéntico al que ya aprobó.
+
+> **Las mismas raíces de confianza que el envío**, y por eso no se usa
+> `rustls-native-certs`: con el almacén del sistema, un equipo con las raíces
+> tocadas validaría distinto que el de al lado — y el lector del buzón
+> validaría distinto que el remitente de la misma cuenta.
+
+> **Lo que llega del servidor no es de fiar**, que es la regla de `arles-import`
+> aplicada aquí. Un literal IMAP declara su propio tamaño —`{2048}`— y nada
+> impide que diga `{4294967295}`: sin tope, eso reserva cuatro gigas antes de
+> leer un solo byte. Hay tope para el literal (64 KiB), para la línea (8 KiB) y
+> para cuántos correos se miran de una vez (200, los más recientes).
+
+> **Se busca por fecha y no por «sin leer», y es consecuencia de la garantía
+> anterior.** Con `EXAMINE` nada se marca como leído —que es lo que se quiere—,
+> así que un correo seguiría saliendo en `UNSEEN` para siempre y se procesaría
+> en cada pasada. La fecha acota de verdad; de no repetir trabajo se encarga
+> quien llame, con el `uid`.
+
+> **El MIME se desenvuelve aquí y no en el núcleo, y sin eso no funcionaría
+> nada.** Quien contesta desde Gmail manda `multipart/alternative`, así que
+> `BODY[TEXT]` **no empieza donde escribió la persona**: empieza con un
+> delimitador —`--000000000000abc`— y las cabeceras de la primera parte. El
+> núcleo mira la primera línea con algo, de modo que dárselo tal cual haría que
+> esa línea fuera **siempre el delimitador**, y ni una respuesta a mano daría de
+> baja a nadie. Desenvolver MIME es saber de correo, que es lo que este crate
+> sabe y el núcleo no (cero I/O). El límite está declarado: un correo **sólo
+> HTML** pierde sus etiquetas y puede salir dudoso, que es el lado seguro.
+
+> **Dos cabeceras de más, y las dos por un caso real.** Las cabeceras se piden
+> una por una, y tres de las seis son para no dar de baja a nadie por su mensaje
+> de ausencia: `Auto-Submitted` es la del RFC 3834, y `X-Autoreply` y
+> `Precedence` las ponen los servidores que no la implementan. **`Auto-Submitted:
+> no` es lo que pone un correo de una persona**, así que comprobar sólo que la
+> cabecera esté daría por automática —y perdería— la baja de quien escribe con
+> un cliente que la declara.
+
+> **Y una cabecera larga llega partida en dos líneas siempre.** Un asunto de más
+> de 78 caracteres se parte y la continuación empieza por un espacio (RFC 5322
+> §2.2.3). Sin unirlas, el asunto queda cortado: «Baja» no se cortaría nunca,
+> pero una frase que lo nombre sí, y eso cambia un dudoso por un «no es nada».
+
+> **La contraseña va entre comillas y escapada.** Una con una comilla o una
+> barra rompería el comando y el servidor contestaría `BAD`, que se leería como
+> «esa contraseña no vale» — mandando a cambiar una contraseña correcta. Es el
+> defecto de los espacios de la contraseña de Google (15/10/2026) con otra cara.
+
+> **Tres errores nuevos y no uno**, por la misma razón que los tres del formato
+> de respaldo: los tres impiden leer el buzón, pero uno manda a revisar la red,
+> otro a **activar IMAP en el proveedor** —un estado real y confuso: manda bien
+> y no puede leer, porque en Gmail es una casilla aparte— y el tercero es un
+> fallo nuestro. Y el «qué está a salvo» de los tres dice lo mismo porque es
+> verdad: leer un buzón no cambia nada en él.
+
+> **La lista `TODOS` de los errores es a mano, y ahora el compilador la
+> mantiene.** No se puede leer un enum de ninguna carpeta —Rust no tiene
+> reflexión sobre variantes—, así que la prueba lleva un `match` exhaustivo: una
+> variante nueva **no compila** hasta que alguien la nombre, y al nombrarla el
+> `assert` exige que esté en la lista. Es el defecto de la lista a mano, por
+> enésima vez, con la única red que aquí se puede poner.
+
+> **Verificado con nueve rupturas, las nueve en rojo**: `SELECT` por `EXAMINE`,
+> `BODY` sin `PEEK`, el MIME sin desenvolver, el tope del literal quitado, las
+> cabeceras partidas sin unir, `Auto-Submitted: no` dado por automático, la
+> dirección tomada con el nombre visible dentro, los cuerpos cruzados entre dos
+> correos, y la contraseña sin escapar.
+
+> **Y la comprobación del validador midió su umbral antes de existir.** Busca en
+> `buzon.rs` los comandos que escriben —`STORE`, `EXPUNGE`, `APPEND`, `COPY`,
+> `MOVE`, `DELETE`, `SELECT` y `BODY[`— y en el código de producción dan
+> **cero**; en el archivo entero dan **diecinueve**, porque la cabecera del
+> módulo los nombra uno a uno al explicar por qué no están y las pruebas los
+> buscan para comprobar que no salieron por el cable. Sin `solo_produccion`
+> habría nacido con diecinueve hallazgos falsos sobre código correcto: el
+> comentario que se caza a sí mismo, que va por la decimocuarta vez. Verificada
+> por los dos caminos — en rojo con un `SELECT`, un `BODY[` y un `STORE` de
+> verdad, y **en verde** con esas mismas palabras sólo en un comentario.
+
 ### Qué cuenta como una baja pedida por correo
 
 **10/11/2026.** R-25, decidido por Dirección ese día con estas palabras:

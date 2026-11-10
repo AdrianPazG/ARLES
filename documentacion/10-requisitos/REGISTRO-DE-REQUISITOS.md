@@ -178,13 +178,54 @@ el llavero**, y el servidor de lectura se deduce del dominio igual que
 
 ### En qué estado está
 
-**Hecho:** la regla (`arles_core::baja_por_correo`, tres veredictos) y la
-migración **V17**, que permite guardar la baja con el origen que la distingue de
-la que alguien apunta a mano.
+**Hecho:** la regla (`arles_core::baja_por_correo`, tres veredictos), la
+migración **V17** —que permite guardar la baja con el origen que la distingue de
+la que alguien apunta a mano— y **el lector del buzón**
+(`arles-email/src/buzon.rs`), con su servidor IMAP de mentira.
 
-**Sin hacer:** el lector del buzón, y el cable que lo llama. Hoy el correo de
+**Sin hacer:** el cable. Nadie llama al lector todavía, así que hoy el correo de
 baja sigue llegando a un buzón que nadie mira solo. Está declarado como hueco
 del §9 **a propósito**, igual que la 8.2b dejó el exportador sin botón.
+
+### Las tres defensas del «sólo lectura», y dónde vive cada una
+
+| Dónde | Qué |
+|---|---|
+| El protocolo | **`EXAMINE` y no `SELECT`**: abre el buzón en *read-only* y el servidor **rechaza** cualquier cambio. Si ARLES pidiera borrar algo, el servidor diría no |
+| El protocolo | **`BODY.PEEK[…]` y no `BODY[…]`**: la segunda forma marca el correo como leído al leerlo. Con `PEEK`, el buzón queda como estaba |
+| El validador | **Los ocho comandos que escriben no están escritos** — `STORE`, `EXPUNGE`, `APPEND`, `COPY`, `MOVE`, `DELETE`, `SELECT` y `BODY[` |
+
+El cuarto límite —no guardar el cuerpo— no cabe en el protocolo, porque hay que
+leerlo para saber si dice «BAJA». Lo que sí se puede es que **no haya dónde
+guardarlo**: la estructura se construye, se le pregunta al núcleo y se tira.
+
+**Y las dos primeras se miden desde el otro lado del cable**: el servidor de
+mentira apunta lo que el cliente le dijo, así que la prueba no comprueba que el
+lector esté bien escrito, sino lo que salió.
+
+### Cero dependencias nuevas, medido antes de decidir
+
+La única biblioteca de IMAP de Rust con uso real está en **`3.0.0-alpha.15`** y
+su TLS valida con el almacén del sistema y no con el mismo que usa el envío. Una
+dependencia alfa en el camino que **da de baja a personas** no se sostiene, y lo
+que hace falta de IMAP son cuatro comandos.
+
+`cargo tree -p arles-email -e normal` ya enseñaba `rustls 0.23.46` y
+`webpki-roots 1.0.11` **dentro de `lettre`**: ahora se nombran en el
+`Cargo.toml` en vez de recibirse de rebote. **Ni un byte más en el instalador**,
+y nada nuevo que aprobar en `cargo deny`.
+
+### El defecto que habría dejado el lector inservible
+
+Quien contesta desde Gmail manda `multipart/alternative`, así que `BODY[TEXT]`
+**no empieza donde escribió la persona**: empieza con un delimitador y las
+cabeceras de la primera parte. El núcleo mira la primera línea con algo, de modo
+que pasárselo tal cual haría que esa línea fuera **siempre el delimitador** — y
+**ni una respuesta a mano daría de baja a nadie**, con todo en verde.
+
+Lo desenvuelve el adaptador, porque saber de MIME es saber de correo y el núcleo
+no sabe de formatos de transporte (cero I/O). Límite declarado: un correo **sólo
+HTML** pierde sus etiquetas y puede salir dudoso, que es el lado seguro.
 
 **En WhatsApp no aplica, y conviene saber por qué:** ahí la baja automática **ya
 la hace Meta** —deja de entregar los mensajes de marketing a quien lo pidió y

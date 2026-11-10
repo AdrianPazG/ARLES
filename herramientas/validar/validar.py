@@ -1317,6 +1317,58 @@ def fase_1(rapido):
           detalle=f"borran campañas: {borrados or 'nadie'}"
           + (f" · sin exigir el estado: {sin_estado}" if sin_estado else ""))
 
+    # ── El lector del buzón no sabe escribir (R-25, D-21) ──
+    #
+    # Dirección autorizó el 10/11/2026 leer su buzón con cuatro límites, y el
+    # primero es sólo lectura. Dos de las defensas están en el protocolo —
+    # `EXAMINE` abre en modo *read-only* y el servidor rechaza cualquier
+    # cambio, y `BODY.PEEK` no marca nada como leído—, y las dos las comprueba
+    # una prueba desde el otro lado del cable, con el servidor de mentira.
+    #
+    # Ésta es la tercera: que **los comandos que escriben no estén escritos**.
+    # Es la que sigue valiendo el día que alguien cambie `EXAMINE` por `SELECT`
+    # sin querer, porque entonces el protocolo ya no defiende nada.
+    #
+    # EL UMBRAL SE MIDIÓ ANTES DE ESCRIBIRLA, y el resultado es la razón de
+    # usar `solo_produccion`: en el código de producción estos ocho patrones
+    # dan **0 apariciones**, y en el archivo entero dan **19** — porque la
+    # cabecera del módulo los nombra uno a uno al explicar por qué no están, y
+    # las pruebas los buscan para comprobar que no salieron por el cable. Sin
+    # quitar comentarios y pruebas, esta comprobación habría nacido con
+    # diecinueve hallazgos falsos sobre código correcto: el comentario que se
+    # caza a sí mismo, que en este proyecto va por la decimocuarta vez.
+    ruta_buzon = os.path.join(RAIZ, "crates/arles-email/src/buzon.rs")
+    escribe = []
+    if os.path.exists(ruta_buzon):
+        with open(ruta_buzon, encoding="utf-8") as f:
+            codigo_del_buzon = solo_produccion(f.read())
+        # `SELECT` entra en la lista porque es el comando que abre el buzón en
+        # lectura Y ESCRITURA: es la diferencia exacta que este tramo defiende.
+        # `BODY[` sin `PEEK` marca el correo como leído, y eso cambia el buzón
+        # de alguien sin pedir permiso.
+        for patron in (
+            r"\bSTORE\b",
+            r"\bEXPUNGE\b",
+            r"\bAPPEND\b",
+            r"\bCOPY\b",
+            r"\bMOVE\b",
+            r"\bDELETE\b",
+            r"\bSELECT\b",
+            r"BODY\[",
+        ):
+            if re.search(patron, codigo_del_buzon):
+                escribe.append(patron.replace(r"\b", "").replace("\\", ""))
+
+    check(1, "El lector del buzón no sabe escribir",
+          os.path.exists(ruta_buzon) and not escribe,
+          "Dirección autorizó leer su buzón en SÓLO LECTURA. `EXAMINE` y "
+          "`BODY.PEEK` lo defienden en el protocolo; esto defiende que nadie "
+          "escriba el comando que lo deshace. Un `BODY[` sin `PEEK` marca "
+          "como leídos los correos de otra persona, y un `STORE` o un "
+          "`EXPUNGE` le cambian el buzón.",
+          detalle=f"comandos que escriben en buzon.rs: {escribe}"
+          if escribe else "no existe crates/arles-email/src/buzon.rs")
+
     check(1, "El consentimiento es append-only y no bloquea el borrado",
           "consent_entry_sin_update" in esquema
           and "consent_entry_sin_delete" in esquema

@@ -17,7 +17,7 @@ Sin excepciones, sin modo compatibilidad, sin casilla avanzada.
 
 | Secreto | Dónde vive | Quién lo lee |
 |---|---|---|
-| Contraseña de aplicación SMTP | Llavero del SO | `arles-email` en el momento del envío |
+| Contraseña de aplicación SMTP | Llavero del SO | `arles-email` en el momento del envío **y al leer el buzón** (R-25, 10/11/2026): es la misma contraseña, y en los cinco proveedores que ARLES reconoce sirve para las dos cosas — en Gmail es el mismo código de 16 dígitos. No se pide una segunda |
 | Token OAuth de acceso (v1.2.x) | Llavero del SO | `arles-email` |
 | **Token OAuth de refresco** (v1.2.x) | Llavero del SO | `arles-email` al renovar |
 | Clave maestra de SQLCipher | Llavero del SO | `arles-db` al abrir |

@@ -30,6 +30,8 @@
 #![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 #![forbid(unsafe_code)]
 
+/// Leer el buzón del remitente para aplicar las bajas (R-25, D-21).
+pub mod buzon;
 pub mod codigos;
 /// Preguntarle al DNS por SPF, DKIM y DMARC (7.5).
 pub mod dns;
@@ -50,6 +52,14 @@ pub mod tls;
 // no hay manera de verlo mandar un correo entero.
 #[cfg(any(test, feature = "test-util"))]
 pub mod servidor_cifrado;
+
+/// El servidor IMAP de mentira, para probar el lector del buzón sin un buzón.
+///
+/// Fuera del programa que se entrega por lo mismo que el de SMTP: genera
+/// certificados con `rcgen`, y eso en un instalador es superficie de ataque a
+/// cambio de nada.
+#[cfg(any(test, feature = "test-util"))]
+pub mod servidor_imap;
 
 pub use codigos::{RespuestaSmtp, leer_linea, traducir};
 pub use error::ErrorDeCorreo;

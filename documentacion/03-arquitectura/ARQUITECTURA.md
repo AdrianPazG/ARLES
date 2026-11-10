@@ -49,7 +49,7 @@ Workspace de Cargo. Las dependencias **sólo apuntan hacia dentro**: un crate de
 | `arles-contacts` | Contactos, listas, etiquetas, campos, filtros | `core`, `db` |
 | `arles-import` | Lectura XLSX/CSV, detección, mapeo, validación, deduplicación | `core`, `db`, `contacts` |
 | `arles-suppression` | Lista de supresión. **Autoridad final sobre si un envío procede** | `core`, `db` |
-| `arles-email` | Trait `EmailProvider` + `SmtpProvider` | `core` |
+| `arles-email` | Trait `EmailProvider` + `SmtpProvider`, y el **lector del buzón** (`buzon.rs`, R-25): habla IMAP en sólo lectura para aplicar las bajas que llegan contestando | `core` |
 | `arles-template` | Sustitución de variables, sanitizado HTML | `core` |
 | `arles-campaign` | Campañas, audiencias, simulador, preflight | `core`, `db`, `contacts`, `suppression`, `template` |
 | `arles-engine` | Cola, planificador, workers, throttling, reintentos, disyuntor | `core`, `db`, `email`, `suppression`, `template` |
