@@ -923,11 +923,35 @@ olvido.
    que el camino automático tiene que fallar del lado de **no dar de baja** y
    dejarlo propuesto, nunca al contrario.
 
+> **Decidido el 10/11/2026: la A, y es D-21.** Dirección lo pidió con estas
+> palabras: *«Necesito que sea posible darse de baja de manera automatica, busca
+> una alternativa mas sencilla para el administrador de la aplicacion y para el
+> usuario»*. El quinto origen y su migración —la **V17**— y la regla de qué
+> cuenta como una baja están construidos; el lector, no.
+>
+> **Y el límite 1 de esta recomendación tiene un defecto, visto al construirla.**
+> Dice «sólo las respuestas a correos que ARLES mandó, reconocidas por
+> `In-Reply-To`». Eso es correcto para quien contesta a mano, e **imposible para
+> el botón de cancelar suscripción**: el `mailto:` de la cabecera
+> `List-Unsubscribe` abre un **correo nuevo** con el asunto que ARLES pidió, no
+> una respuesta, así que no lleva `In-Reply-To` y el límite 1 descartaría
+> precisamente el camino **más sencillo para el usuario** — el que esta petición
+> venía a conseguir.
+>
+> La regla que sí cubre los dos: se acepta un correo cuando es respuesta a un
+> envío de ARLES **o** cuando su asunto es exactamente la palabra que ARLES
+> pidió en su propia cabecera. En los dos casos, la dirección que se da de baja
+> es la del remitente del correo entrante y nunca una del texto.
+>
+> Los otros tres límites se mantienen tal cual, y el 3 es el que se construyó
+> primero: `Veredicto` tiene **tres** valores, no dos.
+
 **Lo que esto necesita en el código**, medido el 23/10/2026:
 
-- Un **quinto origen** en `OrigenDeSupresion` —hoy son `smtp_5xx`, `user`,
-  `import`, `whatsapp_webhook`— y por tanto **una migración**, porque el
-  `CHECK` de la V3 los limita.
+- Un **quinto origen** en `OrigenDeSupresion` —entonces eran `smtp_5xx`,
+  `user`, `import`, `whatsapp_webhook`— y por tanto **una migración**, porque el
+  `CHECK` de la V3 los limita. ✅ Hecho el 10/11/2026: `email_unsubscribe` y la
+  **V17**.
 - `message_attempt` tendría que guardar el `Message-ID` que el proveedor
   devolvió, para poder emparejar la respuesta. Hoy guarda el del proveedor en
   `provider_message_id`: hay que comprobar si sirve.

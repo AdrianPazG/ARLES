@@ -222,8 +222,9 @@ impl Variable {
 pub fn frase_de_baja(remitente: &str) -> String {
     format!(
         "Si no quieres recibir más correos nuestros, responde a este mensaje \
-         con la palabra BAJA y te quitamos de la lista. También puedes \
+         con la palabra {} y te quitamos de la lista. También puedes \
          escribirnos a {}.",
+        crate::baja_por_correo::PALABRA,
         crate::sanear::escapar_para_html(remitente)
     )
 }

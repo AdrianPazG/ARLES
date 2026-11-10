@@ -181,16 +181,29 @@ pub enum OrigenDeSupresion {
     /// Lo avisó Meta por el canal de WhatsApp.
     #[serde(rename = "whatsapp_webhook")]
     AvisoDeWhatsApp,
+    /// **Lo pidió quien recibe el correo, contestando** (R-25): el botón de
+    /// cancelar suscripción de su cliente, o la palabra `BAJA` de vuelta.
+    ///
+    /// Separado de `Usuario` a propósito, aunque habría ahorrado la V17. Son
+    /// dos manos distintas —una la de quien usa ARLES, otra la de quien recibe
+    /// el correo— y meterlas en la misma variante es diagnosticar con la
+    /// etiqueta de otro: el defecto que DOC-14 dejó escrito el 03/11/2026. El
+    /// día que haya que defender por qué una dirección está en la lista, la
+    /// respuesta «la apuntó alguien de la empresa» y «la pidió ella» no valen
+    /// lo mismo.
+    #[serde(rename = "email_unsubscribe")]
+    PeticionPorCorreo,
 }
 
 impl OrigenDeSupresion {
-    /// Contrato con la `CHECK` de la V3.
+    /// Contrato con la `CHECK` de la V17 (antes la V3).
     pub const fn como_texto(self) -> &'static str {
         match self {
             Self::RespuestaSmtp => "smtp_5xx",
             Self::Usuario => "user",
             Self::Importacion => "import",
             Self::AvisoDeWhatsApp => "whatsapp_webhook",
+            Self::PeticionPorCorreo => "email_unsubscribe",
         }
     }
 
@@ -199,6 +212,7 @@ impl OrigenDeSupresion {
         Self::Usuario,
         Self::Importacion,
         Self::AvisoDeWhatsApp,
+        Self::PeticionPorCorreo,
     ];
 
     /// Lee lo que hay guardado en la base.

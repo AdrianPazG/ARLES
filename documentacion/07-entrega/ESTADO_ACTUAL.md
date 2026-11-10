@@ -407,7 +407,7 @@ que esperan la firma) y el 6, que es una medición que **aquí no se puede hacer
 | **1** | ~~Sacar la activación de campañas al hilo del motor~~ **cerrado el 03/11/2026, y no haciendo eso: mover el trabajo de hilo no suelta el cerrojo de escritura.** Medido: con una escritura de 800 ms en curso, una lectura por la conexión de lectura contesta en **0 ms** y por la de escritura en **650**. Lo que congela las pantallas durante una activación de 75 s no es en qué hilo corre, es que la lectura comparta conexión — así que lo que lo arregla es **terminar ADR-0015**, y van **17 de 24** lecturas de pantalla movidas, con las **7 que no pueden** marcadas con su motivo. Lo vigila `toda_lectura_de_pantalla_va_por_su_conexion` | Auditoría C · cerrado 03/11 |
 | **2** | ~~El filtro de la lista de contactos~~ **cerrado el 03/11/2026**: cuatro criterios combinables —nombre/apellido/empresa, dirección completa, canal, y si tiene alguna baja—. La dirección es **gratis** (0.2 ms, y no crece), el texto cuesta **2.6 s** con 455 470 contactos y así está declarado. Y encontró dos defectos reales: un índice usado **del lado inútil** (609 ms contra 0.0 con el mismo índice en el plan) y que buscar «TÉLLEZ» no encontraba a Téllez. **El tercer «hallazgo» de esa tarde —que la lectora es 12× más lenta— se retiró el mismo día: no se reproduce** (§8) | Auditoría C · cerrado 03/11 |
 | **3** | ~~El mensaje de «fallo al migrar el esquema»~~ **cerrado el 03/11/2026, y este renglón llevaba tres semanas desfasado**: el del arranque se arregló el 14/10 y cumple el §95 con la ruta dentro. Lo que de verdad quedaba era otro, y peor — el texto del catálogo afirmaba que **se había hecho una copia de la base**, y no hay ninguna. Ver el registro de requisitos, H-14 | 08/10/2026 · cerrado 03/11 |
-| **4** | **Instaladores, firma, notarización y updater.** El `CHANGELOG.md` **existe y está al día** desde el 03/11: le faltaban once días —veintinueve commits— y seis de las dieciséis migraciones no aparecían en ninguna línea. Lo que queda de él es cortar la sección `[1.2.0]`, que no se puede hacer antes de publicar | ROADMAP Fase 9 |
+| **4** | **Instaladores, firma, notarización y updater.** El `CHANGELOG.md` **existe y está al día** desde el 03/11: le faltaban once días —veintinueve commits— y, de las dieciséis migraciones que había el 03/11/2026, seis no aparecían en ninguna línea. Lo que queda de él es cortar la sección `[1.2.0]`, que no se puede hacer antes de publicar | ROADMAP Fase 9 |
 | **5** | ~~Restaurar un respaldo de un esquema anterior~~ **cerrado el 04/11/2026**: ARLES lo **pone al día** levantando una base desechable en la versión del respaldo, metiéndole sus filas y corriéndole las migraciones que faltan — el mismo SQL que recorrió la base de quien actualizó. **Donde más importa es en la recuperación de un llavero perdido**, donde no hay otra salida. Medido: poner al día 1 134–1 255 ms y restaurar 1 117–1 671 con 30 000 contactos, contra 1 410 ms directo (`PRESUPUESTO_RENDIMIENTO.md` §9). Sigue sin poderse uno de una versión **posterior**, y ese error manda a actualizar ARLES | 8.3b · cerrado 04/11 |
 | **6** | **Medir la diferencia entre las dos conexiones en una máquina donde se pueda.** Aquí no: cinco corridas del mismo experimento dieron la lectora 12× más lenta, 10× más rápida, 11× más rápida, 11× más rápida y 11× más lenta — el signo cambió al añadir dos `count(*)` que no debían influir. Lo que domina es la caché, no la conexión. Descartados midiéndolos el `ESCAPE`, el recuento, los pragmas y que la lectora viera datos distintos. El experimento se queda: `banco lectora <n>`. Está en `PRESUPUESTO_RENDIMIENTO.md` §8 | **nuevo** · lo abrió y lo cerró R-26 |
 | — | **Puerta P-01** (D-5): antes del primer instalador que se enseñe fuera del equipo, se vuelve a plantear la licencia de Mont. Plan B listo: una línea en `--arles-font-family` | ROADMAP Fase 9 |
@@ -835,3 +835,96 @@ con los datos de un contacto de la lista a la que va la campaña.
 > buscaba `{{` tal cual, cuando en una expresión regular las llaves van
 > escapadas: la ruptura salió en verde con la sustitución puesta. Las dos las
 > cazó romperlas.
+
+---
+
+## 17. R-25 · la baja por correo se va a aplicar sola · 10/11/2026
+
+Dirección lo pidió con estas palabras: *«Necesito que sea posible darse de baja
+de manera automatica, busca una alternativa mas sencilla para el administrador
+de la aplicacion y para el usuario»*. Es **D-21** en el registro, y la
+alternativa elegida no monta ningún servidor: **ARLES lee el buzón del
+remitente, sólo lectura.**
+
+**Lo que está hecho:** la regla —`arles_core::baja_por_correo`, que decide qué
+cuenta como una baja— y la migración **V17**, que permite guardarla con el
+origen que la distingue de la que alguien apunta a mano.
+
+**Lo que no:** el lector del buzón y el cable que lo llama. Hoy el correo de
+baja sigue llegando a un buzón que nadie mira solo, y se apunta a mano en
+Contactos › Bajas. Está declarado como hueco del §9 **a propósito**, igual que
+la 8.2b dejó el exportador sin botón: el lector es el tramo siguiente, y su
+comprobación de llamador se escribe **antes** de escribirlo, para verla en rojo.
+
+### La mitad estaba construida, y nadie lo sabía
+
+ARLES manda desde el **19/10/2026** la cabecera `List-Unsubscribe` en cada
+campaña —lo que permite a Gmail y a Outlook enseñar su propio botón de cancelar
+suscripción— y la frase del cuerpo que el preflight exige. Las dos acaban en lo
+mismo: **un correo al buzón de quien envía.** Lo que faltaba no era darle una
+salida a nadie; era mirar ese buzón.
+
+Por eso la alternativa es sencilla para los dos lados: para quien recibe el
+correo **no cambia nada** —el mismo clic que ya tiene— y para quien administra
+ARLES no hay servidor, ni dominio, ni certificados, ni **ninguna credencial
+nueva**: la contraseña de aplicación que ya está en el llavero para enviar sirve
+para leer, y el servidor de lectura se deduce del dominio igual que
+`PROVEEDORES` deduce hoy el de envío.
+
+### Tres veredictos y no dos
+
+Un `bool` obliga a elegir entre dos males: dar de baja a quien escribe *«no
+quiero darme de baja, me encanta lo que mandan»* —la frase lleva las palabras
+dentro— o perder a quien escribe *«quítame de la lista, por favor»*, que es lo
+que escribe quien no está leyendo instrucciones. Los dos errores son caros y no
+son simétricos. Así que **lo inequívoco se aplica solo y lo demás lo mira una
+persona**, que es la decisión que Dirección tomó el 18/09/2026 con los choques
+de una importación: enseñar antes de hacer algo que no tiene vuelta.
+
+Tres cosas más que no se pueden hacer mal, y están en el tipo y no en un aviso:
+
+1. **La dirección que se da de baja es la de quien escribió**, nunca una del
+   texto. `Veredicto` no lleva ninguna dirección dentro, así que no hay forma de
+   usar la del cuerpo por descuido: mandar «BAJA juan@empresa.mx» te da de baja
+   a ti.
+2. **Lo automático no es nada, y va primero.** Un «estoy de baja por maternidad
+   hasta marzo» lleva la palabra dentro, y dar de baja a alguien por su mensaje
+   de ausencia es el peor error posible: nunca pidió nada.
+3. **Sólo se mira la primera línea del cuerpo.** Una respuesta arrastra la
+   campaña citada debajo, y la campaña lleva la frase de baja dentro — con la
+   palabra. Mirando el cuerpo entero, **toda respuesta saldría dudosa**.
+
+### Lo que encontró verificar antes de construir
+
+Dos frases del comentario de la cabecera afirmaban más de lo que Google
+sostiene, y es **DOC-23**: que un correo sin ella «entra con una penalización de
+salida» —Google no publica eso— y que el `mailto` «es válido y **cuenta**»,
+cuando Google dice que seguirá soportándolo pero que **no cumple** su requisito
+de baja de un clic. Y dos cosas que faltaban: ese requisito es para quien manda
+unos **5 000 diarios** a Gmail —ARLES manda entre 50 y 300—, y **el botón no
+está garantizado**, porque Google lo enseña sólo a los correos que pasan sus
+comprobaciones. Por eso la frase del cuerpo no es redundante con la cabecera:
+**es la salida que no depende de nadie.**
+
+### Y una prueba mía que no probaba nada
+
+La que vigila que la V17 no pierda ninguna baja al recrear la tabla arrancaba
+con `base_de_prueba()`, que llama a `abrir()` — y `abrir()` **ya migra hasta el
+final**. Así que el `aplicar_hasta(…, 16)` siguiente no hacía nada, las filas se
+sembraban en la tabla **ya recreada**, y el `INSERT … SELECT` de la migración
+corría sobre una tabla vacía. Salió en verde con la migración rota de tres
+formas, **incluida no copiar nada**.
+
+Lo que hacía falta existía y tenía el defecto escrito en su propio comentario:
+`abrir_crudo`, «sólo la usan las pruebas de migración… Sin esto, una migración
+únicamente se ve correr sobre una base recién creada». **Medir en un sitio donde
+la respuesta no cuenta**, otra vez, y van catorce. Verificada después con las
+seis rupturas, las seis en rojo.
+
+### En WhatsApp no aplica, y conviene saber por qué
+
+Ahí la baja automática **ya la hace Meta**: deja de entregar los mensajes de
+marketing a quien lo pidió y contesta el código `131050`. Lo que falta es que
+ARLES se entere para no seguir intentándolo, y eso llega por un webhook de
+estado que necesita el relay ciego —decidido el 29/09/2026 y no construido—. El
+canal está detrás de **META** de todas formas.

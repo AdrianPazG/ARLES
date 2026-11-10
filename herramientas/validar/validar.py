@@ -3360,6 +3360,13 @@ MIGRACIONES_PUBLICADAS = {
     # D-WA, 26/10/2026: el canal de WhatsApp entra en la v1.2.0.
     "V16__plantilla_de_whatsapp_en_la_etapa.sql":
         "2ec028153e673de8c73c00092cf356257d6b278298c87ce4bfed2cbc32f7f9f0",
+    # R-25 y D-21, 10/11/2026: una baja puede venir de quien recibe el correo,
+    # así que `suppression_entry.origin` admite un quinto valor. Recrea la
+    # tabla —SQLite no sabe ampliar un `CHECK`— y es la tabla que no se puede
+    # romper, así que la copia va por nombre de columna y hay una prueba que
+    # puebla en la V16 y compara fila a fila después.
+    "V17__baja_pedida_por_correo.sql":
+        "9e97148ed77a39de73bbd80af73c2ec700e174a60bf6fd6ed61a8e760099cd0c",
 }
 
 

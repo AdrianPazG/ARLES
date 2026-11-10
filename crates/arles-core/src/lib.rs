@@ -16,6 +16,7 @@
 pub mod analisis;
 pub mod arco;
 pub mod attempt;
+pub mod baja_por_correo;
 pub mod campana;
 pub mod canal;
 pub mod cancelacion;

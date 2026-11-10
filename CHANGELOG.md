@@ -14,7 +14,7 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ### Migraciones del esquema
 
-Dieciséis, y están todas aquí porque **un respaldo `.arles` tomado antes de una
+Diecisiete, y están todas aquí porque **un respaldo `.arles` tomado antes de una
 migración se restaura pasando sus datos por las que faltan**: esta tabla dice
 exactamente por dónde pasan.
 
@@ -46,6 +46,7 @@ exactamente por dónde pasan.
 | **V14** | A quién va dirigida una campaña (D-15) |
 | **V15** | El descanso entre campañas (D-16) |
 | **V16** | Qué plantilla de Meta manda una etapa de WhatsApp (D-WA) |
+| **V17** | Una baja puede venir de quien recibe el correo, y no sólo de dentro (R-25) |
 
 > **Esta tabla nació de una comprobación que faltaba, y lo primero que hizo fue
 > cazar seis huecos.** El formato que el propio proyecto exige
@@ -72,6 +73,107 @@ exactamente por dónde pasan.
 > Ahora exige una **fila de la tabla**, que es lo único que no se escribe de
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
+
+### Qué cuenta como una baja pedida por correo
+
+**10/11/2026.** R-25, decidido por Dirección ese día con estas palabras:
+*«Necesito que sea posible darse de baja de manera automatica, busca una
+alternativa mas sencilla para el administrador de la aplicacion y para el
+usuario»*. De las dos opciones abiertas desde el 23/10 —leer el buzón del
+remitente, o montar un servidor con enlace de un clic— se eligió la primera:
+**no pide servidor, ni dominio, ni credenciales nuevas.**
+
+Este tramo es **la regla**: `arles_core::baja_por_correo` decide qué cuenta
+como una baja, y la migración **V17** permite guardarla con el origen que la
+distingue. **El lector del buzón todavía no existe**, así que hoy el correo de
+baja sigue llegando a un buzón que nadie mira solo.
+
+> **La mitad de esto ya estaba construida, y es por lo que el módulo es corto.**
+> ARLES manda desde el 19/10/2026 la cabecera `List-Unsubscribe` en cada
+> campaña —lo que permite a Gmail y a Outlook enseñar su propio botón de
+> cancelar suscripción— y la frase del cuerpo que el preflight exige. Las dos
+> acaban en un correo al buzón de quien envía. Lo que faltaba no era darle una
+> salida a nadie: era mirar ese buzón.
+
+> **Tres veredictos y no dos, y es la decisión del tramo.** Un `bool` obliga a
+> elegir entre dar de baja a quien escribe *«no quiero darme de baja, me
+> encanta lo que mandan»* —la frase lleva las palabras dentro— o perder a quien
+> escribe *«quítame de la lista, por favor»*, que es lo que escribe quien no
+> está leyendo instrucciones. Así que **lo inequívoco se aplica solo y lo demás
+> lo mira una persona**, que es la decisión que Dirección tomó el 18/09/2026
+> con los choques de una importación.
+
+> **La dirección que se da de baja es la de quien escribió, nunca una del
+> texto.** Si ARLES leyera la dirección del cuerpo, cualquiera podría mandar
+> «BAJA juan@empresa.mx» y dar de baja a Juan — o, con un archivo pegado, a la
+> lista entera. `Veredicto` **no lleva ninguna dirección dentro**: la garantía
+> es del tipo, no de una comprobación que alguien tenga que acordarse de hacer.
+
+> **Lo automático va antes que todo lo demás.** Un «estoy de baja por
+> maternidad hasta marzo» lleva la palabra dentro, y dar de baja a alguien por
+> su mensaje de ausencia es el peor error de los dos posibles: nunca pidió
+> nada. Verificado quitando esa rama, con el aviso automático llevando el
+> asunto exacto.
+
+> **Sólo se mira la primera línea del cuerpo, y no es por ahorrar.** Una
+> respuesta arrastra el correo original citado debajo, y ese correo lleva la
+> frase de baja dentro — con la palabra. Mirando el cuerpo entero, **toda
+> respuesta a una campaña saldría dudosa** y la bandeja de lo que hay que mirar
+> a mano sería la bandeja de todo.
+
+> **La palabra pasa de estar escrita tres veces a estar escrita una.** La
+> pedían la frase del cuerpo, el `subject` de la cabecera y el lector, cada una
+> con su literal. El día que una cambiara, las otras dos seguirían pidiendo lo
+> de antes y **nada fallaría**: el botón de cancelar suscripción seguiría
+> funcionando para quien lo pulsa y su baja se quedaría en la bandeja de lo
+> dudoso para siempre. Ahora sale de `baja_por_correo::PALABRA`, y la prueba
+> que de verdad lo cubre es la de `arles-email` —la única que ve las dos
+> puntas—: coge el asunto **de la cabecera que salió por el cable** y comprueba
+> que el núcleo lo lee como una baja.
+
+> **Un origen nuevo en vez de reutilizar `user`, que habría ahorrado la
+> migración.** `user` significa «lo hizo una persona desde ARLES»; esto lo hizo
+> quien recibe el correo, desde su bandeja. Guardarlas con la misma etiqueta es
+> diagnosticar con la variante de otro —el defecto DOC-14 del 03/11/2026—, y el
+> día que haya que defender por qué una dirección está en la lista, «la apuntó
+> alguien de la empresa» y «la pidió ella misma» no valen lo mismo.
+
+> **La V17 recrea `suppression_entry`, que es la tabla que no se puede
+> romper.** SQLite no sabe ampliar un `CHECK`. Está medido y no supuesto que
+> ninguna tabla la nombra en un `REFERENCES`, así que el `DROP TABLE` no
+> arrastra a nadie — el fallo F1, que ha vuelto cuatro veces, necesita una
+> tabla padre. Las columnas se copian **por nombre y no por posición**.
+
+> **Y la prueba que vigila esa copia no probaba nada en su primera versión.**
+> Arrancaba con `base_de_prueba()`, que llama a `abrir()` — y `abrir()` ya
+> migra hasta el final. Así que el `aplicar_hasta(…, 16)` siguiente no hacía
+> nada, las filas se sembraban en la tabla **ya recreada**, y el
+> `INSERT … SELECT` de la migración corría sobre una tabla vacía: salió en
+> verde con la migración rota de tres formas —cruzando dos columnas, dejando
+> una fuera, y **sin copiar nada**—.
+>
+> Lo que hacía falta existía, y tenía el defecto escrito en su propio
+> comentario desde que se escribió: `abrir_crudo`, «sólo la usan las pruebas de
+> migración… Sin esto, una migración únicamente se ve correr sobre una base
+> recién creada». **Medir en un sitio donde la respuesta no cuenta**, otra vez,
+> y van catorce. Verificada después con las seis rupturas, las seis en rojo.
+
+> **Dos frases de un comentario afirmaban más de lo que Google sostiene**, y se
+> corrigieron al verificarlas. Decía que un correo comercial sin la cabecera
+> «entra con una penalización de salida, y ninguna otra cosa que hagamos la
+> compensa» —Google no publica eso— y que el `mailto` «es válido y **cuenta**»,
+> cuando Google dice que **seguirá soportándolo pero que no cumple su requisito
+> de baja de un clic**. Lo que sí se sostiene y no estaba dicho: ese requisito
+> es para quien manda unos **5 000 diarios** a cuentas de Gmail y ARLES manda
+> entre 50 y 300, y **el botón no está garantizado** — Google lo enseña sólo a
+> los correos que pasan sus comprobaciones. Por eso la frase del cuerpo no es
+> redundante con la cabecera: es la salida que no depende de nadie.
+
+> **Lo que este tramo NO hace, dicho en vez de darse por hecho:** `leer()` no
+> tiene todavía ningún llamador de producción. Es el hueco del §9 **declarado a
+> propósito**, igual que la 8.2b dejó el exportador sin botón: el lector es el
+> tramo siguiente, y su comprobación de llamador se escribe **antes** de
+> escribirlo, para verla en rojo.
 
 ### El paso 4 enseña cómo va a quedar el correo
 

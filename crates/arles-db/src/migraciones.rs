@@ -783,6 +783,189 @@ mod tests {
         assert_eq!(tiene_etapa, 1, "la V13 añade `stage_id` a `rate_budget`");
     }
 
+    /// ── LA V17 RECREA LA TABLA MÁS DELICADA DEL PRODUCTO ──────────────────
+    ///
+    /// Ampliar un `CHECK` en SQLite obliga a recrear la tabla, y la que se
+    /// recrea es `suppression_entry`: «escribirle a alguien que pidió que no le
+    /// escribieran no tiene arreglo». Una fila que se pierda aquí no da ningún
+    /// error — da un correo a quien dijo que no, meses después.
+    ///
+    /// Así que se puebla con el esquema **anterior** y se comprueba fila a
+    /// fila después de migrar. Las columnas se comparan por nombre y no por
+    /// posición, que es lo que distingue esta prueba de contar filas: un
+    /// `INSERT … SELECT` con dos columnas cruzadas conserva el recuento y
+    /// cambia los datos.
+    ///
+    /// ── Y LA PRIMERA VERSIÓN DE ESTA PRUEBA NO PROBABA NADA ───────────────
+    ///
+    /// Arrancaba con `base_de_prueba()`, que llama a `abrir()` — y `abrir()`
+    /// **ya migra hasta el final**. Así que el `aplicar_hasta(…, 16)` de
+    /// después no hacía nada, las filas se sembraban en la tabla **ya
+    /// recreada**, y el `INSERT … SELECT` de la V17 corría sobre una tabla
+    /// vacía: el camino que esta prueba existe para vigilar no se ejercitaba.
+    ///
+    /// Salió en verde con la migración rota de tres formas distintas —cruzando
+    /// `reason` y `origin`, dejando una columna fuera, y **sin copiar nada**—,
+    /// y el comentario de aquí afirmaba estar verificada con esas tres. Medir
+    /// en un sitio donde la respuesta no cuenta, otra vez.
+    ///
+    /// Lo que hacía falta existía y tiene el defecto escrito en su propio
+    /// comentario desde que se escribió: `abrir_crudo`, «sólo la usan las
+    /// pruebas de migración, que necesitan parar el esquema en una versión
+    /// anterior… Sin esto, una migración únicamente se ve correr sobre una base
+    /// recién creada».
+    ///
+    /// Verificada ahora con las seis rupturas, las seis en rojo: las tres de
+    /// arriba, el índice único que no vuelve, el origen nuevo fuera del
+    /// `CHECK`, y el `CHECK` dejado abierto.
+    #[test]
+    fn la_v17_conserva_las_bajas_que_ya_estaban() {
+        let dir = tempfile::tempdir().expect("directorio temporal");
+        let clave = ClaveMaestra::generar().expect("genera");
+        let mut conn = crate::conexion::abrir_crudo(&dir.path().join("v16.db"), &clave)
+            .expect("abre sin migrar");
+        aplicar_hasta(&mut conn, 16).expect("hasta la V16");
+
+        // En la V16 el origen `email_unsubscribe` todavía no es válido, así
+        // que se siembra con los que había.
+        conn.execute(
+            "INSERT INTO company (id, commercial_name, country, timezone,
+                                  corporate_email, created_at, updated_at)
+             VALUES ('emp-1', 'TELEMETRY', 'MX', 'America/Mexico_City',
+                     'hola@t.mx', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+            [],
+        )
+        .expect("empresa");
+        let sembradas = [
+            ("sup-1", "email", "ana@ejemplo.mx", "unsubscribe", "user"),
+            (
+                "sup-2",
+                "email",
+                "beto@ejemplo.mx",
+                "hard_bounce",
+                "smtp_5xx",
+            ),
+            (
+                "sup-3",
+                "whatsapp",
+                "+5215550001111",
+                "complaint",
+                "whatsapp_webhook",
+            ),
+        ];
+        for (id, canal, dir, motivo, origen) in sembradas {
+            conn.execute(
+                "INSERT INTO suppression_entry
+                   (id, company_id, channel, address_normalized, scope,
+                    request_id, reason, origin, notes, created_at, created_by)
+                 VALUES (?1, 'emp-1', ?2, ?3, 'channel', 'pet-1', ?4, ?5,
+                         'una nota', '2026-02-02T00:00:00Z', 'quien-sea')",
+                rusqlite::params![id, canal, dir, motivo, origen],
+            )
+            .expect("siembra una baja");
+        }
+
+        aplicar(&mut conn).expect("y ahora la V17");
+
+        // Las tres siguen, con sus datos en su columna.
+        for (id, canal, dir, motivo, origen) in sembradas {
+            let (c, d, m, o, notas, creada, quien): (
+                String,
+                String,
+                String,
+                String,
+                Option<String>,
+                String,
+                Option<String>,
+            ) = conn
+                .query_row(
+                    "SELECT channel, address_normalized, reason, origin, notes,
+                            created_at, created_by
+                       FROM suppression_entry WHERE id = ?1",
+                    [id],
+                    |f| {
+                        Ok((
+                            f.get(0)?,
+                            f.get(1)?,
+                            f.get(2)?,
+                            f.get(3)?,
+                            f.get(4)?,
+                            f.get(5)?,
+                            f.get(6)?,
+                        ))
+                    },
+                )
+                .unwrap_or_else(|e| panic!("la baja {id} no sobrevivió a la V17: {e}"));
+            assert_eq!((c.as_str(), d.as_str()), (canal, dir), "baja {id}");
+            assert_eq!((m.as_str(), o.as_str()), (motivo, origen), "baja {id}");
+            assert_eq!(notas.as_deref(), Some("una nota"), "baja {id}");
+            assert_eq!(creada, "2026-02-02T00:00:00Z", "baja {id}");
+            assert_eq!(quien.as_deref(), Some("quien-sea"), "baja {id}");
+        }
+
+        // Y el índice único vuelve, que es lo único que impide duplicar una
+        // baja. Se va con la tabla al recrearla, así que hay que volver a
+        // crearlo — y olvidarlo no rompería ninguna otra prueba.
+        let repetida = conn.execute(
+            "INSERT INTO suppression_entry
+               (id, company_id, channel, address_normalized, scope,
+                reason, origin, created_at)
+             VALUES ('sup-9', 'emp-1', 'email', 'ana@ejemplo.mx', 'channel',
+                     'unsubscribe', 'user', '2026-03-03T00:00:00Z')",
+            [],
+        );
+        assert!(
+            repetida.is_err(),
+            "el índice único de la supresión no volvió tras recrear la tabla"
+        );
+    }
+
+    /// El origen que la V17 viene a permitir, medido en vez de supuesto.
+    ///
+    /// El `CHECK` es una cadena dentro de un `.sql`: nada avisa de que la
+    /// migración lo escribió mal hasta que alguien intenta guardar una baja de
+    /// verdad, y eso pasaría **en producción, al aplicar la primera**.
+    #[test]
+    fn la_v17_acepta_una_baja_pedida_por_correo() {
+        let (_d, mut conn) = base_de_prueba();
+        aplicar(&mut conn).expect("migra");
+        conn.execute(
+            "INSERT INTO company (id, commercial_name, country, timezone,
+                                  corporate_email, created_at, updated_at)
+             VALUES ('emp-1', 'TELEMETRY', 'MX', 'America/Mexico_City',
+                     'hola@t.mx', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+            [],
+        )
+        .expect("empresa");
+
+        let origen = arles_core::supresion::OrigenDeSupresion::PeticionPorCorreo.como_texto();
+        conn.execute(
+            "INSERT INTO suppression_entry
+               (id, company_id, channel, address_normalized, scope,
+                reason, origin, created_at)
+             VALUES ('sup-1', 'emp-1', 'email', 'ana@ejemplo.mx', 'channel',
+                     'unsubscribe', ?1, '2026-02-02T00:00:00Z')",
+            [origen],
+        )
+        .unwrap_or_else(|e| panic!("el CHECK de la V17 no acepta «{origen}»: {e}"));
+
+        // Y lo que no es uno de los cinco se sigue rechazando: ampliar el
+        // `CHECK` no es quitarlo. Sin esta mitad, la migración podría haber
+        // dejado la columna libre y la prueba de arriba pasaría igual.
+        let inventado = conn.execute(
+            "INSERT INTO suppression_entry
+               (id, company_id, channel, address_normalized, scope,
+                reason, origin, created_at)
+             VALUES ('sup-2', 'emp-1', 'email', 'beto@ejemplo.mx', 'channel',
+                     'unsubscribe', 'lo_que_sea', '2026-02-02T00:00:00Z')",
+            [],
+        );
+        assert!(
+            inventado.is_err(),
+            "el CHECK del origen se quedó abierto: acepta cualquier cosa"
+        );
+    }
+
     #[test]
     fn aplicar_dos_veces_es_idempotente() {
         let (_d, mut conn) = base_de_prueba();

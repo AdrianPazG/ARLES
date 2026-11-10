@@ -70,7 +70,7 @@ plazo externo que no se comprime.
 | Id | Qué | Planteado | Estado |
 |---|---|---|---|
 | **R-05** | Imagen en la firma | Embebida dispara filtros de spam y engorda cada correo; alojada hay que alojarla, y el saneado tendría que admitir `<img>` | espera decisión |
-| **R-25** | Baja automática por correo | La recomendación es IMAP: leer la bandeja y dar de baja a quien responda BAJA | espera decisión |
+| ~~**R-25**~~ | ~~Baja automática por correo~~ | **Decidido el 10/11/2026: ARLES lee el buzón del remitente, sólo lectura.** Ver abajo | en construcción |
 | **D-19** | ¿El registro tiene que dar el total exacto? | C-2 midió que **el único cambio que baja el tiempo del filtro es dejar de contar todas las coincidencias**: traer las 500 filas cuesta la mitad. Pero el total al lado es D-7C, y se pidió para que el tope no escondiera nada. Las opciones y las cifras, abajo | espera decisión |
 | **Fase 9** | Sacar la activación al hilo del motor | Activar tarda ~73 s con 451 196 destinatarios y el presupuesto de 2 s se rompe **alrededor de los 30 000**. Desde el 28/10 la ventana **sí responde**, dice en qué va y se puede cancelar; lo que queda es que no corra dentro de un comando | abierto · medido en la auditoría C |
 
@@ -97,6 +97,7 @@ Dirección lo pida.
 | **D-18** | 28/10/2026 | **[ADR-0015](../03-arquitectura/adr/0015-un-escritor-y-lectores-separados.md) aceptado.** Un escritor con cerrojo y lectores en conexión aparte. El **hilo dedicado con canal de ADR-0002 queda descartado por escrito**, no pendiente: su premisa era Tokio y este proyecto no lo usa. La conexión de lectura queda **programada**, y no empieza hasta medir el crecimiento del `-wal` |
 | **DMARC** | 27/10/2026 | El DMARC se queda en `p=none` **dos o tres semanas** leyendo informes, y después se sube `pct=25` → 50 → 100. Saltar a `quarantine` manda correo legítimo a spam **en silencio**: sin rebote, sin error y sin aviso |
 | **Baja en WhatsApp** | 27/10/2026 | **No se exige** que la plantilla lleve la salida escrita, porque ARLES no podría atenderla: no recibe los mensajes y no lee su texto (D-7A). Se avisa **a mano** en Contactos › Bajas, y se dice con esas palabras en la pantalla, la guía y el manual |
+| **D-21** | 10/11/2026 | **La baja por correo se aplica sola, leyendo el buzón del remitente** (R-25). Sólo lectura: no borra, no marca, no mueve, se queda sólo con la dirección de quien escribió y nunca con el cuerpo. Se descarta el servidor con enlace de un clic — pide dominio, HTTPS y alguien que lo mantenga. Ver abajo |
 
 ---
 
@@ -128,6 +129,68 @@ Dirección lo pida.
 | **H-24** | **«Un punto sin comprobar impide activar» se decía siempre**, y es verdad de siete de los ocho: el de SPF, DKIM y DMARC no bloquea (§154). Con todo en verde menos ése, la pantalla contradecía a su propio botón — y el texto que explica ese punto llevaba desde la Fase 6 en el catálogo **sin llamador** | ✅ 05/11/2026 · la nota sale cuando el preflight bloquea de verdad, y lo decide el resultado que manda Rust |
 | **R-29** | **No se podía ver cómo queda el correo antes de elegir la plantilla.** El paso 4 enseñaba el asunto con sus `{{variables}}` sin rellenar y una lista de qué datos lleva, que es lo que el motor sustituye — no lo que se lee | ✅ 05/11/2026 · el asunto rellenado y el cuerpo con su firma, **con los datos de un contacto de la lista**, dentro de un `iframe` aislado. Lo redacta `arles_core::plantilla::redactar`, la misma función que el motor |
 | **H-21** | **ARLES decía «Meta no acepta ese token» con la configuración correcta.** Dirección recorrió la guía entera —cuenta de empresa, aplicación de tipo Negocios, usuario del sistema con la aplicación y la cuenta de WhatsApp en **acceso total**— y el alta seguía fallando | `debug_token` sólo devuelve los `target_ids` del permiso de gestión cuando está concedido **sobre un activo concreto**, y hay tokens válidos a los que Meta no se los pone. ARLES tenía **una sola vía** para encontrar la cuenta, y al venir vacía acusaba al token. **El token era bueno.** Es el diagnóstico equivocado de DOC-14 en el primer contacto del producto con la API real | ✅ 05/11/2026 · segunda vía por los negocios del token, y el error partido en dos: `NingunaCuenta` ya no manda a generar otro token |
+
+---
+
+## R-25 · la baja automática por correo, decidida el 10/11/2026
+
+Dirección lo pidió con estas palabras: *«Necesito que sea posible darse de baja
+de manera automatica, busca una alternativa mas sencilla para el administrador
+de la aplicacion y para el usuario»*.
+
+**La mitad estaba construida y no se sabía.** ARLES manda desde el 19/10/2026
+la cabecera `List-Unsubscribe` en cada campaña, que es lo que permite a Gmail y
+a Outlook enseñar su propio botón de cancelar suscripción, y la frase del
+cuerpo que el preflight exige. Las dos acaban en un correo al buzón de quien
+envía. **Lo que faltaba no era darle una salida a nadie: era mirar ese buzón.**
+
+### Por qué leer el buzón y no montar un servidor
+
+| | El servidor con enlace de un clic | Leer el buzón |
+|---|---|---|
+| Para quien recibe el correo | Un clic | **El mismo clic, y ya funciona hoy** |
+| Para quien administra ARLES | Servidor público 24/7, dominio, HTTPS | **Nada nuevo que configurar** |
+| Credenciales nuevas | Las del servidor | **Ninguna** |
+| Quién lo mantiene | Alguien, para siempre | Nadie |
+
+Lo de «ninguna credencial nueva» está verificado y no supuesto: la contraseña de
+aplicación de Google es un código de 16 dígitos que da acceso a la aplicación, y
+la propia página de configuración de Gmail lista `imap.gmail.com:993` junto al
+`smtp.gmail.com:587` que ARLES ya usa. **Es la misma contraseña que ya está en
+el llavero**, y el servidor de lectura se deduce del dominio igual que
+`PROVEEDORES` deduce hoy el de envío.
+
+### Lo que se verificó de Google antes de construir, y lo que estaba mal escrito
+
+- El requisito de **baja de un clic** (RFC 8058, `List-Unsubscribe-Post`) es
+  para quien manda unos **5 000 mensajes diarios** a cuentas de Gmail. ARLES
+  manda entre 50 y 300: **no le aplica**.
+- Google dice que **seguirá soportando** los enlaces `mailto`, pero que **no
+  cumplen** su requisito de un clic. El comentario de `cabecera_de_baja` decía
+  que el `mailto` «es válido y cuenta», que se lee como lo contrario.
+- **El botón no está garantizado**: Google lo enseña sólo a los correos que
+  pasan sus comprobaciones. Por eso la frase del cuerpo no es redundante con la
+  cabecera — es la salida que no depende de nadie. No estaba dicho.
+- Ese mismo comentario afirmaba que un correo sin la cabecera «entra con una
+  penalización de salida, y ninguna otra cosa que hagamos la compensa».
+  **Google no publica eso**, y al verificarlo no apareció en ninguna de sus
+  páginas. Es **DOC-23**.
+
+### En qué estado está
+
+**Hecho:** la regla (`arles_core::baja_por_correo`, tres veredictos) y la
+migración **V17**, que permite guardar la baja con el origen que la distingue de
+la que alguien apunta a mano.
+
+**Sin hacer:** el lector del buzón, y el cable que lo llama. Hoy el correo de
+baja sigue llegando a un buzón que nadie mira solo. Está declarado como hueco
+del §9 **a propósito**, igual que la 8.2b dejó el exportador sin botón.
+
+**En WhatsApp no aplica, y conviene saber por qué:** ahí la baja automática **ya
+la hace Meta** —deja de entregar los mensajes de marketing a quien lo pidió y
+contesta el código `131050`—. Lo que falta es que ARLES se entere para no seguir
+intentándolo, y eso sí necesita el relay ciego que no existe. El canal está
+detrás de **META** de todas formas.
 
 ---
 
@@ -469,6 +532,7 @@ no una relectura con buena voluntad.
 | **DOC-20** | El encabezado de `entrega-de-prueba.yml`: el flujo sólo se puede lanzar con una etiqueta mientras viva en una rama de desarrollo, porque GitHub no enseña el botón «Run workflow» | Lo del botón es cierto; la conclusión no. El mismo `workflow_dispatch` **pedido por la API**, con `ref` en la rama de trabajo, construyó la versión del 04/11 — ejecución 14, `head_branch` = `claude/loving-faraday-5chmmy`. Leer sólo esa frase hace creer que **hay que fusionar a `main` para construir un instalador** | ✅ 04/11/2026 · el encabezado lleva ahora la tercera forma, con la ejecución que la midió |
 | **DOC-21** | `ESTADO_ACTUAL.md` §10: «el avance está al **95 % a 2026-10-28**, y ese 5 % restante es exactamente el peso de la Fase 9» | **99 % a 2026-11-04**, y el README lo decía desde la portada del repositorio: seis días de trabajo cerrados en medio. La comprobación que ya existía compara el README con `avance.json` —las dos fuentes del §1 bis— y **este documento no entraba en esa comparación**. Es el documento por el que empieza quien retoma el trabajo, y ya había hecho esto con la 7.5 | ✅ 04/11/2026 · lo vigila `el_estado_cita_el_avance_que_hay`, verificada con tres rupturas |
 | **DOC-22** | `CLAUDE.md`, en la tabla de la ronda de Dirección del 13 y 14/10: H-03 «No se pudo dar de alta una cuenta de Gmail» marcado como **«faltan tres datos de Dirección»** | **Esta tabla lo da por cerrado por R-01 desde el 14/10/2026**, así que los dos documentos llevaban **veintiún días** diciendo cosas contrarias del mismo hallazgo. Lo encontró una pregunta de Dirección —«¿en funcionalidad estamos completos?»— que obligó a mirar la lista en vez de recordarla, igual que con los bloqueos el 28/10: **lo que ve falsa una lista es usarla para algo** | ✅ 04/11/2026 · lo vigila `ningun_hallazgo_esta_abierto_y_cerrado_a_la_vez` |
+| **DOC-23** | `smtp.rs` desde el 19/10/2026, sobre la cabecera `List-Unsubscribe`: un correo comercial sin ella «entra con una **penalización de salida**, y ninguna otra cosa que hagamos la compensa», y el `mailto` «es válido y **cuenta**» | **Google no publica lo primero** — al verificarlo no apareció en ninguna de sus páginas—, y de lo segundo dice lo contrario con esas palabras: seguirá soportando los `mailto`, pero **no cumplen** su requisito de baja de un clic. Dos cosas que faltaban: ese requisito es para quien manda unos **5 000 diarios** a Gmail, y ARLES manda 50 a 300; y **el botón no está garantizado**, Google lo enseña sólo a los correos que pasan sus comprobaciones. Lo encontró ir a verificar el dato antes de construir sobre él, no una relectura | ✅ 10/11/2026 · el comentario lleva ahora las dos mitades de lo que Google dice, y por qué la frase del cuerpo no es redundante |
 
 **Las cinco primeras llevaban ahí desde la Fase 2** y ninguna de las cuatro
 auditorías del §140 las vio, porque una auditoría mide el producto y esto es un

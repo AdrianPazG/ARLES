@@ -59,11 +59,19 @@ use crate::tls::{Cifrado, Modo};
 /// ─────────────────────────────────────────────────────────────────────────
 /// POR QUÉ ESTO NO ES UN DETALLE DE PROTOCOLO
 ///
-/// Es, medido por los propios filtros, **lo que más mueve** la probabilidad de
-/// acabar en spam de todo lo que está en nuestra mano. Gmail y Outlook la
-/// **exigen** desde febrero de 2024 a quien manda correo en volumen: un correo
-/// comercial sin ella entra con una penalización de salida, y ninguna otra cosa
-/// que hagamos la compensa.
+/// Gmail la **exige** desde febrero de 2024 a quien manda correo comercial en
+/// volumen, y «en volumen» tiene una cifra: unos **5 000 mensajes diarios** a
+/// cuentas de Gmail. ARLES manda entre 50 y 300, así que hoy no le aplica —
+/// conviene saberlo para no construir sobre una obligación que no tenemos.
+///
+/// ── LO QUE ESTE COMENTARIO AFIRMABA DE MÁS, HASTA EL 10/11/2026 ────────────
+///
+/// Decía que un correo comercial sin ella «entra con una penalización de
+/// salida, y ninguna otra cosa que hagamos la compensa». **Google no publica
+/// eso**, y al verificarlo no apareció en ninguna de sus páginas: era una
+/// afirmación de las que este proyecto persigue, escrita con la seguridad de
+/// una medición y sin ninguna detrás. Lo que sí se sostiene es el párrafo de
+/// abajo, que no necesita a Google para ser verdad.
 ///
 /// Y hay una razón que no es de entregabilidad: **es la salida de quien
 /// recibe**. Sin esta cabecera, la única forma de dejar de recibir que tiene una
@@ -100,18 +108,46 @@ impl lettre::message::header::Header for ListUnsubscribe {
 /// una dirección web. **ARLES es una aplicación de escritorio y no tiene
 /// servidor**, así que no puede ofrecerla: poner `List-Unsubscribe-Post` sin un
 /// `https` detrás sería anunciar una puerta que no existe, y los filtros lo
-/// comprueban. Se pone sólo el `mailto:`, que es válido y cuenta.
+/// comprueban.
 ///
-/// **La baja llega al buzón de quien envía, y hoy se apunta a mano** — es
-/// **R-25**, pedida por Dirección el 23/10/2026 y pendiente de decidir entre
-/// leer el buzón por IMAP o montar un servidor con enlace de un clic. ARLES no lee
-/// buzones (ADR-0009/0014: los rebotes asíncronos son de la v1.3), así que esto
-/// no da de baja a nadie por su cuenta — la regla de la Fase 5 sigue entera:
-/// nada antes del `RCPT TO` puede dar de baja a nadie. Quien reciba el correo
-/// de baja lo apunta en Contactos, con «no volver a escribirle».
+/// Así que va sólo el `mailto:`, y lo que eso es exactamente —verificado el
+/// 10/11/2026— es esto: Google dice que **seguirá soportando** los enlaces
+/// `mailto`, pero que **no cumplen su requisito de baja de un clic**. Las dos
+/// mitades importan. Este comentario decía antes que el `mailto` «es válido y
+/// cuenta», que se lee como que sí lo cumple.
+///
+/// Y una consecuencia que tampoco estaba dicha: **el botón no está
+/// garantizado**. Google enseña el enlace de cancelar suscripción arriba del
+/// mensaje sólo a los correos que pasan sus propias comprobaciones, así que la
+/// cabecera lo hace **posible**, no seguro. Por eso la frase del cuerpo
+/// —[`arles_core::plantilla::frase_de_baja`], que el preflight exige— no es
+/// redundante con esto: es la salida que no depende de nadie.
+///
+/// ── A DÓNDE VA ESTA BAJA, Y EN QUÉ ESTADO ESTÁ (10/11/2026) ───────────────
+///
+/// **R-25 decidida por Dirección ese día**: de las dos opciones abiertas desde
+/// el 23/10 —leer el buzón, o montar un servidor con enlace de un clic— se
+/// eligió leer el buzón, porque no pide ni servidor, ni dominio, ni
+/// credenciales nuevas.
+///
+/// Lo que ya está es **qué cuenta como una baja**
+/// ([`arles_core::baja_por_correo`], con sus tres veredictos) y el origen con
+/// el que entra en la lista. **Lo que todavía no existe es el lector**, así que
+/// hoy este correo sigue llegando a un buzón que nadie mira solo y se apunta a
+/// mano en Contactos. Esta frase se cambia cuando el lector tenga quien lo
+/// llame, y no antes: un comentario que da por conectada una pieza que no lo
+/// está es el patrón que el §9 del CLAUDE.md persigue — pasó con
+/// `whatsapp_template` en la 6.8, dada por conectada mientras no la llamaba
+/// nadie.
+///
+/// La regla de la Fase 5 —nada antes del `RCPT TO` puede dar de baja a nadie—
+/// pasará con esto de dos puertas a **tres**, y la tercera es legítima por lo
+/// mismo que las otras dos no lo son: no es un fallo de envío interpretado por
+/// una máquina, es una persona pidiéndolo con sus palabras.
 ///
 /// El `subject` va dentro a propósito: sin él llega un correo en blanco y hay
-/// que adivinar qué pedía.
+/// que adivinar qué pedía. Y es exactamente el que
+/// [`arles_core::baja_por_correo`] reconoce, porque **es la misma constante**.
 /// ── Y SÓLO EN UNA CAMPAÑA ──────────────────────────────────────────────────
 ///
 /// Esta cabecera no es sólo una salida: **es una declaración**. Le dice al
@@ -129,7 +165,11 @@ impl lettre::message::header::Header for ListUnsubscribe {
 /// es peor que ninguna — un correo de lista cuya salida no lleva a ninguna
 /// parte. Lo cazó la prueba antes de entrar, midiendo en vez de suponer.
 fn cabecera_de_baja(remitente: &Mailbox) -> ListUnsubscribe {
-    ListUnsubscribe(format!("<mailto:{}?subject=Baja>", remitente.email))
+    ListUnsubscribe(format!(
+        "<mailto:{}?subject={}>",
+        remitente.email,
+        arles_core::baja_por_correo::PALABRA
+    ))
 }
 
 /// Cuánto se espera a que el servidor conteste antes de darlo por perdido.
@@ -863,9 +903,38 @@ mod tests {
 
         // La dirección es la del remitente, y va entre ángulos como pide el
         // RFC 2369. Sin ellos, algunos filtros no la leen.
+        let palabra = arles_core::baja_por_correo::PALABRA;
         assert!(
-            baja.contains("<mailto:ventas@telemetry.mx?subject=Baja>"),
+            baja.contains(&format!("<mailto:ventas@telemetry.mx?subject={palabra}>")),
             "la baja tiene que llevar a quien envía: {baja}"
+        );
+
+        // ── Y LA IDA Y VUELTA, QUE ES LO QUE NINGUNA OTRA PRUEBA VE ───────
+        //
+        // La palabra está escrita en dos sitios por fuerza: aquí, en el
+        // asunto que sale por el cable, y en el lector del núcleo que la
+        // reconoce de vuelta. Esta prueba es **la única que ve las dos**, y lo
+        // que comprueba no es que las cadenas coincidan, sino que el correo
+        // que generaría ese botón **se lea como una baja**.
+        //
+        // El día que alguien cambie el asunto de la cabecera, el botón de
+        // cancelar suscripción seguiría funcionando para el usuario y su baja
+        // se quedaría en la bandeja de lo dudoso para siempre. Nada fallaría:
+        // dos piezas correctas y el cable suelto, el patrón del §9.
+        let asunto = baja
+            .split("?subject=")
+            .nth(1)
+            .and_then(|r| r.split('>').next())
+            .unwrap_or_else(|| panic!("la cabecera no lleva asunto: {baja}"));
+        let veredicto =
+            arles_core::baja_por_correo::leer(&arles_core::baja_por_correo::CorreoDeVuelta {
+                asunto,
+                cuerpo: "",
+                automatico: false,
+            });
+        assert!(
+            veredicto.se_aplica_solo(),
+            "el núcleo no reconoce como baja el asunto que manda la cabecera: {asunto}"
         );
     }
 

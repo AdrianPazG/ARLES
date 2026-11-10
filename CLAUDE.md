@@ -1916,8 +1916,9 @@ proyecto exige — lo que no estaba era **todo lo de esta semana y media**.
 > firma, ADR-0015 con la activación y la conexión de lectura, C-2 y el mensaje
 > de migrar. Escritas desde los cuerpos de los commits y no de memoria.
 
-> **Y el hallazgo que importa: seis de las dieciséis migraciones no aparecían en
-> ninguna línea.** La V5, la V7, la V8, la V9, la V12 y la V16. Eso no es una
+> **Y el hallazgo que importa: el 03/11/2026, seis de las dieciséis migraciones
+> que había entonces no aparecían en ninguna línea.** La V5, la V7, la V8, la
+> V9, la V12 y la V16. Eso no es una
 > omisión cosmética: `restauracion.rs` rechaza un respaldo cuyo esquema no sea
 > el de hoy, así que **cada migración deja sin poder restaurar los `.arles`
 > tomados antes**, y el CHANGELOG es donde Dirección lo lee. Una migración que
@@ -2317,6 +2318,60 @@ nombres de ejemplo: lo que se mira es si el texto encaja con los datos que hay.
 > **Va en un `iframe` con `sandbox` vacío**: aísla los estilos —con `v-html`,
 > el CSS de ARLES maquetaría el correo y no se vería lo que llega a una
 > bandeja— y deja el HTML inerte aunque el saneado fallara.
+
+**Y el 10/11/2026, R-25 · la baja por correo se va a aplicar sola (D-21).**
+Dirección lo pidió así: *«Necesito que sea posible darse de baja de manera
+automatica, busca una alternativa mas sencilla para el administrador de la
+aplicacion y para el usuario»*. De las dos opciones abiertas desde el 23/10
+—leer el buzón del remitente, o montar un servidor con enlace de un clic— se
+eligió **leer el buzón, sólo lectura**: no pide servidor, ni dominio, ni
+**ninguna credencial nueva** —la contraseña de aplicación que ya está en el
+llavero para enviar sirve para leer—. Está contado en
+[`ESTADO_ACTUAL.md`](documentacion/07-entrega/ESTADO_ACTUAL.md) §17.
+
+> **La mitad estaba construida y nadie lo sabía, y es por lo que el módulo es
+> corto.** ARLES manda desde el 19/10/2026 la cabecera `List-Unsubscribe` en
+> cada campaña —lo que permite a Gmail y a Outlook enseñar su propio botón de
+> cancelar suscripción— y la frase del cuerpo que el preflight exige. Las dos
+> acaban en un correo al buzón de quien envía. **Lo que faltaba no era darle una
+> salida a nadie: era mirar ese buzón.**
+
+> **Tres veredictos y no dos.** Un `bool` obliga a elegir entre dar de baja a
+> quien escribe «no quiero darme de baja, me encanta lo que mandan» o perder a
+> quien escribe «quítame de la lista, por favor». Así que lo inequívoco se
+> aplica solo y **lo demás lo mira una persona**, que es la decisión del
+> 18/09/2026 con los choques de una importación.
+>
+> Y tres cosas que no se pueden hacer mal porque están en el tipo: **la
+> dirección que se da de baja es la de quien escribió** —`Veredicto` no lleva
+> ninguna dirección dentro, así que «BAJA juan@empresa.mx» te da de baja a ti—,
+> **lo automático no es nada y va primero** —un «estoy de baja por maternidad»
+> lleva la palabra dentro—, y **sólo se mira la primera línea del cuerpo**,
+> porque una respuesta arrastra la campaña citada debajo y la campaña lleva la
+> frase de baja dentro: mirando el cuerpo entero, toda respuesta saldría dudosa.
+
+> **La palabra pasa de estar escrita tres veces a estar escrita una.** La pedían
+> la frase del cuerpo, el `subject` de la cabecera y el lector. El día que una
+> cambiara, el botón seguiría funcionando para quien lo pulsa y su baja se
+> quedaría en la bandeja de lo dudoso para siempre, **sin que nada fallara**. La
+> prueba que de verdad lo cubre es la de `arles-email` —la única que ve las dos
+> puntas—: coge el asunto **de la cabecera que salió por el cable** y comprueba
+> que el núcleo lo lee como una baja. Verificada con la ruptura que pasa el
+> primer `assert` y cae en el segundo; la obvia no servía.
+
+> **Y una prueba mía que no probaba nada, la decimocuarta vez de este defecto.**
+> La que vigila que la V17 no pierda ninguna baja arrancaba con
+> `base_de_prueba()`, que llama a `abrir()` — y **`abrir()` ya migra hasta el
+> final**. Las filas se sembraban en la tabla ya recreada y el `INSERT … SELECT`
+> corría sobre una tabla vacía: en verde con la migración rota de tres formas,
+> **incluida no copiar nada**. Lo que hacía falta existía y tenía el defecto
+> escrito en su propio comentario: `abrir_crudo`, «sin esto, una migración
+> únicamente se ve correr sobre una base recién creada».
+
+> **Lo que este tramo NO hace:** el lector del buzón, que es lo siguiente. Hoy
+> el correo de baja sigue llegando a un buzón que nadie mira solo. Declarado a
+> propósito, igual que la 8.2b dejó el exportador sin botón — y su comprobación
+> de llamador se escribe **antes** del lector, para verla en rojo.
 
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 

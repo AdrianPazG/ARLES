@@ -165,7 +165,9 @@ CREATE UNIQUE INDEX idx_suppression_unique
 
 `reason`: `hard_bounce` · `unsubscribe` · `manual` · `complaint` ·
 `invalid_number` · `channel_failure`
-`origin`: `smtp_5xx` · `user` · `import` · `whatsapp_webhook`
+`origin`: `smtp_5xx` · `user` · `import` · `whatsapp_webhook` ·
+`email_unsubscribe` (el quinto, V17 · R-25 · 10/11/2026: lo pidió quien recibe
+el correo, y no se guarda como `user` porque ésa es otra mano)
 `scope`: `channel` · `global`
 
 **«No me escribas por WhatsApp» no es «no me escribas nunca».** Sin el canal,
