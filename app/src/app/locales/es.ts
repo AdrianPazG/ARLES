@@ -3962,6 +3962,26 @@ export const es = {
         'Suele ser el de envío cambiando «smtp» por «imap». Revísalo: si no ' +
         'es el correcto, ARLES no podrá entrar al buzón.',
       encender: 'Revisar este buzón para aplicar las bajas',
+      // ── CÓMO VA EL AUTOMATISMO (R-30, 11/11/2026) ──
+      //
+      // Los tres textos dicen la cifra del intervalo en vez de «cada cierto
+      // tiempo», y el número **llega desde Rust** (§94, y el núcleo es quien
+      // lo decide). Escribirlo aquí a mano crearía la segunda verdad que el
+      // `AVISO_DIARIO` del §48 ya tiene y que necesita una comprobación para
+      // mantenerse igual.
+      //
+      // El de la espera dice «sin revisar todavía» y no «sin revisar», porque
+      // sin el «todavía» se lee como un fallo: lo que pasa es que el
+      // programador aún no ha dado su primera vuelta.
+      seRevisaSolo:
+        'Se revisa solo cada {minutos} minutos. Última vez, {cuando}.',
+      todaviaSinRevisar:
+        'Se revisa solo cada {minutos} minutos. Sin revisar todavía.',
+      // Y éste es el que impide que la fecha mienta: un buzón que falla en
+      // cada intento diría «última vez, hace 3 minutos» —cierto— y quien lo
+      // leyera creería que funciona. Es el defecto de la 8.4, que decía «no se
+      // ha perdido nada» con 48 MB de base en disco.
+      ultimoFallo: 'No se pudo revisar ({cuando}).',
       revisar: 'Revisar el buzón ahora',
       revisando: 'Revisando el buzón…',
       nadaQueRevisar:

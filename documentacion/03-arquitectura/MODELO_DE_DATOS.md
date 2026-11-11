@@ -40,7 +40,8 @@ id, company_id, display_name, email_address, provider_kind,
 credential_ref, status, daily_limit, hourly_limit,
 consecutive_failures, circuit_open_until, created_at, updated_at,
 smtp_host, smtp_port, smtp_security, smtp_username,
-imap_host, inbox_scan_enabled, inbox_last_uid
+imap_host, inbox_scan_enabled, inbox_last_uid,
+inbox_last_check_at, inbox_last_error
 ```
 
 **Las tres de la V18, y por qué son éstas.** `imap_host` **se guarda y no se
@@ -52,6 +53,21 @@ entrar al buzón», que apunta a su red. Es la misma decisión que la V7 tomó c
 enciende a mano, nunca por una actualización. Y `inbox_last_uid` es `NULL`
 cuando nunca se ha leído —que no es lo mismo que 0— porque sin esa marca cada
 pasada volvería a registrar las mismas bajas en la bitácora.
+
+**Y las dos de la V19 (R-30), que miden algo distinto de la anterior.**
+`inbox_last_uid` es hasta dónde se leyó **con éxito** y no avanza si la revisión
+falla: eso impide que un correo sin procesar quede por debajo de la marca.
+`inbox_last_check_at` es **cuándo se intentó**, con éxito o sin él, y avanza
+también al fallar — es lo único que impide que un buzón cuyo servidor esté caído
+se reintente en cada vuelta del programador, que serían **60 intentos de
+autenticación por hora** contra el servidor del propio usuario y después una
+cuenta bloqueada que ARLES no puede desbloquear.
+
+`inbox_last_error` guarda **la clave de i18n** del motivo del último fallo, y
+`NULL` es «fue bien». Sin ella la pantalla diría «revisado hace 3 minutos» de un
+buzón que falla siempre: una cifra correcta dentro de una frase falsa. No se
+guarda el texto —se quedaría en el idioma del día que se escribió— ni el mensaje
+del servidor, que puede traer una dirección dentro.
 
 **`credential_ref` es una referencia al llavero del sistema operativo, nunca una credencial.** Ver `04-seguridad/MODELO_DE_SECRETOS.md`.
 

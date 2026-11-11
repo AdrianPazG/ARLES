@@ -35,6 +35,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { resolverError } from '@/app/errores'
+import { haceCuanto } from '../formato'
 import {
   borradorVacio,
   contrasenaParaEnviar,
@@ -105,6 +106,7 @@ function porQueNo(clave: string) {
 const hayBuzonQueRevisar = computed(() =>
   store.buzones.some((b) => b.encendido && (b.servidorDeLectura ?? '') !== ''),
 )
+
 
 /**
  * El cupo real de un remitente, o `undefined` mientras no haya cargado.
@@ -1044,6 +1046,41 @@ async function probarGuardada(r: Remitente): Promise<void> {
           >
           {{ t('remitentes.buzon.encender') }}
         </label>
+
+        <!-- ── CÓMO VA EL AUTOMATISMO (R-30, 11/11/2026) ──
+             Una casilla encendida que no dice nada más no se puede comprobar
+             desde aquí: §97 pide que toda espera y todo final tengan su acuse,
+             y «se revisa solo» sin una cifra al lado es una promesa.
+
+             Y el orden de los dos casos importa: **el fallo va primero**. Si
+             sólo se enseñara la fecha, un buzón cuyo servidor está mal escrito
+             diría «revisado hace 3 min» —cierto— y el usuario creería que
+             funciona. Es el defecto de la 8.4, que decía «no se ha perdido
+             nada» con 48 MB de base en disco. -->
+        <p
+          v-if="buzon.encendido && buzon.ultimoFallo"
+          class="remitentes__buzonEstado remitentes__buzonEstado--falla"
+        >
+          {{ t('remitentes.buzon.ultimoFallo', {
+            cuando: haceCuanto(buzon.ultimoIntento),
+          }) }}
+          <span>{{ porQueNo(buzon.ultimoFallo).que }}</span>
+        </p>
+        <p
+          v-else-if="buzon.encendido"
+          class="remitentes__buzonEstado"
+        >
+          {{
+            buzon.ultimoIntento === null
+              ? t('remitentes.buzon.todaviaSinRevisar', {
+                minutos: buzon.revisarCadaMinutos,
+              })
+              : t('remitentes.buzon.seRevisaSolo', {
+                cuando: haceCuanto(buzon.ultimoIntento),
+                minutos: buzon.revisarCadaMinutos,
+              })
+          }}
+        </p>
       </div>
 
       <div class="remitentes__acciones">
@@ -1468,6 +1505,22 @@ async function probarGuardada(r: Remitente): Promise<void> {
 .remitentes__buzonCuenta {
   margin: 0;
   font-weight: var(--arles-font-weight-medium);
+}
+
+/* Cómo va el automatismo de ese buzón (R-30). Secundario de tamaño y de color
+   porque acompaña a la casilla, no compite con ella. */
+.remitentes__buzonEstado {
+  margin: 0;
+  font-size: var(--arles-font-size-small);
+  color: var(--arles-text-muted);
+}
+
+/* Y cuando el último intento falló, el color del aviso. No sólo el color: el
+   texto dice «No se pudo revisar» y lleva el motivo detrás, porque ningún
+   estado se distingue sólo por color — es la medida que la auditoría D añadió
+   el 07/10/2026 a `sonda:auditoria`. */
+.remitentes__buzonEstado--falla {
+  color: var(--arles-warning);
 }
 
 /* El objetivo mínimo de ARLES es más alto que el del WCAG 2.2 a propósito

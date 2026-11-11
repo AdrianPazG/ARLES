@@ -1783,6 +1783,13 @@
               servidorDeLectura: 'imap.titan.email',
               encendido: true,
               yaSeLeyo: true,
+              // Revisado hace cuatro minutos. Se calcula desde `Date.now()` y
+              // no se escribe fijo: una fecha de 2026 escrita a mano haría que
+              // la vista previa dijera «hace 8 meses» dentro de un año, y lo
+              // que hay que poder mirar aquí es el texto del caso normal.
+              ultimoIntento: new Date(Date.now() - 4 * 60_000).toISOString(),
+              ultimoFallo: null,
+              revisarCadaMinutos: 15,
             },
             {
               cuenta: 'cuenta-2',
@@ -1794,6 +1801,27 @@
               servidorDeLectura: null,
               encendido: false,
               yaSeLeyo: false,
+              ultimoIntento: null,
+              ultimoFallo: null,
+              revisarCadaMinutos: 15,
+            },
+            // ── Y UNO QUE FALLA, QUE ES EL CASO QUE HAY QUE MIRAR (R-30) ──
+            //
+            // Es el texto que impide que la pantalla mienta: sin él, un buzón
+            // con el servidor mal escrito diría «última vez, hace 3 minutos»
+            // —cierto— y quien lo leyera creería que el automatismo funciona.
+            // Con todo en verde, eso sólo se ve mirando.
+            {
+              cuenta: 'cuenta-3',
+              nombreVisible: 'Soporte',
+              direccion: 'soporte@telemetrymx.com',
+              servidorDeEnvio: 'smtp.zoho.com',
+              servidorDeLectura: 'imap.zohoo.com',
+              encendido: true,
+              yaSeLeyo: false,
+              ultimoIntento: new Date(Date.now() - 2 * 60_000).toISOString(),
+              ultimoFallo: 'error.correo.no_se_pudo_entrar_al_buzon',
+              revisarCadaMinutos: 15,
             },
           ]);
 

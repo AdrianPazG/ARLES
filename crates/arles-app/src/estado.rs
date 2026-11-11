@@ -9,6 +9,7 @@ use crate::llavero::Llavero;
 use arles_motor::instancia::Cerrojo;
 
 use crate::motor::MotorEnMarcha;
+use crate::programador::ProgramadorEnMarcha;
 use crate::rutas::Rutas;
 
 /// Lo que los comandos comparten.
@@ -39,6 +40,20 @@ pub struct EstadoApp {
     /// Se para al soltarlo, así que cerrar la aplicación espera a que el hilo
     /// termine su envío en curso.
     motor: Option<MotorEnMarcha>,
+    /// El programador, si está corriendo.
+    ///
+    /// `None` por el mismo motivo que `motor`: sin el cerrojo de instancia
+    /// única, este ARLES no actúa sobre esta base. **Se para al soltarlo**, así
+    /// que cerrar la aplicación espera a que el hilo termine su vuelta.
+    ///
+    /// Nadie lo lee: existe para vivir mientras viva el estado. Ése es
+    /// justamente el mecanismo —`Drop`— y es lo que hace que no haya un
+    /// «apagar» que alguien pueda olvidarse de llamar.
+    #[allow(
+        dead_code,
+        reason = "su trabajo es existir: al soltarlo, su `Drop` para el hilo"
+    )]
+    programador: Option<ProgramadorEnMarcha>,
     /// El archivo que se está importando, entre que se lee y se confirma.
     ///
     /// ─────────────────────────────────────────────────────────────────────
@@ -215,9 +230,26 @@ impl EstadoApp {
             .ok()
             .map(|cerrojo| MotorEnMarcha::arrancar(Arc::clone(&db), cerrojo));
 
+        // ── EL PROGRAMADOR, ATADO AL MISMO CERROJO (R-30, 11/11/2026) ──────
+        //
+        // Lo que hace solo cada cierto tiempo: hoy, revisar los buzones y
+        // aplicar las bajas que llegaron (R-25). **Es un hilo propio y no el
+        // del motor**, y eso está medido: el latido del cerrojo mide «el bucle
+        // da vueltas», y una espera de hasta 60 s por buzón pasaría de los 90
+        // del margen, haciendo que ARLES pierda el cerrojo y apague su propio
+        // motor. Ver la cabecera de `programador.rs`.
+        //
+        // Y arranca **sólo si el motor arrancó**, es decir sólo con el cerrojo:
+        // dos ARLES sobre la misma base revisando el mismo buzón doblarían las
+        // conexiones IMAP, que es lo que el intervalo existe para no hacer.
+        let programador = motor
+            .is_some()
+            .then(|| ProgramadorEnMarcha::arrancar(Arc::clone(&db)));
+
         Ok(Self {
             db,
             motor,
+            programador,
             importacion: Mutex::new(None),
             respaldo_elegido: Mutex::new(None),
             datos: rutas.datos().clone(),

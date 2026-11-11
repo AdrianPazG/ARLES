@@ -379,7 +379,7 @@ que importa la tenga.**
 ## 10. Lo siguiente
 
 **La Fase 9 · Release**, que es **lo único que queda**: el avance está al
-**99 % a 2026-11-04**, y ese 1 % restante es lo que le falta a la Fase 9. Las
+**99 % a 2026-11-11**, y ese 1 % restante es lo que le falta a la Fase 9. Las
 otras diez fases están al 100 %.
 
 > **Este renglón decía «95 % a 2026-10-28» hasta el 04/11/2026**, con seis días
@@ -856,9 +856,12 @@ enciende por cuenta en Remitentes, con su servidor de lectura, y se revisa con
 un botón. La migración **V18** guarda las tres cosas que eso necesita: dónde se
 lee, si está encendido, y hasta qué correo se leyó.
 
-**Lo que R-25 no hace, dicho en vez de darse por hecho:** no se revisa solo cada
-cierto tiempo — hay que pulsar el botón. ARLES no tiene un programador de tareas
-y añadirlo es otra decisión, no un detalle de este tramo.
+> **Esta línea decía que no se revisaba solo, y lo cerró R-30 al día
+> siguiente.** Decía: *«no se revisa solo cada cierto tiempo — hay que pulsar el
+> botón. ARLES no tiene un programador de tareas y añadirlo es otra decisión, no
+> un detalle de este tramo»*. Era verdad el 10/11 y falso el 11/11. Se deja
+> escrita porque una limitación que desaparece sin dejar rastro parece una que
+> nadie resolvió — y la de al lado es la del §18.
 
 ### El cable, y el orden que no se puede invertir
 
@@ -1056,3 +1059,135 @@ marketing a quien lo pidió y contesta el código `131050`. Lo que falta es que
 ARLES se entere para no seguir intentándolo, y eso llega por un webhook de
 estado que necesita el relay ciego —decidido el 29/09/2026 y no construido—. El
 canal está detrás de **META** de todas formas.
+
+---
+
+## 18. R-30 · el programador: ARLES revisa los buzones solo · 11/11/2026
+
+Lo disparó una pregunta de Dirección —«¿es posible crear ese programador de
+tareas?»— sobre el único límite que R-25 dejó declarado: **había que pulsar un
+botón**. La respuesta medida es que sí, y que **el programador ya existía**:
+el hilo del motor da vueltas cada cinco segundos desde la 5.4b y sobrevive a
+cerrar la ventana (§51).
+
+Lo que hacía falta era **no** meter la tarea ahí dentro.
+
+### Por qué un hilo propio, con las dos cifras
+
+El latido del cerrojo de instancia única no mide «ARLES está vivo» sino **«el
+bucle está dando vueltas»**, porque se refresca al principio de cada una. Y el
+lector del buzón espera hasta **60 s** por operación de socket.
+
+| | |
+|---|---|
+| Dos buzones cuyo servidor IMAP no contesta, en una vuelta | **120 s** |
+| Margen del latido antes de dar el cerrojo por muerto | **90 s** |
+
+Pasado el margen ocurren dos cosas, y la segunda es la cara: otro ARLES roba el
+cerrojo, y **este apaga su propio motor** porque un servidor de correo ajeno no
+contestó. Lo mide `una_vuelta_lenta_le_cuesta_el_cerrojo_al_motor` en
+`arles-motor`, verificada con tres rupturas.
+
+Así que la revisión vive en `arles-app/src/programador.rs`, su propio hilo, y el
+validador comprueba que `motor.rs` **no** nombre la revisión del buzón: exigir
+que el programador exista no impediría que alguien metiera mañana la llamada en
+el bucle del motor «porque ya está ahí».
+
+### Dos marcas de tiempo, y confundirlas cuesta la cuenta del usuario
+
+- **`inbox_last_uid`** (V18) es hasta dónde se leyó **con éxito**. No avanza si
+  la revisión falla, y eso es lo que impide que un correo sin procesar quede por
+  debajo de la marca.
+- **`inbox_last_check_at`** (V19) es **cuándo se intentó**, con éxito o sin él.
+  Tiene que avanzar también al fallar.
+
+Sin la segunda, un buzón con el servidor caído se reintentaría en cada vuelta: a
+un minuto por vuelta son **60 intentos de autenticación por hora** contra el
+servidor de correo del propio usuario, y lo que viene después no es un error
+nuestro sino una cuenta bloqueada que ARLES no puede desbloquear.
+
+Y la marca se escribe **antes** del intento: un intento que no se apunta es un
+intento que se repite.
+
+> **Lo que ahí vigila una prueba y lo que vigila el validador no es lo mismo, y
+> conviene decirlo.** La prueba caza la versión que anota sólo en el éxito —tres
+> vueltas, una conexión—. Lo que **no** caza, medido y no supuesto, es quitar la
+> anotación previa dejando la de después: pasa en verde, porque la de después
+> escribe la marca igual. Lo que la previa protege —que ARLES muera, o que
+> alguien añada un `return` temprano, **entre** la marca y la lectura— no se
+> puede ejercitar sin matar el proceso. Su única red es el validador midiendo la
+> posición de las dos llamadas.
+
+### La fecha sola habría mentido
+
+Con sólo «última vez, hace 3 minutos», un buzón con el servidor mal escrito que
+falla en **cada** intento enseñaría una cifra correcta dentro de una frase
+falsa. Es el defecto de la 8.4 —«no se ha perdido nada» con 48 MB de base en
+disco— con otra cara.
+
+Se guarda **cómo fue** el último intento: la clave de i18n del motivo, no el
+texto —un texto guardado se queda en el idioma del día que se escribió— y no el
+mensaje del servidor, que puede traer una dirección dentro.
+
+### El intervalo: quince minutos, y no es configurable
+
+| | |
+|---|---|
+| Lo que se arriesga esperando, a 300 envíos diarios en 8 h | **unos 9 correos** |
+| Conexiones diarias por cuenta, mirando cada 15 min | **96** |
+| Conexiones diarias mirando cada minuto | **1 440** |
+
+Un ajuste más para elegir entre dos números que casi nadie puede razonar es
+complejidad que se paga sin comprar nada. El botón de «Revisar el buzón ahora»
+sigue ahí para quien no quiera esperar, y cubre el caso de verdad —«acabo de
+pedir la baja, compruébalo»— mejor que un desplegable.
+
+### El defecto que encontró mirar la pantalla
+
+Con todo en verde: la clave del error estaba **inventada**
+—`error.app.buzon.no_se_pudo_entrar`, que no existe en el catálogo—, así que un
+buzón con el llavero bloqueado enseñaba «Ocurrió un error inesperado». Y con una
+clave de buzón que sí existiera habría sido peor: mandar a revisar el servidor a
+quien tiene el llavero cerrado, que es el diagnóstico equivocado de DOC-14.
+
+Ahora la clave **viaja dentro del error**, y el validador falla si ese módulo
+escribe una a mano.
+
+### Y un hallazgo del validador que no es de este tramo
+
+**`solo_produccion` dejaba 22 declaraciones de producción sin mirar.** Es la
+función que ocho comprobaciones usan para no confundir una llamada de una prueba
+con un llamador de verdad, y **cortaba en el primer `#[cfg(test)]`** con la
+convención «los módulos de prueba van al final» escrita como justificación.
+
+No se cumplía. Cuatro archivos declaran algo de prueba en medio, y en
+`arles-app/src/lib.rs` quedaban invisibles **siete módulos enteros** porque `mod
+presupuesto_del_respaldo` va marcado de prueba y el orden es alfabético.
+
+**El daño no es simétrico, y eso es lo que lo hacía peligroso:** una comprobación
+que pregunta **si algo está** falla y se nota; una que pregunta **si algo NO
+está** —ningún comando devuelve una contraseña, el lector del buzón no sabe
+escribir— sale en **verde** sobre el código que no ve. Una red que falla al lado
+inseguro justo en las garantías de seguridad.
+
+Lo encontró una comprobación nueva saliendo **en rojo sobre código correcto**: no
+veía `pub mod programador` en `lib.rs`.
+
+> **Y el caso de prueba de la comprobación nueva nació sin poder distinguir lo
+> que medía.** Con una sola función dentro del bloque de pruebas, un salto que
+> parara en la primera `}` se la llevaba por delante y las dos aserciones
+> pasaban igual: la ruptura salió **en verde**. Con dos funciones, la segunda
+> queda a la vista y es el síntoma. Es la lección del 28/10/2026 vista desde el
+> otro lado — **un caso que no deja síntoma no prueba nada.**
+
+### Lo que R-30 no hace
+
+- **Una sola tarea.** Se llama «programador» y no «revisor de buzones» porque el
+  hilo y su ritmo son lo reutilizable, pero **no hay ningún registro de tareas
+  genérico**: eso sería inventar un llamador para piezas que no existen.
+- **Sólo corre en el ARLES que tiene el cerrojo.** Dos sobre la misma base no
+  romperían nada —suprimir es idempotente— pero doblarían las conexiones IMAP,
+  que es lo que el intervalo existe para no hacer.
+- **Mientras ARLES esté abierto.** Con la ventana cerrada sí revisa; con la
+  aplicación cerrada, no. Un servicio del sistema que corra sin la aplicación es
+  otra cosa, y no se ha construido.

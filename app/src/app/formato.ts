@@ -70,3 +70,48 @@ export function numeroLegible(valor: string): string {
 
   return limpio
 }
+
+/**
+ * «hace 4 minutos», «hace 2 horas», «hace 3 días». Vacío si no se puede leer.
+ *
+ * ── POR QUÉ `numeric: 'always'` Y NO `'auto'` ──────────────────────────────
+ *
+ * Con `'auto'`, `Intl` escribe «hace un momento» y «ayer» en vez de «hace 1
+ * minuto» y «hace 1 día». Eso es un adjetivo donde el §94 pide una cifra, y en
+ * el sitio donde esto se usa —cuándo se revisó un buzón por última vez— la
+ * cifra es lo único que permite saber si el automatismo va: «hace un momento»
+ * se lee igual con un intervalo de quince minutos que con uno de seis horas.
+ *
+ * ── Y POR QUÉ EL SUELO ES UN MINUTO ───────────────────────────────────────
+ *
+ * Un intento de hace diez segundos diría «hace 10 segundos», y ese número
+ * cambiaría cada vez que se recargara la pantalla sin que nada hubiera pasado.
+ * Lo útil es el orden de magnitud, no el segundero.
+ *
+ * ── LO QUE NO HACE ────────────────────────────────────────────────────────
+ *
+ * **No lleva reloj.** Devuelve la cifra del instante en que se la llama, así
+ * que en una pantalla abierta durante una hora el texto envejece. Donde se usa
+ * hoy eso está bien —el dato se carga al abrir la pantalla— y donde no lo
+ * estuviera, quien lo use tendrá que latir, como hace Actividad desde la 7.2.
+ *
+ * El formato lo pone `Intl` y no el catálogo de textos porque es lo que ya hace
+ * el resto del proyecto con `toLocaleString('es-MX')`: una tabla propia de
+ * plurales y unidades sería una segunda verdad sobre el español.
+ */
+export function haceCuanto(cuando: string | null, ahora: number = Date.now()): string {
+  if (cuando === null || cuando.trim() === '') return ''
+  const fecha = new Date(cuando)
+  if (Number.isNaN(fecha.getTime())) return ''
+
+  const segundos = Math.floor((ahora - fecha.getTime()) / 1000)
+  const formato = new Intl.RelativeTimeFormat('es-MX', { numeric: 'always' })
+
+  // De mayor a menor; se para en la primera unidad que da al menos 1. Una
+  // fecha en el futuro —el reloj del equipo se movió— cae en la rama de los
+  // minutos con el suelo de 1, así que dice «hace 1 minuto» en vez de
+  // «dentro de 3 horas»: raro, pero no es una cifra que mande a hacer nada.
+  if (segundos >= 86_400) return formato.format(-Math.floor(segundos / 86_400), 'day')
+  if (segundos >= 3_600) return formato.format(-Math.floor(segundos / 3_600), 'hour')
+  return formato.format(-Math.max(1, Math.floor(segundos / 60)), 'minute')
+}

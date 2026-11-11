@@ -783,6 +783,44 @@ mod pruebas {
         assert_ne!(PUERTO_IMAP_TLS, 143);
     }
 
+    /// **Esta espera decide dónde puede correr la revisión del buzón**, y por
+    /// eso hay una prueba que la vigila desde este lado.
+    ///
+    /// `arles-motor` tiene una prueba —`una_vuelta_lenta_le_cuesta_el_cerrojo_al_motor`—
+    /// que mide qué pasa cuando una vuelta del motor tarda más que el margen
+    /// del latido del cerrojo (90 s). Para medirlo necesita esta cifra, y **no
+    /// la puede importar**: el motor no depende de `arles-email`, y hacerlo
+    /// invertiría una arista del grafo de crates. Así que allí está copiada a
+    /// mano, con su nombre.
+    ///
+    /// Una cifra copiada a mano es el defecto que este proyecto lleva catorce
+    /// veces cazando, así que ésta es su red: el día que esta constante cambie
+    /// y la copia no, falla aquí y se ve de qué va. Si bajara de los 45 s, dos
+    /// buzones caducados ya no pasarían del margen y **la prueba de allí
+    /// dejaría de medir algo**, pasando en verde sin ejercitar nada.
+    ///
+    /// Verificada rompiéndola: con `ESPERA_MAXIMA` a 30 s, falla nombrando la
+    /// prueba del motor.
+    #[test]
+    fn la_espera_del_buzon_es_la_que_el_motor_tiene_copiada() {
+        assert_eq!(
+            ESPERA_MAXIMA.as_secs(),
+            60,
+            "si esta espera cambia, hay que cambiar también la copia de \
+             `arles_email_espera_maxima_s()` en arles-motor/src/instancia.rs"
+        );
+
+        // Y lo que de verdad importa de la cifra: que dos buzones caducados
+        // sigan pasando del margen de 90 s del latido. Es la relación que hace
+        // que la prueba del motor mida algo.
+        assert!(
+            2 * ESPERA_MAXIMA.as_secs() > 90,
+            "con esta espera, dos buzones caducados ya no pasarían del margen \
+             del latido: `una_vuelta_lenta_le_cuesta_el_cerrojo_al_motor` \
+             pasaría en verde sin ejercitar nada"
+        );
+    }
+
     #[test]
     fn una_contrasena_con_comillas_no_rompe_el_comando() {
         assert_eq!(entrecomillar("abcd efgh"), "\"abcd efgh\"");

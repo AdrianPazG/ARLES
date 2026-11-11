@@ -10,7 +10,7 @@ Desarrollado por **TELEMETRY INSIGHT**
 <!-- AVANCE:INICIO -->
 ![Avance de la v1.2.0](https://img.shields.io/badge/avance_v1.2.0-99%25-brightgreen?style=flat-square)
 
-**99 % de la versión 1.2.0 construido y verificado**, a 2026-11-04.
+**99 % de la versión 1.2.0 construido y verificado**, a 2026-11-11.
 
 <details>
 <summary>Cómo sale ese número, y qué no mide</summary>

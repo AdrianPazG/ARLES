@@ -14,7 +14,7 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ### Migraciones del esquema
 
-Dieciocho, y están todas aquí porque **un respaldo `.arles` tomado antes de una
+Diecinueve, y están todas aquí porque **un respaldo `.arles` tomado antes de una
 migración se restaura pasando sus datos por las que faltan**: esta tabla dice
 exactamente por dónde pasan.
 
@@ -48,6 +48,7 @@ exactamente por dónde pasan.
 | **V16** | Qué plantilla de Meta manda una etapa de WhatsApp (D-WA) |
 | **V17** | Una baja puede venir de quien recibe el correo, y no sólo de dentro (R-25) |
 | **V18** | Dónde se lee el buzón, si está encendido, y hasta qué correo se leyó (R-25) |
+| **V19** | Cuándo se intentó revisar cada buzón y cómo fue, para que el programador lo haga solo (R-30) |
 
 > **Esta tabla nació de una comprobación que faltaba, y lo primero que hizo fue
 > cazar seis huecos.** El formato que el propio proyecto exige
@@ -74,6 +75,114 @@ exactamente por dónde pasan.
 > Ahora exige una **fila de la tabla**, que es lo único que no se escribe de
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
+
+### El programador: ARLES revisa los buzones solo
+
+**11/11/2026.** R-30. R-25 dejó la revisión del buzón funcionando y con un
+límite escrito en el manual: **había que pulsar un botón**. Ya no. Un hilo
+propio mira cada buzón encendido **cada quince minutos** y aplica las bajas que
+hayan llegado, con la ventana abierta o cerrada.
+
+Es lo que Dirección pidió el 10/11/2026 al decir «que sea posible darse de baja
+de manera automática»: la parte que faltaba no era la regla ni el lector, era
+que alguien los llamara sin que nadie se lo pidiera.
+
+> **No hacía falta construir un programador: ya había uno.** El hilo del motor
+> da vueltas cada cinco segundos desde la 5.4b y sobrevive a cerrar la ventana
+> (§51). Lo que hacía falta era **no** meter la tarea ahí dentro, y eso está
+> medido.
+>
+> El latido del cerrojo de instancia única no mide «ARLES está vivo» sino **«el
+> bucle está dando vueltas»**, porque se refresca al principio de cada una. El
+> lector del buzón espera hasta **60 s** por operación de socket, así que dos
+> cuentas cuyo servidor IMAP no contesta son **120 s** en una vuelta, contra los
+> **90** del margen del latido. Lo que pasaría entonces son dos cosas, y la
+> segunda es la cara: otro ARLES roba el cerrojo, y **este apaga su propio
+> motor** porque un servidor de correo ajeno no contestó.
+>
+> Lo mide `una_vuelta_lenta_le_cuesta_el_cerrojo_al_motor` en `arles-motor`,
+> verificada con tres rupturas, y lo vigila el validador: `motor.rs` no puede
+> nombrar la revisión del buzón. Exigir que el programador exista no impediría
+> que alguien metiera mañana la llamada en el bucle del motor «porque ya está
+> ahí» — es la lección del 09/10/2026 con `cargo arles`.
+
+> **Dos marcas y no una, y confundirlas tiene una consecuencia concreta.**
+> `inbox_last_uid` es hasta dónde se leyó **con éxito** y no avanza si la
+> revisión falla: eso es lo que impide que un correo sin procesar quede por
+> debajo de la marca. `inbox_last_check_at` es **cuándo se intentó**, con éxito
+> o sin él, y tiene que avanzar también al fallar.
+>
+> Sin la segunda, un buzón cuyo servidor esté caído se reintentaría en cada
+> vuelta: a un minuto por vuelta son **60 intentos de autenticación por hora**
+> contra el servidor de correo del propio usuario, y lo que viene después no es
+> un error nuestro sino una cuenta bloqueada que ARLES no puede desbloquear.
+>
+> Y la marca se escribe **antes** del intento, no después: un intento que no se
+> apunta es un intento que se repite. Lo que eso protege —que ARLES muera, o que
+> alguien añada un `return` temprano, entre la marca y la lectura— no se puede
+> ejercitar en una prueba sin matar el proceso, así que su única red es el
+> validador midiendo la posición de las dos llamadas. **Está dicho en vez de
+> darse por cubierto:** lo que ahí vigila una prueba y lo que vigila el
+> validador no es lo mismo.
+
+> **La fecha sola habría mentido.** Con sólo «última vez, hace 3 minutos», un
+> buzón con el servidor mal escrito que falla en **cada** intento enseñaría una
+> cifra correcta dentro de una frase falsa, y quien la leyera creería que el
+> automatismo funciona. Es el defecto de la 8.4 —«no se ha perdido nada» con 48
+> MB de base en disco— con otra cara. Así que se guarda **cómo fue** el último
+> intento: la clave de i18n del motivo, no el texto, y no el mensaje del
+> servidor, que puede traer una dirección dentro.
+
+> **El intervalo no es configurable, y es una decisión.** Quince minutos: a 300
+> envíos diarios en ocho horas, esperar un cuarto de hora arriesga **unos nueve
+> correos** en el peor caso; mirar cada minuto serían 1 440 conexiones diarias
+> contra 96. Un ajuste más para elegir entre dos números que casi nadie puede
+> razonar es complejidad que se paga sin comprar nada, y el botón de «Revisar el
+> buzón ahora» sigue ahí para quien no quiera esperar.
+
+> **Y el defecto que encontró mirar la pantalla**, con todo en verde: la clave
+> del error estaba **inventada** —`error.app.buzon.no_se_pudo_entrar`, que no
+> existe—, así que un buzón con el llavero bloqueado enseñaba «Ocurrió un error
+> inesperado». Y lo que habría pasado con una clave de buzón que sí existiera es
+> peor: mandar a revisar el servidor a quien tiene el llavero cerrado, que es el
+> diagnóstico equivocado de DOC-14. Ahora la clave **viaja dentro del error**, y
+> el validador falla si este módulo escribe una a mano.
+
+> **Y un hallazgo del validador que no es de este tramo: `solo_produccion`
+> dejaba 22 declaraciones de producción sin mirar.** Es la función que ocho
+> comprobaciones usan para no confundir una llamada de una prueba con un
+> llamador de verdad, y **cortaba en el primer `#[cfg(test)]`** con la
+> convención «los módulos de prueba van al final» escrita como justificación.
+> No se cumplía: cuatro archivos declaran algo de prueba en medio, y en
+> `arles-app/src/lib.rs` quedaban invisibles **siete módulos enteros** porque
+> `mod presupuesto_del_respaldo` va marcado de prueba y el orden es alfabético.
+>
+> El daño no es simétrico, y eso es lo que lo hacía peligroso: una comprobación
+> que pregunta **si algo está** falla y se nota; una que pregunta **si algo NO
+> está** —ningún comando devuelve una contraseña, el lector del buzón no sabe
+> escribir— sale en **verde** sobre el código que no ve. Una red que falla al
+> lado inseguro justo en las garantías de seguridad.
+>
+> Lo encontró una comprobación nueva saliendo **en rojo sobre código correcto**.
+> Ya no corta: quita cada ítem marcado, esté donde esté, contando llaves. Lo
+> vigila `solo_produccion_no_se_deja_nada_detras`, que se escribe sus propios
+> casos en vez de medir sobre los archivos de hoy — medir sobre ellos pasaría a
+> verde el día que alguien reordenara los módulos, sin que la función estuviera
+> arreglada.
+>
+> **Y ese caso de prueba nació sin poder distinguir lo que medía:** con una sola
+> función dentro del bloque, un salto que parara en la primera `}` se la llevaba
+> por delante y las dos aserciones pasaban igual. La ruptura salió en verde. Con
+> dos funciones, la segunda queda a la vista y es el síntoma. Es la lección del
+> 28/10/2026 vista desde el otro lado: **un caso que no deja síntoma no prueba
+> nada.**
+
+> **Lo que sigue sin hacer, dicho en vez de darse por hecho:** el programador
+> tiene **una sola tarea**. Se llama así y no «revisor de buzones» porque el
+> hilo y su ritmo son lo reutilizable, pero **no hay ningún registro de tareas
+> genérico** — eso sería inventar un llamador para piezas que no existen. Y sólo
+> corre en el ARLES que tiene el cerrojo: dos sobre la misma base doblarían las
+> conexiones IMAP, que es lo que el intervalo existe para no hacer.
 
 ### El cable: las bajas del buzón se aplican solas
 

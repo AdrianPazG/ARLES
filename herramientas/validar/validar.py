@@ -1151,12 +1151,79 @@ def solo_produccion(texto):
     que el comentario que se caza a sí mismo: **medir en un sitio donde la
     respuesta no cuenta**.
 
-    Corta en el primer `#[cfg(test)]`, que en este proyecto es siempre lo último
-    del archivo: los módulos de prueba van al final, y la convención la
-    comprueba el propio corte —si alguien pusiera código detrás, dejaría de
-    verse y la comprobación saldría en rojo, no en verde falso—.
+    ── Y EL DEFECTO QUE ESTA FUNCIÓN TUVO HASTA EL 11/11/2026 ──────────────
+
+    Durante una semana cortó en el **primer** `#[cfg(test)]`, con esta
+    justificación escrita: «que en este proyecto es siempre lo último del
+    archivo». **Era falsa**, y medirla dio la cifra: cuatro archivos declaran
+    algo de prueba en medio y dejan **22 declaraciones de producción invisibles**
+    detrás del corte — entre ellas, en `arles-app/src/lib.rs`, todos los módulos
+    desde `programador` hasta `rutas`, porque `mod presupuesto_del_respaldo` va
+    marcado como de prueba y está en orden alfabético.
+
+    La segunda frase era peor: decía que el corte *comprueba* la convención,
+    porque el código invisible «saldría en rojo, no en verde falso». Eso sólo
+    vale para las comprobaciones que preguntan **si algo está** —si no lo ven,
+    fallan y se nota—. Las que preguntan **si algo NO está** —que ningún comando
+    devuelva una contraseña, que el lector del buzón no sepa escribir, que nadie
+    escriba una clave de error a mano— salen en **verde** sobre el código que no
+    ven. Una red que falla al lado inseguro justo en las garantías de seguridad.
+
+    Lo encontró una comprobación nueva saliendo en rojo sobre código correcto:
+    buscaba `pub mod programador` en `lib.rs` y no lo veía.
+
+    Así que ya no corta: **quita** cada ítem marcado con `#[cfg(test)]` y deja
+    lo demás, esté donde esté. Un `mod x;` se quita hasta su `;`; un bloque con
+    cuerpo, hasta su `}` emparejado contando llaves.
+
+    `#[cfg(any(test, feature = "test-util"))]` **no** se quita, y es
+    deliberado: eso sí entra en el binario cuando la característica está
+    activa, así que es código de producción para lo que aquí se mide.
     """
-    return sin_comentarios_de_barras(texto).split("#[cfg(test)]", 1)[0]
+    codigo = sin_comentarios_de_barras(texto)
+    marca = "#[cfg(test)]"
+    salida = []
+    i = 0
+    while True:
+        j = codigo.find(marca, i)
+        if j == -1:
+            salida.append(codigo[i:])
+            return "".join(salida)
+        salida.append(codigo[i:j])
+        i = salta_el_item(codigo, j + len(marca))
+
+
+def salta_el_item(codigo, desde):
+    """Dónde acaba el ítem de Rust que empieza en `desde`.
+
+    Dos formas, y hay que distinguirlas: `mod x;` acaba en su punto y coma y
+    `mod x { … }` en su llave de cierre. Quien quiera saber por qué esto existe,
+    la cabecera de [`solo_produccion`].
+
+    Si no encuentra ninguna de las dos —un archivo cortado a mitad— devuelve el
+    final, que deja fuera el resto. Es el lado seguro: con un archivo que no
+    compila, la comprobación que mida sobre esto fallará, y fallar es lo
+    correcto cuando no se puede leer lo que se iba a medir.
+    """
+    llave = codigo.find("{", desde)
+    punto = codigo.find(";", desde)
+
+    # Una declaración sin cuerpo: el `;` llega antes que cualquier `{`.
+    if punto != -1 and (llave == -1 or punto < llave):
+        return punto + 1
+    if llave == -1:
+        return len(codigo)
+
+    # Con cuerpo: hasta la llave que cierra la que abre, contándolas.
+    hondo = 0
+    for k in range(llave, len(codigo)):
+        if codigo[k] == "{":
+            hondo += 1
+        elif codigo[k] == "}":
+            hondo -= 1
+            if hondo == 0:
+                return k + 1
+    return len(codigo)
 
 
 def fase_1(rapido):
@@ -1331,12 +1398,17 @@ def fase_1(rapido):
     #
     # EL UMBRAL SE MIDIÓ ANTES DE ESCRIBIRLA, y el resultado es la razón de
     # usar `solo_produccion`: en el código de producción estos ocho patrones
-    # dan **0 apariciones**, y en el archivo entero dan **19** — porque la
+    # dan **0 apariciones**, y en el archivo entero **27** (19 el 10/11/2026,
+    # cuando se escribió; subió al añadir la prueba de R-30) — porque la
     # cabecera del módulo los nombra uno a uno al explicar por qué no están, y
     # las pruebas los buscan para comprobar que no salieron por el cable. Sin
     # quitar comentarios y pruebas, esta comprobación habría nacido con
-    # diecinueve hallazgos falsos sobre código correcto: el comentario que se
+    # veintitantos hallazgos falsos sobre código correcto: el comentario que se
     # caza a sí mismo, que en este proyecto va por la decimocuarta vez.
+    #
+    # La cifra de la derecha crece cada vez que alguien añade una prueba a ese
+    # archivo, así que lo que importa de las dos es **el cero de la izquierda**;
+    # la otra queda con su fecha para que se entienda de dónde salió.
     ruta_buzon = os.path.join(RAIZ, "crates/arles-email/src/buzon.rs")
     escribe = []
     if os.path.exists(ruta_buzon):
@@ -1370,6 +1442,8 @@ def fase_1(rapido):
           if escribe else "no existe crates/arles-email/src/buzon.rs")
 
     las_bajas_del_buzon_tienen_quien_las_aplique()
+    solo_produccion_no_se_deja_nada_detras()
+    el_programador_corre_y_no_le_quita_el_cerrojo_al_motor()
 
     check(1, "El consentimiento es append-only y no bloquea el borrado",
           "consent_entry_sin_update" in esquema
@@ -3426,6 +3500,15 @@ MIGRACIONES_PUBLICADAS = {
     # recrear la tabla: no hay ningún `CHECK` que ampliar.
     "V18__leer_el_buzon.sql":
         "10b20f3f8b0885888e3b7f6b755eff574e2b9a9aa3eecd7f83ead2872365ca63",
+    # R-30, 11/11/2026: cuándo se intentó revisar cada buzón y cómo fue, para
+    # que el programador lo haga solo. La fecha es distinta del
+    # `inbox_last_uid` de la V18 a propósito —ésta avanza **también cuando la
+    # revisión falla**, que es lo único que evita reintentar un servidor caído
+    # en cada vuelta— y el motivo del fallo hace falta porque la fecha sola
+    # dejaría a la pantalla diciendo «revisado hace 3 min» de un buzón que
+    # falla siempre.
+    "V19__cuando_se_reviso_el_buzon.sql":
+        "e938608539723867ba59a8eb7419199cdf8439c8a063161a08254da1713dc00e",
 }
 
 
@@ -9154,6 +9237,265 @@ def las_bajas_del_buzon_tienen_quien_las_aplique():
         "Las bajas del buzón tienen quien las aplique",
         not faltan,
         las_bajas_del_buzon_tienen_quien_las_aplique.__doc__,
+        detalle="\n      ".join(faltan),
+    )
+
+
+def solo_produccion_no_se_deja_nada_detras():
+    """**La red de la red**, y hace falta porque falló.
+
+    `solo_produccion` es la base de ocho comprobaciones: quita comentarios y
+    pruebas para que una llamada desde un `#[cfg(test)]` no satisfaga la
+    pregunta «¿quién llama a esto?». Hasta el 11/11/2026 lo hacía **cortando en
+    el primer `#[cfg(test)]`**, con la convención «los módulos de prueba van al
+    final» escrita como justificación.
+
+    La convención no se cumplía, y medirla dio la cifra: cuatro archivos
+    declaran algo de prueba en medio y dejaban **22 declaraciones de producción
+    invisibles** detrás del corte. En `arles-app/src/lib.rs`, siete módulos
+    enteros, porque `mod presupuesto_del_respaldo` va marcado de prueba y el
+    orden es alfabético.
+
+    Y el daño no es simétrico, que es lo que lo hacía peligroso: una
+    comprobación que pregunta **si algo está** falla y se nota; una que pregunta
+    **si algo NO está** —ningún comando devuelve una contraseña, el lector del
+    buzón no sabe escribir, nadie escribe una clave de error a mano— sale en
+    **verde** sobre el código que no ve. La red fallaba al lado inseguro
+    justamente en las garantías de seguridad.
+
+    Así que esto la ejercita con los dos casos que importan, y no mira el
+    código del proyecto: se los escribe. Una comprobación que midiera sobre los
+    archivos de hoy pasaría a verde el día que alguien ordenara los módulos de
+    otra forma, sin que la función estuviera arreglada.
+    """
+    fallos = []
+
+    # El caso exacto que estuvo roto: algo de prueba EN MEDIO, con producción
+    # detrás. Es `arles-app/src/lib.rs` reducido a lo que importa.
+    en_medio = (
+        "pub mod antes;\n"
+        "#[cfg(test)]\n"
+        "mod un_modulo_de_prueba;\n"
+        "pub mod despues;\n"
+    )
+    visto = solo_produccion(en_medio)
+    if "pub mod despues;" not in visto:
+        fallos.append(
+            "una declaración de producción DESPUÉS de un `#[cfg(test)] mod x;` "
+            "no se ve: es el defecto de los 22 módulos invisibles, y deja en "
+            "verde a toda comprobación que pregunte si algo NO está"
+        )
+    if "un_modulo_de_prueba" in visto:
+        fallos.append(
+            "el módulo de prueba sigue visible: una llamada desde una prueba "
+            "satisfaría la pregunta «¿quién llama a esto?»"
+        )
+
+    # Y un bloque de pruebas con cuerpo, que es la forma normal. Lo que no
+    # puede pasar es que se cuele lo de dentro ni que se pierda lo de fuera.
+    #
+    # ── POR QUÉ HAY DOS FUNCIONES DENTRO, Y NO UNA ──
+    #
+    # Con una sola, este caso **no distingue** el conteo de llaves: un salto
+    # que parara en el primer `}` se llevaría por delante esa única función, así
+    # que las dos comprobaciones pasarían igual. Se vio al romperlo —la ruptura
+    # salió en verde—, y es la lección del 28/10/2026 vista desde el otro lado:
+    # un caso que no deja síntoma no prueba nada.
+    #
+    # Con dos, el salto corto deja la segunda a la vista, que es el síntoma.
+    con_cuerpo = (
+        "pub fn de_verdad() {}\n"
+        "#[cfg(test)]\n"
+        "mod pruebas {\n"
+        "    fn una() { if true { } }\n"
+        "    fn otra_solo_en_pruebas() {}\n"
+        "}\n"
+        "pub fn tambien_de_verdad() {}\n"
+    )
+    visto = solo_produccion(con_cuerpo)
+    if "de_verdad()" not in visto or "tambien_de_verdad()" not in visto:
+        fallos.append("un bloque de pruebas con cuerpo se lleva por delante código de producción")
+    if "otra_solo_en_pruebas" in visto:
+        fallos.append(
+            "el cuerpo del bloque de pruebas se cuela: las llaves anidadas de "
+            "dentro tienen que contarse, o el salto termina en la primera `}` "
+            "y deja a la vista lo que viene detrás"
+        )
+
+    # `test-util` NO es una prueba: entra en el binario con la característica
+    # activa, así que es código de producción para lo que aquí se mide.
+    con_feature = '#[cfg(any(test, feature = "test-util"))]\npub type Expuesto = u8;\n'
+    if "Expuesto" not in solo_produccion(con_feature):
+        fallos.append(
+            "`#[cfg(any(test, feature = \"test-util\"))]` se trata como una "
+            "prueba, y eso sí viaja en el binario cuando la característica está "
+            "activa: lo que se mida sobre ello dejaría de verlo"
+        )
+
+    check(
+        1,
+        "solo_produccion no deja código de producción sin mirar",
+        not fallos,
+        solo_produccion_no_se_deja_nada_detras.__doc__,
+        detalle="\n      ".join(fallos),
+    )
+
+
+def el_programador_corre_y_no_le_quita_el_cerrojo_al_motor():
+    """**El §9 otra vez, y además el único sitio donde cabía mal.**
+
+    R-30 cierra el límite que R-25 dejó declarado —«hay que pulsar un botón»— y
+    tiene dos formas de salir mal, una de cada familia conocida:
+
+    **La primera es la de siempre:** un hilo escrito, probado, y que nadie
+    arranca. `ProgramadorEnMarcha::arrancar` tiene que llamarlo `estado.rs`, o
+    ARLES compila, abre su ventana, no revisa ningún buzón y **todo está en
+    verde**. Es el hueco de la W.8 y el de la 8.2b.
+
+    **La segunda es específica de este tramo y está medida.** El sitio cómodo
+    para esta tarea era el hilo del motor, que ya da vueltas cada cinco
+    segundos. Y no cabe: el latido del cerrojo de instancia única no mide «ARLES
+    está vivo» sino **«el bucle está dando vueltas»**, porque se refresca al
+    principio de cada una. El lector del buzón espera hasta 60 s por operación
+    de socket (`arles_email::buzon::ESPERA_MAXIMA`), así que dos cuentas cuyo
+    servidor IMAP no contesta son 120 s en una vuelta contra los 90 de
+    `LATIDO_MAXIMO` — y entonces otro ARLES roba el cerrojo y **este apaga su
+    propio motor**. Lo mide
+    `arles_motor::instancia::una_vuelta_lenta_le_cuesta_el_cerrojo_al_motor`,
+    verificada con tres rupturas.
+
+    Así que esto vigila también lo que **no** tiene que pasar: que `motor.rs`
+    nombre la revisión del buzón. Una comprobación que sólo exigiera que el
+    programador exista no impediría que alguien, mañana, metiera la llamada en
+    el bucle del motor «porque ya está ahí» — es la lección del 09/10 con
+    `cargo arles`: exigir que el bueno esté no impide que el malo entre.
+
+    Y el tramo que no se ve leyendo: **la marca del intento va ANTES del
+    intento**. Un intento que no se apunta es un intento que se repite, y
+    repetir contra un servidor IMAP que no contesta es ARLES martillando el
+    correo de su propio usuario hasta que el proveedor bloquee la cuenta. Se
+    mide por posición dentro del cuerpo, no por aparición.
+
+    Escrita **antes** del programador, para verla fallar nombrando sus tramos.
+    """
+    faltan = []
+
+    # `solo_produccion` archivo por archivo, no sobre la concatenación: ver la
+    # nota de `las_bajas_del_buzon_tienen_quien_las_aplique`, que salió en rojo
+    # sobre código correcto por cortar en el primer `#[cfg(test)]` del montón.
+    def produccion_de(*ruta):
+        texto = leer(*ruta)
+        return None if texto is None else solo_produccion(texto)
+
+    # ── 1 · EL HILO EXISTE, Y SE PARA AL CERRAR ──
+    prog = produccion_de("crates", "arles-app", "src", "programador.rs")
+    if prog is None:
+        faltan.append(
+            "no existe crates/arles-app/src/programador.rs — nadie revisa los "
+            "buzones solo, y R-25 sigue necesitando que alguien pulse un botón"
+        )
+    else:
+        if "ProgramadorEnMarcha" not in prog:
+            faltan.append("programador.rs no declara ProgramadorEnMarcha")
+        # Sin `Drop`, cerrar ARLES dejaría el hilo suelto con la base abierta.
+        # Es la misma garantía que `MotorEnMarcha` tiene desde la 5.4b.
+        if "impl Drop for ProgramadorEnMarcha" not in prog:
+            faltan.append(
+                "ProgramadorEnMarcha no se para al soltarlo: un hilo que sigue "
+                "revisando buzones con la ventana cerrada no lo para nadie"
+            )
+
+        # ── 2 · PREGUNTA AL NÚCLEO SI TOCA, Y NO SE LO INVENTA ──
+        if "toca_revisar" not in prog:
+            faltan.append(
+                "el programador no pregunta a baja_por_correo::toca_revisar: "
+                "el ritmo estaría escrito dos veces"
+            )
+
+        # ── 3 · LA MARCA DEL INTENTO, ANTES DEL INTENTO ──
+        #
+        # Se mide dentro del cuerpo de la función que trabaja y por POSICIÓN.
+        # Preguntar sólo si el nombre aparece dejaría pasar la versión que lo
+        # anota en la rama del éxito, que es precisamente la que martillea un
+        # servidor caído.
+        cuerpo = re.search(r"fn revisar_si_toca\b.*?\n\}", prog, re.S)
+        if not cuerpo:
+            faltan.append("no se encuentra el cuerpo de revisar_si_toca")
+        else:
+            texto = cuerpo.group(0)
+            pos_marca = texto.find("anotar_el_intento_del_buzon")
+            pos_lee = texto.find("revisar_uno")
+            if pos_marca == -1:
+                faltan.append(
+                    "revisar_si_toca no apunta el intento: un buzón cuyo "
+                    "servidor no contesta se reintentaría en cada vuelta"
+                )
+            elif pos_lee == -1:
+                faltan.append("revisar_si_toca no revisa ningún buzón")
+            elif pos_marca > pos_lee:
+                faltan.append(
+                    "la marca del intento se escribe DESPUÉS de intentarlo: una "
+                    "revisión que falle por el camino no la dejaría escrita, y "
+                    "ese buzón se reintentaría sin descanso"
+                )
+
+        # ── 3 bis · LA CLAVE DEL FALLO NO SE ESCRIBE AQUÍ ──
+        #
+        # Lo encontró mirar la pantalla, con todo en verde: la primera versión
+        # inventaba `error.app.buzon.no_se_pudo_entrar`, que no existe en el
+        # catálogo, así que un buzón con el llavero bloqueado enseñaba «Ocurrió
+        # un error inesperado». Y con una clave de buzón que sí existiera
+        # habría sido peor —mandar a revisar el servidor a quien tiene el
+        # llavero cerrado—, que es el diagnóstico equivocado de DOC-14.
+        #
+        # El §139 no lo caza: recorre los `clave_i18n()` de Rust, y una cadena
+        # escrita a mano en un `Some(...)` no es una variante de error. Así que
+        # lo que se exige aquí es que **no haya ninguna cadena de clave escrita
+        # a mano** en este módulo: la del error viaja dentro de él.
+        claves_a_mano = re.findall(r'"error\.[a-z_.]+"', prog)
+        if claves_a_mano:
+            faltan.append(
+                "el programador escribe claves de error a mano "
+                f"({', '.join(sorted(set(claves_a_mano)))}): la clave tiene que "
+                "salir del error, o se enseña el diagnóstico de otro"
+            )
+
+    # ── 4 · ALGUIEN LO ARRANCA. ES EL TRAMO DEL §9 ──
+    estado = produccion_de("crates", "arles-app", "src", "estado.rs")
+    if estado is None:
+        faltan.append("no se pudo leer estado.rs")
+    elif "ProgramadorEnMarcha::arrancar" not in estado:
+        faltan.append(
+            "ProgramadorEnMarcha::arrancar — nadie lo arranca: el hilo existe, "
+            "está probado, y ARLES no revisa ningún buzón con todo en verde"
+        )
+
+    lib = produccion_de("crates", "arles-app", "src", "lib.rs") or ""
+    if "pub mod programador" not in lib:
+        faltan.append("el módulo programador no está declarado en lib.rs")
+
+    # ── 5 · Y NO VIVE EN EL HILO DEL MOTOR ──
+    #
+    # La cifra que lo prohíbe está en la cabecera de esta función. Exigir que el
+    # programador exista no impide que alguien meta la llamada en el bucle del
+    # motor «porque ya da vueltas»: esto es lo que lo impide.
+    motor = produccion_de("crates", "arles-app", "src", "motor.rs")
+    if motor is None:
+        faltan.append("no se pudo leer motor.rs")
+    else:
+        for prohibido in ("correos_de", "correos_recientes", "revisar_uno", "toca_revisar"):
+            if prohibido in motor:
+                faltan.append(
+                    f"motor.rs nombra `{prohibido}`: revisar el buzón dentro del "
+                    "bucle del motor puede pasar de los 90 s del latido y hacer "
+                    "que ARLES pierda su cerrojo y apague su propio motor"
+                )
+
+    check(
+        1,
+        "El programador revisa los buzones y no corre en el hilo del motor",
+        not faltan,
+        el_programador_corre_y_no_le_quita_el_cerrojo_al_motor.__doc__,
         detalle="\n      ".join(faltan),
     )
 

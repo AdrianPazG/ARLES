@@ -179,6 +179,26 @@ correo **sólo HTML** llega sin su parte de texto y, al quitarle las etiquetas,
 puede no decir exactamente la palabra. Eso sale **dudoso** y lo mira una
 persona. No se escribe un intérprete de HTML en el camino de una baja.
 
+### 4.8 bis · Y desde R-30 (11/11/2026), esa lectura ocurre **sola**
+
+Lo que cambia para este modelo no es el protocolo —es el mismo— sino **quién la
+dispara**: hasta el 10/11 cada conexión salía de un clic, y desde el 11/11 un
+hilo la hace cada quince minutos. Un programa que abre conexiones salientes sin
+que nadie se lo pida merece decir qué hace y qué no.
+
+| Amenaza | Vector | Mitigación |
+|---|---|---|
+| **DoS, contra el usuario** | ARLES martillea el servidor de correo de su propio usuario y el proveedor le bloquea la cuenta | `inbox_last_check_at` (V19) avanza **también cuando la revisión falla**, así que un servidor caído no se reintenta hasta el intervalo siguiente: **96 conexiones diarias por cuenta** y no 1 440. Y la marca se escribe **antes** del intento, porque un intento que no se apunta es un intento que se repite |
+| **DoS, contra el propio ARLES** | Una espera de red deja al motor sin latir y otro ARLES le roba el cerrojo de instancia única | Hilo **propio**, no el del motor, y la cifra está medida: dos buzones caídos son 120 s contra los 90 del margen del latido. Lo vigila el validador — `motor.rs` no puede nombrar la revisión del buzón |
+| **Repudiation** | Nadie puede saber si la baja la aplicó una persona o el automatismo | Cada baja entra con `OrigenDeSupresion::PeticionPorCorreo` y su línea en `audit_log` con el UID del correo que la causó. **El programador usa el mismo camino que el botón**, así que no hay dos formas de registrar lo mismo |
+| **Info disclosure** | El motivo de un fallo guardado en la base arrastra una dirección o un mensaje del servidor | `inbox_last_error` guarda **la clave de i18n**, no el texto y no la respuesta del servidor. La respuesta SMTP/IMAP ya se recorta y filtra antes de cualquier otro uso |
+| **Elevation** | Dos ARLES sobre la misma base revisan el mismo buzón y duplican las conexiones | El programador arranca **sólo si se tomó el cerrojo**: el mismo que decide quién envía decide quién revisa. No hay un segundo mecanismo que pueda discrepar del primero |
+
+**Y lo que esto no hace, que importa para el modelo:** no revisa con la
+**aplicación cerrada**. No hay servicio del sistema, ni tarea programada del
+sistema operativo, ni nada que corra sin que alguien abra ARLES — así que la
+superficie no crece cuando el programa no está en marcha.
+
 ---
 
 ## 5. Principio de mínimo privilegio (§87)

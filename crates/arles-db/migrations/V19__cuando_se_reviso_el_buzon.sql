@@ -1,0 +1,66 @@
+-- ════════════════════════════════════════════════════════════════════════
+-- V19 · Cuándo se intentó revisar cada buzón
+-- ════════════════════════════════════════════════════════════════════════
+--
+-- R-30 (11/11/2026). R-25 dejó la revisión del buzón funcionando y con un
+-- límite declarado: **hay que pulsar un botón**. Esto es lo que le falta al
+-- programador para hacerlo solo — una columna, y es una sola porque la pregunta
+-- que hay que poder contestar es una: «¿cuánto hace que se intentó?».
+--
+-- ────────────────────────────────────────────────────────────────────────
+-- POR QUÉ NO SIRVE EL `inbox_last_uid` QUE YA HAY
+--
+-- Parecen la misma cosa y miden cosas distintas, y confundirlas tiene una
+-- consecuencia concreta:
+--
+-- · `inbox_last_uid` es **hasta dónde se leyó con éxito**. Avanza dentro de la
+--   transacción de las bajas, y si la revisión falla **no avanza nada** — eso
+--   es la garantía de R-25: un correo que no se llegó a procesar no queda por
+--   debajo de la marca.
+--
+-- · `inbox_last_check_at` es **cuándo se intentó**, con éxito o sin él. Y
+--   tiene que avanzar también cuando falla, porque es lo único que evita que un
+--   servidor que no contesta se reintente en cada vuelta del programador.
+--
+-- Sin esta distinción, un buzón cuyo servidor IMAP esté caído se reintentaría
+-- cada pocos segundos: eso es **ARLES martillando el servidor de correo de su
+-- propio usuario**, y lo que pasa después no es un error nuestro sino una
+-- cuenta bloqueada por demasiados intentos de autenticación — que es el tipo de
+-- avería que no se puede arreglar desde aquí y que el usuario nota al intentar
+-- enviar.
+--
+-- Por eso son dos columnas y no una, y por eso el reloj de la revisión no vive
+-- en la memoria del hilo: un ARLES que se abre y se cierra cinco veces en un
+-- minuto haría cinco conexiones IMAP, por la misma razón.
+--
+-- ────────────────────────────────────────────────────────────────────────
+-- Y POR QUÉ `NULL` SIGNIFICA ALGO
+--
+-- `NULL` es «nunca se ha intentado», y es lo que hace que el primer arranque
+-- con la lectura encendida revise enseguida en vez de esperar el intervalo
+-- entero. No es lo mismo que una fecha antigua: una fecha antigua se puede
+-- comparar, y la pantalla la enseña.
+--
+-- Es la misma decisión que la V18 tomó con `inbox_last_uid`, y por el mismo
+-- motivo: un valor de relleno se lee como un dato.
+--
+-- ────────────────────────────────────────────────────────────────────────
+-- Y POR QUÉ HAY UNA SEGUNDA COLUMNA: LA FECHA SOLA MENTIRÍA
+--
+-- Con sólo `inbox_last_check_at`, la pantalla diría «revisado hace 3 minutos»
+-- de un buzón cuyo servidor está mal escrito y que falla **en cada intento**.
+-- Un texto correcto, una cifra correcta, y el usuario creyendo que el
+-- automatismo funciona — el defecto de la 8.4, que decía «no se ha perdido
+-- nada» con 48 MB de base en disco, y con la misma forma: el dato es verdad y
+-- la frase que lo rodea no.
+--
+-- Así que se guarda cómo fue el último intento. `NULL` es «fue bien»; si no,
+-- **la clave de i18n** del motivo (§139), que es lo que la pantalla sabe
+-- traducir. No el texto: un texto guardado se queda en el idioma del día que
+-- se escribió. Y no el mensaje del servidor: eso puede traer una dirección
+-- dentro, y aquí no hace falta para nada.
+
+ALTER TABLE email_account ADD COLUMN inbox_last_check_at TEXT;
+
+-- `NULL` = el último intento fue bien, o no ha habido ninguno. Ver arriba.
+ALTER TABLE email_account ADD COLUMN inbox_last_error TEXT;

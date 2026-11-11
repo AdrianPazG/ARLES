@@ -2465,9 +2465,82 @@ dónde se lee cada uno, si está encendido y hasta qué correo se leyó.
 > archivo advierte desde la 8.6: al añadir una migración, hay que mirar qué
 > pruebas fijan el esquema a mano.
 
-> **Lo que R-25 no hace, dicho en vez de darse por hecho:** no se revisa solo
-> cada cierto tiempo. ARLES no tiene un programador de tareas, así que hay que
-> pulsar «Revisar el buzón ahora» — y está en el manual con esas palabras.
+> **Esta línea decía que no se revisaba solo, y la cerró R-30 al día
+> siguiente.** Decía: *«no se revisa solo cada cierto tiempo. ARLES no tiene un
+> programador de tareas, así que hay que pulsar Revisar el buzón ahora»*. Era
+> verdad el 10/11 y falso el 11/11.
+
+**Y el 11/11/2026, R-30 · el programador: ARLES revisa los buzones solo.** Lo
+disparó una pregunta de Dirección —«¿es posible crear ese programador de
+tareas?»— y la respuesta medida fue que sí, y que **ya existía**: el hilo del
+motor da vueltas cada cinco segundos desde la 5.4b. Lo que hacía falta era
+**no** meter la tarea ahí dentro. Está contado en
+[`ESTADO_ACTUAL.md`](documentacion/07-entrega/ESTADO_ACTUAL.md) §18.
+
+> **Las dos cifras que decidieron dónde vive.** El latido del cerrojo de
+> instancia única no mide «ARLES está vivo» sino **«el bucle está dando
+> vueltas»**, porque se refresca al principio de cada una. El lector del buzón
+> espera hasta **60 s** por operación de socket, así que dos cuentas cuyo
+> servidor IMAP no contesta son **120 s** en una vuelta contra los **90** del
+> margen. Pasado eso, otro ARLES roba el cerrojo y **este apaga su propio
+> motor** porque un servidor de correo ajeno no contestó.
+>
+> Lo mide `una_vuelta_lenta_le_cuesta_el_cerrojo_al_motor`, y el validador
+> comprueba que `motor.rs` **no** nombre la revisión del buzón: exigir que el
+> programador exista no impediría que alguien metiera mañana la llamada en el
+> bucle del motor «porque ya está ahí» — la lección del 09/10 con `cargo arles`.
+
+> **Dos marcas de tiempo y no una.** `inbox_last_uid` es hasta dónde se leyó
+> **con éxito** y no avanza al fallar —eso impide que un correo sin procesar
+> quede por debajo de la marca—; `inbox_last_check_at` (V19) es **cuándo se
+> intentó** y avanza también al fallar. Sin la segunda, un buzón caído se
+> reintentaría en cada vuelta: **60 intentos de autenticación por hora** contra
+> el servidor del propio usuario, y después una cuenta bloqueada que ARLES no
+> puede desbloquear. Y la marca va **antes** del intento: un intento que no se
+> apunta es un intento que se repite.
+
+> **Lo que ahí vigila una prueba y lo que vigila el validador no es lo mismo.**
+> La prueba caza la versión que anota sólo en el éxito. Lo que **no** caza,
+> medido: quitar la anotación previa dejando la de después pasa en verde. Lo que
+> la previa protege —morir entre la marca y la lectura— no se puede ejercitar
+> sin matar el proceso, así que su única red es el validador midiendo la
+> posición. **Dicho en vez de darse por cubierto.**
+
+> **La fecha sola habría mentido**, y por eso se guarda cómo fue el último
+> intento. «Última vez, hace 3 minutos» de un buzón que falla **siempre** es una
+> cifra correcta dentro de una frase falsa: el defecto de la 8.4 con otra cara.
+> Se guarda la clave de i18n, no el texto y no el mensaje del servidor, que
+> puede traer una dirección dentro.
+
+> **El intervalo son 15 minutos y no es configurable, con su cifra:** a 300
+> envíos diarios en ocho horas, esperar un cuarto de hora arriesga **unos nueve
+> correos**; mirar cada minuto serían 1 440 conexiones diarias contra 96.
+
+> **Y el hallazgo que no era del tramo: `solo_produccion` dejaba 22
+> declaraciones de producción sin mirar.** Es la función que ocho comprobaciones
+> usan para no confundir una llamada de una prueba con un llamador de verdad, y
+> cortaba en el primer `#[cfg(test)]` con la convención «los módulos de prueba
+> van al final» escrita como justificación. No se cumplía: cuatro archivos
+> declaran algo de prueba en medio, y en `lib.rs` quedaban invisibles **siete
+> módulos enteros**.
+>
+> **El daño no es simétrico, y es lo que lo hacía peligroso:** una comprobación
+> que pregunta *si algo está* falla y se nota; una que pregunta *si algo NO
+> está* —ningún comando devuelve una contraseña, el lector del buzón no sabe
+> escribir— sale en **verde** sobre el código que no ve. Es DOC-24, y van
+> veinticuatro.
+>
+> **Y el caso de prueba de la comprobación nueva nació sin poder distinguir lo
+> que medía:** con una sola función dentro del bloque, un salto que parara en la
+> primera `}` se la llevaba por delante y las dos aserciones pasaban igual — la
+> ruptura salió **en verde**. Es la lección del 28/10 vista desde el otro lado:
+> **un caso que no deja síntoma no prueba nada.**
+
+> **Lo que R-30 no hace:** una sola tarea y **ningún registro genérico de
+> tareas** —eso sería inventar un llamador para piezas que no existen—; sólo
+> corre en el ARLES que tiene el cerrojo; y revisa con la ventana cerrada pero
+> **no con la aplicación cerrada**, que sería un servicio del sistema y es otra
+> cosa.
 
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 

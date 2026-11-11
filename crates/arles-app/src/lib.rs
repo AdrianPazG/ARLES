@@ -24,6 +24,7 @@ pub mod motor;
 /// binario que se distribuye.
 #[cfg(test)]
 mod presupuesto_del_respaldo;
+pub mod programador;
 pub mod recuperacion;
 pub mod registro;
 pub mod respaldo;

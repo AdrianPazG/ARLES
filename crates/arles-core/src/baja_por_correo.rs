@@ -282,6 +282,74 @@ fn solo_letras_y_numeros(texto: &str) -> String {
     texto.chars().filter(|c| c.is_alphanumeric()).collect()
 }
 
+// ═════════════════════════════════════════════════════════════════════════
+// CADA CUÁNTO SE MIRA EL BUZÓN (R-30, 11/11/2026)
+// ═════════════════════════════════════════════════════════════════════════
+//
+// Esto vive aquí y no en un módulo propio porque es la otra mitad de la misma
+// decisión de producto: D-21 dijo que las bajas se aplican solas, y «solas»
+// necesita un ritmo. Quien venga a leer qué cuenta como una baja es quien se
+// pregunta cada cuánto se mira, y separarlos dejaría la segunda respuesta en
+// un archivo que nadie abriría.
+//
+// Y vive en el núcleo por la razón de siempre: es una regla. No abre nada, no
+// mira el reloj —el reloj entra como parámetro— y se ejercita entera con
+// fechas escritas a mano.
+
+/// Cada cuántos minutos se mira el buzón.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ QUINCE, CON SUS DOS CIFRAS
+///
+/// Lo que se arriesga esperando es que alguien que pidió la baja reciba un
+/// correo más. A 300 envíos diarios —el techo que D-13 permite por campaña— en
+/// una ventana de ocho horas salen unos 37 por hora, así que un cuarto de hora
+/// son **unos nueve correos** en el peor caso, y sólo si la baja llegó justo
+/// después de una revisión.
+///
+/// Lo que se arriesga mirando más a menudo es la cuenta del usuario. Cada
+/// revisión es una conexión IMAP con su autenticación, y los proveedores
+/// cuentan los intentos: mirar cada minuto son 1 440 al día contra 96. Ninguno
+/// de los cinco proveedores que ARLES reconoce publica ese umbral, así que lo
+/// prudente no es acercarse a él.
+///
+/// **No es configurable**, y es deliberado: un ajuste más en una pantalla que
+/// ya tiene casilla y servidor, para elegir entre dos números que casi nadie
+/// puede razonar, es complejidad que se paga sin comprar nada. El botón de
+/// «Revisar el buzón ahora» sigue ahí para quien no quiera esperar, y eso cubre
+/// el caso de verdad —«acabo de pedir la baja, compruébalo»— mejor que un
+/// desplegable.
+pub const REVISAR_CADA_MINUTOS: u16 = 15;
+
+/// ¿Toca mirar este buzón?
+///
+/// `ultimo_intento` es **cuándo se intentó**, con éxito o sin él, y no hasta
+/// dónde se leyó. La diferencia está escrita en la cabecera de la migración
+/// V19: si esto recibiera la marca del éxito, un servidor caído se reintentaría
+/// en cada vuelta del programador.
+///
+/// `None` es «nunca se ha intentado» y **sí toca**: es lo que hace que encender
+/// la casilla se note enseguida en vez de dentro de un cuarto de hora.
+///
+/// Una marca **en el futuro** —el reloj del equipo se movió— cuenta como recién
+/// revisada y por tanto *no* toca. Es el mismo lado por el que falla
+/// `arles_motor::instancia::edad_del_latido` ante una fecha rara: esperar de
+/// más no rompe nada, y mirar de más sería conectarse a un servidor ajeno en
+/// cada vuelta hasta que alguien arreglara el reloj.
+#[must_use]
+pub fn toca_revisar(
+    ultimo_intento: Option<time::OffsetDateTime>,
+    ahora: time::OffsetDateTime,
+) -> bool {
+    let Some(entonces) = ultimo_intento else {
+        return true;
+    };
+    // `checked_sub` no hace falta: `ahora - entonces` sobre `OffsetDateTime` da
+    // una `Duration` con signo, y una negativa es la fecha en el futuro.
+    let pasado = ahora - entonces;
+    pasado >= time::Duration::minutes(i64::from(REVISAR_CADA_MINUTOS))
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
@@ -501,5 +569,64 @@ mod pruebas {
         // Y la que se compara tiene que estar en la lista de las inequívocas,
         // o el botón del cliente de correo no daría de baja a nadie.
         assert!(SOLAS_SON_UNA_BAJA.contains(&PALABRA_MINUSCULA));
+    }
+
+    /// Un instante fijo, para que la prueba no dependa de cuándo se corra.
+    fn un_martes() -> time::OffsetDateTime {
+        time::OffsetDateTime::from_unix_timestamp(1_762_800_000).expect("fecha válida")
+    }
+
+    /// **Nunca revisado toca enseguida**, y es lo que hace que encender la
+    /// casilla se note.
+    ///
+    /// Sin esto, el primer arranque esperaría el intervalo entero y quien
+    /// acabara de encenderlo pensaría que no funciona.
+    #[test]
+    fn un_buzon_que_nunca_se_reviso_toca_ya() {
+        assert!(toca_revisar(None, un_martes()));
+    }
+
+    /// Antes del intervalo no toca; cumplido, sí. **El límite exacto cuenta
+    /// como cumplido**, que es el único caso que distingue `>=` de `>`.
+    #[test]
+    fn el_intervalo_se_respeta_y_el_limite_exacto_toca() {
+        let ahora = un_martes();
+        let cada = i64::from(REVISAR_CADA_MINUTOS);
+
+        let recien = ahora - time::Duration::minutes(cada - 1);
+        assert!(
+            !toca_revisar(Some(recien), ahora),
+            "a un minuto de cumplirse el intervalo no toca: mirar antes es \
+             una conexión IMAP más contra la cuenta del usuario"
+        );
+
+        let justo = ahora - time::Duration::minutes(cada);
+        assert!(
+            toca_revisar(Some(justo), ahora),
+            "cumplido el intervalo exacto toca: con `>` en vez de `>=` habría \
+             que esperar un minuto más del declarado"
+        );
+
+        let viejo = ahora - time::Duration::hours(9);
+        assert!(toca_revisar(Some(viejo), ahora));
+    }
+
+    /// **Una marca en el futuro no hace mirar**: el reloj del equipo se movió.
+    ///
+    /// Es el mismo lado por el que falla el latido del cerrojo ante una fecha
+    /// rara. Lo contrario —darla por caducada— conectaría con un servidor ajeno
+    /// en cada vuelta del programador hasta que alguien arreglara el reloj, que
+    /// es justo lo que [`REVISAR_CADA_MINUTOS`] existe para no hacer.
+    ///
+    /// Verificada rompiéndola: con el cálculo en valor absoluto, esta prueba
+    /// falla y las otras tres siguen pasando.
+    #[test]
+    fn un_reloj_movido_no_dispara_una_revision() {
+        let ahora = un_martes();
+        let futuro = ahora + time::Duration::hours(3);
+        assert!(
+            !toca_revisar(Some(futuro), ahora),
+            "ante una fecha rara, esperar es el lado que no rompe nada"
+        );
     }
 }

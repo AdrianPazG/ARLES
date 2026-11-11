@@ -390,6 +390,76 @@ mod tests {
         );
     }
 
+    /// **Una vuelta que tarda más que el margen le cuesta el cerrojo al
+    /// motor**, y es lo que decide dónde puede vivir una tarea lenta.
+    ///
+    /// El latido no mide «ARLES está vivo»: mide **«el bucle está dando
+    /// vueltas»**, porque se refresca al principio de cada una (ver la nota de
+    /// [`Cerrojo::latir`]). Así que el diseño del cerrojo da por supuesto que
+    /// una vuelta es corta, y eso deja de ser verdad en cuanto se le mete
+    /// dentro algo que espera a la red.
+    ///
+    /// La cifra: el lector del buzón de R-25 espera hasta
+    /// `arles_email::buzon::ESPERA_MAXIMA` —**60 s**— por operación de socket.
+    /// Dos cuentas cuyo servidor IMAP no contesta son **120 s** en una sola
+    /// vuelta, contra los 90 de [`LATIDO_MAXIMO`]. Y lo que pasa entonces son
+    /// las dos cosas que esta prueba mide:
+    ///
+    /// 1. otro ARLES **roba** el cerrojo, creyendo que éste murió;
+    /// 2. y el `latir()` de éste **falla**, que es la señal con la que el
+    ///    bucle del motor sale y deja de enviar.
+    ///
+    /// Lo segundo es lo caro: ARLES se apaga el motor a sí mismo porque un
+    /// servidor de correo ajeno no contestó. Por eso la revisión del buzón
+    /// corre en **su propio hilo** (`arles-app/src/programador.rs`) y no aquí.
+    ///
+    /// Verificada rompiéndola el 10/11/2026: subiendo [`LATIDO_MAXIMO`] por
+    /// encima de la vuelta simulada, las dos aserciones fallan — que es la
+    /// comprobación de que lo que mide es la relación entre las dos cifras y
+    /// no una constante escrita a mano.
+    #[test]
+    fn una_vuelta_lenta_le_cuesta_el_cerrojo_al_motor() {
+        let dir = tempfile::tempdir().expect("temporal");
+        let mio = Cerrojo::tomar(dir.path(), "el-que-envia").expect("entra");
+
+        // La vuelta lenta: dos buzones a 60 s de espera cada uno. No se espera
+        // de verdad —eso haría la prueba inútil— sino que se envejece el
+        // latido lo que esa vuelta habría tardado.
+        let vuelta_lenta = 2 * arles_email_espera_maxima_s();
+        assert!(
+            vuelta_lenta > LATIDO_MAXIMO.as_secs(),
+            "si esto deja de ser verdad, el resto de la prueba no mide nada: \
+             dos esperas de buzón ya no pasarían del margen del latido"
+        );
+        envejecer(&dir.path().join(NOMBRE), vuelta_lenta);
+
+        let otro = Cerrojo::tomar(dir.path(), "el-que-llega");
+        assert!(
+            otro.is_ok(),
+            "una vuelta de {vuelta_lenta} s pasa del margen de {} s, así que \
+             otro ARLES da este por muerto y abre la misma base",
+            LATIDO_MAXIMO.as_secs()
+        );
+
+        assert!(
+            matches!(mio.latir(), Err(NoSePudoTomar::LoTomoOtroALaVez)),
+            "y el motor que iba despacio pierde su propio cerrojo: el bucle \
+             sale por aquí y ARLES deja de enviar sin que nadie lo pida"
+        );
+    }
+
+    /// La espera por socket del lector del buzón, en segundos.
+    ///
+    /// Se escribe aquí y no se importa: `arles-motor` **no depende de
+    /// `arles-email`** —el motor no sabe que el adaptador existe— y añadir la
+    /// dependencia para una prueba invertiría una arista del grafo que
+    /// `el_grafo_de_crates_solo_apunta_hacia_dentro` vigila. Lo que la
+    /// mantiene honesta es la prueba gemela de `arles-email`, que compara esta
+    /// cifra con la constante de verdad y falla si se separan.
+    const fn arles_email_espera_maxima_s() -> u64 {
+        60
+    }
+
     /// Un archivo con fecha en el futuro no revienta ni abre una segunda
     /// instancia: cuenta como recién latido.
     #[test]

@@ -71,6 +71,7 @@ plazo externo que no se comprime.
 |---|---|---|---|
 | **R-05** | Imagen en la firma | Embebida dispara filtros de spam y engorda cada correo; alojada hay que alojarla, y el saneado tendría que admitir `<img>` | espera decisión |
 | ~~**R-25**~~ | ~~Baja automática por correo~~ | **Cerrado el 10/11/2026: ARLES revisa el buzón del remitente —sólo lectura— y aplica las bajas.** Ver abajo | ✅ hecho |
+| ~~**R-30**~~ | ~~Que el buzón se revise sin pulsar un botón~~ | **Cerrado el 11/11/2026: un hilo propio lo revisa cada 15 minutos.** No va en el hilo del motor, y la razón está medida: 120 s de dos buzones caídos contra los 90 del latido del cerrojo. Ver abajo | ✅ hecho |
 | **D-19** | ¿El registro tiene que dar el total exacto? | C-2 midió que **el único cambio que baja el tiempo del filtro es dejar de contar todas las coincidencias**: traer las 500 filas cuesta la mitad. Pero el total al lado es D-7C, y se pidió para que el tope no escondiera nada. Las opciones y las cifras, abajo | espera decisión |
 | **Fase 9** | Sacar la activación al hilo del motor | Activar tarda ~73 s con 451 196 destinatarios y el presupuesto de 2 s se rompe **alrededor de los 30 000**. Desde el 28/10 la ventana **sí responde**, dice en qué va y se puede cancelar; lo que queda es que no corra dentro de un comando | abierto · medido en la auditoría C |
 
@@ -187,9 +188,11 @@ la que alguien apunta a mano— y **el lector del buzón**
 botón y el registro en la bitácora, con la migración **V18** para guardar dónde
 se lee cada buzón, si está encendido y hasta qué correo se leyó.
 
-**Lo que R-25 no hace, dicho en vez de darse por hecho:** no se revisa solo cada
-cierto tiempo — hay que pulsar el botón. ARLES no tiene un programador de tareas
-y añadirlo es otra decisión.
+> **Esta línea decía que no se revisaba solo, y lo cerró R-30 al día
+> siguiente.** Decía: *«no se revisa solo cada cierto tiempo — hay que pulsar el
+> botón. ARLES no tiene un programador de tareas y añadirlo es otra decisión»*.
+> Era verdad el 10/11 y falso el 11/11; se queda escrita porque una limitación
+> que desaparece sin dejar rastro parece una que nadie resolvió.
 
 ### El orden del cable, y por qué no se puede invertir
 
@@ -307,6 +310,62 @@ e invalidar todos los respaldos anteriores, con un instalador ya fuera.
 > creerse esta tabla; H-13 arreglado; y
 > `ninguna_tabla_se_queda_fuera_del_respaldo` ya ve una tabla virtual — no la
 > veía, y la fase 8 pasó en verde con una tabla nueva sin clasificar.
+
+---
+
+## R-30 · el programador, y las dos cifras que decidieron dónde vive
+
+Cerrado el **11/11/2026**. Lo disparó una pregunta de Dirección —«¿es posible
+crear ese programador de tareas?»— y la respuesta medida fue que sí, y que **ya
+existía**: el hilo del motor da vueltas cada cinco segundos desde la 5.4b y
+sobrevive a cerrar la ventana (§51). Lo que hacía falta era **no** meter la
+tarea ahí dentro.
+
+| | |
+|---|---|
+| Dos buzones cuyo servidor IMAP no contesta, en una vuelta | **120 s** |
+| Margen del latido antes de dar el cerrojo por muerto | **90 s** |
+
+El latido no mide «ARLES está vivo» sino **«el bucle está dando vueltas»**,
+porque se refresca al principio de cada una. Pasado el margen, otro ARLES roba
+el cerrojo y **este apaga su propio motor** porque un servidor de correo ajeno
+no contestó. Lo mide `una_vuelta_lenta_le_cuesta_el_cerrojo_al_motor`,
+verificada con tres rupturas.
+
+**Dos marcas y no una.** `inbox_last_uid` (V18) es hasta dónde se leyó **con
+éxito** y no avanza al fallar —eso impide que un correo sin procesar quede por
+debajo de la marca—; `inbox_last_check_at` (V19) es **cuándo se intentó**, y
+avanza también al fallar. Sin la segunda, un buzón caído se reintentaría en cada
+vuelta: **60 intentos de autenticación por hora** contra el servidor del propio
+usuario, y después una cuenta bloqueada que ARLES no puede desbloquear.
+
+**El intervalo son quince minutos y no es configurable.** A 300 envíos diarios
+en ocho horas, esperar un cuarto de hora arriesga **unos nueve correos**; mirar
+cada minuto serían 1 440 conexiones diarias contra 96.
+
+> **El defecto que encontró mirar la pantalla**, con todo en verde: la clave del
+> error estaba **inventada** —`error.app.buzon.no_se_pudo_entrar`, que no existe
+> en el catálogo—, así que un buzón con el llavero bloqueado enseñaba «Ocurrió
+> un error inesperado». Con una clave de buzón que sí existiera habría sido
+> peor: mandar a revisar el servidor a quien tiene el llavero cerrado, que es
+> DOC-14 otra vez. Ahora la clave viaja dentro del error.
+
+> **Y DOC-24: `solo_produccion` dejaba 22 declaraciones de producción sin
+> mirar.** Ocho comprobaciones la usan para no confundir una llamada de una
+> prueba con un llamador de verdad, y **cortaba en el primer `#[cfg(test)]`**
+> con la convención «los módulos de prueba van al final» escrita como
+> justificación. No se cumplía: cuatro archivos declaran algo de prueba en
+> medio, y en `arles-app/src/lib.rs` quedaban invisibles **siete módulos
+> enteros**.
+>
+> El daño no es simétrico: una comprobación que pregunta **si algo está** falla
+> y se nota; una que pregunta **si algo NO está** sale en **verde** sobre el
+> código que no ve. Una red que falla al lado inseguro justo en las garantías de
+> seguridad. Lo vigila `solo_produccion_no_se_deja_nada_detras`.
+
+**Lo que R-30 no hace:** una sola tarea y ningún registro genérico de tareas;
+sólo corre en el ARLES que tiene el cerrojo; y revisa con la ventana cerrada
+pero **no con la aplicación cerrada** — un servicio del sistema es otra cosa.
 
 ---
 
@@ -604,6 +663,7 @@ no una relectura con buena voluntad.
 | **DOC-21** | `ESTADO_ACTUAL.md` §10: «el avance está al **95 % a 2026-10-28**, y ese 5 % restante es exactamente el peso de la Fase 9» | **99 % a 2026-11-04**, y el README lo decía desde la portada del repositorio: seis días de trabajo cerrados en medio. La comprobación que ya existía compara el README con `avance.json` —las dos fuentes del §1 bis— y **este documento no entraba en esa comparación**. Es el documento por el que empieza quien retoma el trabajo, y ya había hecho esto con la 7.5 | ✅ 04/11/2026 · lo vigila `el_estado_cita_el_avance_que_hay`, verificada con tres rupturas |
 | **DOC-22** | `CLAUDE.md`, en la tabla de la ronda de Dirección del 13 y 14/10: H-03 «No se pudo dar de alta una cuenta de Gmail» marcado como **«faltan tres datos de Dirección»** | **Esta tabla lo da por cerrado por R-01 desde el 14/10/2026**, así que los dos documentos llevaban **veintiún días** diciendo cosas contrarias del mismo hallazgo. Lo encontró una pregunta de Dirección —«¿en funcionalidad estamos completos?»— que obligó a mirar la lista en vez de recordarla, igual que con los bloqueos el 28/10: **lo que ve falsa una lista es usarla para algo** | ✅ 04/11/2026 · lo vigila `ningun_hallazgo_esta_abierto_y_cerrado_a_la_vez` |
 | **DOC-23** | `smtp.rs` desde el 19/10/2026, sobre la cabecera `List-Unsubscribe`: un correo comercial sin ella «entra con una **penalización de salida**, y ninguna otra cosa que hagamos la compensa», y el `mailto` «es válido y **cuenta**» | **Google no publica lo primero** — al verificarlo no apareció en ninguna de sus páginas—, y de lo segundo dice lo contrario con esas palabras: seguirá soportando los `mailto`, pero **no cumplen** su requisito de baja de un clic. Dos cosas que faltaban: ese requisito es para quien manda unos **5 000 diarios** a Gmail, y ARLES manda 50 a 300; y **el botón no está garantizado**, Google lo enseña sólo a los correos que pasan sus comprobaciones. Lo encontró ir a verificar el dato antes de construir sobre él, no una relectura | ✅ 10/11/2026 · el comentario lleva ahora las dos mitades de lo que Google dice, y por qué la frase del cuerpo no es redundante |
+| **DOC-24** | `solo_produccion` en el validador, desde el 04/11/2026: corta en el primer `#[cfg(test)]` «que en este proyecto es **siempre** lo último del archivo», y la convención «la comprueba el propio corte — si alguien pusiera código detrás, dejaría de verse y la comprobación saldría en rojo, no en verde falso» | **Las dos frases eran falsas.** Cuatro archivos declaran algo de prueba en medio, y detrás del corte quedaban **22 declaraciones de producción invisibles** — en `arles-app/src/lib.rs`, siete módulos enteros, porque `mod presupuesto_del_respaldo` va marcado de prueba y el orden es alfabético. Y el daño **no es simétrico**: una comprobación que pregunta *si algo está* falla y se nota; una que pregunta *si algo NO está* —ningún comando devuelve una contraseña, el lector del buzón no sabe escribir— sale en **verde** sobre el código que no ve. Una red que falla al lado inseguro justo en las garantías de seguridad. Lo encontró una comprobación nueva saliendo **en rojo sobre código correcto** | ✅ 11/11/2026 · ya no corta: quita cada ítem marcado, esté donde esté, contando llaves. Lo vigila `solo_produccion_no_se_deja_nada_detras`, que se escribe sus propios casos en vez de medir sobre los archivos de hoy |
 
 **Las cinco primeras llevaban ahí desde la Fase 2** y ninguna de las cuatro
 auditorías del §140 las vio, porque una auditoría mide el producto y esto es un

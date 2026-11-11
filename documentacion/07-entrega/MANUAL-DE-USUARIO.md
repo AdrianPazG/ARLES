@@ -224,9 +224,18 @@ ARLES en cada correo:
    correo, así que no está garantizado — por eso también va lo segundo.
 2. **Contestar la palabra BAJA**, que es lo que dice el pie de cada correo.
 
-**Las dos llegan a tu buzón**, y ARLES puede revisarlo y aplicarlas: entra en
-**Remitentes**, baja hasta «Bajas que llegan por correo», revisa el servidor de
-lectura de cada cuenta, marca la casilla y pulsa **«Revisar el buzón ahora»**.
+**Las dos llegan a tu buzón**, y ARLES lo revisa y las aplica. Se enciende una
+vez: entra en **Remitentes**, baja hasta «Bajas que llegan por correo», revisa
+el servidor de lectura de cada cuenta y marca la casilla. **A partir de ahí no
+hay que hacer nada más.**
+
+> **Se revisa solo cada quince minutos**, con la ventana abierta o cerrada,
+> mientras ARLES esté abierto. Debajo de la casilla te dice cuándo fue la última
+> vez —«Última vez, hace 4 minutos»— y, si no pudo entrar al buzón, te lo dice
+> ahí mismo con el motivo en vez de dejarte creer que va bien.
+>
+> El botón **«Revisar el buzón ahora»** sigue estando, para cuando no quieras
+> esperar: acabas de pedir la baja de prueba y quieres comprobar que entró.
 
 > **ARLES sólo lee.** No borra, no mueve y **no marca nada como leído**: tu
 > buzón queda exactamente como estaba. De cada correo se queda con la dirección
@@ -333,7 +342,6 @@ nada que no se pueda cumplir.
 | **Una firma no puede llevar una imagen** | Sólo texto, con negrita y cursiva. Está pendiente de decidir cómo: embebida engorda cada correo y dispara filtros de spam; alojada hay que alojarla en algún sitio |
 | **El número de WhatsApp nunca ha hablado con Meta** | Todo lo de WhatsApp está probado contra un servidor de mentira. Falta una cuenta de empresa verificada con Coexistencia |
 | **No lee las respuestas de WhatsApp, así que una baja pedida por ahí se apunta a mano** | Las respuestas te llegan al teléfono con Coexistencia. Apúntalas en Contactos › Bajas, canal WhatsApp, y ninguna campaña vuelve a incluir ese número. **En el correo ya no hace falta**: ARLES revisa el buzón y las aplica (ver §4 bis) |
-| **No revisa el buzón solo cada cierto tiempo** | Las bajas que llegan por correo se aplican al pulsar «Revisar el buzón ahora» en Remitentes. ARLES no tiene un programador de tareas, así que hay que entrar y pulsarlo |
 
 > **Y dos que dejaron de ser ciertas el 05/11/2026.** La primera: una campaña
 > ya no tiene que ir a toda la lista. En **Contactos** marcas a quien quieras

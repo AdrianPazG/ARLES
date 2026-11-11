@@ -275,6 +275,23 @@ export interface ComoEstaUnBuzon {
   readonly servidorDeLectura: string | null
   readonly encendido: boolean
   readonly yaSeLeyo: boolean
+  /**
+   * Cuándo se intentó revisarlo, en RFC 3339, o `null` si nunca.
+   *
+   * Llega como texto y el «hace cuánto» se calcula al pintar: una cifra
+   * calculada en Rust sería la de cuando se cargó la pantalla, y en una que se
+   * queda abierta eso envejece sin que nada lo diga.
+   */
+  readonly ultimoIntento: string | null
+  /**
+   * La clave de i18n de por qué falló el último intento, o `null` si fue bien.
+   *
+   * **Sin esto, «revisado hace 3 min» mentiría** sobre un buzón cuyo servidor
+   * está mal escrito y falla en cada intento.
+   */
+  readonly ultimoFallo: string | null
+  /** Cada cuántos minutos lo revisa solo. Sale del núcleo (R-30). */
+  readonly revisarCadaMinutos: number
 }
 
 /**

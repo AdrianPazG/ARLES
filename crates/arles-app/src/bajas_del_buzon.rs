@@ -87,6 +87,31 @@ pub struct ComoEstaUnBuzonEnPantalla {
     pub servidor_de_lectura: Option<String>,
     pub encendido: bool,
     pub ya_se_leyo: bool,
+    /// Cuándo se intentó revisarlo por última vez, en RFC 3339.
+    ///
+    /// Viaja como texto y no como número de segundos porque el «hace cuánto»
+    /// se calcula **al pintar**: una cifra calculada en Rust sería la de cuando
+    /// se cargó la pantalla, y en una pantalla que se queda abierta eso
+    /// envejece sin que nada lo diga.
+    pub ultimo_intento: Option<String>,
+    /// La clave de i18n de por qué falló el último intento, o `None` si fue
+    /// bien.
+    ///
+    /// **Sin esto la fecha mentiría**: «revisado hace 3 min» de un buzón cuyo
+    /// servidor está mal escrito y falla siempre. Ver la cabecera de la V19.
+    pub ultimo_fallo: Option<String>,
+    /// Cada cuántos minutos lo revisa el programador (R-30).
+    ///
+    /// Sale del núcleo —`baja_por_correo::REVISAR_CADA_MINUTOS`— y viaja hasta
+    /// aquí **para que la pantalla no lo escriba a mano**. Es el mismo dato que
+    /// el `AVISO_DIARIO` del §48, que vive duplicado en Rust y en TypeScript y
+    /// necesita una comprobación que los mantenga iguales; aquí no hace falta
+    /// esa comprobación porque no hay segunda copia.
+    ///
+    /// Que sea el mismo valor en todas las filas es cierto y no es un error:
+    /// un comando nuevo para una constante sería **superficie de ataque** por
+    /// una cifra, y cada comando registrado que nadie vigila es una puerta más.
+    pub revisar_cada_minutos: u16,
 }
 
 /// Cómo está la lectura del buzón en cada cuenta de correo.
@@ -116,6 +141,12 @@ pub fn como_estan_los_buzones(
             servidor_de_lectura: b.servidor_de_lectura,
             encendido: b.encendido,
             ya_se_leyo: b.ya_se_leyo,
+            ultimo_intento: b.ultimo_intento.and_then(|f| {
+                f.format(&time::format_description::well_known::Rfc3339)
+                    .ok()
+            }),
+            ultimo_fallo: b.ultimo_fallo,
+            revisar_cada_minutos: arles_core::baja_por_correo::REVISAR_CADA_MINUTOS,
         })
         .collect())
 }
@@ -206,7 +237,11 @@ pub fn revisar_con(
 }
 
 /// Un buzón, de principio a fin.
-fn revisar_uno(
+/// `pub(crate)` desde R-30: lo llama también el programador, que revisa los
+/// buzones solos cada cierto tiempo. **Es el mismo camino que el botón** a
+/// propósito — si el automatismo tuviera el suyo, los dos podrían dar
+/// resultados distintos y el que se ve es el del botón.
+pub(crate) fn revisar_uno(
     db: &arles_db::Db,
     lector: &impl LeeUnBuzon,
     contrasenas: &impl FuenteDeContrasenas,

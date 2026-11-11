@@ -54,6 +54,16 @@ pub struct BuzonQueSeLee {
     pub referencia_credencial: String,
     /// El UID más alto ya procesado, o `None` si nunca se leyó este buzón.
     pub ultimo_uid: Option<u32>,
+    /// Cuándo se **intentó** por última vez, con éxito o sin él.
+    ///
+    /// No es lo mismo que [`Self::ultimo_uid`], y la diferencia está escrita en
+    /// la cabecera de la V19: éste avanza también cuando la revisión falla, que
+    /// es lo único que evita reintentar un servidor caído en cada vuelta del
+    /// programador. `None` es «nunca se intentó».
+    ///
+    /// Una fecha que no se pueda leer llega como `None`, y eso hace revisar de
+    /// más y nunca de menos — el mismo lado por el que falla `ultimo_uid`.
+    pub ultimo_intento: Option<time::OffsetDateTime>,
 }
 
 /// Cómo está la lectura del buzón de una cuenta, para enseñarla.
@@ -77,6 +87,20 @@ pub struct ComoEstaUnBuzon {
     /// `inbox_last_uid` en una pantalla es si hay marca, no cuál es: el número
     /// del UID no le dice nada a nadie.
     pub ya_se_leyo: bool,
+    /// Cuándo se intentó revisarlo por última vez.
+    ///
+    /// **Esto sí se enseña**, al contrario que el UID: «revisado hace 4 min» es
+    /// lo único que distingue «el automatismo funciona» de «lleva horas sin
+    /// mirar nada», y sin esa cifra la casilla encendida no se puede comprobar
+    /// desde la pantalla (§94 y §97).
+    pub ultimo_intento: Option<time::OffsetDateTime>,
+    /// La clave de i18n del motivo por el que falló el último intento, o `None`
+    /// si fue bien.
+    ///
+    /// **Sin esto la fecha mentiría**: «revisado hace 3 min» de un buzón cuyo
+    /// servidor está mal escrito y falla en cada intento es una cifra correcta
+    /// dentro de una frase falsa. Ver la cabecera de la V19.
+    pub ultimo_fallo: Option<String>,
 }
 
 /// Una baja que llegó por correo, lista para escribirse.
@@ -131,7 +155,7 @@ impl Db {
         self.leer_dominio(|conn| {
             let mut consulta = conn.prepare(
                 "SELECT id, display_name, email_address, imap_host,
-                        credential_ref, inbox_last_uid
+                        credential_ref, inbox_last_uid, inbox_last_check_at
                    FROM email_account
                   WHERE company_id = ?1
                     AND provider_kind = 'smtp'
@@ -148,12 +172,13 @@ impl Db {
                     f.get::<_, String>(3)?,
                     f.get::<_, String>(4)?,
                     f.get::<_, Option<i64>>(5)?,
+                    f.get::<_, Option<String>>(6)?,
                 ))
             })?;
 
             let mut salida = Vec::new();
             for fila in filas {
-                let (id, nombre, direccion, servidor, referencia, uid) = fila?;
+                let (id, nombre, direccion, servidor, referencia, uid, intento) = fila?;
                 salida.push(BuzonQueSeLee {
                     cuenta: id.parse().map_err(|_| DbError::DatoInvalido {
                         motivo: "el identificador de esa cuenta de correo no es un UUID",
@@ -166,6 +191,7 @@ impl Db {
                     // lo que no quepa se trata como «nunca se leyó», que hace
                     // mirar de más y nunca de menos.
                     ultimo_uid: uid.and_then(|n| u32::try_from(n).ok()),
+                    ultimo_intento: fecha_leida(intento.as_deref()),
                 });
             }
             Ok(salida)
@@ -188,7 +214,8 @@ impl Db {
         self.leer_dominio(|conn| {
             let mut consulta = conn.prepare(
                 "SELECT id, display_name, email_address, smtp_host,
-                        imap_host, inbox_scan_enabled, inbox_last_uid
+                        imap_host, inbox_scan_enabled, inbox_last_uid,
+                        inbox_last_check_at, inbox_last_error
                    FROM email_account
                   WHERE company_id = ?1 AND provider_kind = 'smtp'
                   ORDER BY created_at, rowid",
@@ -202,12 +229,14 @@ impl Db {
                     f.get::<_, Option<String>>(4)?,
                     f.get::<_, i64>(5)?,
                     f.get::<_, Option<i64>>(6)?,
+                    f.get::<_, Option<String>>(7)?,
+                    f.get::<_, Option<String>>(8)?,
                 ))
             })?;
 
             let mut salida = Vec::new();
             for fila in filas {
-                let (id, nombre, direccion, envio, lectura, encendido, uid) = fila?;
+                let (id, nombre, direccion, envio, lectura, encendido, uid, intento, fallo) = fila?;
                 salida.push(ComoEstaUnBuzon {
                     cuenta: id.parse().map_err(|_| DbError::DatoInvalido {
                         motivo: "el identificador de esa cuenta de correo no es un UUID",
@@ -218,6 +247,8 @@ impl Db {
                     servidor_de_lectura: lectura,
                     encendido: encendido == 1,
                     ya_se_leyo: uid.is_some(),
+                    ultimo_intento: fecha_leida(intento.as_deref()),
+                    ultimo_fallo: fallo,
                 });
             }
             Ok(salida)
@@ -381,6 +412,75 @@ impl Db {
             Ok(resumen)
         })
     }
+
+    /// Apunta que se **intentó** revisar este buzón, ahora.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// SE LLAMA TAMBIÉN CUANDO LA REVISIÓN FALLA, Y ES TODO EL PUNTO
+    ///
+    /// Está aparte de [`Self::aplicar_bajas_del_buzon`] a propósito, y no es
+    /// una comodidad: si la marca viviera dentro de esa transacción, un servidor
+    /// IMAP que no contesta dejaría el buzón **sin marca nueva** y el
+    /// programador volvería a intentarlo en la vuelta siguiente, y en la
+    /// siguiente. A cinco segundos por vuelta eso son 720 intentos de
+    /// autenticación por hora contra el servidor de correo del propio usuario,
+    /// y lo que viene después es una cuenta bloqueada que ARLES no puede
+    /// desbloquear.
+    ///
+    /// La contrapartida está medida y es aceptable: si esta escritura entra y
+    /// la de las bajas no, esos correos **se vuelven a mirar** dentro de un
+    /// intervalo, porque `inbox_last_uid` no avanzó. Se pierde un cuarto de
+    /// hora, no una baja — y perder una baja es lo que no se puede hacer.
+    ///
+    /// No va a la bitácora: «se intentó mirar un buzón» cada quince minutos
+    /// serían 96 líneas diarias por cuenta, y el `audit_log` es imborrable por
+    /// esquema. Lo que sí se audita es cada baja que entra, que es el cambio.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// SE LLAMA DOS VECES POR REVISIÓN, Y ESO NO ES UN DESCUIDO
+    ///
+    /// Una antes de intentarlo, con `fallo` a `None`, para que la marca quede
+    /// escrita pase lo que pase — incluso si el proceso muere a mitad. Y otra al
+    /// terminar, con la clave del motivo si lo hubo.
+    ///
+    /// Al revés —una sola llamada al final— un cierre de ARLES a mitad de una
+    /// revisión dejaría el buzón sin marca nueva, y el arranque siguiente lo
+    /// volvería a intentar desde cero.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::CuentaDeCorreoNoExiste`] si esa cuenta no es de esta empresa.
+    /// [`DbError::Sqlite`] si la escritura falla.
+    pub fn anotar_el_intento_del_buzon(
+        &self,
+        empresa: CompanyId,
+        cuenta: EmailAccountId,
+        fallo: Option<&str>,
+    ) -> Result<(), DbError> {
+        self.con_dominio(|tx| {
+            let filas = tx.execute(
+                "UPDATE email_account
+                    SET inbox_last_check_at = ?3,
+                        inbox_last_error = ?4
+                  WHERE id = ?1 AND company_id = ?2",
+                params![cuenta.to_string(), empresa.to_string(), ahora(), fallo,],
+            )?;
+            if filas == 0 {
+                return Err(DbError::CuentaDeCorreoNoExiste);
+            }
+            Ok(())
+        })
+    }
+}
+
+/// Una fecha de la base, o `None` si no hay o no se puede leer.
+///
+/// Lo que no se entiende se trata como «nunca se intentó», y eso hace **revisar
+/// de más**: una conexión IMAP de sobra es molesta, y darla por recién revisada
+/// dejaría un buzón sin mirar para siempre sin que nada fallara. Es el mismo
+/// lado por el que fallan `ultimo_uid` y el latido del cerrojo.
+fn fecha_leida(texto: Option<&str>) -> Option<time::OffsetDateTime> {
+    time::OffsetDateTime::parse(texto?, &time::format_description::well_known::Rfc3339).ok()
 }
 
 #[cfg(test)]
@@ -583,6 +683,114 @@ mod pruebas {
             .con(|conn| conn.query_row("SELECT count(*) FROM suppression_entry", [], |f| f.get(0)))
             .expect("cuenta");
         assert_eq!(cuantas, 0, "un dudoso no da de baja a nadie");
+    }
+
+    /// **Las dos marcas son independientes, y eso es la garantía de la V19.**
+    ///
+    /// La del intento (`inbox_last_check_at`) avanza con o sin éxito, para no
+    /// reintentar un servidor caído en cada vuelta. La del UID avanza sólo con
+    /// las bajas dentro de su transacción, para no dejar un correo sin procesar
+    /// por debajo de la marca.
+    ///
+    /// Si estuvieran acopladas pasaría una de las dos cosas malas, según por
+    /// dónde se acoplaran: o un servidor caído se martillea, o una baja se
+    /// pierde. Esta prueba mide que ninguna de las dos escrituras toca la marca
+    /// de la otra, que es lo que ninguna prueba de una u otra puede ver.
+    ///
+    /// Verificada rompiéndola por los dos lados: metiendo
+    /// `inbox_last_check_at` en el `UPDATE` de `aplicar_bajas_del_buzon` y
+    /// metiendo `inbox_last_uid` en el de `anotar_el_intento_del_buzon`.
+    #[test]
+    fn la_marca_del_intento_y_la_del_uid_no_se_tocan() {
+        let (_d, db, empresa) = base();
+        let cuenta = alta(&db, empresa);
+        db.configurar_la_lectura_del_buzon(empresa, cuenta, Some("imap.x.mx"), true)
+            .expect("configura");
+
+        let recien = |db: &Db| {
+            db.buzones_que_se_leen(empresa)
+                .expect("lee")
+                .first()
+                .cloned()
+                .expect("hay buzón")
+        };
+        // El motivo del fallo lo lleva sólo la vista de pantalla: el
+        // programador no necesita saber cómo fue el intento anterior, va a
+        // escribir el nuevo. Lo que no se pide no se puede filtrar por
+        // descuido, que es la misma regla por la que `ComoEstaUnBuzon` no
+        // lleva la referencia del llavero.
+        let en_pantalla = |db: &Db| {
+            db.como_estan_los_buzones(empresa)
+                .expect("lee")
+                .first()
+                .cloned()
+                .expect("hay buzón")
+        };
+
+        // Al principio no hay ninguna de las dos.
+        let antes = recien(&db);
+        assert_eq!(antes.ultimo_intento, None, "nunca se intentó");
+        assert_eq!(antes.ultimo_uid, None, "nunca se leyó");
+
+        // Una revisión que falló: se anota el intento y no entra ninguna baja.
+        db.anotar_el_intento_del_buzon(
+            empresa,
+            cuenta,
+            Some("error.correo.no_se_pudo_entrar_al_buzon"),
+        )
+        .expect("anota");
+        let fallida = recien(&db);
+        assert!(
+            fallida.ultimo_intento.is_some(),
+            "el intento tiene que quedar apuntado aunque la revisión falle, o \
+             el programador reintentaría este buzón en cada vuelta"
+        );
+        assert_eq!(
+            fallida.ultimo_uid, None,
+            "una revisión que falló no puede dejar correos por debajo de la \
+             marca: ésos no se volverían a mirar nunca"
+        );
+
+        assert_eq!(
+            en_pantalla(&db).ultimo_fallo.as_deref(),
+            Some("error.correo.no_se_pudo_entrar_al_buzon"),
+            "sin el motivo guardado, la pantalla diría «revisado hace 3 min» \
+             de un buzón que falla en cada intento: la cifra correcta dentro \
+             de una frase falsa"
+        );
+
+        // Y una que salió bien: avanza el UID **sin** tocar la del intento.
+        db.aplicar_bajas_del_buzon(empresa, cuenta, &[], 0, Some(31))
+            .expect("aplica");
+        let buena = recien(&db);
+        assert_eq!(buena.ultimo_uid, Some(31));
+        assert_eq!(
+            buena.ultimo_intento, fallida.ultimo_intento,
+            "aplicar las bajas no escribe la marca del intento: son dos \
+             preguntas distintas y se contestan en dos sitios distintos"
+        );
+
+        // Y un intento que va bien **limpia** el fallo anterior. Si no, un
+        // buzón que se arregló seguiría diciendo que está roto para siempre.
+        db.anotar_el_intento_del_buzon(empresa, cuenta, None)
+            .expect("anota");
+        assert_eq!(
+            en_pantalla(&db).ultimo_fallo,
+            None,
+            "un intento que sale bien tiene que borrar el fallo anterior"
+        );
+    }
+
+    /// Una fecha que la base no pueda dar se lee como «nunca se intentó».
+    ///
+    /// Hace revisar de más, que es el lado que no pierde nada. Lo contrario
+    /// —darla por recién revisada— dejaría ese buzón sin mirar para siempre.
+    #[test]
+    fn una_fecha_ilegible_se_lee_como_nunca_revisado() {
+        assert_eq!(fecha_leida(None), None);
+        assert_eq!(fecha_leida(Some("")), None);
+        assert_eq!(fecha_leida(Some("el martes por la tarde")), None);
+        assert!(fecha_leida(Some("2026-11-11T08:00:00Z")).is_some());
     }
 
     /// Una cuenta de otra empresa no se toca, y **no se escribe nada** — ni la
