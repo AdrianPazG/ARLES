@@ -374,4 +374,53 @@ describe('el registro de actividad', () => {
       ).toBe(true)
     }
   })
+
+  /**
+   * **Una recarga por filtro tiene que decir que está trabajando.**
+   *
+   * `EstadoCargando` sólo sale en la PRIMERA carga —`cargando && !cargada`—,
+   * así que al aplicar un filtro sobre un registro ya cargado la tabla se
+   * quedaba con los datos viejos y **nada** decía que hubiera algo en marcha.
+   *
+   * Medido el 11/11/2026 con 120 000 sucesos: esa espera es de 3,5 a 4,5 s.
+   * Cuatro segundos sin ningún acuse se leen como una avería, y es lo que el
+   * §97 pide para toda espera de más de un segundo.
+   *
+   * Lo que se comprueba es el par: con `cargada` en falso NO sale el aviso
+   * —ahí manda el esqueleto— y con `cargada` en verdadero SÍ. Una prueba que
+   * sólo mirara el segundo caso pasaría igual con la condición mal puesta.
+   *
+   * Verificada rompiéndola, y lo que midió hay que decirlo entero: quitando el
+   * `<p>` entero sale en rojo. Quitar `registro.cargada` de su `v-if`
+   * **NO** la hace fallar, y eso es un dato sobre el código y no sobre la
+   * prueba: la cadena de `v-if`/`v-else-if`/`v-else` de arriba ya enseña
+   * `EstadoCargando` en la primera carga, así que el módulo de la tabla no
+   * existe todavía y ese `<p>` tampoco. La condición es una red **redundante**
+   * hoy, puesta para que la intención no dependa del orden de una cadena que
+   * alguien podría reordenar mañana.
+   */
+  it('al recargar con un filtro se dice que está buscando', async () => {
+    const registro = useRegistroStore()
+    registro.sucesos = [suceso()]
+    registro.cargada = true
+    registro.total = 1
+
+    const w = montar()
+    await flushPromises()
+
+    expect(w.text()).not.toContain(es.registro.actualizando)
+
+    registro.cargando = true
+    await flushPromises()
+    expect(
+      w.text(),
+      'una espera de cuatro segundos sin acuse se lee como una avería (§97)',
+    ).toContain(es.registro.actualizando)
+
+    // Y la primera carga NO lo enseña: ahí lo que se ve es el esqueleto, y dos
+    // avisos de carga a la vez es peor que uno.
+    registro.cargada = false
+    await flushPromises()
+    expect(w.text()).not.toContain(es.registro.actualizando)
+  })
 })

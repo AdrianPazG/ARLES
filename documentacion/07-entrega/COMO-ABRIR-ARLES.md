@@ -330,5 +330,8 @@ Con ARLES abierto, el orden es el de
    Nueva campaña.
 
 **Lo que no va a salir**, y conviene no intentarlo delante de nadie: una campaña
-completa **por WhatsApp**. El motor sólo recorre correo; de WhatsApp sale el
-envío de prueba y nada más.
+completa **por WhatsApp** — no por el motor, que la recorre desde D-WA
+(26/10/2026), sino porque hace falta una cuenta de Meta con Coexistencia y eso
+es el bloqueo **META**. De WhatsApp sale el envío de prueba.
+
+> **Esto decía que el motor sólo recorre correo, y era falso desde D-WA (26/10/2026).** Lo midió la auditoría H el 04/11: `etapas_en_marcha` no filtra por canal y nunca lo hizo. Se arregló donde se encontró y no se buscó en el resto, así que siete documentos lo siguieron diciendo. Lo vigila `ningún documento niega un canal que el motor recorre` en `--fase 3`.

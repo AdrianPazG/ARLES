@@ -309,7 +309,7 @@ tienen plazo externo que no se comprime.
 | **P-01 · Licencia de Mont** | Dirección | **No se puede distribuir un instalador** con la tipografía dentro. Plan B listo: una línea en `--arles-font-family` (D-5) |
 | **FIRMA-WIN · Certificado de Windows** | Dirección | Que el `.msi` se instale **sin la advertencia de «editor desconocido»** de SmartScreen, que en una empresa bloquea la instalación en la práctica. **1 a 3 semanas de plazo externo.** OV para la v1.2.0, EV para el comercial |
 | **FIRMA-MAC · Apple Developer ID** | Dirección | **Que ARLES abra en macOS.** Desde Catalina, una aplicación sin notarizar no se ejecuta: no es un aviso, es Gatekeeper negándose. Arrastra a R-07 — el mismo Mac hace las dos cosas |
-| **P-09 · Revisión jurídica** | Abogado | Los textos legales que el usuario lee. Las dieciocho preguntas están en `08-legal/CONSULTA-JURIDICA.md`. La construcción **no** se detiene (ADR-0013: se construye con texto marcado como provisional) |
+| **P-09 · Revisión jurídica** | Abogado | Los textos legales que el usuario lee. Las diecinueve preguntas están en `08-legal/CONSULTA-JURIDICA.md`. La construcción **no** se detiene (ADR-0013: se construye con texto marcado como provisional) |
 | **META · Cuenta con Coexistencia** | Operaciones | Nada de WhatsApp ha hablado con Meta. Por dentro el canal está **completo** desde D-WA (27/10/2026), campañas enteras incluidas, y todo probado contra un servidor de mentira |
 | **R-07 · Revisión en macOS** | Quien tenga un Mac | Nadie ha abierto ARLES en WKWebView. La vista previa **no cuenta**: ahí el motor es el del navegador |
 

@@ -263,6 +263,24 @@ def las_cifras_afirmadas_son_ciertas(rapido: bool) -> None:
         # deja de ser un registro.
         if doc.name in ("CHANGELOG.md",):
             continue
+        # ── UN INFORME ENTREGADO DICE LA VERDAD DE SU FECHA ──
+        #
+        # Los `-PARA-DIRECCION` son entregables **fechados**: el informe de la
+        # Fase 3 decía «las 18 preguntas» porque ésas eran las que había
+        # entonces. Reescribirlo para que cuadre con hoy destruye lo que un
+        # entregable guarda, y además nadie puede reescribir el PDF que ya se
+        # mandó.
+        #
+        # Es la misma excepción que `los_bloqueos_se_cuentan_en_un_solo_sitio`
+        # tiene desde el 28/10/2026, y aquí faltaba: se vio el 11/11 al añadir
+        # la pregunta C-19, cuando dos informes salieron marcados como
+        # desfasados por decir la verdad de octubre.
+        #
+        # El `ANCLADA_A_UN_MOMENTO` de abajo no los cubre porque en una tabla de
+        # bloqueos no hay ninguna frase que ancle: la fecha está en la cabecera
+        # del documento, a cientos de líneas.
+        if "-PARA-DIRECCION" in doc.name:
+            continue
         original = doc.read_text(encoding="utf-8")
         # Se busca sobre el texto ORIGINAL y no sobre el que tiene los bloques
         # de código quitados: quitarlos desplaza todas las líneas de abajo, y

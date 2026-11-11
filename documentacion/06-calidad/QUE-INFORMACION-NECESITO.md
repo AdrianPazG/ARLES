@@ -72,7 +72,7 @@ Cuando vuelvas a intentarlo con la versión nueva:
 |---|---|---|
 | **P-01** | **La licencia de Mont.** ¿Se puede incrustar la tipografía en una aplicación que se distribuye? | Los instaladores salen **sin Mont**, con la letra del sistema. Y hay algo peor, abajo |
 | **MONT** | **La tipografía está dentro de un repositorio público.** Cualquiera puede descargarla | Es P-01 por otra puerta. Sacarla cambia cómo se ve ARLES al compilar, así que **no la he tocado**: la decisión es tuya |
-| **P-09** | **La revisión jurídica.** Las dieciocho preguntas están escritas y esperando a un abogado | Los textos legales que lee el usuario van marcados como provisionales. **No frena construir** |
+| **P-09** | **La revisión jurídica.** Las diecinueve preguntas están escritas y esperando a un abogado | Los textos legales que lee el usuario van marcados como provisionales. **No frena construir** |
 | **R-24** | **Una cuenta de correo desechable** para probar ARLES contra un servidor real | Toda la Fase 5 está probada contra un servidor de mentira. **No se puede cerrar desde aquí** |
 | **R-07** | **Alguien con un Mac** que abra ARLES una vez | Nadie lo ha hecho. No podemos afirmar que funcione en macOS |
 | **META** | **Una cuenta de empresa en Meta** con Coexistencia activada | WhatsApp no se puede probar contra nada real |

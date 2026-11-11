@@ -21,14 +21,20 @@ Esto sale de mirar el código el 29/09/2026, no de lo que el ROADMAP prometía.
 | **Hay un comando para mandar una prueba** | ✅ `enviar_correo_de_prueba` | ✅ `enviar_whatsapp_de_prueba` (W.8) |
 | Pantalla para dar de alta la cuenta | ✅ Remitentes | ✅ Remitentes › WhatsApp |
 | **¿Se puede mandar un mensaje real desde la app?** | ✅ **sí** | ✅ **sí** |
-| Una campaña entera por WhatsApp | ✅ | ❌ el motor todavía solo recorre correo |
+| Una campaña entera por WhatsApp | ✅ | ✅ desde D-WA (26/10/2026) — pero necesita una cuenta de Meta con Coexistencia, que es **META** y sigue abierto |
 
-**Qué significa.** Se puede mandar **un mensaje de prueba** por los dos canales,
-que es lo que hace falta para una demostración. Lo que todavía no se puede es
-lanzar una **campaña entera** por WhatsApp: el motor —el que reparte los envíos
-con su ritmo y su horario— sigue recorriendo solo el canal de correo.
+**Qué significa.** Se puede mandar un mensaje de prueba por los dos canales **y
+lanzar una campaña entera por los dos**: el motor —el que reparte los envíos con
+su ritmo y su horario— recorre los dos canales desde D-WA.
 
-Para la demostración no estorba: el envío de prueba llega al teléfono igual.
+Lo que falta para la campaña de WhatsApp no es código: es la **cuenta de Meta con
+Coexistencia**, que es el bloqueo **META** y no depende de programar.
+
+> **Esto decía que el motor sólo recorre correo, y era falso desde D-WA (26/10/2026).** Lo midió la auditoría H el 04/11: `etapas_en_marcha` no filtra por canal y nunca lo hizo. Se arregló donde se encontró y no se buscó en el resto, así que siete documentos lo siguieron diciendo. Lo vigila `ningún documento niega un canal que el motor recorre` en `--fase 3`.
+>
+> **Y el coste de este tipo de error es el mismo al revés que al derecho:** una
+> función construida, probada y pagada que nadie usa porque el producto dice que
+> no está.
 
 ---
 
@@ -223,8 +229,9 @@ cuenta desechable del §1.
    «Probar conexión». Si algo falla, falla aquí y no delante de nadie.
 4. **Las dos demos salen.** Correo de punta a punta; WhatsApp hasta el mensaje
    de prueba que llega al teléfono.
-5. **Lo que todavía no sale** es una campaña entera por WhatsApp: el motor solo
-   recorre correo (§0).
+5. **Las campañas enteras salen por los dos canales** desde D-WA (§0). La de
+   WhatsApp necesita la cuenta de Meta con Coexistencia (bloqueo **META**), no
+   código.
 
 ---
 

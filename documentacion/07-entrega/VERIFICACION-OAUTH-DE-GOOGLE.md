@@ -129,7 +129,7 @@ se usa, quién redacta el aviso de privacidad y quién lo publica.*
 ### Paso 2 · La política de privacidad · **Dirección + abogado**
 
 Tiene que decir qué datos toca ARLES y para qué. Va dentro de **P-09**, las
-dieciocho preguntas jurídicas de `08-legal/CONSULTA-JURIDICA.md`.
+diecinueve preguntas jurídicas de `08-legal/CONSULTA-JURIDICA.md`.
 
 Hay una ventaja de calendario: **ya existe** `04-seguridad/PRIVACIDAD_LFPDPPP.md`
 con el análisis hecho. No se parte de cero; falta la versión publicable y el
@@ -248,5 +248,5 @@ contraseña.
 | La decisión D-1 | `09-fases/FASE-00-DISCOVERY.md` |
 | La pregunta P-05, entera | `02-auditoria/PREGUNTAS_ABIERTAS.md` |
 | El análisis de privacidad ya hecho | `04-seguridad/PRIVACIDAD_LFPDPPP.md` |
-| Las dieciocho preguntas al abogado | `08-legal/CONSULTA-JURIDICA.md` |
+| Las diecinueve preguntas al abogado | `08-legal/CONSULTA-JURIDICA.md` |
 | Cómo se conecta hoy, con contraseña | `07-entrega/GUIA-DE-CONEXION-REAL.md` |

@@ -326,7 +326,7 @@ No son defectos: son límites conocidos, y conviene no buscarles solución.
 |---|---|
 | **Windows dice «editor desconocido»** | Las versiones de prueba no están firmadas. Falta el certificado, que es trabajo de la Fase 9 y no de programar. **Más información → Ejecutar de todas formas** |
 | **La letra no es la de la marca** | Van sin Mont mientras P-01 siga abierto. Los tamaños y pesos sí son los definitivos |
-| **Una campaña entera por WhatsApp no sale** | El motor sólo recorre correo. De WhatsApp sale el mensaje de prueba |
+| **Una campaña entera por WhatsApp no sale** | No por el motor, que la recorre desde D-WA (26/10/2026): falta la cuenta de Meta con Coexistencia, que es el bloqueo **META**. De WhatsApp sale el mensaje de prueba |
 | **No se puede filtrar la audiencia ni editar una campaña creada** | No están construidos |
 | **Activar una campaña grande congela la ventana** | 73,5 s con 451 196 destinatarios; se nota desde unos 30 000. Está en la Fase 9 |
 | **Nada se ha probado en un Mac** | Es el riesgo R-07, sigue abierto |

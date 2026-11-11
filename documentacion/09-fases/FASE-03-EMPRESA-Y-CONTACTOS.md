@@ -474,6 +474,6 @@ leyera. Es la regla de trabajo §2 haciendo su trabajo.
 |---|---|
 | **R-07 · revisión visual en macOS** | Sigue abierta. Nadie ha abierto ARLES en WKWebView; la vista previa no cuenta, ahí el motor es el del navegador. Fecha límite acordada: antes de la Fase 6 |
 | **P-01 · licencia de Mont** | Impide distribuir un instalador con la tipografía dentro. Plan B listo: una línea de CSS |
-| **P-09 / P-17 · revisión jurídica** | 18 preguntas en `08-legal/CONSULTA-JURIDICA.md`. No frena construir (ADR-0013) |
+| **P-09 / P-17 · revisión jurídica** | 19 preguntas en `08-legal/CONSULTA-JURIDICA.md`. No frena construir (ADR-0013) |
 | **F3W · la pantalla de canales** | Las tablas existen desde la V3; la pantalla del alta del número espera a la cuenta de Meta |
 | **La dirección visual** | Dirección la revisó el 22/09 y la considera genérica. Decisión suya: se retoma cuando tenga referencias; no bloquea construir |

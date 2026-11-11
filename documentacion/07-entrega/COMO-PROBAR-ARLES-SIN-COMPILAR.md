@@ -303,12 +303,16 @@ Al 08/10/2026, con las diez fases del validador en **324/324**:
 
 ### Lo que todavía NO hace
 
-- Una **campaña entera por WhatsApp**: el motor sólo recorre correo. De WhatsApp
+- Una **campaña entera por WhatsApp**: el motor la recorre desde D-WA, pero falta
+  la cuenta de Meta con Coexistencia (bloqueo **META**). De WhatsApp
   sale el mensaje de prueba y nada más.
-- **Filtrar la audiencia** y **editar una campaña ya creada**.
-- **Activar una campaña grande** tarda y congela la ventana: 73.5 s con 451 196
-  destinatarios, y empieza a notarse hacia los 30 000. Con una lista de prueba no
-  se nota.
+- Un filtro **dentro del paso 2** de la campaña: a quién va se elige antes,
+  marcando contactos en Contactos con su filtro delante (R-27). Y **editar una
+  campaña ya creada**, que sigue sin poderse.
+- **Activar una campaña grande** tarda: 73.5 s con 451 196 destinatarios, y
+  empieza a notarse hacia los 30 000. Con una lista de prueba no se nota. Lo que
+  **no** pasa, desde el 28/10/2026, es que la ventana se congele: dice en qué va
+  y se puede cancelar.
 
 ---
 

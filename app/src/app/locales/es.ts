@@ -178,6 +178,11 @@ export const es = {
     deTantos: '{cuantos} de {total} registros',
     todos: '{total} registros',
     usaElFiltro: 'Usa los filtros para encontrar los demás.',
+    // Mientras se vuelve a buscar con un filtro nuevo. Medido el 11/11/2026:
+    // con 120 000 sucesos la espera es de 3,5 a 4,5 s, y cuatro segundos sin
+    // ningún acuse se leen como una avería (§97). No dice «cargando» a secas:
+    // lo que el usuario necesita saber es que lo que ve es lo de antes.
+    actualizando: 'Buscando… lo que se ve abajo es el resultado anterior.',
 
     // ── Los cuatro filtros ────────────────────────────────────────────────
     filtros: 'Buscar en el registro',

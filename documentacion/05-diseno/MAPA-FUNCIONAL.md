@@ -279,8 +279,8 @@ No son defectos y no hace falta reportarlos:
 
 | Qué | Por qué |
 |---|---|
-| Una campaña entera **por WhatsApp** | El motor sólo recorre correo |
-| **Filtrar la audiencia** de una campaña | No está construido |
+| Una campaña entera **por WhatsApp** | No por el motor, que la recorre desde D-WA: falta la cuenta de Meta con Coexistencia (**META**) |
+| Un filtro **dentro del paso 2** de la campaña | A quién va se elige antes, marcando contactos con el filtro de su pantalla delante (R-27) |
 | **Editar una campaña** ya creada | No está construido |
 | Contar las **respuestas de WhatsApp** | Necesita el «relay ciego», que no existe |
 

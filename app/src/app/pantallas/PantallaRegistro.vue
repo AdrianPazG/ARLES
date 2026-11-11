@@ -345,7 +345,36 @@ const error = computed(() =>
         {{ t('registro.usaElFiltro') }}
       </p>
 
-      <table class="tabla">
+      <!-- ── QUE SE VEA QUE ESTÁ TRABAJANDO (§97) ──
+           `EstadoCargando` sólo sale en la PRIMERA carga, y eso dejaba las
+           recargas por filtro sin ningún aviso: la tabla se quedaba con los
+           datos viejos y nada decía que hubiera algo en marcha. Medido el
+           11/11/2026: con 120 000 sucesos ese «nada» dura entre 3,5 y 4,5 s,
+           y una espera de cuatro segundos sin acuse se lee como una avería.
+
+           No se sustituye la tabla por el esqueleto a propósito: al filtrar,
+           perder de vista lo que había es peor que esperar viéndolo. Se atenúa
+           y se dice, que es lo que `aria-busy` anuncia al lector de pantalla.
+
+           El `registro.cargada` de la condición es **redundante hoy** y está
+           dicho en vez de darse por necesario: la cadena de arriba ya enseña
+           `EstadoCargando` en la primera carga, así que este módulo no existe
+           todavía. Se queda para que la intención no dependa del orden de una
+           cadena que alguien podría reordenar. Medido: quitarlo no hace fallar
+           ninguna prueba. -->
+      <p
+        v-if="registro.cargando && registro.cargada"
+        class="registro__actualizando"
+        role="status"
+      >
+        {{ t('registro.actualizando') }}
+      </p>
+
+      <table
+        class="tabla"
+        :class="{ 'tabla--ocupada': registro.cargando && registro.cargada }"
+        :aria-busy="registro.cargando && registro.cargada"
+      >
         <thead>
           <tr>
             <th scope="col">
@@ -466,6 +495,24 @@ const error = computed(() =>
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
   gap: var(--arles-space-4);
+}
+
+/* Mientras se recarga por un filtro: se ve que está trabajando y no se puede
+   pulsar lo que va a cambiar.
+
+   La opacidad va como literal porque **no hay token de opacidad** en el sistema
+   y es lo que ya hacen `AEntrada` (0.6) y `EstadoCargando` (0.45): el §17
+   prohíbe hex, píxeles y duraciones sueltos, no esto. Crear un token para una
+   pantalla habría sido la cuarta forma de decir lo mismo. */
+.registro__actualizando {
+  margin: 0;
+  font-size: var(--arles-font-size-small);
+  color: var(--arles-text-muted);
+}
+
+.tabla--ocupada {
+  opacity: 0.6;
+  pointer-events: none;
 }
 
 .aviso-tope {

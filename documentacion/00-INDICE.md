@@ -154,7 +154,7 @@
 | Documento | Contenido |
 |---|---|
 | [LICENCIAS_DE_TERCEROS](08-legal/LICENCIAS_DE_TERCEROS.md) | Mont, assets stock/IA, dependencias |
-| [CONSULTA-JURIDICA](08-legal/CONSULTA-JURIDICA.md) | Las dieciocho preguntas para el abogado, escritas para mandarse tal cual. Tiene PDF al lado |
+| [CONSULTA-JURIDICA](08-legal/CONSULTA-JURIDICA.md) | Las diecinueve preguntas para el abogado, escritas para mandarse tal cual. Tiene PDF al lado |
 
 ### 09 · Fases
 Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verificar.
@@ -196,6 +196,7 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Cómo configurar tu WhatsApp](07-entrega/COMO-CONFIGURAR-WHATSAPP.md) | **De cero a mandar un WhatsApp de prueba**: el alta en Meta, la plantilla, el token con sus dos permisos — y por qué ARLES sólo te pide uno de esos datos |
 | [Guía imprimible de WhatsApp](07-entrega/guia-whatsapp/guia.html) | La misma de arriba **en PDF para Dirección**, con el diagnóstico del error «Meta no acepta ese token» que salió el 04/11/2026 en la primera prueba contra la API real. Se regenera con `herramientas/guia-pdf/generar.py` |
 | [Probar ARLES sin compilar](07-entrega/COMO-PROBAR-ARLES-SIN-COMPILAR.md) | Descargar el instalador de Releases, y qué borrar —y en qué orden— si ya lo tenías |
+| [Qué probar](07-entrega/QUE-PROBAR.md) | Con el instalador delante: qué mirar, en qué orden, y qué no se puede todavía. Sale del router y de los comandos, no de la memoria |
 | [Registro de tropiezos](07-entrega/REGISTRO-DE-TROPIEZOS.md) | **Empieza aquí si algo te para.** Los siete que ya han ocurrido, con su causa y su salida — y las reglas que salieron de cada uno |
 | [Bitácora de pruebas](06-calidad/BITACORA-DE-PRUEBAS.md) | **El método de corrección de errores**, y todo defecto encontrado usando ARLES: qué pasa, cuánto estorba y en qué estado está |
 | [Qué información necesito](06-calidad/QUE-INFORMACION-NECESITO.md) | **Qué contarme al reportar un error**, qué datos valen para siempre, y las siete decisiones que esperan a Dirección |

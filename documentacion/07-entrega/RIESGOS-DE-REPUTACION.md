@@ -396,7 +396,7 @@ Las fuentes públicas **se contradicen** y Meta cambió el sistema en octubre de
 | Coexistencia y aceptación de riesgo explícita | ✅ W.3 |
 | Procesador de avisos de calidad de Meta | ✅ W.4 — los eventos se reciben y se guardan |
 | Mandar un WhatsApp de prueba real | ✅ W.8 |
-| **Lanzar una campaña entera por WhatsApp** | ❌ **no existe.** El motor sólo recorre correo, atado a `channel = 'email'` en **siete sitios** medidos |
+| **Lanzar una campaña entera por WhatsApp** | ✅ **existe desde D-WA** (26/10/2026). Este renglón decía «no existe, atado a `channel = 'email'` en siete sitios medidos», que era la medición de la auditoría G del 22/10 — la auditoría H la desmintió el 04/11 midiendo las cuatro capas. Lo que falta es la cuenta de Meta (**META**) |
 | Contar respuestas | ❌ falta el «relay ciego» (decisión del 29/09/2026) |
 
 **Lo que esto significa para el riesgo:** hoy **no puedes quemar tu número con

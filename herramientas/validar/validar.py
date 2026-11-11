@@ -829,7 +829,12 @@ def los_bloqueos_se_cuentan_en_un_solo_sitio():
     # El negrita se admite en medio: el §6 de `ESTADO_ACTUAL.md` escribe
     # «impiden **entregar**», y una búsqueda literal lo habría saltado — que es
     # justamente la lista que esta comprobación no estaba mirando.
-    LA_FRASE = re.compile(r"[Ll]os (\w+) impiden\s+(?:\*\*)?entregar")
+    # El `\s+` entre la cifra y el verbo no sobra: este proyecto ajusta el
+    # Markdown a 80 columnas, así que «los seis impiden entregar» se parte por
+    # donde caiga. Con un espacio literal, un párrafo reajustado dejaba de
+    # casar y la comprobación perdía ese documento **en silencio** — se vio el
+    # 11/11/2026 con `QUE-PROBAR.md`, cuyo salto cayó justo ahí.
+    LA_FRASE = re.compile(r"[Ll]os (\w+)\s+impiden\s+(?:\*\*)?entregar")
 
     docs = {}
     sin_cifra = []
@@ -3932,6 +3937,121 @@ def ningun_error_se_diagnostica_con_la_variante_de_otro():
     )
 
 
+def ningun_documento_niega_un_canal_que_el_motor_recorre():
+    """**El §9 al revés, y medido en siete documentos a la vez · 11/11/2026**
+
+    ───────────────────────────────────────────────────────────────────────────
+    EL DEFECTO QUE ESTO CAZA
+
+    Siete documentos afirmaban, en tablas tituladas «lo que NO está
+    construido», que **el motor sólo recorre correo** y que por tanto no se
+    puede lanzar una campaña entera por WhatsApp. Es falso desde **D-WA, el
+    26/10/2026**, y la auditoría H lo midió el 04/11: `etapas_en_marcha` no
+    filtra por canal y nunca lo hizo.
+
+    El 04/11 se arregló **donde se encontró** —el `CLAUDE.md` y el manual— y
+    no se buscó en el resto: el alcance corto, que este proyecto lleva once
+    veces documentando. Los otros siete siguieron seis semanas más.
+
+    **Y el daño no es cosmético.** El peor de los siete es
+    `BITACORA-DE-PRUEBAS.md`, cuya tabla dice encima: *«Si te las encuentras,
+    no hace falta que las anotes»*. Es decir: si alguien prueba una campaña por
+    WhatsApp, el documento le dice que **no reporte lo que vea**. Un documento
+    que apaga el instrumento de detección en la función que sí existe.
+
+    Es el §9 **al revés** —el producto hace más de lo que sus documentos
+    dicen—, y cuesta lo mismo que al derecho: una función construida, probada y
+    pagada que nadie usa porque el producto dice que no está.
+
+    ───────────────────────────────────────────────────────────────────────────
+    LO QUE SE MIDE, Y POR QUÉ ASÍ
+
+    Las dos cosas a la vez, como `ningun_texto_promete_una_copia_que_nadie_hace`:
+    **si el `WHERE` que elige las etapas en marcha no nombra el canal, ningún
+    documento puede decir que sólo recorre uno.** El día que alguien ponga ese
+    filtro de verdad, esta comprobación deja de exigirlo — que es lo correcto,
+    porque entonces la frase sería verdad otra vez.
+
+    Los informes `-PARA-DIRECCION` quedan fuera: son entregables **fechados**, y
+    reescribir el informe de octubre para que diga lo de noviembre sería peor
+    que dejarlo. Es la misma excepción que `los_bloqueos_se_cuentan_en_un_solo_sitio`.
+    """
+    fallos = []
+
+    # ── 1 · ¿Filtra el motor por canal? Se lee del código, no de una lista ──
+    #
+    # `etapas_en_marcha` es quien decide qué se sirve. Lo que importa es su
+    # `WHERE`: si ahí no aparece el canal, el motor recorre los dos.
+    trabajo = leer("crates", "arles-db", "src", "trabajo.rs")
+    if trabajo is None:
+        fallos.append("no se pudo leer arles-db/src/trabajo.rs")
+        filtra = None
+    else:
+        cuerpo = re.search(
+            r"pub fn etapas_en_marcha\b.*?ORDER BY", solo_produccion(trabajo), re.S
+        )
+        if not cuerpo:
+            fallos.append("no se encuentra el WHERE de etapas_en_marcha")
+            filtra = None
+        else:
+            # `channel = 'email'` o `channel = ?` dentro de esa consulta sería
+            # un filtro de canal de verdad. Su ausencia es lo que hace falsa la
+            # frase de los documentos.
+            filtra = bool(re.search(r"channel\s*(=|IN)", cuerpo.group(0)))
+
+    # ── 2 · Si no filtra, ningún documento puede decir que sí ──
+    if filtra is False:
+        # El patrón es la frase, no la palabra: «correo» aparece en todas las
+        # páginas del proyecto. Lo que se busca es la afirmación.
+        niegan = re.compile(
+            r"(s[oó]lo|solamente|[uú]nicamente)\s+recorre\s+(el\s+canal\s+de\s+)?correo"
+            r"|recorriendo\s+(s[oó]lo|solamente)\s+el\s+canal\s+de\s+correo"
+            r"|campa[ñn]a\s+entera\s+por\s+WhatsApp\s*\|\s*✅\s*\|\s*❌",
+            re.I,
+        )
+        for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "documentacion")):
+            for f in sorted(ficheros):
+                if not f.endswith(".md") or "-PARA-DIRECCION" in f:
+                    continue
+                ruta = os.path.join(carpeta, f)
+                with open(ruta, encoding="utf-8") as fh:
+                    texto = fh.read()
+                for i, linea in enumerate(texto.splitlines(), start=1):
+                    # ── UNA CITA NO ES UNA AFIRMACIÓN ──
+                    #
+                    # La primera versión de esto salió en rojo sobre los
+                    # documentos **ya arreglados**, porque la nota que explica
+                    # el defecto repite la frase para decir qué decía antes. Es
+                    # el comentario que se caza a sí mismo, por decimoquinta
+                    # vez, y la primera dentro de una comprobación escrita el
+                    # mismo día para arreglar esa clase de error.
+                    #
+                    # Se distingue por la estructura y no por las palabras: en
+                    # este proyecto **toda** nota de «esto decía X y era falso»
+                    # va en cita de bloque, que es la convención del `CLAUDE.md`
+                    # y de los nueve documentos que la siguen. Lo que afirma va
+                    # en el cuerpo o en una fila de tabla.
+                    #
+                    # Verificado por los dos caminos: en rojo con la frase en
+                    # una fila de tabla, y en verde con la misma frase citada.
+                    if linea.lstrip().startswith(">"):
+                        continue
+                    if niegan.search(linea):
+                        rel = os.path.relpath(ruta, RAIZ)
+                        fallos.append(
+                            f"{rel}:{i} dice que el motor sólo recorre correo, y "
+                            "`etapas_en_marcha` no filtra por canal desde D-WA"
+                        )
+
+    check(
+        3,
+        "ningún documento niega un canal que el motor recorre",
+        not fallos,
+        ningun_documento_niega_un_canal_que_el_motor_recorre.__doc__,
+        detalle="\n      ".join(fallos),
+    )
+
+
 def ningun_texto_promete_una_copia_que_nadie_hace():
     """**El `salvo` del §95 no puede prometer una copia que no existe.**
 
@@ -5590,6 +5710,7 @@ def fase_3(rapido):
     claves_de_texto_del_nucleo()
     claves_de_error_sin_texto()
     ningun_error_se_diagnostica_con_la_variante_de_otro()
+    ningun_documento_niega_un_canal_que_el_motor_recorre()
     ningun_texto_promete_una_copia_que_nadie_hace()
     toda_migracion_esta_en_el_changelog()
     nombres_de_las_opciones()

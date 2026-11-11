@@ -1,19 +1,26 @@
 # Consulta jurídica
 
-> Dieciocho preguntas concretas sobre protección de datos en México
+> Diecinueve preguntas concretas sobre protección de datos en México
 
 @@ PARA | El despacho o abogado que contrate TELEMETRY INSIGHT
 @@ DE | El equipo de ARLES RELAY I
 @@ DE QUÉ VA | Enviar correo y WhatsApp comercial en México, dentro de la ley
-@@ VERSIÓN | 2 · 22 de septiembre de 2026
-@@ QUÉ CAMBIÓ | Diez preguntas nuevas · sección 12
+@@ VERSIÓN | 3 · 11 de noviembre de 2026
+@@ QUÉ CAMBIÓ | C-19: ¿podemos saber si alguien abrió el correo?
 @@ LA MÁS URGENTE | C-3 · sección 11
+
+> **El PDF de al lado es de la versión 2 y NO lleva la C-19.** Antes de
+> mandárselo a nadie hay que regenerarlo —`herramientas/informe-direccion/generar-pdf.py`,
+> que necesita `reportlab`— porque el contenedor donde se escribió esta versión
+> no lo tiene instalado. **Se dice en vez de callarlo:** un PDF que reparte una
+> versión anterior del texto es el defecto que la huella de los informes de fase
+> existe para impedir, y este documento todavía no la tiene.
 
 === 1 · Léase esto primero
 
 Este documento está escrito **para mandarse tal cual**.
 
-No le pedimos un dictamen sobre protección de datos. Le pedimos **dieciocho
+No le pedimos un dictamen sobre protección de datos. Le pedimos **diecinueve
 respuestas concretas**, y en cada una le decimos exactamente qué vamos a hacer
 con lo que nos conteste. La mayoría cambian un texto o un plazo. **Cuatro
 cambian el producto.**
@@ -452,6 +459,35 @@ que vienen de un CRM viejo o de una hoja de cálculo que alguien fue anotando.
 **Qué haremos con su respuesta.** Si hay obligación, ARLES puede **avisar al
 importar** —«esta columna podría contener datos sensibles, ¿seguro?»— o
 directamente no dejar mapearla. Hoy no hace ninguna de las dos.
+
+### C-19 · ¿Podemos saber si alguien abrió el correo?
+
+**La pregunta, en una frase.** La forma habitual de saberlo en la industria es
+meter una imagen diminuta en el correo: al abrirlo, el programa de correo la
+pide a nuestro servidor y así sabemos **quién** abrió, **cuándo** y desde qué
+dirección IP. Se llama «píxel de seguimiento» y lo hace casi todo el mundo.
+
+**¿Es tratamiento de datos personales que exija consentimiento, aviso previo o
+alguna formalidad? ¿Cambia algo si lo que se mete es un logotipo visible en vez
+de una imagen invisible?**
+
+**Por qué la hacemos.** Hoy ARLES **no lo hace**, y es una decisión nuestra del
+29/09/2026: la interfaz nunca dice «entregado» ni «abierto» porque no lo puede
+saber. Dirección preguntó el 11/11/2026 si esa decisión se puede revisar, y la
+respuesta no es técnica: *«si las normas no nos permiten que se dé a conocer que
+el correo se abrió, pues evitémoslo, pero si nada nos impide, podemos cambiar
+esa decisión»*.
+
+**Qué haremos con su respuesta.** Si hace falta consentimiento expreso, la
+decisión del 29/09 se queda como está y se escribe por qué. Si basta con
+declararlo en el aviso de privacidad, entra en **C-4** y se construye con su
+texto delante. Y si no hay obstáculo, es una función de producto que Dirección
+decide.
+
+**Lo que sí está decidido ya**, y no depende de esta respuesta: **la imagen de
+la firma** (R-05) queda fuera de la versión 1.2.0. Una imagen **alojada** en un
+servidor nuestro es el píxel de seguimiento aunque se vea como un logotipo, así
+que hasta tener su respuesta no se alojará ninguna.
 
 === 10 · Qué le podemos entregar, y qué le pedimos
 

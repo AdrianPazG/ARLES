@@ -180,12 +180,12 @@ encuentras, no hace falta que las anotes.
 
 | Qué | Por qué |
 |---|---|
-| Una campaña entera por WhatsApp | El motor sólo recorre correo. De WhatsApp sale el mensaje de prueba |
-| Filtrar la audiencia de una campaña | No está construido |
+| Una campaña entera por WhatsApp | **No por el motor**, que la recorre desde D-WA (26/10/2026): falta la cuenta de Meta con Coexistencia (**META**). De WhatsApp sale el mensaje de prueba |
+| Un filtro **dentro del paso 2** de la campaña | A quién va se elige **antes** (R-27, 05/11/2026): se marcan contactos en su pantalla, con el filtro de R-26 delante, y se guardan como lista. Lo que no hay es un buscador dentro del asistente |
 | Editar una campaña ya creada | No está construido |
 | La letra no es Mont | Las versiones descargables van sin ella mientras P-01 siga abierto |
 | Windows dice «editor desconocido» | Falta el certificado de firma (Fase 9) |
-| Activar una campaña grande congela la ventana | Medido: 73,5 s con 451 196 destinatarios; se nota desde unos 30 000. Está en la Fase 9 |
+| Activar una campaña grande **tarda** | Medido: 73,5 s con 451 196 destinatarios; se nota desde unos 30 000. **La ventana NO se congela** desde el 28/10/2026: el comando es `(async)`, dice en qué va y se puede cancelar. Este renglón decía «congela la ventana» |
 | Buscar texto en el registro tarda | Medido: 3 709 ms el 07/10. **Remedido el 02/11: 1 151–1 257 ms**, y ningún índice ayuda — C-2 cerrado, ver el registro de requisitos |
 
 ---
