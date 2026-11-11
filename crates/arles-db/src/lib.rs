@@ -24,6 +24,13 @@ pub mod conexion;
 pub mod contactos;
 pub mod correo;
 pub mod cuentas;
+/// El experimento de D-19: ¿cuesta el total exacto, o cuesta el recorrido?
+///
+/// Sólo existe en pruebas y **no entra en el binario que se distribuye**, igual
+/// que `presupuesto_del_respaldo` en `arles-app`. Se corre a mano:
+/// `cargo test -p arles-db d19 -- --ignored --nocapture`.
+#[cfg(test)]
+mod d19_un_solo_recorrido;
 pub mod db;
 pub mod empresa;
 pub mod error;

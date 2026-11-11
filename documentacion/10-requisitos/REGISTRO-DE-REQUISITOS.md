@@ -69,10 +69,10 @@ plazo externo que no se comprime.
 
 | Id | Qué | Planteado | Estado |
 |---|---|---|---|
-| **R-05** | Imagen en la firma | Embebida dispara filtros de spam y engorda cada correo; alojada hay que alojarla, y el saneado tendría que admitir `<img>` | espera decisión |
+| **R-05** | Imagen en la firma | **Revisado el 11/11/2026: la razón escrita aquí era la débil, y las dos opciones no están empatadas.** La de verdad está en la cabecera de `sanear.rs` desde la Fase 6: una imagen **alojada** es un rastreador que delata cuándo se abrió el correo, y eso contradice el §65 y la decisión del 29/09 de no poner píxeles espía. La **embebida** no pide nada a ningún servidor. Ver abajo | espera decisión · con una prueba que se puede hacer hoy |
 | ~~**R-25**~~ | ~~Baja automática por correo~~ | **Cerrado el 10/11/2026: ARLES revisa el buzón del remitente —sólo lectura— y aplica las bajas.** Ver abajo | ✅ hecho |
 | ~~**R-30**~~ | ~~Que el buzón se revise sin pulsar un botón~~ | **Cerrado el 11/11/2026: un hilo propio lo revisa cada 15 minutos.** No va en el hilo del motor, y la razón está medida: 120 s de dos buzones caídos contra los 90 del latido del cerrojo. Ver abajo | ✅ hecho |
-| **D-19** | ¿El registro tiene que dar el total exacto? | C-2 midió que **el único cambio que baja el tiempo del filtro es dejar de contar todas las coincidencias**: traer las 500 filas cuesta la mitad. Pero el total al lado es D-7C, y se pidió para que el tope no escondiera nada. Las opciones y las cifras, abajo | espera decisión |
+| **D-19** | ¿El registro tiene que dar el total exacto? | **Remedido el 11/11/2026 y la pregunta era la equivocada.** No es «¿sacrificamos el total?» sino «¿lo acotamos?»: con coincidencias, traer la página cuesta 20-26 ms y el total exacto 3 589-4 535 —**150 veces más**—, y acotarlo a 501 lo deja en **13-17 ms** conservando lo único que hace falta saber. Y el caso de «no encuentra nada» **D-19 no lo toca**: ahí los cuatro caminos cuestan lo mismo. Ver abajo | espera decisión · con tres corridas |
 | **Fase 9** | Sacar la activación al hilo del motor | Activar tarda ~73 s con 451 196 destinatarios y el presupuesto de 2 s se rompe **alrededor de los 30 000**. Desde el 28/10 la ventana **sí responde**, dice en qué va y se puede cancelar; lo que queda es que no corra dentro de un comando | abierto · medido en la auditoría C |
 
 ---
@@ -310,6 +310,126 @@ e invalidar todos los respaldos anteriores, con un instalador ya fuera.
 > creerse esta tabla; H-13 arreglado; y
 > `ninguna_tabla_se_queda_fuera_del_respaldo` ya ve una tabla virtual — no la
 > veía, y la fase 8 pasó en verde con una tabla nueva sin clasificar.
+
+---
+
+## R-05 · la imagen de la firma, revisada el 11/11/2026
+
+Este renglón decía: *«Embebida dispara filtros de spam y engorda cada correo;
+alojada hay que alojarla, y el saneado tendría que admitir `<img>`»*. Presenta
+las dos opciones como un empate incómodo, y **no lo es**.
+
+**La razón de fondo lleva escrita en el código desde la Fase 6**, en la cabecera
+de `arles-core/src/sanear.rs`, y es mucho más fuerte que la del registro:
+
+> «una `<img>` con un `src` remoto es un rastreador que delata cuándo se abrió
+> el correo —lo que ARLES promete no hacer (§65: no se sabe si llegó)»
+
+Eso no es una preferencia técnica: es **una decisión de producto ya tomada**. El
+29/09/2026 se descartó el píxel de apertura con esas palabras, y una imagen
+alojada en un servidor nuestro **es** ese píxel, sólo que con forma de logotipo.
+Cada vez que alguien abriera el correo, nuestro servidor sabría cuándo.
+
+Así que las dos opciones no están empatadas:
+
+| Opción | Qué cuesta | Qué rompe |
+|---|---|---|
+| **Alojada** (`src="https://…"`) | Un servidor, un dominio y alguien que lo mantenga | **El §65 y la decisión del 29/09.** Es un rastreador de aperturas |
+| **Embebida** (`cid:`, dentro del mensaje) | Unos KB por correo y admitir `<img>` en el saneado | Nada que esté decidido |
+
+**La única que el producto puede tomar es la embebida.** Y de ella, lo que el
+registro afirmaba —«dispara filtros de spam»— **no está verificado por nadie
+aquí**, y es exactamente la forma de DOC-23: una afirmación sobre qué hacen los
+filtros de un proveedor, escrita sin fuente y creída después.
+
+### Y no hace falta discutirlo: se puede medir hoy
+
+**R-24 está cerrado desde el 22/10/2026.** Hay un servidor de correo real
+(`enlace@telemetrymx.com`, Titan con TLS) y ya se usó para medir lo mismo: un
+correo de ARLES llegó a la **bandeja principal** de Outlook, Gmail y un
+corporativo, tres de tres. El instrumento existe.
+
+Así que la propuesta no es decidir R-05 por argumento, es **mandar dos correos**:
+uno con la firma de hoy y otro con un logotipo embebido de unos 10 KB, a las
+mismas tres bandejas. Si los dos llegan igual, la objeción del registro queda
+retirada con una medición; si el segundo cae en no deseados, queda confirmada con
+una cifra en vez de con una creencia.
+
+Eso cuesta una tarde y cierra una decisión que lleva abierta desde la Fase 6.
+
+### Lo que costaría construirlo, si la medición sale bien
+
+Tres piezas, y ninguna es grande:
+
+1. **`<img>` en el saneado**, con su `src` acotado a `cid:` y nada más — un
+   `https://` tiene que seguir cayéndose, o se cuela el rastreador por la puerta
+   que se abrió para el logotipo. El módulo ya está escrito para esto: su
+   cabecera dice *«si algún día hace falta una imagen, se añade aquí con su
+   decisión escrita al lado, no se cuela por una lista negra»*.
+2. **Guardar el archivo**, que es lo único que ARLES no hace hoy con una imagen:
+   hay que decidir dónde vive (la carpeta de datos) y qué pasa al restaurar un
+   respaldo — si no entra en el manifiesto, la firma vuelve sin su logotipo y
+   **nada protesta**, que es el patrón de la 8.0.
+3. **Adjuntarla como parte relacionada** del mensaje en `arles-email`, que es
+   `multipart/related` con su `Content-ID`.
+
+**El tamaño sí hay que acotarlo**, y con una cifra: un logotipo de firma son
+5-15 KB, y en base64 un 33 % más. A 300 envíos diarios eso es del orden de 6 MB
+al día, que no es un problema; lo que sería un problema es que alguien suba una
+foto de 4 MB y cada correo pese 5,5. Un tope en el núcleo, como los del lector
+del buzón.
+
+---
+
+## D-19 · el total del registro, remedido el 11/11/2026
+
+Lo planteó C-2 así: «el único cambio que baja el tiempo del filtro es dejar de
+contar todas las coincidencias», y de ahí una decisión de producto — renunciar
+al total exacto, que es **D-7C** y se pidió para que el tope no escondiera nada.
+
+**Medirlo cambió la pregunta.** El experimento está en
+`arles-db/src/d19_un_solo_recorrido.rs` y se corre con
+`cargo test -p arles-db d19 -- --ignored --nocapture`: 120 000 sucesos, tres
+corridas de cada camino.
+
+| Camino | 0 coincidencias | 120 000 coincidencias |
+|---|---|---|
+| `count(*)` de todo, el de hoy | 4 054 · 3 858 · 3 898 ms | 3 589 · 4 535 · 3 988 ms |
+| traer la página (`LIMIT 500`) | 3 950 · 3 863 · 3 819 ms | **20 · 24 · 26 ms** |
+| la página y una más (`LIMIT 501`) | 3 872 · 4 025 · 3 863 ms | **20 · 24 · 26 ms** |
+| `count` acotado a 501 | 3 898 · 3 873 · 3 885 ms | **13 · 16 · 17 ms** |
+
+**Tres cosas que cambian la decisión:**
+
+1. **Con coincidencias, el total exacto es ~99 % del coste.** C-2 decía que
+   «cuesta otro tanto» que la página; cuesta **unas 150 veces**.
+2. **Acotar el recuento a 501 lo arregla ahí**: 13-17 ms, unas 250× más rápido.
+   Y no pierde lo que D-7C pidió, porque lo que el tope escondía era *que hay
+   más*, y «más de 500» lo dice. Lo que se pierde es la cifra exacta de cuántos
+   más, que es un dato que nadie usa para decidir nada: con más de 500
+   coincidencias, lo que se hace es afinar el filtro.
+3. **El caso de «no encuentra nada» no lo toca D-19 en absoluto.** Los cuatro
+   caminos cuestan lo mismo (~3 900 ms), porque para afirmar que no hay ninguna
+   coincidencia hay que visitar todas las filas. **Y ése es el caso que se pisa
+   mientras se escribe en el campo** — es lo mismo que R-26 midió para el filtro
+   de contactos, donde el texto «cuesta lo que NO encuentra» (~2 600 ms), y la
+   defensa que allí funcionó fue no buscar en cada pulsación.
+
+**Lo que estas cifras no son:** las de C-2. Aquélla medía 451 196 sucesos y daba
+~1 200 ms donde esto da ~3 900 con menos de un tercio de las filas. No se
+inventa la causa — la corrida de C-2 no se guardó, y una corrida que no se
+guarda no se puede diagnosticar. Lo que se publica es **la proporción entre los
+cuatro caminos de la misma corrida**, que es lo que la decisión necesita.
+
+### Lo que esto deja decidir, y lo que no
+
+**Lo que no hace falta decidir:** el total exacto no se tiene que sacrificar en
+el caso en que la página no se llena, porque ahí es gratis — se sabe contando
+las filas que llegaron.
+
+**Lo que sí es una decisión de producto, y es de Dirección:** si con más de 500
+coincidencias basta «500 de más de 500» en vez de «500 de 3 412». Es lo que
+baja esa consulta de ~3 900 ms a ~20.
 
 ---
 

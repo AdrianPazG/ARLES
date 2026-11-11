@@ -1,7 +1,7 @@
 # Estado actual · dónde está ARLES y qué sigue
 
 **Proyecto:** ARLES RELAY I · v1.2.0
-**Última actualización:** 27 de octubre de 2026 (**D-WA cerrado: una campaña entera por WhatsApp** · el semáforo de calidad · las plantillas de Meta · el asistente por canal · la 7.5 de entregabilidad · el umbral de rebotes · el orden del proyecto)
+**Última actualización:** 11 de noviembre de 2026 (**R-30: ARLES revisa los buzones solo** · R-25, la baja por correo aplicada sin pulsar nada · D-19 y R-05 remedidos con sus cifras · antes: D-WA, el semáforo de calidad, las plantillas de Meta, el asistente por canal, la 7.5 de entregabilidad, el umbral de rebotes)
 **Para qué sirve este documento:** que quien retome el trabajo —otra sesión, otra persona, otro equipo— sepa en una lectura qué está construido, qué decisiones ya están tomadas, qué **no** hay que volver a discutir y qué es lo siguiente.
 
 > Se actualiza **al cerrar cada entrega**, no al empezarla. Un documento de estado que describe intenciones en vez de hechos es peor que no tenerlo: se lee como si fuera cierto.
