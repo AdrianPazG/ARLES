@@ -113,6 +113,21 @@ jobs:
         if: ${{ inputs.con_mont != true }}
         run: python3 herramientas/marca/sin-mont.py --aplicar
 
+      # ── QUE LA LLEVA DE VERDAD ESTÁ MEDIDO, Y LAS DOS MITADES ──
+      #
+      # El 12/11/2026, con el CSS intacto y con él reescrito por `sin-mont.py`:
+      #
+      #   con Mont  → 4 fuentes en el paquete, 4 referencias en el CSS
+      #   sin Mont  → 0 y 0
+      #
+      # Y en el binario: 4 apariciones de «Mont-» y 5 de «woff2» dentro. Es la
+      # misma forma de medir que el 08/10/2026 usó para el `index.html`, y por
+      # la misma razón: una sola cifra no distingue nada.
+      #
+      # Lo que NO se pudo comprobar desde el contenedor es el `.exe` ya
+      # empaquetado —NSIS lo comprime con LZMA y ahí no hay herramienta para
+      # abrirlo—, así que eso queda dicho en vez de darse por hecho. La prueba
+      # final es abrirlo: si los títulos salen en Mont, está dentro.
       - name: Avisar de que ESTA versión lleva Mont dentro
         if: ${{ inputs.con_mont == true }}
         run: |
