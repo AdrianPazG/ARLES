@@ -277,16 +277,19 @@ jobs:
             | **El alta de un número de WhatsApp deja de rechazar tokens válidos.** ARLES preguntaba a Meta por un solo camino y, cuando ése venía vacío, acusaba al token | 05/11 |
             | **Darse de baja contestando al correo.** ARLES manda la cabecera que pone el botón de Gmail y Outlook, y lee el buzón del remitente en **sólo lectura** para aplicar las bajas | 10/11 |
             | **Y las aplica solo, cada 15 minutos**, con la ventana abierta o cerrada. Debajo de la casilla dice cuándo fue la última vez y **si falló** | 11/11 |
+            | **La baja por WhatsApp también se aplica sola.** Quien usa el control de WhatsApp para dejar de recibir promociones queda en la lista de bajas al siguiente envío, sin que nadie apunte nada | 12/11 |
 
             ### Lo que todavía NO hace
 
             - **Contar las respuestas de WhatsApp.** Meta las manda por
               *webhook* y ARLES no tiene ninguna URL a la que llamar: la cifra
               es cero en ese canal.
-            - **Atender un «BAJA» por WhatsApp.** Por correo **sí se atiende
-              solo** desde el 11/11 (ver arriba); en WhatsApp hay que apuntarlo
-              a mano en Contactos › Bajas, porque contar lo que llega por ese
-              canal necesita el «relay ciego», que no existe.
+            - **Leer un «BAJA» escrito a mano por WhatsApp.** Lo que llega por
+              ese canal sólo lo entrega Meta a una URL pública, y ARLES no
+              tiene ninguna. Lo que **sí** se aplica solo es a quien usa el
+              control de WhatsApp para dejar de recibir promociones: Meta lo
+              dice en la respuesta del siguiente envío y ARLES lo da de baja
+              ahí mismo (ver arriba).
             - **Filtrar la audiencia desde dentro del asistente.** A quién va
               una campaña se elige **antes**, marcando contactos en su pantalla
               con el filtro delante; lo que no hay es un buscador dentro del

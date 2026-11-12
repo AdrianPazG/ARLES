@@ -3,10 +3,17 @@
 //! ─────────────────────────────────────────────────────────────────────────
 //! ESTE ARCHIVO DECIDE QUIÉN SE QUEDA SIN RECIBIR NUNCA MÁS
 //!
-//! De los cinco fallos, uno —[`Fallo::LaDireccionNoExiste`]— lleva a
-//! `RendirseYDarDeBaja`, y una baja **no se deshace con un botón**. Así que la
-//! lista de códigos que llevan ahí es cerrada, corta y está escrita a mano,
-//! y todo lo demás cae en el lado seguro.
+//! **Dos de los cinco fallos acaban en una supresión**, por caminos distintos:
+//! [`Fallo::LaDireccionNoExiste`] lleva a `RendirseYDarDeBaja`, y
+//! [`Fallo::EsaPersonaPidioLaBaja`] a `NoEsUnFallo`, que también suprime. Una
+//! baja **no se deshace con un botón**, así que las dos listas son cerradas,
+//! cortas y están escritas a mano, y todo lo demás cae en el lado seguro.
+//!
+//! Son dos y no una porque no dicen lo mismo: una es «este número no puede
+//! recibir» y la otra **«esta persona pidió no recibir»**, que es el sistema
+//! funcionando. Lo que cada una escribe en la pantalla de Bajas y en el
+//! `audit_log` es distinto, y mezclarlas sería diagnosticar con la etiqueta de
+//! otro (DOC-14).
 //!
 //! Es la misma disciplina que `arles-email::codigos` aplica a los `5xx` de
 //! SMTP, y por la misma razón: confundir «ahora no puedo» con «esta persona no
@@ -92,6 +99,40 @@ const DEMASIADO_DEPRISA: [u32; 3] = [130_429, 4, 80_007];
 /// se rinde — gastando tres intentos fallidos del historial para nada.
 const YA_RECIBIO_BASTANTE_HOY: u32 = 131_049;
 
+/// **Esa persona pidió dejar de recibir, y lo pidió a WhatsApp.**
+///
+/// `131_050`, en palabras de Meta: *«Recipient stopped receiving marketing
+/// messages from your business. Don't retry.»* Y añade cómo seguirlo: el
+/// webhook `user_preferences`.
+///
+/// ── POR QUÉ ESTE CÓDIGO ES LA BAJA AUTOMÁTICA DE WHATSAPP ──
+///
+/// WhatsApp enseña a quien recibe un mensaje de empresa un control para dejar
+/// de recibir promociones. Al usarlo, Meta **no nos avisa** —eso iría por un
+/// webhook, y ARLES no tiene URL a la que Meta pueda llamar
+/// (`entrante.rs`)— pero **sí responde 131050 al siguiente envío**, que es una
+/// respuesta que ARLES ya recibe, sin ningún servidor en medio.
+///
+/// Así que la señal llega. Lo que faltaba era leerla: hasta el 12/11/2026 este
+/// código caía en [`Fallo::Pasajero`], que reintenta tres veces y se rinde. El
+/// efecto era que **alguien que pidió no recibir seguía en la lista** y volvía
+/// a recibir en la campaña siguiente.
+///
+/// ── Y POR QUÉ NO ES `LaDireccionNoExiste` ──
+///
+/// Las dos acaban suprimiendo, y son cosas distintas. `131_026` es «este
+/// número no puede recibir»: un fallo. Esto es **una persona ejerciendo su
+/// derecho**, que es el sistema funcionando, y el núcleo ya tiene la variante
+/// que lo dice con esas palabras. Mezclarlas dejaría la supresión con el motivo
+/// equivocado en la pantalla de Bajas y en el `audit_log` — el defecto que
+/// DOC-14 dejó escrito: *un diagnóstico equivocado no hace dudar, manda a hacer
+/// algo.*
+///
+/// Lo que Meta **no** ofrece sin webhook es enterarse de que alguien escribió
+/// «BAJA» a mano. Eso sigue necesitando el relay ciego, y está dicho donde
+/// toca en vez de darse por cubierto.
+const PIDIO_DEJAR_DE_RECIBIR: u32 = 131_050;
+
 /// El número está mandando más de lo que su calidad aguanta.
 ///
 /// `131_048` es el aviso serio: Meta ha visto bloqueos o reportes y ha bajado
@@ -134,6 +175,14 @@ pub fn traducir(e: &ErrorDeMeta) -> Fallo {
         return Fallo::LaCuentaNoAutentica;
     }
 
+    // Antes que `NO_SE_PUEDE_ENTREGAR` a propósito: los dos suprimen, y si
+    // algún día coincidieran por error tiene que ganar el que dice la verdad
+    // sobre quién lo pidió. Es el mismo criterio que ordena las ramas de
+    // arriba.
+    if e.codigo == PIDIO_DEJAR_DE_RECIBIR {
+        return Fallo::EsaPersonaPidioLaBaja;
+    }
+
     if e.codigo == NO_SE_PUEDE_ENTREGAR {
         return Fallo::LaDireccionNoExiste;
     }
@@ -167,33 +216,56 @@ mod tests {
         }
     }
 
-    /// **Sólo un código da de baja, y hay que enumerarlos para verlo.**
+    /// Todos los códigos que este archivo conoce, para poder enumerar qué
+    /// hace cada uno en vez de confiar en que la traducción sea la que parece.
+    const CONOCIDOS: [u32; 13] = [
+        190, 368, 133_010, 131_031, 131_026, 131_048, 131_049, 131_050, 130_429, 4, 80_007,
+        131_047, 0,
+    ];
+
+    /// **Exactamente dos códigos suprimen, y cada uno por su motivo.**
     ///
     /// Una baja no se deshace con un botón: borra a alguien de todas las
     /// campañas futuras. Esta prueba recorre todos los códigos que este archivo
-    /// conoce y exige que **exactamente uno** lleve ahí.
+    /// conoce y exige que **exactamente dos** lleguen ahí, y que no se
+    /// confundan entre sí.
     ///
     /// Es la prueba que caza el error más caro de este módulo, que no es
     /// escribir mal una traducción sino **añadir un código a la lista
     /// equivocada** meses después, cuando ya nadie recuerda cuál era cuál.
     ///
-    /// Verificada rompiéndola el 29/09/2026: añadiendo `131_047` a la rama de
-    /// `NO_SE_PUEDE_ENTREGAR`, esta prueba falla nombrando el código.
+    /// ── POR QUÉ MIDE LOS DOS POR SEPARADO ──
+    ///
+    /// Hasta el 12/11/2026 esta prueba decía «sólo un código da de baja» y
+    /// miraba una sola variante. Con dos, lo fácil habría sido pedir la unión
+    /// —«que los que suprimen sean 131026 y 131050»—, y eso **pasaría en verde
+    /// con los dos intercambiados**: cada uno escribe un motivo distinto en la
+    /// pantalla de Bajas y en el `audit_log`, así que intercambiarlos es
+    /// exactamente el defecto que importa.
+    ///
+    /// Verificada rompiéndola el 29/09/2026 con `131_047` en la rama de
+    /// `NO_SE_PUEDE_ENTREGAR`, y otra vez el 12/11/2026 intercambiando las dos
+    /// ramas nuevas: falla nombrando el código.
     #[test]
-    fn solo_un_codigo_da_de_baja() {
-        let conocidos = [
-            190, 368, 133_010, 131_031, 131_026, 131_048, 131_049, 130_429, 4, 80_007, 131_047, 0,
-        ];
-
-        let que_dan_de_baja: Vec<u32> = conocidos
+    fn solo_dos_codigos_suprimen_y_no_se_confunden() {
+        let no_existe: Vec<u32> = CONOCIDOS
             .into_iter()
             .filter(|c| traducir(&de(*c)) == Fallo::LaDireccionNoExiste)
             .collect();
-
         assert_eq!(
-            que_dan_de_baja,
+            no_existe,
             vec![131_026],
-            "sólo «no se puede entregar» puede dar de baja a alguien"
+            "sólo «no se puede entregar» es un número que no recibe"
+        );
+
+        let pidio_la_baja: Vec<u32> = CONOCIDOS
+            .into_iter()
+            .filter(|c| traducir(&de(*c)) == Fallo::EsaPersonaPidioLaBaja)
+            .collect();
+        assert_eq!(
+            pidio_la_baja,
+            vec![131_050],
+            "sólo «dejó de recibir promociones» es una persona pidiéndolo"
         );
     }
 

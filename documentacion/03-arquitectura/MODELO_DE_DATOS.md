@@ -194,8 +194,25 @@ CREATE UNIQUE INDEX idx_suppression_unique
 `reason`: `hard_bounce` · `unsubscribe` · `manual` · `complaint` ·
 `invalid_number` · `channel_failure`
 `origin`: `smtp_5xx` · `user` · `import` · `whatsapp_webhook` ·
-`email_unsubscribe` (el quinto, V17 · R-25 · 10/11/2026: lo pidió quien recibe
-el correo, y no se guarda como `user` porque ésa es otra mano)
+`email_unsubscribe` · `whatsapp_optout` · `whatsapp_api`
+
+> **El origen dice quién lo decidió, no cómo nos enteramos**, y por eso son
+> siete y no tres. Los dos últimos entraron en la **V20** (R-31, 12/11/2026) y
+> completan los dos pares simétricos:
+>
+> | | Lo dijo el proveedor | Lo pidió la persona |
+> |---|---|---|
+> | Correo | `smtp_5xx` | `email_unsubscribe` |
+> | WhatsApp | `whatsapp_api` | `whatsapp_optout` |
+>
+> `whatsapp_webhook` queda aparte y **sin escritor**: significa «lo avisó Meta
+> por webhook», y ARLES no tiene URL pública a la que Meta pueda llamar. Está
+> declarado en `arles-whatsapp/src/entrante.rs` desde el 29/09/2026.
+>
+> Y ninguno se escribe a mano: salen de `lo_dijo_el_proveedor_de` y
+> `lo_pidio_quien_recibe_por`, las dos sin `_ =>`. Antes de la V20 el motor los
+> fijaba en `smtp_5xx`, así que una baja de un número de móvil decía que la
+> había dicho un servidor de correo (H-25).
 `scope`: `channel` · `global`
 
 **«No me escribas por WhatsApp» no es «no me escribas nunca».** Sin el canal,

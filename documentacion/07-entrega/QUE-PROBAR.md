@@ -68,6 +68,25 @@ puede tocar.
 > que **no miente cuando falla**, que es lo que distingue un indicador útil de
 > uno decorativo.
 
+### 2.1 bis · La baja automática por WhatsApp (R-31)
+
+**No hay nada que encender.** Necesita el bloqueo **META** cerrado, así que esto
+sólo se puede probar el día que haya una cuenta de Meta con Coexistencia.
+
+| # | Qué hacer | Qué tiene que pasar |
+|---|---|---|
+| 1 | Mandarte un mensaje de campaña a tu propio móvil | Que llegue |
+| 2 | En WhatsApp, usar el control de **dejar de recibir promociones** de ese chat | — |
+| 3 | Lanzar otra campaña que te incluya | Que **no te llegue**, y que tu número aparezca en `/contactos/supresion` con canal WhatsApp |
+
+> **Se entera al intentar mandar, no cuando lo pides.** Meta no avisa en el
+> momento: lo dice al rechazar el siguiente envío. Es distinto del correo —donde
+> ARLES mira el buzón cada quince minutos— porque en WhatsApp no hay buzón que
+> mirar.
+
+> **Y un «BAJA» escrito a mano no lo ve.** Eso sólo llega por webhook. Si lo
+> pruebas y no pasa nada, no es un defecto: está en el §4.
+
 ### 2.2 · Elegir a quién va una campaña (R-27)
 
 | # | Qué hacer | Qué tiene que pasar |
@@ -122,7 +141,7 @@ quién tiene cada uno. Los otros dos son funciones no construidas.
 | **Los textos legales definitivos** | **P-09**. Lo que se ve va marcado como provisional |
 | **Editar una campaña ya creada** | No está construido. Hay que crear otra |
 | **Un filtro dentro del paso 2** de la campaña | A quién va se elige antes (§2.2). Lo que no hay es un buscador dentro del asistente |
-| **Contar las respuestas de WhatsApp** | Necesita el «relay ciego», que no existe |
+| **Contar las respuestas de WhatsApp**, y leer un «BAJA» escrito por ahí | Las dos cosas llegan por *webhook*, y ARLES no tiene URL pública. Necesita el «relay ciego», que no existe. Lo que **sí** se aplica solo es el control de «dejar de recibir promociones» (§2.1 bis) |
 | **Que el registro se recorte solo** | Hay que pulsarlo en `/actividad/registro`. Ver §5 |
 
 ---

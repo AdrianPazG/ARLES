@@ -193,10 +193,34 @@ pub enum OrigenDeSupresion {
     /// lo mismo.
     #[serde(rename = "email_unsubscribe")]
     PeticionPorCorreo,
+    /// **Lo pidió quien recibe el WhatsApp**, con el control que la propia
+    /// aplicación le ofrece para dejar de recibir promociones.
+    ///
+    /// Es la gemela de [`Self::PeticionPorCorreo`] y por la misma razón: lo
+    /// decidió la persona, no la empresa.
+    ///
+    /// Y es distinta de [`Self::AvisoDeWhatsApp`], que significa «lo avisó Meta
+    /// por webhook». Ésta llega en la **respuesta de un envío** —el código
+    /// `131050`—, que es lo único que ARLES puede recibir sin tener una URL
+    /// pública. El origen no dice cómo nos enteramos: dice **quién lo
+    /// decidió**.
+    #[serde(rename = "whatsapp_optout")]
+    PeticionPorWhatsApp,
+    /// **Lo dijo la API de WhatsApp** en la respuesta del envío, hablando de
+    /// ese destinatario: el `131026`, que es el número que no puede recibir.
+    ///
+    /// Es el gemelo de [`Self::RespuestaSmtp`], y entró en la V20 arreglando un
+    /// defecto que ya estaba: el motor escribía el origen **fijo** en
+    /// `RespuestaSmtp`, así que desde que recorre WhatsApp —26/10/2026— una
+    /// baja de un número de móvil decía que la había dicho un servidor de
+    /// correo. No fallaba nada; lo que quedaba mal era justo aquello para lo
+    /// que existe este campo.
+    #[serde(rename = "whatsapp_api")]
+    RespuestaDeWhatsApp,
 }
 
 impl OrigenDeSupresion {
-    /// Contrato con la `CHECK` de la V17 (antes la V3).
+    /// Contrato con la `CHECK` de la V20 (antes la V17 y la V3).
     pub const fn como_texto(self) -> &'static str {
         match self {
             Self::RespuestaSmtp => "smtp_5xx",
@@ -204,6 +228,8 @@ impl OrigenDeSupresion {
             Self::Importacion => "import",
             Self::AvisoDeWhatsApp => "whatsapp_webhook",
             Self::PeticionPorCorreo => "email_unsubscribe",
+            Self::PeticionPorWhatsApp => "whatsapp_optout",
+            Self::RespuestaDeWhatsApp => "whatsapp_api",
         }
     }
 
@@ -213,13 +239,51 @@ impl OrigenDeSupresion {
         Self::Importacion,
         Self::AvisoDeWhatsApp,
         Self::PeticionPorCorreo,
+        Self::PeticionPorWhatsApp,
+        Self::RespuestaDeWhatsApp,
     ];
+
+    /// Cuando **el proveedor** dice que ese destinatario no puede recibir: de
+    /// qué proveedor se trata.
+    ///
+    /// Existe para que el motor no escriba el origen a mano. Lo escribía, fijo
+    /// en [`Self::RespuestaSmtp`], y desde que recorre WhatsApp (26/10/2026)
+    /// eso guardaba la baja de un número de móvil diciendo que la había dicho
+    /// un servidor de correo.
+    ///
+    /// **Sin `_ =>` a propósito:** un canal nuevo tiene que hacer que esto no
+    /// compile, en vez de heredar el origen del correo en silencio. Es lo que
+    /// pasó la vez anterior.
+    #[must_use]
+    pub const fn lo_dijo_el_proveedor_de(canal: Canal) -> Self {
+        match canal {
+            Canal::Correo => Self::RespuestaSmtp,
+            Canal::WhatsApp => Self::RespuestaDeWhatsApp,
+        }
+    }
+
+    /// Cuando **la persona** pide no recibir más, por el camino que el canal le
+    /// ofrece: el botón de cancelar suscripción del correo, o el control de
+    /// promociones de WhatsApp.
+    ///
+    /// Mismo criterio y mismo motivo que [`Self::lo_dijo_el_proveedor_de`],
+    /// y también sin `_ =>`.
+    #[must_use]
+    pub const fn lo_pidio_quien_recibe_por(canal: Canal) -> Self {
+        match canal {
+            Canal::Correo => Self::PeticionPorCorreo,
+            Canal::WhatsApp => Self::PeticionPorWhatsApp,
+        }
+    }
 
     /// Lee lo que hay guardado en la base.
     ///
     /// # Errores
     ///
-    /// [`CoreError::OrigenDeSupresionDesconocido`] si no es de los cuatro.
+    /// [`CoreError::OrigenDeSupresionDesconocido`] si no es ninguno de los
+    /// que [`Self::TODOS`] enumera. La cifra no se escribe aquí a propósito:
+    /// este comentario decía «los cuatro» con cinco variantes, y el día que
+    /// entró la quinta nada falló.
     pub fn desde_texto(texto: &str) -> Result<Self, CoreError> {
         Self::TODOS
             .iter()

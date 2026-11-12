@@ -187,8 +187,15 @@ llamadas a un servidor en internet, y ARLES es una aplicación de escritorio: no
 hay servidor al que llamar. La cifra de «cuánta gente contestó» será cero en
 WhatsApp hasta que exista esa pieza, y está dicho en la pantalla.
 
-**Y por eso una baja pedida por WhatsApp hay que apuntarla a mano.** Esto es
-importante y conviene leerlo entero.
+**Y por eso un «BAJA» escrito a mano por WhatsApp hay que apuntarlo a mano.**
+Esto es importante y conviene leerlo entero.
+
+> **Desde el 12/11/2026 hay una baja que sí se aplica sola** (R-31), y es la
+> que más gente usa: el control de WhatsApp para **dejar de recibir
+> promociones**. Meta no avisa cuando alguien lo pulsa, pero **rechaza el
+> siguiente envío diciendo exactamente eso**, y ahí ARLES lo da de baja sin que
+> nadie apunte nada. Lo que sigue sin poder leerse es un mensaje **escrito**,
+> que es de lo que habla el resto de esta sección.
 
 En el correo, ARLES pone al final de cada mensaje una frase que explica cómo
 darse de baja, y **no deja activar una campaña sin ella**. Por WhatsApp no

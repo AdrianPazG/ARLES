@@ -2542,6 +2542,39 @@ motor da vueltas cada cinco segundos desde la 5.4b. Lo que hacía falta era
 > **no con la aplicación cerrada**, que sería un servicio del sistema y es otra
 > cosa.
 
+**Y el 12/11/2026, R-31 · la baja por WhatsApp también se aplica sola.** Lo
+pidió Dirección —«estuvimos trabajando para que la baja en whatsapp sea
+automatica tambien»— y, como con R-25 en el correo, **la mitad estaba
+construida y nadie lo sabía**: el núcleo tenía `Fallo::EsaPersonaPidioLaBaja`
+desde la Fase 4, el motor ya suprimía al recibirlo, y el traductor de códigos
+de Meta llevaba ahí desde el canal W. Está contado en
+[`ESTADO_ACTUAL.md`](documentacion/07-entrega/ESTADO_ACTUAL.md) §20.
+
+> **Lo que faltaba era la señal, y llegaba sin que nadie la leyera.** WhatsApp
+> ofrece un control para dejar de recibir promociones; cuando alguien lo usa,
+> Meta **no avisa** —eso iría por el webhook `user_preferences`, y ARLES no
+> tiene URL pública— pero **contesta `131050` al siguiente envío**. Hasta hoy
+> ese código caía en el cajón de lo desconocido: tres reintentos, rendirse, y
+> **la persona que pidió no recibir seguía en la lista**. Verificado en la
+> documentación de Meta antes de construir nada, que es la lección de DOC-23.
+
+> **Y el séptimo origen arregla un defecto que ya estaba.** El motor escribía
+> el origen de la supresión **fijo** en `smtp_5xx` en los dos sitios donde
+> suprime, así que desde D-WA una baja de un número de móvil decía que la había
+> dicho **un servidor de correo**. Nada fallaba; lo que quedaba mal era justo
+> aquello para lo que existe el campo. Ahora sale de dos funciones del núcleo
+> **sin `_ =>`**, para que un canal nuevo no compile en vez de heredarlo.
+>
+> Lo vigila `el_origen_de_una_baja_sale_del_canal` en `--fase 1`, que prohíbe
+> **cualquier** variante fija y no sólo la del correo: el arreglo ingenuo
+> —fijar la de WhatsApp— rompería el correo y habría pasado en verde.
+
+> **Lo que NO cubre, dicho en vez de darse por cubierto:** leer un «BAJA»
+> **escrito** por WhatsApp, que sólo llega por webhook y sigue necesitando el
+> relay ciego; y enterarse en el momento — en el correo ARLES mira el buzón
+> cada quince minutos, en WhatsApp sólo se entera **al intentar mandar**,
+> porque no hay buzón que mirar.
+
 **Y el 11/11/2026, la auditoría I · qué obtiene quien clona el repositorio.** Lo
 pidió Dirección antes de generar el instalador —que todo el equipo pueda
 descargar el repositorio, instalar lo necesario y generar el `.exe` desde su VS

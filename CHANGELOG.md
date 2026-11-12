@@ -14,7 +14,7 @@ Versionado según [Versionado Semántico](https://semver.org/lang/es/) (§3).
 
 ### Migraciones del esquema
 
-Diecinueve, y están todas aquí porque **un respaldo `.arles` tomado antes de una
+Veinte, y están todas aquí porque **un respaldo `.arles` tomado antes de una
 migración se restaura pasando sus datos por las que faltan**: esta tabla dice
 exactamente por dónde pasan.
 
@@ -49,6 +49,7 @@ exactamente por dónde pasan.
 | **V17** | Una baja puede venir de quien recibe el correo, y no sólo de dentro (R-25) |
 | **V18** | Dónde se lee el buzón, si está encendido, y hasta qué correo se leyó (R-25) |
 | **V19** | Cuándo se intentó revisar cada buzón y cómo fue, para que el programador lo haga solo (R-30) |
+| **V20** | Una baja puede venir de quien recibe el WhatsApp, y el origen de una baja dice de qué canal vino |
 
 > **Esta tabla nació de una comprobación que faltaba, y lo primero que hizo fue
 > cazar seis huecos.** El formato que el propio proyecto exige
@@ -75,6 +76,57 @@ exactamente por dónde pasan.
 > Ahora exige una **fila de la tabla**, que es lo único que no se escribe de
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
+
+### La baja por WhatsApp también se aplica sola
+
+**12/11/2026.** Petición de Dirección: *«también estuvimos trabajando para que
+la baja en whatsapp sea automatica tambien, eso hay que solucionarlo»*. Y como
+con R-25 en el correo, **la mitad del camino estaba construida y nadie lo
+sabía**: el núcleo tenía `Fallo::EsaPersonaPidioLaBaja` desde la Fase 4, el
+motor ya suprimía al recibirlo, y `codigos.rs` ya traducía los errores de Meta.
+
+**Lo que faltaba era la señal**, y no hacía falta ningún servidor para tenerla.
+WhatsApp le ofrece a quien recibe un mensaje de empresa un control para dejar de
+recibir promociones; cuando alguien lo usa, Meta no avisa —eso iría por un
+webhook, y ARLES no tiene URL pública— pero **contesta `131050` al siguiente
+envío**, que es una respuesta que ARLES ya recibe. Verificado en la
+documentación de Meta: *«Recipient stopped receiving marketing messages from
+your business. Don't retry.»*
+
+Hasta hoy ese código caía en el cajón de lo desconocido: se reintentaba tres
+veces, se rendía, y **la persona que había pedido no recibir seguía en la
+lista** y volvía a recibir en la campaña siguiente.
+
+> **Y el séptimo origen arregla un defecto que ya estaba, encontrado al llegar
+> aquí.** El motor escribía el origen de la supresión **fijo** en `smtp_5xx`,
+> así que desde que recorre WhatsApp —26/10/2026— una baja de un número de
+> móvil se guardaba diciendo que la había dicho **un servidor de correo**. Nada
+> fallaba: la fila entraba y el número dejaba de recibir. Lo que quedaba mal era
+> justo aquello para lo que existe el campo.
+>
+> Ahora el origen sale de dos funciones del núcleo, las dos **sin `_ =>`**, para
+> que un canal nuevo no compile en vez de heredar el del correo en silencio. Lo
+> vigila `el_origen_de_una_baja_sale_del_canal` en `--fase 1`, que prohíbe
+> **cualquier** variante fija y no sólo la del correo: el arreglo ingenuo —fijar
+> la de WhatsApp— rompería el correo y habría pasado en verde.
+
+> **La prueba que esto existía para tener**: el servidor de mentira contesta
+> 131050, el adaptador lo extrae, `codigos` lo traduce, el núcleo decide, el
+> motor suprime, y la fila queda con el canal y el origen correctos. Cada capa
+> tenía las suyas y **ninguna comprobaba que lo que sale de una entre en la
+> siguiente**. Verificada devolviendo el código al cajón de lo desconocido: las
+> dos pruebas caen con el síntoma exacto de ayer, «Reintentará 1 de 3».
+>
+> Y la segunda afirma **el paso concreto** y no sólo que no salió nada: un envío
+> puede no salir por la ventana, el cupo, el descanso de catorce días o el
+> freno, así que una prueba que sólo mirara el servidor pasaría en verde con la
+> supresión borrada.
+
+> **Lo que esto NO cubre, dicho en vez de darse por cubierto:** leer un «BAJA»
+> **escrito** por WhatsApp. Eso sólo llega por webhook, y sigue necesitando el
+> relay ciego. Y la diferencia con el correo es real: en el correo ARLES mira el
+> buzón cada quince minutos, así que se entera sin escribir a nadie; en WhatsApp
+> sólo se entera **al intentar mandar**.
 
 ### Un clon del repositorio da la aplicación · auditoría I
 

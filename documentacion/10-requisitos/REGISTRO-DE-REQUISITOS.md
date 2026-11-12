@@ -740,6 +740,68 @@ sus cifras contra algo que ya se sepa.
 
 ---
 
+## R-31 · la baja por WhatsApp se aplica sola, 12/11/2026
+
+Petición de Dirección: *«también estuvimos trabajando para que la baja en
+whatsapp sea automatica tambien, eso hay que solucionarlo»*.
+
+**Estado: ✅ hecho, con su alcance declarado.** Está contado en
+[`ESTADO_ACTUAL.md`](../07-entrega/ESTADO_ACTUAL.md) §20.
+
+### Lo que se construyó, y lo poco que era
+
+| Lo que ya había | Desde |
+|---|---|
+| `Fallo::EsaPersonaPidioLaBaja` en el núcleo | Fase 4 |
+| El motor suprimiendo al recibirlo | Fase 4 |
+| El traductor de los códigos de Meta | Canal W |
+| El verificador de avisos firmados de Meta | 29/09/2026 |
+
+**Lo que faltaba era la señal, y llegaba sin que nadie la leyera.** WhatsApp
+ofrece a quien recibe un mensaje de empresa un control para dejar de recibir
+promociones; Meta no avisa cuando alguien lo usa —eso sería un webhook— pero
+**contesta `131050` al siguiente envío**. Hasta hoy ese código caía en el cajón
+de lo desconocido: tres reintentos, rendirse, y **la persona seguía en la
+lista**.
+
+Verificado en la documentación de Meta antes de construir nada, que es la
+lección de DOC-23: *«Recipient stopped receiving marketing messages from your
+business. Don't retry.»*
+
+### H-25 · el origen de una baja decía el canal equivocado
+
+**Un defecto que ya estaba, encontrado al llegar aquí.** El motor escribía el
+origen **fijo** en `smtp_5xx` en los dos sitios donde suprime, así que desde
+D-WA (26/10/2026) una baja de un número de móvil se guardaba diciendo que la
+había dicho un servidor de correo.
+
+Nada fallaba y la protección funcionaba. Lo que quedaba mal era **justo aquello
+para lo que existe el campo**: el origen está separado del motivo precisamente
+para poder defender de dónde salió cada baja.
+
+Arreglado con dos funciones del núcleo sin `_ =>`, para que un canal nuevo no
+compile en vez de heredar el del correo. Lo vigila
+`el_origen_de_una_baja_sale_del_canal` en `--fase 1`, que prohíbe **cualquier**
+variante fija y no sólo la del correo — porque el arreglo ingenuo, fijar la de
+WhatsApp, rompería el correo y habría pasado en verde. Tres rupturas, las tres
+en rojo.
+
+### Lo que no cubre, declarado
+
+| Qué | Por qué |
+|---|---|
+| Leer un «BAJA» **escrito** por WhatsApp | Sólo llega por webhook. Sigue necesitando el relay ciego (29/09/2026) |
+| Enterarse en el momento | En el correo ARLES mira el buzón cada 15 min; en WhatsApp sólo se entera **al intentar mandar**, porque no hay buzón que mirar |
+| Quien **bloquea** el número | Meta no da código para eso en el rango 131xxx. El más parecido, `130403`, significa lo contrario |
+
+> **Y una costura del diseño medida y no arreglada:** el motor consulta la salud
+> del remitente en `email_account` **también en WhatsApp**, porque el disyuntor
+> vive en esa tabla desde la Fase 4. Funciona, pero obliga a que una etapa de
+> WhatsApp tenga una cuenta de correo detrás. Arreglarlo es una migración y no
+> estaba en lo pedido.
+
+---
+
 ## Auditoría I · qué obtiene quien clona el repositorio, 11/11/2026
 
 Dirección pidió, antes de generar el instalador: *«Audita el programa, necesito

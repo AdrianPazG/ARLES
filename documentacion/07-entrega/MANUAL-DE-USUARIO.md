@@ -268,6 +268,37 @@ hay que hacer nada más.**
 
 ---
 
+## 4 ter · Las bajas que llegan por WhatsApp
+
+**Esto no hay que encenderlo y no hay nada que configurar.** Funciona desde el
+12/11/2026 y por un camino distinto al del correo.
+
+WhatsApp le enseña a quien recibe un mensaje de empresa un control para **dejar
+de recibir promociones**. Cuando alguien lo usa, Meta no nos avisa en ese
+momento — pero **al siguiente mensaje que ARLES le intente mandar, lo rechaza
+diciendo exactamente eso**. Ahí ARLES lo da de baja.
+
+| | |
+|---|---|
+| **Cuándo se entera** | Al intentar mandarle el siguiente mensaje, no cuando la persona lo pide |
+| **Qué pasa con ese mensaje** | No se le manda. El intento queda cerrado como baja, con su motivo |
+| **Qué pasa después** | Ese número no vuelve a entrar en ninguna campaña |
+| **Dónde se ve** | Contactos › Bajas, canal WhatsApp |
+
+> **La diferencia con el correo importa, y conviene entenderla.** En el correo,
+> ARLES **mira el buzón** cada quince minutos, así que se entera aunque no
+> vuelva a escribir a nadie. En WhatsApp **no hay buzón que mirar**: la única
+> vez que Meta nos lo dice es cuando intentamos mandar. Son dos caminos
+> distintos porque los dos canales son distintos, no porque uno esté a medias.
+
+> **Lo que esto NO cubre, y no se puede desde ARLES:** si alguien **escribe**
+> «BAJA» por WhatsApp, ARLES no lo ve. Esas respuestas WhatsApp sólo las
+> entrega llamando a una dirección de internet, y ARLES es un programa que vive
+> en tu equipo y no tiene ninguna. Con Coexistencia esos mensajes te llegan al
+> teléfono: apúntalos en Contactos › Bajas.
+
+---
+
 ## 5 · Lo que ARLES guarda, y dónde
 
 | Qué | Dónde |
@@ -341,7 +372,7 @@ nada que no se pueda cumplir.
 | **Nadie ha abierto ARLES en un Mac** | Está construido para macOS y **no se ha probado ahí**. Hasta que alguien lo haga, no se puede afirmar que funcione |
 | **Una firma no puede llevar una imagen** | Sólo texto, con negrita y cursiva. Está pendiente de decidir cómo: embebida engorda cada correo y dispara filtros de spam; alojada hay que alojarla en algún sitio |
 | **El número de WhatsApp nunca ha hablado con Meta** | Todo lo de WhatsApp está probado contra un servidor de mentira. Falta una cuenta de empresa verificada con Coexistencia |
-| **No lee las respuestas de WhatsApp, así que una baja pedida por ahí se apunta a mano** | Las respuestas te llegan al teléfono con Coexistencia. Apúntalas en Contactos › Bajas, canal WhatsApp, y ninguna campaña vuelve a incluir ese número. **En el correo ya no hace falta**: ARLES revisa el buzón y las aplica (ver §4 bis) |
+| **No lee las respuestas de WhatsApp, así que un «BAJA» escrito a mano por ahí se apunta a mano** | Las respuestas te llegan al teléfono con Coexistencia y ARLES no las ve: WhatsApp sólo las entrega a una dirección de internet, y ARLES no tiene ninguna. Apúntalas en Contactos › Bajas, canal WhatsApp. **Lo que sí se aplica solo** es a quien usa el botón de WhatsApp para dejar de recibir promociones (ver §4 ter), y en el correo tampoco hace falta apuntar nada (§4 bis) |
 
 > **Y dos que dejaron de ser ciertas el 05/11/2026.** La primera: una campaña
 > ya no tiene que ir a toda la lista. En **Contactos** marcas a quien quieras

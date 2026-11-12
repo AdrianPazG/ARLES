@@ -1447,6 +1447,7 @@ def fase_1(rapido):
           if escribe else "no existe crates/arles-email/src/buzon.rs")
 
     las_bajas_del_buzon_tienen_quien_las_aplique()
+    el_origen_de_una_baja_sale_del_canal()
     solo_produccion_no_se_deja_nada_detras()
     el_programador_corre_y_no_le_quita_el_cerrojo_al_motor()
     el_entorno_de_desarrollo_es_el_mismo_para_todos()
@@ -3515,6 +3516,19 @@ MIGRACIONES_PUBLICADAS = {
     # falla siempre.
     "V19__cuando_se_reviso_el_buzon.sql":
         "e938608539723867ba59a8eb7419199cdf8439c8a063161a08254da1713dc00e",
+
+    # R-31, 12/11/2026. Recrea `suppression_entry` para ampliar el `CHECK` del
+    # origen con los dos que completan los pares simétricos: `whatsapp_optout`
+    # —lo pidió quien recibe el WhatsApp, que es el 131050 de Meta— y
+    # `whatsapp_api` —lo dijo la API, que es el 131026—. El segundo arregla un
+    # defecto que ya estaba: el motor escribía el origen fijo en `smtp_5xx`, así
+    # que desde D-WA una baja de un número de móvil decía que la había dicho un
+    # servidor de correo (H-25).
+    #
+    # Recrear esta tabla es seguro y está medido: no es padre de nadie. Es el
+    # mismo camino de la V3 y la V17.
+    "V20__baja_pedida_por_whatsapp.sql":
+        "b417a3d72e6ce3fb76cf23b856c3f587ceedff0e6c6f58f1667868df7153ee91",
 }
 
 
@@ -9418,6 +9432,106 @@ def el_archivado_tiene_quien_lo_llame():
         not faltan,
         el_archivado_tiene_quien_lo_llame.__doc__,
         detalle="\n      ".join(faltan),
+    )
+
+
+def el_origen_de_una_baja_sale_del_canal():
+    """**Una baja tiene que decir de qué canal vino, y eso no se escribe a
+    mano.**
+
+    El motor suprime en dos sitios —cuando el proveedor dice que ese
+    destinatario no recibe, y cuando dice que esa persona pidió la baja— y en
+    los dos escribía el origen **fijo** en `RespuestaSmtp`. Así que desde que
+    el motor recorre WhatsApp (D-WA, 26/10/2026) una baja de un número de móvil
+    se guardaba diciendo que la había dicho **un servidor de correo**.
+
+    Nada fallaba: la fila entraba, el número dejaba de recibir y la protección
+    funcionaba. Lo que quedaba mal era justo aquello para lo que existe el
+    campo — poder defender de dónde salió cada baja, que es la razón por la que
+    el origen está separado del motivo.
+
+    Lo encontró construir la baja automática de WhatsApp el 12/11/2026, y el
+    arreglo fue que el origen salga de dos funciones del núcleo
+    —`lo_dijo_el_proveedor_de` y `lo_pidio_quien_recibe_por`—, las dos sin
+    `_ =>`, para que **un canal nuevo no compile** en vez de heredar el origen
+    del correo en silencio.
+
+    ── QUÉ MIDE, Y POR QUÉ NO LA CONSTANTE ──
+
+    Mide que el motor **no nombre ninguna variante concreta** de
+    `OrigenDeSupresion` en su código de producción. Prohibir sólo
+    `RespuestaSmtp` dejaría pasar la versión siguiente del mismo error —fijar
+    `PeticionPorCorreo`, que es exactamente lo que había escrito en una de las
+    dos ramas antes de medirlo— y también el caso en que alguien «arregle» una
+    baja de WhatsApp fijando la de WhatsApp: entonces el correo se rompería y
+    la comprobación seguiría en verde.
+
+    **El umbral se midió antes de escribirla:** el motor nombraba las dos
+    variantes y ninguna más, así que no hay hallazgos falsos que absorber. Las
+    pruebas quedan fuera con `solo_produccion` —ahí sembrar un origen concreto
+    es legítimo y necesario— y el archivo del núcleo que las define también,
+    obviamente.
+
+    Verificada el 12/11/2026 con tres rupturas, las tres en rojo: volviendo
+    cada una de las dos llamadas a su constante, y fijando `PeticionPorWhatsApp`
+    en la rama de la baja, que es el arreglo ingenuo que rompería el correo.
+    """
+    problemas = []
+    variantes = (
+        "RespuestaSmtp",
+        "Usuario",
+        "Importacion",
+        "AvisoDeWhatsApp",
+        "PeticionPorCorreo",
+        "PeticionPorWhatsApp",
+        "RespuestaDeWhatsApp",
+    )
+
+    for archivo in ("bucle.rs", "trabajo.rs", "cola.rs"):
+        ruta = os.path.join(RAIZ, "crates", "arles-motor", "src", archivo)
+        if not os.path.exists(ruta):
+            continue
+        texto = leer(ruta)
+        if texto is None:
+            continue
+        codigo = solo_produccion(texto)
+        for variante in variantes:
+            if re.search(rf"OrigenDeSupresion::{variante}\b", codigo):
+                problemas.append(
+                    f"{archivo} fija `OrigenDeSupresion::{variante}`: el origen "
+                    "tiene que salir del canal (`lo_dijo_el_proveedor_de` o "
+                    "`lo_pidio_quien_recibe_por`), o una baja de un canal se "
+                    "guarda con la etiqueta de otro"
+                )
+
+    # Y las dos funciones tienen que existir y ser exhaustivas: si alguien les
+    # añade un `_ =>`, un canal nuevo vuelve a heredar el origen del correo en
+    # silencio, que es lo que esto viene a impedir.
+    nucleo = leer(os.path.join(RAIZ, "crates", "arles-core", "src", "supresion.rs"))
+    if nucleo is None:
+        problemas.append("no se pudo leer arles-core/src/supresion.rs")
+    else:
+        codigo = solo_produccion(nucleo)
+        for funcion in ("lo_dijo_el_proveedor_de", "lo_pidio_quien_recibe_por"):
+            cuerpo = re.search(
+                rf"pub const fn {funcion}\(canal: Canal\) -> Self \{{(.*?)\n    \}}",
+                codigo,
+                re.S,
+            )
+            if not cuerpo:
+                problemas.append(f"el núcleo no declara `{funcion}`")
+            elif re.search(r"^\s*_\s*=>", cuerpo.group(1), re.M):
+                problemas.append(
+                    f"`{funcion}` tiene un `_ =>`: un canal nuevo heredaría el "
+                    "origen del correo sin que el compilador dijera nada"
+                )
+
+    check(
+        1,
+        "El origen de una baja sale del canal y no de una constante",
+        not problemas,
+        el_origen_de_una_baja_sale_del_canal.__doc__,
+        detalle="\n      ".join(problemas),
     )
 
 

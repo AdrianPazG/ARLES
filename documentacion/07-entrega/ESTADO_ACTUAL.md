@@ -1,7 +1,7 @@
 # Estado actual · dónde está ARLES y qué sigue
 
 **Proyecto:** ARLES RELAY I · v1.2.0
-**Última actualización:** 11 de noviembre de 2026 (**auditoría I: un clon del repositorio da la aplicación** · R-30, ARLES revisa los buzones solo · R-25, la baja por correo aplicada sin pulsar nada · D-19 y R-05 remedidos con sus cifras · antes: D-WA, el semáforo de calidad, las plantillas de Meta, el asistente por canal, la 7.5 de entregabilidad, el umbral de rebotes)
+**Última actualización:** 12 de noviembre de 2026 (**la baja por WhatsApp también se aplica sola** · auditoría I: un clon del repositorio da la aplicación · R-30, ARLES revisa los buzones solo · R-25, la baja por correo aplicada sin pulsar nada · D-19 y R-05 remedidos con sus cifras · antes: D-WA, el semáforo de calidad, las plantillas de Meta, el asistente por canal, la 7.5 de entregabilidad, el umbral de rebotes)
 **Para qué sirve este documento:** que quien retome el trabajo —otra sesión, otra persona, otro equipo— sepa en una lectura qué está construido, qué decisiones ya están tomadas, qué **no** hay que volver a discutir y qué es lo siguiente.
 
 > Se actualiza **al cerrar cada entrega**, no al empezarla. Un documento de estado que describe intenciones en vez de hechos es peor que no tenerlo: se lee como si fuera cierto.
@@ -1307,3 +1307,97 @@ del `package.json`, dos archivos diciendo lo mismo en sitios distintos.
 > verdad es mejor que el que me inventé. Y que las dos extensiones de Rust
 > juntas «dan dos juegos de errores, la mitad inventados», que no lo he probado:
 > ahora está escrito como precaución y no como medición.
+
+---
+
+## 20. La baja por WhatsApp también se aplica sola · 12/11/2026
+
+Petición de Dirección: *«también estuvimos trabajando para que la baja en
+whatsapp sea automatica tambien, eso hay que solucionarlo»*.
+
+**Y como con R-25 en el correo, la mitad del camino estaba construida y nadie
+lo sabía.** Lo que había:
+
+| Pieza | Desde |
+|---|---|
+| `Fallo::EsaPersonaPidioLaBaja` en el núcleo — «no es un fallo: es el sistema funcionando» | Fase 4 |
+| El motor suprimiendo al recibirlo | Fase 4 |
+| `arles-whatsapp::codigos`, que traduce los errores de Meta | Canal W |
+| `entrante.rs`, que sabe verificar la firma de un aviso de Meta | 29/09/2026 |
+
+**Lo que faltaba era la señal.** Y no hacía falta ningún servidor para tenerla.
+
+### De dónde sale la señal
+
+WhatsApp le ofrece a quien recibe un mensaje de empresa un control para **dejar
+de recibir promociones**. Cuando alguien lo usa, Meta **no avisa** —eso iría por
+el webhook `user_preferences`, y ARLES no tiene ninguna URL pública a la que
+Meta pueda llamar— pero **contesta `131050` al siguiente envío**, y eso es una
+respuesta que ARLES ya recibe.
+
+Verificado en la documentación de Meta y no de memoria: *«Recipient stopped
+receiving marketing messages from your business. Don't retry.»*
+
+**Hasta hoy ese código caía en el cajón de lo desconocido**, que reintenta tres
+veces y se rinde. El efecto era que alguien que había pedido no recibir
+**seguía en la lista** y volvía a recibir en la campaña siguiente.
+
+### El séptimo origen, que arregla un defecto que ya estaba
+
+Encontrado al llegar aquí, y no es de esta petición: el motor escribía el origen
+de la supresión **fijo** en `smtp_5xx` en los dos sitios donde suprime. Así que
+desde que recorre WhatsApp —D-WA, 26/10/2026— una baja de un número de móvil se
+guardaba diciendo que la había dicho **un servidor de correo**.
+
+Nada fallaba: la fila entraba, el número dejaba de recibir y la protección
+funcionaba. Lo que quedaba mal era justo aquello para lo que existe el campo —
+poder defender de dónde salió cada baja, que es la razón por la que el origen
+está separado del motivo.
+
+La V20 deja los dos pares simétricos:
+
+| Origen | Qué significa |
+|---|---|
+| `smtp_5xx` | Lo dijo el servidor de correo |
+| `whatsapp_api` | Lo dijo la API de WhatsApp (131026: ese número no recibe) |
+| `email_unsubscribe` | Lo pidió quien recibe el correo |
+| `whatsapp_optout` | Lo pidió quien recibe el WhatsApp (131050) |
+
+Y el origen sale ahora de dos funciones del núcleo —`lo_dijo_el_proveedor_de` y
+`lo_pidio_quien_recibe_por`—, las dos **sin `_ =>`**, para que un canal nuevo no
+compile en vez de heredar el del correo en silencio.
+
+### La prueba que esto existía para tener
+
+`crates/arles-app/tests/baja_por_whatsapp.rs`: el servidor de mentira contesta
+131050, el adaptador lo extrae, `codigos` lo traduce, el núcleo decide, el motor
+suprime, y la fila queda con el canal y el origen correctos.
+
+Cada capa tenía las suyas y **ninguna comprobaba que lo que sale de una entre en
+la siguiente** — el patrón del §9, por decimonovena vez. Verificada devolviendo
+el código al cajón de lo desconocido: las dos pruebas caen con el síntoma exacto
+de ayer, «Reintentará 1 de 3».
+
+> **La segunda afirma el paso concreto y no sólo que no salió nada.** Un envío
+> puede no salir por la ventana, el cupo, el descanso de catorce días entre
+> campañas o el freno, así que una prueba que sólo mirara el servidor **pasaría
+> en verde con la supresión borrada**.
+
+### Lo que esto NO cubre, dicho en vez de darse por cubierto
+
+- **Leer un «BAJA» escrito a mano por WhatsApp.** Eso sólo llega por webhook, y
+  sigue necesitando el relay ciego que Dirección decidió el 29/09/2026.
+- **Enterarse en el momento.** La diferencia con el correo es real y conviene
+  entenderla: en el correo ARLES **mira el buzón** cada quince minutos, así que
+  se entera aunque no vuelva a escribir a nadie; en WhatsApp **no hay buzón que
+  mirar** y sólo se entera **al intentar mandar**. Son dos caminos distintos
+  porque los canales son distintos, no porque uno esté a medias.
+- **Quien bloquea el número**, que es otra cosa. Meta no da ningún código en el
+  rango 131xxx para eso; el más parecido, `130403`, significa lo contrario —que
+  el negocio bloqueó al usuario—.
+
+> **Una costura del diseño que esto dejó medida y no arreglada:** el motor
+> consulta la salud del remitente en `email_account` **también en WhatsApp**,
+> porque el disyuntor vive en esa tabla desde la Fase 4. Funciona, pero obliga a
+> que una etapa de WhatsApp tenga una cuenta de correo detrás. Está dicho en la
+> cabecera de la prueba nueva.

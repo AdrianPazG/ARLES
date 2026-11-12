@@ -670,7 +670,10 @@ impl<'a> Trabajador<'a> {
                     self.ajustes.canal,
                     &trabajo.direccion,
                     MotivoDeSupresion::RebotePermanente,
-                    OrigenDeSupresion::RespuestaSmtp,
+                    // Del canal y no fijo: escrito a mano, una baja de un
+                    // número de WhatsApp decía que la había dicho un servidor
+                    // de correo (arreglado en la V20).
+                    OrigenDeSupresion::lo_dijo_el_proveedor_de(self.ajustes.canal),
                     // El motor no escribe notas: aquí no hay nadie escribiendo nada.
                     None,
                 )?;
@@ -696,7 +699,10 @@ impl<'a> Trabajador<'a> {
                     self.ajustes.canal,
                     &trabajo.direccion,
                     MotivoDeSupresion::Baja,
-                    OrigenDeSupresion::RespuestaSmtp,
+                    // Quien lo pidió fue la persona, por el camino que su canal
+                    // le ofrece: el botón de cancelar suscripción del correo o
+                    // el control de promociones de WhatsApp (131050).
+                    OrigenDeSupresion::lo_pidio_quien_recibe_por(self.ajustes.canal),
                     // El motor no escribe notas: aquí no hay nadie escribiendo nada.
                     None,
                 )?;
@@ -1079,6 +1085,79 @@ mod tests {
             "el segundo mensaje no llevó los datos de Beto —la campaña entera \
              salió con los datos de una sola persona—: {contenidos:?}"
         );
+    }
+
+    /// **La baja por WhatsApp se guarda como lo que es: la pidió esa persona,
+    /// por WhatsApp.**
+    ///
+    /// ── POR QUÉ ESTA PRUEBA, Y QUÉ NO CUBRÍA NADIE ─────────────────────
+    ///
+    /// Peticíón de Dirección del 11/11/2026. La mitad del camino ya estaba:
+    /// el núcleo tiene `Fallo::EsaPersonaPidioLaBaja` desde la Fase 4 y este
+    /// módulo ya suprimía al recibirlo. Lo que faltaba era **que la señal
+    /// llegara** —el `131050` de Meta caía en el cajón de lo desconocido— y
+    /// que la fila dijera la verdad.
+    ///
+    /// Porque el origen se escribía **fijo** en `RespuestaSmtp`, así que desde
+    /// que el motor recorre WhatsApp (D-WA, 26/10/2026) una baja de un número
+    /// de móvil se guardaba diciendo que la había dicho un servidor de correo.
+    /// Nada fallaba: la fila entraba y el número dejaba de recibir. Lo que
+    /// quedaba mal era justo aquello para lo que existe el campo — poder
+    /// defender de dónde salió cada baja.
+    ///
+    /// Lo que mide es el **par** canal→origen, y lo mide en los dos canales:
+    /// una prueba de uno solo pasa en verde con la constante de siempre.
+    #[test]
+    fn la_baja_dice_por_que_canal_la_pidieron() {
+        for (canal, ajustes_del_canal, origen_esperado) in [
+            (
+                Canal::WhatsApp,
+                ajustes_de_whatsapp(),
+                OrigenDeSupresion::PeticionPorWhatsApp,
+            ),
+            (
+                Canal::Correo,
+                ajustes(),
+                OrigenDeSupresion::PeticionPorCorreo,
+            ),
+        ] {
+            let (_d, db) = base();
+            // `preparar_whatsapp` cambia la etapa de canal y encola sus
+            // móviles; en correo hay que encolar a mano, como el resto de las
+            // pruebas de este módulo.
+            if canal == Canal::WhatsApp {
+                preparar_whatsapp(&db);
+            } else {
+                encolar(&db, "a", "ana@x.mx");
+            }
+
+            let p = ProveedorSimulado::que_siempre(Respuesta::PidioLaBaja);
+            let e = entorno(EN_HORARIO);
+            let f = sin_freno();
+
+            let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes_del_canal);
+            let paso = t.un_paso().expect("paso");
+            assert!(
+                matches!(paso, Paso::Baja { .. }),
+                "{canal:?}: el motor no cerró el intento como baja: {paso:?}"
+            );
+
+            let bajas = db
+                .listar_supresiones(EMPRESA.parse().expect("id"), 0, 10)
+                .expect("listar");
+            assert_eq!(bajas.len(), 1, "{canal:?}: no se guardó la baja");
+            let baja = bajas.first().expect("hay una");
+            assert_eq!(
+                baja.origen, origen_esperado,
+                "{canal:?}: la baja se guardó con el origen de otro canal"
+            );
+            assert_eq!(
+                baja.motivo,
+                MotivoDeSupresion::Baja,
+                "{canal:?}: el motivo tiene que ser la baja, no un rebote"
+            );
+            assert_eq!(baja.canal, canal, "{canal:?}: canal equivocado");
+        }
     }
 
     /// **Una etapa de WhatsApp sin plantilla no manda nada**, y se para antes
