@@ -740,6 +740,76 @@ sus cifras contra algo que ya se sepa.
 
 ---
 
+## DOC-26 · el README llevaba tres semanas desfasado, y lo vio Dirección
+
+**12/11/2026.** Dirección preguntó por qué el README dice que la última
+modificación es del **22/10/2026**. Tenía razón, y había más de una fecha.
+
+> **Lo que decía la portada, y lo que hay.** Va en cita porque **este párrafo
+> repite las frases falsas para poder nombrarlas**, y una comprobación no
+> distingue una afirmación de su cita: en una fila de tabla, estas líneas
+> habrían hecho fallar a la red que este mismo hallazgo vino a arreglar. Es la
+> convención del proyecto y la caza su propio validador — me cazó a mí al
+> escribir esto.
+>
+> - La fecha del estado: **«Al 22/10/2026»**, con tres semanas de trabajo
+>   después.
+> - **«340 comprobaciones, 0 fallos y 0 omitidas (22/10/2026)»** — hoy son
+>   **383**, con 18 omitidas.
+> - El canal de WhatsApp, como **«manda mensajes de prueba, no campañas»** —
+>   manda campañas enteras desde D-WA, el 26/10/2026.
+> - La Fase 07 al **«92 %, falta sólo SPF/DKIM/DMARC»** — cerrada, la 7.5
+>   entró ese mismo día.
+> - **Seis cifras de validación por fase**, todas más bajas que las de hoy.
+> - Y en «lo que todavía no»: **una campaña entera por WhatsApp, «el motor
+>   sólo recorre el correo»** — falso desde el 26/10/2026.
+
+**Las dos últimas son el §9 al revés —prometer de menos— en el documento que
+más gente lee**, y la última es **exactamente la frase que la auditoría H
+declaró falsa el 04/11 y corrigió en siete documentos**. El README se quedó
+fuera de aquella corrección.
+
+### Por qué la red no lo cazó: tres razones a la vez
+
+`ningun_documento_niega_un_canal_que_el_motor_recorre` existe desde el 04/11
+para esto. Estuvo ocho días en verde sobre un README que decía la frase, y al
+romperlo aparecieron **tres** defectos encadenados — cada uno habría bastado:
+
+> 1. **El alcance.** Recorría sólo `documentacion/`. El README está en la
+>    raíz, así que nunca se miró. Es el mismo defecto que el día anterior dejó
+>    el archivo del flujo de entrega sin mirar: **la comprobación mide donde es
+>    cómodo, no donde está lo que el cliente lee.**
+> 2. **El patrón.** Cubría dos formas de la frase y no la tercera —la que
+>    lleva «el» delante de «correo»—, que es justo como lo decía el README.
+> 3. **La medición línea a línea.** La frase iba partida en dos renglones
+>    porque este proyecto escribe a 80 columnas, así que ninguna mitad casaba.
+>    Es el mismo defecto que el día anterior dejó pasar la cifra de pasos del
+>    asistente.
+>
+> (Los tres van en cita por lo mismo que el bloque de arriba: nombrar la frase
+> falsa con precisión la convierte en una afirmación a ojos del patrón.)
+
+**Las tres salieron de romperlo, una tras otra**, y las dos primeras veces la
+ruptura salió en verde. La conclusión del 28/10 se cumple por tercera vez en
+tres días: *una ruptura en verde significa dos cosas, y pueden ser varias a la
+vez.*
+
+Ahora el alcance sale de `documentos_que_afirman()` —`documentacion/` más los
+Markdown de la raíz, con los informes `-PARA-DIRECCION` fuera por fechados— y
+se mide **por párrafos**, porque en Markdown la unidad de sentido es el párrafo
+y no la línea. El umbral se midió antes de ampliar: los tres documentos de la
+raíz dan **cero** hallazgos.
+
+> **Lo que esto no arregla, dicho en vez de darse por cubierto:** que las
+> **cifras** del README estén al día. Las de validación por fase y el total se
+> siguen escribiendo a mano, y lo que las vio desfasadas fue que Dirección
+> mirara la portada. Medirlas exigiría correr las diez fases dentro del
+> validador —que es lo que las produce—, y eso es una comprobación que tarda
+> ocho minutos en contestar lo que ya se sabe al correrlas. Queda la fecha, que
+> sí se puede comparar, y no está hecho.
+
+---
+
 ## R-32 · la guía de las dos altas, y dos botones que no existían, 12/11/2026
 
 Dirección pidió *«un PDF con las instrucciones detalladas y exactas para poder

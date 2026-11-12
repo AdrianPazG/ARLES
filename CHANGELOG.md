@@ -77,6 +77,29 @@ exactamente por dónde pasan.
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
 
+### El README llevaba tres semanas desfasado, y lo vio Dirección
+
+**12/11/2026.** Preguntó por qué la portada del repositorio dice que la última
+modificación es del 22/10. Había seis cosas desfasadas, y dos de ellas
+**prometen menos de lo que hay**: el canal de WhatsApp figuraba como «manda
+mensajes de prueba, no campañas» —manda campañas enteras desde el 26/10— y la
+Fase 7 como «92 %, falta SPF/DKIM/DMARC», que entró ese mismo día. Más la
+fecha, el total de comprobaciones (340 → **383**) y seis cifras por fase.
+
+> **La frase del canal es exactamente la que la auditoría H declaró falsa el
+> 04/11 y corrigió en siete documentos.** El README se quedó fuera, con la red
+> puesta y en verde ocho días.
+>
+> **Y al romperla aparecieron tres defectos encadenados**, cada uno suficiente
+> por sí solo: el alcance —recorría sólo `documentacion/`, y la portada está en
+> la raíz—, el patrón —cubría «sólo recorre correo» pero no «sólo recorre **el**
+> correo»— y la medición línea a línea, con la frase partida a 80 columnas.
+> Las dos primeras rupturas salieron **en verde**.
+>
+> Ahora el alcance sale de `documentos_que_afirman()` y se mide **por
+> párrafos**, porque en Markdown la unidad de sentido es el párrafo. Umbral
+> medido antes de ampliar: cero hallazgos en los tres Markdown de la raíz.
+
 ### La guía de las dos altas, en PDF · y dos botones que no existían
 
 **12/11/2026.** Dirección pidió instrucciones «detalladas y exactas» para dar

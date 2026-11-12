@@ -70,24 +70,24 @@ python3 herramientas/avance/calcular.py --escribir
 
 ## Estado
 
-**Al 22/10/2026.** Cada fase cerrada tiene su documento técnico y su resumen
+**Al 12/11/2026.** Cada fase cerrada tiene su documento técnico y su resumen
 para Dirección, sin tecnicismos.
 
 | Fase | | Validación |
 |---|---|---|
-| [00 · Discovery y auditoría](documentacion/09-fases/FASE-00-DISCOVERY.md) | ✅ cerrada | 5/5 |
-| [01 · Cimientos](documentacion/09-fases/FASE-01-CIMIENTOS.md) · [↳ Dirección](documentacion/09-fases/FASE-01-PARA-DIRECCION.md) | ✅ cerrada y revisada | 53/53 |
-| [02 · Design System](documentacion/09-fases/FASE-02-DESIGN-SYSTEM.md) · [↳ Dirección](documentacion/09-fases/FASE-02-PARA-DIRECCION.md) | ✅ cerrada y revisada | 38/38 |
-| [03 · Empresa y contactos](documentacion/09-fases/FASE-03-EMPRESA-Y-CONTACTOS.md) · [↳ Dirección](documentacion/09-fases/FASE-03-PARA-DIRECCION.md) | ✅ cerrada | 95/95 |
-| [04 · Motor de ejecución](documentacion/09-fases/FASE-04-MOTOR-DE-EJECUCION.md) · [↳ Dirección](documentacion/09-fases/FASE-04-PARA-DIRECCION.md) | ✅ cerrada | 42/42 |
+| [00 · Discovery y auditoría](documentacion/09-fases/FASE-00-DISCOVERY.md) | ✅ cerrada | 13/13 |
+| [01 · Cimientos](documentacion/09-fases/FASE-01-CIMIENTOS.md) · [↳ Dirección](documentacion/09-fases/FASE-01-PARA-DIRECCION.md) | ✅ cerrada y revisada | 62/62 |
+| [02 · Design System](documentacion/09-fases/FASE-02-DESIGN-SYSTEM.md) · [↳ Dirección](documentacion/09-fases/FASE-02-PARA-DIRECCION.md) | ✅ cerrada y revisada | 39/39 |
+| [03 · Empresa y contactos](documentacion/09-fases/FASE-03-EMPRESA-Y-CONTACTOS.md) · [↳ Dirección](documentacion/09-fases/FASE-03-PARA-DIRECCION.md) | ✅ cerrada | 102/102 |
+| [04 · Motor de ejecución](documentacion/09-fases/FASE-04-MOTOR-DE-EJECUCION.md) · [↳ Dirección](documentacion/09-fases/FASE-04-PARA-DIRECCION.md) | ✅ cerrada | 50/50 |
 | [05 · Proveedores de envío](documentacion/09-fases/FASE-05-PROVEEDORES-DE-ENVIO.md) · [↳ Dirección](documentacion/09-fases/FASE-05-PARA-DIRECCION.md) | 🟨 la parte de correo cerrada | 36/36 |
-| [06 · Campañas y mensajes](documentacion/09-fases/FASE-06-CAMPANAS-Y-MENSAJES.md) · [↳ Dirección](documentacion/09-fases/FASE-06-PARA-DIRECCION.md) | ✅ cerrada | 20/20 |
-| [Canal W · WhatsApp](documentacion/09-fases/FASE-W-CANAL-WHATSAPP.md) · [↳ Dirección](documentacion/09-fases/FASE-W-PARA-DIRECCION.md) | 🟨 manda mensajes de prueba, **no campañas** | 21/21 |
-| [07 · Actividad](documentacion/09-fases/FASE-07-ACTIVIDAD.md) · [↳ Dirección](documentacion/09-fases/FASE-07-PARA-DIRECCION.md) | 🟨 92 % · falta sólo SPF/DKIM/DMARC | 11/11 |
-| [08 · Respaldos y endurecimiento](documentacion/09-fases/FASE-08-RESPALDOS.md) · [↳ Dirección](documentacion/09-fases/FASE-08-PARA-DIRECCION.md) | ✅ cerrada | 19/19 |
+| [06 · Campañas y mensajes](documentacion/09-fases/FASE-06-CAMPANAS-Y-MENSAJES.md) · [↳ Dirección](documentacion/09-fases/FASE-06-PARA-DIRECCION.md) | ✅ cerrada | 23/23 |
+| [Canal W · WhatsApp](documentacion/09-fases/FASE-W-CANAL-WHATSAPP.md) · [↳ Dirección](documentacion/09-fases/FASE-W-PARA-DIRECCION.md) | ✅ **campañas enteras** desde D-WA (26/10/2026) | 22/22 |
+| [07 · Actividad](documentacion/09-fases/FASE-07-ACTIVIDAD.md) · [↳ Dirección](documentacion/09-fases/FASE-07-PARA-DIRECCION.md) | ✅ cerrada, SPF/DKIM/DMARC incluidos | 16/16 |
+| [08 · Respaldos y endurecimiento](documentacion/09-fases/FASE-08-RESPALDOS.md) · [↳ Dirección](documentacion/09-fases/FASE-08-PARA-DIRECCION.md) | ✅ cerrada | 20/20 |
 | 09 · Release v1.2.0 | ⬜ sin empezar | — |
 
-**340 comprobaciones, 0 fallos y 0 omitidas** (22/10/2026), con las sondas
+**383 comprobaciones, 0 fallos y 18 omitidas** (12/11/2026), con las sondas
 abriendo un navegador de verdad. Una sonda que no se puede correr se marca
 **omitida**, que no es lo mismo que pasada, y así se dice.
 
@@ -286,8 +286,8 @@ Lo que se verá distinto en ella: **la tipografía**, porque va sin Mont. Los
 tamaños, los pesos y el ritmo sí son los definitivos — salen de los tokens. Un
 hallazgo del tipo «la letra no es la de la marca» en esa versión es esperado.
 
-**Qué se puede hacer ya con una versión de prueba** (actualizado el 22/10/2026 —
-este párrafo decía «la aplicación todavía no envía correos ni carga contactos», y
+**Qué se puede hacer ya con una versión de prueba** (al 12/11/2026 — este
+párrafo decía «la aplicación todavía no envía correos ni carga contactos», y
 llevaba meses sin ser cierto):
 
 - Configurar la empresa, **cargar contactos** desde CSV o XLSX con sus choques
@@ -302,13 +302,29 @@ llevaba meses sin ser cierto):
   pasos —**eligiendo su firma y su máximo de correos al día**— y **activarla**.
 - Verla enviar en Actividad, con sus cifras y **por qué no sale nada**, y
   **pararla** en cualquier momento.
-- Dar de alta un número de WhatsApp y **mandarse un WhatsApp de prueba**.
+- Dar de alta un número de WhatsApp y **lanzar una campaña entera por
+  WhatsApp**, no sólo el mensaje de prueba (D-WA, 26/10/2026).
+- **Elegir a mano a quién va una campaña**: se marcan contactos en su pantalla,
+  con el filtro delante, y se guardan como lista (05/11/2026).
+- **Darse de baja sin que nadie apunte nada, por los dos canales.** Por correo,
+  ARLES lee el buzón del remitente —sólo lectura— cada quince minutos
+  (10 y 11/11/2026). Por WhatsApp, cuando alguien usa el control de «dejar de
+  recibir promociones», queda fuera al siguiente envío (12/11/2026).
 - **Hacer un respaldo cifrado de todo, restaurarlo en otro equipo**, archivar el
   historial viejo a un disco externo, y recuperar la base el día que Windows
   pierda la llave.
 
-**Lo que todavía no:** una campaña entera por WhatsApp (el motor sólo recorre el
-correo), filtrar la audiencia, y editar una campaña ya creada.
+**Lo que todavía no:** filtrar la audiencia **desde dentro** del asistente —a
+quién va una campaña se elige antes, en Contactos—, editar una campaña ya
+creada, y leer un «BAJA» **escrito** por WhatsApp: eso sólo llega por *webhook*
+y ARLES no tiene una dirección de internet a la que Meta pueda llamar.
+
+> **Este párrafo decía «una campaña entera por WhatsApp (el motor sólo recorre
+> el correo)», y era falso desde el 26/10/2026.** La auditoría H lo midió el
+> 04/11 y lo corrigió en siete documentos; **el README se quedó fuera** y lo
+> siguió diciendo ocho días, porque la comprobación que vigila esa frase
+> recorría sólo `documentacion/` y la portada del repositorio está en la raíz.
+> Es el §9 al revés —prometer de menos— en el documento que más gente lee.
 
 ---
 

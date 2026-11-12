@@ -1138,6 +1138,49 @@ def sin_comentarios_de_barras(texto):
     )
 
 
+def documentos_que_afirman():
+    """Los documentos del proyecto que **afirman cosas del producto**.
+
+    Es `documentacion/` entera **y los Markdown de la raíz** —`README.md`,
+    `CLAUDE.md`, `CHANGELOG.md`—, que es la parte que faltaba.
+
+    ── POR QUÉ EXISTE ESTO, Y QUÉ COSTÓ ──
+
+    El 04/11/2026 la auditoría H encontró que varios documentos decían que el
+    motor «sólo recorre el canal de correo», falso desde D-WA. Se corrigieron
+    siete, y se escribió `ningun_documento_niega_un_canal_que_el_motor_recorre`
+    para que no volviera.
+
+    **Esa comprobación recorría sólo `documentacion/`.** Así que el `README.md`
+    —la portada del repositorio, el documento que más gente lee y el único que
+    se ve sin entrar en ninguna carpeta— **quedó fuera de la corrección y lo
+    siguió diciendo ocho días**, con la red puesta y en verde. Lo encontró
+    Dirección, no el validador.
+
+    Es el mismo defecto de alcance que el día anterior había dejado el archivo
+    del flujo de entrega sin mirar, y la forma es la de siempre: **la
+    comprobación mide donde es cómodo mirar, no donde está lo que el cliente
+    lee.**
+
+    Los informes `-PARA-DIRECCION` quedan fuera, como en el resto del
+    proyecto: son entregables **fechados** y reescribir el de septiembre sería
+    peor que dejarlo.
+
+    **El umbral se midió antes de ampliarlo:** con el README ya corregido, los
+    tres Markdown de la raíz dan **cero** hallazgos, así que ampliar el alcance
+    no mete ruido en ninguna de las comprobaciones que lo usen.
+    """
+    salida = []
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "documentacion")):
+        for f in sorted(ficheros):
+            if f.endswith(".md") and "-PARA-DIRECCION" not in f:
+                salida.append(os.path.join(carpeta, f))
+    for f in sorted(os.listdir(RAIZ)):
+        if f.endswith(".md"):
+            salida.append(os.path.join(RAIZ, f))
+    return salida
+
+
 def solo_produccion(texto):
     """El código de un archivo de Rust **sin sus comentarios y sin sus pruebas**.
 
@@ -4250,44 +4293,62 @@ def ningun_documento_niega_un_canal_que_el_motor_recorre():
         # El patrón es la frase, no la palabra: «correo» aparece en todas las
         # páginas del proyecto. Lo que se busca es la afirmación.
         niegan = re.compile(
-            r"(s[oó]lo|solamente|[uú]nicamente)\s+recorre\s+(el\s+canal\s+de\s+)?correo"
+            # `(el canal de |el )?` y no sólo `(el canal de )?`: el README
+            # decía «el motor **sólo recorre el correo**» y el patrón no la
+            # cazaba. Se escapó por DOS razones a la vez —el alcance y la
+            # variante— y ninguna de las dos se habría visto sin romperlo.
+            r"(s[oó]lo|solamente|[uú]nicamente)\s+recorre\s+(el\s+canal\s+de\s+|el\s+)?correo"
             r"|recorriendo\s+(s[oó]lo|solamente)\s+el\s+canal\s+de\s+correo"
             r"|campa[ñn]a\s+entera\s+por\s+WhatsApp\s*\|\s*✅\s*\|\s*❌",
             re.I,
         )
-        for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "documentacion")):
-            for f in sorted(ficheros):
-                if not f.endswith(".md") or "-PARA-DIRECCION" in f:
+        for ruta in documentos_que_afirman():
+            f = os.path.basename(ruta)
+            with open(ruta, encoding="utf-8") as fh:
+                texto = fh.read()
+            # ── SE MIDE POR PÁRRAFOS, NO POR LÍNEAS ──
+            #
+            # La tercera razón por la que el README se escapó ocho días. Su
+            # frase iba partida —«el motor sólo recorre el» / «correo»—
+            # porque este proyecto escribe a 80 columnas, y midiendo línea a
+            # línea el patrón no ve ninguna de las dos mitades.
+            #
+            # Es el mismo defecto que el día anterior dejó pasar la cifra de
+            # pasos del asistente, y la conclusión se repite: **en Markdown,
+            # la unidad de sentido es el párrafo y no la línea.**
+            for n_parrafo, parrafo in enumerate(re.split(r"\n\s*\n", texto)):
+                # ── UNA CITA NO ES UNA AFIRMACIÓN ──
+                #
+                # La primera versión de esto salió en rojo sobre los
+                # documentos **ya arreglados**, porque la nota que explica
+                # el defecto repite la frase para decir qué decía antes. Es
+                # el comentario que se caza a sí mismo, por decimoquinta
+                # vez, y la primera dentro de una comprobación escrita el
+                # mismo día para arreglar esa clase de error.
+                #
+                # Se distingue por la estructura y no por las palabras: en
+                # este proyecto **toda** nota de «esto decía X y era falso»
+                # va en cita de bloque, que es la convención del `CLAUDE.md`
+                # y de los nueve documentos que la siguen. Lo que afirma va
+                # en el cuerpo o en una fila de tabla.
+                #
+                # Un párrafo es una cita cuando **su primera línea** empieza
+                # por `>`: así una nota de varias líneas cuenta entera, que
+                # es como se escriben en este proyecto.
+                #
+                # Verificado por los dos caminos: en rojo con la frase en
+                # una fila de tabla, y en verde con la misma frase citada.
+                if parrafo.lstrip().startswith(">"):
                     continue
-                ruta = os.path.join(carpeta, f)
-                with open(ruta, encoding="utf-8") as fh:
-                    texto = fh.read()
-                for i, linea in enumerate(texto.splitlines(), start=1):
-                    # ── UNA CITA NO ES UNA AFIRMACIÓN ──
-                    #
-                    # La primera versión de esto salió en rojo sobre los
-                    # documentos **ya arreglados**, porque la nota que explica
-                    # el defecto repite la frase para decir qué decía antes. Es
-                    # el comentario que se caza a sí mismo, por decimoquinta
-                    # vez, y la primera dentro de una comprobación escrita el
-                    # mismo día para arreglar esa clase de error.
-                    #
-                    # Se distingue por la estructura y no por las palabras: en
-                    # este proyecto **toda** nota de «esto decía X y era falso»
-                    # va en cita de bloque, que es la convención del `CLAUDE.md`
-                    # y de los nueve documentos que la siguen. Lo que afirma va
-                    # en el cuerpo o en una fila de tabla.
-                    #
-                    # Verificado por los dos caminos: en rojo con la frase en
-                    # una fila de tabla, y en verde con la misma frase citada.
-                    if linea.lstrip().startswith(">"):
-                        continue
-                    if niegan.search(linea):
-                        rel = os.path.relpath(ruta, RAIZ)
-                        fallos.append(
-                            f"{rel}:{i} dice que el motor sólo recorre correo, y "
-                            "`etapas_en_marcha` no filtra por canal desde D-WA"
-                        )
+                plano = re.sub(r"\s+", " ", parrafo)
+                # La línea donde empieza el párrafo, para poder señalarla.
+                i = texto[: texto.find(parrafo)].count("\n") + 1 if parrafo else 1
+                if niegan.search(plano):
+                    rel = os.path.relpath(ruta, RAIZ)
+                    fallos.append(
+                        f"{rel}:{i} dice que el motor sólo recorre correo, y "
+                        "`etapas_en_marcha` no filtra por canal desde D-WA"
+                    )
 
     check(
         3,
