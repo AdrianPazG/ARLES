@@ -3351,6 +3351,7 @@ def fase_2(rapido):
     # ── Documentación ──
     print(f"{GRIS}  documentación{FIN}")
     el_sistema_de_diseno_dice_lo_que_hay()
+    ninguna_imagen_de_una_guia_falta()
     el_mapa_de_pantallas_nombra_todas_las_pantallas()
     informe_para_direccion(2, "FASE-02-PARA-DIRECCION")
     manual_de_entrega()
@@ -10085,6 +10086,56 @@ def imports_de_terceros(ruta):
         for m in re.finditer(r"(?m)^\s*(?:from|import)\s+([A-Za-z_]\w*)", sin_prosa)
         if m.group(1) not in sys.stdlib_module_names
     }
+
+
+def ninguna_imagen_de_una_guia_falta():
+    """**Una imagen que no está no sale en el PDF, y nadie lo nota al generarlo.**
+
+    Las guías de ARLES llevan capturas desde el 12/11/2026, cuando Dirección
+    pidió que el manual fuera más gráfico. Una captura referenciada que no
+    existe **no hace fallar nada**: el generador de PDF la salta, el documento
+    sale con una página menos y el pie de foto describe una imagen que no está.
+
+    Es el mismo tipo de defecto que un token de diseño inventado —el navegador
+    resuelve un `var()` inexistente a nada, sin error— y que un enlace roto: lo
+    que falla es silencioso.
+
+    **El umbral se midió antes de escribirla:** `documentacion/` referencia 23
+    imágenes y las 23 existen, así que no nace con hallazgos falsos.
+
+    Verificada el 12/11/2026 con dos rupturas: renombrando una captura, y
+    cambiando una ruta del documento por una que no existe. Las dos en rojo,
+    nombrando el documento y el archivo que falta.
+    """
+    problemas = []
+    for carpeta, _, ficheros in os.walk(os.path.join(RAIZ, "documentacion")):
+        for f in sorted(ficheros):
+            if not f.endswith(".md"):
+                continue
+            ruta = os.path.join(carpeta, f)
+            texto = leer(ruta)
+            if texto is None:
+                continue
+            for m in re.finditer(r"!\[[^\]]*\]\(([^)]+)\)", texto):
+                # El primer trozo: Markdown admite `(ruta "título")`.
+                destino = m.group(1).split()[0]
+                if destino.startswith(("http://", "https://")):
+                    continue
+                absoluta = os.path.normpath(os.path.join(carpeta, destino))
+                if not os.path.exists(absoluta):
+                    problemas.append(
+                        f"{os.path.relpath(ruta, RAIZ)} enseña «{destino}», "
+                        "y ese archivo no existe: el PDF sale sin esa imagen y "
+                        "con su pie de foto describiendo lo que no se ve"
+                    )
+
+    check(
+        2,
+        "Ninguna guía enseña una imagen que no existe",
+        not problemas,
+        ninguna_imagen_de_una_guia_falta.__doc__,
+        detalle="\n      ".join(problemas[:8]),
+    )
 
 
 def el_entorno_de_desarrollo_es_el_mismo_para_todos():

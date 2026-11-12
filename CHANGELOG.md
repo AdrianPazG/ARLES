@@ -77,6 +77,34 @@ exactamente por dónde pasan.
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
 
+### El manual, con capturas de las pantallas
+
+**12/11/2026.** Dirección pidió que fuera más gráfico, con imágenes que
+indiquen a dónde ir y qué capturar. Cuatro capturas anotadas en la guía de las
+dos altas, que pasa de siete a nueve páginas.
+
+> **Las anotaciones se dibujan sobre el elemento de verdad**, localizado por su
+> rol y medido por Playwright, y **si no está la herramienta falla**. Es lo que
+> separa una captura anotada de una ilustración: una flecha sobre una imagen
+> fija se queda apuntando al sitio equivocado y nadie se entera.
+
+> **Y mirarlas encontró cuatro cosas, con las diez fases en verde.** Una del
+> producto: en el alta de WhatsApp, **«Cómo se va a usar» salía dos veces
+> seguidas** —el título del grupo y la etiqueta del desplegable—, el defecto
+> de «Con sus campañas · 3 campañas» del 06/10. La etiqueta dice ahora «A
+> quién va a escribir».
+>
+> Las otras tres eran de la propia herramienta: marcaba la etiqueta y no el
+> campo, el número tapaba la primera letra del rótulo, y **dos capturas de la
+> misma ruta salían con las anotaciones de la primera encima de la segunda**
+> —la vista previa es una SPA con rutas en el hash, así que un `goto` a la
+> misma ruta no recarga nada—.
+
+> **El poka-yoke:** `ninguna_imagen_de_una_guia_falta` en `--fase 2`. Una
+> imagen referenciada que no existe no hace fallar nada: el PDF sale con una
+> página menos y el pie describe lo que no se ve. Umbral medido —23 imágenes,
+> 23 existen— y dos rupturas en rojo.
+
 ### El README llevaba tres semanas desfasado, y lo vio Dirección
 
 **12/11/2026.** Preguntó por qué la portada del repositorio dice que la última

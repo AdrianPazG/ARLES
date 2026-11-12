@@ -4249,7 +4249,12 @@ export const es = {
         'token se pega a mano. Se hace una vez.',
     },
 
-    modo: 'Cómo se va a usar',
+    // «A quién va a escribir» y no «Cómo se va a usar», que es como se
+    // llamaba: el grupo que lo contiene ya se titula así, y la etiqueta salía
+    // **repetida justo debajo**. Lo encontró mirar una captura de la pantalla
+    // el 12/11/2026 — el mismo defecto que «Con sus campañas · 3 campañas»
+    // del 06/10. Y esta forma además dice lo que el campo decide.
+    modo: 'A quién va a escribir',
     modoAyuda:
       'Se puede cambiar dando de alta el número otra vez, así que elige con ' +
       'cuidado: es lo que decide si ARLES te avisa antes de escribir a quien ' +

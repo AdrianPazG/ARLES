@@ -30,6 +30,12 @@ que no depende de ARLES ni de ti.
 **Dónde se hace todo esto:** en ARLES, en la sección **Remitentes** de la barra
 de la izquierda. Ahí dentro hay dos pantallas, **Correo** y **WhatsApp**.
 
+!i **Las capturas de esta guía son las pantallas de verdad**, con sus datos de
+ejemplo, y los recuadros dorados están puestos sobre el botón o el campo real —
+no dibujados encima. En tu equipo la ventana tendrá el marco de Windows
+alrededor, y la letra será otra mientras la tipografía de la marca siga
+pendiente de licencia.
+
 === 1 · El correo · paso a paso
 
 ### 1-1 · Lo único que necesitas saber antes
@@ -51,12 +57,16 @@ es de Gmail ni de Outlook, pregúntale a quien lleve el correo de la empresa por
 2. Pulsa el botón **«Añadir remitente»**.
 3. Se abre un formulario que se llama **«Nueva cuenta de correo»**.
 
+![El botón **1** es el que abre el alta. La pantalla está en Remitentes, que es la cuarta sección de la barra de la izquierda.](capturas/remitentes-anadir.png)
+
 Tiene dos campos a la vista, y sólo dos:
 
 - **«Dirección desde la que se envía»** — tu correo completo. Es la que verá
   quien reciba el mensaje.
 - **«Nombre que acompaña a la dirección»** — opcional. Por ejemplo el nombre de
   tu empresa. Si lo dejas vacío no pasa nada.
+
+![En **1** va tu correo completo, y en **2** la contraseña de aplicación del punto 1-3 — no la de entrar. El tercer campo es opcional.](capturas/remitentes-formulario.png)
 
 !i **En cuanto escribas la dirección, ARLES rellena solo el resto** si reconoce
 el dominio. Reconoce estos cinco, con sus datos ya medidos y correctos:
@@ -191,8 +201,12 @@ hace falta tener esta guía abierta.
 
 1. En ARLES, entra en **Remitentes** y luego en **WhatsApp**.
 2. Pulsa **«Añadir número»**.
+
+![**WhatsApp** cuelga de Remitentes en la barra de la izquierda. El botón **1** abre el alta.](capturas/whatsapp-anadir.png)
 3. En el apartado **«Pega tu token de Meta»**, pega el token.
 4. Pulsa **«Buscar mis números»**.
+
+![En **1** se pega el token del paso anterior, y **2** le pregunta a Meta cuáles son tus números. Debajo queda «A quién va a escribir», que es el modo del punto 2-3.](capturas/whatsapp-formulario.png)
 
 **ARLES le pregunta a Meta y te enseña tus números**, cada uno con su nombre, su
 calidad según Meta y cuántos mensajes al día te deja mandar. Eso es el apartado

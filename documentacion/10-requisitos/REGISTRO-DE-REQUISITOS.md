@@ -740,6 +740,73 @@ sus cifras contra algo que ya se sepa.
 
 ---
 
+## R-33 · el manual con capturas, y lo que encontró mirarlas, 12/11/2026
+
+Dirección: *«me gustaría que el manual sea más gráfico, si es posible, agregar
+imágenes de las pantallas donde indiquen a dónde te debes dirigir y lo que
+debes capturar y colocar»*.
+
+**Estado: ✅ hecho.** Cuatro capturas anotadas en la guía de las dos altas, que
+pasa de siete a nueve páginas. Las toma `herramientas/capturas/tomar.mjs`.
+
+### La decisión que hace que esto no mienta
+
+**Las anotaciones se dibujan sobre el elemento de verdad**, localizado por su
+rol —un botón como botón, un campo por su etiqueta, igual que lo encontraría un
+lector de pantalla— y medido por Playwright. **Si no está, la herramienta
+falla** en vez de pintar un recuadro donde se supone que estaba.
+
+Es la diferencia entre una captura anotada y una ilustración: una flecha
+dibujada a mano sobre una imagen fija se queda apuntando al sitio equivocado y
+**nadie se entera**. Este proyecto ya tiene dos guías que mandaban pulsar
+botones que no existen (H-26, el mismo día).
+
+### H-27 · «Cómo se va a usar» aparecía dos veces seguidas
+
+**Lo encontró mirar la captura**, con las diez fases en verde. En el alta de un
+número de WhatsApp, el título del grupo y la etiqueta del desplegable que
+contiene eran **el mismo texto, uno encima del otro**.
+
+Es el defecto de «Con sus campañas · 3 campañas» del 06/10/2026, y lo habría
+repartido el PDF. La etiqueta dice ahora **«A quién va a escribir»**, que
+además explica lo que el campo decide.
+
+### Y tres defectos de la propia herramienta, los tres de mirar la imagen
+
+Ninguno lo habría visto una comprobación: una captura con un recuadro de más se
+genera igual de bien y pesa lo mismo.
+
+1. **Marcaba la etiqueta del campo y no el campo.**
+2. **El número tapaba la primera letra** del rótulo: «1Dirección». Ahora va
+   fuera, a la izquierda y centrado.
+3. **Dos capturas de la misma ruta salían con las anotaciones de la primera
+   pegadas encima de la segunda.** La vista previa es una SPA con rutas en el
+   hash, así que un `goto` a la misma ruta **no recarga nada**. Se abre una
+   página nueva por captura.
+
+El tercero es el más instructivo: el recuadro sobrante señalaba un hueco vacío
+donde antes hubo un botón, que es exactamente el tipo de error que una guía con
+capturas puede cometer y que nadie detecta leyendo el documento.
+
+### El poka-yoke, y por qué es éste
+
+`ninguna_imagen_de_una_guia_falta` en `--fase 2`: una imagen referenciada que
+no existe **no hace fallar nada** —el generador la salta, el PDF sale con una
+página menos y el pie describe lo que no se ve—. Es el defecto silencioso de
+siempre, el del token de diseño inventado.
+
+**El umbral se midió antes:** `documentacion/` referencia 23 imágenes y las 23
+existen. Verificada con dos rupturas, las dos en rojo.
+
+> **Lo que no vigila el validador, dicho en vez de darse por cubierto:** que
+> las capturas estén **al día** con la pantalla. Eso lo comprueba la propia
+> herramienta al regenerarlas —falla si un rótulo ya no está—, pero sólo si
+> alguien la corre. Meterla en el validador exigiría regenerar la vista previa
+> en cada fase, que son cuarenta segundos por una pregunta que sólo cambia
+> cuando se toca una pantalla.
+
+---
+
 ## DOC-26 · el README llevaba tres semanas desfasado, y lo vio Dirección
 
 **12/11/2026.** Dirección preguntó por qué el README dice que la última
