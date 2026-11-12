@@ -1,0 +1,34 @@
+# ── LO QUE NECESITAN LAS HERRAMIENTAS DE PYTHON ────────────────────────────
+#
+# El validador de fases (`herramientas/validar/validar.py`), el tablero y el
+# cálculo del avance usan **sólo la biblioteca estándar** a propósito: son lo
+# que se corre en cada verificación y antes de cada empujón, así que no pueden
+# depender de que alguien instale algo.
+#
+# Lo de aquí hace falta sólo para **generar los PDF y los .docx** que se
+# entregan a Dirección y a quien revisa. Se instala una vez:
+#
+#     python3 -m pip install -r requirements.txt
+#
+# ── POR QUÉ EXISTE ESTE ARCHIVO ────────────────────────────────────────────
+#
+# No existía hasta el 11/11/2026, y el tropiezo fue propio: al añadir la
+# pregunta C-19 a la consulta jurídica no se pudo regenerar su PDF porque
+# `reportlab` no estaba, y nada en el repositorio decía que hiciera falta. El
+# documento quedó con un aviso de que su PDF estaba atrás — que es lo correcto
+# cuando no se puede regenerar, pero el motivo era que no se sabía qué
+# instalar.
+#
+# Las versiones van con `>=` y no exactas: lo que generan son documentos para
+# leer, no artefactos que tengan que salir idénticos byte a byte. El `.docx` de
+# `herramientas/plantilla-docx` sí fija versión exacta, y ahí está explicado
+# por qué son casos distintos.
+
+# Los PDF de los informes para Dirección y de la consulta jurídica.
+reportlab>=4.0
+
+# `herramientas/marca/derivar-logos.py`, que deriva las variantes del logotipo
+# a partir del original. Nada que ver con los PDF: la primera versión de este
+# archivo decía que era «para las imágenes que esos PDF incrustan», y era una
+# suposición. Lo dice `grep`, no la memoria.
+pillow>=10.0

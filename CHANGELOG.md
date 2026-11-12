@@ -76,6 +76,54 @@ exactamente por dónde pasan.
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
 
+### Un clon del repositorio da la aplicación · auditoría I
+
+**11/11/2026.** Dirección lo pidió antes de generar el instalador: que todo el
+equipo pueda descargar el repositorio, instalar lo necesario y generar el `.exe`
+desde su Visual Studio Code. Auditarlo **clonando de verdad en una carpeta
+vacía** —no leyendo— encontró **nueve cosas**, siete de ellas cosas que no
+existían o que no se ven desde dentro.
+
+**Añadido al repositorio:** `rust-toolchain.toml` (la versión exacta de Rust,
+con `rustfmt` y `clippy`), `.nvmrc` y `engines` con `engine-strict`,
+`.vscode/extensions.json` y `.vscode/tasks.json` con cuatro tareas,
+`requirements.txt`, y el `package.json` de `herramientas/plantilla-docx`, que
+**estaba en el `.gitignore`**.
+
+| Id | Qué faltaba | Qué costaba |
+|---|---|---|
+| **I-2** | La versión de Rust | El §6 exige clippy con **cero advertencias**, y clippy añade avisos nuevos en cada versión: quien tenga una más nueva no puede empujar con el código correcto |
+| **I-3** | La versión de Node, y la guía decía «20 o superior» | **Node 21 no sirve**: vite 7 pide `^20.19.0 \|\| >=22.12.0`. Con `engine-strict` npm se niega y lo dice, en vez de romperse más adelante |
+| **I-4** | Las tareas de VS Code | Dirección pidió expresamente poder hacerlo desde ahí |
+| **I-5** | El `package.json` de una herramienta, **ignorado por git** | Quien clonara no tenía la dependencia ni forma de saber cuál era |
+| **I-6** | Qué instalar de Python | Un tropiezo propio: no se pudo regenerar el PDF de la consulta jurídica y nada decía qué faltaba |
+| **I-7** | Cómo instalar `cargo-deny`, que el §6 exige | — |
+| **I-8** | Que las 17 vulnerabilidades de `npm audit` **no viajan en el producto** | Sin decirlo, el equipo nuevo las persigue. `npm audit --omit=dev` da cero |
+
+**Medido en un clon limpio:** 654 archivos, **6 min 37 s** de compilación desde
+cero, y un ejecutable de 22 083 648 bytes con siete apariciones de `index.html`
+dentro — la prueba de que la interfaz viaja embebida.
+
+> **Lo que no se arregla programando, y es el octavo: `main` no da la
+> aplicación.** Está en el commit del **31/08/2026** con 111 archivos, sólo
+> material de referencia y **cero código**. Es la decisión D-20 de Dirección
+> —`main` espera a que el producto esté terminado y auditado—, así que lo que se
+> ha hecho es que la guía lo diga **antes** del `git clone`, con la consecuencia
+> escrita: sin el `git checkout` de la rama de trabajo, lo que se compila no es
+> el producto. La decisión sigue siendo de Dirección.
+
+> **Ninguno de los seis lo podía encontrar una prueba, una sonda ni el
+> validador**, y todos por la misma razón: se verifican **dentro** de un árbol
+> que ya tiene Rust, Node y las dependencias instaladas desde la Fase 0. Lo que
+> falta en el repositorio es justo lo que ahí no se nota. Es el patrón del §9 en
+> la junta entre el repositorio y la máquina que lo clona.
+>
+> Lo vigila `el_entorno_de_desarrollo_es_el_mismo_para_todos` en `--fase 1`, con
+> siete medidas, verificada con siete rupturas y un contraejemplo. La que de
+> verdad vigila algo es la tercera: las otras seis son existencia y ésa es
+> **coherencia** —que el `.nvmrc` cumpla el `engines.node`—, que son dos
+> archivos diciendo lo mismo en sitios distintos.
+
 ### El programador: ARLES revisa los buzones solo
 
 **11/11/2026.** R-30. R-25 dejó la revisión del buzón funcionando y con un

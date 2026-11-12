@@ -739,6 +739,136 @@ sus cifras contra algo que ya se sepa.
 
 ---
 
+## Auditoría I · qué obtiene quien clona el repositorio, 11/11/2026
+
+Dirección pidió, antes de generar el instalador: *«Audita el programa, necesito
+que toda la documentación y el repositorio de GitHub esté actualizado, para que
+todo el equipo de desarrollo pueda descargar el repositorio, se descarguen las
+librerías y todo lo necesario para poder correr el `.exe` de ARLES, y que puedan
+generar el `.exe` desde su Visual Studio Code y correr el programa»*.
+
+Las nueve auditorías anteriores miden **el producto**. Ésta mide otra cosa: **si
+un clon del repositorio se convierte en la aplicación.** Y no se puede auditar
+leyendo — se hizo clonando de verdad en una carpeta vacía y siguiendo la guía
+desde cero, como alguien que llega hoy.
+
+**Nueve hallazgos. Seis arreglados, uno informativo, uno declarado y uno que es
+una decisión de Dirección.**
+
+| Id | Qué | Estado |
+|---|---|---|
+| **I-1** | **La rama por defecto no da la aplicación.** `main` está en el commit del 31/08/2026 y tiene 111 archivos: sólo material de referencia, **cero código** | ⬜ **decisión de Dirección** · choca con D-20 |
+| **I-2** | No había `rust-toolchain.toml`: cada quien compilaba con el Rust que tuviera, y el §6 exige clippy con cero advertencias | ✅ |
+| **I-3** | No había `.nvmrc` ni `engines`, y la guía decía «**Node 20 o superior**» cuando vite 7 no admite Node 21 | ✅ |
+| **I-4** | No había `.vscode/`: ni extensiones recomendadas ni tareas, y Dirección pidió expresamente que se pudiera desde VS Code | ✅ |
+| **I-5** | **El `package.json` de `herramientas/plantilla-docx` estaba en el `.gitignore`**, así que quien clonara no tenía la dependencia ni forma de saber cuál era | ✅ |
+| **I-6** | No había `requirements.txt`: nada decía qué instalar para generar los PDF de los informes | ✅ |
+| **I-7** | `cargo deny` lo exige el §6 antes de añadir dependencias y **no estaba documentado cómo instalarlo** | ✅ |
+| **I-8** | `npm install` avisa de **17 vulnerabilidades**, y ninguna viaja en el producto. Sin decirlo, el equipo nuevo las persigue o las «arregla» | ✅ informativo |
+| **I-9** | **El `.docx` entregable no se reproduce byte a byte** desde el repositorio: regenerarlo con la versión que ahora está fijada da 13 297 bytes donde el de septiembre tiene 12 286 | ⬜ declarado, sin impacto medido |
+
+### Lo que salió bien, y es la mitad del valor
+
+**Un clon limpio de la rama de trabajo compila de punta a punta.** Medido:
+**654 archivos**, **6 minutos 37 segundos** desde cero, y un ejecutable de
+**22 083 648 bytes** con **siete** apariciones de `index.html` dentro — que es
+la prueba de que la interfaz viaja embebida y no se va a buscar a localhost
+(el defecto del 08/10/2026).
+
+También salió limpio lo que más podía doler: los cuatro lockfiles están
+versionados, `Cargo.lock` incluido, y ninguna dependencia del producto tiene
+aviso de seguridad.
+
+### I-1 · la rama por defecto, que es la única que no se arregla programando
+
+**Clonar `AdrianPazG/ARLES` y compilar no da ARLES: da la versión de agosto.**
+`main` se quedó en el commit del 31/08/2026 por decisión de Dirección del
+04/11/2026 (**D-20**), con **285 commits** de diferencia medidos ese día. Lo que
+hay allí son las cinco carpetas de referencia y la documentación de entonces:
+ni un crate, ni el frontend.
+
+Esto no es un defecto del repositorio —es una decisión tomada a propósito— pero
+sí es lo único que impide cumplir literalmente lo que Dirección pidió, porque
+«descargar el repositorio» quiere decir, para cualquiera que llegue,
+`git clone` y compilar.
+
+**La defensa que se puso mientras se decide** es que la guía lo diga en su
+primera pantalla, antes del `git clone`, con la consecuencia escrita: sin el
+`git checkout` de la rama de trabajo, **lo que se compila no es el producto**.
+
+### I-9 · el entregable que no se reproduce, y por qué se queda declarado
+
+Apareció al verificar I-5: con el `package.json` ya versionado, se corrió la
+herramienta para comprobar que un clon puede generar el `.docx` — y **generó
+uno distinto**. 13 297 bytes contra los 12 286 que hay en el repositorio desde
+el 15/09/2026.
+
+**Lo primero era descartar la explicación cómoda**, que sería que la fuente ha
+cambiado: `PLANTILLA-WINDOWS.md` **no se ha tocado desde el mismo commit** que
+generó el `.docx`. Así que esos mil bytes no son contenido.
+
+Y midiendo los dos por dentro, no son nada:
+
+| | El de septiembre | El de hoy |
+|---|---|---|
+| Texto | **3 491 caracteres** | **3 491 caracteres** |
+| `word/comments.xml` | está, con **cero comentarios** dentro | no está |
+| `word/theme/` | no está | está |
+
+**El texto es idéntico y no se pierde nada.** Lo que cambia es la fontanería de
+la biblioteca: el de septiembre se generó con una versión distinta de la que el
+`package.json` fija ahora —`docx` 9.15.3—, y esa versión escribía un
+`comments.xml` vacío donde ésta escribe un tema.
+
+**Así que el binario regenerado no entra en el commit**: habría sido un
+artefacto cambiado por su herramienta y no por su contenido, y eso ensucia el
+historial sin añadir nada. Queda declarado porque es verdad y porque alguien
+que regenere el documento va a ver la misma diferencia y va a preguntarse si
+rompió algo.
+
+> **Lo que no se hizo, y por qué.** No se ha escrito una comprobación: exigir
+> que un `.docx` sea idéntico byte a byte obligaría a fijar la versión de la
+> biblioteca **y** a que nadie regenere nunca el documento con otra, y lo que
+> el entregable tiene que cumplir es decir lo mismo, no pesar lo mismo. La
+> comparación que de verdad vale es la del texto, y se ha hecho a mano hoy.
+
+### Lo que esta auditoría enseña del método
+
+**Siete de los nueve hallazgos son cosas que no existían o que no se ven desde
+dentro, no cosas mal hechas.**
+Y ninguno lo podía encontrar una prueba, una sonda ni el validador, por la misma
+razón: todos se verifican **dentro** de un árbol que ya tiene todo instalado y
+configurado desde hace meses. El contenedor donde se escribe el código tiene
+Rust, Node y las dependencias desde la Fase 0 — así que lo que falta en el
+repositorio es justo lo que aquí no se nota.
+
+Es el patrón del §9 con una cara nueva: **la junta entre el repositorio y el
+equipo que lo clona.** Las piezas estaban todas correctas; lo que no estaba era
+lo que hace falta para montarlas en otra máquina.
+
+Lo vigila `el_entorno_de_desarrollo_es_el_mismo_para_todos` en `--fase 1`, con
+siete medidas. La que de verdad vigila algo es la tercera, porque las otras seis
+son existencia y ésa es **coherencia**: que el `.nvmrc` cumpla el `engines.node`
+del `package.json`, que son dos archivos diciendo lo mismo en sitios distintos.
+Verificada con siete rupturas y un contraejemplo.
+
+> **Y la séptima ruptura salió en verde a la primera.** No porque la medida no
+> sirviera: porque el `sed` buscaba `^import os$` en un archivo que importa
+> `argparse` y no `os`, así que **no cambió una línea**. Es la lección del
+> 28/10/2026 —*una ruptura en verde significa dos cosas, y se distinguen
+> mirando el archivo, no deduciendo*— y lo fácil habría sido quitar la medida
+> por inútil.
+
+> **Dos afirmaciones mías en la guía nueva eran falsas y las cazó medirlas antes
+> de darlas por buenas.** Escribí que `npm audit fix --force` «sube vite de
+> versión mayor»: sube **vitest** de 3.2.7 a 5.1.0 y **vue-tsc** a 3.3.14, que
+> son el corredor de las 325 pruebas y el comprobador de tipos del §6 — mejor
+> argumento que el que me inventé, y el de verdad. Y escribí que las dos
+> extensiones de Rust juntas «dan dos juegos de errores, la mitad inventados»,
+> que no lo he probado: ahora está escrito como precaución y no como medición.
+
+---
+
 ## Fallos que ya costaron datos
 
 Se guardan porque **cada uno ha vuelto**, y la defensa que funcionó es la misma

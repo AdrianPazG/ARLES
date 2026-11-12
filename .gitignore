@@ -32,8 +32,20 @@ Thumbs.db
 # Dependencias del generador de .docx: se instalan con `npm install docx` en
 # esa carpeta. No entran al repositorio.
 herramientas/plantilla-docx/node_modules/
-herramientas/plantilla-docx/package-lock.json
-herramientas/plantilla-docx/package.json
+
+# ── POR QUÉ EL package.json DE plantilla-docx SÍ VA AL REPOSITORIO ─────────
+#
+# Estuvo excluido hasta el 11/11/2026, junto con su lock. La consecuencia la
+# encontró auditar qué obtiene quien clona: la herramienta está en el
+# repositorio, su cabecera manda `npm install docx`, y **sin el package.json
+# nadie sabe qué versión**. Cada quien instalaba la última, y la salida de un
+# generador de documentos cambia entre versiones mayores.
+#
+# Es el patrón del §9 aplicado a una herramienta: existe, se documenta cómo
+# usarla, y no se puede usar igual dos veces. La versión está fijada **exacta**
+# —`9.15.3`, la que se verificó generando la plantilla de Windows el
+# 11/11/2026— y no con `^`, porque lo que hace falta aquí es que el .docx salga
+# igual, no que esté al día.
 
 __pycache__/
 

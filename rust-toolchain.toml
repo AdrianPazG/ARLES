@@ -1,0 +1,42 @@
+# ── LA MISMA VERSIÓN DE RUST PARA TODO EL EQUIPO ───────────────────────────
+#
+# Sin este archivo, cada quien compila con el Rust que tenga instalado. Para
+# compilar ARLES eso casi nunca importa; para **empujar** sí, y por una razón
+# concreta:
+#
+# El §6 del `CLAUDE.md` exige `cargo clippy -- -D warnings`, **cero
+# advertencias**. Clippy añade avisos nuevos en cada versión de Rust. Así que
+# quien tenga una versión más nueva que la de referencia ve avisos que aquí no
+# existen y **no puede empujar con el código correcto**; quien tenga una más
+# vieja pasa en verde algo que la integración continua va a rechazar.
+#
+# Ninguno de los dos es un defecto del código. Los dos cuestan una tarde de
+# buscar lo que no está roto.
+#
+# ── POR QUÉ UNA VERSIÓN EXACTA Y NO «stable» ───────────────────────────────
+#
+# `channel = "stable"` sigue moviéndose: el día que salga la siguiente, el
+# equipo se parte en dos sin que nadie haya tocado nada. Una versión exacta se
+# sube **a propósito**, con las diez fases del validador en verde después.
+#
+# `rustup` descarga esta versión solo la primera vez que se ejecute cualquier
+# comando de cargo en esta carpeta. No hay que hacer nada más.
+#
+# ── Y POR QUÉ ESTO NO SUSTITUYE AL `rust-version` DEL Cargo.toml ───────────
+#
+# Son dos cosas distintas y las dos hacen falta. El `rust-version = "1.88"` del
+# `Cargo.toml` es el **mínimo** que el código necesita para compilar, y es lo
+# que avisa con un error claro a quien use una versión demasiado vieja sin
+# `rustup`. Esto es la versión con la que el proyecto **se verifica**.
+#
+# Declarado el 11/11/2026, al auditar qué obtiene quien clona el repositorio.
+# Hasta entonces no existía, y lo vigila `el_entorno_de_desarrollo_es_el_mismo
+# _para_todos` en `--fase 1`.
+
+[toolchain]
+channel = "1.97.0"
+
+# Los dos que el §6 usa en cada verificación. Sin nombrarlos aquí, `rustup`
+# instala la versión nueva **sin** ellos y el primer `cargo fmt` falla diciendo
+# que no existe el componente, que es un mensaje que no apunta a esto.
+components = ["rustfmt", "clippy"]

@@ -1,10 +1,20 @@
 # Cómo abrir ARLES en tu equipo
 
-**Para Adrián Paz · 7 de octubre de 2026**
+**Para Adrián Paz y para quien se incorpore al equipo de desarrollo ·
+7 de octubre de 2026, al día el 11/11/2026**
 
 Hasta hoy el proyecto explicaba cómo **preparar** una demostración real
 ([`GUIA-DE-CONEXION-REAL.md`](GUIA-DE-CONEXION-REAL.md)) y no decía en ninguna
 parte **cómo abrir el programa**. Este documento es esa parte.
+
+> **Lo que hay que saber antes de clonar, y no es un detalle.** La rama por
+> defecto del repositorio —`main`— está en el commit del **31/08/2026**, con
+> casi trescientos commits de diferencia: **clonar y compilar `main` no da
+> ARLES, da la versión de agosto.** Es una decisión de Dirección (**D-20**):
+> `main` espera a que el producto esté terminado y auditado.
+>
+> Así que el §2 pide una rama explícita, y **no es opcional**: sin ese
+> `git checkout` lo que se compila no es el producto.
 
 > **Lo primero, y es importante que lo sepas antes de empezar.** Hasta el
 > 07/10/2026 **ARLES no se había arrancado nunca como aplicación**. Ni una vez.
@@ -30,11 +40,29 @@ Tres cosas, una vez:
 | Qué | Dónde | Para qué |
 |---|---|---|
 | **Rust** | [rustup.rs](https://rustup.rs) — el instalador de 64 bits | Compila el motor de ARLES |
-| **Node.js 20 o superior** | [nodejs.org](https://nodejs.org) — versión LTS | Compila la interfaz |
+| **Node.js 22.12 o superior** | [nodejs.org](https://nodejs.org) — versión LTS | Compila la interfaz |
 | **Visual Studio Build Tools** | El propio instalador de Rust te lo ofrece y lo descarga | Rust en Windows necesita el enlazador de Microsoft |
 
 **WebView2 no hace falta instalarlo**: viene con Windows 11 y con cualquier
 Windows 10 actualizado. Es el mismo motor que usa Edge.
+
+> **«Node 20 o superior» era impreciso y este renglón lo dijo durante un mes.**
+> Lo que el proyecto admite son **dos tramos y no uno**: `20.19` o posterior
+> dentro de la rama 20, o **22.12** o posterior. **Node 21 no sirve** —es «20 o
+> superior» y queda fuera—, porque vite 7 declara
+> `engines.node = "^20.19.0 || >=22.12.0"`.
+>
+> No hay que acordarse: `app/.npmrc` activa `engine-strict`, así que con una
+> versión no admitida **npm se niega a instalar** y dice cuál pide, en vez de
+> avisar y romperse más adelante. Y `.nvmrc` fija `22.12.0` para quien use
+> `nvm`: `nvm use` en la raíz del proyecto y ya está.
+
+**Rust no hay que elegirlo.** `rust-toolchain.toml` fija la versión con la que
+el proyecto se verifica, y `rustup` la descarga sola la primera vez que se
+ejecute cualquier comando de cargo en esta carpeta. Importa más de lo que
+parece: el §6 del `CLAUDE.md` exige `cargo clippy -- -D warnings`, **cero
+advertencias**, y clippy añade avisos nuevos en cada versión — quien tenga una
+más nueva no podría empujar con el código correcto.
 
 Para comprobar que quedó bien, abre PowerShell y escribe:
 
@@ -279,6 +307,86 @@ vez. Si sigue, dímelo con lo que diga la consola.
 **Si la ventana dice «can't reach this page» o «localhost refused to
 connect»**, estás arrancando sin la característica `custom-protocol`: usa
 `cargo arles`, no `cargo run --release` a secas. Está explicado arriba.
+
+---
+
+## 5 bis · Si vas a programar: Visual Studio Code y las comprobaciones
+
+Lo de arriba basta para **abrir** ARLES. Esto es lo que hace falta para
+**trabajar** en él, y existe desde el 11/11/2026, cuando Dirección pidió que el
+equipo entero pudiera clonar, compilar y correr el programa desde su VS Code.
+
+### Las extensiones
+
+Al abrir la carpeta, VS Code ofrece las cuatro que el proyecto usa
+(`.vscode/extensions.json`): **rust-analyzer**, **Vue (Volar)**, **Tauri** y
+**Even Better TOML**. Se aceptan y ya está.
+
+> **Si tienes instalada la extensión antigua `rust-lang.rust`, desactívala.**
+> Está retirada desde 2022 y rust-analyzer es su sustituta oficial; las dos a la
+> vez compiten por el mismo archivo. No se ha probado aquí qué pasa
+> exactamente — se dice como precaución, no como medición.
+
+### Las cuatro tareas
+
+`Ctrl+Shift+P` → **«Run Task»**. No hay que recordar ningún comando:
+
+| Tarea | Qué hace |
+|---|---|
+| **ARLES · construir y abrir** | `npm run build` y `cargo arles`. Es la del día a día |
+| **ARLES · verificar todo (§6)** | Las siete comprobaciones de Rust y del frontend, en orden |
+| **ARLES · las diez fases del validador** | Lo que hay que ver en verde **antes de empujar** |
+| **ARLES · generar la vista previa** | Deja `vista-previa/ARLES-vista-previa.html`, que se abre con doble clic |
+
+> **La primera tarea manda `cargo arles` y no `cargo run --release`**, y eso lo
+> vigila una comprobación del validador — mirando el campo `command` de cada
+> tarea, no el archivo, porque el `tasks.json` nombra el comando malo a
+> propósito para explicar por qué no se usa. Está contado en el §5.
+
+### Lo que hay que instalar sólo si vas a generar documentos
+
+Nada de esto hace falta para compilar ni para correr ARLES. El validador, el
+tablero y el cálculo del avance usan **sólo la biblioteca estándar de Python**,
+a propósito: son lo que se corre antes de cada empujón y no pueden depender de
+que alguien instale algo.
+
+```powershell
+python3 -m pip install -r requirements.txt    # los PDF de los informes
+cargo install cargo-deny --locked             # el §6 lo exige antes de añadir dependencias
+```
+
+> **`requirements.txt` no existía hasta el 11/11/2026**, y el tropiezo fue
+> propio: al añadir una pregunta a la consulta jurídica no se pudo regenerar su
+> PDF porque `reportlab` no estaba, y **nada en el repositorio decía que hiciera
+> falta**. Ahora lo dice, y una comprobación falla si una herramienta importa
+> algo que ese archivo no nombra.
+
+### Dos cosas que vas a ver y no son defectos
+
+**`npm install` avisa de vulnerabilidades.** Diecisiete el 11/11/2026 —quince
+moderadas y dos críticas—, y **ninguna viaja en el producto**: todas están en
+las herramientas de construcción y de prueba, que no entran en el ejecutable.
+No hay que creerse esa frase, se mide:
+
+```powershell
+cd app
+npm audit --omit=dev     # «found 0 vulnerabilities»
+npm audit                # 17 (15 moderate, 2 critical), todas de desarrollo
+```
+
+> **No se arreglan a ciegas**, y conviene saber qué propone de verdad.
+> `npm audit fix --force` sube **vitest de 3.2.7 a 5.1.0** y **vue-tsc a
+> 3.3.14**: dos versiones mayores de golpe, que son el corredor de las 325
+> pruebas del frontend y el comprobador de tipos que el §6 exige. Medido con
+> `--dry-run` el 11/11/2026.
+>
+> Las dos críticas son del `@vitest/mocker` y se explotan **a través de un
+> mock**, así que la superficie es el propio corredor de pruebas. Se miran una
+> por una cuando toque, no el día antes de una entrega.
+
+**La primera compilación tarda.** Medida el 11/11/2026 en un clon limpio:
+**6 minutos 37 segundos** de punta a punta, y deja un ejecutable de unos 22 MB.
+Las siguientes son segundos.
 
 ---
 

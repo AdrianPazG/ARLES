@@ -1,7 +1,7 @@
 # Estado actual · dónde está ARLES y qué sigue
 
 **Proyecto:** ARLES RELAY I · v1.2.0
-**Última actualización:** 11 de noviembre de 2026 (**R-30: ARLES revisa los buzones solo** · R-25, la baja por correo aplicada sin pulsar nada · D-19 y R-05 remedidos con sus cifras · antes: D-WA, el semáforo de calidad, las plantillas de Meta, el asistente por canal, la 7.5 de entregabilidad, el umbral de rebotes)
+**Última actualización:** 11 de noviembre de 2026 (**auditoría I: un clon del repositorio da la aplicación** · R-30, ARLES revisa los buzones solo · R-25, la baja por correo aplicada sin pulsar nada · D-19 y R-05 remedidos con sus cifras · antes: D-WA, el semáforo de calidad, las plantillas de Meta, el asistente por canal, la 7.5 de entregabilidad, el umbral de rebotes)
 **Para qué sirve este documento:** que quien retome el trabajo —otra sesión, otra persona, otro equipo— sepa en una lectura qué está construido, qué decisiones ya están tomadas, qué **no** hay que volver a discutir y qué es lo siguiente.
 
 > Se actualiza **al cerrar cada entrega**, no al empezarla. Un documento de estado que describe intenciones en vez de hechos es peor que no tenerlo: se lee como si fuera cierto.
@@ -1191,3 +1191,96 @@ veía `pub mod programador` en `lib.rs`.
 - **Mientras ARLES esté abierto.** Con la ventana cerrada sí revisa; con la
   aplicación cerrada, no. Un servicio del sistema que corra sin la aplicación es
   otra cosa, y no se ha construido.
+
+---
+
+## 19. Auditoría I · qué obtiene quien clona el repositorio · 11/11/2026
+
+Dirección lo pidió antes de generar el instalador: *«Audita el programa,
+necesito que toda la documentación y el repositorio de GitHub esté actualizado,
+para que todo el equipo de desarrollo pueda descargar el repositorio, se
+descarguen las librerías y todo lo necesario para poder correr el `.exe` de
+ARLES, y que puedan generar el `.exe` desde su Visual Studio Code y correr el
+programa»*.
+
+Las nueve auditorías anteriores miden **el producto**. Ésta mide si **un clon
+del repositorio se convierte en la aplicación**, y eso no se puede auditar
+leyendo: se hizo clonando en una carpeta vacía y siguiendo la guía desde cero.
+
+**Nueve hallazgos. Seis arreglados, uno informativo, uno declarado y uno que es
+una decisión de Dirección.** El detalle está en
+[`REGISTRO-DE-REQUISITOS.md`](../10-requisitos/REGISTRO-DE-REQUISITOS.md),
+sección «Auditoría I».
+
+### Lo que ahora trae el repositorio y antes no
+
+| Archivo | Para qué |
+|---|---|
+| `rust-toolchain.toml` | La versión exacta de Rust, con `rustfmt` y `clippy`. El §6 exige clippy con **cero advertencias**, y clippy añade avisos nuevos en cada versión |
+| `.nvmrc` + `engines` + `app/.npmrc` | La versión de Node en los tres sitios que la necesitan. **Node 21 no sirve**: vite 7 pide `^20.19.0 \|\| >=22.12.0`. Con `engine-strict` npm se niega y lo dice |
+| `.vscode/extensions.json` | Las cuatro extensiones: rust-analyzer, Vue (Volar), Tauri y Even Better TOML |
+| `.vscode/tasks.json` | Cuatro tareas: construir y abrir, verificar todo (§6), las diez fases, la vista previa |
+| `requirements.txt` | `reportlab` y `pillow`, que sólo hacen falta para generar los PDF de los informes |
+| `herramientas/plantilla-docx/package.json` | **Estaba en el `.gitignore`.** Quien clonara no tenía la dependencia ni forma de saber cuál era |
+
+### Lo que salió bien, y es la mitad del valor
+
+**Un clon limpio de la rama de trabajo compila de punta a punta.** Medido:
+654 archivos, **6 minutos 37 segundos** desde cero, y un ejecutable de
+**22 083 648 bytes** con **siete** apariciones de `index.html` dentro — que es
+la prueba de que la interfaz viaja embebida y no se va a buscar a localhost (el
+defecto del 08/10/2026).
+
+Los cuatro lockfiles están versionados, `Cargo.lock` incluido, y **ninguna
+dependencia del producto tiene aviso de seguridad**: `npm audit --omit=dev` da
+cero. Las 17 que avisa `npm audit` están todas en las herramientas de
+construcción y de prueba, que no entran en el ejecutable — y eso está ahora
+escrito en la guía, porque sin decirlo el equipo nuevo las persigue.
+
+### El que no se arregla programando: `main` no da la aplicación
+
+**Clonar el repositorio y compilar no da ARLES: da la versión de agosto.**
+`main` está en el commit del **31/08/2026** y tiene 111 archivos — las cinco
+carpetas de referencia y la documentación de entonces, **cero código**.
+
+Es la decisión **D-20** de Dirección del 04/11/2026: `main` espera a que el
+producto esté terminado, auditado y pasado por inspección de calidad. No es un
+defecto, es una decisión tomada a propósito; pero sí es lo único que impide
+cumplir literalmente lo que Dirección pidió, porque «descargar el repositorio»
+quiere decir, para cualquiera que llegue, `git clone` y compilar.
+
+**Lo que se ha hecho mientras se decide** es que la guía lo diga en su primera
+pantalla, antes del `git clone`, con la consecuencia escrita: sin el
+`git checkout` de la rama de trabajo, lo que se compila no es el producto.
+
+### Lo que esta auditoría enseña del método
+
+**Siete de los nueve hallazgos son cosas que no existían o que no se ven desde
+dentro, no cosas mal hechas.** Y
+ninguno lo podía encontrar una prueba, una sonda ni el validador, por la misma
+razón: todos se verifican **dentro** de un árbol que tiene Rust, Node y las
+dependencias instaladas desde la Fase 0. Lo que falta en el repositorio es justo
+lo que aquí no se nota.
+
+Es el patrón del §9 con una cara nueva: **la junta entre el repositorio y el
+equipo que lo clona.** Las piezas estaban correctas; lo que no estaba era lo que
+hace falta para montarlas en otra máquina.
+
+Lo vigila `el_entorno_de_desarrollo_es_el_mismo_para_todos` en `--fase 1`, con
+siete medidas. La que de verdad vigila algo es la tercera, porque las otras seis
+son existencia y ésa es **coherencia**: que el `.nvmrc` cumpla el `engines.node`
+del `package.json`, dos archivos diciendo lo mismo en sitios distintos.
+
+> **Y la séptima ruptura salió en verde a la primera.** No porque la medida no
+> sirviera: el `sed` buscaba `^import os$` en un archivo que importa `argparse`
+> y no `os`, así que **no cambió una línea**. Es la lección del 28/10/2026 —*una
+> ruptura en verde significa dos cosas, y se distinguen mirando el archivo, no
+> deduciendo*— y lo fácil habría sido quitar la medida por inútil.
+
+> **Dos afirmaciones mías de la guía nueva eran falsas, y las cazó medirlas.**
+> Escribí que `npm audit fix --force` «sube vite de versión mayor»: sube
+> **vitest** de 3.2.7 a 5.1.0 y **vue-tsc** a 3.3.14, que son el corredor de las
+> 325 pruebas del frontend y el comprobador de tipos del §6 — el argumento de
+> verdad es mejor que el que me inventé. Y que las dos extensiones de Rust
+> juntas «dan dos juegos de errores, la mitad inventados», que no lo he probado:
+> ahora está escrito como precaución y no como medición.

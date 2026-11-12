@@ -2542,6 +2542,53 @@ motor da vueltas cada cinco segundos desde la 5.4b. Lo que hacía falta era
 > **no con la aplicación cerrada**, que sería un servicio del sistema y es otra
 > cosa.
 
+**Y el 11/11/2026, la auditoría I · qué obtiene quien clona el repositorio.** Lo
+pidió Dirección antes de generar el instalador —que todo el equipo pueda
+descargar el repositorio, instalar lo necesario y generar el `.exe` desde su VS
+Code—. **Nueve hallazgos: seis arreglados, uno informativo, uno declarado y uno que
+es una decisión suya.** Está contado en
+[`ESTADO_ACTUAL.md`](documentacion/07-entrega/ESTADO_ACTUAL.md) §19 y en el
+registro de requisitos.
+
+> **El repositorio no fijaba ninguna versión de herramienta, y eso no rompe la
+> compilación casi nunca.** Rompe dos cosas, y las dos cuestan una tarde de
+> perseguir lo que no está roto: el §6 exige `clippy -D warnings`, **cero
+> advertencias**, y clippy añade avisos nuevos en cada versión —así que quien
+> tenga una más nueva **no puede empujar con el código correcto**—; y «Node 20 o
+> superior», que es lo que la guía decía, **incluye Node 21, que vite 7 no
+> admite**. Ahora están `rust-toolchain.toml`, `.nvmrc`, `engines` y
+> `engine-strict`, que hace que npm **se niegue** en vez de avisar.
+
+> **Y el `package.json` de una herramienta estaba en el `.gitignore`**, así que
+> quien clonara no tenía la dependencia ni forma de saber cuál era. Es el
+> hallazgo I-5, y el único de los seis que es algo mal hecho y no algo que no
+> existía.
+
+> **Ninguno de los seis lo podía encontrar una prueba, una sonda ni el
+> validador**, y todos por la misma razón: se verifican **dentro** de un árbol
+> que tiene Rust, Node y las dependencias instaladas desde la Fase 0. **Lo que
+> falta en el repositorio es justo lo que aquí no se nota.** Es el patrón del §9
+> en la junta entre el repositorio y la máquina que lo clona — y por eso esta
+> auditoría no se hizo leyendo, sino clonando en una carpeta vacía y siguiendo
+> la guía desde cero. Medido: 654 archivos, **6 min 37 s** de compilación, y un
+> ejecutable con siete apariciones de `index.html` dentro.
+>
+> Lo vigila `el_entorno_de_desarrollo_es_el_mismo_para_todos` en `--fase 1`, con
+> siete medidas. La que de verdad vigila algo es la tercera, porque las otras
+> seis son existencia y ésa es **coherencia**: que el `.nvmrc` cumpla el
+> `engines.node`, dos archivos diciendo lo mismo en sitios distintos. Y la
+> séptima ruptura **salió en verde a la primera** — no porque la medida no
+> sirviera, sino porque el `sed` buscaba un `import` que ese archivo no tiene y
+> no cambió una línea: la lección del 28/10, y lo fácil habría sido quitarla por
+> inútil.
+
+> **El octavo no se arregla programando: `main` no da la aplicación.** Está en
+> el commit del **31/08/2026** con 111 archivos —sólo material de referencia,
+> cero código—, que es la decisión **D-20**. Así que «clonar el repositorio y
+> compilar» da la versión de agosto, y lo que se ha hecho mientras Dirección
+> decide es que la guía lo diga **antes** del `git clone`, con la consecuencia
+> escrita.
+
 ### Las cuatro auditorías del §140, cerradas el 07/10/2026
 
 | Pasada | Hallazgos | Arreglados | Declarados |

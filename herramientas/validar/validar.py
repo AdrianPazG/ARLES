@@ -1449,6 +1449,7 @@ def fase_1(rapido):
     las_bajas_del_buzon_tienen_quien_las_aplique()
     solo_produccion_no_se_deja_nada_detras()
     el_programador_corre_y_no_le_quita_el_cerrojo_al_motor()
+    el_entorno_de_desarrollo_es_el_mismo_para_todos()
 
     check(1, "El consentimiento es append-only y no bloquea el borrado",
           "consent_entry_sin_update" in esquema
@@ -9617,6 +9618,308 @@ def el_programador_corre_y_no_le_quita_el_cerrojo_al_motor():
         "El programador revisa los buzones y no corre en el hilo del motor",
         not faltan,
         el_programador_corre_y_no_le_quita_el_cerrojo_al_motor.__doc__,
+        detalle="\n      ".join(faltan),
+    )
+
+
+def version_semver(texto):
+    """`"22.12.0"` → `(22, 12, 0)`. Devuelve `None` si no es una versión.
+
+    Acepta tres números y nada más: un `.nvmrc` con `lts/iron` o `22` no dice
+    qué versión exacta, que es justo lo que este archivo existe para decir.
+    """
+    m = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)", texto.strip())
+    return tuple(int(g) for g in m.groups()) if m else None
+
+
+def cumple_el_rango(version, rango):
+    """¿Cumple `version` el `engines.node` de un `package.json`?
+
+    Entiende las dos formas que npm usa de verdad en este proyecto —`^X.Y.Z` y
+    `>=X.Y.Z`— unidas por `||`. **Si encuentra una cláusula que no entiende
+    devuelve `None`**, que no es lo mismo que «no cumple»: un comparador que
+    callara lo que no sabe leer daría por bueno cualquier rango nuevo, y lo que
+    esta función existe para cazar es justo una divergencia silenciosa.
+    """
+    for clausula in rango.split("||"):
+        clausula = clausula.strip()
+        if m := re.fullmatch(r"\^(\d+)\.(\d+)\.(\d+)", clausula):
+            minimo = tuple(int(g) for g in m.groups())
+            # `^X.Y.Z` es «desde X.Y.Z hasta el siguiente mayor, sin incluirlo».
+            if minimo <= version < (minimo[0] + 1, 0, 0):
+                return True
+        elif m := re.fullmatch(r">=(\d+)\.(\d+)\.(\d+)", clausula):
+            if version >= tuple(int(g) for g in m.groups()):
+                return True
+        else:
+            return None
+    return False
+
+
+def imports_de_terceros(ruta):
+    """Los módulos que un `.py` importa y que **no** son de la estándar.
+
+    La lista de módulos de la estándar sale de `sys.stdlib_module_names`, que la
+    da el propio intérprete. Escribirla a mano aquí sería la lista a mano por
+    enésima vez, y además caducaría con cada versión de Python.
+
+    Los comentarios y los docstrings se quitan **antes** de buscar: este archivo
+    está lleno de prosa que nombra módulos al explicar por qué se usan o no, y
+    medir sobre ella es el comentario que se caza a sí mismo — que en este
+    proyecto va por la decimoquinta vez.
+    """
+    texto = leer(ruta)
+    if texto is None:
+        return set()
+    sin_prosa = re.sub(r'"""(?:.|\n)*?"""', "", texto)
+    sin_prosa = re.sub(r"(?m)#.*$", "", sin_prosa)
+    return {
+        m.group(1)
+        for m in re.finditer(r"(?m)^\s*(?:from|import)\s+([A-Za-z_]\w*)", sin_prosa)
+        if m.group(1) not in sys.stdlib_module_names
+    }
+
+
+def el_entorno_de_desarrollo_es_el_mismo_para_todos():
+    """**Un clon del repositorio tiene que dar la aplicación, no una tarde de
+    buscar qué falta.**
+
+    Dirección pidió el 11/11/2026 que «todo el equipo de desarrollo pueda
+    descargar el repositorio, se descarguen las librerías y todo lo necesario
+    para poder correr el `.exe`». Auditarlo encontró **nueve cosas**, y seis eran
+    versiones que el repositorio no fijaba en ninguna parte: cada quien
+    compilaba con el Rust y el Node que tuviera.
+
+    Eso no rompe la compilación casi nunca. Rompe otras dos cosas, y las dos
+    cuestan una tarde de perseguir lo que no está roto:
+
+    - **El §6 exige `cargo clippy -- -D warnings`, cero advertencias.** Clippy
+      añade avisos nuevos en cada versión de Rust, así que quien tenga una más
+      nueva **no puede empujar con el código correcto**, y quien tenga una más
+      vieja pasa en verde algo que la integración continua rechaza.
+    - **Vite 7 declara `engines.node = "^20.19.0 || >=22.12.0"`**, así que Node
+      21 —que es «Node 20 o superior», que es lo que la guía decía— **no está
+      admitido**. Con `engine-strict` activo npm se niega con un error claro;
+      sin él sólo avisa, y lo que se rompe después no apunta aquí.
+
+    ── LAS SEIS MEDIDAS, Y POR QUÉ NINGUNA SOBRA ──
+
+    1. **`rust-toolchain.toml` con versión exacta.** `channel = "stable"` sigue
+       moviéndose: el día que salga la siguiente, el equipo se parte en dos sin
+       que nadie haya tocado nada.
+    2. **Y con `rustfmt` y `clippy` nombrados.** Sin eso `rustup` instala la
+       versión nueva **sin** ellos, y el primer `cargo fmt` falla diciendo que
+       no existe el componente, que es un mensaje que no apunta a esto.
+    3. **El `.nvmrc` cumple el `engines.node` del `package.json`.** Son dos
+       archivos que dicen lo mismo en sitios distintos: el día que uno se mueva,
+       `nvm use` instalaría una versión que npm va a rechazar. Esta es la medida
+       que de verdad vigila algo, porque las otras cinco son existencia y ésta
+       es **coherencia**.
+    4. **`engine-strict=true`.** Sin él, `engines` es un aviso que se pierde en
+       el ruido de `npm install`.
+    5. **Los cuatro lockfiles existen y git no los ignora.** El `package.json`
+       de `herramientas/plantilla-docx` **estaba en el `.gitignore`** —por un
+       patrón amplio de `node_modules` y artefactos—, así que quien clonara no
+       tenía ni la dependencia ni forma de saber cuál era. Es el hallazgo I-5.
+    6. **Ninguna tarea de VS Code manda `cargo run --release`.** Es la lección
+       del 09/10/2026 con `cargo arles`, y aquí hay un sitio nuevo donde cabe el
+       comando que deja la ventana pidiendo localhost. **Se mide el campo
+       `command` del JSON y no el archivo**, porque `tasks.json` nombra el
+       comando malo a propósito, en un comentario y en un `detail`, para
+       explicar por qué no se usa. Medir el archivo entero confunde las dos
+       cosas — exactamente el defecto que esa misma lección arregló.
+
+    ── EL UMBRAL SE MIDIÓ ANTES DE ESCRIBIR LA MEDIDA 7 ──
+
+    `requirements.txt` tiene que nombrar cada módulo de terceros que las
+    herramientas importan. Medido antes: son **dos**, `reportlab` y `PIL`. Y
+    `PIL` **no se llama como su paquete** —es `pillow`—, así que una comparación
+    de nombres habría nacido con un hallazgo falso.
+
+    La salida no fue una tabla de equivalencias en el validador, que es la lista
+    a mano otra vez: es que **el `requirements.txt` diga que `pillow` se importa
+    como `PIL`**. El dato vive donde sirve —quien lee ese archivo es quien se
+    topa con que los dos nombres no coinciden— y la comprobación se queda sin
+    excepciones.
+
+    Verificada el 11/11/2026 con siete rupturas, las siete en rojo: `channel`
+    a `"stable"`, quitando `clippy` de los componentes, un `.nvmrc` con `21.0.0`
+    —que es el caso real—, `engine-strict` a `false`, el `package.json` de
+    `plantilla-docx` devuelto al `.gitignore`, un `cargo run --release` en el
+    `command` de una tarea, y un `import requests` en una herramienta. Y un
+    **contraejemplo** que tiene que quedarse en verde: ese mismo
+    `import requests` dentro de un docstring. Se quedó.
+
+    **La séptima salió en verde a la primera, y no porque no sirviera: porque
+    la ruptura no se había aplicado.** El `sed` buscaba `^import os$` en un
+    archivo que importa `argparse` y no `os`, así que no cambió una línea. Es la
+    lección del 28/10/2026 —*una ruptura en verde significa dos cosas, o la
+    comprobación no caza el defecto o la comprobación no está, y se distinguen
+    **mirando el archivo**, no deduciendo*— y lo fácil habría sido concluir que
+    la medida 7 no vale y quitarla.
+    """
+    faltan = []
+
+    # ── 1 y 2 · la versión de Rust ──
+    toolchain = leer(os.path.join(RAIZ, "rust-toolchain.toml"))
+    if toolchain is None:
+        faltan.append(
+            "no hay rust-toolchain.toml: cada quien compila con el Rust que "
+            "tenga, y clippy añade avisos nuevos en cada versión"
+        )
+    else:
+        limpio = sin_comentarios_toml(toolchain)
+        canal = re.search(r'channel\s*=\s*"([^"]+)"', limpio)
+        if not canal:
+            faltan.append("rust-toolchain.toml no declara `channel`")
+        elif not re.fullmatch(r"\d+\.\d+(\.\d+)?", canal.group(1)):
+            faltan.append(
+                f'rust-toolchain.toml declara `channel = "{canal.group(1)}"`: un '
+                "canal que se mueve parte al equipo en dos el día que salga la "
+                "versión siguiente, sin que nadie haya tocado nada"
+            )
+        for componente in ("rustfmt", "clippy"):
+            if f'"{componente}"' not in limpio:
+                faltan.append(
+                    f"rust-toolchain.toml no nombra `{componente}` en "
+                    "`components`: rustup instalaría la versión nueva sin él y "
+                    "el §6 falla con un mensaje que no apunta aquí"
+                )
+
+    # ── 3 y 4 · la versión de Node, en sus dos sitios ──
+    nvmrc = leer(os.path.join(RAIZ, ".nvmrc"))
+    paquete = leer(os.path.join(RAIZ, "app/package.json"))
+    rango = None
+    if paquete is not None:
+        try:
+            rango = json.loads(paquete).get("engines", {}).get("node")
+        except json.JSONDecodeError:
+            faltan.append("app/package.json no es JSON válido")
+    if rango is None:
+        faltan.append(
+            "app/package.json no declara `engines.node`: vite 7 no admite "
+            "Node 21, y sin esto npm no lo dice"
+        )
+    if nvmrc is None:
+        faltan.append("no hay .nvmrc: `nvm use` no sabe qué versión instalar")
+    elif rango is not None:
+        version = version_semver(nvmrc)
+        if version is None:
+            faltan.append(
+                f".nvmrc dice `{nvmrc.strip()}`, que no es una versión exacta: "
+                "un alias como `lts/iron` cambia de versión con el tiempo"
+            )
+        else:
+            cumple = cumple_el_rango(version, rango)
+            if cumple is None:
+                faltan.append(
+                    f"`engines.node = \"{rango}\"` usa una forma que esta "
+                    "comprobación no sabe comparar, así que no puede afirmar "
+                    "que el .nvmrc la cumpla: hay que enseñarle la forma nueva"
+                )
+            elif not cumple:
+                faltan.append(
+                    f".nvmrc dice {nvmrc.strip()} y `engines.node` pide "
+                    f'"{rango}": `nvm use` instalaría una versión que npm va a '
+                    "rechazar"
+                )
+
+    npmrc = leer(os.path.join(RAIZ, "app/.npmrc"))
+    if npmrc is None or not re.search(r"(?m)^\s*engine-strict\s*=\s*true", npmrc):
+        faltan.append(
+            "app/.npmrc no activa `engine-strict=true`: sin él `engines` sólo "
+            "avisa, y el aviso se pierde en el ruido de npm install"
+        )
+
+    # ── 5 · los lockfiles, y que git no los esconda ──
+    #
+    # Sólo se LEE de git (`check-ignore`). Una comprobación que ESCRIBE en el
+    # repositorio para medirlo da rojo sobre código correcto cuando dos
+    # validadores corren a la vez — medido el 22/10/2026, 1 falso de 40.
+    deben_viajar = [
+        "Cargo.lock",
+        "app/package.json",
+        "app/package-lock.json",
+        "herramientas/plantilla-docx/package.json",
+        "herramientas/plantilla-docx/package-lock.json",
+    ]
+    for relativa in deben_viajar:
+        if not os.path.exists(os.path.join(RAIZ, relativa)):
+            faltan.append(f"falta {relativa}: un clon no puede reproducir las versiones")
+            continue
+        try:
+            ignorado = (
+                subprocess.run(
+                    ["git", "check-ignore", "-q", relativa],
+                    cwd=RAIZ,
+                    capture_output=True,
+                    check=False,
+                ).returncode
+                == 0
+            )
+        except OSError:
+            continue  # sin git no se puede afirmar nada, y no se finge
+        if ignorado:
+            faltan.append(
+                f"el .gitignore esconde {relativa}: quien clone no tendrá ni la "
+                "dependencia ni forma de saber cuál era (es el hallazgo I-5)"
+            )
+
+    # ── 6 · las tareas de VS Code ──
+    #
+    # El campo `command` y no el archivo: `tasks.json` nombra `cargo run
+    # --release` a propósito en un comentario y en un `detail`, para explicar
+    # por qué NO se usa. Es la lección del 09/10 con la guía de arranque.
+    tareas = leer(os.path.join(RAIZ, ".vscode/tasks.json"))
+    if tareas is None:
+        faltan.append(
+            "no hay .vscode/tasks.json: Dirección pidió que el equipo pueda "
+            "generar y correr ARLES desde su Visual Studio Code"
+        )
+    else:
+        comandos = re.findall(r'"command"\s*:\s*"((?:[^"\\]|\\.)*)"', tareas)
+        if not comandos:
+            faltan.append(".vscode/tasks.json no declara ninguna tarea con `command`")
+        if not any("cargo arles" in c for c in comandos):
+            faltan.append(
+                "ninguna tarea de VS Code manda `cargo arles`: es el único "
+                "comando que construye la aplicación de verdad"
+            )
+        for c in comandos:
+            if re.search(r"cargo\s+run(\s|$)", c):
+                faltan.append(
+                    f"una tarea de VS Code manda `cargo run`: «{c[:60]}». Sin "
+                    "`--features custom-protocol` la ventana abre pidiendo "
+                    "localhost, que es el defecto del 08/10/2026"
+                )
+
+    # ── 7 · lo que las herramientas de Python importan ──
+    requisitos = leer(os.path.join(RAIZ, "requirements.txt"))
+    if requisitos is None:
+        faltan.append("no hay requirements.txt")
+    else:
+        importados = set()
+        for carpeta, _, archivos in os.walk(os.path.join(RAIZ, "herramientas")):
+            for archivo in archivos:
+                if archivo.endswith(".py"):
+                    importados |= imports_de_terceros(os.path.join(carpeta, archivo))
+        for modulo in sorted(importados):
+            # El nombre del módulo, no el del paquete: `pillow` se importa como
+            # `PIL`, y una tabla de equivalencias aquí sería la lista a mano.
+            # Basta con que el requirements.txt lo nombre en alguna parte, que
+            # es el sitio donde ese dato le sirve a quien lo lee.
+            if modulo.lower() not in requisitos.lower():
+                faltan.append(
+                    f"una herramienta importa `{modulo}` y requirements.txt no "
+                    "lo nombra: quien clone correrá esa herramienta y se "
+                    "encontrará un ModuleNotFoundError"
+                )
+
+    check(
+        1,
+        "Un clon del repositorio trae las versiones fijadas y lo que hace falta",
+        not faltan,
+        el_entorno_de_desarrollo_es_el_mismo_para_todos.__doc__,
         detalle="\n      ".join(faltan),
     )
 
