@@ -77,6 +77,32 @@ exactamente por dónde pasan.
 > pasada. Es el comentario que se caza a sí mismo por duodécima vez, y la
 > primera dentro de un documento en vez de dentro del código.
 
+### La guía de las dos altas, en PDF · y dos botones que no existían
+
+**12/11/2026.** Dirección pidió instrucciones «detalladas y exactas» para dar
+de alta un correo y un número de WhatsApp, para quien abre ARLES por primera
+vez. Siete páginas, con los rótulos de cada botón **sacados del código** y no
+copiados de otra guía.
+
+> **Y eso encontró que la guía de WhatsApp mandaba pulsar dos botones que no
+> existen:** «Conectar un número» —se llama **«Añadir número»**— y «Enviar un
+> WhatsApp de prueba» —**«Mandar un WhatsApp de prueba»**—. En una guía de
+> primer uso alguien busca un botón que no está y se para ahí.
+
+> **La comprobación que lo vigilaría no se puede escribir, y está medido.** Un
+> patrón sobre todo `**«…»**` en las guías da 79 rótulos y 22 que no están en
+> los textos — casi todos legítimos, porque son botones de Meta, de Windows o
+> de Google. Acotándolo a las frases que nombran ARLES, 6 falsos de 16; y
+> acotándolo a lo que la guía manda «pulsar», 1 falso de 15 **y excluye dos
+> botones que sí son de ARLES**. Lo que distingue un botón del producto de uno
+> del panel de Meta no está en la prosa.
+
+> **Y un diagnóstico mío que era falso (DOC-25):** la auditoría I declaró que
+> `reportlab` no se podía instalar en este contenedor. Se podía — lo roto era
+> **pillow**, que reportlab importa al arrancar y cuyo error no lo nombra. Con
+> eso se regeneró el PDF de la consulta jurídica, que llevaba un día sin la
+> C-19.
+
 ### La baja por WhatsApp también se aplica sola
 
 **12/11/2026.** Petición de Dirección: *«también estuvimos trabajando para que

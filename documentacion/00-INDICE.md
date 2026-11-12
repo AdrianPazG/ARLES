@@ -193,6 +193,7 @@ Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verifi
 | [Fase 8 · para Dirección](09-fases/FASE-08-PARA-DIRECCION.md) | El informe en términos de Dirección |
 | [Manual de usuario](07-entrega/MANUAL-DE-USUARIO.md) | **Qué puedes hacer con ARLES y en qué orden**, en español llano — y la lista de lo que todavía no hace, para no prometerlo |
 | [Cómo abrir ARLES](07-entrega/COMO-ABRIR-ARLES.md) | Qué instalar y los dos comandos que abren la aplicación |
+| [Dar de alta un correo y un WhatsApp](07-entrega/DAR-DE-ALTA-CORREO-Y-WHATSAPP.md) | **Para quien abre ARLES por primera vez**: las dos altas paso a paso, con los rótulos exactos de cada botón. Se entrega como PDF, y el `.md` es su fuente |
 | [Cómo configurar tu WhatsApp](07-entrega/COMO-CONFIGURAR-WHATSAPP.md) | **De cero a mandar un WhatsApp de prueba**: el alta en Meta, la plantilla, el token con sus dos permisos — y por qué ARLES sólo te pide uno de esos datos |
 | [Guía imprimible de WhatsApp](07-entrega/guia-whatsapp/guia.html) | La misma de arriba **en PDF para Dirección**, con el diagnóstico del error «Meta no acepta ese token» que salió el 04/11/2026 en la primera prueba contra la API real. Se regenera con `herramientas/guia-pdf/generar.py` |
 | [Probar ARLES sin compilar](07-entrega/COMO-PROBAR-ARLES-SIN-COMPILAR.md) | Descargar el instalador de Releases, y qué borrar —y en qué orden— si ya lo tenías |

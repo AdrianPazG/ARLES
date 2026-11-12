@@ -9,12 +9,18 @@
 @@ QUÉ CAMBIÓ | C-19: ¿podemos saber si alguien abrió el correo?
 @@ LA MÁS URGENTE | C-3 · sección 11
 
-> **El PDF de al lado es de la versión 2 y NO lleva la C-19.** Antes de
-> mandárselo a nadie hay que regenerarlo —`herramientas/informe-direccion/generar-pdf.py`,
-> que necesita `reportlab`— porque el contenedor donde se escribió esta versión
-> no lo tiene instalado. **Se dice en vez de callarlo:** un PDF que reparte una
-> versión anterior del texto es el defecto que la huella de los informes de fase
-> existe para impedir, y este documento todavía no la tiene.
+> **El PDF de al lado está al día e incluye la C-19**, regenerado el
+> 12/11/2026 con `herramientas/informe-direccion/generar-pdf.py`.
+>
+> **Estuvo desfasado desde el 11/11 y la nota decía por qué, con la causa
+> equivocada:** se dio por hecho que `reportlab` no se podía instalar en este
+> contenedor. Se podía — lo que estaba roto era **`pillow`**, que reportlab
+> importa al arrancar, y su error (`cannot import name '_imaging'`) no nombra
+> a reportlab por ninguna parte. Reinstalarlo lo arregló en un minuto.
+>
+> Es el defecto de DOC-14 aplicado a un diagnóstico mío: **un motivo
+> equivocado se cree igual que uno correcto**, y éste dejó un entregable
+> desfasado un día entero por no leer el error entero.
 
 === 1 · Léase esto primero
 

@@ -134,7 +134,7 @@ Esto es **lo único que ARLES te va a pedir**.
 ## Paso 5 · Conectarlo en ARLES
 
 1. Abre ARLES → **Remitentes** → pestaña **WhatsApp**.
-2. Pulsa **«Conectar un número»**.
+2. Pulsa **«Añadir número»**.
 3. **Pega el token** y pulsa **«Buscar mis números»**.
 4. ARLES le pregunta a Meta y te enseña tus números, con su nombre, su calidad
    y cuántos mensajes al día te deja mandar Meta. **Elige el tuyo.**
@@ -153,7 +153,7 @@ Esto es **lo único que ARLES te va a pedir**.
 
 ## Paso 6 · La prueba
 
-1. En la ficha del número, pulsa **«Enviar un WhatsApp de prueba»**.
+1. En la ficha del número, pulsa **«Mandar un WhatsApp de prueba»**.
 2. Escribe **tu propio número** con código de país.
 3. Elige la plantilla aprobada del paso 3.
 4. Envía.

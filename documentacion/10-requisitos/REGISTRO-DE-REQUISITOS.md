@@ -740,6 +740,73 @@ sus cifras contra algo que ya se sepa.
 
 ---
 
+## R-32 · la guía de las dos altas, y dos botones que no existían, 12/11/2026
+
+Dirección pidió *«un PDF con las instrucciones detalladas y exactas para poder
+dar de alta un correo y un número de WhatsApp, para una persona que es la
+primera vez que usa ARLES»*.
+
+**Estado: ✅ hecho.**
+[`DAR-DE-ALTA-CORREO-Y-WHATSAPP.md`](../07-entrega/DAR-DE-ALTA-CORREO-Y-WHATSAPP.md)
+y su PDF de siete páginas, generado con la herramienta del proyecto.
+
+### H-26 · la guía de WhatsApp mandaba pulsar dos botones que no existen
+
+**Lo encontró sacar los rótulos del código en vez de copiarlos de la guía**,
+que era justo lo que la petición exigía al decir «exactas».
+
+| La guía decía | El botón se llama |
+|---|---|
+| «Conectar un número» | **«Añadir número»** |
+| «Enviar un WhatsApp de prueba» | **«Mandar un WhatsApp de prueba»** |
+
+En una guía de primer uso esto no es un matiz: alguien que no conoce la
+pantalla **busca un botón que no está** y se para ahí. Es el mismo daño que un
+mensaje de error con el diagnóstico equivocado (DOC-14) — manda a hacer algo.
+
+### Y la comprobación que NO se escribió, con la cifra que lo decide
+
+La red obvia sería: *todo rótulo que una guía manda pulsar tiene que existir en
+los textos del producto*. **Se midió antes de escribirla, tres veces, y no se
+puede sin hallazgos falsos:**
+
+| Alcance medido | Rótulos | No están en `es.ts` | Veredicto |
+|---|---|---|---|
+| Todo `**«…»**` en `07-entrega/` | 79 | **22** | Casi todos legítimos: botones de Meta, Windows, Google |
+| Sólo si la frase nombra ARLES | 16 | **6** | Frases con variables, un botón de Gmail, explicaciones entrecomilladas |
+| Sólo tras «pulsa», sin contexto ajeno | 15 | **1** | Y ese uno es **falso**: «Agregar número de teléfono» es del panel de Meta |
+
+**El tercer intento además excluyó dos botones que sí son de ARLES** —«Buscar
+mis números» y «Mandar un WhatsApp de prueba»— porque la frase cercana nombra a
+Meta. Falla en las dos direcciones.
+
+**La conclusión medida: lo que distingue un botón de ARLES de uno de Meta no
+está en la prosa**, así que cualquier patrón de texto nace con falsos o con
+huecos, y una red con un 37 % de falsos se aprende a ignorar. Se dice en vez de
+darse por cubierto, que es lo que este proyecto hace cuando el umbral no sale.
+
+Lo que queda en su lugar es una convención con su motivo escrito: **los rótulos
+de una guía se copian de `es.ts` y no de otra guía**, que es exactamente lo que
+propagó los dos de arriba.
+
+### DOC-25 · «reportlab no se puede instalar aquí» era un diagnóstico mío, y era falso
+
+La auditoría I declaró el 11/11 que el PDF de la consulta jurídica se quedaba
+atrás porque este contenedor no podía instalar `reportlab`. **Se podía.** Lo que
+estaba roto era **`pillow`**, que reportlab importa al arrancar, y su error
+—`cannot import name '_imaging' from 'PIL'`— **no nombra a reportlab por
+ninguna parte**.
+
+Un `pip install --force-reinstall pillow` lo arregló en un minuto, y con eso se
+regeneró el PDF jurídico, que llevaba un día repartiendo una versión sin la
+C-19.
+
+**Es DOC-14 aplicado a un diagnóstico propio:** un motivo equivocado se cree
+igual que uno correcto, y éste costó un entregable desfasado por no leer el
+error entero. La salida está en la guía del equipo, con el síntoma literal.
+
+---
+
 ## R-31 · la baja por WhatsApp se aplica sola, 12/11/2026
 
 Petición de Dirección: *«también estuvimos trabajando para que la baja en

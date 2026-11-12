@@ -361,6 +361,16 @@ cargo install cargo-deny --locked             # el §6 lo exige antes de añadir
 > falta**. Ahora lo dice, y una comprobación falla si una herramienta importa
 > algo que ese archivo no nombra.
 
+> **Si al generar un PDF ves `cannot import name '_imaging' from 'PIL'`**, lo
+> que está roto no es reportlab: es **pillow**, que reportlab importa al
+> arrancar. Se arregla con
+> `python3 -m pip install --force-reinstall pillow`.
+>
+> Queda escrito porque el error **no nombra a reportlab por ninguna parte** y
+> es fácil concluir lo que yo concluí el 11/11: que reportlab no se podía
+> instalar en este contenedor. Se podía, y esa conclusión dejó un entregable
+> desfasado un día entero.
+
 ### Dos cosas que vas a ver y no son defectos
 
 **`npm install` avisa de vulnerabilidades.** Diecisiete el 11/11/2026 —quince
