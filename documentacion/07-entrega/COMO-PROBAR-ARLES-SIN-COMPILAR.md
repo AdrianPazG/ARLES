@@ -293,7 +293,7 @@ Al 08/10/2026, con las diez fases del validador en **324/324**:
 - Configurar la empresa y **cargar contactos** desde CSV o XLSX, con los choques
   revisados antes de importar; bajas y derechos ARCO.
 - Dar de alta una cuenta de correo y **mandarse un correo real**.
-- Escribir plantillas y firmas, crear una campaña con el asistente de nueve pasos
+- Escribir plantillas y firmas, crear una campaña con el asistente de ocho pasos
   y **activarla**.
 - Verla enviar en Actividad, con sus cifras y **por qué no sale nada**, y
   **pararla** en cualquier momento.

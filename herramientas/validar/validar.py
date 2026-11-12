@@ -3746,6 +3746,237 @@ def toda_clave_de_pantalla_del_nucleo_tiene_texto():
     )
 
 
+def nadie_escribe_a_mano_cuantos_pasos_tiene_el_asistente():
+    """**Una cifra escrita a mano en ocho documentos es verdad el día que se
+    escribe.**
+
+    El 05/11/2026, R-28 fundió el envío de prueba en el paso del preflight y el
+    asistente pasó de **nueve pasos a ocho**. Se arreglaron los textos que la
+    pantalla enseña —ésos los vigila una prueba— y la cifra se quedó escrita a
+    mano en otros sitios. Medido el 11/11/2026, **seis días después**: siete
+    seguían diciendo nueve, y entre ellos los tres peores que podía haber.
+
+    | Dónde | Qué es |
+    |---|---|
+    | `README.md` | **La portada del repositorio**, lo primero que ve cualquiera |
+    | `CLAUDE.md` §9 | El archivo que se lee al abrir el proyecto |
+    | `MAPA-FUNCIONAL.md`, dos veces | El mapa que se consulta **para cambiar el diseño** |
+    | `COMO-PROBAR-ARLES-SIN-COMPILAR.md` | Un documento de **entrega** |
+    | `ROADMAP.md` | — |
+    | `PantallaPlantillas.vue` | Su cabecera, que explica por qué existe |
+
+    Y lo encontró **intentar entregar el instalador**, no una auditoría: al leer
+    las notas que acompañan la descarga antes de publicarla, decían «el
+    asistente de nueve pasos» y además **negaban dos funciones construidas** —
+    que ARLES no atiende un «BAJA» automáticamente en ningún canal (lo hace por
+    correo desde R-30) y que la audiencia de una campaña no se puede elegir (se
+    elige desde R-27)—. Es el §9 al revés, en el único documento que Dirección y
+    su supervisor leen seguro.
+
+    ── POR QUÉ ESTA COMPROBACIÓN Y NO LA OBVIA ──
+
+    La obvia sería «ningún documento dice que la baja se apunta a mano». **Se
+    midió antes de escribirla y no vale:** el patrón da nueve apariciones y
+    **ocho son legítimas**, porque hablan de WhatsApp —donde sigue siendo verdad
+    y seguirá hasta el relay ciego— o describen el origen de una baja frente a
+    la que llega sola. Una comprobación que nace con ocho hallazgos falsos de
+    nueve no es una red: es ruido que se aprende a ignorar.
+
+    Lo que sí se puede medir es **una cifra contra su fuente**. `PASOS` vive en
+    `AsistenteDeCampana.vue` y es lo que la pantalla cuenta, así que cualquier
+    documento que diga otra cosa se contradice con el producto.
+
+    ── LAS DOS EXCEPCIONES, Y POR QUÉ SON ESTRUCTURALES Y NO UNA LISTA ──
+
+    1. **Una línea que nombra las dos cifras está narrando el cambio** («pasa de
+       nueve pasos a ocho»). Si dijera sólo la vieja sería un error; diciendo
+       las dos, es historia.
+    2. **Los documentos históricos por diseño** —los de `09-fases/`, el
+       `CHANGELOG.md` y la `BITACORA-DE-PRUEBAS.md`— cuentan lo que pasó y
+       llevan su fecha: la bitácora dice «Paso 5 de 9» porque ese defecto se
+       anotó cuando eran nueve, y reescribirlo falsearía el registro. Es el
+       mismo criterio por el que los informes `-PARA-DIRECCION` quedan fuera de
+       la comprobación de los bloqueos: **un entregable fechado no se reescribe.**
+
+    Las dos se midieron: sin ellas la comprobación nace con **nueve hallazgos
+    falsos**.
+
+    Verificada el 11/11/2026 con cinco rupturas y un contraejemplo: «nueve
+    pasos» en el README, «de 9» en el mapa funcional, «de 9» en las notas del
+    instalador, un «paso 4 de 9» —que es la forma en que estaba escrito en el
+    ROADMAP—, y **quitando un paso de `PASOS` sin tocar ningún documento**, que
+    es la dirección contraria y la que de verdad importa: es lo que pasará la
+    próxima vez que el asistente cambie. El contraejemplo que tiene que
+    quedarse en verde es el «paso 3 de seis» del alta de WhatsApp.
+
+    ── Y DOS DEFECTOS PROPIOS, LOS DOS DE LA TERCERA RUPTURA ──
+
+    Salió **en verde**, y resultó que por **dos** razones a la vez — que es la
+    lección del 28/10 doblada: *una ruptura en verde significa dos cosas, y
+    pueden ser las dos.*
+
+    1. **Medía línea a línea**, y en este proyecto el YAML y el Markdown se
+       escriben a 80 columnas: la frase iba partida —«crear una campaña con el
+       asistente» / «de ocho pasos y activarla»—, así que ni «asistente» ni la
+       cifra caían en la misma línea. Al medir sobre el texto aplanado apareció
+       **un hallazgo más** que no se había visto a mano, en el README.
+    2. **Y el archivo del flujo no se estaba leyendo**, porque el filtro de
+       carpetas excluía por subcadena y `".git" in ".github/workflows"` es
+       verdadero. La comprobación pasaba en verde sin mirar **el único documento
+       que Dirección y su supervisor leen seguro**.
+
+    El segundo no lo encontró la ruptura: lo encontró imprimir el texto aplanado
+    del archivo y ver que el patrón **sí** casaba. Deducir habría dado la
+    respuesta equivocada las dos veces.
+    """
+    # ── 1 · La fuente: lo que el código cuenta ──
+    pantalla = leer("app", "src", "app", "pantallas", "AsistenteDeCampana.vue")
+    if pantalla is None:
+        check(3, "Nadie escribe a mano cuántos pasos tiene el asistente", False,
+              nadie_escribe_a_mano_cuantos_pasos_tiene_el_asistente.__doc__,
+              "no se pudo leer AsistenteDeCampana.vue")
+        return
+
+    bloque = re.search(r"const PASOS = \[(.*?)\] as const", pantalla, re.S)
+    if not bloque:
+        check(3, "Nadie escribe a mano cuántos pasos tiene el asistente", False,
+              nadie_escribe_a_mano_cuantos_pasos_tiene_el_asistente.__doc__,
+              "no se encuentra `const PASOS` en AsistenteDeCampana.vue")
+        return
+
+    cuantos = len(re.findall(r"'[a-z]+'", bloque.group(1)))
+    EN_LETRA = {
+        4: "cuatro", 5: "cinco", 6: "seis", 7: "siete",
+        8: "ocho", 9: "nueve", 10: "diez",
+    }
+    bueno_letra = EN_LETRA.get(cuantos, str(cuantos))
+
+    # ── 2 · Quién puede contradecirlo ──
+    #
+    # Los históricos por diseño quedan fuera: cuentan lo que pasó, con su fecha.
+    # Reescribir «Paso 5 de 9» en la bitácora falsearía el registro de un
+    # defecto que se anotó cuando eran nueve.
+    HISTORICOS = (
+        os.path.join("documentacion", "09-fases"),
+        "CHANGELOG.md",
+        "BITACORA-DE-PRUEBAS.md",
+        os.path.join("herramientas", "validar"),  # esta misma explicación
+    )
+
+    # Dos formas de escribir la cifra total, y la segunda **sólo cuenta si la
+    # línea habla del asistente de campaña**.
+    #
+    # ── POR QUÉ ESA CONDICIÓN, MEDIDA ──
+    #
+    # «Paso M de N» no identifica ningún flujo: en ARLES hay tres con pasos, y
+    # cada uno tiene los suyos —la importación **cuatro**, el alta de WhatsApp
+    # **seis**, la campaña ocho—. Sin la condición, la primera corrida sacó dos
+    # hallazgos falsos nombrando los otros dos flujos, y el arreglo fácil
+    # —subir el umbral o quitar el patrón— habría dejado sin vigilar justo los
+    # dos hallazgos reales que estaban escritos así: «el asistente exige una
+    # para pasar del paso 4 de 9», en el ROADMAP y en `PantallaPlantillas.vue`.
+    #
+    # Es la lección de la 8.7: **comparar un número entre contextos distintos
+    # es comparar dos cosas**, y lo que hay que preguntar es por la estructura
+    # —de qué flujo habla la línea— y no ajustar el instrumento hasta que calle.
+    cifras = "|".join(EN_LETRA.values()) + r"|\d+"
+    patrones = (
+        (re.compile(rf"asistente\s+(?:de\s+campa[ñn]a\s+)?de\s+({cifras})\s+pasos", re.I), False),
+        (re.compile(rf"paso\s+\d+\s+de\s+({cifras})\b", re.I), True),
+    )
+    del_asistente = re.compile(r"asistente|campa[ñn]a", re.I)
+    letra_a_numero = {v: k for k, v in EN_LETRA.items()}
+
+    problemas = []
+    # ── SE EXCLUYE POR COMPONENTE DE RUTA, NO POR SUBCADENA ──
+    #
+    # La primera versión escribía `if any(p in carpeta for p in (..., ".git"))`,
+    # y `".git" in ".github/workflows"` es **verdadero**: así que el archivo del
+    # flujo de entrega —**el único documento que Dirección y su supervisor leen
+    # seguro**, porque va en la página de la descarga— quedaba fuera del
+    # recorrido. La comprobación pasaba en verde sin mirar lo que existía para
+    # vigilar.
+    #
+    # Lo encontró su tercera ruptura, y no a la primera: salió en verde, se
+    # buscó la causa en la frase partida —que era un defecto de verdad y dio un
+    # hallazgo más—, y sólo al mirar el aplanado **del archivo** y ver que el
+    # patrón sí casaba quedó claro que el archivo no se estaba leyendo. Es la
+    # lección del 28/10 aplicada dos veces seguidas: una ruptura en verde
+    # significa dos cosas, y pueden ser las dos a la vez.
+    SIN_MIRAR = {"node_modules", "target", ".git", "dist", "__pycache__"}
+    for carpeta, _, ficheros in os.walk(RAIZ):
+        partes = set(os.path.relpath(carpeta, RAIZ).split(os.sep))
+        if partes & SIN_MIRAR:
+            continue
+        for f in sorted(ficheros):
+            if not f.endswith((".md", ".yml", ".ts", ".vue", ".mjs")):
+                continue
+            ruta = os.path.join(carpeta, f)
+            relativa = os.path.relpath(ruta, RAIZ)
+            if any(h in relativa for h in HISTORICOS):
+                continue
+            texto = leer(ruta)
+            if texto is None:
+                continue
+            # ── SE MIDE SOBRE EL TEXTO APLANADO, NO LÍNEA A LÍNEA ──
+            #
+            # La tercera ruptura de esta comprobación salió **en verde**: en las
+            # notas del instalador la frase va partida —«crear una campaña con
+            # el asistente» / «de ocho pasos y activarla»— porque el YAML y el
+            # Markdown de este proyecto se escriben a 80 columnas. Midiendo por
+            # líneas, «asistente» y «de N pasos» caen en líneas distintas y el
+            # patrón no ve ninguna de las dos cosas.
+            #
+            # Es el alcance corto otra vez, y en el peor sitio posible: el
+            # documento que esta comprobación existe para vigilar.
+            plano = re.sub(r"\s+", " ", texto)
+            # Para traducir una posición del aplanado a su línea original.
+            saltos = [m.start() for m in re.finditer(r"\n", texto)]
+            acumulado, mapa = 0, []
+            for trozo in texto.split("\n"):
+                mapa.append(acumulado)
+                acumulado += len(re.sub(r"\s+", " ", trozo + " "))
+
+            def linea_de(pos):
+                n = 1
+                for i, inicio in enumerate(mapa, start=1):
+                    if inicio <= pos:
+                        n = i
+                    else:
+                        break
+                return n
+
+            for patron, hay_que_nombrarlo in patrones:
+                for m in patron.finditer(plano):
+                    dicho = m.group(1)
+                    valor = letra_a_numero.get(dicho.lower())
+                    if valor is None:
+                        valor = int(dicho) if dicho.isdigit() else None
+                    if valor is None or valor == cuantos:
+                        continue
+                    # La frase, no la línea: ±120 caracteres alrededor.
+                    frase = plano[max(0, m.start() - 120) : m.end() + 40]
+                    # El ordinal sólo cuenta si la frase dice de qué flujo
+                    # habla: hay tres con pasos y cada uno tiene los suyos.
+                    if hay_que_nombrarlo and not del_asistente.search(frase):
+                        continue
+                    # Una frase que nombra las DOS cifras narra el cambio.
+                    if bueno_letra in frase.lower() or str(cuantos) in frase:
+                        continue
+                    n = linea_de(m.start())
+                    problemas.append(
+                        f"{relativa}:{n} dice «{dicho}»: …{m.group(0).strip()[:60]}…"
+                    )
+
+    check(
+        3,
+        f"Nadie escribe a mano cuántos pasos tiene el asistente ({cuantos})",
+        not problemas,
+        nadie_escribe_a_mano_cuantos_pasos_tiene_el_asistente.__doc__,
+        detalle="\n      ".join(problemas[:8]),
+    )
+
+
 def toda_migracion_esta_en_el_changelog():
     """**Una migración que el CHANGELOG no nombra es un respaldo que nadie sabe que murió.**
 
@@ -5713,6 +5944,7 @@ def fase_3(rapido):
     ningun_error_se_diagnostica_con_la_variante_de_otro()
     ningun_documento_niega_un_canal_que_el_motor_recorre()
     ningun_texto_promete_una_copia_que_nadie_hace()
+    nadie_escribe_a_mano_cuantos_pasos_tiene_el_asistente()
     toda_migracion_esta_en_el_changelog()
     nombres_de_las_opciones()
     iconos_de_seccion()
@@ -9686,7 +9918,7 @@ def el_entorno_de_desarrollo_es_el_mismo_para_todos():
 
     Dirección pidió el 11/11/2026 que «todo el equipo de desarrollo pueda
     descargar el repositorio, se descarguen las librerías y todo lo necesario
-    para poder correr el `.exe`». Auditarlo encontró **nueve cosas**, y seis eran
+    para poder correr el `.exe`». Auditarlo encontró **diez cosas**, y seis eran
     versiones que el repositorio no fijaba en ninguna parte: cada quien
     compilaba con el Rust y el Node que tuviera.
 

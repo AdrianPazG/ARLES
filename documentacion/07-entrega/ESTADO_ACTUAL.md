@@ -45,7 +45,7 @@
 | F3W · Canales | 🟡 55 % | V3 y V4 aplicadas: `contact_channel`, consentimiento, etapas de campaña |
 | F4 · Motor de ejecución | ✅ cerrada | Máquina de estados, ritmo, ventana con zona IANA, reintentos, disyuntor, cola, presupuesto, pausa/detención, preflight |
 | **F5 · Proveedores de envío** | **🟡 70 %** | **La parte de correo cerrada (5.1 a 5.6). Falta WhatsApp. Ver §3** |
-| **F6 · Campañas y mensajes** | **✅ cerrada** | **Plantillas, saneado, versiones, campañas, preflight y el asistente de nueve pasos (6.1 a 6.7), con su auditoría. Ver §3 bis** |
+| **F6 · Campañas y mensajes** | **✅ cerrada** | **Plantillas, saneado, versiones, campañas, preflight y el asistente de campaña (6.1 a 6.7), con su auditoría. Ver §3 bis** |
 | F7 · Actividad | 🟡 92 % | El freno, el registro, las cifras, la pantalla de Actividad, el registro con filtros, el resumen exportable y la auditoría de cierre (7.0 a 7.4, 7.6 y 7.7). Falta sólo la 7.5 · SPF/DKIM/DMARC, movida al final por Dirección. Ver `09-fases/FASE-07-ACTIVIDAD.md` |
 | **F8 · Respaldos y endurecimiento** | **✅ cerrada** | **Respaldo cifrado con dos alcances, restauración que reemplaza y une las bajas, archivado del historial verificado antes de borrar, la pantalla de recuperación del llavero perdido, el banco de pruebas con las trece cifras, la migración V11 y las cinco auditorías (8.0 a 8.7, más la 8.3 bis). Ver `09-fases/FASE-08-RESPALDOS.md`** |
 | F9 · Release v1.2.0 | ⬜ sin empezar | Instaladores firmados, updater, despliegue interno |
@@ -125,7 +125,7 @@ Resultó ser bastante más de lo que este documento decía. La frase era «const
 
 ### Lo siguiente
 
-**Fase 6 · Campañas y mensajes.** Plantillas con versionado, sustitución de variables no Turing-completa, sanitizado con `ammonia` en Rust, firmas, el asistente de nueve pasos, el simulador y el preflight.
+**Fase 6 · Campañas y mensajes.** Plantillas con versionado, sustitución de variables no Turing-completa, sanitizado con `ammonia` en Rust, firmas, el asistente de campaña, el simulador y el preflight.
 
 **Y una decisión pendiente de Dirección:** el adaptador de **WhatsApp Cloud API** es de la Fase 5 y no está empezado. La Fase 6 ofrece dos etapas en el asistente, y la segunda no podrá enviar mientras eso falte. Planteado en `09-fases/FASE-05-PARA-DIRECCION.md`.
 
@@ -1207,8 +1207,8 @@ Las nueve auditorías anteriores miden **el producto**. Ésta mide si **un clon
 del repositorio se convierte en la aplicación**, y eso no se puede auditar
 leyendo: se hizo clonando en una carpeta vacía y siguiendo la guía desde cero.
 
-**Nueve hallazgos. Seis arreglados, uno informativo, uno declarado y uno que es
-una decisión de Dirección.** El detalle está en
+**Diez hallazgos. Siete arreglados, uno informativo, uno declarado y uno que
+es una decisión de Dirección.** El detalle está en
 [`REGISTRO-DE-REQUISITOS.md`](../10-requisitos/REGISTRO-DE-REQUISITOS.md),
 sección «Auditoría I».
 
@@ -1236,6 +1236,29 @@ dependencia del producto tiene aviso de seguridad**: `npm audit --omit=dev` da
 cero. Las 17 que avisa `npm audit` están todas en las herramientas de
 construcción y de prueba, que no entran en el ejecutable — y eso está ahora
 escrito en la guía, porque sin decirlo el equipo nuevo las persigue.
+
+### I-10 · las notas del instalador negaban la función de la semana
+
+**Lo encontró intentar entregar**, no una auditoría: antes de publicar la
+descarga, leer sus notas. Decían que ARLES no atiende un «BAJA»
+automáticamente **en ningún canal** —por correo lo hace solo cada quince
+minutos desde R-30—, que la audiencia de una campaña no se puede elegir —se
+elige desde R-27— y que el asistente tiene **nueve** pasos, con ocho desde
+R-28.
+
+Las dos primeras son el **§9 al revés**: prometer de menos. Y lo grave no es la
+cifra, es que la función estrella de la semana estaba declarada como inexistente
+**en el único documento que el lector de la descarga tiene delante** — alguien
+de fuera del equipo, en este caso.
+
+**La cifra de los pasos estaba además escrita a mano en ocho sitios más**, seis
+días después de R-28: el README, el `CLAUDE.md`, el mapa funcional dos veces, un
+documento de entrega, el ROADMAP, una cabecera de componente y cuatro
+comentarios del propio asistente.
+
+Lo vigila `nadie_escribe_a_mano_cuantos_pasos_tiene_el_asistente` en `--fase 3`,
+que lee la cifra del componente. El detalle de sus dos excepciones y de los dos
+defectos con los que nació está en el registro de requisitos.
 
 ### El que no se arregla programando: `main` no da la aplicación
 

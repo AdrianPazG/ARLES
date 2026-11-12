@@ -703,7 +703,8 @@ derivada no se puede desalinear de aquello de lo que deriva.
 
 El texto «Vuelve al paso 7» estaba desde D-04, **pintado y sin enlazar**. No lo
 cazó nada porque la sonda abre cada ruta y mide **el estado inicial**: en el
-asistente, el paso 1 de 9, con la ruta contada como pantalla medida. Es el
+asistente, el paso 1 de 9 —eran nueve entonces; R-28 los dejó en ocho el
+05/11—, con la ruta contada como pantalla medida. Es el
 defecto del 28/10 un nivel más abajo — allí faltaban rutas, aquí faltan
 estados dentro de una ruta.
 
@@ -752,8 +753,8 @@ un clon del repositorio se convierte en la aplicación.** Y no se puede auditar
 leyendo — se hizo clonando de verdad en una carpeta vacía y siguiendo la guía
 desde cero, como alguien que llega hoy.
 
-**Nueve hallazgos. Seis arreglados, uno informativo, uno declarado y uno que es
-una decisión de Dirección.**
+**Diez hallazgos. Siete arreglados, uno informativo, uno declarado y uno que
+es una decisión de Dirección.**
 
 | Id | Qué | Estado |
 |---|---|---|
@@ -766,6 +767,65 @@ una decisión de Dirección.**
 | **I-7** | `cargo deny` lo exige el §6 antes de añadir dependencias y **no estaba documentado cómo instalarlo** | ✅ |
 | **I-8** | `npm install` avisa de **17 vulnerabilidades**, y ninguna viaja en el producto. Sin decirlo, el equipo nuevo las persigue o las «arregla» | ✅ informativo |
 | **I-9** | **El `.docx` entregable no se reproduce byte a byte** desde el repositorio: regenerarlo con la versión que ahora está fijada da 13 297 bytes donde el de septiembre tiene 12 286 | ⬜ declarado, sin impacto medido |
+| **I-10** | **Las notas que acompañan al instalador negaban dos funciones construidas** y decían «el asistente de nueve pasos», con ocho | ✅ |
+
+### I-10 · las notas del instalador, que es el único documento que el cliente lee seguro
+
+**Lo encontró intentar entregar**, no una auditoría: antes de publicar la
+descarga para el supervisor de Dirección, leer sus notas. Decían tres cosas
+falsas, y las dos primeras son el **§9 al revés** — prometer de menos:
+
+| Qué decía | Lo que hay |
+|---|---|
+| «**Atender un BAJA automáticamente**, en ningún canal. Se apunta a mano en Contactos › Bajas» | Por correo **se aplica solo cada 15 minutos** desde R-30 (11/11). En WhatsApp sigue siendo verdad |
+| «**Filtrar la audiencia de una campaña**… lo que una campaña se lleva sigue siendo la lista entera» | Desde R-27 (05/11) se eligen contactos marcándolos. Lo que no hay es un buscador **dentro** del paso 2 |
+| «el asistente de **nueve** pasos» | **Ocho** desde R-28 (05/11) |
+
+Lo grave no es la cifra: es que **la función estrella de la semana estaba
+declarada como inexistente** en el único documento que el lector de la descarga
+tiene delante. Una función construida, probada y pagada que el producto dice
+que no existe es el H-18 otra vez, y aquí con el agravante de que lo iba a leer
+alguien de fuera del equipo.
+
+**Y la cifra de los pasos estaba escrita a mano en ocho sitios más.** R-28
+cambió el código el 05/11 y arregló los textos que la pantalla enseña —ésos los
+vigila una prueba—; seis días después seguían diciendo nueve el **README** (la
+portada del repositorio), el **`CLAUDE.md`**, el **`MAPA-FUNCIONAL.md`** dos
+veces, un documento de entrega, el ROADMAP, una cabecera de componente y cuatro
+comentarios del propio asistente.
+
+Lo vigila `nadie_escribe_a_mano_cuantos_pasos_tiene_el_asistente` en `--fase 3`,
+que lee la cifra de `PASOS` en el componente y no de una lista. Las dos
+excepciones son **estructurales y medidas**: una frase que nombra las dos cifras
+narra el cambio, y los documentos históricos por diseño —las fases, el CHANGELOG
+y la bitácora— llevan su fecha y no se reescriben, que es el mismo criterio que
+deja fuera a los informes `-PARA-DIRECCION`. Sin ellas nacía con nueve hallazgos
+falsos.
+
+> **Y la comprobación nació con dos defectos propios, los dos en la misma
+> ruptura.** La tercera —cambiar la cifra en las notas del instalador— salió
+> **en verde**, y resultó que por dos razones a la vez:
+>
+> 1. **Medía línea a línea**, y aquí el YAML y el Markdown van a 80 columnas:
+>    la frase iba partida —«con el asistente» / «de ocho pasos»—, así que ni la
+>    palabra ni la cifra caían en la misma línea. Al medir sobre el texto
+>    aplanado apareció **un hallazgo más** que no se había visto a mano.
+> 2. **Y el archivo del flujo no se leía**, porque el filtro de carpetas
+>    excluía por subcadena y `".git" in ".github/workflows"` es verdadero. La
+>    comprobación pasaba en verde **sin mirar lo que existía para vigilar**.
+>
+> El segundo no lo encontró la ruptura: lo encontró imprimir el aplanado del
+> archivo y ver que el patrón **sí** casaba. Es la lección del 28/10 doblada —
+> *una ruptura en verde significa dos cosas, y pueden ser las dos a la vez*— y
+> deducir habría dado la respuesta equivocada las dos veces.
+
+> **El primer intento de poka-yoke era otro y se descartó midiéndolo.** La idea
+> obvia era «ningún documento dice que la baja se apunta a mano»: el patrón da
+> **nueve apariciones y ocho son legítimas**, porque hablan de WhatsApp —donde
+> seguirá siendo verdad hasta el relay ciego— o describen el origen de una baja
+> frente a la que llega sola. Una comprobación que nace con ocho hallazgos
+> falsos de nueve no es una red: es ruido que se aprende a ignorar. Lo
+> verificable era la **cifra contra su fuente**, y es lo que se escribió.
 
 ### Lo que salió bien, y es la mitad del valor
 

@@ -1012,7 +1012,7 @@ function rotulo(clave: string): string {
       <h1 class="asistente__titulo">
         {{ t('asistente.titulo') }}
       </h1>
-      <!-- §94: cifras. «Paso 4 de 9», no «casi listo». -->
+      <!-- §94: cifras. «Paso 4 de 8», no «casi listo». -->
       <p class="asistente__progreso">
         {{ t('asistente.progreso', { paso, total: PASOS.length }) }} ·
         {{ t(`asistente.paso.${PASOS[paso - 1]}.titulo`) }}
@@ -2002,7 +2002,7 @@ function rotulo(clave: string): string {
       class="asistente__pies"
     >
       <!-- `title` y no un renglón aparte: en el paso 1 «Atrás» está apagado
-           porque no hay paso anterior, y eso ya lo dice «Paso 1 de 9». Lo que
+           porque no hay paso anterior, y eso ya lo dice «Paso 1 de 8». Lo que
            faltaba es que lo supiera quien no ve la pantalla. -->
       <ABoton
         variante="sutil"

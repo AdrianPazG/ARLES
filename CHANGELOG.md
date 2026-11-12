@@ -81,7 +81,7 @@ exactamente por dónde pasan.
 **11/11/2026.** Dirección lo pidió antes de generar el instalador: que todo el
 equipo pueda descargar el repositorio, instalar lo necesario y generar el `.exe`
 desde su Visual Studio Code. Auditarlo **clonando de verdad en una carpeta
-vacía** —no leyendo— encontró **nueve cosas**, siete de ellas cosas que no
+vacía** —no leyendo— encontró **diez cosas**, siete de ellas cosas que no
 existían o que no se ven desde dentro.
 
 **Añadido al repositorio:** `rust-toolchain.toml` (la versión exacta de Rust,
@@ -99,6 +99,7 @@ con `rustfmt` y `clippy`), `.nvmrc` y `engines` con `engine-strict`,
 | **I-6** | Qué instalar de Python | Un tropiezo propio: no se pudo regenerar el PDF de la consulta jurídica y nada decía qué faltaba |
 | **I-7** | Cómo instalar `cargo-deny`, que el §6 exige | — |
 | **I-8** | Que las 17 vulnerabilidades de `npm audit` **no viajan en el producto** | Sin decirlo, el equipo nuevo las persigue. `npm audit --omit=dev` da cero |
+| **I-10** | Que **las notas que acompañan al instalador** negaban dos funciones construidas —la baja automática por correo y elegir a quién va una campaña— y decían «el asistente de nueve pasos», con ocho | Es el único documento que el lector de la descarga tiene delante, y declaraba inexistente la función de la semana |
 
 **Medido en un clon limpio:** 654 archivos, **6 min 37 s** de compilación desde
 cero, y un ejecutable de 22 083 648 bytes con siete apariciones de `index.html`

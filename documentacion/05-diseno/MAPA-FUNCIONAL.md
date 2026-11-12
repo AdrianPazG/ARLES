@@ -43,7 +43,7 @@ invoca es superficie de ataque que nadie vigila, así que se quita.
 │
 ├─ /campanas                     CAMPAÑAS · lista, y el freno
 │  ├─ /campanas/plantillas       Plantillas y firmas
-│  └─ /campanas/nueva            Asistente de 9 pasos
+│  └─ /campanas/nueva            Asistente de 8 pasos
 │
 ├─ /contactos                    CONTACTOS · tabla, alta y edición
 │  ├─ /contactos/importar        Importar CSV o XLSX
@@ -89,7 +89,7 @@ Remitentes       Contactos          Plantillas
    │              dar de alta)           │
    └────────┬──────────┴─────────────────┘
             ▼
-      Nueva campaña  ── el asistente de 9 pasos exige los tres
+      Nueva campaña  ── el asistente de 8 pasos exige los tres
             │
             ▼
         Activarla  ── y entonces aparece en Actividad

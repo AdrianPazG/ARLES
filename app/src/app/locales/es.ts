@@ -2473,7 +2473,7 @@ export const es = {
    * del mensaje; lo que pase después —la bandeja, el filtro de no deseados— no
    * llega hasta aquí, y decirlo sería inventarlo.
    *
-   * **«Casi»**, «prácticamente», «ya mismo». §94 pide cifras: «paso 4 de 9», «a
+   * **«Casi»**, «prácticamente», «ya mismo». §94 pide cifras: «paso 4 de 8», «a
    * 34 de 1 300 les falta el nombre», «60 quedaron fuera por baja».
    */
   campanas: {
@@ -2614,7 +2614,7 @@ export const es = {
           'campaña puede ir a toda la empresa.',
         // §95 · se dice qué se pierde ANTES de pulsar, no después. Salir del
         // asistente lo deja a medias, y aquí lo único tecleado es el nombre
-        // porque éste es el paso 2 de 9 — eso es lo que hay que decir, en vez
+        // porque éste es el paso 2 de 8 — eso es lo que hay que decir, en vez
         // de esconder la salida o dejar que sorprenda.
         irAImportar: 'Ir a importar contactos (perderás el nombre que escribiste)',
         // El aviso de la opción que no filtra nada, para que elegirla sea una

@@ -364,7 +364,7 @@ preflight de ocho puntos **enchufado de verdad** a la base y a la sonda de la
 cuenta — incluido el envío de prueba de la 5.5, que llevaba tres entregas
 anotándose sin que nadie lo preguntara.
 
-…y el asistente de nueve pasos, con el aviso de más de 50 diarios que el núcleo
+…y el asistente de ocho pasos, con el aviso de más de 50 diarios que el núcleo
 exige y registra en la bitácora. **Se puede crear una campaña de principio a fin
 y activarla.**
 
@@ -2545,7 +2545,7 @@ motor da vueltas cada cinco segundos desde la 5.4b. Lo que hacía falta era
 **Y el 11/11/2026, la auditoría I · qué obtiene quien clona el repositorio.** Lo
 pidió Dirección antes de generar el instalador —que todo el equipo pueda
 descargar el repositorio, instalar lo necesario y generar el `.exe` desde su VS
-Code—. **Nueve hallazgos: seis arreglados, uno informativo, uno declarado y uno que
+Code—. **Diez hallazgos: siete arreglados, uno informativo, uno declarado y uno que
 es una decisión suya.** Está contado en
 [`ESTADO_ACTUAL.md`](documentacion/07-entrega/ESTADO_ACTUAL.md) §19 y en el
 registro de requisitos.
@@ -2581,6 +2581,27 @@ registro de requisitos.
 > sirviera, sino porque el `sed` buscaba un `import` que ese archivo no tiene y
 > no cambió una línea: la lección del 28/10, y lo fácil habría sido quitarla por
 > inútil.
+
+> **Y el décimo lo encontró intentar entregar, no auditar: las notas que
+> acompañan al instalador negaban dos funciones construidas.** Decían que ARLES
+> no atiende un «BAJA» automáticamente **en ningún canal** —lo hace solo por
+> correo desde R-30— y que la audiencia de una campaña no se puede elegir —se
+> elige desde R-27—, además de «el asistente de nueve pasos» con **ocho** desde
+> R-28. Es el **§9 al revés** en el único documento que el lector de la descarga
+> tiene delante.
+>
+> Y la cifra de los pasos estaba escrita a mano en **ocho sitios más** seis días
+> después de R-28, entre ellos el README, este archivo y el mapa de pantallas.
+> Lo vigila `nadie_escribe_a_mano_cuantos_pasos_tiene_el_asistente` en
+> `--fase 3`, que lee la cifra de `PASOS` en el componente.
+>
+> **Nació con dos defectos propios, los dos en la misma ruptura, que salió en
+> verde por las dos razones a la vez:** medía línea a línea —y aquí las frases
+> van partidas a 80 columnas, así que la palabra y la cifra caen en líneas
+> distintas— y **no leía el archivo del flujo**, porque el filtro excluía por
+> subcadena y `".git" in ".github/workflows"` es verdadero. Pasaba en verde sin
+> mirar lo que existía para vigilar. El segundo no lo encontró la ruptura: lo
+> encontró imprimir el aplanado del archivo y ver que el patrón sí casaba.
 
 > **El octavo no se arregla programando: `main` no da la aplicación.** Está en
 > el commit del **31/08/2026** con 111 archivos —sólo material de referencia,

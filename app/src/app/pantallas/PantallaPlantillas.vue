@@ -8,7 +8,7 @@ import { numeroLegible } from '../formato'
  *
  * `guardar_plantilla` y `guardar_firma` existen desde la 6.3, probados. Lo que
  * no había era **nadie que los llamara**: desde la aplicación no se podía crear
- * una plantilla, y el asistente de campaña exige una para pasar del paso 4 de 9.
+ * una plantilla, y el asistente de campaña exige una para pasar del paso 4 de 8.
  *
  * Así que se podía crear una campaña «de principio a fin» solo si alguien había
  * escrito plantillas en la base por fuera. Con la aplicación sola, no.

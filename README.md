@@ -145,7 +145,7 @@ python3 herramientas/vista-previa/generar.py   # deja vista-previa/ARLES-vista-p
 
 **Se recorren las dieciocho pantallas** con contactos, campañas, plantillas,
 remitentes y un número de WhatsApp ya dados de alta. Se puede escribir una
-plantilla, navegar el asistente de nueve pasos, confirmar Coexistencia y ver las
+plantilla, navegar el asistente de ocho pasos, confirmar Coexistencia y ver las
 dos cifras de permiso antes de activar una campaña — y desde la 7.7, ver
 Actividad con las cifras de cada campaña, el registro con sus filtros, y pulsar
 el freno.
@@ -298,7 +298,7 @@ llevaba meses sin ser cierto):
 - Dar de alta una cuenta de correo **con dos campos** —dirección y contraseña— y
   **mandarse un correo de prueba de verdad**, que desde el 22/10/2026 llega a la
   **bandeja principal** de Outlook, Gmail y un corporativo.
-- Escribir plantillas y firmas, crear una campaña con el asistente de nueve
+- Escribir plantillas y firmas, crear una campaña con el asistente de ocho
   pasos —**eligiendo su firma y su máximo de correos al día**— y **activarla**.
 - Verla enviar en Actividad, con sus cifras y **por qué no sale nada**, y
   **pararla** en cualquier momento.
