@@ -55,6 +55,11 @@ on:
         description: 'Para qué es esta versión (sale en las notas del release)'
         required: true
         default: 'Revisión de la checklist visual'
+      con_mont:
+        description: 'Incluir la tipografía Mont. SÓLO para revisión interna: P-01 impide distribuir un instalador con ella dentro'
+        type: boolean
+        required: false
+        default: false
 
 # Sólo para crear el release. Nada más.
 permissions:
@@ -91,8 +96,31 @@ jobs:
       #
       # Se aplica sobre la copia del runner, que se tira al terminar. El
       # repositorio no se toca.
+      #
+      # ── POR QUÉ SE PUEDE SALTAR, Y QUÉ SIGNIFICA SALTARLO ──
+      #
+      # Dirección pidió el 11/11/2026 un instalador «lo más parecido a lo que
+      # se quiere lanzar» para que su supervisor lo revise, y la tipografía es
+      # la mitad de lo que se revisa a ojo.
+      #
+      # **Saltarlo no resuelve P-01: lo esquiva para un caso.** Lo que P-01
+      # impide es DISTRIBUIR un instalador con Mont dentro; compilarlo y
+      # revisarlo en el equipo de quien lo pide es otra cosa. Así que este
+      # interruptor existe, va en `false` por defecto, y el release lo dice con
+      # esas palabras — para que nadie pase ese archivo a un cliente creyendo
+      # que es una entrega.
       - name: Quitar Mont (licencia sin confirmar, P-01)
+        if: ${{ inputs.con_mont != true }}
         run: python3 herramientas/marca/sin-mont.py --aplicar
+
+      - name: Avisar de que ESTA versión lleva Mont dentro
+        if: ${{ inputs.con_mont == true }}
+        run: |
+          echo "::warning title=P-01::Esta versión lleva la tipografía Mont incrustada. \
+          La licencia para distribuirla NO está confirmada (P-01): sirve para revisión \
+          interna y no se entrega a terceros."
+          test -f TIPOGRAFIA/Mont-Regular.woff2 || {
+            echo "::error::no encuentro las fuentes de Mont en TIPOGRAFIA/"; exit 1; }
 
       - name: Instalar dependencias del frontend
         run: npm ci
@@ -181,6 +209,23 @@ jobs:
           body: |
             > ⚠️ **Versión de prueba. No es una entrega y no se instala en el
             > equipo de un cliente.**
+            ${{ inputs.con_mont == true && '
+            > ### 🔒 Y esta versión, además, no sale del equipo que la revisa
+
+            > **Lleva la tipografía Mont incrustada**, que es exactamente lo que
+            > **P-01** impide hacer en un instalador distribuido: la licencia
+            > para incrustarla en una aplicación que se entrega **no está
+            > confirmada**.
+            >
+            > Se construyó así a petición de Dirección para que la revisión se
+            > haga sobre la tipografía de verdad, que es la mitad de lo que se
+            > mira a ojo. Compilarla y revisarla en el equipo de quien la pide
+            > no es distribuirla; mandarla a un cliente, a una carpeta
+            > compartida o por correo, sí.
+            >
+            > **Mientras P-01 siga abierto, este archivo se queda en el equipo
+            > que lo revisa.** La versión que se puede repartir es cualquier
+            > otra de esta lista: salen sin Mont a propósito.' || '' }}
 
             **Para qué es:** ${{ inputs.nota || 'Revisión de la checklist visual' }}
 
@@ -188,7 +233,7 @@ jobs:
 
             | | Qué | Qué vas a ver |
             |---|---|---|
-            | 1 | **Va sin Mont** — la licencia para incrustarla sigue sin confirmarse (P-01) | Otra tipografía. Los tamaños y pesos sí son los definitivos: salen de los tokens |
+            | 1 | ${{ inputs.con_mont == true && '**Lleva Mont dentro** — ver el aviso de abajo, porque eso es justo lo que P-01 impide distribuir' || '**Va sin Mont** — la licencia para incrustarla sigue sin confirmarse (P-01)' }} | ${{ inputs.con_mont == true && 'La tipografía de la marca, como se quiere lanzar' || 'Otra tipografía. Los tamaños y pesos sí son los definitivos: salen de los tokens' }} |
             | 2 | **Va sin firmar** | Windows dirá «editor desconocido» y SmartScreen pedirá confirmar |
             | 3 | **No está notarizada** | En macOS hay que abrirla con clic derecho → Abrir la primera vez |
 
