@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tablero de ARLES RELAY I</title>
+<style>
+:root {
+  --fondo: #0f1115;
+  --panel: #171a21;
+  --panel-alto: #1e222b;
+  --borde: #2a2f3a;
+  --texto: #e8eaed;
+  --apagado: #9aa1ad;
+  --acento: #c9a227;
+  --verde: #3fa96a;
+  --amarillo: #d9a521;
+  --rojo: #d9534f;
+  --azul: #4a8fd4;
+  --radio: 10px;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-tema="oscuro"]) {
+    --fondo: #f7f8fa; --panel: #ffffff; --panel-alto: #f0f2f5;
+    --borde: #d8dce3; --texto: #1a1d23; --apagado: #5c636e;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 24px 16px 64px;
+  background: var(--fondo); color: var(--texto);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+}
+.lienzo { max-width: 1120px; margin: 0 auto; }
+h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: .5px; }
+h2 { font-size: 18px; margin: 36px 0 12px; }
+.sub { color: var(--apagado); margin: 0 0 8px; font-size: 14px; }
+.panel {
+  background: var(--panel); border: 1px solid var(--borde);
+  border-radius: var(--radio); padding: 18px;
+}
+.rejilla { display: grid; gap: 14px; }
+.r4 { grid-template-columns: repeat(4, 1fr); }
+.r3 { grid-template-columns: repeat(3, 1fr); }
+.r2 { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 860px) { .r4, .r3, .r2 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .r4, .r3, .r2 { grid-template-columns: 1fr; } }
+
+/* ── El número grande de cada contador ─────────────────────────────── */
+.cifra { font-size: 34px; font-weight: 700; line-height: 1.1; }
+.rotulo { color: var(--apagado); font-size: 13px; margin-top: 2px; }
+.cifra.verde { color: var(--verde); }
+.cifra.rojo { color: var(--rojo); }
+.cifra.amarillo { color: var(--amarillo); }
+.cifra.azul { color: var(--azul); }
+
+/* ── El anillo del porcentaje ──────────────────────────────────────── */
+.anillo { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.anillo svg { flex: 0 0 auto; }
+.anillo .dentro { font-size: 13px; color: var(--apagado); }
+
+/* ── Las barras de fase ────────────────────────────────────────────── */
+.fase { display: grid; grid-template-columns: 56px 1fr 62px; gap: 10px;
+        align-items: center; padding: 5px 0; }
+.fase .id { font-weight: 700; font-size: 13px; }
+.canal { background: var(--panel-alto); border-radius: 999px; height: 20px;
+         overflow: hidden; position: relative; }
+.relleno { height: 100%; border-radius: 999px; transition: width .4s; }
+.pct { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+.fase .nombre { font-size: 12px; color: var(--apagado); }
+
+/* ── Semáforos y etiquetas ─────────────────────────────────────────── */
+.sem { display: inline-flex; align-items: center; gap: 6px;
+       font-size: 12px; padding: 3px 9px; border-radius: 999px;
+       border: 1px solid var(--borde); background: var(--panel-alto); }
+.punto { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.p-verde { background: var(--verde); }
+.p-amarillo { background: var(--amarillo); }
+.p-rojo { background: var(--rojo); }
+.p-azul { background: var(--azul); }
+.p-gris { background: var(--apagado); }
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--borde); vertical-align: top; }
+th { color: var(--apagado); font-size: 12px; font-weight: 600; text-transform: uppercase;
+     letter-spacing: .4px; }
+tr:last-child td { border-bottom: 0; }
+td.angosta { white-space: nowrap; }
+
+.mapa h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase;
+            letter-spacing: .6px; color: var(--acento); }
+.ruta-raiz { font-size: 14px; font-weight: 600; padding: 4px 0; }
+.ruta-hija { font-size: 13px; color: var(--apagado); padding: 3px 0 3px 16px;
+             border-left: 2px solid var(--borde); margin-left: 3px; }
+.ruta-hija.sola { border-left-style: dashed; font-style: italic; }
+
+.alarma { border-left: 4px solid var(--rojo); }
+.alarma.espera { border-left-color: var(--amarillo); }
+.alarma.info { border-left-color: var(--azul); }
+.alarma h3 { margin: 0 0 4px; font-size: 15px; }
+.alarma p { margin: 0; font-size: 13px; color: var(--apagado); }
+.quien { font-size: 12px; color: var(--acento); font-weight: 600; }
+
+.falta {
+  border: 1px dashed var(--rojo); border-radius: var(--radio);
+  padding: 12px; color: var(--rojo); font-size: 13px;
+}
+/* Sin medir NO es un fallo: es que no se sabe. Van en colores distintos
+   por la misma razón por la que el validador no suma las omitidas a las
+   que pasan. */
+.falta.sin-medir { border-color: var(--amarillo); color: var(--amarillo); }
+
+/* Una fase al 0 % deja el canal vacío, y un canal vacío se lee igual que
+   «no hay dato». Se marca para que diga que la cifra es cero. */
+.canal.vacio { border: 1px dashed var(--borde); }
+.pie { margin-top: 44px; color: var(--apagado); font-size: 12px;
+       border-top: 1px solid var(--borde); padding-top: 14px; }
+code { background: var(--panel-alto); padding: 1px 5px; border-radius: 4px;
+       font-size: 12px; }
+.marca { color: var(--acento); font-weight: 700; letter-spacing: 1px; }
+@media (prefers-reduced-motion: reduce) {
+  .relleno { transition: none; }
+}
+</style></head><body><div class='lienzo'>
+<h1><span class='marca'>ARLES RELAY I</span> · tablero</h1>
+<p class='sub'>Generado el 2026-11-11. Todas las cifras salen de los archivos del proyecto; ninguna está escrita en este tablero.</p>
+<div class='rejilla r4'>
+<div class='panel'><div class='anillo'>
+<svg width="140" height="140" viewBox="0 0 140 140" role="img"
+     aria-label="Avance total: 99 por ciento">
+  <circle cx="70" cy="70" r="58" fill="none"
+          stroke="var(--panel-alto)" stroke-width="13"/>
+  <circle cx="70" cy="70" r="58" fill="none"
+          stroke="var(--acento)" stroke-width="13" stroke-linecap="round"
+          stroke-dasharray="360.8 364.4"
+          transform="rotate(-90 70 70)"/>
+  <text x="70" y="70" text-anchor="middle" dominant-baseline="central"
+        fill="var(--texto)" font-size="30" font-weight="700">99%</text>
+</svg><div class='dentro'>de la v1.2.0<br><small>fuente: avance.json, 2026-11-11</small></div></div></div>
+<div class='panel'><div class='cifra verde'>357</div><div class='rotulo'>comprobaciones en verde<br><small>0 en rojo · 18 omitidas</small></div></div>
+<div class='panel'><div class='cifra amarillo'>2</div><div class='rotulo'>hallazgos abiertos<br><small>0 bloqueantes · 22 en total</small></div></div>
+<div class='panel'><div class='cifra amarillo'>6</div><div class='rotulo'>esperan a alguien de fuera<br><small>ninguno impide construir</small></div></div>
+</div>
+<p class='sub'><span class='sem'><span class='punto p-amarillo'></span>medido hace 8 días</span> — las comprobaciones se midieron el 2026-11-03 a las 22:15 y pueden no reflejar el código de hoy. Vuelve a correr <code>generar.py --medir</code>.</p>
+<h2>Avance por fase</h2>
+<p class='sub'>El largo de cada barra es lo construido y verificado de esa fase. El <em>peso</em> es su tamaño dentro de la versión, estimado: se dice porque presentarlo como medición exacta sería mentir.</p>
+<div class='panel'>
+<div class='fase'><div><div class='id'>F0</div><div class='nombre'>peso 5</div></div><div><div class='canal'><div class='relleno' style='width:100%;background:var(--verde)'></div></div><div class='nombre'>Discovery y auditoría</div></div><div class='pct'>100%</div></div>
+<div class='fase'><div><div class='id'>F1</div><div class='nombre'>peso 9</div></div><div><div class='canal'><div class='relleno' style='width:100%;background:var(--verde)'></div></div><div class='nombre'>Cimientos</div></div><div class='pct'>100%</div></div>
+<div class='fase'><div><div class='id'>F2</div><div class='nombre'>peso 9</div></div><div><div class='canal'><div class='relleno' style='width:100%;background:var(--verde)'></div></div><div class='nombre'>Design System</div></div><div class='pct'>100%</div></div>
+<div class='fase'><div><div class='id'>F3</div><div class='nombre'>peso 14</div></div><div><div class='canal'><div class='relleno' style='width:100%;background:var(--verde)'></div></div><div class='nombre'>Empresa y contactos</div></div><div class='pct'>100%</div></div>
+<div class='fase'><div><div class='id'>F3W</div><div class='nombre'>peso 8</div></div><div><div class='canal'><div class='relleno' style='width:100%;background:var(--verde)'></div></div><div class='nombre'>Canales: esquema de contactos, consentimiento y etapas</div></div><div class='pct'>100%</div></div>
+<div class='fase'><div><div class='id'>F4</div><div class='nombre'>peso 14</div></div><div><div class='canal'><div class='relleno' style='width:100%;background:var(--verde)'></div></div><div class='nombre'>Motor de ejecución</div></div><div class='pct'>100%</div></div>
+<div class='fase'><div><div class='id'>F5</div><div class='nombre'>peso 7</div></div><div><div class='canal'><div class='relleno' style='width:100%;background:var(--verde)'></div></div><div class='nombre'>Proveedores de envío</div></div><div class='pct'>100%</div></div>
+<div class='fase'><div><div class='id'>F6</div><div class='nombre'>peso 13</div></div><div><div class='canal'><div class='relleno' style='width:100%;background:var(--verde)'></div></div><div class='nombre'>Campañas y mensajes</div></div><div class='pct'>100%</div></div>
+<div class='fase'><div><div class='id'>F7</div><div class='nombre'>peso 9</div></div><div><div class='canal'><div class='relleno' style='width:100%;background:var(--verde)'></div></div><div class='nombre'>Actividad y entregabilidad</div></div><div class='pct'>100%</div></div>
+<div class='fase'><div><div class='id'>F8</div><div class='nombre'>peso 7</div></div><div><div class='canal'><div class='relleno' style='width:100%;background:var(--verde)'></div></div><div class='nombre'>Respaldos y endurecimiento</div></div><div class='pct'>100%</div></div>
+<div class='fase'><div><div class='id'>F9</div><div class='nombre'>peso 5</div></div><div><div class='canal'><div class='relleno' style='width:75%;background:var(--amarillo)'></div></div><div class='nombre'>Release v1.2.0</div></div><div class='pct'>75%</div></div>
+</div>
+<h2>Comprobaciones del validador</h2>
+<div class='panel'><table><thead><tr><th>Fase</th><th>En verde</th><th>En rojo</th><th>Omitidas</th><th>Estado</th></tr></thead><tbody>
+<tr><td class='angosta'><strong>0</strong></td><td>11</td><td>0</td><td>0</td><td><span class='sem'><span class='punto p-verde'></span>entera</span></td></tr>
+<tr><td class='angosta'><strong>1</strong></td><td>53</td><td>0</td><td>3</td><td><span class='sem'><span class='punto p-amarillo'></span>3 sin medir aquí</span></td></tr>
+<tr><td class='angosta'><strong>2</strong></td><td>39</td><td>0</td><td>4</td><td><span class='sem'><span class='punto p-amarillo'></span>4 sin medir aquí</span></td></tr>
+<tr><td class='angosta'><strong>3</strong></td><td>95</td><td>0</td><td>10</td><td><span class='sem'><span class='punto p-amarillo'></span>10 sin medir aquí</span></td></tr>
+<tr><td class='angosta'><strong>4</strong></td><td>46</td><td>0</td><td>0</td><td><span class='sem'><span class='punto p-verde'></span>entera</span></td></tr>
+<tr><td class='angosta'><strong>5</strong></td><td>36</td><td>0</td><td>0</td><td><span class='sem'><span class='punto p-verde'></span>entera</span></td></tr>
+<tr><td class='angosta'><strong>6</strong></td><td>21</td><td>0</td><td>0</td><td><span class='sem'><span class='punto p-verde'></span>entera</span></td></tr>
+<tr><td class='angosta'><strong>W</strong></td><td>21</td><td>0</td><td>1</td><td><span class='sem'><span class='punto p-amarillo'></span>1 sin medir aquí</span></td></tr>
+<tr><td class='angosta'><strong>7</strong></td><td>16</td><td>0</td><td>0</td><td><span class='sem'><span class='punto p-verde'></span>entera</span></td></tr>
+<tr><td class='angosta'><strong>8</strong></td><td>19</td><td>0</td><td>0</td><td><span class='sem'><span class='punto p-verde'></span>entera</span></td></tr>
+</tbody></table></div>
+<p class='sub'>Las omitidas <strong>no son pasadas</strong>, y por eso van en su columna: son las sondas que abren un navegador de verdad —se omiten en <code>--rapido</code>— y las que necesitan el llavero del sistema, que un contenedor no tiene.</p>
+<h2>Las pantallas, y cómo se ligan</h2>
+<p class='sub'>Leídas de <code>router.ts</code>, no de una lista: una pantalla nueva aparece aquí sola. Las de la izquierda son las seis secciones de la barra; las de debajo, lo que cuelga de cada una.</p>
+<div class='rejilla r3'>
+<div class='panel mapa'><h3>inicio</h3><div class='ruta-raiz'>/inicio</div>
+<div class='ruta-hija'>/inicio/configuracion</div>
+</div>
+<div class='panel mapa'><h3>campanas</h3><div class='ruta-raiz'>/campanas</div>
+<div class='ruta-hija'>/campanas/plantillas</div>
+<div class='ruta-hija'>/campanas/nueva</div>
+</div>
+<div class='panel mapa'><h3>contactos</h3><div class='ruta-raiz'>/contactos</div>
+<div class='ruta-hija'>/contactos/importar</div>
+<div class='ruta-hija'>/contactos/supresion</div>
+<div class='ruta-hija'>/contactos/derechos</div>
+</div>
+<div class='panel mapa'><h3>remitentes</h3><div class='ruta-raiz'>/remitentes</div>
+<div class='ruta-hija'>/remitentes/whatsapp</div>
+</div>
+<div class='panel mapa'><h3>actividad</h3><div class='ruta-raiz'>/actividad</div>
+<div class='ruta-hija'>/actividad/registro</div>
+</div>
+<div class='panel mapa'><h3>ajustes</h3><div class='ruta-raiz'>/ajustes</div>
+<div class='ruta-hija'>/ajustes/respaldos</div>
+<div class='ruta-hija'>/ajustes/restaurar</div>
+<div class='ruta-hija'>/ajustes/archivar</div>
+</div>
+<div class='panel mapa'><h3>fuera del armazón</h3><div class='ruta-raiz'>/recuperar</div>
+<div class='ruta-hija sola'>no tiene subpantallas</div>
+</div>
+</div>
+<p class='sub'>18 pantallas en total. Qué hace cada una, qué necesita antes y qué verificar en ella: <code>documentacion/05-diseno/MAPA-FUNCIONAL.md</code>. Cómo se usan, en orden: <code>documentacion/07-entrega/MANUAL-DE-USUARIO.md</code>.</p>
+<h2>Hallazgos de las pruebas de Dirección</h2>
+<div class='panel'><table><thead><tr><th></th><th>#</th><th>Pantalla</th><th>Qué pasa</th><th>Estado</th></tr></thead><tbody>
+<tr><td class='angosta'><span class='punto p-amarillo' title='🟠 Grave' style='display:inline-block'></span></td><td class='angosta'><strong>H-01</strong></td><td class='angosta'>Remitentes</td><td>Dice «todavía no has configurado los datos de tu empresa» después de haberla configurado</td><td class='angosta'>✅ Arreglado 14/10/2026</td></tr>
+<tr><td class='angosta'><span class='punto p-amarillo' title='🟡 Molesto' style='display:inline-block'></span></td><td class='angosta'><strong>H-02</strong></td><td class='angosta'>Todas las que avisan</td><td>Las tres partes de un error salen pegadas: «…con el servidor.El servidor no ofrece…»</td><td class='angosta'>✅ Arreglado 14/10/2026</td></tr>
+<tr><td class='angosta'><span class='punto p-rojo' title='🔴 Bloqueante' style='display:inline-block'></span></td><td class='angosta'><strong>H-03</strong></td><td class='angosta'>Remitentes</td><td>No se puede dar de alta una cuenta de Gmail. «No se pudo cifrar la conexión con el servidor»</td><td class='angosta'>✅ Cerrado 16/10/2026 · Dirección mandó un correo real; lo arreglaron A-05 y A-06</td></tr>
+<tr><td class='angosta'><span class='punto p-azul' title='🔵 Requisito' style='display:inline-block'></span></td><td class='angosta'><strong>R-01</strong></td><td class='angosta'>Remitentes</td><td>Dar de alta un correo es demasiado complicado. Tiene que ser sencillo e intuitivo</td><td class='angosta'>✅ Hecho 14/10/2026</td></tr>
+<tr><td class='angosta'><span class='punto p-azul' title='🔵 Requisito' style='display:inline-block'></span></td><td class='angosta'><strong>R-02</strong></td><td class='angosta'>WhatsApp</td><td>Lo mismo con el alta de un número</td><td class='angosta'>✅ Hecho 14/10/2026 · con un límite declarado</td></tr>
+<tr><td class='angosta'><span class='punto p-amarillo' title='🟡 Molesto' style='display:inline-block'></span></td><td class='angosta'><strong>A-01</strong></td><td class='angosta'>Contactos</td><td>La cabecera de la tabla se leía «Correo princip…» y «WhatsApp pri…»: no cabían en su columna</td><td class='angosta'>✅ Arreglado 14/10/2026</td></tr>
+<tr><td class='angosta'><span class='punto p-amarillo' title='🟠 Grave' style='display:inline-block'></span></td><td class='angosta'><strong>A-05</strong></td><td class='angosta'>Remitentes</td><td>La contraseña de aplicación de Gmail se mandaba con los espacios con que Google la enseña, y nada avisaba</td><td class='angosta'>✅ Arreglado 15/10/2026</td></tr>
+<tr><td class='angosta'><span class='punto p-amarillo' title='🟡 Molesto' style='display:inline-block'></span></td><td class='angosta'><strong>A-06</strong></td><td class='angosta'>Remitentes</td><td>La guía del alta decía «busca Contraseñas de aplicaciones» — un sitio donde buscar, no una instrucción</td><td class='angosta'>✅ Arreglado 15/10/2026</td></tr>
+<tr><td class='angosta'><span class='punto p-amarillo' title='🟡 Molesto' style='display:inline-block'></span></td><td class='angosta'><strong>H-04</strong></td><td class='angosta'>Configuración</td><td>No dejaba guardar telemetrymx.com: exigía escribir https:// a mano</td><td class='angosta'>✅ Arreglado 16/10/2026</td></tr>
+<tr><td class='angosta'><span class='punto p-rojo' title='🔴 Bloqueante' style='display:inline-block'></span></td><td class='angosta'><strong>H-05</strong></td><td class='angosta'>Contactos</td><td>«Ocurrió un error al acceder a los datos. Cierra ARLES y vuelve a abrirlo» al dar de alta un contacto</td><td class='angosta'>✅ Arreglado 20/10/2026 · un enum con dos nombres</td></tr>
+<tr><td class='angosta'><span class='punto p-rojo' title='🔴 Bloqueante' style='display:inline-block'></span></td><td class='angosta'><strong>H-06</strong></td><td class='angosta'>Nueva campaña</td><td>El horario de envío sale vacío y no se puede avanzar del paso 5</td><td class='angosta'>✅ Arreglado 17/10/2026</td></tr>
+<tr><td class='angosta'><span class='punto p-amarillo' title='🟠 Grave' style='display:inline-block'></span></td><td class='angosta'><strong>H-07</strong></td><td class='angosta'>Remitentes</td><td>La ficha del remitente se parte en vertical cuando hay un panel al lado: «Cifrado / (STARTTLS, / puerto / 587» una palabra por línea</td><td class='angosta'>✅ Arreglado 17/10/2026</td></tr>
+<tr><td class='angosta'><span class='punto p-amarillo' title='🟡 Molesto' style='display:inline-block'></span></td><td class='angosta'><strong>H-08</strong></td><td class='angosta'>Inicio</td><td>El paso «Conectar una cuenta remitente» no se marca aunque haya un remitente configurado</td><td class='angosta'>✅ Arreglado 17/10/2026</td></tr>
+<tr><td class='angosta'><span class='punto p-amarillo' title='🟡 Molesto' style='display:inline-block'></span></td><td class='angosta'><strong>H-09</strong></td><td class='angosta'>Nueva campaña</td><td>El hueco entre «Déjalo en blanco para usar el de la cuenta» y lo que sigue es demasiado estrecho</td><td class='angosta'>✅ Arreglado 17/10/2026</td></tr>
+<tr><td class='angosta'><span class='punto p-amarillo' title='🟠 Grave' style='display:inline-block'></span></td><td class='angosta'><strong>H-10</strong></td><td class='angosta'>Nueva campaña</td><td>No dice cuál es el máximo diario por defecto, así que se deja en blanco sin saber qué se está aceptando</td><td class='angosta'>✅ Arreglado 17/10/2026</td></tr>
+<tr><td class='angosta'><span class='punto p-azul' title='🔵 Requisito' style='display:inline-block'></span></td><td class='angosta'><strong>R-03</strong></td><td class='angosta'>Plantillas</td><td>Poder poner negrita y cursiva en el texto</td><td class='angosta'>✅ Arreglado 17/10/2026</td></tr>
+<tr><td class='angosta'><span class='punto p-azul' title='🔴 Requisito' style='display:inline-block'></span></td><td class='angosta'><strong>R-04</strong></td><td class='angosta'>Firmas</td><td>Una firma no puede ofrecer variables del contacto. Que la firma del remitente lleve el nombre de a quien se escribe es una tragedia</td><td class='angosta'>✅ Arreglado 17/10/2026</td></tr>
+<tr><td class='angosta'><span class='punto p-azul' title='🔵 Requisito' style='display:inline-block'></span></td><td class='angosta'><strong>R-05</strong></td><td class='angosta'>Firmas</td><td>Poder poner una imagen en la firma, como en Outlook</td><td class='angosta'>⏸️ Esperando decisión de Dirección (ver H-15)</td></tr>
+<tr><td class='angosta'><span class='punto p-azul' title='🟠 Requisito' style='display:inline-block'></span></td><td class='angosta'><strong>R-06</strong></td><td class='angosta'>Plantillas</td><td>No se pueden editar las plantillas ni las firmas ya creadas</td><td class='angosta'>✅ Arreglado 17/10/2026</td></tr>
+<tr><td class='angosta'><span class='punto p-azul' title='🔵 Requisito' style='display:inline-block'></span></td><td class='angosta'><strong>R-07</strong></td><td class='angosta'>Remitentes</td><td>El correo de prueba llega a spam — qué se puede hacer</td><td class='angosta'>🔧 Gmail ✅ · Outlook abierto 21/10/2026</td></tr>
+<tr><td class='angosta'><span class='punto p-azul' title='🟠 Requisito' style='display:inline-block'></span></td><td class='angosta'><strong>R-08</strong></td><td class='angosta'>Plantillas</td><td>No se pueden eliminar plantillas ni firmas</td><td class='angosta'>✅ Arreglado 21/10/2026 · se retiran, no se borran</td></tr>
+<tr><td class='angosta'><span class='punto p-azul' title='🟠 Requisito' style='display:inline-block'></span></td><td class='angosta'><strong>R-09</strong></td><td class='angosta'>Contactos</td><td>No se encuentra cómo editar un contacto</td><td class='angosta'>✅ Arreglado 21/10/2026</td></tr>
+</tbody></table></div>
+<p class='sub'>Rojo: bloqueante. Amarillo: grave o molesto. Azul: propuesta o requisito. La tabla sale de <code>BITACORA-DE-PRUEBAS.md</code> — se edita ahí, no aquí.</p>
+<h2>Esperan a alguien de fuera</h2>
+<p class='sub'>Ninguno impide construir. Todos impiden entregar la versión.</p>
+<div class='rejilla r2'>
+<div class='panel alarma espera'><h3>P-01</h3><p>Licencia de Mont para incrustarla en la aplicación distribuida</p><p style='margin-top:8px'><span class='quien'>Dirección</span> — El primer instalador descargable. Hay plan B: tipografía del sistema, una línea de CSS</p></div>
+<div class='panel alarma espera'><h3>P-09</h3><p>Revisión jurídica: dieciocho preguntas en 08-legal/CONSULTA-JURIDICA.md</p><p style='margin-top:8px'><span class='quien'>Abogado</span> — Ya NO bloquea la construcción (ADR-0013). Frena los textos legales visibles y el primer envío real a alguien de fuera de TELEMETRY. Incluye P-17: consent_entry es de sólo-añadir y guarda la dirección en claro, lo que contradice el derecho de cancelación.</p></div>
+<div class='panel alarma espera'><h3>META</h3><p>Cuenta de empresa en Meta, verificada y con Coexistencia activada (L-11)</p><p style='margin-top:8px'><span class='quien'>Operaciones</span> — El alta del número de WhatsApp contra una cuenta real. Desde D-WA (27/10/2026) el canal está COMPLETO por dentro —el motor recorre los dos canales, se crea y se lanza una campaña entera por WhatsApp, las plantillas de Meta se registran—, y todo eso NUNCA HA HABLADO CON META: está probado contra un servidor de mentira. Lo que falta no es código nuestro, es una cuenta de empresa verificada con Coexistencia activada (L-11).</p></div>
+<div class='panel alarma espera'><h3>FIRMA-WIN</h3><p>Certificado de firma de código para Windows (OV recomendado para la v1.2.0, EV para el lanzamiento comercial)</p><p style='margin-top:8px'><span class='quien'>Dirección</span> — Que el .msi se instale sin la advertencia de «editor desconocido» de SmartScreen, que en un entorno corporativo bloquea la instalación en la práctica: hay que pulsar «Más información» y «Ejecutar de todos modos», y un departamento de TI directamente lo prohíbe. Plazo externo de 1 a 3 SEMANAS. Desde junio de 2023 la clave tiene que vivir en hardware certificado, lo que afecta al CI: conviene resolverlo al contratar, no al configurar el CI. Estaba declarado en DISTRIBUCION_Y_FIRMA.md §1 como trámite que arranca en la Fase 1 (riesgo R-14) y NO estaba en ninguna lista de bloqueos — anotado el 28/10/2026.</p></div>
+<div class='panel alarma espera'><h3>FIRMA-MAC</h3><p>Apple Developer Program de organización, con Developer ID Application y Developer ID Installer</p><p style='margin-top:8px'><span class='quien'>Dirección</span> — QUE ARLES ABRA EN macOS. Desde Catalina, una aplicación descargada sin notarizar no se ejecuta: no es una advertencia, es un bloqueo de Gatekeeper. Hace falta el alta de la cuenta más la notarización de cada build, con el ticket grapado al .dmg para que Gatekeeper pueda verificar sin conexión. Arrastra a R-07: el mismo Mac que hace falta para mirar las dieciocho pantallas en WKWebView es el que hace falta para firmar y notarizar. Mismo origen que FIRMA-WIN: declarado en DISTRIBUCION_Y_FIRMA.md §1 y ausente de las listas de bloqueos hasta el 28/10/2026.</p></div>
+<div class='panel alarma espera'><h3>R-07</h3><p>Revisión visual en macOS (WKWebView)</p><p style='margin-top:8px'><span class='quien'>Quien tenga un Mac</span> — Nada de la construcción, y por eso lleva abierto desde la Fase 2. La fecha que decía «antes de la F6» caducó: la F6, el canal W, la F7 y la F8 se cerraron sin que nadie abriera ARLES en WKWebView. Lo que frena es poder AFIRMAR que las dieciocho pantallas se ven bien en macOS: todo lo medido —contraste, foco, objetivos, textos encimados— sale de Chromium, y la vista previa no cuenta porque ahí el motor es el del navegador. Se cierra antes de la F9.</p></div>
+</div>
+<h2>Ya no frenan nada</h2>
+<p class='sub'>Se dejan escritos con su fecha: un bloqueo que desaparece parece uno que nadie resolvio.</p>
+<div class='rejilla r2'>
+<div class='panel alarma bien'><h3>R-24 ✓ 2026-10-22</h3><p>Probar ARLES contra un servidor de correo real, con una cuenta desechable</p><p style='margin-top:8px'>Dirección dio de alta enlace@telemetrymx.com (Titan, SMTP real con TLS) y ARLES mandó un correo de prueba a tres destinos: Outlook, Gmail y un corporativo. Los tres llegaron a la BANDEJA PRINCIPAL. Antes, desde una dirección @gmail.com, Outlook lo mandaba a no deseados con SCL 5 — la autenticación pasaba (spf, dkim, dmarc y compauth) y lo que pesaba era el patrón «marca + gmail personal», que no se arregla con código.</p></div>
+</div>
+<h2>Tropiezos de instalación ya documentados</h2>
+<p class='sub'>Cada uno ocurrió de verdad y tiene su solución escrita. Si vuelve a pasar uno de éstos, la respuesta ya está.</p>
+<div class='panel'><table><tbody>
+<tr><td class='angosta' style='color:var(--apagado);width:28px'>1</td><td>«npm no se puede cargar»</td></tr>
+<tr><td class='angosta' style='color:var(--apagado);width:28px'>2</td><td>«cargo no se reconoce»</td></tr>
+<tr><td class='angosta' style='color:var(--apagado);width:28px'>3</td><td>La ventana abre vacía</td></tr>
+<tr><td class='angosta' style='color:var(--apagado);width:28px'>4</td><td>«fallo al migrar el esquema»</td></tr>
+<tr><td class='angosta' style='color:var(--apagado);width:28px'>5</td><td>El comando no funciona «en esta terminal»</td></tr>
+<tr><td class='angosta' style='color:var(--apagado);width:28px'>6</td><td>La carpeta de datos no está donde decía</td></tr>
+<tr><td class='angosta' style='color:var(--apagado);width:28px'>7</td><td>No había ningún instalador</td></tr>
+</tbody></table></div>
+<div class='pie'>
+<p><strong>De dónde sale cada cosa.</strong> Porcentaje, fases y bloqueos: <code>documentacion/07-entrega/avance.json</code>. Hallazgos: la tabla de <code>documentacion/06-calidad/BITACORA-DE-PRUEBAS.md</code>. Tropiezos: los títulos de <code>documentacion/07-entrega/REGISTRO-DE-TROPIEZOS.md</code>. Comprobaciones: una corrida de <code>validar.py</code> guardada en <code>tablero/corrida.json</code>.</p>
+<p>Para rehacerlo: <code>python3 herramientas/tablero/generar.py --medir</code>. Sin <code>--medir</code> se reutiliza la última medición y se enseña su fecha.</p>
+</div></div></body></html>

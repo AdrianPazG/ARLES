@@ -1,0 +1,44 @@
+[package]
+name = "arles-import"
+description = "Lectura defensiva de CSV y XLSX para la importación de contactos."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+arles-core = { path = "../arles-core" }
+# `calamine` lee XLSX. Ojo con lo que NO hace: construye la hoja **entera** en
+# memoria antes de devolver la primera fila, así que cualquier tope que se
+# cuente recorriendo filas llega tarde. Medido: 47 MB en disco → 1 586 MB de
+# memoria. Por eso la descompresión se mide aparte, con `zip`, antes de abrirlo.
+calamine = "0.37"
+csv = "1"
+# Excel de Windows guarda los CSV en Windows-1252, no en UTF-8. Sin esto, una
+# tabla mexicana llega con los acentos rotos y nadie entiende por qué.
+encoding_rs = "0.8"
+serde.workspace = true
+thiserror.workspace = true
+# Para dos cosas. Una: **medir** la descompresión de un XLSX antes de abrirlo,
+# contando y tirando los bytes — no se usa para leer el contenido, de eso se
+# encarga `calamine`. Ver `MAX_BYTES_DESCOMPRIMIDOS`. Y dos, desde el
+# 22/10/2026: **escribir** la plantilla de contactos (`plantilla.rs`), que es un
+# XLSX de cinco partes y no necesitó dependencia nueva por estar esto ya aquí.
+#
+# **La 9 y no la 2, desde el 26/10/2026.** La 2.4.2 arrastraba tres avisos de
+# seguridad —RUSTSEC-2026-0367, 0368 y 0369—, los tres sobre `extract()`, que
+# ARLES **no llama**: aquí sólo se abre el archivo y se lee en memoria. Aun así
+# se sube, por decisión de Dirección: un aviso silenciado es un aviso que el
+# día que alguien escriba un `extract()` ya no salta.
+#
+# `deflate-miniz` desapareció en la 9; su sitio lo ocupa `deflate`, que ya
+# elige la implementación por su cuenta.
+zip = { version = "9", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

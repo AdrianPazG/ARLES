@@ -1,0 +1,375 @@
+import { defineStore } from 'pinia'
+import { computed, ref } from 'vue'
+
+import { esErrorIpc, hayNucleo, invocar } from '@/app/nucleo'
+
+/**
+ * Un número de WhatsApp tal como lo devuelve el núcleo.
+ *
+ * Coincide con `arles_app::whatsapp::NumeroIpc`. **No tiene el token ni la
+ * referencia del llavero**, y no es un descuido de este tipo: el de Rust
+ * tampoco los tiene, y hay una prueba allí que lo comprueba serializando.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * LOS TRES `| null` SON SIGNIFICATIVOS Y NO SE PUEDEN COLAPSAR
+ *
+ * `coexistenciaConfirmada`, `riesgoAceptado` y `calidad` valen `null` cuando
+ * **no constan**, que no es lo mismo que «no» ni que «está bien». La pantalla
+ * los distingue: una marca sin poner se enseña como «sin confirmar», y una
+ * calidad que no consta se enseña como «no consultada» — nunca en verde.
+ */
+export interface Numero {
+  readonly id: string
+  readonly nombreVisible: string
+  readonly telefonoE164: string
+  readonly wabaId: string
+  /** `seguimiento` o `prospeccion_directa`. Se traduce con `whatsapp.modo.*`. */
+  readonly modo: string
+  /** `connected`, `needs_reauth`, `circuit_open` o `disabled`. */
+  readonly estado: string
+  readonly coexistenciaConfirmada: string | null
+  readonly riesgoAceptado: string | null
+  /** `green`, `yellow`, `red`, `unknown` — o `null` si no consta. */
+  readonly calidad: string | null
+  readonly limiteDeMeta: number | null
+  /**
+   * Cuándo se le preguntó a Meta, o `null` si nunca.
+   *
+   * **Una cifra sin fecha se lee como si fuera de hoy** (§94), y la calidad
+   * cambia sola: «verde» sin fecha no dice si se miró esta mañana o el día que
+   * se conectó el número.
+   */
+  readonly calidadActualizada: string | null
+  /**
+   * ¿Puede mandar una campaña hoy?
+   *
+   * **Viene resuelto de Rust y aquí no se recalcula.** La regla vive en el
+   * núcleo; deducirla otra vez en la webview son dos reglas que se separan en
+   * cuanto una cambie, y la que decide si se envía no sería la que se ve.
+   */
+  readonly puedeEnviar: boolean
+  readonly escribeEnFrio: boolean
+}
+
+/** Lo que el formulario de alta manda. */
+/**
+ * Un número que Meta dice que existe (D-WA, 26/10/2026).
+ *
+ * Coincide con `arles_app::whatsapp::NumeroDescubiertoIpc`. **Ningún campo lo
+ * teclea nadie**: viene entero de Meta, que es la razón de que esto exista. Un
+ * identificador copiado a mano puede estar mal; uno traído de la fuente, no.
+ *
+ * No lleva el token (regla 3 de la frontera): el token entró por el comando y
+ * no vuelve.
+ */
+export interface NumeroDescubierto {
+  readonly phoneNumberId: string
+  readonly wabaId: string
+  /** Como Meta lo enseña, con sus espacios: es lo que se reconoce en la lista. */
+  readonly telefono: string
+  readonly nombre: string
+  /** `GREEN`, `YELLOW`, `RED` o `UNKNOWN`, tal como lo manda Meta. */
+  readonly calidad: string
+  /** Cuántos al día deja mandar Meta. `null` si no lo dice. */
+  readonly topeDiario: number | null
+}
+
+export interface BorradorDeNumero {
+  nombreVisible: string
+  telefono: string
+  wabaId: string
+  phoneNumberId: string
+  modo: string
+}
+
+/**
+ * Revisa que un dato copiado del panel de Meta tenga la forma que debe.
+ *
+ * ── POR QUÉ EXISTE, Y POR QUÉ HOY MIRA UN SOLO CAMPO ───────────────────────
+ *
+ * Dirección pidió el 14/10/2026 que dar de alta un número fuera tan sencillo
+ * como el correo: «correo y contraseña nomás». La respuesta de entonces fue
+ * que **con WhatsApp no se podía**, porque el WABA ID y el Phone Number ID
+ * sólo existen en el panel de Meta y no hay nada de lo que inferirlos. Era
+ * verdad de *inferirlos* y falsa de *preguntarlos*: desde D-WA (26/10/2026)
+ * los pregunta `descubrir_numeros_de_whatsapp`, y el alta quedó en **un dato y
+ * una elección**.
+ *
+ * Así que esta función ya no revisa esos dos campos: **no existen**. Se quitan
+ * sus ramas en vez de dejarlas «por si acaso», porque una rama que nadie
+ * recorre es una rama que nadie vigila — y la que queda es la única que la
+ * pantalla usa.
+ *
+ * Lo que sí se sigue cazando es **el error de pegado del token antes de
+ * guardar**, que es donde se pierde la gente: pegar sólo un trozo, o pegar un
+ * identificador aquí por error, da un error de Meta que no dice qué está mal.
+ *
+ * **Avisa, no bloquea.** Meta podría cambiar el formato, y un formulario que se
+ * niega a guardar algo correcto es peor que uno que avisa de algo dudoso.
+ *
+ * @returns la clave del aviso, o `''` si el dato tiene buena pinta.
+ */
+export function revisarDatoDeMeta(campo: 'token', valor: string): string {
+  const v = valor.trim()
+  if (v.length === 0 || campo !== 'token') return ''
+
+  // Los tokens de la Cloud API empiezan por `EAA` y son largos. Lo que más
+  // pasa es pegar sólo un trozo, o pegar un identificador aquí por error.
+  if (/^\d+$/.test(v)) return 'numeroDeWhatsapp.avisos.tokenEsUnNumero'
+  if (!v.startsWith('EAA')) return 'numeroDeWhatsapp.avisos.tokenNoEmpiezaBien'
+  return ''
+}
+
+export function borradorDeNumeroVacio(): BorradorDeNumero {
+  return {
+    nombreVisible: '',
+    telefono: '',
+    wabaId: '',
+    phoneNumberId: '',
+    // El modo por defecto es el que **no** escribe en frío. Un desplegable que
+    // empieza en prospección directa daría de alta números en frío a quien solo
+    // pulsó «guardar», y la advertencia llegaría después del alta.
+    modo: 'seguimiento',
+  }
+}
+
+/**
+ * Una plantilla aprobada de Meta, tal como la manda la frontera.
+ *
+ * ARLES **no las crea**: el texto lo aprueba Meta palabra por palabra en su
+ * panel. Esto es el apunte de que existe —su nombre, su idioma, qué dice y en
+ * qué estado está— para poder ofrecerla al crear una campaña y para poder leer
+ * lo que va a salir antes de elegirla.
+ */
+export interface PlantillaDeMeta {
+  readonly id: string
+  /** El `name` de Meta. **Es el identificador real del mensaje.** */
+  readonly nombre: string
+  /** El idioma en la forma de Meta: `es_MX`. */
+  readonly idioma: string
+  /** `approved`, `pending`, `rejected`, `paused` o `disabled`. */
+  readonly estado: string
+  readonly cuerpo: string
+  /** Claves de i18n, no nombres: la pantalla las traduce (§139). */
+  readonly huecos: readonly string[]
+  /**
+   * ¿Se puede mandar una campaña con ésta?
+   *
+   * **Viene resuelto de Rust y aquí no se recalcula.** La regla está escrita
+   * por lo que acepta: un estado nuevo de Meta no empieza a enviar solo.
+   */
+  readonly sePuedeUsar: boolean
+}
+
+export const useWhatsappStore = defineStore('whatsapp', () => {
+  const numeros = ref<readonly Numero[]>([])
+  const cargando = ref(false)
+  const error = ref<string | null>(null)
+
+  /** Cuántos pueden enviar hoy. §94: cifras, no adjetivos. */
+  const listos = computed(() => numeros.value.filter((n) => n.puedeEnviar).length)
+
+  /**
+   * Cuántos están dados de alta pero no pueden enviar todavía.
+   *
+   * Es la cifra que la pantalla necesita para explicar por qué un número que
+   * se acaba de guardar no aparece disponible en el asistente.
+   */
+  const porConfirmar = computed(() => numeros.value.filter((n) => !n.puedeEnviar).length)
+
+  async function cargar(): Promise<void> {
+    // El aviso se limpia **antes** de la guarda del núcleo, no después. Éste ya
+    // limpiaba —a diferencia de `remitentes` y `empresa`, que es donde estaba el
+    // H-01— pero lo hacía pasada la guarda, así que el patrón no era el mismo en
+    // los tres y una comprobación no puede verificar tres formas distintas de lo
+    // mismo.
+    error.value = null
+    if (!hayNucleo()) return
+    cargando.value = true
+    try {
+      numeros.value = await invocar<Numero[]>('numeros_de_whatsapp')
+    } catch (e) {
+      error.value = esErrorIpc(e) ? e.clave : 'error.desconocido'
+    } finally {
+      cargando.value = false
+    }
+  }
+
+  /**
+   * Da de alta un número.
+   *
+   * El token viaja en la llamada y **no se guarda en ningún sitio de aquí**: ni
+   * en la tienda, ni en `localStorage`. Vive en el campo mientras se escribe y
+   * se borra al cerrar el formulario (ADR-0011).
+   */
+  async function guardar(borrador: BorradorDeNumero, token: string): Promise<boolean> {
+    if (!hayNucleo()) return false
+    cargando.value = true
+    error.value = null
+    try {
+      numeros.value = await invocar<Numero[]>('guardar_numero_de_whatsapp', {
+        nombreVisible: borrador.nombreVisible,
+        telefono: borrador.telefono,
+        wabaId: borrador.wabaId,
+        phoneNumberId: borrador.phoneNumberId,
+        modo: borrador.modo,
+        token,
+      })
+      return true
+    } catch (e) {
+      error.value = esErrorIpc(e) ? e.clave : 'error.desconocido'
+      return false
+    } finally {
+      cargando.value = false
+    }
+  }
+
+  /**
+   * Manda un WhatsApp de prueba desde un número dado de alta.
+   *
+   * ───────────────────────────────────────────────────────────────────────
+   * ESTA FUNCIÓN FALTABA, Y ERA LO ÚNICO QUE FALTABA
+   *
+   * `enviar_whatsapp_de_prueba` existe en Rust desde la W.8, con su prueba de
+   * punta a punta contra el servidor de mentira. Nadie lo invocaba: ni este
+   * almacén ni ninguna pantalla. El canal llegó al cierre de la W.7 y al de la
+   * 6.8 **sin un camino por el que un mensaje saliera desde la aplicación**, y
+   * el `CLAUDE.md` lo daba por hecho. Lo encontró
+   * `ningun_comando_se_queda_sin_quien_lo_llame` el 01/10/2026 (7.7).
+   *
+   * Que Meta rechace el mensaje **no es un error**: es un resultado con
+   * `aceptado: false` y su clave. Es justo lo que la prueba venía a averiguar,
+   * así que no se mete en `error` ni borra lo que hay en pantalla.
+   */
+  async function enviarPrueba(
+    id: string,
+    para: string,
+    plantilla: string,
+    idioma: string,
+  ): Promise<{ aceptado: boolean; clave: string } | null> {
+    if (!hayNucleo()) return null
+    cargando.value = true
+    error.value = null
+    try {
+      return await invocar<{ aceptado: boolean; clave: string }>(
+        'enviar_whatsapp_de_prueba',
+        { id, para, plantilla, idioma },
+      )
+    } catch (e) {
+      error.value = esErrorIpc(e) ? e.clave : 'error.desconocido'
+      return null
+    } finally {
+      cargando.value = false
+    }
+  }
+
+  async function confirmarCoexistencia(id: string): Promise<void> {
+    await marcar('confirmar_coexistencia', id)
+  }
+
+  async function aceptarRiesgo(id: string): Promise<void> {
+    await marcar('aceptar_riesgo_del_canal', id)
+  }
+
+  /**
+   * Vuelve a preguntarle a Meta la calidad y el tope de un número.
+   *
+   * Devuelve la lista entera, igual que las dos marcas, porque lo que cambia
+   * es una fila de la lista que la pantalla ya está pintando: devolver sólo el
+   * número cambiado obligaría a fusionarlo aquí, y una fusión a mano es donde
+   * se queda una fila vieja en pantalla.
+   */
+  async function refrescarCalidad(id: string): Promise<void> {
+    await marcar('refrescar_calidad_del_numero', id)
+  }
+
+  // ── Las plantillas de Meta (D-WA, 27/10/2026) ──
+  //
+  // Viven aquí y no en el store de campañas porque son **del número**: la
+  // clave única de Meta es (número, nombre, idioma), y la misma empresa puede
+  // tener dos números con plantillas distintas. Ponerlas en campañas obligaría
+  // a cargarlas sin saber de cuál.
+  const plantillasDeMeta = ref<readonly PlantillaDeMeta[]>([])
+
+  /** Las plantillas anotadas de un número. Vacía la lista si falla. */
+  async function cargarPlantillasDeMeta(numero: string): Promise<void> {
+    if (!hayNucleo()) return
+    cargando.value = true
+    error.value = null
+    try {
+      plantillasDeMeta.value = await invocar<PlantillaDeMeta[]>('plantillas_de_meta', {
+        numero,
+      })
+    } catch (e) {
+      error.value = esErrorIpc(e) ? e.clave : 'error.desconocido'
+      // Se vacía a propósito: dejar la lista del número anterior haría elegir
+      // una plantilla que no es de este número, y el error llegaría al activar.
+      plantillasDeMeta.value = []
+    } finally {
+      cargando.value = false
+    }
+  }
+
+  /**
+   * Anota una plantilla que Meta aprobó, o pone al día la que ya estaba.
+   *
+   * Devuelve `true` si se guardó. Meta cambia el estado por su cuenta —una
+   * aprobada puede pasar a `paused` si la gente la reporta—, así que volver a
+   * anotarla es poner al día lo que Meta dice, no crear una segunda.
+   */
+  async function anotarPlantillaDeMeta(datos: {
+    numero: string
+    nombre: string
+    idioma: string
+    estadoEnMeta: string
+    cuerpo: string
+    huecos: string[]
+  }): Promise<boolean> {
+    if (!hayNucleo()) return false
+    cargando.value = true
+    error.value = null
+    try {
+      plantillasDeMeta.value = await invocar<PlantillaDeMeta[]>(
+        'anotar_plantilla_de_meta',
+        datos,
+      )
+      return true
+    } catch (e) {
+      error.value = esErrorIpc(e) ? e.clave : 'error.desconocido'
+      return false
+    } finally {
+      cargando.value = false
+    }
+  }
+
+  /** Las dos marcas se ponen igual; solo cambia el comando. */
+  async function marcar(comando: string, id: string): Promise<void> {
+    if (!hayNucleo()) return
+    cargando.value = true
+    error.value = null
+    try {
+      numeros.value = await invocar<Numero[]>(comando, { id })
+    } catch (e) {
+      error.value = esErrorIpc(e) ? e.clave : 'error.desconocido'
+    } finally {
+      cargando.value = false
+    }
+  }
+
+  return {
+    numeros,
+    cargando,
+    error,
+    listos,
+    porConfirmar,
+    cargar,
+    guardar,
+    enviarPrueba,
+    confirmarCoexistencia,
+    aceptarRiesgo,
+    refrescarCalidad,
+    plantillasDeMeta,
+    cargarPlantillasDeMeta,
+    anotarPlantillaDeMeta,
+  }
+})

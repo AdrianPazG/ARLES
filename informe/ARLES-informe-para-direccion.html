@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARLES RELAY I · Informe para Dirección</title>
+<!--
+  Informe para Dirección · 23 de octubre de 2026
+
+  ───────────────────────────────────────────────────────────────────────────
+  DE DÓNDE SALE CADA COSA DE ESTE ARCHIVO
+
+  El diseño no se inventó aquí. Los colores son los tokens de
+  `herramientas/design-tokens/tokens.json` —los veintiséis, con su valor en
+  los dos temas—, la escala tipográfica y la de espaciado son las de
+  `app/src/design/base.css`, y la tipografía es Mont, leída de /TIPOGRAFIA por
+  ruta relativa y NO copiada aquí: una copia sería un segundo sitio del que
+  retirarla si P-01 se cierra en negativo (ADR-0012, una sola fuente por
+  artefacto). Si el archivo se mueve de esta carpeta, la tipografía cae en la
+  del sistema y el informe sigue leyéndose.
+
+  Las cifras tampoco se escribieron a mano: salen de `avance.json`, del
+  recuento de pruebas del taller, de las migraciones que hay en disco y de las
+  medidas de `PRESUPUESTO_RENDIMIENTO.md`. Cada una lleva su fecha (§94: cifras,
+  no adjetivos; y los porcentajes llevan fecha).
+  ───────────────────────────────────────────────────────────────────────────
+-->
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   1 · TIPOGRAFÍA · Mont, los cuatro cortes que usa ARLES
+   El peso lo fija esta hoja y no el archivo: el metadato interno del kit está
+   desplazado (ver app/src/design/tipografia.css).
+   ═══════════════════════════════════════════════════════════════════════════ */
+@font-face { font-family:'Mont'; src:url('../TIPOGRAFIA/Mont-Regular.woff2')  format('woff2'); font-weight:400; font-style:normal; font-display:swap; }
+@font-face { font-family:'Mont'; src:url('../TIPOGRAFIA/Mont-SemiBold.woff2') format('woff2'); font-weight:600; font-style:normal; font-display:swap; }
+@font-face { font-family:'Mont'; src:url('../TIPOGRAFIA/Mont-Bold.woff2')     format('woff2'); font-weight:700; font-style:normal; font-display:swap; }
+@font-face { font-family:'Mont'; src:url('../TIPOGRAFIA/Mont-Black.woff2')    format('woff2'); font-weight:900; font-style:normal; font-display:swap; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   2 · TOKENS · tema claro (el de un documento que se imprime y se reenvía)
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --arles-bg-deep:#F2EEE9;        --arles-surface:#FAF8F5;
+  --arles-border:#DCD3C8;         --arles-surface-raised:#FFFFFF;
+  --arles-surface-hover:#E7DFD4;  --arles-border-strong:#8A7A64;
+  --arles-nav-activo:#A1C0D6;
+  --arles-text:#10242E;           --arles-text-muted:#46585F;
+  --arles-accent:#FCCC0C;         --arles-accent-ink:#7A5B00;
+  --arles-info:#0A5E80;           --arles-text-disabled:#78868D;
+  --arles-success:#0F6B52;        --arles-warning:#8A5200;
+  --arles-danger:#B0281B;
+  --arles-text-on-accent:#10242E; --arles-text-on-danger:#FFFFFF;
+  --arles-text-on-success:#FFFFFF;--arles-text-on-warning:#FFFFFF;
+  --arles-marca-fondo:#045686;    --arles-marca-tinta:#FCCC0C;
+
+  --arles-space-1:4px;  --arles-space-2:8px;  --arles-space-3:12px;
+  --arles-space-4:16px; --arles-space-5:24px; --arles-space-6:32px;
+  --arles-space-7:48px; --arles-space-8:64px;
+
+  --arles-radius-sm:4px; --arles-radius-md:6px; --arles-radius-lg:8px;
+
+  --arles-font-size-display:36px; --arles-font-size-h1:28px;
+  --arles-font-size-h2:20px;      --arles-font-size-h3:16px;
+  --arles-font-size-body:14px;    --arles-font-size-small:13px;
+  --arles-font-size-caption:12px;
+
+  --arles-font-weight-regular:400; --arles-font-weight-medium:500;
+  --arles-font-weight-semibold:600; --arles-font-weight-bold:700;
+  --arles-font-weight-black:900;
+
+  --arles-font-family:'Mont',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --arles-ancho-texto:100ch;
+
+  /* El suelo de ARLES para cualquier cosa que se pulse. Es más alto que el 24
+     del estándar WCAG 2.2 a propósito, y vive en un token porque la auditoría
+     D encontró cinco enlaces de 20 px justamente por no vivir en ninguno. */
+  --arles-objetivo-minimo:32px;
+}
+
+/* El tema de origen de ARLES. Se aplica si el equipo lo pide, y nunca al
+   imprimir: tinta oscura sobre papel no es un ahorro, es un gasto. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    --arles-bg-deep:#041A25;        --arles-surface:#053048;
+    --arles-border:#0A4E71;         --arles-surface-raised:#045686;
+    --arles-surface-hover:#0C6F9D;  --arles-border-strong:#93D4EE;
+    --arles-nav-activo:#045686;
+    --arles-text:#F4ECE4;           --arles-text-muted:#E4E4CC;
+    --arles-accent:#FCCC0C;         --arles-accent-ink:#FCCC0C;
+    --arles-info:#2CA4D4;           --arles-text-disabled:#9FB4BF;
+    --arles-success:#4FC3A1;        --arles-warning:#E08A1C;
+    --arles-danger:#F06A5A;
+    --arles-text-on-accent:#041A25; --arles-text-on-danger:#041A25;
+    --arles-text-on-success:#041A25;--arles-text-on-warning:#041A25;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3 · ARMAZÓN
+   ═══════════════════════════════════════════════════════════════════════════ */
+* { box-sizing:border-box; }
+
+html { -webkit-text-size-adjust:100%; }
+
+body {
+  margin:0;
+  background:var(--arles-bg-deep);
+  color:var(--arles-text);
+  font-family:var(--arles-font-family);
+  font-size:var(--arles-font-size-body);
+  font-weight:var(--arles-font-weight-regular);
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+
+.hoja {
+  max-width:calc(var(--arles-ancho-texto) + var(--arles-space-8) * 2);
+  margin:0 auto;
+  padding:var(--arles-space-7) var(--arles-space-4) var(--arles-space-8);
+}
+
+@media (min-width:840px) {
+  .hoja { padding:var(--arles-space-8) var(--arles-space-8) 96px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   4 · JERARQUÍA TIPOGRÁFICA
+   Los seis niveles de la aplicación, en el mismo orden y con los mismos pesos.
+   Ninguno cambia de tamaño por estar en este archivo.
+   ═══════════════════════════════════════════════════════════════════════════ */
+h1,h2,h3,h4 { margin:0; line-height:1.25; letter-spacing:-0.01em; }
+
+.marca {
+  font-size:var(--arles-font-size-display);
+  font-weight:var(--arles-font-weight-black);
+  letter-spacing:0.02em;
+}
+
+/* ADR-0010 · el numeral «I» va con la marca; la versión, aparte y en otra
+   línea tipográfica. Nunca «ARLES RELAY I v1.2.0». */
+.marca__numeral { color:var(--arles-accent-ink); }
+
+h2 {
+  font-size:var(--arles-font-size-h1);
+  font-weight:var(--arles-font-weight-bold);
+  margin-top:var(--arles-space-8);
+  padding-bottom:var(--arles-space-3);
+  border-bottom:2px solid var(--arles-border-strong);
+}
+
+h3 {
+  font-size:var(--arles-font-size-h2);
+  font-weight:var(--arles-font-weight-semibold);
+  margin-top:var(--arles-space-6);
+}
+
+h4 {
+  font-size:var(--arles-font-size-h3);
+  font-weight:var(--arles-font-weight-semibold);
+  margin-top:var(--arles-space-5);
+  color:var(--arles-text);
+}
+
+p { margin:var(--arles-space-3) 0 0; max-width:92ch; }
+
+.entradilla {
+  margin-top:var(--arles-space-2);
+  color:var(--arles-text-muted);
+  font-size:var(--arles-font-size-h3);
+  line-height:1.6;
+  max-width:88ch;
+}
+
+.rotulo {
+  font-size:var(--arles-font-size-caption);
+  font-weight:var(--arles-font-weight-bold);
+  letter-spacing:0.09em;
+  text-transform:uppercase;
+  color:var(--arles-text-muted);
+}
+
+strong { font-weight:var(--arles-font-weight-bold); color:var(--arles-text); }
+
+/* El color va explícito y no heredado: dentro del pie, `code` heredaba el
+   texto atenuado y medía 4.31:1 sobre su propio fondo, por debajo del 4.5
+   que exige un texto de 11 px. Heredar un color es heredar un contraste. */
+code {
+  font-family:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+  font-size:0.92em;
+  color:var(--arles-text);
+  background:var(--arles-surface-hover);
+  border:1px solid var(--arles-border);
+  border-radius:var(--arles-radius-sm);
+  padding:1px var(--arles-space-1);
+  white-space:nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   5 · PORTADA
+   ═══════════════════════════════════════════════════════════════════════════ */
+.portada {
+  background:var(--arles-surface);
+  border:1px solid var(--arles-border);
+  border-top:4px solid var(--arles-accent);
+  border-radius:var(--arles-radius-lg);
+  padding:var(--arles-space-7) var(--arles-space-6);
+}
+
+.portada__placa {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:56px; height:56px;
+  background:var(--arles-marca-fondo);
+  color:var(--arles-marca-tinta);
+  border-radius:var(--arles-radius-md);
+  font-size:30px;
+  font-weight:var(--arles-font-weight-black);
+  line-height:1;
+  margin-bottom:var(--arles-space-5);
+}
+
+.portada__version {
+  margin-top:var(--arles-space-2);
+  font-size:var(--arles-font-size-h2);
+  font-weight:var(--arles-font-weight-medium);
+  color:var(--arles-text-muted);
+  letter-spacing:0.04em;
+}
+
+.portada__meta {
+  display:grid;
+  gap:var(--arles-space-4);
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  margin-top:var(--arles-space-6);
+  padding-top:var(--arles-space-5);
+  border-top:1px solid var(--arles-border);
+}
+
+.portada__dato dt { margin-bottom:var(--arles-space-1); }
+.portada__dato dd {
+  margin:0;
+  font-size:var(--arles-font-size-h3);
+  font-weight:var(--arles-font-weight-semibold);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   6 · EL BLOQUE DEL AVANCE
+   ═══════════════════════════════════════════════════════════════════════════ */
+.avance {
+  margin-top:var(--arles-space-5);
+  background:var(--arles-surface-raised);
+  border:1px solid var(--arles-border);
+  border-radius:var(--arles-radius-lg);
+  padding:var(--arles-space-6);
+}
+
+.avance__cifra {
+  display:flex;
+  align-items:baseline;
+  gap:var(--arles-space-3);
+  flex-wrap:wrap;
+}
+
+.avance__numero {
+  font-size:64px;
+  font-weight:var(--arles-font-weight-black);
+  line-height:1;
+  letter-spacing:-0.03em;
+}
+
+.avance__fecha {
+  font-size:var(--arles-font-size-small);
+  color:var(--arles-text-muted);
+}
+
+.barra {
+  margin-top:var(--arles-space-4);
+  height:12px;
+  background:var(--arles-surface-hover);
+  border:1px solid var(--arles-border);
+  border-radius:999px;
+  overflow:hidden;
+}
+
+.barra__relleno {
+  height:100%;
+  background:var(--arles-accent);
+  border-radius:999px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   7 · TABLAS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.tabla-marco {
+  margin-top:var(--arles-space-4);
+  border:1px solid var(--arles-border);
+  border-radius:var(--arles-radius-lg);
+  overflow-x:auto;
+  background:var(--arles-surface-raised);
+}
+
+table { width:100%; border-collapse:collapse; font-size:var(--arles-font-size-small); }
+
+thead th {
+  text-align:left;
+  padding:var(--arles-space-3) var(--arles-space-4);
+  background:var(--arles-surface);
+  border-bottom:1px solid var(--arles-border-strong);
+  font-size:var(--arles-font-size-caption);
+  font-weight:var(--arles-font-weight-bold);
+  letter-spacing:0.07em;
+  text-transform:uppercase;
+  color:var(--arles-text-muted);
+  white-space:nowrap;
+}
+
+tbody td {
+  padding:var(--arles-space-3) var(--arles-space-4);
+  border-bottom:1px solid var(--arles-border);
+  vertical-align:top;
+}
+
+tbody tr:last-child td { border-bottom:none; }
+
+td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+th.num { text-align:right; }
+
+.celda-fase { font-weight:var(--arles-font-weight-semibold); white-space:nowrap; }
+
+/* La barra de cada fase dentro de su fila. */
+.mini-barra {
+  min-width:96px;
+  height:8px;
+  background:var(--arles-surface-hover);
+  border:1px solid var(--arles-border);
+  border-radius:999px;
+  overflow:hidden;
+}
+.mini-barra__relleno { height:100%; border-radius:999px; }
+.mini-barra__relleno--completo { background:var(--arles-success); }
+.mini-barra__relleno--parcial  { background:var(--arles-warning); }
+.mini-barra__relleno--vacio    { background:var(--arles-border-strong); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   8 · INSIGNIAS
+   §Nada se distingue sólo por color: cada insignia LLEVA SU TEXTO. Quitarle
+   el color a este archivo no quita una sola unidad de información.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.insignia {
+  display:inline-block;
+  padding:2px var(--arles-space-2);
+  border-radius:var(--arles-radius-sm);
+  font-size:var(--arles-font-size-caption);
+  font-weight:var(--arles-font-weight-bold);
+  letter-spacing:0.03em;
+  white-space:nowrap;
+  border:1px solid transparent;
+}
+.insignia--cerrada  { background:var(--arles-success); color:var(--arles-text-on-success); }
+.insignia--parcial  { background:var(--arles-warning); color:var(--arles-text-on-warning); }
+.insignia--abierta  { background:var(--arles-surface-hover); color:var(--arles-text); border-color:var(--arles-border-strong); }
+.insignia--bloqueo  { background:var(--arles-danger);  color:var(--arles-text-on-danger); }
+/* El fondo es la superficie MÁS PROFUNDA y no la elevada. Medido: en tema
+   oscuro `--arles-info` (#2CA4D4) sobre `--arles-surface-raised` (#045686) da
+   2.75:1, porque esa superficie es ella misma un azul medio. Sobre
+   `--arles-bg-deep` el mismo color cumple en los dos temas, y no hace falta
+   inventar un token —que en esta fase ya pasó tres veces—. */
+.insignia--decision { background:var(--arles-bg-deep); color:var(--arles-info); border-color:var(--arles-info); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   9 · AVISOS · tres niveles y tres significados distintos
+   ═══════════════════════════════════════════════════════════════════════════ */
+.aviso {
+  margin-top:var(--arles-space-5);
+  padding:var(--arles-space-4) var(--arles-space-5);
+  border:1px solid var(--arles-border);
+  border-left-width:4px;
+  border-radius:var(--arles-radius-md);
+  background:var(--arles-surface-raised);
+}
+
+.aviso__titulo {
+  display:block;
+  font-size:var(--arles-font-size-caption);
+  font-weight:var(--arles-font-weight-bold);
+  letter-spacing:0.09em;
+  text-transform:uppercase;
+  margin-bottom:var(--arles-space-2);
+}
+
+.aviso p:first-of-type { margin-top:0; }
+
+/* Delicado: algo que si se promete de más, cuesta dinero o credibilidad. */
+.aviso--delicado { border-left-color:var(--arles-danger);  background:var(--arles-surface); }
+.aviso--delicado .aviso__titulo { color:var(--arles-danger); }
+
+/* Importante: algo que hay que saber para decidir. */
+.aviso--importante { border-left-color:var(--arles-accent); background:var(--arles-surface); }
+.aviso--importante .aviso__titulo { color:var(--arles-accent-ink); }
+
+/* Contexto: una aclaración de método. */
+.aviso--contexto { border-left-color:var(--arles-info); background:var(--arles-surface); }
+.aviso--contexto .aviso__titulo { color:var(--arles-info); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   10 · REJILLAS Y TARJETAS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.rejilla {
+  display:grid;
+  gap:var(--arles-space-4);
+  margin-top:var(--arles-space-4);
+}
+@media (min-width:720px) {
+  .rejilla--2 { grid-template-columns:repeat(2,1fr); }
+  .rejilla--3 { grid-template-columns:repeat(3,1fr); }
+  .rejilla--4 { grid-template-columns:repeat(4,1fr); }
+}
+
+.tarjeta {
+  background:var(--arles-surface-raised);
+  border:1px solid var(--arles-border);
+  border-radius:var(--arles-radius-lg);
+  padding:var(--arles-space-5);
+}
+
+.tarjeta > h4:first-child { margin-top:0; }
+
+.tarjeta__cifra {
+  font-size:var(--arles-font-size-display);
+  font-weight:var(--arles-font-weight-black);
+  line-height:1.1;
+  letter-spacing:-0.02em;
+  font-variant-numeric:tabular-nums;
+}
+
+.tarjeta__pie {
+  margin-top:var(--arles-space-1);
+  font-size:var(--arles-font-size-caption);
+  color:var(--arles-text-muted);
+  line-height:1.5;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   11 · LISTAS
+   ═══════════════════════════════════════════════════════════════════════════ */
+ul, ol { margin:var(--arles-space-3) 0 0; padding-left:var(--arles-space-5); max-width:92ch; }
+li { margin-bottom:var(--arles-space-2); }
+li:last-child { margin-bottom:0; }
+
+.lista-limpia { list-style:none; padding-left:0; }
+.lista-limpia > li {
+  padding-left:var(--arles-space-4);
+  border-left:2px solid var(--arles-border);
+  margin-bottom:var(--arles-space-3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   12 · ÍNDICE
+   ═══════════════════════════════════════════════════════════════════════════ */
+.indice {
+  margin-top:var(--arles-space-5);
+  background:var(--arles-surface);
+  border:1px solid var(--arles-border);
+  border-radius:var(--arles-radius-lg);
+  padding:var(--arles-space-5) var(--arles-space-6);
+}
+.indice ol { columns:2; column-gap:var(--arles-space-7); padding-left:var(--arles-space-5); }
+@media (max-width:719px) { .indice ol { columns:1; } }
+.indice li { margin-bottom:0; }
+
+/* El enlace es un bloque con alto mínimo, no un texto en línea. Medido: en
+   línea mide 13 px de alto —el de su línea— y eso es el defecto que la
+   auditoría D encontró en cinco enlaces del producto. El subrayado se pone en
+   un hijo para que no se estire con la caja. */
+.indice a {
+  display:flex;
+  align-items:center;
+  min-height:var(--arles-objetivo-minimo);
+  color:var(--arles-text);
+  text-decoration:none;
+  border-bottom:none;
+}
+.indice a > span { border-bottom:1px solid var(--arles-border-strong); }
+.indice a:hover, .indice a:focus-visible { color:var(--arles-info); }
+.indice a:hover > span, .indice a:focus-visible > span { border-bottom-color:var(--arles-info); }
+
+a:focus-visible, .indice a:focus-visible {
+  outline:2px solid var(--arles-accent-ink);
+  outline-offset:3px;
+  border-radius:var(--arles-radius-sm);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   13 · PIE
+   ═══════════════════════════════════════════════════════════════════════════ */
+.pie {
+  margin-top:var(--arles-space-8);
+  padding-top:var(--arles-space-5);
+  border-top:2px solid var(--arles-border-strong);
+  font-size:var(--arles-font-size-caption);
+  color:var(--arles-text-muted);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   14 · IMPRESIÓN
+   Un informe para Dirección se imprime y se reenvía. Sin esto, el tema oscuro
+   gasta un cartucho y las tablas se parten por la mitad.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media print {
+  :root {
+    --arles-bg-deep:#FFFFFF; --arles-surface:#FAF8F5;
+    --arles-surface-raised:#FFFFFF; --arles-text:#10242E;
+  }
+  body { font-size:11pt; }
+  .hoja { max-width:none; padding:0; }
+  h2 { page-break-after:avoid; break-after:avoid; }
+  h3, h4 { page-break-after:avoid; break-after:avoid; }
+  .tarjeta, .aviso, .tabla-marco, tr { page-break-inside:avoid; break-inside:avoid; }
+  .indice { display:none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation:none !important; transition:none !important; }
+}
+</style>
+</head>
+<body>
+<main class="hoja">
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     PORTADA
+     ════════════════════════════════════════════════════════════════════════ -->
+<header class="portada">
+  <div class="portada__placa" aria-hidden="true">A</div>
+  <p class="rotulo">Informe de estado del desarrollo</p>
+  <h1 class="marca">ARLES RELAY <span class="marca__numeral">I</span></h1>
+  <p class="portada__version">Versión 1.2.0</p>
+
+  <dl class="portada__meta">
+    <div class="portada__dato">
+      <dt class="rotulo">Para</dt>
+      <dd>Dirección</dd>
+    </div>
+    <div class="portada__dato">
+      <dt class="rotulo">Fecha del informe</dt>
+      <dd>23 de octubre de 2026</dd>
+    </div>
+    <div class="portada__dato">
+      <dt class="rotulo">Avance medido</dt>
+      <dd>89 % · 22/10/2026</dd>
+    </div>
+    <div class="portada__dato">
+      <dt class="rotulo">Entregable final</dt>
+      <dd>Instalador para Windows</dd>
+    </div>
+  </dl>
+</header>
+
+<nav class="indice" aria-label="Contenido del informe">
+  <p class="rotulo">Contenido</p>
+  <ol>
+    <li><a href="#resumen"><span>El estado en una página</span></a></li>
+    <li><a href="#avance"><span>El porcentaje y qué mide</span></a></li>
+    <li><a href="#funciones"><span>Lo que ARLES hace hoy</span></a></li>
+    <li><a href="#falta"><span>Lo que falta por construir</span></a></li>
+    <li><a href="#limites"><span>Lo que ARLES no hace, y no hay que prometer</span></a></li>
+    <li><a href="#pendientes"><span>Pendientes de información y decisiones</span></a></li>
+    <li><a href="#verificacion"><span>Cómo se verifica todo esto</span></a></li>
+    <li><a href="#siguiente"><span>Lo que sigue</span></a></li>
+  </ol>
+</nav>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     1 · RESUMEN
+     ════════════════════════════════════════════════════════════════════════ -->
+<section id="resumen">
+  <h2>1 · El estado en una página</h2>
+  <p class="entradilla">
+    ARLES ya hace el trabajo completo de una campaña de correo: carga los
+    contactos, prepara el mensaje, lo manda a ritmo controlado, cuenta lo que
+    pasó y guarda una copia de todo. Lo que falta es, sobre todo, WhatsApp como
+    canal de campaña, los registros del dominio y el instalador.
+  </p>
+
+  <div class="rejilla rejilla--4">
+    <article class="tarjeta">
+      <p class="tarjeta__cifra">89 %</p>
+      <p class="tarjeta__pie">del alcance de la v1.2.0 construido y verificado, medido el 22/10/2026</p>
+    </article>
+    <article class="tarjeta">
+      <p class="tarjeta__cifra">18</p>
+      <p class="tarjeta__pie">pantallas, repartidas en las seis secciones de la aplicación</p>
+    </article>
+    <article class="tarjeta">
+      <p class="tarjeta__cifra">1 418</p>
+      <p class="tarjeta__pie">pruebas automáticas: 1 135 del motor y 283 de la interfaz</p>
+    </article>
+    <article class="tarjeta">
+      <p class="tarjeta__cifra">340</p>
+      <p class="tarjeta__pie">comprobaciones de reglas del proyecto, con 0 fallos y 0 omitidas</p>
+    </article>
+  </div>
+
+  <div class="aviso aviso--importante">
+    <span class="aviso__titulo">El hito del mes</span>
+    <p>
+      <strong>El 22 de octubre de 2026 ARLES mandó su primer correo real y
+      llegó a tres bandejas principales de tres</strong> —Outlook, Gmail y un
+      buzón corporativo—, desde <code>enlace@telemetrymx.com</code> con TLS real.
+      Hasta ese día todo el envío estaba probado contra un servidor simulado.
+      Con eso se cerró <strong>R-24</strong>, el bloqueo más antiguo del
+      proyecto, abierto desde la Fase 5.
+    </p>
+    <p>
+      Lo que costó no fue el código: desde una dirección de Gmail el correo
+      caía en no deseados <em>con toda la autenticación en verde</em>. Lo que
+      pesaba era el patrón «nombre de marca + correo personal», y eso no se
+      arregla programando: se arregla mandando desde el dominio propio.
+    </p>
+  </div>
+
+  <div class="aviso aviso--delicado">
+    <span class="aviso__titulo">Lo que impide entregar hoy</span>
+    <p>
+      <strong>No es código.</strong> Son cuatro cosas que dependen de personas
+      fuera del equipo de desarrollo, y la primera es la que bloquea el
+      instalador: <strong>la licencia de la tipografía Mont (P-01)</strong>. Sin
+      ella no se puede distribuir un <code>.exe</code> con la tipografía dentro.
+      Las otras tres están en la sección 6.
+    </p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     2 · AVANCE
+     ════════════════════════════════════════════════════════════════════════ -->
+<section id="avance">
+  <h2>2 · El porcentaje y qué mide</h2>
+
+  <div class="avance">
+    <p class="rotulo">Avance de la versión 1.2.0</p>
+    <p class="avance__cifra">
+      <span class="avance__numero">89 %</span>
+      <span class="avance__fecha">medido el 22 de octubre de 2026</span>
+    </p>
+    <div class="barra" role="img" aria-label="89 por ciento de 100">
+      <div class="barra__relleno" style="width:89%"></div>
+    </div>
+  </div>
+
+  <div class="aviso aviso--contexto">
+    <span class="aviso__titulo">Qué mide y qué no mide este número</span>
+    <p>
+      <strong>Mide</strong> cuánto del alcance de la v1.2.0 está construido
+      <em>y verificado</em>. Cada fase pesa según el esfuerzo estimado, y el
+      total de los pesos es 100, así que la suma es directa.
+    </p>
+    <p>
+      <strong>No mide</strong> cuánto tiempo falta —una fase del 8 % puede
+      costar más días que una del 14 %— y <strong>no baja por los bloqueos
+      externos</strong>: la licencia de Mont no resta porcentaje porque no es
+      trabajo pendiente nuestro, pero sí impide entregar. Un 89 % con el
+      instalador bloqueado no es un 89 % entregable.
+    </p>
+  </div>
+
+  <h3>Las once fases, una por una</h3>
+
+  <div class="tabla-marco">
+    <table>
+      <caption class="rotulo" style="caption-side:top;text-align:left;padding:var(--arles-space-3) var(--arles-space-4)">
+        Desglose del 89 % · fuente: documentacion/07-entrega/avance.json
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Fase</th>
+          <th scope="col">Qué cubre</th>
+          <th scope="col" class="num">Peso</th>
+          <th scope="col" class="num">Hecho</th>
+          <th scope="col">Avance</th>
+          <th scope="col">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="celda-fase">F0</td>
+          <td>Discovery, auditoría inicial, riesgos y decisiones</td>
+          <td class="num">5</td><td class="num">100 %</td>
+          <td><div class="mini-barra"><div class="mini-barra__relleno mini-barra__relleno--completo" style="width:100%"></div></div></td>
+          <td><span class="insignia insignia--cerrada">Cerrada</span></td>
+        </tr>
+        <tr>
+          <td class="celda-fase">F1</td>
+          <td>Cimientos: base de datos cifrada, migraciones, llavero del sistema</td>
+          <td class="num">9</td><td class="num">100 %</td>
+          <td><div class="mini-barra"><div class="mini-barra__relleno mini-barra__relleno--completo" style="width:100%"></div></div></td>
+          <td><span class="insignia insignia--cerrada">Cerrada</span></td>
+        </tr>
+        <tr>
+          <td class="celda-fase">F2</td>
+          <td>Sistema de diseño: colores, tipografía, componentes, contrastes medidos</td>
+          <td class="num">9</td><td class="num">100 %</td>
+          <td><div class="mini-barra"><div class="mini-barra__relleno mini-barra__relleno--completo" style="width:100%"></div></div></td>
+          <td><span class="insignia insignia--cerrada">Cerrada</span></td>
+        </tr>
+        <tr>
+          <td class="celda-fase">F3</td>
+          <td>Empresa, contactos, importación, bajas y derechos de datos</td>
+          <td class="num">14</td><td class="num">100 %</td>
+          <td><div class="mini-barra"><div class="mini-barra__relleno mini-barra__relleno--completo" style="width:100%"></div></div></td>
+          <td><span class="insignia insignia--cerrada">Cerrada</span></td>
+        </tr>
+        <tr>
+          <td class="celda-fase">F3W</td>
+          <td>Canales por contacto, consentimiento y etapas de campaña</td>
+          <td class="num">8</td><td class="num">55 %</td>
+          <td><div class="mini-barra"><div class="mini-barra__relleno mini-barra__relleno--parcial" style="width:55%"></div></div></td>
+          <td><span class="insignia insignia--parcial">A medias</span></td>
+        </tr>
+        <tr>
+          <td class="celda-fase">F4</td>
+          <td>Motor de envío: cola, ritmo, ventana horaria, reintentos, freno</td>
+          <td class="num">14</td><td class="num">100 %</td>
+          <td><div class="mini-barra"><div class="mini-barra__relleno mini-barra__relleno--completo" style="width:100%"></div></div></td>
+          <td><span class="insignia insignia--cerrada">Cerrada</span></td>
+        </tr>
+        <tr>
+          <td class="celda-fase">F5</td>
+          <td>Proveedores de envío: correo cerrado, WhatsApp pendiente</td>
+          <td class="num">7</td><td class="num">70 %</td>
+          <td><div class="mini-barra"><div class="mini-barra__relleno mini-barra__relleno--parcial" style="width:70%"></div></div></td>
+          <td><span class="insignia insignia--parcial">A medias</span></td>
+        </tr>
+        <tr>
+          <td class="celda-fase">F6</td>
+          <td>Campañas, plantillas, firmas y el asistente de nueve pasos</td>
+          <td class="num">13</td><td class="num">100 %</td>
+          <td><div class="mini-barra"><div class="mini-barra__relleno mini-barra__relleno--completo" style="width:100%"></div></div></td>
+          <td><span class="insignia insignia--cerrada">Cerrada</span></td>
+        </tr>
+        <tr>
+          <td class="celda-fase">F7</td>
+          <td>Actividad, registro de envíos y entregabilidad</td>
+          <td class="num">9</td><td class="num">92 %</td>
+          <td><div class="mini-barra"><div class="mini-barra__relleno mini-barra__relleno--parcial" style="width:92%"></div></div></td>
+          <td><span class="insignia insignia--parcial">A medias</span></td>
+        </tr>
+        <tr>
+          <td class="celda-fase">F8</td>
+          <td>Respaldos, restauración, archivado y endurecimiento</td>
+          <td class="num">7</td><td class="num">100 %</td>
+          <td><div class="mini-barra"><div class="mini-barra__relleno mini-barra__relleno--completo" style="width:100%"></div></div></td>
+          <td><span class="insignia insignia--cerrada">Cerrada</span></td>
+        </tr>
+        <tr>
+          <td class="celda-fase">F9</td>
+          <td>Entrega: instaladores firmados, actualizador, despliegue</td>
+          <td class="num">5</td><td class="num">0 %</td>
+          <td><div class="mini-barra"><div class="mini-barra__relleno mini-barra__relleno--vacio" style="width:100%"></div></div></td>
+          <td><span class="insignia insignia--abierta">Sin empezar</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    <strong>Siete de las once fases están cerradas.</strong> Tres van a medias
+    —F3W, F5 y F7— y una no ha empezado, la de entrega. Lo que queda por
+    construir se detalla en la sección 4.
+  </p>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     3 · FUNCIONES
+     ════════════════════════════════════════════════════════════════════════ -->
+<section id="funciones">
+  <h2>3 · Lo que ARLES hace hoy</h2>
+  <p class="entradilla">
+    Las once áreas construidas, con lo que cada una resuelve y lo que concretamente
+    se puede hacer en pantalla. Todo lo de esta sección está construido,
+    probado y abierto desde la aplicación: si aparece aquí, tiene botón.
+  </p>
+
+  <h3>3.1 · Empresa y contactos</h3>
+  <ul class="lista-limpia">
+    <li><strong>Datos de la empresa.</strong> Nombre, dominio y domicilio, que son los que van en el pie legal de cada correo.</li>
+    <li><strong>Contactos con varios canales cada uno.</strong> Una persona puede tener correo y teléfono de WhatsApp; cada canal lleva su propio consentimiento y su propia baja.</li>
+    <li><strong>Lista de contactos con búsqueda.</strong> Abre en 357 ms con medio millón de registros; la búsqueda por correo responde en menos de 1 ms (medido el 06/10/2026 sobre 500 000 contactos).</li>
+    <li><strong>Editar y dar de baja desde la propia fila</strong>, sin abrir otra pantalla.</li>
+  </ul>
+
+  <h3>3.2 · Importación de archivos</h3>
+  <ul class="lista-limpia">
+    <li><strong>Lee CSV y XLSX</strong>, con detección de codificación —incluidos archivos de Excel en UTF-16 y con BOM— y separadores mezclados.</li>
+    <li><strong>Reconoce las columnas por su nombre</strong>, con sinónimos en español. Reconoce «Teléfono» a secas y <em>avisa</em> de que ese número puede no ser móvil; deja fuera lo que declara no serlo: «Teléfono fijo», «Conmutador», «Lada», «Fax».</li>
+    <li><strong>Enseña los choques antes de importar</strong> (decisión del 18/09/2026). No fusiona ni salta por su cuenta: una importación de diez mil filas es irreversible en la práctica.</li>
+    <li><strong>Avisa de los nombres repetidos</strong> cuando una persona aparece con direcciones distintas, para que se puedan separar antes de entrar.</li>
+    <li><strong>Plantilla descargable en XLSX</strong>, con la garantía comprobada de que lo que ARLES entrega, ARLES lo vuelve a leer sin perder una columna. Va sin fila de ejemplo a propósito: una fila que nadie borra es un contacto inventado recibiendo un envío real.</li>
+    <li><strong>Importar 500 000 contactos: 91.4 segundos</strong> de un presupuesto de 5 minutos (medido el 06/10/2026).</li>
+  </ul>
+
+  <h3>3.3 · Bajas y derechos de datos</h3>
+  <ul class="lista-limpia">
+    <li><strong>Lista de bajas por canal.</strong> Una baja no se deshace, y quien está de baja no recibe nada aunque se vuelva a importar: está comprobado dando de baja, borrando el contacto, reimportándolo y verificando que sigue sin escribírsele.</li>
+    <li><strong>Dar de baja una dirección que no es un contacto</strong> —a quien le reenviaron el correo, o quien contesta desde otra dirección suya—. Cerrado el 23/10/2026.</li>
+    <li><strong>Los cuatro derechos de datos</strong> (acceso, rectificación, cancelación y oposición), cada uno con su comando y su pantalla.</li>
+    <li><strong>Pie de baja obligatorio</strong> en toda plantilla de campaña.</li>
+  </ul>
+
+  <h3>3.4 · Remitentes de correo</h3>
+  <ul class="lista-limpia">
+    <li><strong>El alta son dos campos:</strong> correo y contraseña. ARLES deduce servidor, puerto y cifrado de cinco proveedores conocidos, y sólo abre la configuración avanzada si no reconoce el dominio.</li>
+    <li><strong>El cifrado es obligatorio y no se puede desactivar.</strong> No hay casilla, ni valor, ni opción avanzada: está en el tipo, en el adaptador y en la base de datos.</li>
+    <li><strong>«Probar conexión» da seis diagnósticos distintos</strong>, cada uno con una acción concreta, y no manda ningún correo.</li>
+    <li><strong>La contraseña entra y no sale.</strong> Vive en el llavero de Windows; en la base de datos sólo hay una referencia opaca, y ningún comando la devuelve.</li>
+    <li><strong>Semáforo del cupo real</strong> por remitente, con las campañas que se lo reparten.</li>
+  </ul>
+
+  <h3>3.5 · WhatsApp</h3>
+  <ul class="lista-limpia">
+    <li><strong>Alta del número con la API de Meta</strong>, con el modo Coexistencia y la aceptación explícita de riesgo.</li>
+    <li><strong>Las dos cifras de permiso</strong> —calidad del número y límite de mensajería— con la puerta que impide enviar si no están.</li>
+    <li><strong>Registro de las plantillas aprobadas de Meta.</strong></li>
+    <li><strong>Envío de prueba que manda un WhatsApp real</strong>, con botón, desde el 01/10/2026.</li>
+    <li><strong>Revisión de los datos de Meta antes de guardar</strong>: avisa de un identificador mal pegado, pero no bloquea, porque Meta podría cambiar el formato.</li>
+  </ul>
+
+  <h3>3.6 · Plantillas y firmas</h3>
+  <ul class="lista-limpia">
+    <li><strong>Editor de plantillas y firmas</strong> con negrita y cursiva.</li>
+    <li><strong>Variables del contacto</strong> con un motor de sustitución deliberadamente limitado: no ejecuta nada, sólo sustituye.</li>
+    <li><strong>El HTML se sanea en el motor</strong>, con lista blanca de etiquetas.</li>
+    <li><strong>Las versiones no se editan.</strong> Una plantilla usada en una campaña queda congelada: lo que se mandó se puede volver a leer tal cual.</li>
+    <li><strong>Se retiran, no se borran</strong>, para no perder el historial de lo enviado.</li>
+    <li><strong>La firma no puede llevar datos de quien recibe</strong> —impedido por diseño—.</li>
+  </ul>
+
+  <h3>3.7 · Campañas</h3>
+  <ul class="lista-limpia">
+    <li><strong>Asistente de nueve pasos</strong>, de principio a fin, con validación en cada uno.</li>
+    <li><strong>Cada campaña carga su propia lista</strong> desde un XLSX o CSV (D-15, 23/10/2026): «Videovigilancia» y «Desarrollo de aplicaciones» no mezclan públicos.</li>
+    <li><strong>Audiencia congelada al activar.</strong> Quien entra a la lista después no se cuela en una campaña en marcha.</li>
+    <li><strong>Simulador de duración</strong> que dice cuántos días va a tardar y, si no puede terminar, <strong>cuántas personas se quedarían sin mensaje</strong> y bloquea la activación.</li>
+    <li><strong>Preflight de ocho puntos</strong> enchufado a la base de datos y a la cuenta real, con el envío de prueba obligatorio.</li>
+    <li><strong>El límite diario lo fija la campaña</strong> (decisión del 22/10/2026), con el aviso de riesgo a partir de más de 50 diarios registrado en la bitácora.</li>
+    <li><strong>Aviso cuando dos campañas comparten remitente</strong>, pegado a la cifra del plazo que desmiente.</li>
+  </ul>
+
+  <h3>3.8 · El motor de envío</h3>
+  <ul class="lista-limpia">
+    <li><strong>Corre en su propio hilo</strong>, así que la aplicación sigue respondiendo mientras envía.</li>
+    <li><strong>Ritmo, ventana horaria con zona de tiempo</strong> y reintentos con espera creciente.</li>
+    <li><strong>Disyuntor por cuenta:</strong> si un remitente empieza a fallar, se corta solo antes de quemar el dominio.</li>
+    <li><strong>Descanso de 14 días entre campañas para la misma persona</strong> (D-16, 23/10/2026). Quien está en dos listas <em>recibe las dos</em>, pero no el mismo día: el segundo envío espera su turno. No se cancela nunca, porque una audiencia más corta no se distingue de una lista más corta.</li>
+    <li><strong>Pausar, reanudar, detener y parada de emergencia</strong>, con botón, y la parada guardada: si se cierra la aplicación, sigue parada.</li>
+    <li><strong>Se recupera al arrancar:</strong> un corte de luz a mitad de campaña no duplica ni pierde envíos.</li>
+    <li><strong>13 milisegundos por envío</strong>, unas 77 por segundo, contra los 50 <em>diarios</em> que el producto permite por remitente.</li>
+  </ul>
+
+  <h3>3.9 · Actividad y registro</h3>
+  <ul class="lista-limpia">
+    <li><strong>Una tarjeta por campaña</strong> con sus cifras y cuánta gente contestó —nunca qué dijeron—.</li>
+    <li><strong>Por qué no sale nada:</strong> cuál de las seis razones es, con su cifra. Es la pregunta que más se hace y la que menos aplicaciones contestan.</li>
+    <li><strong>Registro de envíos con seis filtros combinables</strong>, nunca más de 500 filas en pantalla con el total al lado.</li>
+    <li><strong>Un desenlace de envío no se borra jamás.</strong> El recorte bimestral del registro dice antes de tocar nada cuánto se va y cuánto se queda.</li>
+    <li><strong>Resumen exportable por campaña</strong>, en texto, con <em>el método de cada cifra</em> al lado y los fallos agrupados por causa en español. Va <strong>sin una sola dirección de correo</strong>, y eso lo garantiza la estructura del archivo: no tiene dónde meter una.</li>
+  </ul>
+
+  <h3>3.10 · Respaldos y recuperación</h3>
+  <ul class="lista-limpia">
+    <li><strong>Respaldo cifrado</strong> con Argon2id y XChaCha20-Poly1305, en dos alcances: «Esencial» —lo que hace falta para seguir trabajando— y completo.</li>
+    <li><strong>Restaurar reemplaza, nunca mezcla</strong>, y <strong>las bajas se unen</strong>: una baja nunca se pierde al restaurar.</li>
+    <li><strong>Antes de restaurar se dice qué se pierde</strong>, con su cifra, leyendo del esquema real y no de una lista escrita a mano.</li>
+    <li><strong>Archivar el historial a un disco externo</strong>: se escribe, se vuelve a leer, se verifica, y <em>sólo entonces</em> se borra de la base.</li>
+    <li><strong>Salida para el día que se pierda la llave del llavero.</strong> La base ilegible se aparta, no se borra, porque un llavero puede volver.</li>
+    <li><strong>Con 30 000 contactos:</strong> exportar cifrado 244 ms, restaurar 745 ms, revisar un respaldo 0.1 ms (medido el 07/10/2026).</li>
+  </ul>
+
+  <h3>3.11 · Interfaz y accesibilidad</h3>
+  <ul class="lista-limpia">
+    <li><strong>Tema claro y tema oscuro</strong>, los dos con sus contrastes medidos en navegador, no estimados.</li>
+    <li><strong>Objetivos de pulsación de 32 píxeles como mínimo</strong>, más alto que el mínimo del estándar WCAG 2.2, medido también con la pantalla escalada al 200 %.</li>
+    <li><strong>Ningún estado se distingue sólo por color:</strong> cada insignia lleva su texto.</li>
+    <li><strong>Todo error dice tres cosas:</strong> qué pasó, cómo se arregla y qué está a salvo.</li>
+    <li><strong>Cifras, no adjetivos:</strong> «2 de 6», «34 %», nunca «casi listo».</li>
+    <li><strong>Las dieciocho pantallas medidas en navegador real</strong> a cuatro tamaños de ventana, con 1 836 textos comprobados contra solapes y recortes.</li>
+  </ul>
+
+  <div class="aviso aviso--contexto">
+    <span class="aviso__titulo">Sobre el vocabulario de la aplicación</span>
+    <p>
+      ARLES dice <strong>«aceptado»</strong> y nunca <strong>«entregado»</strong>.
+      Un servidor de correo confirma que <em>acepta</em> un mensaje; que llegue a
+      la bandeja de alguien no se puede saber desde aquí sin espiar la apertura,
+      que es justo lo que ARLES promete no hacer. Decir «entregado» sería
+      cómodo y sería falso.
+    </p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     4 · LO QUE FALTA
+     ════════════════════════════════════════════════════════════════════════ -->
+<section id="falta">
+  <h2>4 · Lo que falta por construir</h2>
+  <p class="entradilla">
+    Cuatro bloques de trabajo, ordenados por lo que cada uno desbloquea. Los
+    dos primeros son los que separan a ARLES de estar entregable.
+  </p>
+
+  <div class="tabla-marco">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Qué falta</th>
+          <th scope="col">Fase</th>
+          <th scope="col">Qué desbloquea</th>
+          <th scope="col">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>El instalador firmado para Windows</strong>, el actualizador y el despliegue</td>
+          <td class="celda-fase">F9 · 0 %</td>
+          <td>Que ARLES se pueda instalar en un equipo sin herramientas de desarrollo. <strong>Es el entregable.</strong></td>
+          <td><span class="insignia insignia--bloqueo">Bloqueado por P-01</span></td>
+        </tr>
+        <tr>
+          <td><strong>WhatsApp como canal de campaña.</strong> El adaptador y el envío de prueba están; lo que falta es que el motor lo recorra — hoy el camino de campañas está atado al correo en siete sitios</td>
+          <td class="celda-fase">F5 · 70 %</td>
+          <td>Lanzar una campaña entera por WhatsApp, no sólo un envío de prueba</td>
+          <td><span class="insignia insignia--decision">Espera decisión D-WA</span></td>
+        </tr>
+        <tr>
+          <td><strong>Los registros del dominio</strong> (SPF, DKIM y DMARC) comprobados desde la aplicación</td>
+          <td class="celda-fase">F7 · 92 %</td>
+          <td>Que ARLES avise antes de enviar si el dominio no está blindado. Es lo único que falta de la Fase 7</td>
+          <td><span class="insignia insignia--abierta">Lista para construir</span></td>
+        </tr>
+        <tr>
+          <td><strong>La pantalla de Canales</strong>, el alta del número y el repositorio que lee y escribe esas tablas</td>
+          <td class="celda-fase">F3W · 55 %</td>
+          <td>Gestionar los canales de un contacto desde su ficha. Las tablas ya existen y están probadas</td>
+          <td><span class="insignia insignia--abierta">Pendiente</span></td>
+        </tr>
+        <tr>
+          <td><strong>Umbral de rebotes que detiene la campaña</strong> sola cuando el porcentaje de fallos sube</td>
+          <td class="celda-fase">F7 · extra</td>
+          <td>Protección automática del dominio sin que nadie esté mirando</td>
+          <td><span class="insignia insignia--abierta">Pendiente</span></td>
+        </tr>
+        <tr>
+          <td><strong>La baja automática</strong>: que quien pida salir quede apuntado sin que nadie lo teclee</td>
+          <td class="celda-fase">F7 · extra</td>
+          <td>Que una petición de baja no dependa de que alguien lea el buzón</td>
+          <td><span class="insignia insignia--decision">Espera decisión R-25</span></td>
+        </tr>
+        <tr>
+          <td><strong>Imágenes en la firma y en la plantilla</strong></td>
+          <td class="celda-fase">F6 · extra</td>
+          <td>Logotipo en el correo</td>
+          <td><span class="insignia insignia--decision">Espera decisión R-05</span></td>
+        </tr>
+        <tr>
+          <td><strong>Sacar la activación de una campaña a segundo plano</strong> con barra de avance</td>
+          <td class="celda-fase">F9</td>
+          <td>Que activar una campaña grande no congele la interfaz. Ver el límite declarado en la sección 5</td>
+          <td><span class="insignia insignia--abierta">Planificado</span></td>
+        </tr>
+        <tr>
+          <td><strong>Revisión en macOS</strong>: nadie ha abierto ARLES en un Mac</td>
+          <td class="celda-fase">Transversal</td>
+          <td>Decir que ARLES funciona en Mac. Hoy no se puede afirmar</td>
+          <td><span class="insignia insignia--bloqueo">Bloqueado por R-07</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="aviso aviso--importante">
+    <span class="aviso__titulo">Lo que está fuera del alcance de la v1.2.0, dicho y no prometido</span>
+    <p>
+      Tres cosas se decidieron dejar fuera de esta versión, y conviene que
+      Dirección las tenga presentes al presentar el producto:
+    </p>
+    <ul>
+      <li><strong>Los filtros de audiencia.</strong> Una campaña toma su lista completa; no se puede decir «sólo los de Monterrey». Lo que sí se puede es cargar una lista distinta por campaña, que resuelve el caso práctico.</li>
+      <li><strong>Editar una campaña ya creada.</strong> Se crea, se activa o se descarta; no se modifica.</li>
+      <li><strong>Contar las respuestas de WhatsApp.</strong> Hace falta una pieza intermedia que todavía no existe.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     5 · LÍMITES
+     ════════════════════════════════════════════════════════════════════════ -->
+<section id="limites">
+  <h2>5 · Lo que ARLES no hace, y no hay que prometer</h2>
+  <p class="entradilla">
+    Esta sección existe por una razón concreta: es lo que impide prometer algo
+    que después no se puede cumplir. Cada punto está medido, no supuesto.
+  </p>
+
+  <div class="aviso aviso--delicado">
+    <span class="aviso__titulo">Activar una campaña muy grande congela la interfaz</span>
+    <p>
+      Con <strong>451 196 destinatarios, activar tarda 73.5 segundos</strong>
+      contra un presupuesto de 2. Durante ese tiempo la aplicación no responde,
+      no hay barra de avance y no se puede cancelar. Medido a cuatro escalas, el
+      problema <strong>empieza alrededor de los 30 000 destinatarios</strong>, que
+      es una lista ordinaria.
+    </p>
+    <p>
+      <strong>Lo que ARLES ya hace al respecto:</strong> por encima de 30 000
+      avisa cuántos segundos va a tardar en prepararse, con la cifra. Y si la
+      campaña <em>no puede terminar nunca</em> al ritmo configurado, la rechaza
+      diciendo cuántas personas se quedarían sin mensaje. <strong>El arreglo de
+      fondo —sacarlo a segundo plano con avance— está planificado para la Fase
+      9.</strong>
+    </p>
+  </div>
+
+  <div class="aviso aviso--delicado">
+    <span class="aviso__titulo">La contraseña de un respaldo no se guarda en ningún sitio</span>
+    <p>
+      Ni en el llavero, ni en la base, ni en ningún archivo.
+      <strong>Si se olvida, ese respaldo no se abre nunca</strong>, y el cifrado
+      no tiene puerta de atrás. Es el precio de que un respaldo robado no sirva
+      de nada. Hay que apuntarla donde se apuntan las cosas importantes.
+    </p>
+  </div>
+
+  <div class="aviso aviso--delicado">
+    <span class="aviso__titulo">Un respaldo tomado con una versión anterior de la base no se restaura</span>
+    <p>
+      Se rechaza con un error claro en vez de restaurar «lo que encaje», que
+      dejaría datos corridos sin que nada fallara. <strong>Hoy el coste real es
+      cero</strong> porque no hay ningún respaldo fuera de las pruebas; dentro
+      de un mes de uso no lo sería. Arreglarlo es trabajo aparte.
+    </p>
+  </div>
+
+  <div class="aviso aviso--importante">
+    <span class="aviso__titulo">El techo declarado son 500 000 contactos</span>
+    <p>
+      Con medio millón, ARLES usa <strong>497 MB de un presupuesto de 500</strong>.
+      El margen es del 0.6 %. Con 600 000 no habría. No es un defecto —el techo
+      es el que es—, pero es la primera cifra que se rompe si la lista crece.
+    </p>
+  </div>
+
+  <div class="aviso aviso--importante">
+    <span class="aviso__titulo">Dos campañas con el mismo remitente suman, y el plazo que se promete no lo sabe</span>
+    <p>
+      Si se ponen dos campañas de 50 diarios sobre el mismo correo,
+      <strong>salen 100</strong>, no 50: el cupo es de la campaña, no del
+      remitente. Lo que sí se desajusta es la <em>promesa de tiempo</em>: el paso
+      6 del asistente estima como si el remitente fuera sólo de esa campaña. Por
+      eso el aviso va pegado a la cifra del plazo, y no al final de la pantalla.
+    </p>
+    <p>
+      <strong>ARLES avisa en vez de impedir.</strong> Dos campañas desde un mismo
+      correo corporativo es legítimo; prometer un plazo falso no lo es. La
+      salida —un remitente por campaña— está escrita en el propio aviso.
+    </p>
+  </div>
+
+  <div class="aviso aviso--contexto">
+    <span class="aviso__titulo">Y lo que ARLES no puede saber, por diseño</span>
+    <p>
+      <strong>Si un correo llegó a la bandeja de alguien.</strong> ARLES sabe que
+      el servidor lo <em>aceptó</em>. Saber si llegó, o si se abrió, exige
+      incrustar un rastreador en cada mensaje, y eso es justo lo que el producto
+      promete no hacer.
+    </p>
+    <p>
+      <strong>Quién marcó un correo como no deseado.</strong> No deja ningún
+      rastro legible. Es la razón por la que el pie de baja tiene que ser fácil
+      de encontrar, y no letra pequeña.
+    </p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     6 · PENDIENTES
+     ════════════════════════════════════════════════════════════════════════ -->
+<section id="pendientes">
+  <h2>6 · Pendientes de información y decisiones</h2>
+  <p class="entradilla">
+    Nada de esta sección se puede resolver programando. Son datos o decisiones
+    que tienen que venir de una persona, y están ordenados por lo que bloquean.
+  </p>
+
+  <h3>6.1 · Información que falta · bloquea entregar</h3>
+
+  <div class="tabla-marco">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Clave</th>
+          <th scope="col">Qué falta</th>
+          <th scope="col">Quién lo tiene</th>
+          <th scope="col">Qué bloquea exactamente</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="celda-fase">P-01</td>
+          <td><strong>La licencia de la tipografía Mont.</strong> Qué licencia posee exactamente la empresa y si cubre incrustar la fuente en una aplicación distribuida</td>
+          <td>Dirección</td>
+          <td><strong>El instalador.</strong> No se puede distribuir un <code>.exe</code> con la tipografía dentro sin esa licencia. <strong>Es el bloqueo que impide entregar la v1.2.0.</strong> Plan B listo: la aplicación cae en una tipografía libre cambiando una sola línea</td>
+        </tr>
+        <tr>
+          <td class="celda-fase">P-09</td>
+          <td><strong>Revisión jurídica de los textos legales.</strong> Las dieciocho preguntas están escritas y esperan respuesta</td>
+          <td>Abogado</td>
+          <td>Los textos legales que el usuario lee, y el primer envío real a terceros. <strong>No frena la construcción:</strong> se construye con el texto marcado como provisional</td>
+        </tr>
+        <tr>
+          <td class="celda-fase">META</td>
+          <td><strong>Una cuenta de WhatsApp Business con Coexistencia</strong> para probar contra algo real</td>
+          <td>Operaciones</td>
+          <td>Verificar el canal de WhatsApp contra la API de verdad. Hoy está probado contra un servidor simulado</td>
+        </tr>
+        <tr>
+          <td class="celda-fase">R-07</td>
+          <td><strong>Un Mac donde abrir ARLES.</strong> Nadie lo ha hecho nunca</td>
+          <td>Quien tenga un Mac</td>
+          <td>Afirmar que ARLES funciona en macOS. El navegador interno de un Mac es distinto, así que <strong>nada de lo medido en Windows garantiza nada ahí</strong></td>
+        </tr>
+        <tr>
+          <td class="celda-fase">P-03</td>
+          <td><strong>Origen y consentimiento de los contactos</strong> que se van a cargar</td>
+          <td>Dirección</td>
+          <td>Poder afirmar que la base de contactos es legítima. ARLES ya guarda el consentimiento por canal; lo que falta es el dato de origen</td>
+        </tr>
+        <tr>
+          <td class="celda-fase">P-05</td>
+          <td><strong>Dominio y aviso de privacidad</strong> para la verificación de Google</td>
+          <td>Dirección</td>
+          <td>Mandar desde una cuenta de Google con OAuth en vez de contraseña de aplicación</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>6.2 · Decisiones que esperan a Dirección</h3>
+
+  <div class="rejilla rejilla--2">
+    <article class="tarjeta">
+      <p class="rotulo">D-WA</p>
+      <h4>¿WhatsApp como canal de campaña antes de entregar, o se entrega con correo solamente?</h4>
+      <p>
+        Construirlo son días de trabajo y es la parte que falta de la Fase 5.
+        Entregar con correo solamente no es un recorte oculto: el envío de prueba
+        de WhatsApp ya funciona y el canal está construido.
+      </p>
+      <p><strong>Lo que bloquea:</strong> lanzar una campaña entera por WhatsApp.</p>
+    </article>
+
+    <article class="tarjeta">
+      <p class="rotulo">R-25 · pedida el 23/10/2026</p>
+      <h4>¿La baja automática se hace leyendo el buzón, o con un enlace de un clic?</h4>
+      <p>
+        Leer el buzón automatiza sin montar nada y <strong>sin que los datos
+        salgan del equipo</strong>. El enlace de un clic es más cómodo para quien
+        pide la baja, pero <strong>necesita un servidor funcionando siempre</strong>.
+      </p>
+      <p><strong>Recomendación: leer el buzón</strong>, con los cuatro límites ya escritos.</p>
+    </article>
+
+    <article class="tarjeta">
+      <p class="rotulo">R-05 · pedida el 21/10/2026</p>
+      <h4>¿Una imagen en la firma va dentro del correo o alojada en un servidor?</h4>
+      <p>
+        Dentro del correo no delata nada y pesa más. Alojada pesa menos, pero
+        <strong>le dice al servidor cuándo se abrió el correo</strong> — que es
+        justo lo que ARLES promete no saber.
+      </p>
+      <p><strong>Recomendación: dentro del correo</strong>, con topes duros de peso.</p>
+    </article>
+
+    <article class="tarjeta">
+      <p class="rotulo">R-3</p>
+      <h4>¿A qué porcentaje de rebotes debe detenerse una campaña sola?</h4>
+      <p>
+        Hoy el disyuntor corta por cuenta cuando un remitente falla, pero
+        <strong>no hay un umbral de rebotes por campaña</strong>. Es la
+        protección que actúa cuando nadie está mirando la pantalla.
+      </p>
+      <p><strong>Hace falta un número</strong> para construirlo.</p>
+    </article>
+  </div>
+
+  <div class="aviso aviso--importante">
+    <span class="aviso__titulo">Un pendiente que depende de tres datos concretos</span>
+    <p>
+      <strong>H-03 · no se pudo dar de alta una cuenta de Gmail.</strong> Para
+      diagnosticarlo hacen falta tres cosas de quien lo intentó: la dirección
+      exacta que se usó, si esa cuenta tiene verificación en dos pasos activada,
+      y <strong>el texto completo del error que salió en pantalla</strong>.
+      Gmail exige una «contraseña de aplicación» —no la contraseña normal— y
+      las tres respuestas dicen si es eso o es otra cosa.
+    </p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     7 · VERIFICACIÓN
+     ════════════════════════════════════════════════════════════════════════ -->
+<section id="verificacion">
+  <h2>7 · Cómo se verifica todo esto</h2>
+  <p class="entradilla">
+    Las cifras de este informe no son una impresión. Esto es de dónde salen y,
+    más importante, qué es lo que no cubren.
+  </p>
+
+  <div class="rejilla rejilla--4">
+    <article class="tarjeta">
+      <p class="tarjeta__cifra">1 135</p>
+      <p class="tarjeta__pie">pruebas automáticas del motor y la base de datos</p>
+    </article>
+    <article class="tarjeta">
+      <p class="tarjeta__cifra">283</p>
+      <p class="tarjeta__pie">pruebas automáticas de la interfaz</p>
+    </article>
+    <article class="tarjeta">
+      <p class="tarjeta__cifra">340</p>
+      <p class="tarjeta__pie">comprobaciones de reglas propias del proyecto, en diez bloques</p>
+    </article>
+    <article class="tarjeta">
+      <p class="tarjeta__cifra">15</p>
+      <p class="tarjeta__pie">versiones de la base de datos, todas aplicadas y probadas sobre base con datos</p>
+    </article>
+  </div>
+
+  <h3>Las siete auditorías ya pasadas</h3>
+
+  <div class="tabla-marco">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Auditoría</th>
+          <th scope="col">Qué miró</th>
+          <th scope="col" class="num">Hallazgos</th>
+          <th scope="col" class="num">Arreglados</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="celda-fase">A · Arquitectura</td><td>Que cada pieza del programa respete sus propios límites</td><td class="num">5</td><td class="num">5</td></tr>
+        <tr><td class="celda-fase">B · Seguridad</td><td>Los quince puntos del modelo de amenazas, uno a uno</td><td class="num">5</td><td class="num">5</td></tr>
+        <tr><td class="celda-fase">C · Calidad y rendimiento</td><td>32 casos frontera, las trece cifras del presupuesto y una corrida larga del motor</td><td class="num">6</td><td class="num">4</td></tr>
+        <tr><td class="celda-fase">D · Uso y accesibilidad</td><td>Las dieciocho pantallas medidas en navegador, no leídas</td><td class="num">4</td><td class="num">4</td></tr>
+        <tr><td class="celda-fase">F · La Fase 8 como sistema</td><td>Qué pasa cuando lo que sale de una pieza entra en otra, a tamaño real</td><td class="num">5</td><td class="num">5</td></tr>
+        <tr><td class="celda-fase">G · Funcionalidad</td><td>Si lo que el usuario escribe llega a donde tiene que llegar</td><td class="num">7</td><td class="num">7</td></tr>
+        <tr><td class="celda-fase">Revisión a ojo</td><td>Abrir la aplicación y mirar pantalla por pantalla</td><td class="num">4</td><td class="num">4</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="aviso aviso--contexto">
+    <span class="aviso__titulo">El hallazgo que atraviesa las siete auditorías</span>
+    <p>
+      <strong>Más de la mitad de los defectos encontrados no estaban en el
+      producto: estaban en las comprobaciones que lo vigilan.</strong> Una lista
+      escrita a mano que se quedó corta, un alcance que miraba dos pantallas de
+      seis, una comprobación que se encontraba a sí misma en un comentario y
+      salía en verde siempre.
+    </p>
+    <p>
+      De ahí sale la regla de trabajo del proyecto, que explica por qué cada
+      entrega tarda algo más: <strong>una comprobación que nunca se ha visto
+      fallar no está verificada</strong>. Antes de dar por buena una garantía se
+      rompe a propósito, se comprueba que la alarma suena, y se restaura.
+    </p>
+  </div>
+
+  <div class="aviso aviso--delicado">
+    <span class="aviso__titulo">Lo que las pruebas automáticas no cubren, y hay que decirlo</span>
+    <p>
+      <strong>Las pruebas no abren ninguna ventana.</strong> Durante nueve fases
+      ARLES compiló, arrancó y <em>dentro no había nada</em>: faltaba una
+      característica del empaquetado sin la que la interfaz no viaja dentro del
+      programa. Todo estaba en verde. Lo encontró Dirección al abrirlo por
+      primera vez.
+    </p>
+    <p>
+      Lo mismo con la ronda del 13 y 14 de octubre: lo que Dirección encontró
+      usando la aplicación <strong>no lo había encontrado ninguna de las cuatro
+      auditorías</strong>. Por eso antes de cerrar cada entrega se abre la
+      aplicación y se mira — y por eso el uso real de Dirección es parte del
+      método, no una molestia.
+    </p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     8 · LO QUE SIGUE
+     ════════════════════════════════════════════════════════════════════════ -->
+<section id="siguiente">
+  <h2>8 · Lo que sigue</h2>
+
+  <p class="entradilla">
+    En orden de lo que más desbloquea, y con lo que hace falta de Dirección para
+    empezar cada cosa.
+  </p>
+
+  <div class="tabla-marco">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col" class="num">Orden</th>
+          <th scope="col">Trabajo</th>
+          <th scope="col">Qué hace falta de Dirección para empezar</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="num">1</td>
+          <td><strong>La licencia de Mont</strong></td>
+          <td><strong>El documento de la licencia, o la instrucción de usar el plan B.</strong> Es lo único que separa a ARLES de tener instalador</td>
+        </tr>
+        <tr>
+          <td class="num">2</td>
+          <td><strong>Decidir D-WA</strong>: WhatsApp como canal de campaña, o entregar con correo solamente</td>
+          <td>Una decisión. Las dos salidas están descritas y ninguna es un recorte oculto</td>
+        </tr>
+        <tr>
+          <td class="num">3</td>
+          <td><strong>Los registros del dominio</strong> (SPF, DKIM, DMARC) comprobados desde la aplicación</td>
+          <td>Nada: la condición ya se cumple desde que se cerró R-24. Se puede construir y verificar de verdad</td>
+        </tr>
+        <tr>
+          <td class="num">4</td>
+          <td><strong>El umbral de rebotes</strong> que detiene una campaña sola</td>
+          <td>Un número: a qué porcentaje de fallos debe cortarse</td>
+        </tr>
+        <tr>
+          <td class="num">5</td>
+          <td><strong>Decidir R-25</strong>: cómo se apuntan las bajas solas</td>
+          <td>Una decisión, con recomendación ya escrita</td>
+        </tr>
+        <tr>
+          <td class="num">6</td>
+          <td><strong>Decidir R-05</strong>: las imágenes en el correo</td>
+          <td>Una decisión, con recomendación ya escrita</td>
+        </tr>
+        <tr>
+          <td class="num">7</td>
+          <td><strong>Sacar la activación a segundo plano</strong> con barra de avance</td>
+          <td>Nada. Es trabajo planificado para la Fase 9</td>
+        </tr>
+        <tr>
+          <td class="num">8</td>
+          <td><strong>Abrir ARLES en un Mac</strong></td>
+          <td>Un Mac y una tarde</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="aviso aviso--importante">
+    <span class="aviso__titulo">En una frase, para cerrar</span>
+    <p>
+      <strong>ARLES funciona.</strong> Carga contactos, prepara campañas, manda
+      correo real a bandejas reales, cuenta lo que pasó y guarda una copia
+      cifrada de todo. Lo que falta para <em>entregarlo</em> es una licencia de
+      tipografía y un instalador; lo que falta para <em>completarlo</em> es
+      WhatsApp como canal de campaña y los registros del dominio.
+    </p>
+  </div>
+</section>
+
+<footer class="pie">
+  <p>
+    <strong>ARLES RELAY I</strong> · versión 1.2.0 · Informe para Dirección del
+    23 de octubre de 2026.
+  </p>
+  <p>
+    Las cifras de avance salen de <code>documentacion/07-entrega/avance.json</code>,
+    medidas el 22/10/2026. Las de rendimiento, de
+    <code>documentacion/06-calidad/PRESUPUESTO_RENDIMIENTO.md</code>, cada una con
+    su fecha de medición. El estado completo, con el detalle técnico de cada
+    entrega, está en <code>documentacion/07-entrega/ESTADO_ACTUAL.md</code>.
+  </p>
+  <p>
+    Los colores, la escala tipográfica y la tipografía de este documento son los
+    de la aplicación, leídos de sus propias fuentes y no copiados a mano.
+  </p>
+</footer>
+
+</main>
+</body>
+</html>

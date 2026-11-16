@@ -1,0 +1,357 @@
+# Preguntas pendientes para Dirección
+
+**Proyecto:** ARLES RELAY I · v1.2.0
+**Fecha:** 2026-09-11
+**Estado:** esperando respuesta
+
+> Registro vivo. Cada respuesta se traslada a `01-producto/DECISIONES_DE_DIRECCION.md` como decisión numerada y se cierra aquí.
+
+---
+
+## Puerta en la demo
+
+### P-01 · ¿Qué licencia de Mont posee exactamente TELEMETRY?
+**Disparador:** al planificar la **demo de la aplicación** · **Riesgo:** R-01 · **Decisiones:** D-3, **D-5**
+
+> **D-5 (2026-09-11):** se desarrolla con Mont con normalidad. Esta pregunta **ya no bloquea la Fase 2**; se vuelve a plantear antes de generar el primer instalador destinado a enseñarse fuera del equipo de desarrollo.
+
+T-2 afirma que TELEMETRY posee «la licencia comercial de Mont para uso de texto». El alcance importa:
+
+| Licencia de Fontfabric | ¿Cubre incrustar la fuente en el `.exe` / `.dmg` distribuido? |
+|---|---|
+| Desktop | No |
+| Web | No |
+| **App** | **Sí** — es la que ARLES necesita |
+
+Un bundle de Tauri lleva los archivos de fuente dentro del binario que se instala en la máquina del cliente. Eso es exactamente el supuesto de la App License.
+
+**Lo que necesitamos:**
+1. Tipo de licencia adquirida y su alcance.
+2. Comprobante (factura o contrato) subido a `documentacion/08-legal/`.
+3. Si no cubre app embedding: ¿se adquiere la App License, o se activa el plan B?
+
+**Plan B, ya documentado y listo:** Mont queda para marketing y material comercial; el logotipo ARLES RELAY se entrega como **SVG con contornos** (uso legítimo de una licencia de escritorio, porque ya no hay fuente que incrustar); la interfaz usa una geométrica de licencia libre con métricas similares.
+
+**Si al planificar la demo no hay comprobante, se activa el plan B.**
+
+---
+
+### P-02 · ¿Quién produce los activos de marca? — ✅ CERRADA
+
+**Cerrada el 2026-09-11 por D-5.** El §21 define el logotipo como **exclusivamente tipográfico** («ARLES RELAY» en Mont Black, sin isotipo), así que con Mont autorizada para desarrollo el logotipo se produce en la Fase 2, aquí. La flecha y el escudo que menciona T-9 **no son necesarios**: el §21 los excluye por diseño.
+
+Queda como recomendación para v1.3 que Dirección entregue un brandbook propio —eliminaría el stock de IA del linaje de la marca (A-03)— pero ya no bloquea nada.
+
+---
+
+## Necesarias para la Fase 3 (Contactos)
+
+### P-03 · ¿Cuál es el origen y el consentimiento de los contactos?
+**Riesgo:** R-13 · **Afecta a:** LFPDPPP, texto de la interfaz de importación
+
+ARLES no puede verificar que el cliente tenga consentimiento para los contactos que importa, pero sí puede —y debe— exigir una afirmación explícita y registrarla.
+
+**Lo que necesitamos saber:** de dónde salen las listas que TELEMETRY va a importar (formularios propios, clientes existentes, bases adquiridas, ferias…). Determina el texto exacto de la afirmación de origen lícito y la exposición real ante la LFPDPPP.
+
+**Advertencia:** si el origen incluye bases adquiridas a terceros, la exposición legal es significativa y debe valorarse antes de la primera campaña, no después.
+
+---
+
+### P-04 · ¿Se acepta que la detección de rebotes sea parcial en v1.2.0?
+**Riesgo:** R-06 · **ADR:** 0009
+
+El brief se contradice: §37 exige supresión automática por hard bounce, §69 prohíbe pedir permisos de lectura de bandeja. Sin leer un buzón no hay rebotes asíncronos.
+
+**Propuesta:** v1.2.0 captura sólo rechazos 5xx síncronos de SMTP y permite supresión manual. La solución completa —buzón de rebotes dedicado leído por IMAP, sin tocar nunca la bandeja personal del usuario— entra en v1.3.
+
+> **Respondida el 2026-09-12.** Dirección pidió adelantarla y aceptó la degradación elegante. Al verificarlo, el VERP resultó **inviable** en los tres canales previstos; la arquitectura pasa a reenvío + IMAP. Ver [ADR-0014](../03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md).
+
+**Condición que pedimos aceptar:** la interfaz declara explícitamente que la detección es parcial en esta versión. Un cliente informado puede compensarlo; uno que se cree protegido descubre el problema cuando ya quemó su dominio.
+
+---
+
+## Necesarias para la Fase 5 (Proveedores de correo)
+
+### P-05 · ¿Qué dominio y qué aviso de privacidad se usan para la verificación de Google?
+**Riesgo:** R-02 · **Decisión relacionada:** D-1
+
+La verificación OAuth de Google para el scope `gmail.send` exige:
+- Política de privacidad **pública** alojada en un dominio **verificado** en Google Search Console.
+- Página de inicio del producto en ese mismo dominio.
+- Vídeo demostrativo del flujo de consentimiento.
+- Revisión de semanas.
+
+**Lo que necesitamos:** el dominio, quién redacta el aviso de privacidad, y quién lo publica. **El trámite arranca en la Fase 1**, así que esto se necesita pronto aunque `GoogleProvider` no entre hasta v1.2.x.
+
+> ### 15/10/2026 · esta pregunta y el cierre de la Fase 1 se contradicen
+>
+> `09-fases/FASE-01-CIMIENTOS.md` §7 dice del trámite de verificación de Google:
+> *«Arrancado en paralelo — P-05»*. Y P-05 sigue abierta preguntando el dominio,
+> el aviso de privacidad y quién lo publica — que es **exactamente lo que hace
+> falta para arrancarlo**: Google comprueba la propiedad del dominio en Search
+> Console antes de admitir nada.
+>
+> Las dos cosas no pueden ser ciertas a la vez. O el trámite arrancó y esto
+> debería estar cerrado, o lleva meses sin arrancar y el cierre de la Fase 1
+> afirma de más. **Lo que ocurrió fuera del repositorio no consta aquí**: es
+> información de Dirección, y se le ha preguntado.
+>
+> Importa porque es el camino crítico: si no está en marcha, el reloj de las
+> 2–8 semanas de revisión **no ha empezado a correr**. Los pasos y lo que ARLES
+> gana están en
+> [`VERIFICACION-OAUTH-DE-GOOGLE.md`](../07-entrega/VERIFICACION-OAUTH-DE-GOOGLE.md).
+
+---
+
+### P-06 · ¿Cuál es el volumen operativo realista por campaña?
+**Afecta a:** presupuestos de rendimiento, conversación sobre entregabilidad
+
+T-7 fija 500 000 contactos como **techo arquitectónico**, y la arquitectura lo soportará. Pero el volumen **operativo** real es otra cosa y cambia decisiones:
+
+- Con 200 correos por campaña, la entregabilidad casi no es un problema y el simulador es una comodidad.
+- Con 50 000, la reputación del dominio es la variable dominante del producto y el aviso de más de 50 diarios (§48) se convierte en la pantalla más importante de ARLES.
+
+**Lo que necesitamos:** tamaño típico de campaña y número de campañas al mes previstos.
+
+---
+
+## Para v1.3, conviene decidirlo pronto
+
+### P-07 · ¿Cuál es el modelo comercial?
+**Afecta a:** esquema de licenciamiento, que se prepara ya en v1.2.0
+
+El enforcement está fuera de v1.2.0 (T-6, D-4), pero el **esquema** se define ahora para no migrar datos después.
+
+**Lo que necesitamos:** ¿licencia perpetua o suscripción? ¿Por asientos, por instalación o por organización? ¿Hay ediciones con capacidades distintas?
+
+**Nuestra recomendación** (detalle en la sección Q de la auditoría): licencia firmada criptográficamente y verificable **sin conexión**, con periodo de gracia. Al caducar, la aplicación entra en modo restringido —consultar, exportar y respaldar siguen funcionando; activar campañas nuevas no—. **Nunca se bloquea el acceso a los datos del cliente.**
+
+---
+
+### P-08 · ¿Se autoriza la consolidación de `/RECURSOS`?
+**Riesgo:** R-15 · **ADR:** 0012
+
+`/RECURSOS` es hoy una copia parcial y obsoleta de las carpetas de raíz: 1 de 27 conceptos de diseño, 1 de 89 archivos tipográficos. Quien siga literalmente la instrucción del §12 verá una fracción del material.
+
+**Propuesta:** `/RECURSOS` pasa a ser fuente única de verdad, se rehidrata desde raíz, y las copias de raíz se eliminan. La referencia cromática se renombra a `.png`, que es lo que realmente es.
+
+**Pedimos autorización explícita** porque el brief marcó esas rutas como intocables. Nada se ha movido.
+
+---
+
+### P-17 · ¿El consentimiento registrado sobrevive a una cancelación? · 🔴 **abierta**
+**Afecta a:** el derecho de Cancelación · **Encontrada el:** 22/09/2026, construyendo la 3.4 · **Dueño:** Abogado (con Dirección)
+
+**El problema.** `consent_entry` es la tabla donde se anotará que alguien dio
+permiso para recibir correos: qué dijo, cuándo y en qué se apoya. Guarda la
+dirección **en claro**, y es **append-only por disparador** — no admite
+`UPDATE` ni `DELETE`.
+
+Cuando esa persona ejerza el derecho de cancelación, todo lo demás se borra o
+se anonimiza. Esa fila **no se puede tocar**. Así que su dirección seguiría ahí,
+en una tabla que nadie puede modificar, después de habérsele dicho que sus
+datos se borraron.
+
+**El riesgo.** Decirle a alguien «sus datos fueron eliminados» cuando su correo
+sigue en una tabla del sistema. No es un fallo técnico: es una afirmación falsa
+en respuesta a un derecho, que es la clase de cosa por la que se sanciona.
+
+**El impacto hoy: ninguno.** Nadie escribe todavía en esa tabla — el
+consentimiento se registrará cuando existan las campañas, en la entrega 6. Hay
+tiempo de decidirlo bien, y hay un guardián: la prueba
+`no_queda_la_direccion_en_ninguna_tabla` de `arles-db` recorre el esquema
+entero y **fallará el día que alguien escriba ahí**. El problema no se puede
+colar en silencio.
+
+**Las alternativas, con su coste:**
+
+| | Qué se hace | A favor | En contra |
+|---|---|---|---|
+| **A** | Permitir borrar `consent_entry` en una cancelación | El borrado es completo y honesto | Se pierde la prueba de que ese envío era legítimo, justo de la persona que podría reclamar |
+| **B** | Guardar la dirección **en huella** desde el principio | La tabla nunca tiene un dato personal legible | La huella de un correo se revierte con un diccionario: es pseudonimizar, no anonimizar |
+| **C** | Conservarla, como la baja, con el mismo argumento | Coherente con lo ya decidido | La baja protege a la persona; el consentimiento protege al cliente. **No es el mismo argumento** |
+| **D** | Anonimizar la dirección y conservar el resto | Se conserva «el 3 de marzo alguien dio permiso por formulario» sin quién | Hay que levantar el disparador de append-only, que es un invariante del §91 |
+
+**Recomendación: D**, con el disparador reescrito para permitir exactamente esa
+sustitución y nada más. Conserva lo que la auditoría necesita —que hubo
+consentimiento y de qué tipo— y suelta lo único que identifica. Es la misma
+resolución que ya se aplicó a los intentos de envío, y tener dos reglas
+distintas para el mismo problema es como se acaba aplicando la equivocada.
+
+**Por qué no se decide ahora:** toca el marco legal y la respuesta correcta
+depende de si el consentimiento es prueba del cliente o dato del titular.
+Eso lo contesta un abogado, no ingeniería. Va con las diecinueve preguntas de
+`08-legal/CONSULTA-JURIDICA.md`.
+
+---
+
+### P-16 · ¿Cuándo se conecta Google Drive / Sheets? · ✅ **cerrada el 18/09/2026: en la v1.3**
+**Afecta a:** cómo llega el archivo a importar · **Decisión:** D-8
+
+Dirección preguntó si ARLES puede leer una hoja de Google directamente de Drive.
+Sí se puede, y se hará — **en la v1.3**, no en esta versión: cae sobre la
+dependencia de Google que D-1 decidió evitar para poder entregar la v1.2.0 sin
+esperar a nadie de fuera.
+
+**Lo que ya quedó decidido** (argumentado en D-8), para no volver a razonarlo:
+alcance **`drive.file`** y **Google Picker** —nunca Drive completo, que es
+alcance restringido y exige auditoría de seguridad externa—, la excepción a la
+CSP acotada a los dominios del Picker, y el `refresh_token` al llavero del
+sistema como manda ADR-0011.
+
+**El dato que lo abarata:** TELEMETRY tiene correo de dominio propio. Con Google
+Workspace, la pantalla de consentimiento se marca **«Interna»** y la
+verificación de Google **no aplica**. Deja de ser un riesgo de calendario.
+
+**Mientras tanto:** Google Sheets exporta con *Archivo → Descargar → CSV*, y
+ARLES importa ese archivo hoy con todas sus defensas.
+
+---
+
+## Tabla de seguimiento
+
+| # | Pregunta | Bloquea | Riesgo | Estado |
+|---|---|---|---|---|
+| P-01 | Licencia de Mont | **La demo** | R-01 | 🟡 |
+| P-02 | Activos de marca | — | R-08 | ✅ cerrada (D-5) |
+| P-03 | Origen de los contactos | Fase 3 | R-13 | 🟡 |
+| P-04 | Rebotes parciales aceptados | Fase 3 | R-06 | 🟡 |
+| P-05 | Dominio y aviso de privacidad | Fase 5 | R-02 | 🟡 |
+| P-06 | Volumen operativo real | Fase 4 | R-09 | 🟡 |
+| P-07 | Modelo comercial | v1.3 | — | ⚪ |
+| P-08 | Consolidación de `/RECURSOS` | — | R-15 | ⚪ |
+| **P-09** | **¿Cuál es el marco de protección de datos vigente?** | **Antes de congelar cualquier texto legal visible** | **R-19** | 🔴 |
+| **P-10** | ¿Qué cobertura real de correo tiene la lista del DENUE? | Antes de la primera campaña | R-13 | 🟡 |
+| P-12 | ¿Se acepta **L-2** (canales por contacto) y con ello migrar el esquema de la Fase 1 ahora? | — | R-23 | ✅ **cerrada el 16/09/2026: autorizada** |
+| ~~**P-13**~~ | ¿Se acepta **L-5** (séptima sección, CONVERSACIONES)? | — | R-22 | ✅ **17/09/2026: no.** Dirección quiere las cifras y las gráficas, **no** ver los mensajes. Sin bandeja no hay «Conversaciones»: las estadísticas van a **ACTIVIDAD con dos pestañas**, correo y WhatsApp (L-10). Se queda en seis secciones |
+| ~~**P-14**~~ | ¿Quién contesta a los interesados de WhatsApp? | — | R-22 | ✅ **17/09/2026: el agente de ventas, desde la app de WhatsApp Business.** De ahí nace L-11: sin Coexistencia no puede, porque el número saldría de la app. Horario: **sin definir**, y sigue importando — la ventana de respuesta de Meta es de 24 h |
+| ~~**P-15**~~ | ¿WhatsApp entra en la v1.2.0? | — | R-21 | ✅ **17/09/2026: sí, en la v1.2.0.** Amplía el alcance, así que el porcentaje de avance bajó al crecer el denominador. Esquema construido: V3 y V4 |
+| ~~**P-16**~~ | ¿Cuándo se conecta Google Drive / Sheets? | — | — | ✅ **18/09/2026: en la v1.3.** Con `drive.file` y el Picker, nunca Drive completo. TELEMETRY tiene dominio propio, así que la pantalla de consentimiento va «Interna» y Google no tiene que verificar nada (D-8) |
+
+Las cuatro nuevas salen de
+[LOGISTICA_DE_CAMPANAS](../01-producto/LOGISTICA_DE_CAMPANAS.md), que es donde
+están argumentadas. P-11 se cerró en la entrega 3.1.
+
+**No queda ninguna pregunta bloqueante de las Fases 1 y 2.** P-03 y P-05 se necesitan más adelante y conviene irlas resolviendo en paralelo.
+
+---
+
+### P-09 · ¿Cuál es el marco de protección de datos vigente en México?
+**Riesgo:** R-19 · **Bloquea:** todo texto legal que la aplicación muestre al usuario
+
+Toda la documentación de privacidad se escribió contra la **LFPDPPP de 2010**.
+La investigación de la Fase 3 encontró indicios sólidos —en fuentes secundarias,
+no en el texto primario— de que esa ley fue **abrogada en marzo de 2025** por
+una nueva LFPDPPP, y de que el **INAI fue extinguido**, pasando sus facultades a
+la **Secretaría Anticorrupción y Buen Gobierno**.
+
+**Actualizado el 17/09/2026.** Lo que eran indicios está ahora confirmado en
+varias fuentes secundarias fiables, y eso **reduce** lo que hay que preguntar:
+
+- La LFPDPPP nueva se publicó en el DOF el **20 de marzo de 2025** y entró en
+  vigor el **21 de marzo de 2025**.
+- El **INAI se extinguió**; la autoridad es la **Secretaría Anticorrupción y
+  Buen Gobierno**.
+- **El reglamento de la ley nueva sigue sin publicarse.**
+- El medio de defensa pasa a ser el **juicio de amparo**.
+
+=> Las diecinueve preguntas concretas que quedan, escritas para mandarse tal cual a un
+despacho, están en
+[**08-legal/CONSULTA-JURIDICA.md**](../08-legal/CONSULTA-JURIDICA.md). La que
+más pesa es **C-3 de esa consulta**: si el correo en frío a datos de una fuente
+de acceso público sigue siendo lícito. De ella depende el producto, no un texto.
+
+**Por qué bloqueaba:** un aviso de privacidad que cita una ley abrogada no
+protege a nadie — y es peor que no citar ninguna, porque aparenta rigor.
+
+**Ya no bloquea la construcción.** Por decisión **D-7** del 17/09/2026, la
+entrega 3.3 se construye entera salvo los textos, que viven como datos
+marcados como borrador. Lo que sigue bloqueado es **enviar de verdad a alguien
+de fuera de TELEMETRY**.
+
+Detalle en [PRIVACIDAD_LFPDPPP.md](../04-seguridad/PRIVACIDAD_LFPDPPP.md).
+
+---
+
+### P-10 · ¿Qué cobertura real de correo tiene la lista del DENUE?
+**Riesgo:** R-13
+
+El campo de correo del DENUE (`DIR_ELEC_1`) existe, pero **su captura es
+voluntaria** por parte de cada unidad económica. No hay cifra oficial publicada
+del porcentaje de los ~6 millones de establecimientos que lo tienen poblado.
+
+**Se resuelve en diez minutos**: descargar el CSV del DENUE y contar no nulos.
+Conviene hacerlo **antes** de dimensionar cualquier campaña sobre esa lista, y
+antes de decidir cuánto invertir en validación.
+
+---
+
+### P-11 · La barra lateral: ¿fija y plegable? · ✅ **cerrada — construida en la 3.1**
+**Riesgo:** R-01 del informe de revisión · **Construida el:** 15 de septiembre de 2026
+
+Dirección pidió dos cosas al revisar la aplicación en Windows:
+
+> *«necesito que el menú ubicado en la lateral permanezca fijo y que lo demás
+> que está en pantalla sea posible desplazarse. También necesito que ese menú
+> fijo pueda comprimirse.»*
+
+Son dos peticiones distintas —**barra fija** al desplazar, y **barra
+plegable**— y la segunda resuelve además un defecto encontrado en la misma
+revisión: por encima del **150 % de escala de Windows**, el armazón desborda
+horizontalmente porque `App.vue` fija `min-width: 1120px`, y a esa escala el
+viewport CSS baja de 1120.
+
+### ✅ Decidido por Dirección el 15 de septiembre de 2026
+
+| Pregunta | Decisión |
+|---|---|
+| ¿Cómo se pliega? | **A mano y sola.** Un botón para plegarla a voluntad, y además se pliega automáticamente cuando la ventana se queda estrecha |
+| ¿Qué queda plegada? | **Iconos sin texto.** Se sigue viendo dónde estás y se puede navegar |
+| ¿Se recuerda al reabrir? | **Sí.** Si la dejaste plegada, abre plegada |
+
+Con esto **P-11 deja de ser una pregunta abierta** y pasa a ser trabajo de la
+entrega 3.1. Queda aquí como registro de qué se decidió y cuándo.
+
+### ✅ Construida — lo que salió distinto de lo previsto
+
+Las tres decisiones están en el producto. Dos notas sobre lo que cambió al
+hacerlo:
+
+**El umbral del plegado automático no salió del desbordamiento.** Se anunció
+que se mediría «donde la navegación deja de caber con holgura», y al medirlo
+resultó que **no deja de caber en ningún ancho hasta 600 px**: las pantallas de
+la 3.1 son fluidas y se estrechan en vez de cortarse. El umbral acabó siendo el
+ancho donde la pantalla más exigente pierde su **medida de diseño** —984 px—, y
+la medición entera está en
+[UMBRAL_DE_PLEGADO.md](../06-calidad/UMBRAL_DE_PLEGADO.md). El número volverá a
+moverse en la 3.2, cuando la tabla de contactos traiga un mínimo real.
+
+**«Se recuerda» acabó en la base de datos, no en el navegador.** `localStorage`
+habría sido una línea; vive en el perfil de la WebView, se borra con la caché
+del sistema y no entra en el respaldo. Una preferencia que se pierde al limpiar
+la caché no se recuerda. Costó una migración —`V2`— y encajó sin fricción
+porque la decisión llegó **antes** de escribir el esquema de configuración.
+
+### Lo que arrastra cada decisión
+
+**«Iconos sin texto» necesita seis iconos que hoy no existen.** `AIcono` tiene
+trece —cuatro semánticos, cuatro de estado de envío, cinco de interfaz— y
+**ninguno para Inicio, Campañas, Contactos, Remitentes, Actividad ni Ajustes**.
+Son seis trazos nuevos en el estilo del resto: 24 × 24, de línea, sin relleno.
+Trabajo pequeño, pero es del design system y no se improvisa en una pantalla.
+
+**«Se recuerda» toca el esquema.** El estado plegado se guarda en la
+configuración de la aplicación, que es justo lo que la 3.1 construye. Encaja
+sin coste extra *porque* se decidió antes de escribir esa tabla; decidirlo
+después habría costado una migración.
+
+**«A mano y sola» necesita un umbral.** Se fija en el ancho donde la
+navegación deja de caber con holgura, medido, no elegido a ojo — igual que se
+midió el umbral de R-01.
+
+**Por qué no se resuelve antes de 3.1:** hacerlo ahora sería construirlo sobre
+un armazón sin pantallas reales que lo pongan a prueba. **Por qué no después:**
+cada pantalla que se monte encima hereda el defecto y habrá que rehacerla.
+
+Medición completa en
+[revision-visual/2026-09-14-windows/HALLAZGOS.md](../06-calidad/revision-visual/2026-09-14-windows/HALLAZGOS.md).

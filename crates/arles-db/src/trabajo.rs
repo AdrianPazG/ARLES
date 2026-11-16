@@ -1,0 +1,946 @@
+//! Qué hay que enviar ahora mismo: las etapas en marcha, con sus reglas.
+//!
+//! ─────────────────────────────────────────────────────────────────────────
+//! POR QUÉ ESTA CONSULTA EXISTE
+//!
+//! El trabajador de la Fase 4 necesita unos [`Ajustes`] completos para dar un
+//! paso: la campaña, la cuenta, la ventana horaria y los límites. Hasta ahora
+//! esos ajustes sólo los construían las pruebas, a mano. Para que el motor
+//! corra de verdad dentro de la aplicación hace falta sacarlos de la base, y
+//! ése es todo el trabajo de este módulo.
+//!
+//! Va en `arles-db` y no en `arles-motor` porque el motor **no escribe SQL**:
+//! pide con métodos tipados. Es la regla que mantiene todas las consultas del
+//! programa en un sitio donde se pueden leer de una sentada (ADR-0002).
+//!
+//! ─────────────────────────────────────────────────────────────────────────
+//! LOS LÍMITES: MANDA EL DE LA CAMPAÑA (decisión de Dirección, 22/10/2026)
+//!
+//! Hay dos topes para el mismo envío y **no se suman**: decide el de la etapa
+//! si lo fija, y sólo si no lo fija se usa el de la cuenta.
+//!
+//! - **La etapa** puede tener el suyo, y puede no tenerlo. Es donde vive el
+//!   ritmo desde la V4, y existe ahí porque WhatsApp empieza mucho más lento
+//!   que el correo: un tope compartido obligaría a elegir entre frenar el
+//!   correo o quemar el número (L-6).
+//! - **La cuenta** tiene el suyo siempre, y es **el que se propone** al crear
+//!   la campaña. Ya no es un techo.
+//!
+//! ── POR QUÉ CAMBIÓ, Y QUÉ PROTEGE AHORA EN SU LUGAR ──
+//!
+//! Hasta hoy se tomaba el menor de los dos, para que nadie se pasara del
+//! límite del proveedor sin darse cuenta. Pero una cuenta nace con 50 diarios
+//! **escritos en el código** y no había ninguna pantalla para cambiarlos, así
+//! que el techo no era el del proveedor: era una constante. El resultado,
+//! medido el 22/10/2026: quien escribía 300 en el asistente, leía el aviso de
+//! riesgo y marcaba la casilla de aceptación… **recibía 50, y nada se lo
+//! decía**. Peor que no tener el campo, porque le deja creer que lo usó.
+//!
+//! Y el techo tampoco era el correcto: Titan o Workspace admiten muchos más de
+//! 50; ése es el suelo de una cuenta de Gmail personal. Quien sabe cuánto
+//! admite su proveedor es el usuario.
+//!
+//! Lo que sigue impidiendo quemar una cuenta **no es este `min`**, y por eso se
+//! puede quitar:
+//!
+//! 1. **El presupuesto compartido por cuenta** — *esta defensa se retiró esa
+//!    misma tarde, y se deja escrita porque entenderla es entender el riesgo
+//!    de hoy.* Decía: dos campañas con 300 sobre la misma cuenta no gastan 600,
+//!    comparten el contador, y el total de un día es el mayor de sus campañas y
+//!    nunca la suma. Era un techo real **y escondía un plazo roto**: el paso 6
+//!    promete los días calculados con el límite de cada campaña, y compartir el
+//!    cupo los duplicaba en silencio.
+//!
+//!    Dirección eligió el plazo cumplido (**D-13**): el presupuesto pasó a
+//!    colgar de la **etapa** y los topes **se suman**. Así que **el agregado de
+//!    un buzón ya no tiene techo**, y lo que ocupa su sitio es el semáforo de
+//!    Remitentes (D-14), que enseña la suma antes de que nadie active nada.
+//! 2. **El aviso del §48 con su casilla**, que se registra en `audit_log` con
+//!    su fecha — el rastro de que se informó y de que alguien dijo que sí.
+//! 3. **ADR-0008 sigue intacto**: no hay rotación de remitentes. Repartir un
+//!    envío entre cuentas para superar el agregado es lo que no se hace, y eso
+//!    no lo toca este cambio.
+//! 4. **Y el tope de la hora ya no puede frenar al del día** (auditoría H).
+//!    Medido el 22/10/2026: con diez por hora y nueve horas de ventana, quien
+//!    pedía 500 al día recibía **90**. El por hora se calcula ahora del diario,
+//!    y si alguien lo baja a mano se le dice cuántos van a salir.
+//!
+//! El §154 pide informar, no dictar. Un tope que no se puede ver ni cambiar no
+//! informa de nada.
+//!
+//! **La campaña no tiene límites propios.** Los tuvo hasta la V4, que los movió
+//! a la etapa junto con la ventana, el remitente y la plantilla. Se dice aquí
+//! porque el esquema de la V1 —que es el que se lee primero— todavía los
+//! enseña, y buscarlos ahí cuesta un rato.
+
+use arles_core::canal::Canal;
+use arles_core::ids::{CompanyId, EmailAccountId, WhatsappAccountId};
+use arles_core::ritmo::Limites;
+use arles_core::ventana::{Dias, TimeZone, Ventana, zona};
+use rusqlite::{Connection, OptionalExtension, params};
+
+use crate::db::Db;
+use crate::error::DbError;
+
+/// De qué cuenta sale una etapa.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ UNA VARIANTE Y NO `cuenta` + `canal` POR SEPARADO
+///
+/// Porque separados cabe el **estado imposible**: canal de WhatsApp con una
+/// cuenta de correo dentro. Nada fallaría al construirlo; fallaría tres capas
+/// más abajo, al pedirle a Meta que mande por SMTP.
+///
+/// Es la misma razón que `Cifrado::Argon2idXChaCha20 { sal, nonce }` y que
+/// `RecortadaEnElEsencial { fecha }`: el dato que sólo tiene sentido con otro
+/// va dentro de la variante.
+///
+/// Y tiene un segundo efecto, que es el que de verdad protege: **añadirla
+/// obliga al compilador a exigir una decisión** en cada sitio que antes daba
+/// el correo por supuesto. Un `_ =>` ahí dejaría las etapas de WhatsApp sin
+/// enviar en silencio, que es exactamente el estado del que D-WA viene.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CuentaDeLaEtapa {
+    Correo(EmailAccountId),
+    Whatsapp(WhatsappAccountId),
+}
+
+impl CuentaDeLaEtapa {
+    /// El canal, **derivado** y no guardado aparte.
+    #[must_use]
+    pub const fn canal(&self) -> Canal {
+        match self {
+            Self::Correo(_) => Canal::Correo,
+            Self::Whatsapp(_) => Canal::WhatsApp,
+        }
+    }
+
+    /// El identificador, como texto.
+    ///
+    /// El presupuesto y el disyuntor cuelgan de la cuenta y la tratan como una
+    /// cadena opaca: no necesitan saber de qué canal es, sólo que dos etapas
+    /// del mismo número compartan contador.
+    #[must_use]
+    pub fn como_texto(&self) -> String {
+        match self {
+            Self::Correo(id) => id.to_string(),
+            Self::Whatsapp(id) => id.to_string(),
+        }
+    }
+}
+
+/// Una etapa que está enviando, con todo lo que el trabajador necesita saber.
+///
+/// Es deliberadamente **lo que cabe en unos `Ajustes`** y nada más. No lleva el
+/// nombre de la campaña ni cuántos quedan: eso es para la pantalla, y meterlo
+/// aquí obligaría a esta consulta a crecer cada vez que la pantalla cambie.
+#[derive(Debug, Clone)]
+pub struct EtapaEnMarcha {
+    /// La etapa misma.
+    ///
+    /// Hace falta desde la 7.1: el registro de actividad recorta el ruido
+    /// **por etapa**, no por campaña. Con dos etapas fuera de ventana a la vez,
+    /// una comparación por campaña dejaría muda a la segunda.
+    pub etapa: String,
+    /// La campaña de la que se toma trabajo.
+    pub campana: String,
+    /// La cuenta remitente. **El presupuesto cuelga de ella.**
+    ///
+    /// El canal sale de aquí (`cuenta.canal()`) y no se guarda aparte: ver la
+    /// nota de [`CuentaDeLaEtapa`].
+    pub cuenta: CuentaDeLaEtapa,
+    /// Los días y horas en que puede enviar, con su zona (D-10).
+    pub ventana: Ventana,
+    /// El menor de los topes de la etapa y de la cuenta.
+    pub limites: Limites,
+    /// La zona de **la empresa**, donde se cuentan las horas y los días del
+    /// presupuesto. No es necesariamente la de la ventana: una campaña dirigida
+    /// a Madrid se envía en horario de Madrid y gasta del cupo diario de una
+    /// cuenta que vive en México.
+    pub zona_de_la_empresa: TimeZone,
+}
+
+/// La consulta de una etapa, **escrita una sola vez**.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LOS DOS CANALES, Y POR QUÉ DOS `LEFT JOIN` Y NO UNO (D-WA, 26/10/2026)
+///
+/// Hasta el 26/10/2026 esto filtraba `e.channel = 'email'` y unía con
+/// `email_account` a secas. Una etapa de WhatsApp en marcha **no existía para
+/// el motor**: la campaña se activaba, se congelaba su audiencia, y se quedaba
+/// quieta para siempre sin que nada fallara.
+///
+/// El `CHECK` del esquema ya garantiza que hay exactamente una cuenta por
+/// canal, así que una de las dos uniones da `NULL` siempre y la otra trae su
+/// fila. Con `JOIN` a secas, una etapa de WhatsApp no casaría con
+/// `email_account` y **desaparecería del resultado** — el mismo silencio, por
+/// otra puerta.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ES UNA CONSTANTE Y NO DOS CONSULTAS PARECIDAS
+///
+/// La leen dos sitios: el motor, para saber qué etapas están enviando, y
+/// `activar_campana`, para saber con qué ritmo va a enviar esta. **Las dos
+/// respuestas tienen que ser la misma**: una estima lo que va a tardar y la
+/// otra decide cuánto sale de verdad.
+///
+/// Con dos copias, añadir una columna —`limite_diario_meta` fue la última—
+/// significa acordarse de las dos, y quien se olvide de la del activar deja la
+/// estimación prometiendo un ritmo que Meta no va a aceptar. No falla nada: la
+/// cifra es correcta sobre otra pregunta, que es la peor clase de cifra (§94).
+///
+/// El `WHERE` lo pone cada llamador, porque es lo único que de verdad cambia.
+const SELECT_DE_LA_ETAPA: &str = "SELECT e.id,
+                e.campaign_id,
+                e.channel,
+                e.email_account_id,
+                e.whatsapp_account_id,
+                v.days_of_week, v.start_hour, v.end_hour, v.timezone,
+                e.hourly_limit, e.daily_limit,
+                a.hourly_limit, a.daily_limit,
+                w.limite_diario_meta,
+                e.whatsapp_template_id
+           FROM campaign_stage e
+           JOIN campaign        c ON c.id = e.campaign_id
+           LEFT JOIN email_account    a ON a.id = e.email_account_id
+           LEFT JOIN whatsapp_account w ON w.id = e.whatsapp_account_id
+           JOIN execution_window v ON v.id = e.execution_window_id";
+
+impl Db {
+    /// Las etapas que están enviando ahora mismo, **de los dos canales**.
+    ///
+    /// ── ESTE RENGLÓN DECÍA «LAS ETAPAS DE CORREO» ────────────────────────
+    ///
+    /// Y era verdad hasta D-WA (26/10/2026), que le dio a WhatsApp campañas
+    /// enteras. La consulta **no filtra por canal** —nunca lo hizo— así que
+    /// trae las dos; lo que estaba desfasado era la frase. Lo encontró la
+    /// auditoría H (04/11/2026) persiguiendo la misma afirmación en
+    /// `CLAUDE.md` y en el manual de usuario, donde costaba más: decían que
+    /// una campaña por WhatsApp no se puede lanzar, y se puede.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// LAS TRES CONDICIONES, Y POR QUÉ SON TRES
+    ///
+    /// **La campaña está en marcha** y **la etapa también**. Son dos estados
+    /// distintos a propósito desde la L-6: apagar el canal de WhatsApp de una
+    /// campaña no apaga el de correo. Mirar sólo el de la campaña haría que una
+    /// etapa pausada siguiera enviando, y el rótulo de la pantalla diría
+    /// «pausada» mientras salen los correos.
+    ///
+    /// **Y el canal es `email`.** Hoy no hay ningún adaptador de WhatsApp: la
+    /// Fase 3W va por el esquema. Devolver una etapa de WhatsApp aquí no
+    /// produciría un error, produciría un trabajador sin proveedor — o, peor,
+    /// uno al que alguien le enchufara el de correo por descuido.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// UNA ETAPA MAL CONFIGURADA DETIENE LA LECTURA. NO SE SALTA.
+    ///
+    /// Si una ventana guardada no vale —una zona que ya no existe en la base
+    /// IANA, unas horas al revés—, esta función devuelve error en vez de
+    /// devolver las demás etapas.
+    ///
+    /// Saltársela sería lo cómodo y dejaría una campaña activada que **no envía
+    /// y no lo dice**: en la pantalla pone «en marcha» y el motor la ignora en
+    /// silencio para siempre. Un error se ve; una campaña muda, no.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla, o [`DbError::DatoInvalido`] si
+    /// una etapa guardada no produce unos ajustes válidos.
+    ///
+    /// **POR LA DE ESCRITURA A PROPÓSITO:** la llama el MOTOR, desde `arles-app/src/motor.rs`. De aquí sale lo que
+    /// se va a enviar: con una foto anterior el motor trabajaría sobre un
+    /// estado que ya cambió. Lo vigila `el_motor_no_lee_por_la_conexion_de_pantallas`.
+    pub fn etapas_en_marcha(&self, empresa: CompanyId) -> Result<Vec<EtapaEnMarcha>, DbError> {
+        let empresa_txt = empresa.to_string();
+
+        self.con_dominio(|conn| {
+            // La zona de la empresa se lee una vez: es la misma para todas.
+            let zona_empresa_txt: String = conn.query_row(
+                "SELECT timezone FROM company WHERE id = ?1",
+                params![empresa_txt],
+                |f| f.get(0),
+            )?;
+            let zona_de_la_empresa =
+                zona(&zona_empresa_txt).map_err(|_| DbError::DatoInvalido {
+                    motivo: "company.timezone",
+                })?;
+
+            // El estado de la cuenta **no se filtra aquí**: una cuenta que no
+            // puede enviar se salta en `servir`, con su motivo. Hacerlo en el
+            // `WHERE` dejaría la etapa invisible y la pantalla no podría decir
+            // por qué no sale nada.
+            let mut consulta = conn.prepare(&format!(
+                "{SELECT_DE_LA_ETAPA}
+                  WHERE c.company_id = ?1
+                    AND c.status = 'running'
+                    AND e.status = 'running'
+                  ORDER BY e.campaign_id, e.position"
+            ))?;
+
+            let filas = consulta.query_map(params![empresa_txt], |f| {
+                Ok(FilaDeEtapa {
+                    etapa: f.get(0)?,
+                    campana: f.get(1)?,
+                    canal: f.get(2)?,
+                    cuenta_correo: f.get(3)?,
+                    cuenta_whatsapp: f.get(4)?,
+                    dias: f.get(5)?,
+                    desde: f.get(6)?,
+                    hasta: f.get(7)?,
+                    zona: f.get(8)?,
+                    hora_etapa: f.get(9)?,
+                    dia_etapa: f.get(10)?,
+                    hora_cuenta: f.get(11)?,
+                    dia_cuenta: f.get(12)?,
+                    dia_meta: f.get(13)?,
+                    plantilla_whatsapp: f.get(14)?,
+                })
+            })?;
+
+            let mut etapas = Vec::new();
+            for fila in filas {
+                etapas.push(fila?.a_etapa(&zona_de_la_empresa)?);
+            }
+            Ok(etapas)
+        })
+    }
+}
+
+/// La fila cruda, antes de validarla.
+///
+/// Existe para que `a_etapa` pueda dar un error de dominio por campo: dentro
+/// del `query_map` sólo caben errores de `rusqlite`, y decir «error de SQLite»
+/// ante una zona horaria inventada mandaría a buscar el problema al disco.
+struct FilaDeEtapa {
+    etapa: String,
+    campana: String,
+    /// `'email'` o `'whatsapp'`. Lo garantiza un `CHECK` del esquema.
+    canal: String,
+    /// Exactamente uno de los dos viene lleno, y lo garantiza otro `CHECK`.
+    cuenta_correo: Option<String>,
+    cuenta_whatsapp: Option<String>,
+    dias: i64,
+    desde: i64,
+    hasta: i64,
+    zona: String,
+    hora_etapa: Option<i64>,
+    dia_etapa: Option<i64>,
+    /// Los de la cuenta de correo. `None` en una etapa de WhatsApp.
+    hora_cuenta: Option<i64>,
+    dia_cuenta: Option<i64>,
+    /// El tope diario que Meta concede a este número. **Es un techo real del
+    /// proveedor**, no una constante como el de las cuentas de correo, así que
+    /// manda aunque la campaña pida más: pasarse significa que Meta rechaza.
+    dia_meta: Option<i64>,
+    /// La plantilla aprobada de Meta que manda esta etapa.
+    ///
+    /// `None` en una etapa de correo, y también en una de WhatsApp a la que
+    /// todavía no se le ha elegido — la columna no lleva `CHECK` a propósito
+    /// (ver la V16), porque la etapa nace antes que la elección.
+    plantilla_whatsapp: Option<String>,
+}
+
+impl FilaDeEtapa {
+    fn a_etapa(self, zona_de_la_empresa: &TimeZone) -> Result<EtapaEnMarcha, DbError> {
+        // El canal decide de qué columna sale la cuenta. Se lee del canal y no
+        // de «cuál de las dos no es NULL» a propósito: si alguna vez las dos
+        // vinieran llenas —que el `CHECK` impide, pero una migración futura
+        // podría relajar— elegir por ausencia tomaría una en silencio.
+        let cuenta = match self.canal.as_str() {
+            "email" => CuentaDeLaEtapa::Correo(
+                self.cuenta_correo
+                    .as_deref()
+                    .unwrap_or_default()
+                    .parse::<EmailAccountId>()
+                    .map_err(|_| DbError::DatoInvalido {
+                        motivo: "campaign_stage.email_account_id",
+                    })?,
+            ),
+            "whatsapp" => CuentaDeLaEtapa::Whatsapp(
+                self.cuenta_whatsapp
+                    .as_deref()
+                    .unwrap_or_default()
+                    .parse::<WhatsappAccountId>()
+                    .map_err(|_| DbError::DatoInvalido {
+                        motivo: "campaign_stage.whatsapp_account_id",
+                    })?,
+            ),
+            // Un canal que no es ninguno de los dos no se adivina: el `CHECK`
+            // del esquema lo impide, así que llegar aquí significa que alguien
+            // tocó la base por fuera.
+            _ => {
+                return Err(DbError::DatoInvalido {
+                    motivo: "campaign_stage.channel",
+                });
+            }
+        };
+
+        let dias = u8::try_from(self.dias)
+            .map(Dias)
+            .map_err(|_| DbError::DatoInvalido {
+                motivo: "execution_window.days_of_week",
+            })?;
+        let desde = u8::try_from(self.desde).map_err(|_| DbError::DatoInvalido {
+            motivo: "execution_window.start_hour",
+        })?;
+        let hasta = u8::try_from(self.hasta).map_err(|_| DbError::DatoInvalido {
+            motivo: "execution_window.end_hour",
+        })?;
+        let zona_ventana = zona(&self.zona).map_err(|_| DbError::DatoInvalido {
+            motivo: "execution_window.timezone",
+        })?;
+
+        let ventana = Ventana::nueva(dias, desde, hasta, zona_ventana).map_err(|_| {
+            DbError::DatoInvalido {
+                motivo: "execution_window",
+            }
+        })?;
+
+        // ── LOS LÍMITES, Y LA DIFERENCIA ENTRE LOS DOS CANALES ────────────
+        //
+        // En CORREO manda la campaña, hacia arriba o hacia abajo (D-13): el
+        // «techo» de la cuenta era una constante del código —toda cuenta nace
+        // con 50— y no el del proveedor, así que quien escribía 300 recibía 50
+        // sin que nada se lo dijera.
+        //
+        // En WHATSAPP no es lo mismo. `limite_diario_meta` **sí** es el techo
+        // del proveedor: es el escalón de mensajería que Meta concede a ese
+        // número, y pasarse no es arriesgado, es que Meta rechaza. Así que
+        // manda el MENOR de los dos, y una campaña que pida más se queda en lo
+        // que Meta permite.
+        //
+        // Por hora no hay tope de Meta: el único que hay es el de la campaña.
+        let limites = match &cuenta {
+            CuentaDeLaEtapa::Correo(_) => Limites::nuevos(
+                el_limite_que_manda(self.hora_etapa, self.hora_cuenta.unwrap_or(0)),
+                el_limite_que_manda(self.dia_etapa, self.dia_cuenta.unwrap_or(0)),
+            ),
+            // ── LOS DOS DEFECTOS QUE ESTO TENÍA, Y QUE ENCONTRÓ ACTIVAR UNA
+            //    CAMPAÑA DE VERDAD (27/10/2026) ──────────────────────────
+            //
+            // La primera versión escribía `el_limite_que_manda(x, 0)` en los
+            // dos topes, y el cero no es un valor neutro: `techo_diario` es
+            // `min(por_hora × horas, por_dia)`, así que un cero en cualquiera
+            // de los dos da un techo de cero y la campaña **no avanza**.
+            //
+            // Con el motor eso no se vio: sus pruebas siembran etapas con
+            // topes puestos. Se vio al activar una campaña de WhatsApp sin
+            // topes propios, que es lo normal — `LaCampanaNoAvanza` sobre una
+            // campaña perfectamente razonable, con un número que Meta deja
+            // mandar mil al día.
+            //
+            //   1 · **Diario.** Sin tope propio manda el escalón de Meta, que
+            //       es un techo real y conocido del proveedor — el mismo papel
+            //       que el límite de la cuenta en correo. Antes caía a cero.
+            //       Y cuando la campaña fija uno, nunca por encima del
+            //       escalón: pasarse no es arriesgado, es que Meta rechaza.
+            //
+            //   2 · **Por hora.** Meta no pone ninguno, así que no hay de
+            //       quién heredarlo. Sin tope propio se deriva **el que hace
+            //       falta para que el diario se cumpla**, que es exactamente
+            //       el arreglo que la auditoría del cupo le hizo al correo:
+            //       pedir 500 al día con diez por hora daba 90. Cero dejaría
+            //       la campaña quieta; un número inventado prometería un ritmo
+            //       que no sale.
+            CuentaDeLaEtapa::Whatsapp(_) => {
+                let propio_dia = el_limite_propio(self.dia_etapa);
+                let de_meta = self.dia_meta.and_then(|v| u32::try_from(v).ok());
+                let diario = match (propio_dia, de_meta) {
+                    (Some(campana), Some(techo)) => campana.min(techo),
+                    (Some(campana), None) => campana,
+                    (None, Some(techo)) => techo,
+                    // No se sabe el escalón y la campaña no dijo nada: no se
+                    // inventa un techo. Da cero, y entonces `activar_campana`
+                    // rechaza con `LaCampanaNoAvanza` en vez de mandar a un
+                    // ritmo que nadie eligió. El asistente pide el tope diario
+                    // en WhatsApp justo por esto.
+                    (None, None) => 0,
+                };
+                let por_hora = el_limite_propio(self.hora_etapa).unwrap_or_else(|| {
+                    arles_core::duracion::por_hora_que_hace_falta(diario, &ventana)
+                });
+                Limites::nuevos(por_hora, diario)
+            }
+        };
+
+        Ok(EtapaEnMarcha {
+            etapa: self.etapa,
+            campana: self.campana,
+            cuenta,
+            ventana,
+            limites,
+            zona_de_la_empresa: zona_de_la_empresa.clone(),
+        })
+    }
+}
+
+/// Lo que `activar_campana` necesita saber de la etapa que va a poner a enviar.
+///
+/// Es [`EtapaEnMarcha`] más la plantilla de Meta, y **no una estructura
+/// paralela**: las dos salen de [`SELECT_DE_LA_ETAPA`] y del mismo `a_etapa`,
+/// así que el canal, el ritmo y la ventana que se usan para estimar son
+/// exactamente los que el motor va a aplicar. Ver la nota de la constante.
+#[derive(Debug, Clone)]
+pub(crate) struct EtapaParaActivar {
+    pub(crate) etapa: EtapaEnMarcha,
+    /// La plantilla aprobada de Meta. `None` en correo, y `None` también en una
+    /// etapa de WhatsApp sin plantilla elegida — que es justo lo que
+    /// `activar_campana` tiene que rechazar.
+    pub(crate) plantilla_whatsapp: Option<String>,
+}
+
+/// La única etapa de una campaña, sea del canal que sea.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ NO SE PIDE EL CANAL Y SE LEE
+///
+/// Porque el canal es un dato **de la campaña**, elegido al crearla, y pedirlo
+/// por parámetro dejaría que quien activa diga uno distinto del que se guardó.
+/// Es la misma razón por la que la lista de contactos se lee aquí en vez de
+/// viajar desde la webview (D-15), y por la que `suprimir_contacto` lee las
+/// direcciones en vez de recibirlas.
+///
+/// Hoy una campaña tiene **una** etapa: la crea `crear_campana` y el esquema
+/// admite dos (`position IN (1, 2)`) para la L-6, que no está construida. Con
+/// dos haría falta decidir cuál se activa primero, y ésa es otra entrega: por
+/// eso se lee por posición y se toma la primera, en vez de dar por supuesto
+/// que hay una sola.
+pub(crate) fn leer_la_etapa_para_activar(
+    conn: &Connection,
+    campana: &str,
+    empresa: CompanyId,
+) -> Result<EtapaParaActivar, DbError> {
+    let zona_empresa_txt: String = conn.query_row(
+        "SELECT timezone FROM company WHERE id = ?1",
+        params![empresa.to_string()],
+        |f| f.get(0),
+    )?;
+    let zona_de_la_empresa = zona(&zona_empresa_txt).map_err(|_| DbError::DatoInvalido {
+        motivo: "company.timezone",
+    })?;
+
+    let fila = conn
+        .query_row(
+            &format!(
+                "{SELECT_DE_LA_ETAPA}
+                  WHERE e.campaign_id = ?1 AND c.company_id = ?2
+                  ORDER BY e.position
+                  LIMIT 1"
+            ),
+            params![campana, empresa.to_string()],
+            |f| {
+                Ok(FilaDeEtapa {
+                    etapa: f.get(0)?,
+                    campana: f.get(1)?,
+                    canal: f.get(2)?,
+                    cuenta_correo: f.get(3)?,
+                    cuenta_whatsapp: f.get(4)?,
+                    dias: f.get(5)?,
+                    desde: f.get(6)?,
+                    hasta: f.get(7)?,
+                    zona: f.get(8)?,
+                    hora_etapa: f.get(9)?,
+                    dia_etapa: f.get(10)?,
+                    hora_cuenta: f.get(11)?,
+                    dia_cuenta: f.get(12)?,
+                    dia_meta: f.get(13)?,
+                    plantilla_whatsapp: f.get(14)?,
+                })
+            },
+        )
+        .optional()?;
+
+    let Some(fila) = fila else {
+        // Una campaña sin etapa no se puede activar, y el motivo nombra la
+        // tabla: no es «la campaña no existe» —eso ya se comprobó antes— sino
+        // que no tiene de dónde salir.
+        return Err(DbError::DatoInvalido {
+            motivo: "campaign_stage",
+        });
+    };
+
+    let plantilla_whatsapp = fila.plantilla_whatsapp.clone();
+    Ok(EtapaParaActivar {
+        etapa: fila.a_etapa(&zona_de_la_empresa)?,
+        plantilla_whatsapp,
+    })
+}
+
+/// El tope propio de la etapa, si lo fija y vale.
+///
+/// `None` significa «esta etapa no fija tope», y es distinto de un cero: el
+/// cero lo rechaza `crear_campana` con su propio error, y un valor negativo o
+/// desmesurado en la base se trata como «no fija» en vez de reventar.
+///
+/// Existe aparte de [`el_limite_que_manda`] porque en WhatsApp la caída no es
+/// a un número sino a **otra pregunta** —el escalón de Meta, o el por hora que
+/// hace falta para cumplir el día—, y para eso hay que poder distinguir «no
+/// fija» de «fija cero».
+fn el_limite_propio(etapa: Option<i64>) -> Option<u32> {
+    etapa.and_then(|v| u32::try_from(v).ok()).filter(|v| *v > 0)
+}
+
+/// El límite que de verdad se aplica: **el de la campaña si lo fija**, y el de
+/// la cuenta sólo cuando no lo fija.
+///
+/// Ver la nota de la cabecera para por qué la campaña manda desde el
+/// 22/10/2026 y qué protege ahora en lugar del `min` que había aquí.
+///
+/// Lo comparte la revisión de una campaña (`revision.rs`), y se comparte en vez
+/// de copiarse porque las dos respuestas tienen que ser la misma: una estima lo
+/// que va a tardar y la otra decide cuánto sale de verdad. Con dos copias, una
+/// podría cambiar sin la otra y la estimación mentiría sin que nada fallara.
+///
+/// Un valor negativo o desmesurado en la base se trata como «sin tope propio»
+/// en vez de reventar: entonces manda el de la cuenta, que es el que siempre
+/// existe.
+pub(crate) fn el_limite_que_manda(etapa: Option<i64>, cuenta: i64) -> u32 {
+    etapa
+        .and_then(|v| u32::try_from(v).ok())
+        .unwrap_or_else(|| u32::try_from(cuenta).unwrap_or(0))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// La campaña fija el ritmo, hacia arriba o hacia abajo.
+    #[test]
+    fn manda_el_de_la_campana() {
+        assert_eq!(el_limite_que_manda(Some(5), 50), 5, "menos que la cuenta");
+        assert_eq!(el_limite_que_manda(Some(500), 50), 500, "más que la cuenta");
+    }
+
+    /// **El caso que esta función existía para impedir, y que ahora permite.**
+    ///
+    /// Hasta el 22/10/2026 esto devolvía 50: se tomaba el menor de los dos para
+    /// que nadie se pasara del límite del proveedor sin darse cuenta. Lo que
+    /// medir enseñó es que el techo no era el del proveedor sino **una
+    /// constante del código** —toda cuenta nace con 50 y no había pantalla para
+    /// cambiarlo—, así que quien escribía 300 en el asistente, leía el aviso y
+    /// marcaba la casilla recibía 50 **sin que nada se lo dijera**.
+    ///
+    /// Está escrito aquí y no sólo en la cabecera porque esta prueba afirmaba
+    /// lo contrario con su propia nota de verificación: quien la lea tiene que
+    /// poder ver que el cambio fue deliberado y de quién salió, no un descuido.
+    /// Lo que impide quemar la cuenta son las tres defensas de la cabecera, y
+    /// la primera —el presupuesto compartido por cuenta— la ejercita
+    /// `dos_campanas_sobre_una_cuenta_no_suman_sus_topes`.
+    #[test]
+    fn la_campana_puede_pedir_mas_que_el_valor_de_la_cuenta() {
+        assert_eq!(el_limite_que_manda(Some(500), 50), 500);
+    }
+
+    /// Y si la campaña no fija nada, el de la cuenta: es el que siempre existe.
+    #[test]
+    fn sin_limite_de_campana_queda_el_de_la_cuenta() {
+        assert_eq!(el_limite_que_manda(None, 50), 50);
+    }
+
+    /// Un número imposible en la base no revienta: queda el de la cuenta.
+    #[test]
+    fn un_tope_imposible_no_revienta_y_deja_el_de_la_cuenta() {
+        assert_eq!(el_limite_que_manda(Some(-1), 50), 50);
+    }
+
+    /// **Cero es parado, y no «sin límite».**
+    ///
+    /// Importa porque el camino de arriba trata el negativo como «no fija», y
+    /// un cero mal tratado dejaría salir correo de una campaña que alguien paró
+    /// escribiendo 0 — el error cae del lado que no se ve.
+    #[test]
+    fn cero_para_la_campana_en_vez_de_soltarla() {
+        assert_eq!(el_limite_que_manda(Some(0), 50), 0);
+    }
+}
+
+#[cfg(test)]
+mod contra_la_base {
+    use super::*;
+    use crate::conexion::ClaveMaestra;
+
+    const EMPRESA: &str = "11111111-1111-4111-8111-111111111111";
+    const CUENTA: &str = "01900000-0000-7000-8000-00000000000a";
+    const CAMPANA: &str = "camp-1";
+
+    /// Siembra una empresa, una cuenta, una ventana y una campaña con su etapa,
+    /// todo en marcha. Cada prueba tuerce después lo que quiere mirar.
+    fn base() -> (tempfile::TempDir, Db) {
+        let dir = tempfile::tempdir().expect("temporal");
+        let clave = ClaveMaestra::generar().expect("genera");
+        let db = Db::abrir(&dir.path().join("arles.db"), &clave).expect("abre");
+
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO company (id, commercial_name, country, timezone,
+                                      corporate_email, created_at, updated_at)
+                 VALUES ('{EMPRESA}', 'TELEMETRY', 'MX', 'America/Mexico_City',
+                         'hola@t.mx', '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z');
+
+                 INSERT INTO email_account (id, company_id, display_name, email_address,
+                                            provider_kind, credential_ref, status,
+                                            daily_limit, hourly_limit,
+                                            created_at, updated_at)
+                 VALUES ('{CUENTA}', '{EMPRESA}', 'Ventas', 'ventas@t.mx', 'smtp',
+                         'llavero://v', 'connected', 50, 10,
+                         '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z');
+
+                 INSERT INTO execution_window (id, company_id, name, days_of_week,
+                                               start_hour, end_hour, timezone, created_at)
+                 VALUES ('vent-1', '{EMPRESA}', 'Laborables', 31, 9, 18,
+                         'America/Mexico_City', '2026-09-01T00:00:00Z');
+
+                 INSERT INTO campaign (id, company_id, name, status,
+                                       created_at, updated_at)
+                 VALUES ('{CAMPANA}', '{EMPRESA}', 'Prueba', 'running',
+                         '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z');
+
+                 INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                             email_account_id, execution_window_id,
+                                             status, created_at, updated_at)
+                 VALUES ('etapa-1', '{CAMPANA}', 1, 'email', '{CUENTA}', 'vent-1',
+                         'running', '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z');"
+            ))
+        })
+        .expect("siembra");
+
+        (dir, db)
+    }
+
+    fn empresa() -> CompanyId {
+        EMPRESA.parse().expect("id de empresa")
+    }
+
+    fn sql(db: &Db, orden: &str) {
+        db.ejecutar_en_pruebas(|c| c.execute_batch(orden))
+            .expect("orden de prueba");
+    }
+
+    /// Una etapa en marcha llega entera: campaña, cuenta, ventana y zonas.
+    #[test]
+    fn una_etapa_en_marcha_llega_con_todos_sus_ajustes() {
+        let (_dir, db) = base();
+        let etapas = db.etapas_en_marcha(empresa()).expect("consulta");
+
+        assert_eq!(etapas.len(), 1, "hay una etapa enviando");
+        let e = etapas.first().expect("la etapa sembrada");
+        assert_eq!(e.campana, CAMPANA);
+        assert_eq!(e.cuenta.como_texto(), CUENTA);
+        assert_eq!(e.cuenta.canal(), Canal::Correo);
+        assert_eq!(e.ventana.desde, 9);
+        assert_eq!(e.ventana.hasta, 18);
+        assert_eq!(e.ventana.dias, Dias(31));
+        // Sin topes propios de etapa ni de campaña, manda la cuenta.
+        assert_eq!(e.limites, Limites::nuevos(10, 50));
+    }
+
+    /// **Una campaña pausada no envía, aunque su etapa siga en marcha.**
+    #[test]
+    fn una_campana_pausada_no_da_trabajo() {
+        let (_dir, db) = base();
+        sql(
+            &db,
+            &format!("UPDATE campaign SET status='paused' WHERE id='{CAMPANA}'"),
+        );
+        assert!(db.etapas_en_marcha(empresa()).expect("consulta").is_empty());
+    }
+
+    /// **Y una etapa pausada tampoco, aunque la campaña siga en marcha.**
+    ///
+    /// Es la garantía de la L-6: apagar un canal no apaga el otro. Mirando sólo
+    /// el estado de la campaña, la pantalla diría «pausada» mientras los
+    /// correos siguen saliendo.
+    ///
+    /// Verificada rompiéndola el 28/09/2026: quitando `AND e.status='running'`
+    /// de la consulta, esta prueba falla y `una_campana_pausada_no_da_trabajo`
+    /// sigue pasando — que es justo el par que hay que distinguir.
+    #[test]
+    fn una_etapa_pausada_no_da_trabajo_aunque_la_campana_siga() {
+        let (_dir, db) = base();
+        sql(
+            &db,
+            "UPDATE campaign_stage SET status='paused' WHERE id='etapa-1'",
+        );
+        assert!(db.etapas_en_marcha(empresa()).expect("consulta").is_empty());
+    }
+
+    /// **Una etapa de WhatsApp SÍ llega aquí** (D-WA, 26/10/2026).
+    ///
+    /// ── LO QUE ESTA PRUEBA DECÍA ANTES, Y POR QUÉ IMPORTA ──
+    ///
+    /// Hasta hoy decía lo contrario: «una etapa de WhatsApp no llega aquí»,
+    /// porque no había adaptador y devolverla habría producido un trabajador
+    /// sin proveedor. Era correcto entonces y es **el límite que D-WA quita**:
+    /// Dirección decidió que el canal entra en la v1.2.0 con campañas enteras,
+    /// no sólo con el envío de prueba.
+    ///
+    /// Se deja la prueba y se le da la vuelta en vez de borrarla: lo que hay
+    /// que poder afirmar es que la etapa **llega con su número**, que es lo que
+    /// el motor necesita para pedir el proveedor correcto. Borrarla habría
+    /// dejado el cambio sin nadie que lo vigile.
+    #[test]
+    fn una_etapa_de_whatsapp_llega_con_su_numero() {
+        let (_dir, db) = base();
+        sql(
+            &db,
+            &format!(
+                "INSERT INTO whatsapp_account (id, company_id, display_name, phone_e164,
+                                               waba_id, phone_number_id, credential_ref,
+                                               status, created_at, updated_at)
+                 VALUES ('01900000-0000-7000-8000-000000000a01', '{EMPRESA}', 'Ventas', '+525555555555',
+                         'waba-1', 'pn-1', 'llavero://w', 'connected',
+                         '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z');
+
+                 UPDATE campaign_stage SET channel='whatsapp', email_account_id=NULL,
+                        whatsapp_account_id='01900000-0000-7000-8000-000000000a01' WHERE id='etapa-1';"
+            ),
+        );
+        let etapas = db.etapas_en_marcha(empresa()).expect("consulta");
+        assert_eq!(etapas.len(), 1, "la etapa de WhatsApp tiene que llegar");
+
+        let e = etapas.first().expect("la etapa sembrada");
+        assert_eq!(e.cuenta.canal(), Canal::WhatsApp);
+        assert_eq!(
+            e.cuenta,
+            CuentaDeLaEtapa::Whatsapp("01900000-0000-7000-8000-000000000a01".parse().expect("id")),
+            "y con SU número, no con una cuenta de correo"
+        );
+    }
+
+    /// **El tope de Meta manda sobre el de la campaña** (D-WA).
+    ///
+    /// Es la diferencia con el correo, y no es un detalle. Allí D-13 quitó el
+    /// mínimo porque el «techo» de la cuenta era **una constante del código**
+    /// —toda cuenta nace con 50— y quien escribía 300 recibía 50 sin que nada
+    /// se lo dijera.
+    ///
+    /// `limite_diario_meta` es otra cosa: es el escalón de mensajería que Meta
+    /// concede a ese número. Pasarse no es arriesgado, es que **Meta rechaza**.
+    /// Así que aquí sí manda el menor.
+    ///
+    /// Se siembra la campaña pidiendo 500 con un escalón de 250: llegan 250.
+    #[test]
+    fn el_escalon_de_meta_recorta_lo_que_pide_la_campana() {
+        let (_dir, db) = base();
+        sql(
+            &db,
+            &format!(
+                "INSERT INTO whatsapp_account (id, company_id, display_name, phone_e164,
+                                               waba_id, phone_number_id, credential_ref,
+                                               status, limite_diario_meta,
+                                               created_at, updated_at)
+                 VALUES ('01900000-0000-7000-8000-000000000a02', '{EMPRESA}', 'Ventas', '+525555555556',
+                         'waba-1', 'pn-2', 'llavero://w', 'connected', 250,
+                         '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z');
+
+                 UPDATE campaign_stage SET channel='whatsapp', email_account_id=NULL,
+                        whatsapp_account_id='01900000-0000-7000-8000-000000000a02', daily_limit=500
+                  WHERE id='etapa-1';"
+            ),
+        );
+
+        let etapas = db.etapas_en_marcha(empresa()).expect("consulta");
+        let e = etapas.first().expect("la etapa sembrada");
+        assert_eq!(
+            e.limites.por_dia, 250,
+            "la campaña pidió 500 y Meta sólo concede 250"
+        );
+    }
+
+    /// **Lo que la campaña escribe es lo que llega al motor, de punta a punta.**
+    ///
+    /// Es la prueba que de verdad contesta la pregunta de Dirección: lo que se
+    /// teclea en el paso 5 del asistente, ¿sale? Las de `tests` de arriba miran
+    /// la función sola; ésta recorre la base, la consulta y la traducción a
+    /// `Limites` — que es donde cabía el error, y donde estuvo.
+    ///
+    /// Con la etapa pidiendo 3 por hora y 500 al día sobre una cuenta de 10 y
+    /// 50: llegan **3 y 500**. Hasta el 22/10/2026 llegaban 3 y 50.
+    ///
+    /// Verificada rompiéndola: volviendo `el_limite_que_manda` a tomar el
+    /// mínimo, esto cae con `Limites { por_hora: 3, por_dia: 50 }`.
+    #[test]
+    fn el_limite_que_escribe_la_campana_es_el_que_llega() {
+        let (_dir, db) = base();
+        sql(
+            &db,
+            "UPDATE campaign_stage SET hourly_limit=3, daily_limit=500 WHERE id='etapa-1';",
+        );
+        let etapas = db.etapas_en_marcha(empresa()).expect("consulta");
+        let e = etapas.first().expect("la etapa sembrada");
+        assert_eq!(e.limites, Limites::nuevos(3, 500));
+    }
+
+    /// Y una etapa sin límites propios hereda los de la cuenta, que es el
+    /// valor que el asistente propone cuando nadie lo cambia.
+    #[test]
+    fn una_etapa_sin_limites_propios_usa_los_de_la_cuenta() {
+        let (_dir, db) = base();
+        sql(
+            &db,
+            "UPDATE campaign_stage SET hourly_limit=NULL, daily_limit=NULL WHERE id='etapa-1';",
+        );
+        let etapas = db.etapas_en_marcha(empresa()).expect("consulta");
+        let e = etapas.first().expect("la etapa sembrada");
+        assert_eq!(e.limites, Limites::nuevos(10, 50));
+    }
+
+    /// **Una ventana mal guardada detiene la lectura; no se salta la etapa.**
+    ///
+    /// Saltársela dejaría una campaña que pone «en marcha» en pantalla y que el
+    /// motor ignora en silencio para siempre. Un error se ve; una campaña muda,
+    /// no.
+    ///
+    /// Verificada rompiéndola el 28/09/2026: cambiando el bucle por un
+    /// `filter_map` que descarta las filas que no validan, esta prueba falla y
+    /// todas las demás siguen pasando.
+    #[test]
+    fn una_ventana_con_una_zona_que_no_existe_da_error_y_no_se_salta() {
+        let (_dir, db) = base();
+        sql(
+            &db,
+            "UPDATE execution_window SET timezone='Marte/Olympus' WHERE id='vent-1'",
+        );
+
+        let error = db
+            .etapas_en_marcha(empresa())
+            .expect_err("una ventana inválida no puede pasar desapercibida");
+        assert_eq!(error.clave_i18n(), "error.db.dato_invalido");
+    }
+
+    /// **Las etapas de una empresa no salen en la consulta de otra.**
+    ///
+    /// La primera versión de esta prueba estaba mal escrita: aceptaba un error
+    /// **o** una lista vacía, con lo que pasaba dijera lo que dijera la
+    /// consulta. Se deja escrito porque es el fallo del §2 en su forma más
+    /// común — una comprobación que no puede fallar.
+    ///
+    /// Ahora se siembra una segunda empresa de verdad, con su propia zona, y se
+    /// exige que su consulta devuelva cero etapas sin dar error.
+    #[test]
+    fn las_etapas_de_otra_empresa_no_aparecen() {
+        let (_dir, db) = base();
+        let otra = "22222222-2222-4222-8222-222222222222";
+        sql(
+            &db,
+            &format!(
+                "INSERT INTO company (id, commercial_name, country, timezone,
+                                      corporate_email, created_at, updated_at)
+                 VALUES ('{otra}', 'OTRA', 'MX', 'America/Monterrey',
+                         'hola@otra.mx', '2026-09-01T00:00:00Z',
+                         '2026-09-01T00:00:00Z');"
+            ),
+        );
+
+        let suyas = db
+            .etapas_en_marcha(otra.parse().expect("id"))
+            .expect("la consulta de una empresa sin campañas no es un error");
+        assert!(
+            suyas.is_empty(),
+            "la etapa de una empresa no puede salir en la consulta de otra"
+        );
+        // Y la primera sigue viendo la suya: el filtro acota, no vacía.
+        assert_eq!(db.etapas_en_marcha(empresa()).expect("consulta").len(), 1);
+    }
+}

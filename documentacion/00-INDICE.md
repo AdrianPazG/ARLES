@@ -1,0 +1,306 @@
+# Documentación de ARLES RELAY I
+
+**Versión objetivo:** v1.2.0 · **Desarrollado por:** TELEMETRY INSIGHT
+**Última actualización:** 2026-10-27
+
+> **El estado del proyecto NO está en este archivo**, y es a propósito. Vive en
+> [`07-entrega/ESTADO_ACTUAL.md`](07-entrega/ESTADO_ACTUAL.md), que es el único
+> sitio donde vive.
+>
+> Esta cabecera decía «Fase actual: 0 — Discovery» con la Fase 8 cerrada y una
+> fecha de septiembre. Un índice que miente sobre el estado es peor que uno sin
+> estado, porque se cree — así que ahora no lo lleva: lo señala.
+
+---
+
+## Por dónde empezar
+
+> **Si vas a tocar algo, empieza por
+> [`00-ANTES-DE-EMPEZAR/LEEME-PRIMERO.md`](00-ANTES-DE-EMPEZAR/LEEME-PRIMERO.md).**
+> Son cinco archivos y veinte minutos, y no son opcionales: este proyecto ha
+> fallado más veces por no leer que por programar mal.
+
+| Si eres… | Lee esto |
+|---|---|
+| **Quien retoma el proyecto** | [Antes de empezar](00-ANTES-DE-EMPEZAR/LEEME-PRIMERO.md) → [Relevo](00-ANTES-DE-EMPEZAR/RELEVO.md) |
+| **Dirección** | [Estado actual](07-entrega/ESTADO_ACTUAL.md) → [Manual de usuario](07-entrega/MANUAL-DE-USUARIO.md) → [Requisitos](10-requisitos/REGISTRO-DE-REQUISITOS.md) |
+| Dirección, el histórico | [Auditoría A–U](02-auditoria/AUDITORIA_DISCOVERY.md) → [Preguntas abiertas](02-auditoria/PREGUNTAS_ABIERTAS.md) |
+| Tech Lead / Arquitecto | [Arquitectura](03-arquitectura/ARQUITECTURA.md) → [Motor de ejecución](03-arquitectura/MOTOR_DE_EJECUCION.md) → ADRs |
+| Backend / Rust | [Modelo de datos](03-arquitectura/MODELO_DE_DATOS.md) → [Motor](03-arquitectura/MOTOR_DE_EJECUCION.md) → [Proveedores](03-arquitectura/ABSTRACCION_EMAIL_PROVIDER.md) |
+| Frontend | [Design System](05-diseno/DESIGN_SYSTEM.md) → [Color](05-diseno/COLOR_SYSTEM.md) → [UX y navegación](05-diseno/UX_NAVEGACION.md) |
+| Cambiar el diseño | [Mapa de pantallas](05-diseno/MAPA-DE-PANTALLAS.md) — qué archivo tocar para cada cosa |
+| Seguridad | [Modelo de amenazas](04-seguridad/THREAT_MODEL.md) → [Secretos](04-seguridad/MODELO_DE_SECRETOS.md) |
+| QA | [Estrategia de QA](06-calidad/ESTRATEGIA_QA.md) → [Rendimiento](06-calidad/PRESUPUESTO_RENDIMIENTO.md) |
+| Nuevo en el proyecto | [Visión y alcance](01-producto/VISION_Y_ALCANCE.md) → [Glosario](01-producto/GLOSARIO.md) |
+
+---
+
+## Índice
+
+### 00 · Antes de empezar
+| Documento | Contenido |
+|---|---|
+| [**LEEME-PRIMERO**](00-ANTES-DE-EMPEZAR/LEEME-PRIMERO.md) | ⭐ **El orden de lectura.** Lo primero, siempre |
+| [PROHIBICIONES](00-ANTES-DE-EMPEZAR/PROHIBICIONES.md) | Lo que nunca se hace, con la comprobación que vigila cada cosa |
+| [METODO](00-ANTES-DE-EMPEZAR/METODO.md) | La regla de la ruptura, los tramos, la verificación y los poka-yokes |
+| [DONDE-VA-CADA-COSA](00-ANTES-DE-EMPEZAR/DONDE-VA-CADA-COSA.md) | En qué carpeta va cada archivo, y las cuatro cosas que tienen un solo sitio |
+| [ROLES](00-ANTES-DE-EMPEZAR/ROLES.md) | Los once sombreros, qué mira cada uno y qué ha encontrado |
+| [RELEVO](00-ANTES-DE-EMPEZAR/RELEVO.md) | **Retomar sin el contexto de la sesión anterior**, y los seis patrones de fallo |
+
+### 10 · Requisitos y hallazgos
+| Documento | Contenido |
+|---|---|
+| [REGISTRO-DE-REQUISITOS](10-requisitos/REGISTRO-DE-REQUISITOS.md) | **Lo que se ha pedido y lo que bloquea**, con su estado — y los documentos que afirmaban de más |
+| [HALLAZGOS-DE-DISENO](10-requisitos/HALLAZGOS-DE-DISENO.md) | **Lo que se encuentra mirando y no midiendo**: las dieciocho pantallas, con lo descartado por falso |
+
+### 01 · Producto
+| Documento | Contenido |
+|---|---|
+| [VISION_Y_ALCANCE](01-producto/VISION_Y_ALCANCE.md) | Qué es y qué no es ARLES, bucle central, criterios de éxito |
+| [DECISIONES_DE_DIRECCION](01-producto/DECISIONES_DE_DIRECCION.md) | T-1…T-10 y D-1…D-4. **Registro autoritativo** |
+| [LOGISTICA_DE_CAMPANAS](01-producto/LOGISTICA_DE_CAMPANAS.md) | ⭐ **El recorrido completo, los dos canales.** Gobierna el rediseño, el esquema y las Fases 1 y 4-7 |
+| [WHATSAPP-RESUMEN-DIRECCION](01-producto/WHATSAPP-RESUMEN-DIRECCION.md) | Resumen ejecutivo de WhatsApp, 4 páginas ([PDF](01-producto/WHATSAPP-RESUMEN-DIRECCION.pdf)) |
+| [WHATSAPP-PARA-DIRECCION](01-producto/WHATSAPP-PARA-DIRECCION.md) | La versión larga: por qué WhatsApp no funciona como el correo ([PDF](01-producto/WHATSAPP-PARA-DIRECCION.pdf)) |
+| [FUERA_DE_ALCANCE](01-producto/FUERA_DE_ALCANCE.md) | Todo lo diferido, con destino explícito |
+| [GLOSARIO](01-producto/GLOSARIO.md) | Vocabulario compartido, incluido el de la interfaz |
+
+### 02 · Auditoría
+| Documento | Contenido |
+|---|---|
+| [**AUDITORIA_DISCOVERY**](02-auditoria/AUDITORIA_DISCOVERY.md) | **El entregable A–U del §163** |
+| [INVENTARIO_DE_ASSETS](02-auditoria/INVENTARIO_DE_ASSETS.md) | Los 7 hallazgos forenses con datos crudos |
+| [MATRIZ_DE_RIESGOS](02-auditoria/MATRIZ_DE_RIESGOS.md) | R-01…R-18, con dueño y disparador |
+| [PREGUNTAS_ABIERTAS](02-auditoria/PREGUNTAS_ABIERTAS.md) | P-01…P-08. **Lo que bloquea** |
+
+### 03 · Arquitectura
+| Documento | Contenido |
+|---|---|
+| [ARQUITECTURA](03-arquitectura/ARQUITECTURA.md) | Monolito modular, crates, reglas de frontera |
+| [MODELO_DE_DATOS](03-arquitectura/MODELO_DE_DATOS.md) | Entidades, índices, normalización, ARCO |
+| [**MOTOR_DE_EJECUCION**](03-arquitectura/MOTOR_DE_EJECUCION.md) | **Cola, idempotencia, suspensión, límites** |
+| [ABSTRACCION_EMAIL_PROVIDER](03-arquitectura/ABSTRACCION_EMAIL_PROVIDER.md) | Trait, SMTP, OAuth |
+
+**ADRs** → [`03-arquitectura/adr/`](03-arquitectura/adr/)
+
+| # | Decisión | Estado |
+|---|---|---|
+| [0001](03-arquitectura/adr/0001-tauri-2-sobre-electron.md) | Tauri 2 sobre Electron | aceptado |
+| [0002](03-arquitectura/adr/0002-rusqlite-sqlcipher-refinery.md) | rusqlite + SQLCipher + refinery | aceptado · **acotado por 0015** |
+| [0003](03-arquitectura/adr/0003-smtp-primero-oauth-en-paralelo.md) | SMTP primero, OAuth en paralelo | aceptado |
+| [0004](03-arquitectura/adr/0004-idempotencia-y-envio-ambiguo.md) | Idempotencia y envío ambiguo | aceptado |
+| [0005](03-arquitectura/adr/0005-paleta-derivada.md) | Paleta derivada | aceptado |
+| [0006](03-arquitectura/adr/0006-plantillas-no-turing-completas.md) | Plantillas no Turing-completas | aceptado |
+| [0007](03-arquitectura/adr/0007-pinia-y-tanstack-virtual.md) | Pinia + TanStack Virtual | aceptado |
+| [0008](03-arquitectura/adr/0008-sin-rotacion-de-remitentes.md) | Sin rotación de remitentes | aceptado |
+| [0009](03-arquitectura/adr/0009-alcance-deteccion-rebotes.md) | Alcance de detección de rebotes | aceptado · **corregido por 0014** |
+| [0010](03-arquitectura/adr/0010-numeral-romano-i.md) | Numeral «I» | aceptado |
+| [0011](03-arquitectura/adr/0011-cifrado-en-reposo-y-clave-maestra.md) | Cifrado en reposo y clave maestra | aceptado |
+| [0012](03-arquitectura/adr/0012-recursos-fuente-unica.md) | `/RECURSOS` fuente única | **propuesto** |
+| [0013](03-arquitectura/adr/0013-origen-de-contactos-y-purificacion.md) | Origen de contactos, purificación y canario | aceptado |
+| [0014](03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md) | Detección de rebotes sin VERP | aceptado |
+| [0015](03-arquitectura/adr/0015-un-escritor-y-lectores-separados.md) | Un escritor con cerrojo, y lectores en conexión aparte | aceptado · **acota 0002** |
+
+### 04 · Seguridad
+| Documento | Contenido |
+|---|---|
+| [THREAT_MODEL](04-seguridad/THREAT_MODEL.md) | STRIDE por dominio, riesgos aceptados, checklist |
+| [MODELO_DE_SECRETOS](04-seguridad/MODELO_DE_SECRETOS.md) | Llavero, clave maestra, `Secret<T>` |
+| [PRIVACIDAD_LFPDPPP](04-seguridad/PRIVACIDAD_LFPDPPP.md) | Derechos ARCO, consentimiento, bajas |
+
+### 05 · Diseño
+| Documento | Contenido |
+|---|---|
+| [COLOR_SYSTEM](05-diseno/COLOR_SYSTEM.md) | Paleta medida, rampas, contraste calculado |
+| [DESIGN_SYSTEM](05-diseno/DESIGN_SYSTEM.md) | Tokens, componentes, movimiento, accesibilidad |
+| [MAPA_DE_PANTALLAS](05-diseno/MAPA-DE-PANTALLAS.md) | **Dónde se toca cada cosa** para cambiar el diseño: qué archivo dibuja cada pantalla, de dónde saca sus datos, dónde están sus textos y qué comprobación salta |
+| [TIPOGRAFIA](05-diseno/TIPOGRAFIA.md) | ⚠️ **Bloqueado por D-3**. Plan A y plan B |
+| [MARCA_TELEMETRY](05-diseno/MARCA_TELEMETRY.md) | El logotipo horizontal dentro de ARLES: tinta, aire, enlace |
+| [UX_NAVEGACION](05-diseno/UX_NAVEGACION.md) | 6 secciones, flujos, onboarding, teclado. **La séptima se decide en P-13** |
+| [UX_WRITING](05-diseno/UX_WRITING.md) | Tono, errores, vocabulario de la honestidad |
+| [**guia-de-documentos**](05-diseno/guia-de-documentos/README.md) | **Cómo se diseña un informe para Dirección**: lenguaje, estructura, espaciado, color, impresión |
+| [· Plantilla de informe](05-diseno/guia-de-documentos/PLANTILLA-INFORME.md) | El esqueleto de un informe de entrega o de fase, con la sección de lo que todavía no hace |
+| [· Plantilla de decisión](05-diseno/guia-de-documentos/PLANTILLA-DECISION.md) | Cuando hace falta que Dirección elija: problema, riesgo, impacto, alternativas, trade-off, recomendación |
+
+### 06 · Calidad
+| Documento | Contenido |
+|---|---|
+| [ESTRATEGIA_QA](06-calidad/ESTRATEGIA_QA.md) | Camino dorado, casos frontera, las 4 auditorías |
+| [CATALOGO-DE-FALLOS](06-calidad/CATALOGO-DE-FALLOS.md) | **Qué puede salir mal, qué hace ARLES y qué ve el usuario.** Lo resuelto, lo que se resuelve ahora y lo que queda escrito sin construir |
+| [REVISION_VISUAL](06-calidad/REVISION_VISUAL.md) | Cómo revisar la aplicación en Windows y macOS, paso a paso |
+| [PRESUPUESTO_RENDIMIENTO](06-calidad/PRESUPUESTO_RENDIMIENTO.md) | Objetivos a 500 k, medidos en CI |
+| [UMBRAL_DE_PLEGADO](06-calidad/UMBRAL_DE_PLEGADO.md) | Dónde se pliega sola la barra lateral, y por qué ese número |
+| [ATAQUES-A-LA-IMPORTACION](06-calidad/ATAQUES-A-LA-IMPORTACION.md) | Los trece archivos hostiles con los que se atacó la importación, y los tres fallos que encontraron. Puerta de salida de la entrega 3.3 |
+| [CHECKLIST-VISUAL](06-calidad/CHECKLIST-VISUAL.md) | Lo que Dirección revisa a ojo, pantalla por pantalla |
+| [CHECKLIST-3.1](06-calidad/CHECKLIST-3.1.md) | El repaso concreto de la entrega 3.1 |
+| [MANUAL_DE_ENTREGA](06-calidad/MANUAL_DE_ENTREGA.md) | Qué se entrega y en qué orden al cerrar una fase |
+| [MANUAL_WINDOWS](06-calidad/MANUAL_WINDOWS.md) · [PLANTILLA-WINDOWS](06-calidad/PLANTILLA-WINDOWS.md) | Cómo revisar en Windows, y dónde anotar lo que se ve |
+| [MANUAL_MAC](06-calidad/MANUAL_MAC.md) · [PLANTILLA-MAC](06-calidad/PLANTILLA-MAC.md) | Lo mismo para macOS. Sigue sin usarse: R-07 |
+| [Hallazgos · Windows 14/09/2026](06-calidad/revision-visual/2026-09-14-windows/HALLAZGOS.md) | La primera revisión en una ventana nativa, con sus capturas |
+| [Medición 8.5 · 06/10/2026](06-calidad/MEDICION-8.5-20261006.md) | La salida cruda del banco de pruebas, tal cual la imprimió |
+
+### 07 · Entrega
+| Documento | Contenido |
+|---|---|
+| [DISTRIBUCION_Y_FIRMA](07-entrega/DISTRIBUCION_Y_FIRMA.md) | Instaladores, firma, notarización, updater |
+| [ROADMAP](07-entrega/ROADMAP.md) | 10 fases con dependencias reales |
+| [ESTADO_ACTUAL](07-entrega/ESTADO_ACTUAL.md) | **Dónde está el trabajo hoy y qué sigue.** Por aquí se empieza al retomar |
+| [PROMPT_DE_ARRANQUE](07-entrega/PROMPT_DE_ARRANQUE.md) | El mensaje con el que se abre una sesión nueva de Claude Code sobre este proyecto |
+| [GUIA_DE_CONEXION_REAL](07-entrega/GUIA-DE-CONEXION-REAL.md) | **Cómo conectar ARLES a Gmail y a Meta** para mandar de verdad, y qué se puede demostrar hoy |
+| [QUE-HACER-CON-EL-SPAM](07-entrega/QUE-HACER-CON-EL-SPAM.md) | **Por qué un correo cae en no deseados y qué se hace**, medido sobre las cabeceras reales que devolvió Outlook — **resuelto el 22/10/2026**, con qué funcionó y qué no |
+| [RIESGOS-DE-REPUTACION](07-entrega/RIESGOS-DE-REPUTACION.md) | **Las once formas de quemar un dominio y las seis de quemar un número de WhatsApp**, cada una con qué hace ARLES hoy, qué queda en manos de Dirección y qué habría que construir. Incluye la medición del contacto duplicado |
+| [PASO-A-PASO-DEL-CORREO](07-entrega/PASO-A-PASO-DEL-CORREO.md) | **Qué pulsar y qué escribir** para dejar el correo del dominio listo, de cPanel a ARLES |
+
+### 08 · Legal
+| Documento | Contenido |
+|---|---|
+| [LICENCIAS_DE_TERCEROS](08-legal/LICENCIAS_DE_TERCEROS.md) | Mont, assets stock/IA, dependencias |
+| [CONSULTA-JURIDICA](08-legal/CONSULTA-JURIDICA.md) | Las diecinueve preguntas para el abogado, escritas para mandarse tal cual. Tiene PDF al lado |
+
+### 09 · Fases
+Qué se construyó en cada fase, **cómo se comprobó** y qué quedó sin verificar.
+
+| Documento | Estado |
+|---|---|
+| [README · índice de fases](09-fases/README.md) | — |
+| [Fase 00 · Discovery y auditoría](09-fases/FASE-00-DISCOVERY.md) | ✅ 4/4 |
+| [Fase 01 · Cimientos](09-fases/FASE-01-CIMIENTOS.md) | ✅ 32/32 |
+| [Fase 01 · resumen para Dirección](09-fases/FASE-01-PARA-DIRECCION.md) | Sin tecnicismos |
+| [Fase 02 · Design System](09-fases/FASE-02-DESIGN-SYSTEM.md) | ✅ 18/18 |
+| [Fase 02 · resumen para Dirección](09-fases/FASE-02-PARA-DIRECCION.md) | Sin tecnicismos |
+| [Fase 03 · Empresa y contactos](09-fases/FASE-03-EMPRESA-Y-CONTACTOS.md) | ✅ cerrada · 77/77, 0 omitidas |
+| [Fase 03 · resumen para Dirección](09-fases/FASE-03-PARA-DIRECCION.md) | Sin tecnicismos |
+| [Fase 04 · Motor de ejecución](09-fases/FASE-04-MOTOR-DE-EJECUCION.md) | ✅ cerrada · 36/36, 0 omitidas |
+| [Fase 04 · resumen para Dirección](09-fases/FASE-04-PARA-DIRECCION.md) | Sin tecnicismos |
+| [Fase 05 · Proveedores de envío](09-fases/FASE-05-PROVEEDORES-DE-ENVIO.md) | 🟡 la parte de correo cerrada · 35/35, 0 omitidas · **falta WhatsApp** |
+| [Fase 05 · resumen para Dirección](09-fases/FASE-05-PARA-DIRECCION.md) | Sin tecnicismos |
+| [Fase 06 · Campañas y mensajes](09-fases/FASE-06-CAMPANAS-Y-MENSAJES.md) | ✅ cerrada · 20/20, 0 omitidas · con su auditoría |
+| [Fase 06 · resumen para Dirección](09-fases/FASE-06-PARA-DIRECCION.md) | Sin tecnicismos |
+| [Canal W · WhatsApp](09-fases/FASE-W-CANAL-WHATSAPP.md) | W.1 a W.8 · 21/21 · con su auditoría y lo que quedó fuera |
+| [Canal W · resumen para Dirección](09-fases/FASE-W-PARA-DIRECCION.md) | Sin tecnicismos |
+| [Fase 07 · Actividad y entregabilidad · **plan**](09-fases/FASE-07-PLAN.md) | El plan: ocho entregas, las tres decisiones ya resueltas |
+| [Fase 07 · Actividad](09-fases/FASE-07-ACTIVIDAD.md) | 🟡 92 % · 9/9, 0 omitidas · con la auditoría de cierre y sus siete hallazgos |
+| [Fase 07 · resumen para Dirección](09-fases/FASE-07-PARA-DIRECCION.md) | Sin tecnicismos |
+| [Fase 08 · Respaldos y endurecimiento · **plan**](09-fases/FASE-08-PLAN.md) | 📋 planificada · ocho entregas y tres decisiones que esperan a Dirección |
+| [Fase 08 · resumen para Dirección](09-fases/FASE-08-PARA-DIRECCION.md) | Sin tecnicismos |
+| [Auditoría A · Arquitectura](09-fases/AUDITORIA-A-ARQUITECTURA.md) | §140, pasada 1 de 4 · cinco hallazgos, cinco arreglados |
+| [Auditoría B · Seguridad](09-fases/AUDITORIA-B-SEGURIDAD.md) | §140, pasada 2 de 4 · los quince puntos del THREAT_MODEL §8, medidos |
+| [Auditoría C · QA y rendimiento](09-fases/AUDITORIA-C-QA.md) | §140, pasada 3 de 4 · los 32 casos frontera y las trece cifras, medidas |
+| [Auditoría D · UX y accesibilidad](09-fases/AUDITORIA-D-UX.md) | §140, pasada 4 de 4 · las dieciocho pantallas medidas en Chromium |
+| [Auditoría F · la Fase 8 entera](09-fases/AUDITORIA-F-FASE-08.md) | Las once entregas como un sistema · el respaldo cifrado que no se podía restaurar |
+| [Auditoría G · funcionalidad](09-fases/AUDITORIA-G-FUNCIONALIDAD.md) | Si lo que se escribe llega · el límite diario que no se aplicaba y la firma que nunca se guardaba |
+| [Auditoría H · el cupo diario](09-fases/AUDITORIA-H-EL-CUPO-DIARIO.md) | **Si la cifra que se pide es la que se cumple**, de punta a punta · el tope por hora que dejaba el del día sin alcanzar —500 pedidos, 90 reales— y la migración que reiniciaba el contador |
+| [Fase 8 · Respaldos y endurecimiento](09-fases/FASE-08-RESPALDOS.md) | Lo construido, las cinco auditorías y las doce cifras |
+| [Fase 8 · para Dirección](09-fases/FASE-08-PARA-DIRECCION.md) | El informe en términos de Dirección |
+| [Manual de usuario](07-entrega/MANUAL-DE-USUARIO.md) | **Qué puedes hacer con ARLES y en qué orden**, en español llano — y la lista de lo que todavía no hace, para no prometerlo |
+| [Cómo abrir ARLES](07-entrega/COMO-ABRIR-ARLES.md) | Qué instalar y los dos comandos que abren la aplicación |
+| [Dar de alta un correo y un WhatsApp](07-entrega/DAR-DE-ALTA-CORREO-Y-WHATSAPP.md) | **Para quien abre ARLES por primera vez**: las dos altas paso a paso, con los rótulos exactos de cada botón. Se entrega como PDF, y el `.md` es su fuente |
+| [Cómo configurar tu WhatsApp](07-entrega/COMO-CONFIGURAR-WHATSAPP.md) | **De cero a mandar un WhatsApp de prueba**: el alta en Meta, la plantilla, el token con sus dos permisos — y por qué ARLES sólo te pide uno de esos datos |
+| [Guía imprimible de WhatsApp](07-entrega/guia-whatsapp/guia.html) | La misma de arriba **en PDF para Dirección**, con el diagnóstico del error «Meta no acepta ese token» que salió el 04/11/2026 en la primera prueba contra la API real. Se regenera con `herramientas/guia-pdf/generar.py` |
+| [Probar ARLES sin compilar](07-entrega/COMO-PROBAR-ARLES-SIN-COMPILAR.md) | Descargar el instalador de Releases, y qué borrar —y en qué orden— si ya lo tenías |
+| [Qué probar](07-entrega/QUE-PROBAR.md) | Con el instalador delante: qué mirar, en qué orden, y qué no se puede todavía. Sale del router y de los comandos, no de la memoria |
+| [Registro de tropiezos](07-entrega/REGISTRO-DE-TROPIEZOS.md) | **Empieza aquí si algo te para.** Los siete que ya han ocurrido, con su causa y su salida — y las reglas que salieron de cada uno |
+| [Bitácora de pruebas](06-calidad/BITACORA-DE-PRUEBAS.md) | **El método de corrección de errores**, y todo defecto encontrado usando ARLES: qué pasa, cuánto estorba y en qué estado está |
+| [Qué información necesito](06-calidad/QUE-INFORMACION-NECESITO.md) | **Qué contarme al reportar un error**, qué datos valen para siempre, y las siete decisiones que esperan a Dirección |
+| [Verificación OAuth de Google](07-entrega/VERIFICACION-OAUTH-DE-GOOGLE.md) | **El trámite P-05**: qué gana ARLES, qué cuesta, los ocho pasos y quién hace cada uno |
+| [Mapa funcional](05-diseno/MAPA-FUNCIONAL.md) | **Qué hace cada una de las dieciocho pantallas**, qué necesita antes, a dónde lleva y qué verificar en ella |
+
+---
+
+## Estado del proyecto
+
+### Fases 0, 1, 2 y 3 ✅ cerradas · Fase 4 es la siguiente
+
+La puerta de salida se cruzó el **2026-09-11**: Dirección aprobó la auditoría, **D-5** autorizó desarrollar con Mont, y **P-02** quedó cerrada porque el logotipo es tipográfico por diseño (§21).
+
+**No quedan bloqueantes para la Fase 3.**
+
+### 🟡 En seguimiento
+
+| # | Asunto | Puerta | Dueño |
+|---|---|---|---|
+| **P-01** | Licencia de Mont | **Antes de la demo** (D-5) | Dirección |
+| P-03 | Origen y consentimiento de los contactos | Fase 3 | Dirección + Legal |
+| P-05 | Dominio y aviso de privacidad para Google | Fase 5 | Dirección |
+
+### Herramientas
+
+| | |
+|---|---|
+| [Generador de tokens](../herramientas/design-tokens/README.md) | Fuente única de color → CSS, lámina y verificación WCAG en CI |
+| `herramientas/iconos/generar-iconos.py` | Iconos de la app desde los mismos tokens, con `.ico` e `.icns` |
+| `herramientas/validar/validar.py` | Valida una fase completa y emite informe |
+
+```bash
+python3 herramientas/validar/validar.py            # todas las fases cerradas
+python3 herramientas/validar/validar.py --fase 1   # solo una
+```
+
+---
+
+## Trazabilidad del brief maestro
+
+Cada sección del brief tiene destino. **Ninguna queda sin resolver.**
+
+| §§ | Tema | Estado | Dónde |
+|---|---|---|---|
+| 1–3 | Fase previa, nombre, versionado | ✅ aceptado · ADR-0010 sobre el numeral | VISION_Y_ALCANCE · ADR-0010 |
+| 4–8 | Naturaleza, objetivo, visión comercial, distribución | ✅ aceptado · **D-4** ajusta el alcance | VISION_Y_ALCANCE |
+| 9 | Auditoría de stack | ✅ **confirmado** con comparación formal | ADR-0001 · ADR-0002 · ADR-0007 |
+| 10 | Monolito modular | ✅ aceptado | ARQUITECTURA |
+| 11–12 | `/RECURSOS` | ⚠️ **hallazgos A-01, A-06** | INVENTARIO · ADR-0012 |
+| 13–16 | Referencia cromática y paleta | ⚠️ **modificado — D-2** | COLOR_SYSTEM · ADR-0005 |
+| 17–19 | Tokens, dark-first, accesibilidad | ✅ aceptado, con contraste calculado | COLOR_SYSTEM · DESIGN_SYSTEM |
+| 20–21 | Tipografía y logotipo | 🔴 **bloqueado — D-3** | TIPOGRAFIA |
+| 22 | Experiencia de escritorio | ✅ aceptado | DESIGN_SYSTEM |
+| 23 | Navegación | ⚠️ **modificado**: 7 → 6 secciones | UX_NAVEGACION |
+| 24–25 | Empresa y onboarding | ✅ aceptado | UX_NAVEGACION |
+| 26–29 | Abstracción de proveedores y OAuth | ✅ aceptado · **D-1** difiere Google | ABSTRACCION · ADR-0003 |
+| 30 | Secretos | ✅ aceptado, reforzado | MODELO_DE_SECRETOS · ADR-0011 |
+| 31–32 | Base de datos y modelo | ✅ aceptado | MODELO_DE_DATOS · ADR-0002 |
+| 33–36 | Contactos e importación | ✅ aceptado | MODELO_DE_DATOS · THREAT_MODEL |
+| 37–39 | Listas, filtros, supresión | ⚠️ **contradicción §37/§69 resuelta** | ADR-0009 |
+| 40 | Flujo de campaña | ✅ aceptado | UX_NAVEGACION |
+| 41–45 | Editor y plantillas | ✅ aceptado, acotado | ADR-0006 · FUERA_DE_ALCANCE |
+| 46–50 | Límites y simulador | ✅ aceptado | MOTOR_DE_EJECUCION · UX_NAVEGACION |
+| 51–55 | Motor de ejecución | ✅ aceptado, **adelantado a Fase 4** | MOTOR_DE_EJECUCION · ADR-0004 |
+| 56–62 | Cola, throttling, reintentos, parada | ✅ aceptado | MOTOR_DE_EJECUCION |
+| 63 | Preflight | ✅ aceptado | MOTOR_DE_EJECUCION |
+| 64–66 | Entregabilidad y métricas | ⚠️ **parcial**: SPF/DKIM/DMARC sí, rebotes no | ADR-0009 |
+| 67–69 | Tracking y bandeja | ✅ aceptado — diferido | FUERA_DE_ALCANCE |
+| 70–71 | Panel y actividad | ✅ aceptado | UX_NAVEGACION |
+| 72–75 | Respaldos | ✅ aceptado · cifrado diferido (T-6) | MODELO_DE_SECRETOS |
+| 76–78 | Licenciamiento | ✅ esquema sí, enforcement a v1.3 | AUDITORIA §Q |
+| 79–82 | Actualizaciones y distribución | ✅ aceptado | DISTRIBUCION_Y_FIRMA |
+| 83–93 | Seguridad y privacidad | ✅ aceptado | THREAT_MODEL · PRIVACIDAD_LFPDPPP |
+| 94–97 | UX writing y estados | ✅ aceptado | UX_WRITING · DESIGN_SYSTEM |
+| 98–103 | Movimiento, teclado, tablas, rendimiento | ✅ aceptado | DESIGN_SYSTEM · PRESUPUESTO |
+| 104–108 | QA | ✅ aceptado | ESTRATEGIA_QA |
+| 117–124 | Atribución y white label | ✅ atribución sí; white label a v1.4+ | UX_WRITING · FUERA_DE_ALCANCE |
+| 125–139 | Exclusiones, docs, calidad de código | ✅ aceptado | FUERA_DE_ALCANCE · ARQUITECTURA |
+| 140 | Las cuatro auditorías | ✅ aceptado, con checklist ejecutable | ESTRATEGIA_QA §5 |
+| 141 | Roadmap | ⚠️ **consolidado**: 16 → 10 fases | ROADMAP |
+| 154–162 | Principios | ✅ aceptado, son la base del documento | VISION_Y_ALCANCE |
+| 163 | Formato A–U | ✅ **entregado** | AUDITORIA_DISCOVERY |
+| 175 | Detenerse antes de programar | ✅ **respetado** | Puerta de salida |
+
+### Las tres contradicciones del brief, cerradas
+
+| Contradicción | Resolución |
+|---|---|
+| §37 (supresión automática por rebote) **vs** §69 (sin leer bandeja) | ADR-0009: parcial en v1.2.0 y **declarado en la interfaz**; buzón dedicado en v1.3 — por reenvío, no por VERP ([ADR-0014](03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md)) |
+| T-4 («beta comercial») **vs** T-6 (sin licenciamiento) | **D-4**: v1.2.0 es despliegue interno |
+| §16 (tres azules distintos) **vs** paleta medida (0.73 % azul profundo) | **D-2** / ADR-0005: extraer el carácter, construir la estructura |
+
+---
+
+## Convenciones
+
+- **T-n** — decisión de Dirección previa al discovery
+- **D-n** — decisión de Dirección tomada en el discovery
+- **A-n** — hallazgo de la auditoría forense
+- **R-n** — riesgo
+- **P-n** — pregunta abierta
+- **ADR-n** — registro de decisión de arquitectura
+- **§n** — sección del brief maestro
+
+Una decisión es firme hasta que Dirección la revoque **por escrito** en `DECISIONES_DE_DIRECCION.md`.

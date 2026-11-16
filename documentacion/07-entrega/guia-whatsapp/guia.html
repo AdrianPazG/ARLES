@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Conectar WhatsApp a ARLES RELAY I</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 16mm; }
+
+  :root {
+    --tinta: #10242e;
+    --tinta-suave: #46585f;
+    --borde: #d8d2c6;
+    --fondo-suave: #f6f3ec;
+    --acento: #8a5200;
+    --peligro: #9b2c2c;
+    --ok: #1f6b3a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--tinta);
+    font-size: 10.5pt;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  h1 { font-size: 23pt; letter-spacing: -0.5pt; margin: 0 0 2mm; }
+  h1 .numeral { color: var(--acento); }
+
+  .subtitulo { color: var(--tinta-suave); font-size: 11pt; margin: 0 0 3mm; }
+
+  .ficha {
+    border-top: 2px solid var(--tinta);
+    border-bottom: 1px solid var(--borde);
+    padding: 2.5mm 0;
+    font-size: 8.5pt;
+    color: var(--tinta-suave);
+    display: flex;
+    gap: 8mm;
+    margin-bottom: 6mm;
+  }
+
+  h2 {
+    font-size: 14pt;
+    margin: 8mm 0 3mm;
+    padding-bottom: 1.5mm;
+    border-bottom: 1px solid var(--borde);
+    page-break-after: avoid;
+  }
+  h3 { font-size: 11.5pt; margin: 5mm 0 2mm; page-break-after: avoid; }
+
+  h2 + p, h2 + table, h2 + ol, h2 + ul, h2 + .aviso, h2 + .clave, h2 + .ok,
+  h3 + p, h3 + ol, h3 + ul, h3 + table { page-break-before: avoid; }
+
+  p { margin: 0 0 2.5mm; }
+  ol, ul { margin: 0 0 3mm; padding-left: 6mm; page-break-inside: avoid; }
+  li { margin-bottom: 1.8mm; }
+
+  code {
+    font-family: Consolas, "SF Mono", Menlo, monospace;
+    background: var(--fondo-suave);
+    border: 1px solid var(--borde);
+    border-radius: 2px;
+    padding: 0.3mm 1mm;
+    font-size: 9pt;
+    overflow-wrap: break-word;
+  }
+
+  pre {
+    font-family: Consolas, "SF Mono", Menlo, monospace;
+    background: var(--fondo-suave);
+    border: 1px solid var(--borde);
+    border-left: 3px solid var(--tinta-suave);
+    border-radius: 2px;
+    padding: 2.5mm 3mm;
+    font-size: 8.5pt;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    margin: 0 0 3mm;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 4mm;
+    font-size: 9.5pt;
+    page-break-inside: avoid;
+  }
+  th, td {
+    border: 1px solid var(--borde);
+    padding: 1.8mm 2.5mm;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--fondo-suave); font-weight: 600; }
+
+  .aviso, .clave, .ok {
+    border-left: 3px solid var(--acento);
+    background: var(--fondo-suave);
+    padding: 2.5mm 3mm;
+    margin: 0 0 4mm;
+    page-break-inside: avoid;
+  }
+  .clave { border-left-color: var(--peligro); }
+  .ok { border-left-color: var(--ok); }
+  .aviso p:last-child, .clave p:last-child, .ok p:last-child { margin-bottom: 0; }
+
+  .etiqueta {
+    display: block;
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.6pt;
+    font-weight: 700;
+    margin-bottom: 1mm;
+    color: var(--acento);
+  }
+  .clave .etiqueta { color: var(--peligro); }
+  .ok .etiqueta { color: var(--ok); }
+
+  .ruta {
+    font-size: 9.5pt;
+    background: var(--fondo-suave);
+    border: 1px solid var(--borde);
+    border-radius: 2px;
+    padding: 1.5mm 2.5mm;
+    margin: 0 0 2.5mm;
+  }
+  .ruta strong { color: var(--acento); }
+
+  .paso {
+    background: var(--tinta);
+    color: #fff;
+    border-radius: 50%;
+    width: 6.5mm; height: 6.5mm;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9.5pt;
+    font-weight: 700;
+    margin-right: 1.5mm;
+  }
+
+  .indice { font-size: 9.5pt; }
+  .indice td { border: none; padding: 1mm 0; }
+  .indice td:first-child { width: 10mm; font-weight: 700; color: var(--acento); }
+  .indice td:last-child { width: 24mm; color: var(--tinta-suave); text-align: right; }
+
+  footer {
+    page-break-inside: avoid;
+    margin-top: 7mm;
+    border-top: 1px solid var(--borde);
+    padding-top: 2.5mm;
+    font-size: 8pt;
+    color: var(--tinta-suave);
+  }
+</style>
+</head>
+<body>
+
+<h1>Conectar WhatsApp a ARLES <span class="numeral">RELAY I</span></h1>
+<p class="subtitulo">Desde cero: sin cuenta de Meta, sin saber a qué ventana ir, y sin número de
+empresa. Al final mandas un WhatsApp desde ARLES.</p>
+
+<div class="ficha">
+  <span><strong>Versión del producto:</strong> v1.2.0</span>
+  <span><strong>Fecha:</strong> 4 de noviembre de 2026</span>
+  <span><strong>Para:</strong> Dirección</span>
+</div>
+
+<h2>Antes de nada: qué vas a hacer y cuánto cuesta</h2>
+
+<p>Son nueve partes. <strong>Las partes 1 a 6 son dentro de Meta</strong>, en dos sitios web
+distintos, y <strong>la 7 y la 8 son dentro de ARLES</strong>.</p>
+
+<table class="indice">
+  <tr><td>1</td><td>Tu perfil de Facebook, que hace falta aunque no lo uses</td><td>5 min</td></tr>
+  <tr><td>2</td><td>La cuenta de empresa en Meta Business</td><td>10 min</td></tr>
+  <tr><td>3</td><td>La cuenta de desarrollador y la aplicación</td><td>10 min</td></tr>
+  <tr><td>4</td><td>Añadir WhatsApp y recibir el número de prueba</td><td>5 min</td></tr>
+  <tr><td>5</td><td>La plantilla del mensaje, que aprueba Meta</td><td>5 min + espera</td></tr>
+  <tr><td>6</td><td>El token permanente, que es lo único que ARLES te pide</td><td>10 min</td></tr>
+  <tr><td>7</td><td>Pegarlo en ARLES</td><td>2 min</td></tr>
+  <tr><td>8</td><td>Mandar el WhatsApp de prueba</td><td>2 min</td></tr>
+  <tr><td>9</td><td>Pasar de la prueba a tu número de verdad</td><td>cuando toque</td></tr>
+</table>
+
+<div class="ok">
+  <span class="etiqueta">Lo que no cuesta dinero</span>
+  <p><strong>Nada de las partes 1 a 8.</strong> Crear la cuenta de empresa, la aplicación y el
+  número de prueba es gratis, y Meta no pide tarjeta para mandar mensajes de plantilla desde el
+  número de prueba. Lo que se cobra es el envío masivo desde un número propio, y eso es la
+  parte 9.</p>
+</div>
+
+<div class="aviso">
+  <span class="etiqueta">Dos cosas que conviene saber antes de empezar</span>
+  <p><strong>1. No hace falta tu número de empresa para probar.</strong> Meta te regala un
+  número de prueba con el que puedes mandar mensajes de verdad a unos pocos teléfonos que tú
+  autorices. Eso es suficiente para ver ARLES funcionando de punta a punta.</p>
+  <p><strong>2. Los nombres de los menús de Meta cambian cada pocos meses.</strong> Si un
+  botón no se llama exactamente como aquí, busca el que más se le parezca: la estructura —
+  negocio, usuarios, activos, token— lleva años siendo la misma.</p>
+</div>
+
+<h2>Parte 1 · Tu perfil de Facebook</h2>
+
+<p>Meta exige un perfil personal de Facebook para administrar cualquier cuenta de empresa. No
+hay forma de saltárselo, y no significa publicar nada: ese perfil sólo sirve para identificarte
+como el dueño.</p>
+
+<ol>
+  <li>Si ya tienes Facebook, sirve el que tengas. Ve a la parte 2.</li>
+  <li>Si no, entra en <code>facebook.com</code> y crea uno con tu correo de trabajo.</li>
+  <li>No hace falta subir foto, buscar amigos ni publicar nada.</li>
+</ol>
+
+<div class="aviso">
+  <span class="etiqueta">Por qué importa con quién lo creas</span>
+  <p>Quien cree la cuenta de empresa es su administrador. Si lo creas con un perfil personal
+  tuyo, el día que esa persona se vaya de la empresa el acceso se va con ella. Para algo que va
+  a mandar campañas, conviene que lo cree alguien que vaya a seguir ahí, y añadir después a una
+  segunda persona como administrador.</p>
+</div>
+
+<h2>Parte 2 · La cuenta de empresa en Meta Business</h2>
+
+<p>Esto es el contenedor de todo lo demás: la aplicación, el número, los permisos. Meta lo llama
+<strong>portafolio comercial</strong> o <strong>cuenta empresarial</strong>, según la pantalla.</p>
+
+<div class="ruta">Ventana: <strong>business.facebook.com</strong></div>
+
+<p><span class="paso">1</span> Entra en <code>business.facebook.com</code>. Te pedirá iniciar
+sesión con tu Facebook de la parte 1.</p>
+
+<p><span class="paso">2</span> Si no tienes ninguna cuenta de empresa, te ofrecerá crear una.
+Si ya entraste y no ves esa opción, busca <strong>«Configuración del negocio»</strong> y dentro
+el botón de crear.</p>
+
+<p><span class="paso">3</span> Te pide tres datos:</p>
+<ul>
+  <li><strong>Nombre del negocio.</strong> Lo verá la gente, así que pon el nombre real de la
+  empresa. No admite caracteres raros.</li>
+  <li><strong>Tu nombre.</strong></li>
+  <li><strong>Correo de trabajo.</strong> Te mandará un enlace de confirmación. Ábrelo.</li>
+</ul>
+
+<p><span class="paso">4</span> Ya tienes la cuenta. Guarda a mano esta pantalla:
+<strong>«Configuración del negocio»</strong>, que en adelante será donde se hace casi todo. Está
+en el menú de la izquierda, o en el engranaje.</p>
+
+<div class="aviso">
+  <span class="etiqueta">La verificación del negocio, y por qué no la haces todavía</span>
+  <p>Meta puede pedirte verificar la empresa con documentos —acta constitutiva, RFC, un recibo a
+  nombre del negocio—. <strong>Es un trámite que tarda días y no hace falta para probar.</strong>
+  Hazlo cuando vayas a la parte 9, porque sin verificar el negocio los topes de envío diarios son
+  muy bajos.</p>
+</div>
+
+<h2>Parte 3 · La cuenta de desarrollador y la aplicación</h2>
+
+<p>Esta es la parte que suena más técnica y es la más mecánica. Una «aplicación» aquí no es un
+programa: es una ficha de Meta que guarda permisos.</p>
+
+<div class="ruta">Ventana: <strong>developers.facebook.com</strong> — ojo, es un sitio distinto
+del anterior</div>
+
+<p><span class="paso">1</span> Entra en <code>developers.facebook.com</code> con el mismo
+Facebook. Arriba a la derecha, <strong>«Comenzar»</strong> o <strong>«Empezar»</strong>. Acepta
+las condiciones y verifica el correo si lo pide.</p>
+
+<p><span class="paso">2</span> Arriba a la derecha, <strong>«Mis aplicaciones»</strong>, y
+luego <strong>«Crear aplicación»</strong>.</p>
+
+<p><span class="paso">3</span> Te pregunta qué quieres hacer. Elige la opción que mencione
+<strong>WhatsApp</strong>, o si no aparece, <strong>«Otro»</strong> y después tipo
+<strong>«Negocios»</strong>.</p>
+
+<div class="clave">
+  <span class="etiqueta">Este paso decide si todo lo demás funciona</span>
+  <p>El tipo tiene que ser <strong>Negocios</strong> (<em>Business</em>). Los otros tipos no
+  pueden usar WhatsApp, y si te equivocas hay que crear otra aplicación desde cero.</p>
+</div>
+
+<p><span class="paso">4</span> Ponle nombre —<code>ARLES</code> sirve— y, cuando te pregunte a
+qué cuenta de empresa pertenece, <strong>elige la que creaste en la parte 2</strong>. Si la
+dejas sin asignar, luego no podrás darle permisos sobre tu WhatsApp.</p>
+
+<h2>Parte 4 · Añadir WhatsApp y el número de prueba</h2>
+
+<div class="ruta">Ventana: <strong>developers.facebook.com</strong> → tu aplicación →
+<strong>Panel</strong></div>
+
+<p><span class="paso">1</span> Ya dentro de tu aplicación, en el panel verás una lista de
+productos que puedes añadir. Busca <strong>WhatsApp</strong> y pulsa
+<strong>«Configurar»</strong>.</p>
+
+<p><span class="paso">2</span> Meta hace tres cosas solo, sin preguntarte:</p>
+<ul>
+  <li>Crea una <strong>cuenta de WhatsApp Business</strong> de prueba.</li>
+  <li>Le da un <strong>número de teléfono de prueba</strong>, que es de Meta y no tuyo.</li>
+  <li>Te enseña un <strong>token de acceso temporal</strong> que caduca a las 24 horas.</li>
+</ul>
+
+<p><span class="paso">3</span> En esa misma pantalla hay un recuadro para mandar un mensaje de
+prueba. En <strong>«Para»</strong> (<em>To</em>) añade <strong>tu propio número de
+celular</strong>, con lada de país. Meta te mandará un código por WhatsApp para confirmar que es
+tuyo.</p>
+
+<p><span class="paso">4</span> Pulsa <strong>«Enviar mensaje»</strong>. Te debe llegar un
+WhatsApp que dice <code>hello_world</code>.</p>
+
+<div class="ok">
+  <span class="etiqueta">Si te llegó ese mensaje, lo difícil ya está</span>
+  <p>Significa que la cuenta, la aplicación y el número de prueba funcionan. A partir de aquí
+  sólo falta el token bueno y pegarlo en ARLES.</p>
+  <p>Si <strong>no</strong> te llegó: en tu teléfono, el primer mensaje de un número desconocido
+  puede quedarse esperando a que pulses <strong>«Permitir»</strong> o
+  <strong>«Aceptar»</strong>. Míralo antes de dar nada por roto.</p>
+</div>
+
+<div class="aviso">
+  <span class="etiqueta">Los números a los que puedes escribir en pruebas</span>
+  <p>Con el número de prueba <strong>sólo puedes escribir a los teléfonos que hayas añadido y
+  confirmado</strong> en esa pantalla. No es un error: es el modo de pruebas de Meta. Añade ahí
+  los dos o tres números con los que vayas a probar ARLES, cada uno con su código de
+  confirmación.</p>
+</div>
+
+<h2>Parte 5 · La plantilla del mensaje</h2>
+
+<p>WhatsApp no deja escribir texto libre a quien no te escribió primero. Hay que mandar una
+<strong>plantilla</strong>, y el texto lo aprueba Meta, no ARLES. Para probar ya tienes una:
+<code>hello_world</code>, que Meta crea sola. Si te vale, salta a la parte 6.</p>
+
+<div class="ruta">Ventana: <strong>business.facebook.com</strong> → Configuración del negocio →
+<strong>Cuentas de WhatsApp</strong> → tu cuenta → <strong>Plantillas de mensajes</strong></div>
+
+<p>Si quieres una tuya:</p>
+<ol>
+  <li>Pulsa <strong>«Crear plantilla»</strong>.</li>
+  <li>Categoría: <strong>Marketing</strong> para promoción, <strong>Utilidad</strong> para un
+  aviso de algo que la persona ya esperaba. La categoría cambia el precio y la facilidad de
+  aprobación.</li>
+  <li>Idioma: <strong>Español (México)</strong>.</li>
+  <li>Escribe el texto. Donde quieras meter un dato de cada persona, usa
+  <code>{{1}}</code>, <code>{{2}}</code>, en ese orden.</li>
+  <li>Envíala. Meta tarda <strong>de unos minutos a 24 horas</strong> en aprobarla o
+  rechazarla.</li>
+</ol>
+
+<div class="aviso">
+  <span class="etiqueta">Dos motivos de rechazo que se repiten</span>
+  <p>Una plantilla que <strong>promete algo</strong> («gana dinero», «100 % garantizado») o que
+  <strong>parece spam</strong> se rechaza. Y una que abre con un hueco <code>{{1}}</code> sin
+  texto delante también: Meta pide que el mensaje se entienda aunque el hueco venga vacío.</p>
+</div>
+
+<h2>Parte 6 · El token permanente, que es lo único que ARLES te pide</h2>
+
+<p>Meta ya te dio un token temporal en la parte 4. <strong>Ese no sirve para dar de alta el
+número en ARLES</strong>, y es la causa del error que te salió. La explicación entera está en
+la parte 10; aquí va el que sí sirve.</p>
+
+<div class="ruta">Ventana: <strong>business.facebook.com</strong> →
+<strong>Configuración del negocio</strong></div>
+
+<p><span class="paso">1</span> En el menú de la izquierda busca <strong>«Usuarios»</strong>, y
+dentro <strong>«Usuarios del sistema»</strong>.</p>
+
+<p><span class="paso">2</span> Pulsa <strong>«Agregar»</strong>. Nombre:
+<code>ARLES</code>. Rol: <strong>«Administrador»</strong>. Confirma.</p>
+
+<div class="aviso">
+  <span class="etiqueta">Por qué un usuario del sistema y no tú</span>
+  <p>Un token tuyo caduca y se invalida cada vez que cambias tu contraseña de Facebook. El de un
+  usuario del sistema no depende de ninguna persona, que es lo que necesita algo que tiene que
+  seguir enviando mañana.</p>
+</div>
+
+<p><span class="paso">3</span> Con el usuario <code>ARLES</code> seleccionado, pulsa
+<strong>«Asignar activos»</strong> (<em>Add assets</em>).</p>
+
+<p><span class="paso">4</span> En la lista de la izquierda elige <strong>«Cuentas de
+WhatsApp»</strong>, marca la tuya, y a la derecha dale <strong>control total</strong>. Guarda.
+Repite con <strong>«Aplicaciones»</strong> y marca la aplicación de la parte 3.</p>
+
+<div class="clave">
+  <span class="etiqueta">Éste es el paso que falla y nadie ve</span>
+  <p><strong>Si te saltas la asignación del activo, el token se genera igual y parece
+  correcto</strong> — pero Meta no devolverá la lista de cuentas de WhatsApp, y ARLES te dirá
+  que el token no vale. Es exactamente el error que tienes ahora.</p>
+  <p>Si la lista de «Cuentas de WhatsApp» te sale vacía, es que la aplicación de la parte 3 no
+  quedó asignada a esta cuenta de empresa. Vuelve a la parte 3, paso 4.</p>
+</div>
+
+<p><span class="paso">5</span> Con el usuario todavía seleccionado, pulsa <strong>«Generar nuevo
+token»</strong>:</p>
+<ul>
+  <li><strong>Aplicación:</strong> la de la parte 3.</li>
+  <li><strong>Caducidad:</strong> <strong>«Nunca»</strong>.</li>
+  <li><strong>Permisos:</strong> marca <code>whatsapp_business_messaging</code> y
+  <code>whatsapp_business_management</code>. Si aparece <code>business_management</code>,
+  márcalo también.</li>
+</ul>
+
+<p><span class="paso">6</span> <strong>Copia el token en ese momento y pégalo en un sitio
+seguro.</strong> Meta no lo vuelve a enseñar nunca. Si cierras esa ventana sin copiarlo, hay que
+generar otro.</p>
+
+<table>
+  <tr><th style="width:42%">Permiso</th><th>Para qué lo usa ARLES</th></tr>
+  <tr>
+    <td><code>whatsapp_business_messaging</code></td>
+    <td>Mandar los mensajes. Sin él no sale nada.</td>
+  </tr>
+  <tr>
+    <td><code>whatsapp_business_management</code></td>
+    <td><strong>Preguntar cuáles son tus números.</strong> Es lo que te ahorra copiar a mano
+    tres identificadores largos, y sin él el alta falla aunque el token sirva para enviar.</td>
+  </tr>
+</table>
+
+<h2>Parte 7 · Pegarlo en ARLES</h2>
+
+<div class="ruta">Ventana: ARLES → <strong>Remitentes</strong> → <strong>WhatsApp</strong></div>
+
+<ol>
+  <li>Pulsa <strong>«Añadir número»</strong>.</li>
+  <li>Pega el token en <strong>«Token de acceso»</strong>. Entero, sin espacios delante ni
+  detrás. Empieza por <code>EAA</code> y es largo: más de 150 caracteres.</li>
+  <li>Pulsa <strong>«Buscar mis números»</strong>. ARLES le pregunta a Meta y rellena solo el
+  teléfono, los identificadores y el tope diario que Meta te concede.</li>
+  <li>Elige el número. En pruebas será el número de prueba de Meta.</li>
+  <li>En <strong>«Cómo se va a usar»</strong>, deja <strong>«Seguimiento — solo a quien ya
+  escribió»</strong>. El otro modo te hace aceptar por escrito el riesgo de escribir a quien no
+  te lo pidió, y eso puede costar el número.</li>
+  <li><strong>«Guardar número»</strong>.</li>
+</ol>
+
+<div class="ok">
+  <span class="etiqueta">Dónde queda el token, y qué no hace ARLES con él</span>
+  <p>Va al <strong>Administrador de credenciales de Windows</strong>, cifrado por el sistema.
+  Nunca a la base de datos, nunca a un archivo, y ningún comando de ARLES lo devuelve. ARLES no
+  vuelve a enseñártelo: si lo pierdes, generas otro en Meta.</p>
+</div>
+
+<h2>Parte 8 · Mandar el WhatsApp de prueba desde ARLES</h2>
+
+<ol>
+  <li>En la ficha del número que acabas de guardar, busca el botón de <strong>envío de
+  prueba</strong>.</li>
+  <li>Escribe <strong>uno de los números que confirmaste en la parte 4</strong>. Con el número
+  de prueba de Meta, a cualquier otro no llega nada.</li>
+  <li>Manda. Debe llegarte el WhatsApp al teléfono.</li>
+</ol>
+
+<p>Si llega, el canal está conectado de punta a punta y ya puedes crear una campaña entera por
+WhatsApp desde el asistente.</p>
+
+<h2>Parte 9 · Pasar de la prueba a tu número de verdad</h2>
+
+<p>Cuando quieras mandar a gente de verdad y no sólo a los teléfonos confirmados:</p>
+
+<ol>
+  <li><strong>Verifica la empresa</strong> en Meta Business. Tarda días y piden documentos.</li>
+  <li><strong>Añade tu número</strong> en la cuenta de WhatsApp y verifícalo con el código que
+  Meta manda por SMS o llamada.</li>
+  <li><strong>Añade un método de pago</strong> en la cuenta de WhatsApp. El envío a números de
+  verdad se cobra por conversación.</li>
+  <li><strong>Vuelve a dar de alta el número en ARLES</strong>, eligiendo ahora el tuyo en vez
+  del de prueba. El token sirve igual.</li>
+</ol>
+
+<div class="clave">
+  <span class="etiqueta">El número que uses no puede estar en la aplicación normal de WhatsApp</span>
+  <p>Un número sólo puede estar en un sitio: o en la aplicación de WhatsApp o WhatsApp Business
+  del teléfono, o en la API. <strong>La excepción es Coexistencia</strong>, que deja tenerlo en
+  los dos. ARLES te pregunta por Coexistencia después de guardar el número, y ahí es donde
+  contestas que sí.</p>
+  <p>Si usas un número que ya está en WhatsApp del teléfono <strong>sin</strong> Coexistencia,
+  Meta lo saca del teléfono y pierdes las conversaciones de esa cuenta.</p>
+</div>
+
+<h2>Parte 10 · El error que te salió, explicado</h2>
+
+<p>Esto es lo que ARLES te dijo:</p>
+
+<pre>Meta no acepta ese token. Si es el temporal, caduca a las 24 horas:
+copia uno nuevo del panel. Si es permanente, comprueba que tenga los
+permisos «whatsapp_business_messaging» Y «whatsapp_business_management»
+— sin el segundo, ARLES no puede preguntar cuáles son tus números.
+No se ha guardado nada.</pre>
+
+<div class="ok">
+  <span class="etiqueta">Arreglado el 5 de noviembre de 2026</span>
+  <p><strong>Ese mensaje cubría dos causas y no decía cuál era la tuya</strong>, y la salida que
+  sugería —generar otro token— no arregla la más probable. Era un defecto de ARLES, no un error
+  tuyo.</p>
+  <p>Desde el 5 de noviembre, ARLES busca tu cuenta de WhatsApp <strong>por dos caminos</strong>
+  en vez de uno, y si aun así no la encuentra lo dice con otras palabras y te manda al sitio
+  correcto. <strong>Necesitas un instalador del 5 de noviembre o posterior</strong>: con uno
+  anterior seguirás viendo el mensaje viejo.</p>
+</div>
+
+<h3>Qué hace ARLES cuando pulsas «Buscar mis números»</h3>
+
+<ol>
+  <li>Le pregunta a Meta qué puede hacer tu token, con <code>debug_token</code>. De la respuesta
+  busca el permiso <code>whatsapp_business_management</code> y, dentro, <strong>una lista
+  <code>target_ids</code></strong> con tus cuentas de WhatsApp.</li>
+  <li>Con cada identificador de esa lista, pide los números.</li>
+</ol>
+
+<p><strong>Si esa lista no viene, ARLES se detiene en el paso 1</strong> y enseña el mensaje de
+arriba — aunque Meta haya contestado bien y tu token sirva para enviar.</p>
+
+<table>
+  <tr>
+    <th style="width:36%">Causa</th>
+    <th style="width:26%">Qué contesta Meta</th>
+    <th>Qué lo arregla</th>
+  </tr>
+  <tr>
+    <td><strong>A · El token no sirve</strong><br>caducado o mal copiado</td>
+    <td>Error <code>400</code> o <code>401</code></td>
+    <td>Generar otro, que es lo que el mensaje dice.</td>
+  </tr>
+  <tr>
+    <td><strong>B · El token sirve pero ARLES no encuentra ninguna cuenta de WhatsApp</strong></td>
+    <td><code>200</code> correcto, lista vacía</td>
+    <td><strong>Generar otro token no arregla nada.</strong> Desde el 5 de noviembre ARLES lo
+    intenta por un segundo camino antes de rendirse, y si falla te dice «Meta acepta tu token,
+    pero no encuentra ninguna cuenta». Entonces es la parte 6, paso 4: asignar la cuenta de
+    WhatsApp como activo.</td>
+  </tr>
+</table>
+
+<div class="aviso">
+  <span class="etiqueta">La B es la más probable, y el token temporal cae ahí</span>
+  <p>El propio código de ARLES la tiene marcada como «el caso más probable de todos». El
+  <strong>token temporal</strong> de la parte 4 sirve para mandar mensajes, pero normalmente no
+  trae la lista de cuentas que ARLES necesita. Por eso la parte 6 existe.</p>
+</div>
+
+<h3>Averigua cuál es la tuya en dos minutos</h3>
+
+<p>Sin tocar ARLES. Pega esto en el navegador, cambiando <code>TU_TOKEN</code> las dos veces:</p>
+
+<pre>https://graph.facebook.com/v21.0/debug_token?input_token=TU_TOKEN&amp;access_token=TU_TOKEN</pre>
+
+<p>Busca la palabra <code>granular_scopes</code> en lo que te devuelve:</p>
+
+<table>
+  <tr><th style="width:48%">Lo que ves</th><th>Qué significa</th></tr>
+  <tr>
+    <td>Un error de <code>OAuth</code> o de sesión expirada</td>
+    <td><strong>Causa A.</strong> Token caducado o mal copiado.</td>
+  </tr>
+  <tr>
+    <td><code>whatsapp_business_management</code> <strong>con</strong>
+    <code>target_ids</code> lleno</td>
+    <td>El token está bien. Si ARLES falla igual, mándame esta respuesta sin el token.</td>
+  </tr>
+  <tr>
+    <td>Sin <code>whatsapp_business_management</code></td>
+    <td><strong>Causa B.</strong> Falta el permiso: parte 6, paso 5.</td>
+  </tr>
+  <tr>
+    <td>Con <code>whatsapp_business_management</code> pero <code>target_ids</code> vacío</td>
+    <td><strong>Causa B.</strong> Falta asignar el activo: parte 6, paso 4.</td>
+  </tr>
+</table>
+
+<h3>Los demás errores de esa pantalla</h3>
+
+<table>
+  <tr><th style="width:40%">Lo que dice ARLES</th><th>Qué pasó</th></tr>
+  <tr>
+    <td><strong>No se pudo hablar con Meta.</strong></td>
+    <td>La llamada no llegó. El token no se toca. Reintenta en unos minutos; si sigue, mira si
+    un antivirus o un proxy de la empresa bloquea <code>graph.facebook.com</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>El token es correcto, pero esta cuenta no tiene ningún número.</strong></td>
+    <td>Buena noticia: el token funcionó. Falta el número. Parte 4, o parte 9 si es el
+    tuyo.</td>
+  </tr>
+  <tr>
+    <td><strong>Esto parece un identificador, no el token.</strong></td>
+    <td>Pegaste un número largo. Los identificadores son sólo dígitos; el token empieza por
+    <code>EAA</code>.</td>
+  </tr>
+</table>
+
+<h2>Parte 11 · Lo que ARLES todavía no hace con WhatsApp</h2>
+
+<table>
+  <tr><th style="width:42%">Qué</th><th>Por qué</th></tr>
+  <tr>
+    <td><strong>Vincular el número solo</strong>, sin pegar un token</td>
+    <td>El flujo de Meta que lo permite exige darse de alta ante Meta como proveedor y tener un
+    servidor público encendido a todas horas. ARLES funciona sin servidor y sin que tus datos
+    salgan de tu equipo.</td>
+  </tr>
+  <tr>
+    <td><strong>Contar las respuestas</strong></td>
+    <td>Meta las entrega a un servidor, y ARLES no tiene ninguno. En Actividad, la cifra de
+    respuestas de WhatsApp será cero.</td>
+  </tr>
+  <tr>
+    <td><strong>Atender un «BAJA» automáticamente</strong></td>
+    <td>Las respuestas te llegan al teléfono. Hay que apuntarlas a mano en Contactos › Bajas,
+    canal WhatsApp. A partir de ahí ninguna campaña vuelve a incluir ese número.</td>
+  </tr>
+  <tr>
+    <td><strong>Poner una salida de baja en el mensaje</strong></td>
+    <td>En el correo la pone ARLES y es obligatoria. En WhatsApp el texto lo aprueba Meta y no
+    hay dónde añadirla.</td>
+  </tr>
+  <tr>
+    <td><strong>Nada de esto se había probado contra Meta de verdad</strong></td>
+    <td>Todo el canal está probado contra un servidor que imita a Meta. Tu prueba es la primera
+    contra la API real.</td>
+  </tr>
+</table>
+
+<h2>Si te atascas</h2>
+
+<p>Mándame estas cuatro cosas. <strong>No me mandes el token</strong>: no hace falta y no debe
+viajar por ningún lado.</p>
+
+<ol>
+  <li>En qué parte de esta guía te quedaste.</li>
+  <li>El resultado de la comprobación de la parte 10, <strong>quitándole el token</strong>. Lo
+  que necesito ver es el bloque <code>granular_scopes</code>.</li>
+  <li>Si el usuario del sistema tiene la cuenta de WhatsApp asignada como activo con control
+  total.</li>
+  <li>El mensaje exacto que ves en ARLES.</li>
+</ol>
+
+<footer>
+  ARLES RELAY I · v1.2.0 · 4 de noviembre de 2026 · API de Meta v21.0.
+  Los nombres de los menús de Meta son los de esta fecha y pueden cambiar.
+</footer>
+
+</body>
+</html>

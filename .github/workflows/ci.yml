@@ -1,0 +1,273 @@
+name: CI
+
+# Pipeline de documentacion/06-calidad/ESTRATEGIA_QA.md §6.
+#
+# Estado: los pasos 1-5 están activos. Los de frontend, rendimiento, E2E y
+# build de instaladores se añaden cuando aterricen sus fases del roadmap; los
+# huecos están marcados abajo para que no se olviden.
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Paso 5 · Contraste de tokens de diseño ────────────────────────────────
+  #
+  # Va primero a propósito: es de segundos y detecta una regresión de
+  # accesibilidad antes de gastar minutos compilando.
+  contraste:
+    name: Contraste de tokens (WCAG)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar contratos y advertencias
+        run: python3 herramientas/design-tokens/generar.py --verificar
+
+      # Los tokens generan el CSS que consume el frontend. Si el CSS del
+      # repositorio no coincide con lo que produce tokens.json, alguien lo
+      # editó a mano y el §17 dejó de cumplirse.
+      - name: El CSS generado está al día
+        run: |
+          python3 herramientas/design-tokens/generar.py --css
+          git diff --exit-code herramientas/design-tokens/dist/ \
+            || { echo "::error::dist/arles-tokens.css no coincide con tokens.json. Ejecuta generar.py --css y confirma el resultado."; exit 1; }
+
+  # ── Paso 1 · Formato y análisis estático ──────────────────────────────────
+  formato:
+    name: rustfmt y clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+
+      # `clippy --workspace` compila también arles-app, y arles-app arrastra
+      # Tauri, que en Linux enlaza WebKitGTK. Sin esto el job moría en el build
+      # script de glib-sys: «Package glib-2.0 was not found». El job `tests` sí
+      # las instalaba; este no, y por eso lleva rojo desde el primer push.
+      - name: Dependencias de Linux
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev
+
+      - name: rustfmt
+        run: cargo fmt --all --check
+
+      # §138: sin unwrap ni panic indiscriminados. El workspace los deniega y
+      # aquí se hace cumplir.
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  # ── Pasos 2 y 3 · Tests unitarios y de integración ────────────────────────
+  #
+  # Los crates de dominio no dependen del shell de Tauri, así que corren en
+  # Linux sin webkit2gtk. Es la prueba práctica de que la frontera de
+  # ARQUITECTURA.md §2 es real y no decorativa.
+  tests:
+    name: Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # En Linux, Tauri necesita WebKitGTK, y el llavero necesita D-Bus más
+      # gnome-keyring. En Windows y macOS ambos son nativos.
+      - name: Dependencias de Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev \
+            gnome-keyring dbus-x11
+
+      # SQLCipher se compila desde fuente junto con OpenSSL: la primera
+      # ejecución es lenta, la caché absorbe las siguientes.
+      - name: cargo test
+        run: cargo test --workspace --all-targets
+
+      - name: doctests
+        run: cargo test --workspace --doc
+
+      # El arranque tiene dos ramas y las dos importan. Sin llavero se ejercita
+      # sola —es lo que ocurre en un contenedor— pero un «todo verde» que solo
+      # prueba el camino de error no es una validación, es una coincidencia.
+      # Los dos archivos de integración necesitan llavero: `arranque` para el
+      # camino bueno del arranque, y `empresa` para el recorrido completo de la
+      # 3.1 —configurar, cerrar, reabrir y comprobar que sigue ahí—. Sin
+      # llavero se saltan diciéndolo, que es honesto pero no es verificar.
+      - name: Integración con llavero disponible (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          ./herramientas/validar/con-llavero.sh cargo test -p arles-app --test arranque -- --nocapture
+          ./herramientas/validar/con-llavero.sh cargo test -p arles-app --test empresa -- --nocapture
+
+      - name: Integración con llavero nativo (Windows y macOS)
+        if: runner.os != 'Linux'
+        run: |
+          cargo test -p arles-app --test arranque -- --nocapture
+          cargo test -p arles-app --test empresa -- --nocapture
+
+  # ── Paso 4 · Seguridad y licencias ────────────────────────────────────────
+  dependencias:
+    name: Avisos de seguridad y licencias
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          # advisories: CVEs y crates retirados
+          # bans:       duplicados y el conflicto de libsqlite3-sys
+          # licenses:   GPL y AGPL prohibidas (binario comercial)
+          # sources:    solo crates.io
+
+  # ── Pasos 1 y 2 · Frontend ────────────────────────────────────────────────
+  frontend:
+    name: Frontend (lint, tipos, tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - run: npm ci
+
+      - name: eslint
+        run: npm run lint
+
+      # TypeScript estricto (§9): la webview es la superficie con más exposición
+      # a contenido no confiable, y `any` desactiva ahí lo que importa.
+      - name: Comprobación de tipos
+        run: npm run typecheck
+
+      # Estos tests codifican principios del producto: que ningún estado diga
+      # «Entregado» (§65), que todo error tenga sus tres partes (§95) y que el
+      # tono no sea infantil (§94).
+      - name: vitest
+        run: npm test
+
+      - name: Compilación de producción
+        run: npm run build
+
+      # Dos umbrales distintos, a propósito. Lo que se empaqueta en la
+      # aplicación llega a la máquina del cliente, así que se exige más: ahí
+      # cualquier aviso a partir de moderado rompe la compilación. Las
+      # herramientas de desarrollo nunca se distribuyen, así que se toleran los
+      # moderados y solo los graves detienen el trabajo.
+      - name: npm audit (dependencias que se distribuyen)
+        run: npm audit --omit=dev --audit-level=moderate
+
+      - name: npm audit (herramientas de desarrollo)
+        run: npm audit --audit-level=high
+
+  # ── Validación de fase ────────────────────────────────────────────────────
+  #
+  # El mismo script que se corre en local. Su valor no es repetir los jobs de
+  # arriba, sino comprobar lo que ellos no ven: que las fronteras de la
+  # arquitectura siguen en pie, que las capabilities no se han abierto, y que la
+  # documentación no se ha quedado atrás del código.
+  validacion:
+    name: Validación de fase
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Dependencias de Linux
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev \
+            gnome-keyring dbus-x11
+
+      - run: npm ci
+        working-directory: app
+
+      # Sin un Chromium instalado, el validador OMITE las tres sondas de
+      # navegador con su motivo. Un omitido no es un fallo, pero tampoco es una
+      # validación — y son justo las que encontraron el defecto más grave de la
+      # Fase 2: la tabla renderizando 5 001 filas en vez de virtualizarlas.
+      #
+      # Sin este paso, el informe diría «3 omitidos» y nadie lo miraría.
+      - name: Chromium para las sondas de navegador
+        run: npx playwright install --with-deps chromium
+        working-directory: app
+
+      - name: Ruta del Chromium instalado
+        run: |
+          RUTA=$(node -e "
+            const { chromium } = require('playwright-core')
+            process.stdout.write(chromium.executablePath())
+          ")
+          echo "ARLES_CHROMIUM=$RUTA" >> "$GITHUB_ENV"
+          echo "Chromium en $RUTA"
+        working-directory: app
+
+      - name: validar.py
+        run: python3 herramientas/validar/validar.py --json informe-validacion.json
+
+      # El validador ya falla si algo falla, pero un omitido NO lo hace fallar:
+      # existe para poder correr `--rapido` en local. En CI no hay excusa para
+      # omitir nada, así que aquí se exige que la cuenta sea cero.
+      - name: Ninguna comprobación quedó sin verificar
+        if: always()
+        run: |
+          python3 - <<'FIN'
+          import json, sys
+          informe = json.load(open("informe-validacion.json"))
+          omitidos = [c for c in informe["checks"] if c["estado"] == "omitido"]
+          if omitidos:
+              print("Comprobaciones omitidas en CI:")
+              for c in omitidos:
+                  print(f"  – Fase {c['fase']} · {c['nombre']}: {c['detalle'] or c['porque']}")
+              sys.exit(1)
+          print(f"{len(informe['checks'])} comprobaciones, 0 omitidas.")
+          FIN
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: informe-validacion
+          path: informe-validacion.json
+
+  # ── Pendientes de sus fases del roadmap ───────────────────────────────────
+  #
+  # Fase 4  · rendimiento: presupuestos con 500 000 contactos sintéticos
+  #           (PRESUPUESTO_RENDIMIENTO.md §5)
+  # Fase 6  · E2E: Playwright del camino dorado en Windows y macOS
+  #           (ESTRATEGIA_QA.md §2)
+  # Fase 9  · build: instaladores firmados y notarizados

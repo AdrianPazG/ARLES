@@ -1,0 +1,80 @@
+[package]
+name = "arles-email"
+description = "El adaptador de correo: SMTP de verdad, y un servidor de mentira para probarlo."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+arles-core = { path = "../arles-core" }
+# El `Proveedor` que este crate implementa. La dependencia va en este sentido y
+# no al revés: el motor no sabe que existe el correo, y por eso enchufar SMTP no
+# obligó a tocar ni una línea del bucle.
+arles-motor = { path = "../arles-motor" }
+# El cliente SMTP. `default-features = false` a propósito: por defecto trae el
+# transporte asíncrono con Tokio, y el motor de ARLES es síncrono (ver la nota
+# de `arles-motor/lib.rs`). Se piden sólo las cuatro piezas que se usan.
+#
+# `rustls-tls` y no `native-tls`: la validación de certificados es la misma en
+# Windows, macOS y Linux. Con la del sistema, un equipo con el almacén de raíces
+# tocado validaría distinto que el de al lado, y eso en una comprobación de
+# seguridad no es aceptable.
+lettre = { version = "0.11", default-features = false, features = [
+    "smtp-transport",
+    "builder",
+    "rustls-tls",
+    "hostname",
+] }
+
+# ── TLS para leer el buzón (R-25, 10/11/2026) ───────────────────────────────
+#
+# Hasta hoy `rustls` estaba aquí como OPCIONAL, sólo para el servidor de
+# mentira, con el motivo escrito de que «ARLES no necesita un motor de TLS para
+# mandar correo: de eso se encarga `lettre`». Sigue siendo verdad del envío y
+# ya no lo es del producto: **el lector del buzón (`buzon.rs`) habla IMAP, y
+# `lettre` no habla IMAP.**
+#
+# No es una dependencia nueva ni un byte más en el instalador, y está medido:
+# `cargo tree -p arles-email -e normal` ya enseñaba `rustls 0.23.46` y
+# `webpki-roots 1.0.11` **dentro de `lettre`**, que las usa para su propio TLS.
+# Lo único que cambia es que ahora se nombran aquí en vez de recibirse de
+# rebote.
+#
+# `ring` y no el proveedor por defecto: es el mismo que usa `lettre`, así que no
+# se compila una segunda biblioteca de criptografía —`aws-lc-sys`, que además
+# necesita CMake y un compilador de C en las tres plataformas—.
+rustls = { version = "0.23", default-features = false, features = [
+    "ring",
+    "std",
+    "logging",
+] }
+# Las raíces de confianza. **La misma lista que usa el envío**, y eso es el
+# motivo de no usar `rustls-native-certs`: con el almacén del sistema, un
+# equipo con las raíces tocadas validaría distinto que el de al lado, y el
+# lector del buzón validaría distinto que el remitente de la misma cuenta.
+webpki-roots = "1.0"
+# Para la fecha de `SEARCH SINCE`. Ya está en el workspace.
+time.workspace = true
+# Genera el certificado de prueba. Ver la nota de `tls.rs`: en las pruebas se
+# CONFÍA en un certificado concreto, nunca se desactiva la verificación.
+rcgen = { version = "0.14", optional = true }
+hickory-resolver = { version = "0.26.3", features = ["system-config"] }
+tokio = { version = "1.54.1", default-features = false, features = ["rt", "time"] }
+
+[features]
+# Expone el servidor de mentira que habla cifrado, para quien tenga que probar
+# un envío completo desde fuera de este crate. **Nunca se activa en el binario
+# que se entrega**: va en `dev-dependencies` de quien la use.
+test-util = ["dep:rcgen"]
+
+[dev-dependencies]
+# Repetidas sin `optional` para que las pruebas de ESTE crate las tengan sin
+# encender la bandera. Así `cargo test -p arles-email` sigue funcionando tal
+# cual, y nadie tiene que acordarse de un `--features`.
+rcgen = "0.14"
+
+[lints]
+workspace = true

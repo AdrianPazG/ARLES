@@ -1,0 +1,131 @@
+<script setup lang="ts">
+/**
+ * Iconos de ARLES.
+ *
+ * Un conjunto cerrado, dibujado a mano en trazo de 1.5 sobre rejilla de 24.
+ * No hay biblioteca de iconos: una dependencia de iconos trae cientos de
+ * glifos que no se usan, y en Tauri el bundle lo paga la máquina del cliente.
+ *
+ * Por qué un conjunto CERRADO y no un `src` libre: la regla 7.3 del
+ * COLOR_SYSTEM exige que ningún estado se comunique sólo con color, así que
+ * cada estado semántico tiene que tener icono asignado. Con un tipo unión el
+ * compilador rechaza un nombre que no existe, en vez de renderizar nada.
+ *
+ * `aria-hidden` por defecto: el icono acompaña a un texto que ya dice lo
+ * mismo. Sólo cuando el icono va solo se le pasa `etiqueta`.
+ */
+import { computed } from 'vue'
+
+const TRAZOS = {
+  // Semánticos — uno por estado, regla 7.3
+  exito: 'M20 6 9 17l-5-5',
+  aviso: 'M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z',
+  error: 'M12 8v4m0 4h.01M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z',
+  info: 'M12 16v-4m0-4h.01M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z',
+
+  // Estados de envío
+  cola: 'M12 7v5l3 2m-3 7a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z',
+  enviando: 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z',
+  suprimido: 'M4.9 4.9l14.2 14.2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z',
+  // El envío ambiguo (ADR-0004) tiene icono propio: no es un éxito ni un
+  // fallo, y mostrarlo con cualquiera de los dos sería afirmar algo que no
+  // se sabe.
+  incierto: 'M12 17h.01M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z',
+
+  // Candado · «esto no se puede deshacer» (22/09/2026).
+  //
+  // Nace en la lista de bajas, donde marca las que pidió la persona: ésas no
+  // se levantan, y antes cada una repetía la frase entera —«Lo pidió ella
+  // misma, así que ARLES no lo deshace»— en dos renglones. Con doscientas
+  // bajas eso es una tabla tres veces más larga para decir lo mismo.
+  //
+  // Candado y no `suprimido`: aquél es una prohibición —un círculo tachado— y
+  // aquí no se prohíbe nada, se dice que la decisión ya está tomada y es de
+  // otra persona. Un candado se entiende sin leyenda en cualquier idioma.
+  //
+  // El icono NUNCA va solo: lleva su texto para lectores de pantalla y la
+  // frase completa aparece una vez encima de la tabla. Un icono sin texto es
+  // información codificada sólo en forma, que es el mismo error que
+  // codificarla sólo en color (§19).
+  candado: 'M7 11V7a5 5 0 0 1 10 0v4M5 11h14v10H5V11Z',
+
+  // Secciones de la navegación (UX_NAVEGACION.md §2).
+  //
+  // Existen porque P-11 decidió que la barra lateral plegada se queda en
+  // «iconos sin texto»: sin un icono por sección, plegada no se puede navegar.
+  // Uno por sección y ninguno de más — el conjunto sigue cerrado.
+  inicio: 'M3 10.6 12 3.5l9 7.1M5.5 9.4V20.5h13V9.4',
+  campanas: 'M3 10v4h3l6 4V6L6 10H3ZM17.5 9.2a4 4 0 0 1 0 5.6',
+  contactos:
+    'M15.5 20v-1.5a4 4 0 0 0-4-4h-5a4 4 0 0 0-4 4V20M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M21.5 20v-1.5a4 4 0 0 0-3-3.87',
+  remitentes: 'M3.5 6.5h17v11h-17zM3.5 7.5l8.5 5.5 8.5-5.5',
+  actividad: 'M3 12h3.5l2.5 6 4-12 2.5 6H21',
+  ajustes: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4',
+
+  // Interfaz
+  cerrar: 'M18 6 6 18M6 6l12 12',
+  // Sólo para el enlace al catálogo del design system, que no viaja al cliente.
+  // Existe porque plegada la barra no tiene sitio para su texto, y sin icono el
+  // enlace desaparecía justo a las escalas altas donde hay que revisarlo.
+  catalogo: 'M4 4h6.5v6.5H4zM13.5 4H20v6.5h-6.5zM4 13.5h6.5V20H4zM13.5 13.5H20V20h-6.5z',
+  // Plegar y expandir la barra lateral. Dobles galones, no simples: un galón
+  // simple es el de «desplegar» de un menú, y en la misma pantalla los dos
+  // significarían cosas distintas con el mismo dibujo.
+  plegar: 'm13 6-6 6 6 6M19 6l-6 6 6 6',
+  expandir: 'm11 6 6 6-6 6M5 6l6 6-6 6',
+  buscar: 'M21 21l-4.3-4.3M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z',
+  desplegar: 'm6 9 6 6 6-6',
+  ordenar: 'm7 15 5 5 5-5M7 9l5-5 5 5',
+  mas: 'M12 5v14M5 12h14',
+  // Acciones sobre una fila (R-09, 21/10/2026). Van al final de la fila de
+  // un contacto, que es donde se buscan: dentro de la ficha —detrás de un
+  // doble clic— no se encontraban.
+  editar: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z',
+  // Guardar un archivo que ARLES escribe: hoy la plantilla de contactos
+  // (22/10/2026). Flecha hacia abajo **con suelo**, no una flecha suelta: sin
+  // la línea de abajo el mismo dibujo es el de «ordenar descendente», y en esta
+  // pantalla las dos cosas podrían convivir.
+  descargar: 'M12 3.5v12m-4.5-4.5L12 15.5l4.5-4.5M4.5 20.5h15',
+} as const
+
+export type NombreDeIcono = keyof typeof TRAZOS
+
+const props = defineProps<{
+  nombre: NombreDeIcono
+  /** Sólo cuando el icono va sin texto al lado. */
+  etiqueta?: string
+  /** Hereda el tamaño de fuente del contexto por defecto. Píxeles. */
+  tamano?: number
+}>()
+
+const trazo = computed(() => TRAZOS[props.nombre])
+const lado = computed(() => (props.tamano ? `${props.tamano}px` : '1em'))
+</script>
+
+<template>
+  <svg
+    class="icono"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    :width="lado"
+    :height="lado"
+    :role="etiqueta ? 'img' : undefined"
+    :aria-label="etiqueta"
+    :aria-hidden="etiqueta ? undefined : true"
+    focusable="false"
+  >
+    <path :d="trazo" />
+  </svg>
+</template>
+
+<style scoped>
+.icono {
+  display: inline-block;
+  flex: none;
+  vertical-align: -0.125em;
+}
+</style>

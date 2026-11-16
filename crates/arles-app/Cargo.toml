@@ -1,0 +1,99 @@
+[package]
+name = "arles-app"
+description = "Shell de escritorio de ARLES RELAY: comandos Tauri, estado y arranque."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lib]
+# Tauri 2 exige el crate como librería para poder construir también para móvil,
+# aunque v1.2.0 no tenga objetivos móviles (§4).
+name = "arles_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+arles-core = { path = "../arles-core" }
+arles-db = { path = "../arles-db" }
+# El adaptador de correo, para «Probar conexión» de la pantalla de Remitentes.
+# Entra en la frontera y no en el núcleo:  no sabe que existe el
+# correo, y por eso el día que haya un segundo proveedor no hay que tocarlo.
+arles-email = { path = "../arles-email" }
+arles-import = { path = "../arles-import" }
+# El motor de ejecución. Entra aquí en la 5.4b: hasta entonces estaba
+# construido y probado entero, y **nadie lo arrancaba**.
+arles-motor = { path = "../arles-motor" }
+arles-whatsapp = { path = "../arles-whatsapp" }
+tauri = { version = "2", features = [] }
+# Sólo se usa desde Rust, NUNCA se le da el permiso a la webview. Ver la nota
+# en comandos.rs sobre por qué la ruta del archivo no cruza la frontera.
+tauri-plugin-dialog = "2"
+# Para escribir la fecha del informe de acceso como la lee una persona.
+time.workspace = true
+serde.workspace = true
+serde_json = "1"
+thiserror.workspace = true
+keyring = { version = "3", features = [
+    "apple-native",
+    "windows-native",
+    "sync-secret-service",
+] }
+directories = "6"
+# La sal y el nonce de cada respaldo (8.2c). Ya estaba en el árbol por
+# `arles-db`, que genera la clave maestra con él, así que `cargo deny` lo tenía
+# auditado: aquí sólo pasa a ser dependencia directa. El núcleo NO la pide —
+# cero I/O—, y por eso la entropía se genera en esta capa.
+getrandom = "0.3"
+
+[dev-dependencies]
+tempfile = "3"
+# `test-util` abre la puerta al SQL crudo para sembrar la base en las pruebas:
+# es la única forma de dejar una cuenta en `circuit_open` o en un estado que
+# todavía no existe, que es justo lo que la fábrica tiene que rechazar.
+arles-db = { path = "../arles-db", features = ["test-util"] }
+# El servidor de mentira que habla cifrado, para ver el envío de prueba de punta
+# a punta. En dev-dependencies: no entra en el programa que se entrega.
+arles-email = { path = "../arles-email", features = ["test-util"] }
+rusqlite = "0.37"
+
+# ── LA CARACTERÍSTICA QUE SEPARA «COMPILA» DE «SE PUEDE USAR» ──────────────
+#
+# Tauri NO decide por el perfil de cargo si la aplicación es un programa
+# terminado o un entorno de desarrollo. Lo decide por esta característica:
+#
+#     pub const fn is_dev() -> bool { !cfg!(feature = "custom-protocol") }
+#
+# Sin ella, **incluso compilando en `--release`**, la aplicación arranca
+# creyendo que alguien está programando y busca la interfaz en el servidor de
+# desarrollo (`devUrl`, localhost:1420). La ventana abre con «no se puede
+# acceder a esta página» y nada funciona.
+#
+# El andamiaje estándar de Tauri la declara desde el primer día. Aquí faltaba,
+# y no se notó en nueve fases **porque nadie había construido la aplicación**:
+# todo estaba verificado por pruebas, que no abren ninguna ventana. Lo encontró
+# Dirección al abrirla por primera vez el 08/10/2026 — el último hueco posible
+# del patrón del §9, el que separa «compila» de «se puede usar».
+#
+# **No es `default` a propósito**: `tauri dev` necesita el modo de desarrollo,
+# y hacerla predeterminada obligaría a desactivarla ahí. Quien construye la
+# aplicación la pide, y para no tener que acordarse está el alias `cargo arles`
+# de `.cargo/config.toml`.
+#
+# Medido el 08/10/2026 en el mismo binario: sin ella, 20 017 216 bytes y cero
+# apariciones de `index.html`; con ella, 20 377 184 y siete. La interfaz entra.
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
+[lints]
+workspace = true
+
+# Solo para el cuadro de diálogo del fallo de arranque: con
+# `windows_subsystem = "windows"` el stderr no va a ninguna parte, y la
+# aplicación moriría en silencio. Ver `mostrar_fallo_de_arranque`.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging"] }

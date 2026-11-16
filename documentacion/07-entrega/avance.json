@@ -1,0 +1,166 @@
+{
+  "_lee_esto_primero": [
+    "Fuente ÚNICA del porcentaje de avance de ARLES RELAY I v1.2.0.",
+    "",
+    "El número se escribe AQUÍ y en ningún otro sitio. De aquí sale, generada,",
+    "la insignia del README: la portada del repositorio en GitHub, que es donde",
+    "Dirección decidió el 17/09/2026 que quiere verlo, y SÓLO ahí.",
+    "",
+    "Dentro de la aplicación NO va, y es deliberado: es un dato del proyecto, no",
+    "del producto. A quien use ARLES no le sirve saber que está al 31 %; le",
+    "sirve saber qué puede hacer hoy, que es lo que dice la lista de alta.",
+    "",
+    "El validador recalcula y falla si el README y esta fuente divergen.",
+    "",
+    "CÓMO SE CALCULA: suma de peso x hecho, redondeada. Nada más.",
+    "",
+    "QUÉ ES 'peso': el tamaño relativo de la fase dentro de la v1.2.0, no su",
+    "riesgo ni su importancia. Los pesos suman 100 y son una ESTIMACIÓN de",
+    "esfuerzo — se dice porque un porcentaje presentado como medición exacta",
+    "seria mentir (§94). Lo que no es estimación es 'hecho': cada fracción se",
+    "apoya en algo comprobable, y esa comprobación está escrita en 'porque'.",
+    "",
+    "QUÉ NO MIDE: si el producto sirve. Mide cuánto del alcance de la v1.2.0",
+    "está construido y verificado. Una fase al 100 % puede seguir esperando un",
+    "trámite externo; eso va en 'bloqueos', que no resta porcentaje porque no es",
+    "trabajo pendiente nuestro.",
+    "",
+    "OJO CON UNA COSA: cuando Dirección amplía el alcance —WhatsApp dentro de",
+    "la v1.2.0, P-15— el denominador crece y el porcentaje BAJA aunque no se",
+    "haya deshecho nada. Eso es correcto y hay que decirlo en vez de maquillarlo",
+    "repesando hasta que el numero suba: falta mas para terminar porque hay mas",
+    "que terminar. Los pesos de las fases se redujeron para hacer sitio a F3W.",
+    "",
+    "Actualizarlo: editar 'hecho' y 'porque', y correr",
+    "  python3 herramientas/avance/calcular.py --escribir"
+  ],
+  "version": "1.2.0",
+  "actualizado": "2026-11-11",
+  "fases": [
+    {
+      "id": "F0",
+      "nombre": "Discovery y auditoría",
+      "peso": 5,
+      "hecho": 1.0,
+      "porque": "Cerrada el 11/09/2026. validar.py --fase 0 en 4/4."
+    },
+    {
+      "id": "F1",
+      "nombre": "Cimientos",
+      "peso": 9,
+      "hecho": 1.0,
+      "porque": "Cerrada y revisada. validar.py --fase 1 en 48/48, con las cuatro migraciones aplicadas y probadas sobre base poblada."
+    },
+    {
+      "id": "F2",
+      "nombre": "Design System",
+      "peso": 9,
+      "hecho": 1.0,
+      "porque": "Cerrada y revisada. validar.py --fase 2 en 37/37, 72 contratos de contraste en los dos temas, catálogo visual navegable."
+    },
+    {
+      "id": "F3",
+      "nombre": "Empresa y contactos",
+      "peso": 14,
+      "hecho": 1.0,
+      "porque": "Cerrada el 22/09/2026, las cinco entregas. validar.py --fase 3 en 77/77 con 0 omitidas, 386 pruebas de Rust, 102 de frontend y 9 sondas de navegador corriendo. La puerta de salida de la 3.4 —dar de baja, borrar el contacto, reimportarlo y comprobar que sigue sin escribírsele— está probada, y el borrado recorre el esquema entero para afirmar que la dirección sólo queda en la lista de bajas."
+    },
+    {
+      "id": "F3W",
+      "nombre": "Canales: esquema de contactos, consentimiento y etapas",
+      "peso": 8,
+      "hecho": 1.0,
+      "porque": "Cerrada el 27/10/2026 con D-WA. Migraciones V3 y V4 aplicadas y probadas: contact_channel, consent_entry, supresión por canal, campaign_stage, whatsapp_account y su historial de calidad. Las TRES cosas que esta ficha declaraba pendientes el 22/10 están construidas: los canales se leen y se escriben desde arles-db —contactos.rs, supresion.rs, listas.rs, alta_de_campana.rs, revision_whatsapp.rs y arco.rs entre otros—, los canales de un contacto se editan en su ficha (FormularioDeContacto.vue), y el alta del número es un dato y una elección desde el 26/10/2026 (R-02): se pega el token y ARLES le pregunta a Meta cuáles son tus números. El consentimiento se afirma al importar y cruza la frontera en texto_del_consentimiento. validar.py --fase W en verde, y lo vigilan ninguna_tabla_se_queda_sin_escritor y ningun_comando_se_queda_sin_quien_lo_llame."
+    },
+    {
+      "id": "F4",
+      "nombre": "Motor de ejecución",
+      "peso": 14,
+      "hecho": 1.0,
+      "porque": "Fase cerrada el 23/09/2026 con 36/36 comprobaciones y 0 omitidas. Máquina de estados, ritmo, ventana con zona IANA (D-10), reintentos (D-12), cola con compare-and-swap y recuperación al arrancar, presupuesto persistido, disyuntor por cuenta (§7), proveedor simulado, bucle del trabajador (§13), cerrojo de instancia única, Pausar/Reanudar/Detener con parada de emergencia persistida (V6), simulador de duración (§11) y preflight de ocho puntos (§12). La auditoría de cierre encontró y corrigió cinco defectos, entre ellos una protección contra ráfagas que devolvía el cupo diario entero tras una siesta."
+    },
+    {
+      "id": "F5",
+      "nombre": "Proveedores de envío",
+      "peso": 7,
+      "hecho": 1.0,
+      "porque": "CERRADA EL 27/10/2026 CON D-WA. El 30 % que faltaba el 22/10 era el adaptador de WhatsApp Cloud API enchufado al motor, y D-WA lo construyó en ocho tramos (26 y 27/10/2026): el motor recorre los DOS canales —arles-motor/src/bucle.rs:563—, se puede crear y lanzar una campaña entera por WhatsApp desde el asistente, el semáforo de calidad se llena y las plantillas de Meta se registran y se leen. Lo que sigue sin hacerse NO es nuestro: nada de WhatsApp ha hablado nunca con Meta (bloqueo META). Y lo de antes, que sigue en pie: la PARTE DE CORREO cerrada entera, 5.1 a 5.6. Traducción de códigos SMTP, servidor de mentira que habla el protocolo y sabe fallar de seis maneras, adaptador con cifrado obligatorio y sin forma de desactivarlo, «Probar conexión» con seis diagnósticos, migraciones V7 y V8, repositorio de cuentas sin contraseñas, llavero por cuenta, pantalla de Remitentes, el motor encendido en su propio hilo (§51), y el envío de prueba. R-24 CERRADO el 22/10/2026: Dirección dio de alta una cuenta real de Titan (enlace@telemetrymx.com) y ARLES mandó un correo que llegó a la BANDEJA PRINCIPAL de Outlook, Gmail y un corporativo — tres de tres. Ya no es un servidor de mentira: es SMTP real con TLS real. El alta son dos campos desde la ronda del 14/10 (R-01), con el par puerto+cifrado que nunca se cruza."
+    },
+    {
+      "id": "F6",
+      "nombre": "Campañas y mensajes",
+      "peso": 13,
+      "hecho": 1.0,
+      "porque": "Cerrada el 29/09/2026, las siete entregas. Motor de sustitución no Turing-completo, saneado del HTML con lista blanca en Rust, plantillas con versiones que no se editan, firmas, campañas con audiencia congelada al activar, y el preflight de ocho puntos enchufado de verdad a la base y a la sonda de la cuenta. Y el asistente de nueve pasos, con el aviso de más de 50 diarios que el núcleo exige y registra en la bitácora. validar.py --fase 6 en 20/20, 0 omitidas, con su auditoría de cierre: cinco hallazgos, tres corregidos y dos verificados con prueba nueva. Quedan fuera del alcance de la v1.2.0, dichos y no prometidos: los filtros de audiencia, el editor de plantillas y la edición de una campaña ya creada."
+    },
+    {
+      "id": "F7",
+      "nombre": "Actividad y entregabilidad",
+      "peso": 9,
+      "hecho": 1.0,
+      "porque": "CERRADA EL 27/10/2026, las ocho entregas. La 7.5 —SPF, DKIM y DMARC, la única que faltaba— en tres tramos: el núcleo de entregabilidad con cero I/O (arles-core/src/entregabilidad.rs, que recibe las cadenas TXT ya traídas y da un veredicto), el adaptador de DNS con su resolutor de mentira, y el punto 8 del preflight contestado por fin. Lo que ese núcleo distingue, y es la razón de que exista: tener DMARC no es estar protegido, y el fallo que evita NO SE NOTA AL ENVIAR — sin los tres registros el correo sale, el servidor lo acepta, ARLES lo cuenta como aceptado, y el filtro de quien recibe lo manda a no deseados: todas las cifras salen bien y el correo no lo lee nadie. Su condición era cerrar R-24, cerrado el 22/10/2026: telemetrymx.com tiene SPF, DKIM de Titan y DMARC en p=none, comprobados con mxtoolbox, y el DMARC sube a pct=25, 50 y 100 después de dos o tres semanas leyendo informes (decisión del 27/10/2026; saltar a quarantine manda correo legítimo a spam en silencio, sin rebote y sin aviso). Y las siete de antes (30/09 y 01/10 de 2026). 7.0: el freno completo, con la parada de emergencia enchufada. 7.1: el registro de actividad, con el motor anotando los once sucesos que antes tiraba. 7.2: las cifras de cada campana y el cupo de cada remitente, de un solo sitio. 7.3: la pantalla de Actividad, con una tarjeta por campana (D-7A) y POR QUE no sale nada. 7.4: el registro con seis filtros que viajan en la direccion, 500 filas con el total al lado, y el recorte bimestral que no toca ni un envio (D-7C). 7.6: el resumen exportable, un archivo de texto por campana con el metodo de cada cifra y sin una sola direccion de correo. 7.7: la auditoria de cierre, que con todo en verde encontro siete defectos: el envio de prueba de WhatsApp sin boton y sin sus seis textos, el boton Detener con 2.41 de contraste cuando el minimo es 4.5, tres pantallas de catorce sin titulo de pagina, tres comandos registrados que nadie llamaba, una clave de i18n que apuntaba a un texto inexistente, y dos defectos visibles solo en la captura. Las dos comprobaciones que debian cazarlos tenian listas escritas a mano y estan reescritas para leer del codigo. Las nueve fases CON SONDAS en 298 comprobaciones, 0 fallos, 0 omitidas."
+    },
+    {
+      "id": "F8",
+      "nombre": "Respaldos y endurecimiento",
+      "peso": 7,
+      "hecho": 1.0,
+      "porque": "Cerrada el 07/10/2026, las once entregas más el cierre. Manifiesto de las 29 tablas (8.0), formato .arles con su suma (8.1), sobre cifrado Argon2id+XChaCha20 por trozos (8.2a), exportación con cursor (8.2b) y su pantalla (8.2c), lectura y preflight (8.3a), reemplazo con unión de bajas (8.3b) y su pantalla (8.3c), archivado del historial verificado antes de borrar (8.3 bis a y b), salida del llavero perdido (8.4), banco de pruebas con las trece cifras (8.5) y migración V11 (8.6). Las CUATRO auditorías del §140 corridas aisladas (8.6 A-D), más una quinta de la fase entera (8.6 F) y el desenlace conectado (8.6 E). 22 hallazgos: 20 arreglados, 2 declarados con su cifra. validar.py --fase 8 en verde, cargo test --workspace entero, 191 pruebas del frontend, sonda:recorrido sin hallazgos. Lo declarado y NO hecho: restaurar un respaldo de un esquema anterior (se rechaza con error claro) y R-07, que no depende de nosotros."
+    },
+    {
+      "id": "F9",
+      "nombre": "Release v1.2.0",
+      "peso": 5,
+      "hecho": 0.75,
+      "porque": "EMPEZADA el 28/10/2026. Hecho: la activacion de campanas sale del hilo principal, ensena en que va por fases y SE PUEDE CANCELAR sin dejar nada a medias —medido por tramos antes de disenarlo: el bucle de la cola es el 52-57 % del tiempo y el unico contable, asi que el avance va por fases con nombre y no por porcentaje (§94)—. Y ADR-0015: 17 de 24 lecturas de pantalla van ya por la segunda conexion de solo lectura, con las SIETE que no pueden moverse marcadas con su motivo junto a la funcion. El punto 1 del §10 —«sacar la activacion al hilo del motor»— se cierra el 03/11 y NO haciendo eso: medido, mover el trabajo de hilo no suelta el cerrojo de escritura (una lectura por la conexion de lectura contesta en 0 ms y por la de escritura en 650, con una escritura de 800 ms en curso), asi que lo que descongela las pantallas es terminar ADR-0015. Y C-2 cerrado el 02/11: el filtro del registro remedido en 1 151-1 257 ms —no los 3 709 que publico la auditoria C, que no se reproducen—, un FTS5 construido y DESCARTADO por ser 18 veces peor, el defecto H-13 arreglado (escribir % en el filtro devolvia todas las filas) y la decision D-19 planteada a Direccion. Y el mensaje de «fallo al migrar» cerrado el 03/11: ese renglon del §10 llevaba tres semanas desfasado y el hallazgo de verdad era otro, H-14: el texto afirmaba que se habia hecho una copia de la base y no hay ninguna. Y el CHANGELOG al dia el 03/11: le faltaban once dias —29 commits— y SEIS de las dieciseis migraciones no aparecian en ninguna linea, que es lo que deja un respaldo sin poder restaurarse sin que nadie se entere. Y R-26 cerrado el 03/11: el filtro de la lista de contactos, cuatro criterios combinables. La direccion completa es gratis (0.2 ms y no crece con la tabla); el texto cuesta ~2.6 s con 455 470 contactos y asi esta declarado, porque cuesta lo que NO encuentra. Medirlo encontro TRES defectos mas gordos que el que venia a cerrar: un indice usado del lado inutil (609 ms contra 0.0, con el mismo indice en el plan), que buscar «TELLEZ» no encontraba a Tellez -lower() de SQLite solo baja ASCII- y, el grande, que la conexion de LECTURA es 12x mas lenta recorriendo una tabla: 302 ms por el escritor y 3 742 por la lectora. Eso afecta a las diecisiete lecturas que ADR-0015 movio esta semana y obliga a remedir el filtro del registro, cuya cifra del 02/11 se midio por el camino que la pantalla no recorria. Y el 03/11 por la noche, el diagnostico de la lectora: la cifra del 12x que yo mismo publique esa tarde NO SE REPRODUCE -cinco corridas del mismo experimento dieron el signo en los dos sentidos, y cambio al anadir dos count(*) que no debian influir-. Lo que domina en este contenedor es la cache, no la conexion. Las dos decisiones que tome con esa cifra se deshicieron: las dos lecturas vuelven a la lectora -cuyo motivo si esta medido, 0 ms contra 650 con el cerrojo del motor tomado- y la cifra de C-2 se mantiene. Descartados midiendolos el ESCAPE, el recuento, los pragmas y que la lectora viera datos distintos (54 638 filas por las dos). Queda el experimento en el repositorio (banco lectora) negandose a concluir de una sola corrida, y dos redes nuevas en --fase 0 para que la cifra retirada no se cite como viva. TRES de los cinco puntos del §10 estan cerrados enteros y medio del cuarto, y entra uno nuevo: medir la diferencia entre las dos conexiones en una maquina donde la cache no decida. Lo que NO esta: el grueso de la fase —instaladores firmados y notarizados, updater—, que ademas no depende de nosotros: espera FIRMA-WIN, FIRMA-MAC y P-01. El 0.75 cuenta cuatro de los seis puntos del §10 cerrados enteros, medio del quinto y el sexto declarado no medible aqui: la maquinaria del release, que es el peso de la fase, sigue sin tocar. Y el 04/11 cerrado el punto 5: RESTAURAR UN RESPALDO DE UN ESQUEMA ANTERIOR, que era la limitacion mas cara que dejo la Fase 8 y mataba copias de seguridad en silencio -el archivo seguia en el disco, se podia revisar, y el dia del incendio no entraba-. ARLES lo pone al dia: levanta una base desechable y CIFRADA en la version que el respaldo declara, le mete sus filas y le corre las migraciones que faltan, que es el mismo SQL que recorrio la base de quien actualizo. Donde mas importaba es la recuperacion de un llavero perdido, donde no hay otra salida, y ahi la puesta al dia ocurre ANTES de apartar la base y crear la clave (la regla de la auditoria F). Medido con tres corridas y 30 000 contactos: poner al dia 1 134-1 255 ms y restaurar 1 117-1 671, contra 1 410 ms directo en la misma maquina; memoria 16 a 23 MB. Sigue sin poderse uno de una version POSTERIOR, y ese error manda a actualizar ARLES en vez de a buscar otra copia. La comprobacion nueva nacio con el defecto que persigue por decimotercera vez: su primera ruptura paso en verde porque la llamada de la PRUEBA del mismo archivo la satisfacia."
+    }
+  ],
+  "bloqueos": [
+    {
+      "id": "P-01",
+      "que": "Licencia de Mont para incrustarla en la aplicación distribuida",
+      "quien": "Dirección",
+      "bloquea": "El primer instalador descargable. Hay plan B: tipografía del sistema, una línea de CSS"
+    },
+    {
+      "id": "P-09",
+      "que": "Revisión jurídica: dieciocho preguntas en 08-legal/CONSULTA-JURIDICA.md",
+      "quien": "Abogado",
+      "bloquea": "Ya NO bloquea la construcción (ADR-0013). Frena los textos legales visibles y el primer envío real a alguien de fuera de TELEMETRY. Incluye P-17: consent_entry es de sólo-añadir y guarda la dirección en claro, lo que contradice el derecho de cancelación."
+    },
+    {
+      "id": "META",
+      "que": "Cuenta de empresa en Meta, verificada y con Coexistencia activada (L-11)",
+      "quien": "Operaciones",
+      "bloquea": "El alta del número de WhatsApp contra una cuenta real. Desde D-WA (27/10/2026) el canal está COMPLETO por dentro —el motor recorre los dos canales, se crea y se lanza una campaña entera por WhatsApp, las plantillas de Meta se registran—, y todo eso NUNCA HA HABLADO CON META: está probado contra un servidor de mentira. Lo que falta no es código nuestro, es una cuenta de empresa verificada con Coexistencia activada (L-11)."
+    },
+    {
+      "id": "FIRMA-WIN",
+      "que": "Certificado de firma de código para Windows (OV recomendado para la v1.2.0, EV para el lanzamiento comercial)",
+      "quien": "Dirección",
+      "bloquea": "Que el .msi se instale sin la advertencia de «editor desconocido» de SmartScreen, que en un entorno corporativo bloquea la instalación en la práctica: hay que pulsar «Más información» y «Ejecutar de todos modos», y un departamento de TI directamente lo prohíbe. Plazo externo de 1 a 3 SEMANAS. Desde junio de 2023 la clave tiene que vivir en hardware certificado, lo que afecta al CI: conviene resolverlo al contratar, no al configurar el CI. Estaba declarado en DISTRIBUCION_Y_FIRMA.md §1 como trámite que arranca en la Fase 1 (riesgo R-14) y NO estaba en ninguna lista de bloqueos — anotado el 28/10/2026."
+    },
+    {
+      "id": "FIRMA-MAC",
+      "que": "Apple Developer Program de organización, con Developer ID Application y Developer ID Installer",
+      "quien": "Dirección",
+      "bloquea": "QUE ARLES ABRA EN macOS. Desde Catalina, una aplicación descargada sin notarizar no se ejecuta: no es una advertencia, es un bloqueo de Gatekeeper. Hace falta el alta de la cuenta más la notarización de cada build, con el ticket grapado al .dmg para que Gatekeeper pueda verificar sin conexión. Arrastra a R-07: el mismo Mac que hace falta para mirar las dieciocho pantallas en WKWebView es el que hace falta para firmar y notarizar. Mismo origen que FIRMA-WIN: declarado en DISTRIBUCION_Y_FIRMA.md §1 y ausente de las listas de bloqueos hasta el 28/10/2026."
+    },
+    {
+      "id": "R-07",
+      "que": "Revisión visual en macOS (WKWebView)",
+      "quien": "Quien tenga un Mac",
+      "bloquea": "Nada de la construcción, y por eso lleva abierto desde la Fase 2. La fecha que decía «antes de la F6» caducó: la F6, el canal W, la F7 y la F8 se cerraron sin que nadie abriera ARLES en WKWebView. Lo que frena es poder AFIRMAR que las dieciocho pantallas se ven bien en macOS: todo lo medido —contraste, foco, objetivos, textos encimados— sale de Chromium, y la vista previa no cuenta porque ahí el motor es el del navegador. Se cierra antes de la F9."
+    },
+    {
+      "id": "R-24",
+      "que": "Probar ARLES contra un servidor de correo real, con una cuenta desechable",
+      "quien": "Dirección",
+      "bloquea": "Nada de la construcción: la Fase 5 se prueba contra un servidor de mentira que habla el protocolo de verdad. No se puede cerrar desde el entorno de desarrollo —la red bloquea los puertos de correo y no hay llavero del sistema—, así que se hace en la máquina del usuario antes de la F6",
+      "cerrado": {
+        "fecha": "2026-10-22",
+        "como": "Dirección dio de alta enlace@telemetrymx.com (Titan, SMTP real con TLS) y ARLES mandó un correo de prueba a tres destinos: Outlook, Gmail y un corporativo. Los tres llegaron a la BANDEJA PRINCIPAL. Antes, desde una dirección @gmail.com, Outlook lo mandaba a no deseados con SCL 5 — la autenticación pasaba (spf, dkim, dmarc y compauth) y lo que pesaba era el patrón «marca + gmail personal», que no se arregla con código."
+      }
+    }
+  ]
+}

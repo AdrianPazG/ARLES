@@ -1,0 +1,102 @@
+//! Directorios de datos, según la convención de cada plataforma.
+//!
+//! §7: nada de rutas absolutas atadas a una máquina.
+
+use std::path::PathBuf;
+
+use directories::ProjectDirs;
+
+use crate::error::AppError;
+
+const ORGANIZACION: &str = "TelemetryInsight";
+const APLICACION: &str = "ArlesRelay";
+
+/// Directorios de la aplicación.
+///
+/// | | Windows | macOS |
+/// |---|---|---|
+/// | Datos | `%APPDATA%\TelemetryInsight\ArlesRelay\data` | `~/Library/Application Support/mx.TelemetryInsight.ArlesRelay` |
+/// | Registros | `%LOCALAPPDATA%\…\logs` | `~/Library/Logs/…` |
+///
+/// **El `data` final de Windows no es decorativo y el `mx.` de macOS tampoco**:
+/// `directories` 6 compone `roaming + organización + aplicación + "data"` allí,
+/// y `~/Library/Application Support/` + `qualifier.organización.aplicación`
+/// aquí — el `qualifier` se ignora en Windows y manda en macOS. Están medidos
+/// leyendo `directories-6.0.0/src/win.rs` y `src/mac.rs`, no de memoria: la
+/// guía de arranque dio la ruta mal (mezclaba el nombre del **servicio del
+/// llavero**, `mx.telemetryinsight.arlesrelay`, con la carpeta de datos) y
+/// mandó a Dirección a buscar su base donde no estaba.
+#[derive(Debug, Clone)]
+pub struct Rutas {
+    datos: PathBuf,
+}
+
+impl Rutas {
+    /// Resuelve los directorios y se asegura de que existen.
+    ///
+    /// # Errores
+    ///
+    /// [`AppError::DirectorioDeDatos`] si la plataforma no expone un directorio
+    /// de datos o no se puede crear.
+    pub fn resolver() -> Result<Self, AppError> {
+        let dirs =
+            ProjectDirs::from("mx", ORGANIZACION, APLICACION).ok_or(AppError::DirectorioDeDatos)?;
+        let datos = dirs.data_dir().to_path_buf();
+        std::fs::create_dir_all(&datos).map_err(|_| AppError::DirectorioDeDatos)?;
+        Ok(Self { datos })
+    }
+
+    /// Construye rutas bajo un directorio concreto. Para tests.
+    #[must_use]
+    pub fn en(datos: PathBuf) -> Self {
+        Self { datos }
+    }
+
+    /// Dónde **estaría** la base, sin crear ninguna carpeta.
+    ///
+    /// Existe para los mensajes de error: `resolver()` hace `create_dir_all`, y
+    /// un fallo de arranque no es momento de crear nada. `ProjectDirs::from`
+    /// sólo consulta variables de entorno, así que esto no toca el disco.
+    ///
+    /// Devuelve `None` en la plataforma rara que no expone directorio de datos
+    /// — ahí el mensaje nombra la carpeta por convención, que sigue siendo más
+    /// útil que callar.
+    #[must_use]
+    pub fn base_de_datos_probable() -> Option<PathBuf> {
+        ProjectDirs::from("mx", ORGANIZACION, APLICACION).map(|d| d.data_dir().join("arles.db"))
+    }
+
+    /// Archivo de la base de datos cifrada.
+    #[must_use]
+    pub fn base_de_datos(&self) -> PathBuf {
+        self.datos.join("arles.db")
+    }
+
+    #[must_use]
+    pub fn datos(&self) -> &PathBuf {
+        &self.datos
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn la_base_de_datos_vive_bajo_el_directorio_de_datos() {
+        let dir = tempfile::tempdir().expect("temporal");
+        let r = Rutas::en(dir.path().to_path_buf());
+        let db = r.base_de_datos();
+        assert!(db.starts_with(dir.path()));
+        assert_eq!(db.file_name().and_then(|s| s.to_str()), Some("arles.db"));
+    }
+
+    /// §7: el nombre de la base no depende de la empresa ni del usuario, así que
+    /// una instalación es portable entre máquinas del mismo sistema.
+    #[test]
+    fn el_nombre_del_archivo_es_estable() {
+        let a = Rutas::en(PathBuf::from("/a")).base_de_datos();
+        let b = Rutas::en(PathBuf::from("/b")).base_de_datos();
+        assert_eq!(a.file_name(), b.file_name());
+    }
+}

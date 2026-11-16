@@ -1,0 +1,38 @@
+-- V15 · El descanso entre campañas (D-16)
+--
+-- ─────────────────────────────────────────────────────────────────────────────
+-- LO QUE PIDIÓ DIRECCIÓN, CON SUS PALABRAS (22/10/2026)
+--
+--   «Ya si en ambas campañas o más se repite un contacto… se le envía el correo
+--   de las dos campañas. Sólo que me gustaría tener cuidado que no se envíen en
+--   el mismo día; si es posible que pase un lapso de 1 o 2 semanas para no
+--   hostigar.»
+--
+-- Recibe las dos —son dos mensajes distintos—, pero no el mismo día. Para
+-- saberlo hay que poder preguntar, antes de cada envío: **¿cuándo fue la última
+-- vez que se le escribió a esta dirección, desde otra campaña?**
+--
+-- ─────────────────────────────────────────────────────────────────────────────
+-- POR QUÉ HACE FALTA UN ÍNDICE NUEVO
+--
+-- `message_attempt` tiene cuatro índices y ninguno empieza por
+-- `contact_address`: el único que la lleva es `idx_attempt_unique`, que es
+-- `(campaign_id, channel, contact_address)` — y esta pregunta es justo la que
+-- **no** filtra por campaña, sino por todas las demás.
+--
+-- Sin él, cada envío recorrería el registro entero. Con medio millón de
+-- intentos eso son los 73.5 s de la auditoría C, pero **por correo**.
+--
+-- Es PARCIAL, sobre los dos estados que cuentan como «se le escribió»:
+--
+--   - `sent`           · el proveedor lo aceptó;
+--   - `presumed_sent`  · se llamó al proveedor y no se sabe si aceptó
+--                        (ADR-0004). **Cuenta**, y es la decisión prudente:
+--                        si pudo salir, no se le vuelve a escribir mañana.
+--
+-- Un índice parcial es más pequeño y además se mantiene solo: las filas en
+-- `queued` —que son casi todas mientras la campaña corre— ni entran ni salen
+-- de él.
+CREATE INDEX idx_attempt_por_direccion
+    ON message_attempt(contact_address, channel, campaign_id)
+ WHERE state IN ('sent', 'presumed_sent');

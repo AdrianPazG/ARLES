@@ -1,0 +1,88 @@
+-- ARLES RELAY I · v1.2.0 · el envío de prueba de una etapa
+--
+-- Entrega 5.5.
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- QUÉ FALTABA
+--
+-- El preflight del §63 tiene ocho puntos, y uno es «se hizo el envío de
+-- prueba» (§45). El núcleo sabe evaluarlo desde la entrega 4.5 —
+-- `arles_core::preflight::Observaciones::se_hizo_el_envio_de_prueba` — y
+-- **nadie podía contestarlo**, porque no había dónde escribir la respuesta.
+--
+-- Es el mismo patrón que dejó las columnas de SMTP sin escribir hasta la V7 y
+-- las del disyuntor sin usar durante cuatro entregas: un dato que se evalúa
+-- contra `None` para siempre no falla, simplemente nunca dice que sí.
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- POR QUÉ EN LA ETAPA Y NO EN LA CAMPAÑA
+--
+-- El preflight se enseña por campaña, así que lo cómodo sería guardarlo ahí. No
+-- vale: **lo que una prueba prueba es una etapa concreta**, con su remitente,
+-- su plantilla y su canal. Desde la V4 una campaña puede tener dos etapas por
+-- dos canales distintos, y una prueba de la de correo no dice absolutamente
+-- nada de la de WhatsApp.
+--
+-- Guardado en la campaña, mandar una prueba por correo marcaría como probada
+-- también la etapa de WhatsApp — que usa otra cuenta, otro proveedor y otro
+-- formato de mensaje. El preflight diría que sí y el primer mensaje de verdad
+-- sería el primero que alguien ve.
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- POR QUÉ SE GUARDA CON QUÉ CUENTA SE PROBÓ
+--
+-- Ésta es la columna que no es obvia, y es la que hace que el punto del
+-- preflight signifique algo.
+--
+-- Una prueba dice «este remitente puede mandar un correo que llega». Si después
+-- se cambia el remitente de la etapa, esa frase deja de ser cierta: la cuenta
+-- nueva puede tener la contraseña mal, el dominio sin autorizar o el servidor
+-- equivocado. Una marca de «ya se probó» que sobreviviera al cambio de cuenta
+-- sería peor que no tenerla, porque el preflight daría luz verde **basándose en
+-- una prueba de otra cosa**.
+--
+-- Así que se guarda la cuenta, y quien lee decide: la prueba vale mientras
+-- `test_sent_with_account_id` siga siendo el remitente de la etapa.
+--
+-- No se hace con un disparador que borre la marca al cambiar de cuenta. Un
+-- disparador destruye el dato —cuándo se probó y a dónde— y eso es justamente
+-- lo que hay que poder enseñar cuando alguien pregunta por qué el preflight se
+-- puso en rojo. Se conserva y se compara.
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- LA FECHA, NO UN BOOLEANO
+--
+-- Mismo criterio que `coexistencia_confirmada_at` en la V4: lo que hace falta
+-- poder enseñar es **cuándo** se probó y **a dónde** llegó, no que alguien
+-- marcó una casilla alguna vez. «Probado» a secas no deja responder a «¿esto
+-- fue antes o después de que cambiara la contraseña?».
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+-- LAS TRES COLUMNAS SON OPCIONALES, Y TIENEN QUE SERLO
+--
+-- Toda etapa que ya existe nace sin prueba, que es la verdad: nunca se hizo
+-- una. Un valor por defecto que dijera lo contrario marcaría como probadas las
+-- campañas de cualquier instalación existente.
+--
+-- Y no se añade ningún `CHECK` que exija las tres juntas. SQLite revalida
+-- **todas las filas** al añadir una columna con `CHECK`, así que un `CHECK`
+-- aquí haría imposible migrar cualquier base con etapas — es el error que se
+-- cometió en el primer borrador de la V7 y que se descubrió probándolo. La
+-- coherencia la mantiene el repositorio, que escribe las tres en la misma
+-- sentencia.
+
+ALTER TABLE campaign_stage ADD COLUMN test_sent_at TEXT;
+
+-- A dónde se mandó. Se enseña en pantalla: «probado el 28/09 a hola@…» dice
+-- mucho más que «probado», y permite ver que alguien se probó a sí mismo con
+-- una dirección que ya no usa.
+ALTER TABLE campaign_stage ADD COLUMN test_sent_to TEXT;
+
+-- Con qué remitente. Ver arriba.
+--
+-- Sin `REFERENCES`: es un dato histórico, y una clave foránea obligaría a
+-- elegir entre bloquear el borrado de una cuenta que se usó una vez para una
+-- prueba, o poner la columna a NULL y perder la razón por la que el preflight
+-- está en rojo. Las dos opciones son peores que guardar el identificador tal
+-- como estaba.
+ALTER TABLE campaign_stage ADD COLUMN test_sent_with_account_id TEXT;

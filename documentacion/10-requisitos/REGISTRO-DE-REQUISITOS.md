@@ -1,0 +1,1306 @@
+# Registro de requisitos
+
+**Última actualización:** 2026-10-28
+
+**Este es el único sitio donde vive el estado de un requisito.** Los
+identificadores se usaban dispersos en siete documentos, y un requisito que
+aparece dos veces con dos estados distintos es peor que uno que falta.
+
+## Cómo se lee
+
+| Estado | Significa |
+|---|---|
+| **abierto** | Se pidió y no está hecho. Se puede trabajar |
+| **bloqueado** | No depende de nosotros. La columna «quién» dice de quién |
+| **espera decisión** | Hace falta que Dirección elija. La alternativa está planteada |
+| **hecho** | Construido y verificado, con la entrega que lo cerró |
+| **descartado** | Se decidió no hacerlo, y el motivo está escrito |
+
+| Prefijo | Qué es |
+|---|---|
+| **D-** | Decisión de Dirección |
+| **P-** | Pendiente de alguien de fuera |
+| **R-** | Requisito o riesgo |
+| **H-** | Hallazgo encontrado usando ARLES |
+| **F-** | Fallo de diseño que ya costó datos |
+
+> **Un requisito nuevo se anota aquí el día que se pide**, no el día que se
+> construye. Lo que no está anotado se olvida: pasó con `contact_list`, que
+> estuvo en el esquema desde la V1 con su motivo escrito en «pendientes
+> conocidos» y sin escritor hasta la D-15, dos años después.
+
+---
+
+## Lo que impide entregar la v1.2.0
+
+Ninguno impide construir. **Los seis impiden entregar**, y dos de ellos tienen
+plazo externo que no se comprime.
+
+| Id | Qué | Quién | Estado | Qué bloquea exactamente |
+|---|---|---|---|---|
+| **P-01** | Licencia de la tipografía Mont | Dirección | bloqueado | **No se puede distribuir un instalador** con la tipografía dentro. Plan B listo: una línea en `--arles-font-family` (D-5, `TIPOGRAFIA.md` §3) |
+| **FIRMA-WIN** | Certificado de firma de código para Windows | Dirección | bloqueado | Que el `.msi` se instale **sin la advertencia de «editor desconocido»** de SmartScreen, que en un entorno corporativo bloquea la instalación en la práctica. **Plazo externo de 1 a 3 semanas.** OV para la v1.2.0, EV para el lanzamiento comercial |
+| **FIRMA-MAC** | Apple Developer Program de organización | Dirección | bloqueado | **Que ARLES abra en macOS.** Desde Catalina, una aplicación descargada sin notarizar no se ejecuta: no es una advertencia, es un bloqueo de Gatekeeper. Alta de la cuenta más notarización por build |
+| **P-09** | Revisión jurídica | Abogado | bloqueado | Los textos legales que lee el usuario, y el primer envío real a alguien de fuera de TELEMETRY. Las diecinueve preguntas están en `08-legal/CONSULTA-JURIDICA.md`. La construcción **no** se detiene (ADR-0013) |
+| **META** | Cuenta de WhatsApp Business con Coexistencia | Operaciones | bloqueado | Todo WhatsApp está probado contra un servidor de mentira. **Nunca ha hablado con Meta.** Por dentro el canal está completo desde D-WA (27/10/2026): campañas enteras incluidas |
+| **R-07** | Revisión en macOS | quien tenga un Mac | bloqueado | Nadie ha abierto ARLES en WKWebView. La vista previa no cuenta: ahí el motor es el del navegador. **Lo arrastra FIRMA-MAC**: el mismo Mac hace las dos cosas |
+| **R-24** | Un servidor de correo real | Dirección | **hecho** 22/10/2026 | Cerrado: ARLES manda por SMTP con TLS desde una cuenta de Titan, y llega a la bandeja principal de Outlook, Gmail y un corporativo |
+
+> **Los dos trámites de firma se anotaron el 28/10/2026, y llevaban declarados
+> desde la Fase 0.** `DISTRIBUCION_Y_FIRMA.md` §1 los pone como trámites que
+> **arrancan en la Fase 1** precisamente porque son plazos externos, D-4 lo
+> repite, y la matriz de riesgos los tiene como **R-14** con la mitigación
+> escrita: *«trámite iniciado en Fase 1»*. No hay rastro de que se iniciara, y
+> **ninguna de las tres listas de bloqueos del proyecto los nombraba**, así que
+> nadie los estaba esperando.
+>
+> Es el décimo documento que afirmaba de más, y la frase exacta era de esta
+> misma tabla: P-01 decía ser *«lo único entre ARLES y el `.exe`»*. Entre ARLES
+> y un `.exe` que se instala sin advertencia hay también un certificado, y entre
+> ARLES y un `.dmg` que **abre** hay un Developer ID. Una tabla que se lee para
+> saber qué falta y deja fuera dos plazos de semanas no es una tabla incompleta:
+> es la que hace que se descubran al final, que es el riesgo R-14 literal.
+>
+> Lo vigila `los_bloqueos_se_cuentan_en_un_solo_sitio` en la fase 0.
+
+---
+
+## Lo que espera una decisión
+
+| Id | Qué | Planteado | Estado |
+|---|---|---|---|
+| ~~**R-05**~~ | ~~Imagen en la firma~~ | **DECIDIDO el 11/11/2026: sin imágenes en la v1.2.0.** Dirección: «en esta primera versión no agregues imágenes, pero considera una sección para después». Y sobre el seguimiento de apertura: «si las normas no nos permiten que se dé a conocer que el correo se abrió, pues evitémoslo, pero si nada nos impide, podemos cambiar esa decisión» — **eso va a P-09, la consulta jurídica**, como pregunta 19. Lo revisado ese día: La de verdad está en la cabecera de `sanear.rs` desde la Fase 6: una imagen **alojada** es un rastreador que delata cuándo se abrió el correo, y eso contradice el §65 y la decisión del 29/09 de no poner píxeles espía. La **embebida** no pide nada a ningún servidor. Ver abajo | ✅ decidido · el camino, documentado |
+| ~~**R-25**~~ | ~~Baja automática por correo~~ | **Cerrado el 10/11/2026: ARLES revisa el buzón del remitente —sólo lectura— y aplica las bajas.** Ver abajo | ✅ hecho |
+| ~~**R-30**~~ | ~~Que el buzón se revise sin pulsar un botón~~ | **Cerrado el 11/11/2026: un hilo propio lo revisa cada 15 minutos.** No va en el hilo del motor, y la razón está medida: 120 s de dos buzones caídos contra los 90 del latido del cerrojo. Ver abajo | ✅ hecho |
+| ~~**D-19**~~ | ~~¿El registro tiene que dar el total exacto?~~ | **DECIDIDO el 11/11/2026: el total exacto se queda.** Dirección: «4 segundos no se me hace muy tardado para una consulta […] no creo que se realicen tantas». Se mantiene, con su cifra declarada y con un aviso nuevo de que está buscando. Remedido ese día y la pregunta era la equivocada: No es «¿sacrificamos el total?» sino «¿lo acotamos?»: con coincidencias, traer la página cuesta 20-26 ms y el total exacto 3 589-4 535 —**150 veces más**—, y acotarlo a 501 lo deja en **13-17 ms** conservando lo único que hace falta saber. Y el caso de «no encuentra nada» **D-19 no lo toca**: ahí los cuatro caminos cuestan lo mismo. Ver abajo | ✅ decidido |
+| **Fase 9** | Sacar la activación al hilo del motor | Activar tarda ~73 s con 451 196 destinatarios y el presupuesto de 2 s se rompe **alrededor de los 30 000**. Desde el 28/10 la ventana **sí responde**, dice en qué va y se puede cancelar; lo que queda es que no corra dentro de un comando | abierto · medido en la auditoría C |
+
+---
+
+## Decisiones tomadas
+
+Las que cambian cómo se construye. **No se vuelven a discutir** salvo que
+Dirección lo pida.
+
+| Id | Fecha | Decisión |
+|---|---|---|
+| **D-7A** | 29/09/2026 | Las respuestas de WhatsApp **se cuentan, nunca se guarda qué dijeron** |
+| **D-7B** | — | La parada de emergencia vive en Campañas |
+| **D-7C** | — | El registro lleva seis criterios de filtro combinables |
+| **D-8A** | 05/10/2026 | El respaldo va **cifrado**, con opción explícita de desactivarlo |
+| **D-8B** | 05/10/2026 | **Dos alcances**, «Esencial» por defecto |
+| **D-8C** | 05/10/2026 | Restaurar **reemplaza, nunca mezcla** — y las bajas se **unen** |
+| **D-8D** | 05/10/2026 | Se puede **archivar** el historial a un disco externo y sólo entonces borrarlo, con cuatro condiciones |
+| **D-13** | 22/10/2026 | **El límite diario lo fija la campaña**, hacia arriba o hacia abajo. El `min` con la cuenta se quitó |
+| **D-15** | 23/10/2026 | Cada campaña carga **su propia lista** de contactos. `None` es «toda la empresa», y la pantalla lo ofrece con esas palabras |
+| **D-16** | 23/10/2026 | **Ventana de descanso** de 14 días entre campañas al mismo contacto |
+| **D-WA** | 26/10/2026 | El canal de WhatsApp entra en la v1.2.0, **con campañas enteras** y no sólo el envío de prueba |
+| **D-18** | 28/10/2026 | **[ADR-0015](../03-arquitectura/adr/0015-un-escritor-y-lectores-separados.md) aceptado.** Un escritor con cerrojo y lectores en conexión aparte. El **hilo dedicado con canal de ADR-0002 queda descartado por escrito**, no pendiente: su premisa era Tokio y este proyecto no lo usa. La conexión de lectura queda **programada**, y no empieza hasta medir el crecimiento del `-wal` |
+| **DMARC** | 27/10/2026 | El DMARC se queda en `p=none` **dos o tres semanas** leyendo informes, y después se sube `pct=25` → 50 → 100. Saltar a `quarantine` manda correo legítimo a spam **en silencio**: sin rebote, sin error y sin aviso |
+| **Baja en WhatsApp** | 27/10/2026 | **No se exige** que la plantilla lleve la salida escrita, porque ARLES no podría atenderla: no recibe los mensajes y no lee su texto (D-7A). Se avisa **a mano** en Contactos › Bajas, y se dice con esas palabras en la pantalla, la guía y el manual |
+| **D-19** | 11/11/2026 | **El registro sigue dando el total exacto.** «4 segundos no se me hace muy tardado para una consulta», con el argumento de que no se hacen tantas. Se mantiene el recuento completo y **no** se acota a «más de 500». Lo que sí se añadió es el aviso de que está buscando: cuatro segundos sin acuse se leen como una avería |
+| **R-05** | 11/11/2026 | **Sin imágenes en la firma en la v1.2.0**, con el camino documentado para después. Y si una norma prohibiera dar a conocer que el correo se abrió, se evita; si nada lo impide, la decisión del 29/09 sobre el píxel de apertura **se puede revisar**. La pregunta va a P-09 |
+| **D-21** | 10/11/2026 | **La baja por correo se aplica sola, leyendo el buzón del remitente** (R-25). Sólo lectura: no borra, no marca, no mueve, se queda sólo con la dirección de quien escribió y nunca con el cuerpo. Se descarta el servidor con enlace de un clic — pide dominio, HTTPS y alguien que lo mantenga. Ver abajo |
+
+---
+
+## Requisitos de Dirección, cerrados
+
+| Id | Qué | Cerrado |
+|---|---|---|
+| **R-01** | Dar de alta un correo era «demasiado complicado» | ✅ 14/10/2026 · dos campos, con `PROVEEDORES` deduciendo servidor, puerto y cifrado de cinco dominios |
+| **R-02** | Lo mismo con WhatsApp | ✅ 26/10/2026 · **un dato y una elección**: se pega el token y ARLES le pregunta a Meta cuáles son tus números |
+| **R-06** | Una plantilla creada no se podía corregir | ✅ 17/10/2026 |
+| **H-01** | Remitentes decía «no has configurado tu empresa» después de configurarla | ✅ |
+| **H-02** | Las tres partes de un error salían pegadas | ✅ |
+| **H-03** | No se pudo dar de alta una cuenta de Gmail | ✅ 14/10/2026 · cerrado por R-01, y conviene saber hasta dónde: `PROVEEDORES` trae Gmail con `smtp.gmail.com:587` y STARTTLS, exige los **16** caracteres de una contraseña de aplicación, enlaza a dónde se crea y **le quita los espacios** con que Google la enseña — las tres causas plausibles del fallo original. Lo que **no** se ha hecho es dar de alta una cuenta de Gmail real desde entonces: R-24 se cerró contra Titan. Así que la causa está cubierta y la verificación de punta a punta no |
+| **H-05** | Error al dar de alta un contacto | ✅ |
+| **H-06** | El horario de envío salía vacío, sin salida | ✅ |
+| **H-12** | **La firma elegida nunca se guardaba.** Todas las campañas salían con la misma, y nada fallaba | ✅ 22/10/2026 |
+| **H-07** | El límite diario se escribía y no se aplicaba: se pedía 300 y salían 50 | ✅ 22/10/2026 · D-13 |
+| **H-08** | Dos campañas con el mismo remitente salían 25 y 25, por orden de llegada | ✅ 22/10/2026 · hoy salen las dos enteras, y el paso 6 avisa de que el plazo cambia |
+| **H-13** | **Escribir `%` o `_` en el filtro del registro devolvía todas las filas.** El texto del usuario entraba dentro del patrón del `LIKE`, así que era sintaxis | ✅ 02/11/2026 · lo encontró medir C-2 |
+| **H-14** | **El error de «fallo al migrar» afirmaba que se había hecho una copia de la base**, y no hay ninguna copia en todo el proyecto. De las tres partes del §95, la falsa era la tercera: la que existe para decidir qué se puede borrar sin perder nada | ✅ 03/11/2026 |
+| **H-15** | **Un fallo del generador de aleatoriedad se diagnosticaba como «tu base es de una versión anterior»**, y mandaba a apartar un archivo que está bien — en el primer arranque, donde ni existe | ✅ 03/11/2026 · `DbError::SinAleatoriedad` |
+| **R-26** | **La lista de contactos no se podía filtrar**: `listar_contactos` sólo tomaba página y tamaño. Cuatro criterios combinables desde el 03/11/2026 — nombre/apellido/empresa, dirección completa, canal y si tiene alguna baja. Las cifras y lo que se descartó, en su sección | ✅ 03/11/2026 |
+| **H-16** | **Buscar «TÉLLEZ» no encontraba a Téllez.** `lower()` de SQLite sólo baja ASCII, así que la `É` quedaba intacta y el filtro decía que esa persona no está — **sin ningún error**. En un producto mexicano no es un caso raro | ✅ 03/11/2026 · lo encontró una prueba con un acento |
+| **H-17** | **El filtro del registro usaba un índice del lado inútil.** La forma obvia de buscar por dirección —un `JOIN` con la empresa en el `WHERE`— nombra el índice correcto en el plan y tarda **609 ms** donde la forma buena tarda **0.0**: SQLite conduce desde `contact` por el `ORDER BY` y prueba contacto por contacto | ✅ 03/11/2026 · lo cazó el plan, no el resultado |
+| **R-27** | **Una campaña sólo podía ir a toda la empresa o a una lista importada de un archivo.** Dirección dio de alta cincuenta contactos a mano, quiso probar con tres y no pudo: *«no seleccioné una tabla y no me permitió seleccionar contactos de mi lista de contactos»*. Las dos tablas estaban en el esquema desde la V1 y la campaña sabía ir a una lista desde D-15; lo único que las llenaba era la importación — el patrón del §9 | ✅ 05/11/2026 · casilla por fila, un botón que marca lo que el filtro dejó, y la bandeja que las guarda con un nombre. **Sin tope**, y con el mismo nombre se añade a la lista que ya hay |
+| **H-22** | **Una campaña a medias se quedaba en la lista para siempre.** Al salir del asistente en el paso 6, la campaña ya está creada como borrador —hace falta para guardar lo que se lleva escrito— y no había forma de quitarla: *«no me gustaría ver esa campaña, me gustaría tener la oportunidad de poder eliminarla, pero no sé qué tan recomendable sea hacer eso»* | ✅ 05/11/2026 · se borra **sólo un borrador**, con tres puertas —el tipo del núcleo, el `status` en el `WHERE` y el recuento de envíos—. Lo que ya envió no se borra: su historial es con lo que se contesta un ARCO |
+| **R-28** | **La comprobación previa sólo se hacía al salir del paso 5.** Dirección llegó al 7 con puntos «sin comprobar», no pudo activar, y tuvo que retroceder para repetirla: *«por eso la solicitud de hacer la comprobación automática, para no tener que salir de la pestaña»*. Pidió además quitar el paso del envío de prueba | ✅ 05/11/2026 · se comprueba sola al entrar si no hay revisión, hay botón para repetirla, y el envío de prueba se **fundió** en el mismo paso: no se puede quitar —es obligatorio (§45) y es uno de los ocho puntos—. El asistente pasa de nueve pasos a **ocho** |
+| **H-23** | **La demostración enseñaba siete claves en crudo en el paso previo a activar**, y el botón de activar estaba apagado para siempre: el simulador devolvía seis nombres de punto inventados, un veredicto que no existe y un resultado que mezclaba la clave de texto con el discriminante | ✅ 05/11/2026 · lo encontró **mirar**, con las diez fases en verde. Lo vigila `el simulador enseña los puntos de preflight que el núcleo declara`, que los lee de `Punto::clave_i18n` |
+| **H-24** | **«Un punto sin comprobar impide activar» se decía siempre**, y es verdad de siete de los ocho: el de SPF, DKIM y DMARC no bloquea (§154). Con todo en verde menos ése, la pantalla contradecía a su propio botón — y el texto que explica ese punto llevaba desde la Fase 6 en el catálogo **sin llamador** | ✅ 05/11/2026 · la nota sale cuando el preflight bloquea de verdad, y lo decide el resultado que manda Rust |
+| **R-29** | **No se podía ver cómo queda el correo antes de elegir la plantilla.** El paso 4 enseñaba el asunto con sus `{{variables}}` sin rellenar y una lista de qué datos lleva, que es lo que el motor sustituye — no lo que se lee | ✅ 05/11/2026 · el asunto rellenado y el cuerpo con su firma, **con los datos de un contacto de la lista**, dentro de un `iframe` aislado. Lo redacta `arles_core::plantilla::redactar`, la misma función que el motor |
+| **H-21** | **ARLES decía «Meta no acepta ese token» con la configuración correcta.** Dirección recorrió la guía entera —cuenta de empresa, aplicación de tipo Negocios, usuario del sistema con la aplicación y la cuenta de WhatsApp en **acceso total**— y el alta seguía fallando | `debug_token` sólo devuelve los `target_ids` del permiso de gestión cuando está concedido **sobre un activo concreto**, y hay tokens válidos a los que Meta no se los pone. ARLES tenía **una sola vía** para encontrar la cuenta, y al venir vacía acusaba al token. **El token era bueno.** Es el diagnóstico equivocado de DOC-14 en el primer contacto del producto con la API real | ✅ 05/11/2026 · segunda vía por los negocios del token, y el error partido en dos: `NingunaCuenta` ya no manda a generar otro token |
+
+---
+
+## R-25 · la baja automática por correo, decidida el 10/11/2026
+
+Dirección lo pidió con estas palabras: *«Necesito que sea posible darse de baja
+de manera automatica, busca una alternativa mas sencilla para el administrador
+de la aplicacion y para el usuario»*.
+
+**La mitad estaba construida y no se sabía.** ARLES manda desde el 19/10/2026
+la cabecera `List-Unsubscribe` en cada campaña, que es lo que permite a Gmail y
+a Outlook enseñar su propio botón de cancelar suscripción, y la frase del
+cuerpo que el preflight exige. Las dos acaban en un correo al buzón de quien
+envía. **Lo que faltaba no era darle una salida a nadie: era mirar ese buzón.**
+
+### Por qué leer el buzón y no montar un servidor
+
+| | El servidor con enlace de un clic | Leer el buzón |
+|---|---|---|
+| Para quien recibe el correo | Un clic | **El mismo clic, y ya funciona hoy** |
+| Para quien administra ARLES | Servidor público 24/7, dominio, HTTPS | **Nada nuevo que configurar** |
+| Credenciales nuevas | Las del servidor | **Ninguna** |
+| Quién lo mantiene | Alguien, para siempre | Nadie |
+
+Lo de «ninguna credencial nueva» está verificado y no supuesto: la contraseña de
+aplicación de Google es un código de 16 dígitos que da acceso a la aplicación, y
+la propia página de configuración de Gmail lista `imap.gmail.com:993` junto al
+`smtp.gmail.com:587` que ARLES ya usa. **Es la misma contraseña que ya está en
+el llavero**, y el servidor de lectura se deduce del dominio igual que
+`PROVEEDORES` deduce hoy el de envío.
+
+### Lo que se verificó de Google antes de construir, y lo que estaba mal escrito
+
+- El requisito de **baja de un clic** (RFC 8058, `List-Unsubscribe-Post`) es
+  para quien manda unos **5 000 mensajes diarios** a cuentas de Gmail. ARLES
+  manda entre 50 y 300: **no le aplica**.
+- Google dice que **seguirá soportando** los enlaces `mailto`, pero que **no
+  cumplen** su requisito de un clic. El comentario de `cabecera_de_baja` decía
+  que el `mailto` «es válido y cuenta», que se lee como lo contrario.
+- **El botón no está garantizado**: Google lo enseña sólo a los correos que
+  pasan sus comprobaciones. Por eso la frase del cuerpo no es redundante con la
+  cabecera — es la salida que no depende de nadie. No estaba dicho.
+- Ese mismo comentario afirmaba que un correo sin la cabecera «entra con una
+  penalización de salida, y ninguna otra cosa que hagamos la compensa».
+  **Google no publica eso**, y al verificarlo no apareció en ninguna de sus
+  páginas. Es **DOC-23**.
+
+### En qué estado está
+
+**Hecho:** la regla (`arles_core::baja_por_correo`, tres veredictos), la
+migración **V17** —que permite guardar la baja con el origen que la distingue de
+la que alguien apunta a mano— y **el lector del buzón**
+(`arles-email/src/buzon.rs`), con su servidor IMAP de mentira.
+
+**Y el cable, el mismo día:** el comando, el ajuste por cuenta en Remitentes, el
+botón y el registro en la bitácora, con la migración **V18** para guardar dónde
+se lee cada buzón, si está encendido y hasta qué correo se leyó.
+
+> **Esta línea decía que no se revisaba solo, y lo cerró R-30 al día
+> siguiente.** Decía: *«no se revisa solo cada cierto tiempo — hay que pulsar el
+> botón. ARLES no tiene un programador de tareas y añadirlo es otra decisión»*.
+> Era verdad el 10/11 y falso el 11/11; se queda escrita porque una limitación
+> que desaparece sin dejar rastro parece una que nadie resolvió.
+
+### El orden del cable, y por qué no se puede invertir
+
+**Leer → juzgar → escribir.** Al revés sería dar de baja primero y mirar después
+qué decía el correo, y una baja **no se puede levantar con un botón**
+(`se_puede_levantar`): la pidió la persona. Un error en esa dirección no tiene
+arreglo dentro de ARLES.
+
+Y todo va en **una transacción** —las supresiones, su bitácora y la marca del
+buzón—: si la marca avanzara aparte y la escritura fallara, esos correos
+quedarían por debajo de la marca y **no se volverían a mirar nunca**.
+
+### Los seis defectos de la comprobación que vigila esto
+
+Escrita **antes** del cable y vista fallar nombrando los seis tramos. Después,
+al construirlo, falló de seis formas distintas: tres en rojo sobre código
+correcto —el origen y la bitácora buscados en el crate equivocado, y el orden
+medido en el cuerpo de un comando que **delega**— y dos **en verde con el código
+roto**: la bitácora se satisfacía con la auditoría de *encender* el buzón, y
+«el frontend nombra el comando» se daba por «hay un botón», que es el hueco
+exacto de la W.8.
+
+El sexto es el más instructivo: **`solo_produccion` aplicado a la concatenación
+de archivos** corta en el primer `#[cfg(test)]` y deja fuera todo lo que venga
+detrás por orden alfabético. Los seis son la misma familia — medir en un sitio
+donde la respuesta no cuenta.
+
+### Las tres defensas del «sólo lectura», y dónde vive cada una
+
+| Dónde | Qué |
+|---|---|
+| El protocolo | **`EXAMINE` y no `SELECT`**: abre el buzón en *read-only* y el servidor **rechaza** cualquier cambio. Si ARLES pidiera borrar algo, el servidor diría no |
+| El protocolo | **`BODY.PEEK[…]` y no `BODY[…]`**: la segunda forma marca el correo como leído al leerlo. Con `PEEK`, el buzón queda como estaba |
+| El validador | **Los ocho comandos que escriben no están escritos** — `STORE`, `EXPUNGE`, `APPEND`, `COPY`, `MOVE`, `DELETE`, `SELECT` y `BODY[` |
+
+El cuarto límite —no guardar el cuerpo— no cabe en el protocolo, porque hay que
+leerlo para saber si dice «BAJA». Lo que sí se puede es que **no haya dónde
+guardarlo**: la estructura se construye, se le pregunta al núcleo y se tira.
+
+**Y las dos primeras se miden desde el otro lado del cable**: el servidor de
+mentira apunta lo que el cliente le dijo, así que la prueba no comprueba que el
+lector esté bien escrito, sino lo que salió.
+
+### Cero dependencias nuevas, medido antes de decidir
+
+La única biblioteca de IMAP de Rust con uso real está en **`3.0.0-alpha.15`** y
+su TLS valida con el almacén del sistema y no con el mismo que usa el envío. Una
+dependencia alfa en el camino que **da de baja a personas** no se sostiene, y lo
+que hace falta de IMAP son cuatro comandos.
+
+`cargo tree -p arles-email -e normal` ya enseñaba `rustls 0.23.46` y
+`webpki-roots 1.0.11` **dentro de `lettre`**: ahora se nombran en el
+`Cargo.toml` en vez de recibirse de rebote. **Ni un byte más en el instalador**,
+y nada nuevo que aprobar en `cargo deny`.
+
+### El defecto que habría dejado el lector inservible
+
+Quien contesta desde Gmail manda `multipart/alternative`, así que `BODY[TEXT]`
+**no empieza donde escribió la persona**: empieza con un delimitador y las
+cabeceras de la primera parte. El núcleo mira la primera línea con algo, de modo
+que pasárselo tal cual haría que esa línea fuera **siempre el delimitador** — y
+**ni una respuesta a mano daría de baja a nadie**, con todo en verde.
+
+Lo desenvuelve el adaptador, porque saber de MIME es saber de correo y el núcleo
+no sabe de formatos de transporte (cero I/O). Límite declarado: un correo **sólo
+HTML** pierde sus etiquetas y puede salir dudoso, que es el lado seguro.
+
+**En WhatsApp no aplica, y conviene saber por qué:** ahí la baja automática **ya
+la hace Meta** —deja de entregar los mensajes de marketing a quien lo pidió y
+contesta el código `131050`—. Lo que falta es que ARLES se entere para no seguir
+intentándolo, y eso sí necesita el relay ciego que no existe. El canal está
+detrás de **META** de todas formas.
+
+---
+
+## C-2 · el filtro del registro, cerrado al contrario de lo previsto
+
+**02/11/2026.** La auditoría C lo declaró con **3 709 ms de un presupuesto de
+1 s** y escribió la solución: FTS5. **Se construyó y es 18 veces peor.**
+
+Medido sobre 451 196 sucesos, con tres corridas de cada camino y las dos
+búsquedas que importan — la de **una persona**, que es la que alguien hace, y
+la de un dominio entero:
+
+| Camino | Una persona (1 coincidencia) | Un dominio (119 532) |
+|---|---|---|
+| `LIKE '%…%'`, el de hoy | 1 257, 1 192, 1 151 ms | 1 212, 1 222, 1 146 ms |
+| La pregunta al revés, sin índice | 1 015, 1 010, 1 145 ms | 1 192, 1 221, 1 217 ms |
+| Índice FTS5 `trigram` | 21 556, 21 906, 20 653 ms | 23 242, 23 793, 24 448 ms |
+
+**Cuatro cosas que cambian lo que se sabía:**
+
+1. **El presupuesto se incumple por un 20 %, no por 3.7×.** La cifra de la
+   auditoría no se reproduce, y no lo explica un cambio de esquema: el índice
+   que usa esa consulta es de la V10, anterior a aquella medición. No se
+   inventa la causa — aquella corrida no se guardó.
+2. **Ningún índice sirve.** El FTS5 `trigram` empeora cuanto más largo es el
+   texto, porque cada trigrama de una dirección está en casi todas las filas.
+   Un índice cubriente no cambia el plan de consulta, así que se descartó sin
+   medirlo.
+3. **La pregunta al revés gana un 13 %**: no justifica cambiar una consulta
+   correcta.
+4. **El tiempo está en el total**, no en la búsqueda. Traer las 500 filas de la
+   página cuesta la mitad. De ahí **D-19**, arriba: el total exacto es lo único
+   que baja esta cifra, y es una decisión de producto.
+
+Y los tres costes que la migración traía aparte del rendimiento, cada uno
+suficiente por sí solo: una segunda copia de una dirección de correo que hay
+que mantener sincronizada para que un ARCO no la deje encontrable; romper
+`la_cascada_calculada_es_la_que_borra_sqlite`, que es la defensa contra **F1**;
+e invalidar todos los respaldos anteriores, con un instalador ya fuera.
+
+> **Lo que esto deja construido**, aunque el índice se haya ido: el banco mide
+> los tres caminos y cualquiera puede volver a correr la comparación, en vez de
+> creerse esta tabla; H-13 arreglado; y
+> `ninguna_tabla_se_queda_fuera_del_respaldo` ya ve una tabla virtual — no la
+> veía, y la fase 8 pasó en verde con una tabla nueva sin clasificar.
+
+---
+
+## R-05 · la imagen de la firma, revisada el 11/11/2026
+
+Este renglón decía: *«Embebida dispara filtros de spam y engorda cada correo;
+alojada hay que alojarla, y el saneado tendría que admitir `<img>`»*. Presenta
+las dos opciones como un empate incómodo, y **no lo es**.
+
+**La razón de fondo lleva escrita en el código desde la Fase 6**, en la cabecera
+de `arles-core/src/sanear.rs`, y es mucho más fuerte que la del registro:
+
+> «una `<img>` con un `src` remoto es un rastreador que delata cuándo se abrió
+> el correo —lo que ARLES promete no hacer (§65: no se sabe si llegó)»
+
+Eso no es una preferencia técnica: es **una decisión de producto ya tomada**. El
+29/09/2026 se descartó el píxel de apertura con esas palabras, y una imagen
+alojada en un servidor nuestro **es** ese píxel, sólo que con forma de logotipo.
+Cada vez que alguien abriera el correo, nuestro servidor sabría cuándo.
+
+Así que las dos opciones no están empatadas:
+
+| Opción | Qué cuesta | Qué rompe |
+|---|---|---|
+| **Alojada** (`src="https://…"`) | Un servidor, un dominio y alguien que lo mantenga | **El §65 y la decisión del 29/09.** Es un rastreador de aperturas |
+| **Embebida** (`cid:`, dentro del mensaje) | Unos KB por correo y admitir `<img>` en el saneado | Nada que esté decidido |
+
+**La única que el producto puede tomar es la embebida.** Y de ella, lo que el
+registro afirmaba —«dispara filtros de spam»— **no está verificado por nadie
+aquí**, y es exactamente la forma de DOC-23: una afirmación sobre qué hacen los
+filtros de un proveedor, escrita sin fuente y creída después.
+
+### Y no hace falta discutirlo: se puede medir hoy
+
+**R-24 está cerrado desde el 22/10/2026.** Hay un servidor de correo real
+(`enlace@telemetrymx.com`, Titan con TLS) y ya se usó para medir lo mismo: un
+correo de ARLES llegó a la **bandeja principal** de Outlook, Gmail y un
+corporativo, tres de tres. El instrumento existe.
+
+Así que la propuesta no es decidir R-05 por argumento, es **mandar dos correos**:
+uno con la firma de hoy y otro con un logotipo embebido de unos 10 KB, a las
+mismas tres bandejas. Si los dos llegan igual, la objeción del registro queda
+retirada con una medición; si el segundo cae en no deseados, queda confirmada con
+una cifra en vez de con una creencia.
+
+Eso cuesta una tarde y cierra una decisión que lleva abierta desde la Fase 6.
+
+### Lo que costaría construirlo, si la medición sale bien
+
+Tres piezas, y ninguna es grande:
+
+1. **`<img>` en el saneado**, con su `src` acotado a `cid:` y nada más — un
+   `https://` tiene que seguir cayéndose, o se cuela el rastreador por la puerta
+   que se abrió para el logotipo. El módulo ya está escrito para esto: su
+   cabecera dice *«si algún día hace falta una imagen, se añade aquí con su
+   decisión escrita al lado, no se cuela por una lista negra»*.
+2. **Guardar el archivo**, que es lo único que ARLES no hace hoy con una imagen:
+   hay que decidir dónde vive (la carpeta de datos) y qué pasa al restaurar un
+   respaldo — si no entra en el manifiesto, la firma vuelve sin su logotipo y
+   **nada protesta**, que es el patrón de la 8.0.
+3. **Adjuntarla como parte relacionada** del mensaje en `arles-email`, que es
+   `multipart/related` con su `Content-ID`.
+
+**El tamaño sí hay que acotarlo**, y con una cifra: un logotipo de firma son
+5-15 KB, y en base64 un 33 % más. A 300 envíos diarios eso es del orden de 6 MB
+al día, que no es un problema; lo que sería un problema es que alguien suba una
+foto de 4 MB y cada correo pese 5,5. Un tope en el núcleo, como los del lector
+del buzón.
+
+---
+
+## D-19 · el total del registro, remedido el 11/11/2026
+
+Lo planteó C-2 así: «el único cambio que baja el tiempo del filtro es dejar de
+contar todas las coincidencias», y de ahí una decisión de producto — renunciar
+al total exacto, que es **D-7C** y se pidió para que el tope no escondiera nada.
+
+**Medirlo cambió la pregunta.** El experimento está en
+`arles-db/src/d19_un_solo_recorrido.rs` y se corre con
+`cargo test -p arles-db d19 -- --ignored --nocapture`: 120 000 sucesos, tres
+corridas de cada camino.
+
+| Camino | 0 coincidencias | 120 000 coincidencias |
+|---|---|---|
+| `count(*)` de todo, el de hoy | 4 054 · 3 858 · 3 898 ms | 3 589 · 4 535 · 3 988 ms |
+| traer la página (`LIMIT 500`) | 3 950 · 3 863 · 3 819 ms | **20 · 24 · 26 ms** |
+| la página y una más (`LIMIT 501`) | 3 872 · 4 025 · 3 863 ms | **20 · 24 · 26 ms** |
+| `count` acotado a 501 | 3 898 · 3 873 · 3 885 ms | **13 · 16 · 17 ms** |
+
+**Tres cosas que cambian la decisión:**
+
+1. **Con coincidencias, el total exacto es ~99 % del coste.** C-2 decía que
+   «cuesta otro tanto» que la página; cuesta **unas 150 veces**.
+2. **Acotar el recuento a 501 lo arregla ahí**: 13-17 ms, unas 250× más rápido.
+   Y no pierde lo que D-7C pidió, porque lo que el tope escondía era *que hay
+   más*, y «más de 500» lo dice. Lo que se pierde es la cifra exacta de cuántos
+   más, que es un dato que nadie usa para decidir nada: con más de 500
+   coincidencias, lo que se hace es afinar el filtro.
+3. **El caso de «no encuentra nada» no lo toca D-19 en absoluto.** Los cuatro
+   caminos cuestan lo mismo (~3 900 ms), porque para afirmar que no hay ninguna
+   coincidencia hay que visitar todas las filas. **Y ése es el caso que se pisa
+   mientras se escribe en el campo** — es lo mismo que R-26 midió para el filtro
+   de contactos, donde el texto «cuesta lo que NO encuentra» (~2 600 ms), y la
+   defensa que allí funcionó fue no buscar en cada pulsación.
+
+**Lo que estas cifras no son:** las de C-2. Aquélla medía 451 196 sucesos y daba
+~1 200 ms donde esto da ~3 900 con menos de un tercio de las filas. No se
+inventa la causa — la corrida de C-2 no se guardó, y una corrida que no se
+guarda no se puede diagnosticar. Lo que se publica es **la proporción entre los
+cuatro caminos de la misma corrida**, que es lo que la decisión necesita.
+
+### Lo que esto deja decidir, y lo que no
+
+**Lo que no hace falta decidir:** el total exacto no se tiene que sacrificar en
+el caso en que la página no se llena, porque ahí es gratis — se sabe contando
+las filas que llegaron.
+
+**Lo que sí es una decisión de producto, y es de Dirección:** si con más de 500
+coincidencias basta «500 de más de 500» en vez de «500 de 3 412». Es lo que
+baja esa consulta de ~3 900 ms a ~20.
+
+---
+
+## R-30 · el programador, y las dos cifras que decidieron dónde vive
+
+Cerrado el **11/11/2026**. Lo disparó una pregunta de Dirección —«¿es posible
+crear ese programador de tareas?»— y la respuesta medida fue que sí, y que **ya
+existía**: el hilo del motor da vueltas cada cinco segundos desde la 5.4b y
+sobrevive a cerrar la ventana (§51). Lo que hacía falta era **no** meter la
+tarea ahí dentro.
+
+| | |
+|---|---|
+| Dos buzones cuyo servidor IMAP no contesta, en una vuelta | **120 s** |
+| Margen del latido antes de dar el cerrojo por muerto | **90 s** |
+
+El latido no mide «ARLES está vivo» sino **«el bucle está dando vueltas»**,
+porque se refresca al principio de cada una. Pasado el margen, otro ARLES roba
+el cerrojo y **este apaga su propio motor** porque un servidor de correo ajeno
+no contestó. Lo mide `una_vuelta_lenta_le_cuesta_el_cerrojo_al_motor`,
+verificada con tres rupturas.
+
+**Dos marcas y no una.** `inbox_last_uid` (V18) es hasta dónde se leyó **con
+éxito** y no avanza al fallar —eso impide que un correo sin procesar quede por
+debajo de la marca—; `inbox_last_check_at` (V19) es **cuándo se intentó**, y
+avanza también al fallar. Sin la segunda, un buzón caído se reintentaría en cada
+vuelta: **60 intentos de autenticación por hora** contra el servidor del propio
+usuario, y después una cuenta bloqueada que ARLES no puede desbloquear.
+
+**El intervalo son quince minutos y no es configurable.** A 300 envíos diarios
+en ocho horas, esperar un cuarto de hora arriesga **unos nueve correos**; mirar
+cada minuto serían 1 440 conexiones diarias contra 96.
+
+> **El defecto que encontró mirar la pantalla**, con todo en verde: la clave del
+> error estaba **inventada** —`error.app.buzon.no_se_pudo_entrar`, que no existe
+> en el catálogo—, así que un buzón con el llavero bloqueado enseñaba «Ocurrió
+> un error inesperado». Con una clave de buzón que sí existiera habría sido
+> peor: mandar a revisar el servidor a quien tiene el llavero cerrado, que es
+> DOC-14 otra vez. Ahora la clave viaja dentro del error.
+
+> **Y DOC-24: `solo_produccion` dejaba 22 declaraciones de producción sin
+> mirar.** Ocho comprobaciones la usan para no confundir una llamada de una
+> prueba con un llamador de verdad, y **cortaba en el primer `#[cfg(test)]`**
+> con la convención «los módulos de prueba van al final» escrita como
+> justificación. No se cumplía: cuatro archivos declaran algo de prueba en
+> medio, y en `arles-app/src/lib.rs` quedaban invisibles **siete módulos
+> enteros**.
+>
+> El daño no es simétrico: una comprobación que pregunta **si algo está** falla
+> y se nota; una que pregunta **si algo NO está** sale en **verde** sobre el
+> código que no ve. Una red que falla al lado inseguro justo en las garantías de
+> seguridad. Lo vigila `solo_produccion_no_se_deja_nada_detras`.
+
+**Lo que R-30 no hace:** una sola tarea y ningún registro genérico de tareas;
+sólo corre en el ARLES que tiene el cerrojo; y revisa con la ventana cerrada
+pero **no con la aplicación cerrada** — un servicio del sistema es otra cosa.
+
+---
+
+## R-26 · el filtro de contactos, y los tres defectos que encontró medirlo
+
+**03/11/2026.** Cuatro criterios combinables en Contactos. Lo entregado es lo
+de menos: lo que esta entrega deja son **tres defectos que llevaban tiempo ahí
+y pasaban todas las pruebas**, y una cifra de ayer corregida.
+
+### Qué cuesta cada criterio, sobre 455 470 contactos
+
+| Criterio | Milisegundos | Veredicto |
+|---|---|---|
+| Dirección completa | **0.2** · no crece con la tabla | ✅ |
+| Canal | 0.1 | ✅ |
+| Texto, cuando lo encuentra | 1.4 | ✅ |
+| **Texto, cuando NO lo encuentra** | **~2 600** | ❌ 2.6× el presupuesto, declarado |
+
+**El texto cuesta lo que no encuentra**, y es lo contrario de la intuición:
+para poder decir «no hay nada» hay que visitar las 455 470 filas. Es el caso
+que se toca mientras se escribe, así que el campo no busca al teclear.
+
+**Y un trozo de dirección no se ofrece**, con su cifra: 2.1 s, porque un sufijo
+no lo acota ningún índice ordenado por el principio de la cadena. La pared de
+C-2. También se descartó «empieza por» sobre el nombre: sin índice cuesta igual
+que `%x%`, y con uno habría que pagar una migración que deja sin restaurar todo
+respaldo anterior.
+
+### Los tres defectos
+
+**H-17 · Un índice usado del lado inútil.** La forma obvia de buscar por
+dirección —un `JOIN` con la empresa en el `WHERE`— **nombra el índice correcto
+en el plan** y tarda 609 ms donde la forma buena tarda 0.0: SQLite conduce desde
+`contact` por el `ORDER BY` y prueba contacto por contacto, y como una dirección
+casa una sola fila el tope de cien no se cumple nunca. Seis mil veces, con el
+mismo índice en el plan y el mismo resultado devuelto.
+
+Y enseña el límite de lo que ya había: `las_consultas_criticas_usan_su_indice`
+pregunta si el plan **nombra** el índice, no por qué lado.
+
+**H-16 · Buscar «TÉLLEZ» no encontraba a Téllez.** `lower()` de SQLite sólo
+baja ASCII. El patrón se baja ahora en Rust.
+
+**Y el tercer «hallazgo» de esa tarde era mío y lo retiré el mismo día.** Dije
+que la conexión de lectura es 12× más lenta recorriendo una tabla, con 302 ms
+por el escritor y 3 742 por la lectora. **No se reproduce.**
+
+Cinco corridas del mismo experimento, en el mismo contenedor y sobre la misma
+base: la lectora 12× más lenta, 10× más rápida, 11× más rápida, 11× más rápida
+y 11× más lenta — y el signo cambió al añadir dos `count(*)` antes de
+cronometrar, que no debería influir en nada. **Lo que domina en este contenedor
+es la caché, no la conexión**, y por eso aquí no se puede medir. Las cinco
+corridas y lo que sí quedó descartado están en
+[`PRESUPUESTO_RENDIMIENTO.md`](../06-calidad/PRESUPUESTO_RENDIMIENTO.md) §8.
+
+> **Y lo que costó publicarla antes de repetirla:** con esa proporción moví dos
+> lecturas de la lectora al escritor y dije que el coste real del filtro del
+> registro era de catorce segundos. **Las dos cosas se deshicieron**: las
+> lecturas vuelven a la lectora —cuyo motivo sí está medido, 0 ms contra 650
+> con el cerrojo del motor tomado— y los 1 151–1 257 ms de C-2 se mantienen.
+>
+> **Una cifra que no se reproduce no puede mover una decisión que sí está
+> medida.** Es el precedente del 52/1 del validador: se publica el mecanismo
+> que se midió, no la causa que se sospecha.
+
+### Lo que esta entrega enseña del método
+
+**Repetir el experimento cambiando algo que no debería importar.** Es lo que
+distinguió la medición mala de la buena, y lo que faltó antes de publicar el
+12×: las cinco corridas eran cada una limpia, plana y creíble por dentro —nueve
+de nueve a 95 ms contra nueve de nueve a 1 150—, y sólo compararlas entre sí
+enseñó que el instrumento medía el orden.
+
+**Medir los candidatos no es medir lo entregado.** Los nueve caminos candidatos
+daban 899 ms en el peor caso; el camino real daba 22 000. La diferencia no
+estaba en ninguno de los nueve: estaba en la junta —qué consultas de más, qué
+orden— que ninguno de los nueve recorría. Es el patrón del §9 aplicado a una
+medición.
+
+---
+
+## V11→V12 · restaurar un respaldo de un esquema anterior, cerrado el 04/11/2026
+
+Era la limitación más cara que la Fase 8 dejó declarada (8.3b) y la V11 la
+disparó por primera vez: ARLES rechazaba todo `.arles` cuyo esquema no fuera el
+de hoy, así que **cada migración mataba las copias de seguridad anteriores**.
+
+El archivo seguía en el disco, la pantalla podía revisarlo y contar lo que
+traía, y el día que hiciera falta no entraba. Es el peor sitio donde puede vivir
+una limitación: una copia de seguridad que existe, parece correcta y no abre.
+
+### Cómo se cerró, y la salida que estaba descartada por escrito
+
+La 8.3b dejó dos caminos y uno descartado: *«restaurar lo que encaje»*, que
+dejaría un apellido nulo y una fecha basura en una base que arranca y parece
+funcionar. El otro era correr las migraciones sobre los datos del respaldo, y la
+forma de hacerlo **sin escribir una línea de SQL nueva** es levantar una base
+desechable en la versión que el respaldo declara, meterle sus filas, y
+aplicarle las migraciones que faltan.
+
+El SQL que transforma los datos es **el mismo que ya corrió en producción**. No
+hay una segunda traducción que mantener: ésa es la parte que se habría quedado
+atrás en la primera migración posterior a esta entrega.
+
+La base desechable **va cifrada** con una clave nueva de usar y tirar —lleva los
+contactos y las bajas de una empresa, y §29 no admite «menos en este caso»— y se
+borra al soltarla, lo que comprueba una prueba.
+
+### Donde más importaba: el llavero perdido
+
+En `/recuperar` no hay otra salida. El cifrado no tiene puerta de atrás y la
+pantalla lo dice con esas palabras, así que un respaldo de antes de la última
+migración era, **ahí**, ningún respaldo.
+
+Y la puesta al día ocurre **antes** de apartar la base ilegible y de crear la
+clave nueva, que es la regla que la auditoría F estableció el 07/10: *nada
+irreversible ocurre hasta que todo lo comprobable está comprobado*. Leer el
+archivo entero y migrar sus datos es la comprobación más fuerte que se puede
+hacer sin tocar nada, y hacerla después habría añadido un disparador nuevo al
+F2 —una migración que no se puede aplicar a esos datos—.
+
+### Lo que cuesta
+
+Treinta mil contactos (60 002 filas), tres corridas, 04/11/2026: poner al día
+**1 134–1 255 ms** y restaurar **1 117–1 671**, contra **1 410 ms** de restaurar
+directo en la misma máquina. Un 70 % más en total, una vez, y sólo si el
+respaldo es viejo. Memoria 16 → 23 MB. Está en `PRESUPUESTO_RENDIMIENTO.md` §9.
+
+### Lo que sigue sin poderse
+
+| Qué | Por qué, y qué se dice |
+|---|---|
+| Un respaldo de una versión **posterior** | Sus migraciones no están en este binario y no se inventan. Error aparte, que manda a **actualizar ARLES** en vez de a buscar otra copia |
+| Un **esencial** puesto al día puede no dar lo mismo que la base completa migrada | Una migración que rellene una columna leyendo una tabla que el esencial no lleva no tiene de dónde leer. Es inherente al alcance |
+| Espacio en disco | Hace falta para una base del tamaño del respaldo. Un disco lleno falla con la base real intacta |
+
+### Lo que esta entrega enseña del método
+
+**La prueba se eligió midiendo, no suponiendo.** De la V11 a la V16 ninguna
+migración mueve datos que viajen en un respaldo —son columnas nuevas e
+índices—, así que una prueba V11 → V16 habría pasado en verde con un módulo que
+sólo copiara filas. La prueba de verdad arranca en la **V2**, donde la V3
+traslada el correo del contacto a su canal y la V4 convierte cada campaña en una
+con etapa: dos tablas que **no existían** cuando se tomó ese respaldo.
+
+**Y la comprobación nueva nació con el defecto que persigue, y van trece.** Su
+primera ruptura salió **en verde**: buscaba el nombre de la función en el
+archivo entero, y la llamada de **la prueba del mismo archivo** la satisfacía.
+La pieza se habría quedado sin llamador en producción con todo verde — el patrón
+del §9 dentro de la comprobación escrita para cazarlo. Es la misma familia que
+el comentario que se caza a sí mismo: **medir en un sitio donde la respuesta no
+cuenta**. De ahí `solo_produccion` en el validador, que corta las pruebas además
+de los comentarios.
+
+**Y un defecto que cazó mi propia prueba antes de entrar:** `version_de("V-3")`
+devolvía `-3`, porque `parse::<i32>` acepta negativos. Con eso, la base
+desechable habría nacido vacía y el fallo habría llegado dos pasos después
+diciendo que *el respaldo trae una tabla que esta base no tiene* — un
+diagnóstico equivocado, que manda a hacer algo (DOC-14).
+
+**Y un `assert` que no podía fallar.** La primera versión de la prueba de ida y
+vuelta comprobaba que `template.retired_at` existiera **en la base de destino**,
+que la tiene siempre. Lo que distingue una puesta al día de un paseo es comparar
+las columnas que el respaldo **declaraba** con las que entrega puesto al día.
+
+---
+
+## Auditoría H · funcionalidad y flujo, 04/11/2026
+
+Dirección pidió auditar la aplicación entera, verificar la funcionalidad y
+corregir lo que apareciera. Primera pasada, con las diez fases en verde al
+empezar. **Tres hallazgos, los tres arreglados**, dos descartados por falsos y
+dos defectos del instrumento de medida.
+
+| Id | Qué | Estado |
+|---|---|---|
+| **H-18** | Tres documentos decían que **no se puede lanzar una campaña por WhatsApp**, y se puede desde D-WA. Faltaban además las pruebas del motor del canal | ✅ |
+| **H-19** | El paso 6 del asistente bloqueaba los pasos 7, 8 y 9 **en la demostración**, con una cifra pegada de otro escenario | ✅ |
+| **H-20** | «Activar campaña» apagado **sin decir por qué** a un lector de pantalla, y la sonda medía 1 de los 9 pasos | ✅ |
+
+### H-18 · el §9 al revés: el documento promete de menos
+
+`CLAUDE.md` afirmaba dos cosas contradictorias — que el canal está completo
+«campañas enteras incluidas» y que «el motor solo recorre `Canal::Correo`».
+Medido en las cuatro capas, la segunda es falsa desde el 26/10: la consulta de
+etapas **no filtra por canal** y nunca lo hizo, la fábrica monta el adaptador
+de Meta, y el motor arma su contenido con los valores de cada persona.
+
+**Es la primera vez en el proyecto que un documento promete de menos**, y el
+coste no es menor: la misma frase estaba en el manual que lee Dirección, así
+que una función construida, probada y pagada se quedaba sin usar porque el
+producto decía que no existía.
+
+Lo que faltaba de verdad era la red: las diecisiete pruebas de WhatsApp del
+taller miden el núcleo, el alta, la frontera y el adaptador —cada capa la
+suya— y **ninguna tocaba el motor**. Ya hay dos, y la primera manda a **dos**
+contactos a propósito: con uno no se ve que cada quien reciba sus datos, que
+es lo que D-WA vino a arreglar.
+
+### H-19 · un decorado que impide recorrer la demostración
+
+Las cifras del paso 6 estaban **pegadas** de otro escenario —1 303 días y
+386 046 sin enviar, que salen de los 451 196 contactos del banco—, así que con
+la audiencia del decorado la pantalla decía a la vez «esta campaña enviará 3
+correos» y «386 046 mensajes se quedarían sin enviar».
+
+Y como el paso 6 bloquea «Continuar» cuando el desenlace impide activar
+(8.6 E), **los pasos 7, 8 y 9 no se podían revisar**. Es el defecto de la 7.3
+otra vez. Ahora la estimación **se calcula** de la audiencia: una cifra
+derivada no se puede desalinear de aquello de lo que deriva.
+
+### H-20 · el botón más importante, mudo para un lector de pantalla
+
+El texto «Vuelve al paso 7» estaba desde D-04, **pintado y sin enlazar**. No lo
+cazó nada porque la sonda abre cada ruta y mide **el estado inicial**: en el
+asistente, el paso 1 de 9 —eran nueve entonces; R-28 los dejó en ocho el
+05/11—, con la ruta contada como pantalla medida. Es el
+defecto del 28/10 un nivel más abajo — allí faltaban rutas, aquí faltan
+estados dentro de una ruta.
+
+La sonda **recorre** ahora las pantallas con pasos, detectándolas por «Paso N
+de M» y no por una lista de rutas. Verificado quitando el `aria-describedby`:
+lo caza en las cuatro ventanas, nombrando el paso.
+
+### Lo que salió limpio
+
+**76 comandos y 108 argumentos**: lo que las pantallas mandan es exactamente lo
+que los comandos declaran, en las dos direcciones — y la auditoría G lo midió a
+mano el 22/10 **sin dejar comprobación**, así que llevaba dos semanas sin
+mirarse. Ningún comando sin llamador. La máquina de estados de una campaña, con
+sus trece pruebas y el estado comprobado dentro de la transacción que escribe.
+Los pasos 1 a 8 del asistente. Las tres sondas: 18 pantallas por cuatro
+ventanas, 1 980 textos, 147 paradas de tabulador.
+
+### Los dos hallazgos falsos, y los dos defectos del instrumento
+
+Descartados antes de anotarlos: que el simulador del motor no pudiera afirmar
+qué sale por WhatsApp (sí puede) y que el paso 6 no explicara su botón apagado
+(lo explica, con `aria-describedby`).
+
+Y el medidor de argumentos nació diciendo que `activar_campana` «no existe en
+Rust» y que ocho comandos no los llama nadie. Las dos falsas: no cubría
+`#[tauri::command(async)]` ni los atributos intermedios, y sólo veía llamadas
+con el nombre literal. Al corregirlo, los comandos pasaron de 74 a 76.
+
+**Tercera vez que el instrumento es el defecto** —la 8.5 medía un camino que el
+usuario no recorre, el 03/11 medía el orden en vez de la conexión—, y la
+conclusión se repite: antes de creerle a un instrumento nuevo hay que comprobar
+sus cifras contra algo que ya se sepa.
+
+---
+
+## R-33 · el manual con capturas, y lo que encontró mirarlas, 12/11/2026
+
+Dirección: *«me gustaría que el manual sea más gráfico, si es posible, agregar
+imágenes de las pantallas donde indiquen a dónde te debes dirigir y lo que
+debes capturar y colocar»*.
+
+**Estado: ✅ hecho.** Cuatro capturas anotadas en la guía de las dos altas, que
+pasa de siete a nueve páginas. Las toma `herramientas/capturas/tomar.mjs`.
+
+### La decisión que hace que esto no mienta
+
+**Las anotaciones se dibujan sobre el elemento de verdad**, localizado por su
+rol —un botón como botón, un campo por su etiqueta, igual que lo encontraría un
+lector de pantalla— y medido por Playwright. **Si no está, la herramienta
+falla** en vez de pintar un recuadro donde se supone que estaba.
+
+Es la diferencia entre una captura anotada y una ilustración: una flecha
+dibujada a mano sobre una imagen fija se queda apuntando al sitio equivocado y
+**nadie se entera**. Este proyecto ya tiene dos guías que mandaban pulsar
+botones que no existen (H-26, el mismo día).
+
+### H-27 · «Cómo se va a usar» aparecía dos veces seguidas
+
+**Lo encontró mirar la captura**, con las diez fases en verde. En el alta de un
+número de WhatsApp, el título del grupo y la etiqueta del desplegable que
+contiene eran **el mismo texto, uno encima del otro**.
+
+Es el defecto de «Con sus campañas · 3 campañas» del 06/10/2026, y lo habría
+repartido el PDF. La etiqueta dice ahora **«A quién va a escribir»**, que
+además explica lo que el campo decide.
+
+### Y tres defectos de la propia herramienta, los tres de mirar la imagen
+
+Ninguno lo habría visto una comprobación: una captura con un recuadro de más se
+genera igual de bien y pesa lo mismo.
+
+1. **Marcaba la etiqueta del campo y no el campo.**
+2. **El número tapaba la primera letra** del rótulo: «1Dirección». Ahora va
+   fuera, a la izquierda y centrado.
+3. **Dos capturas de la misma ruta salían con las anotaciones de la primera
+   pegadas encima de la segunda.** La vista previa es una SPA con rutas en el
+   hash, así que un `goto` a la misma ruta **no recarga nada**. Se abre una
+   página nueva por captura.
+
+El tercero es el más instructivo: el recuadro sobrante señalaba un hueco vacío
+donde antes hubo un botón, que es exactamente el tipo de error que una guía con
+capturas puede cometer y que nadie detecta leyendo el documento.
+
+### El poka-yoke, y por qué es éste
+
+`ninguna_imagen_de_una_guia_falta` en `--fase 2`: una imagen referenciada que
+no existe **no hace fallar nada** —el generador la salta, el PDF sale con una
+página menos y el pie describe lo que no se ve—. Es el defecto silencioso de
+siempre, el del token de diseño inventado.
+
+**El umbral se midió antes:** `documentacion/` referencia 23 imágenes y las 23
+existen. Verificada con dos rupturas, las dos en rojo.
+
+> **Lo que no vigila el validador, dicho en vez de darse por cubierto:** que
+> las capturas estén **al día** con la pantalla. Eso lo comprueba la propia
+> herramienta al regenerarlas —falla si un rótulo ya no está—, pero sólo si
+> alguien la corre. Meterla en el validador exigiría regenerar la vista previa
+> en cada fase, que son cuarenta segundos por una pregunta que sólo cambia
+> cuando se toca una pantalla.
+
+---
+
+## DOC-26 · el README llevaba tres semanas desfasado, y lo vio Dirección
+
+**12/11/2026.** Dirección preguntó por qué el README dice que la última
+modificación es del **22/10/2026**. Tenía razón, y había más de una fecha.
+
+> **Lo que decía la portada, y lo que hay.** Va en cita porque **este párrafo
+> repite las frases falsas para poder nombrarlas**, y una comprobación no
+> distingue una afirmación de su cita: en una fila de tabla, estas líneas
+> habrían hecho fallar a la red que este mismo hallazgo vino a arreglar. Es la
+> convención del proyecto y la caza su propio validador — me cazó a mí al
+> escribir esto.
+>
+> - La fecha del estado: **«Al 22/10/2026»**, con tres semanas de trabajo
+>   después.
+> - **«340 comprobaciones, 0 fallos y 0 omitidas (22/10/2026)»** — hoy son
+>   **383**, con 18 omitidas.
+> - El canal de WhatsApp, como **«manda mensajes de prueba, no campañas»** —
+>   manda campañas enteras desde D-WA, el 26/10/2026.
+> - La Fase 07 al **«92 %, falta sólo SPF/DKIM/DMARC»** — cerrada, la 7.5
+>   entró ese mismo día.
+> - **Seis cifras de validación por fase**, todas más bajas que las de hoy.
+> - Y en «lo que todavía no»: **una campaña entera por WhatsApp, «el motor
+>   sólo recorre el correo»** — falso desde el 26/10/2026.
+
+**Las dos últimas son el §9 al revés —prometer de menos— en el documento que
+más gente lee**, y la última es **exactamente la frase que la auditoría H
+declaró falsa el 04/11 y corrigió en siete documentos**. El README se quedó
+fuera de aquella corrección.
+
+### Por qué la red no lo cazó: tres razones a la vez
+
+`ningun_documento_niega_un_canal_que_el_motor_recorre` existe desde el 04/11
+para esto. Estuvo ocho días en verde sobre un README que decía la frase, y al
+romperlo aparecieron **tres** defectos encadenados — cada uno habría bastado:
+
+> 1. **El alcance.** Recorría sólo `documentacion/`. El README está en la
+>    raíz, así que nunca se miró. Es el mismo defecto que el día anterior dejó
+>    el archivo del flujo de entrega sin mirar: **la comprobación mide donde es
+>    cómodo, no donde está lo que el cliente lee.**
+> 2. **El patrón.** Cubría dos formas de la frase y no la tercera —la que
+>    lleva «el» delante de «correo»—, que es justo como lo decía el README.
+> 3. **La medición línea a línea.** La frase iba partida en dos renglones
+>    porque este proyecto escribe a 80 columnas, así que ninguna mitad casaba.
+>    Es el mismo defecto que el día anterior dejó pasar la cifra de pasos del
+>    asistente.
+>
+> (Los tres van en cita por lo mismo que el bloque de arriba: nombrar la frase
+> falsa con precisión la convierte en una afirmación a ojos del patrón.)
+
+**Las tres salieron de romperlo, una tras otra**, y las dos primeras veces la
+ruptura salió en verde. La conclusión del 28/10 se cumple por tercera vez en
+tres días: *una ruptura en verde significa dos cosas, y pueden ser varias a la
+vez.*
+
+Ahora el alcance sale de `documentos_que_afirman()` —`documentacion/` más los
+Markdown de la raíz, con los informes `-PARA-DIRECCION` fuera por fechados— y
+se mide **por párrafos**, porque en Markdown la unidad de sentido es el párrafo
+y no la línea. El umbral se midió antes de ampliar: los tres documentos de la
+raíz dan **cero** hallazgos.
+
+> **Lo que esto no arregla, dicho en vez de darse por cubierto:** que las
+> **cifras** del README estén al día. Las de validación por fase y el total se
+> siguen escribiendo a mano, y lo que las vio desfasadas fue que Dirección
+> mirara la portada. Medirlas exigiría correr las diez fases dentro del
+> validador —que es lo que las produce—, y eso es una comprobación que tarda
+> ocho minutos en contestar lo que ya se sabe al correrlas. Queda la fecha, que
+> sí se puede comparar, y no está hecho.
+
+---
+
+## R-32 · la guía de las dos altas, y dos botones que no existían, 12/11/2026
+
+Dirección pidió *«un PDF con las instrucciones detalladas y exactas para poder
+dar de alta un correo y un número de WhatsApp, para una persona que es la
+primera vez que usa ARLES»*.
+
+**Estado: ✅ hecho.**
+[`DAR-DE-ALTA-CORREO-Y-WHATSAPP.md`](../07-entrega/DAR-DE-ALTA-CORREO-Y-WHATSAPP.md)
+y su PDF de siete páginas, generado con la herramienta del proyecto.
+
+### H-26 · la guía de WhatsApp mandaba pulsar dos botones que no existen
+
+**Lo encontró sacar los rótulos del código en vez de copiarlos de la guía**,
+que era justo lo que la petición exigía al decir «exactas».
+
+| La guía decía | El botón se llama |
+|---|---|
+| «Conectar un número» | **«Añadir número»** |
+| «Enviar un WhatsApp de prueba» | **«Mandar un WhatsApp de prueba»** |
+
+En una guía de primer uso esto no es un matiz: alguien que no conoce la
+pantalla **busca un botón que no está** y se para ahí. Es el mismo daño que un
+mensaje de error con el diagnóstico equivocado (DOC-14) — manda a hacer algo.
+
+### Y la comprobación que NO se escribió, con la cifra que lo decide
+
+La red obvia sería: *todo rótulo que una guía manda pulsar tiene que existir en
+los textos del producto*. **Se midió antes de escribirla, tres veces, y no se
+puede sin hallazgos falsos:**
+
+| Alcance medido | Rótulos | No están en `es.ts` | Veredicto |
+|---|---|---|---|
+| Todo `**«…»**` en `07-entrega/` | 79 | **22** | Casi todos legítimos: botones de Meta, Windows, Google |
+| Sólo si la frase nombra ARLES | 16 | **6** | Frases con variables, un botón de Gmail, explicaciones entrecomilladas |
+| Sólo tras «pulsa», sin contexto ajeno | 15 | **1** | Y ese uno es **falso**: «Agregar número de teléfono» es del panel de Meta |
+
+**El tercer intento además excluyó dos botones que sí son de ARLES** —«Buscar
+mis números» y «Mandar un WhatsApp de prueba»— porque la frase cercana nombra a
+Meta. Falla en las dos direcciones.
+
+**La conclusión medida: lo que distingue un botón de ARLES de uno de Meta no
+está en la prosa**, así que cualquier patrón de texto nace con falsos o con
+huecos, y una red con un 37 % de falsos se aprende a ignorar. Se dice en vez de
+darse por cubierto, que es lo que este proyecto hace cuando el umbral no sale.
+
+Lo que queda en su lugar es una convención con su motivo escrito: **los rótulos
+de una guía se copian de `es.ts` y no de otra guía**, que es exactamente lo que
+propagó los dos de arriba.
+
+### DOC-25 · «reportlab no se puede instalar aquí» era un diagnóstico mío, y era falso
+
+La auditoría I declaró el 11/11 que el PDF de la consulta jurídica se quedaba
+atrás porque este contenedor no podía instalar `reportlab`. **Se podía.** Lo que
+estaba roto era **`pillow`**, que reportlab importa al arrancar, y su error
+—`cannot import name '_imaging' from 'PIL'`— **no nombra a reportlab por
+ninguna parte**.
+
+Un `pip install --force-reinstall pillow` lo arregló en un minuto, y con eso se
+regeneró el PDF jurídico, que llevaba un día repartiendo una versión sin la
+C-19.
+
+**Es DOC-14 aplicado a un diagnóstico propio:** un motivo equivocado se cree
+igual que uno correcto, y éste costó un entregable desfasado por no leer el
+error entero. La salida está en la guía del equipo, con el síntoma literal.
+
+---
+
+## R-31 · la baja por WhatsApp se aplica sola, 12/11/2026
+
+Petición de Dirección: *«también estuvimos trabajando para que la baja en
+whatsapp sea automatica tambien, eso hay que solucionarlo»*.
+
+**Estado: ✅ hecho, con su alcance declarado.** Está contado en
+[`ESTADO_ACTUAL.md`](../07-entrega/ESTADO_ACTUAL.md) §20.
+
+### Lo que se construyó, y lo poco que era
+
+| Lo que ya había | Desde |
+|---|---|
+| `Fallo::EsaPersonaPidioLaBaja` en el núcleo | Fase 4 |
+| El motor suprimiendo al recibirlo | Fase 4 |
+| El traductor de los códigos de Meta | Canal W |
+| El verificador de avisos firmados de Meta | 29/09/2026 |
+
+**Lo que faltaba era la señal, y llegaba sin que nadie la leyera.** WhatsApp
+ofrece a quien recibe un mensaje de empresa un control para dejar de recibir
+promociones; Meta no avisa cuando alguien lo usa —eso sería un webhook— pero
+**contesta `131050` al siguiente envío**. Hasta hoy ese código caía en el cajón
+de lo desconocido: tres reintentos, rendirse, y **la persona seguía en la
+lista**.
+
+Verificado en la documentación de Meta antes de construir nada, que es la
+lección de DOC-23: *«Recipient stopped receiving marketing messages from your
+business. Don't retry.»*
+
+### H-25 · el origen de una baja decía el canal equivocado
+
+**Un defecto que ya estaba, encontrado al llegar aquí.** El motor escribía el
+origen **fijo** en `smtp_5xx` en los dos sitios donde suprime, así que desde
+D-WA (26/10/2026) una baja de un número de móvil se guardaba diciendo que la
+había dicho un servidor de correo.
+
+Nada fallaba y la protección funcionaba. Lo que quedaba mal era **justo aquello
+para lo que existe el campo**: el origen está separado del motivo precisamente
+para poder defender de dónde salió cada baja.
+
+Arreglado con dos funciones del núcleo sin `_ =>`, para que un canal nuevo no
+compile en vez de heredar el del correo. Lo vigila
+`el_origen_de_una_baja_sale_del_canal` en `--fase 1`, que prohíbe **cualquier**
+variante fija y no sólo la del correo — porque el arreglo ingenuo, fijar la de
+WhatsApp, rompería el correo y habría pasado en verde. Tres rupturas, las tres
+en rojo.
+
+### Lo que no cubre, declarado
+
+| Qué | Por qué |
+|---|---|
+| Leer un «BAJA» **escrito** por WhatsApp | Sólo llega por webhook. Sigue necesitando el relay ciego (29/09/2026) |
+| Enterarse en el momento | En el correo ARLES mira el buzón cada 15 min; en WhatsApp sólo se entera **al intentar mandar**, porque no hay buzón que mirar |
+| Quien **bloquea** el número | Meta no da código para eso en el rango 131xxx. El más parecido, `130403`, significa lo contrario |
+
+> **Y una costura del diseño medida y no arreglada:** el motor consulta la salud
+> del remitente en `email_account` **también en WhatsApp**, porque el disyuntor
+> vive en esa tabla desde la Fase 4. Funciona, pero obliga a que una etapa de
+> WhatsApp tenga una cuenta de correo detrás. Arreglarlo es una migración y no
+> estaba en lo pedido.
+
+---
+
+## Auditoría I · qué obtiene quien clona el repositorio, 11/11/2026
+
+Dirección pidió, antes de generar el instalador: *«Audita el programa, necesito
+que toda la documentación y el repositorio de GitHub esté actualizado, para que
+todo el equipo de desarrollo pueda descargar el repositorio, se descarguen las
+librerías y todo lo necesario para poder correr el `.exe` de ARLES, y que puedan
+generar el `.exe` desde su Visual Studio Code y correr el programa»*.
+
+Las nueve auditorías anteriores miden **el producto**. Ésta mide otra cosa: **si
+un clon del repositorio se convierte en la aplicación.** Y no se puede auditar
+leyendo — se hizo clonando de verdad en una carpeta vacía y siguiendo la guía
+desde cero, como alguien que llega hoy.
+
+**Diez hallazgos. Siete arreglados, uno informativo, uno declarado y uno que
+es una decisión de Dirección.**
+
+| Id | Qué | Estado |
+|---|---|---|
+| **I-1** | **La rama por defecto no da la aplicación.** `main` está en el commit del 31/08/2026 y tiene 111 archivos: sólo material de referencia, **cero código** | ⬜ **decisión de Dirección** · choca con D-20 |
+| **I-2** | No había `rust-toolchain.toml`: cada quien compilaba con el Rust que tuviera, y el §6 exige clippy con cero advertencias | ✅ |
+| **I-3** | No había `.nvmrc` ni `engines`, y la guía decía «**Node 20 o superior**» cuando vite 7 no admite Node 21 | ✅ |
+| **I-4** | No había `.vscode/`: ni extensiones recomendadas ni tareas, y Dirección pidió expresamente que se pudiera desde VS Code | ✅ |
+| **I-5** | **El `package.json` de `herramientas/plantilla-docx` estaba en el `.gitignore`**, así que quien clonara no tenía la dependencia ni forma de saber cuál era | ✅ |
+| **I-6** | No había `requirements.txt`: nada decía qué instalar para generar los PDF de los informes | ✅ |
+| **I-7** | `cargo deny` lo exige el §6 antes de añadir dependencias y **no estaba documentado cómo instalarlo** | ✅ |
+| **I-8** | `npm install` avisa de **17 vulnerabilidades**, y ninguna viaja en el producto. Sin decirlo, el equipo nuevo las persigue o las «arregla» | ✅ informativo |
+| **I-9** | **El `.docx` entregable no se reproduce byte a byte** desde el repositorio: regenerarlo con la versión que ahora está fijada da 13 297 bytes donde el de septiembre tiene 12 286 | ⬜ declarado, sin impacto medido |
+| **I-10** | **Las notas que acompañan al instalador negaban dos funciones construidas** y decían «el asistente de nueve pasos», con ocho | ✅ |
+
+### I-10 · las notas del instalador, que es el único documento que el cliente lee seguro
+
+**Lo encontró intentar entregar**, no una auditoría: antes de publicar la
+descarga para el supervisor de Dirección, leer sus notas. Decían tres cosas
+falsas, y las dos primeras son el **§9 al revés** — prometer de menos:
+
+| Qué decía | Lo que hay |
+|---|---|
+| «**Atender un BAJA automáticamente**, en ningún canal. Se apunta a mano en Contactos › Bajas» | Por correo **se aplica solo cada 15 minutos** desde R-30 (11/11). En WhatsApp sigue siendo verdad |
+| «**Filtrar la audiencia de una campaña**… lo que una campaña se lleva sigue siendo la lista entera» | Desde R-27 (05/11) se eligen contactos marcándolos. Lo que no hay es un buscador **dentro** del paso 2 |
+| «el asistente de **nueve** pasos» | **Ocho** desde R-28 (05/11) |
+
+Lo grave no es la cifra: es que **la función estrella de la semana estaba
+declarada como inexistente** en el único documento que el lector de la descarga
+tiene delante. Una función construida, probada y pagada que el producto dice
+que no existe es el H-18 otra vez, y aquí con el agravante de que lo iba a leer
+alguien de fuera del equipo.
+
+**Y la cifra de los pasos estaba escrita a mano en ocho sitios más.** R-28
+cambió el código el 05/11 y arregló los textos que la pantalla enseña —ésos los
+vigila una prueba—; seis días después seguían diciendo nueve el **README** (la
+portada del repositorio), el **`CLAUDE.md`**, el **`MAPA-FUNCIONAL.md`** dos
+veces, un documento de entrega, el ROADMAP, una cabecera de componente y cuatro
+comentarios del propio asistente.
+
+Lo vigila `nadie_escribe_a_mano_cuantos_pasos_tiene_el_asistente` en `--fase 3`,
+que lee la cifra de `PASOS` en el componente y no de una lista. Las dos
+excepciones son **estructurales y medidas**: una frase que nombra las dos cifras
+narra el cambio, y los documentos históricos por diseño —las fases, el CHANGELOG
+y la bitácora— llevan su fecha y no se reescriben, que es el mismo criterio que
+deja fuera a los informes `-PARA-DIRECCION`. Sin ellas nacía con nueve hallazgos
+falsos.
+
+> **Y la comprobación nació con dos defectos propios, los dos en la misma
+> ruptura.** La tercera —cambiar la cifra en las notas del instalador— salió
+> **en verde**, y resultó que por dos razones a la vez:
+>
+> 1. **Medía línea a línea**, y aquí el YAML y el Markdown van a 80 columnas:
+>    la frase iba partida —«con el asistente» / «de ocho pasos»—, así que ni la
+>    palabra ni la cifra caían en la misma línea. Al medir sobre el texto
+>    aplanado apareció **un hallazgo más** que no se había visto a mano.
+> 2. **Y el archivo del flujo no se leía**, porque el filtro de carpetas
+>    excluía por subcadena y `".git" in ".github/workflows"` es verdadero. La
+>    comprobación pasaba en verde **sin mirar lo que existía para vigilar**.
+>
+> El segundo no lo encontró la ruptura: lo encontró imprimir el aplanado del
+> archivo y ver que el patrón **sí** casaba. Es la lección del 28/10 doblada —
+> *una ruptura en verde significa dos cosas, y pueden ser las dos a la vez*— y
+> deducir habría dado la respuesta equivocada las dos veces.
+
+> **El primer intento de poka-yoke era otro y se descartó midiéndolo.** La idea
+> obvia era «ningún documento dice que la baja se apunta a mano»: el patrón da
+> **nueve apariciones y ocho son legítimas**, porque hablan de WhatsApp —donde
+> seguirá siendo verdad hasta el relay ciego— o describen el origen de una baja
+> frente a la que llega sola. Una comprobación que nace con ocho hallazgos
+> falsos de nueve no es una red: es ruido que se aprende a ignorar. Lo
+> verificable era la **cifra contra su fuente**, y es lo que se escribió.
+
+### Lo que salió bien, y es la mitad del valor
+
+**Un clon limpio de la rama de trabajo compila de punta a punta.** Medido:
+**654 archivos**, **6 minutos 37 segundos** desde cero, y un ejecutable de
+**22 083 648 bytes** con **siete** apariciones de `index.html` dentro — que es
+la prueba de que la interfaz viaja embebida y no se va a buscar a localhost
+(el defecto del 08/10/2026).
+
+También salió limpio lo que más podía doler: los cuatro lockfiles están
+versionados, `Cargo.lock` incluido, y ninguna dependencia del producto tiene
+aviso de seguridad.
+
+### I-1 · la rama por defecto, que es la única que no se arregla programando
+
+**Clonar `AdrianPazG/ARLES` y compilar no da ARLES: da la versión de agosto.**
+`main` se quedó en el commit del 31/08/2026 por decisión de Dirección del
+04/11/2026 (**D-20**), con **285 commits** de diferencia medidos ese día. Lo que
+hay allí son las cinco carpetas de referencia y la documentación de entonces:
+ni un crate, ni el frontend.
+
+Esto no es un defecto del repositorio —es una decisión tomada a propósito— pero
+sí es lo único que impide cumplir literalmente lo que Dirección pidió, porque
+«descargar el repositorio» quiere decir, para cualquiera que llegue,
+`git clone` y compilar.
+
+**La defensa que se puso mientras se decide** es que la guía lo diga en su
+primera pantalla, antes del `git clone`, con la consecuencia escrita: sin el
+`git checkout` de la rama de trabajo, **lo que se compila no es el producto**.
+
+### I-9 · el entregable que no se reproduce, y por qué se queda declarado
+
+Apareció al verificar I-5: con el `package.json` ya versionado, se corrió la
+herramienta para comprobar que un clon puede generar el `.docx` — y **generó
+uno distinto**. 13 297 bytes contra los 12 286 que hay en el repositorio desde
+el 15/09/2026.
+
+**Lo primero era descartar la explicación cómoda**, que sería que la fuente ha
+cambiado: `PLANTILLA-WINDOWS.md` **no se ha tocado desde el mismo commit** que
+generó el `.docx`. Así que esos mil bytes no son contenido.
+
+Y midiendo los dos por dentro, no son nada:
+
+| | El de septiembre | El de hoy |
+|---|---|---|
+| Texto | **3 491 caracteres** | **3 491 caracteres** |
+| `word/comments.xml` | está, con **cero comentarios** dentro | no está |
+| `word/theme/` | no está | está |
+
+**El texto es idéntico y no se pierde nada.** Lo que cambia es la fontanería de
+la biblioteca: el de septiembre se generó con una versión distinta de la que el
+`package.json` fija ahora —`docx` 9.15.3—, y esa versión escribía un
+`comments.xml` vacío donde ésta escribe un tema.
+
+**Así que el binario regenerado no entra en el commit**: habría sido un
+artefacto cambiado por su herramienta y no por su contenido, y eso ensucia el
+historial sin añadir nada. Queda declarado porque es verdad y porque alguien
+que regenere el documento va a ver la misma diferencia y va a preguntarse si
+rompió algo.
+
+> **Lo que no se hizo, y por qué.** No se ha escrito una comprobación: exigir
+> que un `.docx` sea idéntico byte a byte obligaría a fijar la versión de la
+> biblioteca **y** a que nadie regenere nunca el documento con otra, y lo que
+> el entregable tiene que cumplir es decir lo mismo, no pesar lo mismo. La
+> comparación que de verdad vale es la del texto, y se ha hecho a mano hoy.
+
+### Lo que esta auditoría enseña del método
+
+**Siete de los nueve hallazgos son cosas que no existían o que no se ven desde
+dentro, no cosas mal hechas.**
+Y ninguno lo podía encontrar una prueba, una sonda ni el validador, por la misma
+razón: todos se verifican **dentro** de un árbol que ya tiene todo instalado y
+configurado desde hace meses. El contenedor donde se escribe el código tiene
+Rust, Node y las dependencias desde la Fase 0 — así que lo que falta en el
+repositorio es justo lo que aquí no se nota.
+
+Es el patrón del §9 con una cara nueva: **la junta entre el repositorio y el
+equipo que lo clona.** Las piezas estaban todas correctas; lo que no estaba era
+lo que hace falta para montarlas en otra máquina.
+
+Lo vigila `el_entorno_de_desarrollo_es_el_mismo_para_todos` en `--fase 1`, con
+siete medidas. La que de verdad vigila algo es la tercera, porque las otras seis
+son existencia y ésa es **coherencia**: que el `.nvmrc` cumpla el `engines.node`
+del `package.json`, que son dos archivos diciendo lo mismo en sitios distintos.
+Verificada con siete rupturas y un contraejemplo.
+
+> **Y la séptima ruptura salió en verde a la primera.** No porque la medida no
+> sirviera: porque el `sed` buscaba `^import os$` en un archivo que importa
+> `argparse` y no `os`, así que **no cambió una línea**. Es la lección del
+> 28/10/2026 —*una ruptura en verde significa dos cosas, y se distinguen
+> mirando el archivo, no deduciendo*— y lo fácil habría sido quitar la medida
+> por inútil.
+
+> **Dos afirmaciones mías en la guía nueva eran falsas y las cazó medirlas antes
+> de darlas por buenas.** Escribí que `npm audit fix --force` «sube vite de
+> versión mayor»: sube **vitest** de 3.2.7 a 5.1.0 y **vue-tsc** a 3.3.14, que
+> son el corredor de las 325 pruebas y el comprobador de tipos del §6 — mejor
+> argumento que el que me inventé, y el de verdad. Y escribí que las dos
+> extensiones de Rust juntas «dan dos juegos de errores, la mitad inventados»,
+> que no lo he probado: ahora está escrito como precaución y no como medición.
+
+---
+
+## Fallos que ya costaron datos
+
+Se guardan porque **cada uno ha vuelto**, y la defensa que funcionó es la misma
+las tres veces: leer la cascada del esquema y contarla, no tocarla.
+
+| Id | Qué pasó | Veces |
+|---|---|---|
+| **F1** | Un `DROP TABLE` de una tabla padre se llevó en cascada la audiencia congelada y el registro de envíos | 3 — Fase 1, restaurar un esencial (8.3a), archivar el historial (8.3 bis) |
+| **F2** | Perder la entrada del llavero y crear una clave nueva al arrancar deja la base **ilegible para siempre** | 2 — Fase 1, y la recuperación de la 8.4 que escribía la clave antes de leer el respaldo |
+
+---
+
+## Documentos que afirmaban de más
+
+El patrón número 4 de [`RELEVO.md`](../00-ANTES-DE-EMPEZAR/RELEVO.md), y el más
+barato de cometer: **un documento no falla, se cree.** Se anotan aquí porque un
+documento equivocado cuesta trabajo rehecho igual que un defecto, y porque la
+defensa que funciona es siempre la misma — una comprobación que lee el código,
+no una relectura con buena voluntad.
+
+| Id | Qué decía | Lo que había | Cerrado |
+|---|---|---|---|
+| **DOC-1** | `DESIGN_SYSTEM.md`: «la barra lateral es fija, **no colapsable**» | Se plega, con el umbral medido por `sonda:plegado` | ✅ 27/10/2026 |
+| **DOC-2** | `DESIGN_SYSTEM.md`: la altura de fila es «**preferencia del usuario**» | Es una opción de cada tabla; esa pantalla no existe | ✅ 27/10/2026 |
+| **DOC-3** | `DESIGN_SYSTEM.md`: el anillo de foco usa el oro de relleno | Usa la tinta de acento. En tema claro, el relleno daría **1.32:1** | ✅ 27/10/2026 |
+| **DOC-4** | `DESIGN_SYSTEM.md`: los iconos vienen de «**Lucide (ISC)**» | 24 trazos propios. No es una dependencia del proyecto | ✅ 27/10/2026 |
+| **DOC-5** | `DESIGN_SYSTEM.md`: «**cada** insignia lleva icono además del color» | El tono neutro no lo lleva, a propósito desde el 29/09/2026 | ✅ 27/10/2026 |
+| **DOC-6** | `THREAT_MODEL.md` §8 pedía «la capa de redacción de `tracing`» | El proyecto no usa `tracing` | ✅ 06/10/2026 · auditoría B |
+| **DOC-7** | `PRESUPUESTO_RENDIMIENTO.md` §3 describía una arquitectura con Tokio | No hay Tokio; la conexión es un `Mutex<Connection>` | ✅ 07/10/2026 · auditoría C |
+| **DOC-8** | El `ROADMAP` ponía los derechos ARCO en la Fase 8 | Construidos desde la 3.4. La auditoría B perdió tiempo buscándolos | ✅ 07/10/2026 |
+| **DOC-9** | `CLAUDE.md` §1 bis: «Todo documento nuevo se nombra en `00-INDICE.md`: **lo vigila la fase 0**» | No lo vigilaba nadie. La fase 0 tenía una lista de catorce documentos esperados y comprobaba que existieran; la dirección contraria no la miraba nada | ✅ 28/10/2026 · ahora la vigila `todo_documento_esta_en_el_indice` |
+| **DOC-10** | Esta misma tabla: P-01 era «**lo único entre ARLES y el `.exe`**», y los bloqueos eran «los cuatro» | Son cinco. Faltaban los **dos trámites de firma**, declarados en `DISTRIBUCION_Y_FIRMA.md` §1 desde la Fase 0 como plazos externos que arrancan en la Fase 1, y ausentes de las **tres** listas de bloqueos del proyecto | ✅ 28/10/2026 · ahora los cuenta `los_bloqueos_se_cuentan_en_un_solo_sitio` |
+| **DOC-11** | `avance.json`: **89 % a 2026-10-22**, con F3W al 55 %, F5 al 70 % y F7 al 92 % | Doce tramos cerrados después de esa fecha —la 7.5 entera y D-WA entera— dejaban las tres fichas describiendo un estado que ya no existía. F7 decía «falta sólo la 7.5» con la 7.5 construida. Recalculado: **95 %** | ✅ 28/10/2026 |
+| **DOC-12** | `ADR-0002`: la base «vive en un hilo dedicado que recibe peticiones por canal», y «los lectores usan conexiones separadas» | Ni una cosa ni la otra. Cero `thread::spawn` y cero `mpsc` en `arles-db`, y **una sola** `Connection::open`: lo que hay es un `Mutex<Connection>`. Su decisión tecnológica sí está construida y es correcta; lo que no se construyó es una **mitigación** de sus consecuencias negativas | ✅ 28/10/2026 · acotado por [ADR-0015](../03-arquitectura/adr/0015-un-escritor-y-lectores-separados.md) |
+| **DOC-13** | `actividad.rs` desde la 7.4, y la auditoría C repitiéndolo el 07/10: «si algún día hiciera falta más, **la respuesta es FTS5**» | Se construyó y es **18 veces más lento** (21 556 ms contra 1 257). Ningún índice sirve para este filtro, y el tiempo está en contar el total, no en buscar. Es el peor sitio donde dejar una recomendación sin medir: un comentario del código, que el siguiente lee como una decisión tomada | ✅ 02/11/2026 · la cabecera del módulo lleva ahora las nueve cifras, y el banco repite la comparación |
+| **DOC-14** | `ESTADO_ACTUAL.md` §10 punto 3 y `RELEVO.md`: «el mensaje de **fallo al migrar** no cumple el §95, manda a cerrar y reabrir, y no dice dónde vive la base» | El del arranque se arregló el **14/10/2026** y cumple el §95 con la ruta dentro. Los dos documentos lo siguieron pidiendo tres semanas, y el registro de tropiezos sí tenía el arreglo escrito. El hallazgo de verdad estaba en otro sitio y era peor (H-14): **lo tapó una descripción desfasada que sonaba a lo mismo** | ✅ 03/11/2026 |
+
+| **DOC-15** | `conexion.rs` desde el 28/10/2026: las cascadas de borrado son seguras con dos conexiones «porque la cascada necesita *triggers* recursivos y aquí están activados» | **No están activados**, y la cascada salta igual: `PRAGMA recursive_triggers` no se toca en ninguna línea del proyecto, y un borrado en cascada se midió disparando su `AFTER DELETE`. La garantía es cierta; el mecanismo con que se explicaba, no. Lo que de verdad depende de ese ajuste es `INSERT OR REPLACE`, del que hay **cero** | ✅ 03/11/2026 · el comentario explica ahora el mecanismo medido |
+| **DOC-16** | La auditoría C y `ESTADO_ACTUAL.md` §10 punto 1: «**sacar la activación de campañas al hilo del motor**» | Mover el trabajo de hilo **no suelta el cerrojo de escritura**: lo tomaría el hilo del motor en vez del del comando. Medido con una escritura de 800 ms en curso: por la conexión de lectura **0 ms**, por la de escritura **650**. Lo que descongela las pantallas es terminar ADR-0015, y es lo que se hizo — 17 de 24 lecturas movidas. Segunda recomendación de auditoría en dos días que se cae al medirla (la otra es DOC-13) | ✅ 03/11/2026 · lo vigila `toda_lectura_de_pantalla_va_por_su_conexion` |
+| **DOC-17** | `MAPA-DE-PANTALLAS.md`: «**las trece pantallas**», y «**Actividad es andamio** hasta su fase» | Son dieciocho desde la Fase 8, y Actividad la construyó la 7.3 el 30/09/2026 llevándose `PantallaPendiente.vue`. Faltaban el Registro, Respaldos, Restaurar, Archivar y Recuperar — **las cuatro últimas son todo lo que construyó la Fase 8**. Es el defecto de las sondas del 28/10 en el documento que se lee **para cambiar el diseño** | ✅ 03/11/2026 · lo vigila `el_mapa_de_pantallas_nombra_todas_las_pantallas` |
+| **DOC-18** | **Mío, el 03/11/2026 por la tarde**: «la conexión de lectura es 12× más lenta recorriendo una tabla», y con eso que el filtro del registro costaba **catorce segundos** y no 1 251 | **No se reproduce.** Cinco corridas del mismo experimento dieron el signo en los dos sentidos, y cambió al añadir dos `count(*)` que no debían influir: lo que domina es la caché del contenedor. Las dos conclusiones se deshicieron el mismo día —las lecturas vuelven a la lectora y la cifra de C-2 se mantiene—. Es el único DOC que escribí yo y retiré yo, y el más instructivo: **cada corrida era limpia por dentro; sólo compararlas entre sí la delató** | ✅ 03/11/2026 · retirada, con las cinco corridas en `PRESUPUESTO_RENDIMIENTO.md` §8 |
+| **DOC-19** | La plantilla de las notas del instalador (`entrega-de-prueba.yml`): «Las dieciocho pantallas, y ARLES manda de verdad. **Al 29/10/2026**, con las diez fases del validador en verde» | La versión del **04/11/2026** se publicó con esa frase y cinco días de trabajo dentro: el filtro de contactos, el del registro, restaurar un respaldo de una versión anterior y la auditoría H. **Segunda vez en seis días** —el 29/10 se arreglaron tres frases de esta misma nota, a mano y sin dejar red—, y la fecha estaba a mano **en la plantilla**, así que no se desfasaba una vez sino en cada publicación. Es lo primero que lee quien descarga el `.exe` | ✅ 04/11/2026 · la fecha y el commit salen de `git log -1`, y lo vigilan dos comprobaciones en `--fase 1` |
+| **DOC-20** | El encabezado de `entrega-de-prueba.yml`: el flujo sólo se puede lanzar con una etiqueta mientras viva en una rama de desarrollo, porque GitHub no enseña el botón «Run workflow» | Lo del botón es cierto; la conclusión no. El mismo `workflow_dispatch` **pedido por la API**, con `ref` en la rama de trabajo, construyó la versión del 04/11 — ejecución 14, `head_branch` = `claude/loving-faraday-5chmmy`. Leer sólo esa frase hace creer que **hay que fusionar a `main` para construir un instalador** | ✅ 04/11/2026 · el encabezado lleva ahora la tercera forma, con la ejecución que la midió |
+| **DOC-21** | `ESTADO_ACTUAL.md` §10: «el avance está al **95 % a 2026-10-28**, y ese 5 % restante es exactamente el peso de la Fase 9» | **99 % a 2026-11-04**, y el README lo decía desde la portada del repositorio: seis días de trabajo cerrados en medio. La comprobación que ya existía compara el README con `avance.json` —las dos fuentes del §1 bis— y **este documento no entraba en esa comparación**. Es el documento por el que empieza quien retoma el trabajo, y ya había hecho esto con la 7.5 | ✅ 04/11/2026 · lo vigila `el_estado_cita_el_avance_que_hay`, verificada con tres rupturas |
+| **DOC-22** | `CLAUDE.md`, en la tabla de la ronda de Dirección del 13 y 14/10: H-03 «No se pudo dar de alta una cuenta de Gmail» marcado como **«faltan tres datos de Dirección»** | **Esta tabla lo da por cerrado por R-01 desde el 14/10/2026**, así que los dos documentos llevaban **veintiún días** diciendo cosas contrarias del mismo hallazgo. Lo encontró una pregunta de Dirección —«¿en funcionalidad estamos completos?»— que obligó a mirar la lista en vez de recordarla, igual que con los bloqueos el 28/10: **lo que ve falsa una lista es usarla para algo** | ✅ 04/11/2026 · lo vigila `ningun_hallazgo_esta_abierto_y_cerrado_a_la_vez` |
+| **DOC-23** | `smtp.rs` desde el 19/10/2026, sobre la cabecera `List-Unsubscribe`: un correo comercial sin ella «entra con una **penalización de salida**, y ninguna otra cosa que hagamos la compensa», y el `mailto` «es válido y **cuenta**» | **Google no publica lo primero** — al verificarlo no apareció en ninguna de sus páginas—, y de lo segundo dice lo contrario con esas palabras: seguirá soportando los `mailto`, pero **no cumplen** su requisito de baja de un clic. Dos cosas que faltaban: ese requisito es para quien manda unos **5 000 diarios** a Gmail, y ARLES manda 50 a 300; y **el botón no está garantizado**, Google lo enseña sólo a los correos que pasan sus comprobaciones. Lo encontró ir a verificar el dato antes de construir sobre él, no una relectura | ✅ 10/11/2026 · el comentario lleva ahora las dos mitades de lo que Google dice, y por qué la frase del cuerpo no es redundante |
+| **DOC-24** | `solo_produccion` en el validador, desde el 04/11/2026: corta en el primer `#[cfg(test)]` «que en este proyecto es **siempre** lo último del archivo», y la convención «la comprueba el propio corte — si alguien pusiera código detrás, dejaría de verse y la comprobación saldría en rojo, no en verde falso» | **Las dos frases eran falsas.** Cuatro archivos declaran algo de prueba en medio, y detrás del corte quedaban **22 declaraciones de producción invisibles** — en `arles-app/src/lib.rs`, siete módulos enteros, porque `mod presupuesto_del_respaldo` va marcado de prueba y el orden es alfabético. Y el daño **no es simétrico**: una comprobación que pregunta *si algo está* falla y se nota; una que pregunta *si algo NO está* —ningún comando devuelve una contraseña, el lector del buzón no sabe escribir— sale en **verde** sobre el código que no ve. Una red que falla al lado inseguro justo en las garantías de seguridad. Lo encontró una comprobación nueva saliendo **en rojo sobre código correcto** | ✅ 11/11/2026 · ya no corta: quita cada ítem marcado, esté donde esté, contando llaves. Lo vigila `solo_produccion_no_se_deja_nada_detras`, que se escribe sus propios casos en vez de medir sobre los archivos de hoy |
+
+**Las cinco primeras llevaban ahí desde la Fase 2** y ninguna de las cuatro
+auditorías del §140 las vio, porque una auditoría mide el producto y esto es un
+documento. Las caza ahora `el_sistema_de_diseno_dice_lo_que_hay` en
+`validar.py --fase 2`, que compara el documento con los dos CSS y con la carpeta
+de componentes, en las dos direcciones.
+
+**DOC-6 y DOC-7 son el mismo defecto a una pasada de distancia:** dos documentos
+de la Fase 0 nombrando bibliotecas que nunca se adoptaron. No tienen todavía
+ninguna comprobación que los vigile, y está dicho así en vez de darlos por
+seguros.
+
+> **DOC-9 es el que más duele de los nueve, y conviene ver por qué.** Los otros
+> ocho dicen algo falso sobre el producto. Éste decía falsamente que **había una
+> red**, y una red que se cree es una red que hace dejar de mirar: quien leyera
+> esa frase daría por comprobado algo que nadie comprobaba.
+>
+> Medido el día que se escribió la comprobación: **114 de 115 documentos** sí
+> estaban en el índice. La regla se venía cumpliendo a mano, así que el hueco no
+> se notaba — y un hueco que no se nota es el que un día se cuela.
+
+> **DOC-10 y DOC-11 son los dos únicos de la lista que afirman de más sobre el
+> propio estado del proyecto**, y por eso son los que más caro salen: no mandan
+> a buscar una función que no existe, mandan a no buscar algo que falta. DOC-11
+> dejaba la portada del repositorio diciendo **89 %** con el 95 % construido,
+> que es el error en la dirección cómoda de ver y la incómoda de cometer —
+> presenta menos trabajo hecho del que hay—; DOC-10 dejaba fuera de la lista de
+> bloqueos **dos plazos de semanas** que nadie estaba esperando.
+>
+> **Los dos los encontró contestar una pregunta de Dirección**, no una
+> auditoría: «qué sigue en el roadmap y qué falta para una beta». Las cinco
+> auditorías corridas en este proyecto miden el producto; para que un documento
+> de estado se vea falso hay que ir a usarlo para algo.
+
+> **DOC-12 es el tercero que nombra algo que nunca se adoptó** —tras `tracing`
+> en el `THREAT_MODEL.md` (DOC-6) y Tokio en el presupuesto (DOC-7)—, y es el
+> **primero que es un ADR**. La diferencia importa: un ADR es el documento al
+> que se va a preguntar *por qué* algo se decidió así, así que quien lo leyera
+> construiría el hilo dedicado con canal creyendo que arregla algo.
+>
+> **Y de las dos mitades que describía, una estaba equivocada.** No es que
+> faltara el hilo: es que su premisa escrita —«`rusqlite` es síncrono, no encaja
+> en Tokio»— dejó de existir cuando el proyecto no adoptó Tokio, y construirlo
+> ahora bajaría la calidad. Es el primer caso de los doce en que lo correcto no
+> era construir lo prometido sino **descartarlo por escrito y decir por qué**.
+>
+> Los dos de la misma familia tienen además el mismo origen: la auditoría C
+> corrigió esta frase **en el presupuesto** el 07/10/2026 y **no en el ADR**.
+> Corregir una copia y dejar la fuente es cómo un documento falso sobrevive a su
+> propio hallazgo.
+
+---
+
+## Dónde vive lo que no está aquí
+
+| Qué | Dónde |
+|---|---|
+| Los defectos encontrados **usando** ARLES, con su estado | `06-calidad/BITACORA-DE-PRUEBAS.md` |
+| Los tropiezos de instalación y arranque | `07-entrega/REGISTRO-DE-TROPIEZOS.md` |
+| Qué contarme al reportar un error | `06-calidad/QUE-INFORMACION-NECESITO.md` |
+| Los hallazgos de las seis auditorías | `09-fases/AUDITORIA-*.md` |
+| El estado del proyecto | `07-entrega/ESTADO_ACTUAL.md` |

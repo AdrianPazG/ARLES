@@ -1,0 +1,13 @@
+{
+  "name": "arles-plantilla-docx",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Convierte una plantilla de entrega (.md) en un .docx que se rellena escribiendo. Ver la cabecera de generar-docx.js.",
+  "scripts": {
+    "windows": "node generar-docx.js ../../documentacion/06-calidad/PLANTILLA-WINDOWS.md",
+    "mac": "node generar-docx.js ../../documentacion/06-calidad/PLANTILLA-MAC.md"
+  },
+  "dependencies": {
+    "docx": "9.15.3"
+  }
+}

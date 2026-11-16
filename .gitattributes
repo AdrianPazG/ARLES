@@ -1,0 +1,5 @@
+# Las migraciones se embeben en el binario y `refinery` guarda la huella de su
+# texto en cada base: un CRLF cambia la huella y la base deja de abrir con un
+# binario compilado en otro sistema. Siempre LF, lo configure como lo configure
+# cada máquina. Lo vigila `las_migraciones_embebidas_no_llevan_retornos_de_carro`.
+*.sql text eol=lf

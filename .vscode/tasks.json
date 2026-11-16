@@ -1,0 +1,49 @@
+{
+  // ── LAS TAREAS DEL §6, SIN TENER QUE RECORDAR LOS COMANDOS ───────────────
+  //
+  // Se abren con Ctrl+Shift+P → «Ejecutar tarea». Son exactamente los comandos
+  // que el `CLAUDE.md` §6 manda correr, ni uno más: si esta lista y ese §6 se
+  // separan, lo que se verifica desde el editor deja de ser lo que se verifica
+  // antes de empujar.
+  //
+  // Creado el 11/11/2026 al auditar el repositorio. La tarea que importa es la
+  // primera: es la que construye el programa, y la que falló el 08/10/2026
+  // porque alguien usó `cargo run --release` sin la característica.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "ARLES · construir y abrir",
+      "detail": "Compila la interfaz y abre la aplicación. Es `cargo arles`, no `cargo run --release`: ver .cargo/config.toml",
+      "type": "shell",
+      "command": "npm run build && cd .. && cargo arles",
+      "options": { "cwd": "${workspaceFolder}/app" },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "ARLES · verificar todo (lo del §6)",
+      "detail": "fmt, clippy sin avisos, las pruebas de Rust, y las del frontend con su lint y sus tipos",
+      "type": "shell",
+      "command": "cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace && cd app && npm test && npm run lint && npx vue-tsc --noEmit -p tsconfig.json",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "test",
+      "problemMatcher": ["$rustc", "$eslint-stylish"]
+    },
+    {
+      "label": "ARLES · las diez fases del validador",
+      "detail": "Lo que hay que correr ANTES de empujar. Correr sólo la fase en curso no basta: ver el §6",
+      "type": "shell",
+      "command": "for f in 0 1 2 3 4 5 6 W 7 8; do python3 herramientas/validar/validar.py --fase $f --rapido; done",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "ARLES · la vista previa (sin compilar Rust)",
+      "detail": "Deja vista-previa/ARLES-vista-previa.html, que se abre con doble clic",
+      "type": "shell",
+      "command": "python3 herramientas/vista-previa/generar.py",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    }
+  ]
+}

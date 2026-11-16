@@ -1,0 +1,690 @@
+# Presupuesto de rendimiento
+
+**Proyecto:** ARLES RELAY I · v1.2.0
+**Escala objetivo:** 200 000 contactos operativos · **500 000 techo arquitectónico** (T-7)
+
+> **Se miden, no se estiman.** Los presupuestos se comprueban en CI contra un conjunto sintético de 500 000 contactos con semilla fija. Una regresión rompe la compilación.
+
+---
+
+## 0. Lo que se midió el 06/10/2026, y lo que no
+
+> **Hasta esta fecha, las trece cifras de abajo eran estimaciones de la Fase 0 y
+> ninguna se había comprobado.** La entrega 8.5 construyó el banco de pruebas
+> (`crates/arles-banco`) y midió lo que se puede medir desde un contenedor sin
+> escritorio. **«Sin medir» no es «cumple»**, y así está escrito.
+
+**Medido el 06/10/2026**, con 500 000 contactos sintéticos (semilla 20261006,
+38 MB de CSV) en un contenedor Linux sin escritorio. **No es la máquina de
+referencia del §2**, así que las cifras sirven para comparar entre sí y para
+detectar lo que está mal por un orden de magnitud — no para certificar.
+
+| Operación | Presupuesto | Medido (V10) | Medido (V11) | Veredicto |
+|---|---|---|---|---|
+| Importar 500 000 filas | < 5 min | 51.7 s | **91.4 s** · 110.7 s | ✅ cumple (37 % del techo) |
+| Memoria durante importación | < 500 MB | 497 MB | 497 MB | ⚠️ cumple por 3 MB |
+| **Búsqueda por correo** | < 100 ms | ❌ 331 ms | ✅ **< 1 ms** | ✅ arreglado en la 8.6 |
+| **Abrir tabla de contactos** (la consulta) | < 500 ms | ❌ 1 424 ms | ✅ **357 ms** | ✅ arreglado en la 8.6 |
+| Simulación de campaña | < 200 ms | 5.9 ms | 6.0 ms | ✅ cumple |
+| **Calcular audiencia de campaña** (activar) | < 2 s | — | ❌ **73.5 s** | ❌ **36× por encima** |
+| **Filtro del registro por texto** | < 1 s | — | ❌ 3 709 ms · **remedido 02/11: 1 151–1 257 ms** | ❌ **un 20 % por encima** · ningún índice ayuda (ver §2 y §8) |
+| **Memoria del motor en corrida larga** | < 250 MB | — | ✅ **13.9 MB, plana** | ✅ cumple · parcial (sin webview) |
+| Arranque en frío | < 2 s | — | — | ⬜ sin medir (R-07) |
+| Desplazamiento en tabla virtualizada | 60 fps | — | — | ⬜ sin medir (R-07) |
+| **Filtro de contactos · por dirección** | < 1 s | — | ✅ **0.2 ms** · no crece con la tabla | ✅ cumple · R-26, 03/11/2026 |
+| **Filtro de contactos · por texto** | < 1 s | — | ❌ **~2.6 s** (texto que no existe, 455 k) | ❌ **2.6× por encima** · ningún índice ayuda. La cifra es del escritor; por la lectora no se pudo medir aquí (§8) |
+| Preflight completo | < 3 s | — | — | ⬜ sin medir (R-24) |
+| Importar 100 k filas XLSX | < 60 s | — | — | ⬜ sin medir |
+| **Exportar un respaldo cifrado** | < 30 s | — | ✅ **244 ms / 30 k** · ~4 s / 500 k | ✅ cumple · medido en la auditoría F |
+| **Restaurar un respaldo** | < 60 s | — | ✅ **745 ms / 30 k** · ~12 s / 500 k | ✅ cumple · medido en la auditoría F |
+| **Revisar un respaldo** (el preflight) | < 1 s | — | ✅ **0.1 ms** · no crece con las filas | ✅ cumple · lee sólo la cabecera |
+| **Memoria al exportar y restaurar** | < 500 MB | — | ✅ **15 → 19 MB** | ✅ cumple · el cursor de la 8.2b |
+| Tamaño del instalador | < 20 MB | — | — | ⬜ sin medir (P-01) |
+
+> **Las cuatro filas del respaldo son nuevas, y sus presupuestos también.** Los
+> midió la auditoría F de la Fase 8 el 07/10/2026, y conviene ser claro en lo que
+> son: **la Fase 8 construyó exportar, restaurar y archivar sin ningún
+> presupuesto declarado** —ninguna de las trece cifras originales los
+> mencionaba—, así que las columnas «< 30 s», «< 60 s», «< 1 s» y «< 500 MB» son
+> **propuestas de esta auditoría**, no requisitos que vinieran de la Fase 0.
+>
+> Están puestas donde está la frase que hay que poder decir: *«pulsé respaldar y
+> no me dio tiempo a preguntarme si se había colgado»*. Las cuatro medidas caben
+> con dos órdenes de magnitud de margen, así que afinar el número no cambia nada
+> hoy; **Dirección puede bajarlas cuando quiera** y seguirán cumpliéndose.
+>
+> La de memoria no es una propuesta suelta: es la garantía que la 8.2b y la 8.2c
+> escribieron —cursor y sobre a trozos, nunca el cuerpo entero en memoria— y que
+> hasta hoy **no tenía una sola cifra al lado**.
+>
+> Y lo importante de esa pasada no fue ninguna de las cuatro: fue que al ir a
+> medirlas apareció que **un respaldo cifrado de tamaño real no se podía
+> restaurar**. Está contado en
+> [`AUDITORIA-F-FASE-08.md`](../09-fases/AUDITORIA-F-FASE-08.md).
+
+> **Las tres filas del motor y las campañas las midió la auditoría C del §140 el
+> 07/10/2026**, y
+> las tres estaban declaradas «sin medir» por motivos que no se sostenían al
+> mirarlos:
+>
+> - «Calcular audiencia» decía *«exige una campaña activa con su etapa y
+>   remitente: es un banco aparte»*. Eso es una **molestia**, no un
+>   impedimento: la etapa y el remitente son cuatro `INSERT`. Y era la peor
+>   cifra del producto.
+> - «Filtro sobre 500 k» decía *«no existe todavía»*. Es verdad de la **lista de
+>   contactos** —`listar_contactos` sólo toma página y tamaño— y falso del
+>   producto: la 7.4 construyó seis filtros combinables sobre el registro. Las
+>   dos filas están ahora separadas, porque son dos cosas.
+> - «Memoria en reposo con motor activo» decía *«sin llavero no arranca la
+>   aplicación entera»*. Verdad de la aplicación, falso del motor, que corre
+>   contra un proveedor simulado desde la 4.3a.
+>
+> **Un «sin medir» con un motivo falso es peor que un hueco**, porque cierra la
+> pregunta. Los cuatro que quedan arriba sí tienen un motivo que se sostiene:
+> necesitan una webview, una red sin puertos bloqueados o un empaquetador.
+
+### Importar 500 000: una cuarta medición, y lo que dice del ruido
+
+La 8.6 dio **91.4 s** sobre tres corridas (91.1, 93.8, 91.4). La de hoy, mismo
+conjunto, misma semilla, misma máquina: **110.7 s**, un 21 % más.
+
+No se cambia la cifra de la 8.6 ni se tacha: **se escriben las dos**. Lo que
+esto dice es que la máquina de medición tiene un ruido de ese orden, así que una
+regresión por debajo del 25 % **no se puede distinguir aquí** — y el margen del
+20 % del §5 es demasiado estrecho para este contenedor. En la máquina de
+referencia del §2 habrá que volver a medirlo.
+
+Sigue dentro de presupuesto con 2.7× de margen (111 s de 300).
+
+> **La columna V11 se midió el 06/10/2026** con el mismo conjunto y la misma
+> semilla, en la misma máquina, el mismo día. La importación se corrió **tres
+> veces** (91.1 s, 93.8 s, 91.4 s) antes de dar su cifra por buena: no se
+> reporta una regresión sin saber si es ruido.
+
+### Lo que costó arreglarlo, dicho con su cifra
+
+**La importación pasó de 51.7 s a 91.4 s: un 78 % más.** No es un efecto
+secundario inesperado, es el precio de los índices: cada fila que entra tiene
+que actualizar también las listas ordenadas. Medido aparte, en inserciones
+puras, los dos índices nuevos cuestan un **+40 %**; sobre SQLCipher el efecto
+se amplifica.
+
+Entra en presupuesto con **3.2× de margen** (91 s de 300), y el cambio vale la
+pena sin discusión: se paga **una vez, al importar** —una operación que un
+usuario hace al empezar y casi nunca más— a cambio de que la pantalla más usada
+del producto baje de 1.4 s a 0.36 s **cada vez que se abre**.
+
+Se consideró y se descartó la técnica habitual de carga masiva —quitar los
+índices, cargar, recrearlos—: el coste de recrear un índice es proporcional al
+**total** de filas de la tabla, no a las que se insertan, así que una
+importación de cien contactos sobre una base de 450 000 saldría muchísimo peor.
+
+### Los dos que fallaban, y por qué (medición del 06/10/2026, esquema V10)
+
+
+
+No son «va un poco lento»: los dos tienen una causa concreta, encontrada con
+`EXPLAIN QUERY PLAN` sobre el esquema V10.
+
+**1 · Abrir la tabla de contactos — 1 424 ms de 500.**
+
+`contact` **no tiene ningún índice para su propia consulta**. Los únicos que
+hay son el de la clave primaria y uno sobre `import_batch_id`. El plan dice:
+
+```
+SCAN contact
+USE TEMP B-TREE FOR ORDER BY
+```
+
+Es decir: para enseñar **cien** filas, SQLite lee las 455 864 y las ordena en
+memoria. Y el recuento del total hace un segundo barrido completo. Es la
+pantalla donde el usuario pasa más tiempo.
+
+**2 · Búsqueda por correo — 331 ms de 100.**
+
+Hay un índice único sobre `contact_channel(company_id, channel,
+value_normalized)`, y la consulta **no filtra por `channel`**. Sin la segunda
+columna, SQLite sólo puede aprovechar la primera:
+
+```
+SEARCH ch USING INDEX idx_channel_unique (company_id=?)
+```
+
+Así que recorre **todos los canales de la empresa** —correos y WhatsApp, más de
+900 000 filas— para encontrar uno. El índice existe y está bien puesto; lo que
+no encaja es la consulta.
+
+> **Las dos las arregló la migración V11**, aprobada por Dirección el
+> 06/10/2026. La consecuencia que se avisó antes de hacerlo: **un respaldo
+> tomado con el esquema V10 ya no se puede restaurar** (ver 8.3b). No existía
+> ninguno fuera de las pruebas, que es justo por lo que se hizo ese día.
+
+### Los dos que falló la auditoría C (07/10/2026), con su curva
+
+**1 · Activar una campaña — 73.5 s de 2 s.**
+
+No es «va lento»: es una interfaz congelada tres cuartos de minuto en la acción
+central del producto. `activar_campana` corre **dentro de un comando de Tauri**,
+en una sola transacción y con el cerrojo de la conexión tomado, así que mientras
+dura no contesta nada y el motor no escribe.
+
+Se midió a cuatro escalas, con el mismo conjunto y la misma semilla:
+
+| Destinatarios | Activar | µs por fila |
+|---|---|---|
+| 18 121 | 1.2 s | 66 |
+| 45 253 | 3.8 s | 84 |
+| 135 588 | 16.7 s | 123 |
+| 451 196 | 73.5 s | 163 |
+
+**El presupuesto de 2 s se rompe alrededor de los 30 000 destinatarios**, que es
+una lista de tamaño ordinario. No es un problema del techo arquitectónico: es un
+problema de una campaña mediana.
+
+**Y la causa medida no es la que parecía.** La hipótesis obvia era el bucle que
+genera dos UUID por fila —451 196 pares, dos llamadas a entropía cada uno—. Se
+midió aparte: **0.58 s**, un 0.8 % del total. Lo que cuesta es la **escritura**:
+la activación mete ~451 000 filas en `campaign_audience` y otras ~451 000 en
+`message_attempt`, cada una actualizando sus índices, sobre SQLCipher. Es el
+mismo orden que la importación (~1.35 M filas en 111 s).
+
+#### Dónde se va el tiempo, por tramos · medido el 28/10/2026
+
+La cifra total no dice qué se puede arreglar. Se instrumentó el **código real**
+de `activar_campana` —no una reimplementación— y se corrió a dos escalas:
+
+| Tramo | 45 253 dest. | % | 180 552 dest. | % |
+|---|---|---|---|---|
+| Validar y leer la etapa | 0.000 s | 0 | 0.000 s | 0 |
+| Contar los que quedan fuera por baja | 0.084 s | 3.0 | 0.303 s | 1.6 |
+| **`INSERT` de la audiencia** | 0.922 s | 32.9 | **7.153 s** | **37.7** |
+| Estimar el desenlace y la salida de baja | 0.000 s | 0 | 0.000 s | 0 |
+| **Bucle de la cola** | 1.605 s | 57.3 | **9.896 s** | **52.2** |
+| Poner los estados y auditar | 0.000 s | 0 | 0.000 s | 0 |
+| `COMMIT` | 0.191 s | 6.8 | 1.622 s | 8.5 |
+| **Total** | **2.803 s** | | **18.974 s** | |
+
+**Esto cambia el diseño de la solución, y por eso se midió antes de escribirla.**
+El bucle de la cola es **la mitad del tiempo, no la mayor parte**: es el único
+tramo que se puede contar fila a fila, así que una barra de avance que sólo se
+mueva ahí estaría **quieta el 45 % de la espera** y después saltaría. El
+`INSERT` de la audiencia es **una sola sentencia** —no se puede subdividir— y el
+`COMMIT` tampoco.
+
+Así que el avance que esta fase construye es **por fases con nombre**, y lleva
+una cifra sólo en la que tiene una. Poner un porcentaje interpolado sobre los
+dos tramos opacos sería inventarse una medición, que es lo que el §94 prohíbe.
+
+> **Y medir esto encontró que el banco llevaba seis días sin poder medirlo.**
+> El 22/10/2026 entró la regla de la salida de baja y la plantilla que el banco
+> siembra no la cumplía, así que `activar_campana` le devolvía
+> `SinSalidaDeBaja`. El informe lo anotaba como **SIN MEDIR** con un motivo, es
+> decir igual que los cuatro presupuestos que legítimamente no se pueden medir
+> en un contenedor — y la corrida salía con código **cero**.
+>
+> Es la lección de esta misma auditoría aplicada al instrumento: *un «sin
+> medir» con un motivo falso es peor que un hueco, porque el hueco se ve y el
+> motivo escrito se cree.* Lo cierra un **tipo** y no una comprobación
+> (§1 bis): `Veredicto::ElBancoSeRompio`, en el que el motivo de una medición
+> reventada **no cabe** en `SinMedir`, y que hace salir la corrida con código 2.
+> Verificado rompiéndolo: con la plantilla sin `{{baja}}`, código 2 y «BANCO
+> ROTO» en el informe donde antes había cero y «SIN MEDIR».
+
+#### El `-wal` con un lector abierto · medido el 28/10/2026
+
+[ADR-0015](../03-arquitectura/adr/0015-un-escritor-y-lectores-separados.md)
+decide abrir una segunda conexión de sólo lectura, y dejó esta cifra declarada
+sin medir. Medida con `banco wal`, que corre la importación de verdad:
+
+| Caso | `-wal` máximo | Base |
+|---|---|---|
+| Importar 500 000, sin lector | 716.3 MB | 711.6 MB |
+| Importar 500 000, lector de una en una | 716.3 MB | 711.6 MB |
+| Importar 500 000, lector con transacción abierta | 716.3 MB | **0.5 MB** |
+| 20 000 transacciones pequeñas, sin lector | **4.0 MB** | 4.4 MB |
+| 20 000 transacciones pequeñas, lector con transacción abierta | **373.3 MB** | 0.5 MB |
+
+**La pregunta estaba mal hecha, y medirla lo enseñó.** Un lector largo no
+engorda el `-wal`: **impide que se vuelque a la base**. Con una importación —una
+sola transacción— el `-wal` mide lo mismo haya lector o no, y lo que cambia es
+la base, que se queda en 0.5 MB.
+
+Lo que sí acumula es **muchas transacciones pequeñas** con un lector fijado, que
+es la forma del motor: de **4.0 a 373.3 MB**, noventa y tres veces. Y el `-wal`
+**no se recorta al soltar al lector** —SQLite reutiliza el archivo—, así que
+`journal_size_limit` entra con la conexión de lectura y no después.
+
+Las alternativas y su coste están en
+[`AUDITORIA-C-QA.md`](../09-fases/AUDITORIA-C-QA.md) §C-1. **Pendiente de
+Dirección**, porque la opción barata no es técnica: a 50 correos diarios (§48)
+el simulador del núcleo dice que una campaña de 451 196 personas **no termina en
+cinco años** y que **386 046 mensajes se quedarían sin enviar** (medido el
+07/10/2026 con `estimar`). Esta línea decía «24 años» hasta esa fecha: era una
+cuenta a mano, y mal — el núcleo no devuelve una duración para ese caso, devuelve
+`NoCabeEnElHorizonte`.
+
+**2 · Filtro del registro por texto — 3 709 ms de 1 s.**
+
+El filtro de texto de D-7C compara contra `message_attempt.contact_address` con
+`LIKE '%…%'`, que ningún índice puede aprovechar. El módulo ya lo decía, medido
+sobre 20 000 filas: 11 ms. La curva:
+
+| Sucesos | Coincidencias | Filtrar |
+|---|---|---|
+| 18 121 | 4 888 | 137 ms |
+| 45 253 | 12 160 | 486 ms |
+| 135 588 | 36 029 | 1 003 ms |
+| 451 196 | 119 532 | 3 709 ms |
+
+**El presupuesto se rompe justo a los ~135 000 sucesos**, y aquí la urgencia es
+otra: a 50 envíos diarios se tarda **más de siete años** en acumularlos, y el
+recorte bimestral de la 7.4 los quita antes. Lo que lo hace alcanzable es que
+ese recorte **lo pulsa el usuario**, no un reloj.
+
+Así que C-1 es trabajo y C-2 es una cifra declarada con su condición. Decir que
+los dos «fallan» sin esa diferencia habría sido exacto y useless.
+
+> ### Corrección del 02/11/2026 · esta medida se volvió a tomar, y sale distinta
+>
+> **Ni la cifra ni la conclusión de arriba se sostienen.** Lo de arriba se deja
+> como estaba porque es lo que se midió y lo que se decidió aquel día, y un
+> documento que se reescribe para parecer acertado deja de servir para ver cómo
+> se llegó a una decisión.
+>
+> **1 · La cifra no se reproduce.** Hoy, la misma medición sobre los mismos
+> 451 196 sucesos da **1 151 a 1 257 ms**, no 3 709. `idx_activity_empresa_fecha`
+> es de la V10, anterior a aquella medición, así que no lo explica un cambio de
+> esquema, y esta máquina es sólo ~20 % más rápida importando. **No se inventa
+> la causa**: aquella corrida no se guardó. Lo que sí cambia es cómo se publica
+> — ahora son **tres corridas** y están las tres escritas.
+>
+> Así que el presupuesto se incumple por un **20 %**, no por 3.7×.
+>
+> **2 · La solución que este documento daba por buena es 18 veces peor.** Se
+> construyó el FTS5 y se midió, con la búsqueda que alguien hace de verdad —la
+> dirección de **una persona**— al lado del caso ancho:
+>
+> | Camino | Una persona (1 coincidencia) | Un dominio (119 532) |
+> |---|---|---|
+> | `LIKE '%…%'`, el de hoy | 1 257, 1 192, 1 151 ms | 1 212, 1 222, 1 146 ms |
+> | La pregunta al revés, sin índice | 1 015, 1 010, 1 145 ms | 1 192, 1 221, 1 217 ms |
+> | Índice FTS5 `trigram` | 21 556, 21 906, 20 653 ms | 23 242, 23 793, 24 448 ms |
+>
+> Y al revés de la intuición: **cuanto más largo el texto, peor**. Una dirección
+> de 29 caracteres son 27 trigramas, y cada uno está en casi todas las filas.
+>
+> **3 · La urgencia también estaba calculada con un supuesto caducado.** «Más de
+> siete años» sale de 50 envíos diarios, y **D-13 quitó ese tope el 22/10**:
+> `AVISO_DIARIO` es un aviso (§48, §154) y el límite lo fija la campaña. A 300
+> al día los 135 000 sucesos llegan en **1.2 años**; a 600 —dos campañas sobre
+> el mismo remitente, que D-14 permite— en **7.4 meses**.
+>
+> **4 · Y el tiempo no está donde se buscaba.** Traer las 500 filas de la página
+> cuesta ~1 200 ms; contar **todas** las coincidencias para enseñar «500 de
+> 3 412» cuesta otro tanto. El único cambio que baja esta cifra es dejar de dar
+> el total exacto, y eso es **D-7C**: una decisión de producto, planteada a
+> Dirección como **D-19**.
+>
+> Esta medición vive en `banco 500000` y se puede repetir, el índice incluido.
+> El relato entero está en el registro de requisitos, sección «C-2».
+
+### La memoria del motor en una corrida larga, que nunca se había medido
+
+**20 000 envíos consecutivos: 13.9 MB en los cuatro cuartos de la corrida, y
+0.00 MB de crecimiento.** Es el tercer punto de la pasada C del §140 —«sin fugas
+de memoria en ejecuciones largas del motor»— y hasta hoy no se había intentado.
+
+No se mide un número, se mide una **forma**. Un proceso que envía veinte mil
+correos tiene que crecer al principio —SQLite llena su caché, el asignador pide
+arenas— y ese crecimiento es correcto y se detiene. Lo que el §7 llama fuga es
+«memoria que **crece sin estabilizarse**», así que la corrida se parte en cuatro
+tramos y se compara el último con el **segundo**. Comparar con el primero
+metería dentro todo el arranque y una corrida sana saldría en rojo.
+
+De paso sale el rendimiento del motor: 20 000 pasos en 261 s, **13 ms por
+envío**. Unas 77 por segundo, contra los 50 **diarios** que el producto permite:
+el motor no es el cuello de botella de nada, que es lo que el §6 ya decía y
+ahora está medido.
+
+**Es una medida parcial y hay que decirlo:** son el motor y la base, sin la
+ventana de Tauri ni la webview. El presupuesto de 250 MB habla de la aplicación
+entera, y esa mitad es R-07.
+
+### Y el que pasa por tres megas
+
+**497 MB de 500.** Entra, pero no sobra nada, y la causa está documentada desde
+la Fase 3: `TablaLeida` guarda **todas** las filas en memoria a propósito,
+porque la importación las recorre dos veces —una para los choques y otra para
+escribir—. Con 500 000 filas el margen es del 0.6 %; con 600 000 no habría.
+
+No es un defecto hoy —el techo declarado es medio millón— pero sí es la cifra
+que primero se romperá, y ahora se sabe en lugar de suponerse.
+
+---
+
+## 1. Presupuestos
+
+Medidos en la máquina de referencia (§2), con la base de datos poblada al techo.
+
+> **Ojo:** la tabla de abajo son los presupuestos **estimados en la Fase 0**.
+> Lo que de verdad se ha medido está arriba, en el §0, con su fecha.
+
+| Operación | Presupuesto | Por qué ese número |
+|---|---|---|
+| Arranque en frío hasta interfaz usable | **< 2 s** | Por encima de 2 s la aplicación se percibe pesada |
+| Abrir tabla de contactos (500 k) hasta primer pintado | **< 500 ms** | Umbral de «instantáneo» percibido |
+| Desplazamiento en tabla virtualizada | **60 fps sostenidos** | Es la pantalla donde el usuario pasa más tiempo |
+| Filtro sobre 500 k contactos | **< 1 s** | Por encima se necesita indicador de carga, lo que rompe el flujo |
+| Búsqueda por correo | **< 100 ms** | Hay índice único: debe ser instantáneo |
+| Importar 100 k filas XLSX | **< 60 s**, memoria acotada | Referencia realista de un archivo grande |
+| Importar 500 k filas | **< 5 min**, memoria acotada | El techo |
+| Calcular audiencia de campaña | **< 2 s** | Ocurre en el paso 2 del asistente |
+| Simulación de campaña | **< 200 ms** | Es aritmética; debe sentirse inmediato |
+| Preflight completo | **< 3 s** | Incluye red (auth, DNS) |
+| Memoria en reposo con motor activo | **< 250 MB** | La aplicación corre todo el día en segundo plano |
+| Memoria durante importación de 500 k | **< 500 MB** | La lectura en streaming lo hace posible |
+| Tamaño del instalador | **< 20 MB** | Beneficio directo de Tauri (ADR-0001) |
+
+---
+
+## 2. Máquina de referencia
+
+Deliberadamente modesta: el público objetivo no tiene estaciones de trabajo.
+
+```
+CPU:  4 núcleos, ~2.4 GHz
+RAM:  8 GB
+Disco: SSD SATA
+SO:   Windows 11 y macOS 14
+Pantalla: 1920×1080 al 100 %
+```
+
+Si los presupuestos se cumplen aquí, se cumplen en cualquier equipo corporativo actual.
+
+---
+
+## 3. Cómo se consigue
+
+### Tablas — virtualización obligatoria
+
+TanStack Virtual (ADR-0007). Con 500 000 filas, renderizar sólo lo visible **no es una optimización: es la diferencia entre funcionar y no funcionar.** Un `v-for` sobre 500 k bloquea el hilo principal durante minutos y agota la memoria.
+
+Sólo se montan las filas visibles más un margen pequeño.
+
+### Paginación por keyset, nunca `OFFSET`
+
+```sql
+-- Mal: O(n) en el desplazamiento. Al final de 500 k filas, segundos.
+SELECT … ORDER BY created_at LIMIT 50 OFFSET 400000;
+
+-- Bien: O(log n) siempre. Milisegundos en cualquier posición.
+SELECT … WHERE (created_at, id) > (?, ?) ORDER BY created_at, id LIMIT 50;
+```
+
+`OFFSET` obliga a SQLite a recorrer y descartar las filas saltadas. El keyset salta directamente por el índice.
+
+### Índices — sólo los que se usan
+
+```sql
+CREATE UNIQUE INDEX idx_contact_unique ON contact (company_id, email_normalized)
+  WHERE deleted_at IS NULL;
+CREATE INDEX idx_attempt_work ON message_attempt (state, scheduled_for)
+  WHERE state IN ('queued', 'failed');
+CREATE INDEX idx_attempt_campaign_state ON message_attempt (campaign_id, state);
+CREATE INDEX idx_contact_field ON contact_field (contact_id, field_key);
+```
+
+**Los índices parciales importan.** `idx_attempt_work` sólo cubre filas accionables: en una campaña de 500 k con 499 k completadas, el índice tiene 1 000 entradas en vez de 500 000.
+
+Cada índice cuesta en escritura, y la importación es la operación de escritura más pesada del producto. No se añade ninguno sin un plan de consulta que lo justifique.
+
+### Importación por lotes
+
+Una transacción por cada **~1 000 filas**. Una sola transacción gigante consume memoria sin límite; una por fila hace 500 000 sincronizaciones a disco.
+
+Lectura XLSX en **streaming** con `calamine`: el archivo nunca se carga entero en memoria. Esto además es la mitigación de zip bomb del modelo de amenazas.
+
+### El motor no bloquea la interfaz
+
+> **Este párrafo decía dos cosas que no eran verdad, y las corrigió la auditoría
+> C del §140 el 07/10/2026.** Decía que el motor corre «en su propio conjunto de
+> tareas de Tokio» —**el proyecto no usa Tokio**, ni lo ha usado nunca, y
+> `Proveedor` es síncrono a propósito— y que la base «vive en un hilo dedicado
+> con canal», que era el diseño pensado en la Fase 0 y no el que se construyó.
+>
+> Es el mismo defecto que la auditoría B encontró un día antes en
+> `THREAT_MODEL.md` §8, que pedía «la capa de redacción de `tracing`» sin que
+> el proyecto use `tracing`. Dos documentos de la Fase 0 nombrando bibliotecas
+> que nunca se adoptaron: lo que describen suena plausible, nadie lo relee, y
+> quien llega nuevo busca un `tokio::spawn` que no existe.
+
+**Lo que hay de verdad, medido el 07/10/2026:**
+
+El motor corre en **su propio hilo del sistema** (`std::thread`), que
+`arles-app` arranca desde la 5.4 (§51). Cerrar la ventana no detiene una
+campaña.
+
+La conexión a la base vive en un **`Mutex<Connection>`** dentro de `Db`
+(`arles-db/src/db.rs`). Eso serializa los accesos **dentro del proceso**, así
+que un `SQLITE_BUSY` entre el motor y la interfaz no puede ocurrir — pero no
+por un canal, y el `busy_timeout(5 s)` de `conexion.rs` **sigue puesto** para
+lo que venga de fuera. El cerrojo **no es reentrante**: llamar a un método
+público de `Db` desde dentro de un `con_dominio` cuelga el programa sin error
+ni traza, y es la trampa que documenta el CLAUDE.md.
+
+Entre procesos no hay reintentos ni canal: hay el **cerrojo de instancia** de
+`arles-motor/src/instancia.rs`, que impide que un segundo ARLES abra la misma
+base.
+
+---
+
+## 4. Sobrecoste conocido
+
+| Fuente | Coste | ¿Negociable? |
+|---|---|---|
+| **SQLCipher** | 5–15 % en lectura y escritura | **No** (T-3) |
+| Índice único sobre contactos | Escritura más lenta en importación | No — garantiza la deduplicación |
+| `audit_log` append-only | Una escritura extra por acción crítica | No — §91 |
+| Congelar la audiencia al activar | Una escritura por contacto | No — es lo que hace la campaña auditable |
+
+Los presupuestos de §1 **ya incluyen** estos costes. No son excusas para incumplirlos.
+
+---
+
+## 5. Medición en CI
+
+```
+1. Generar 500 000 contactos sintéticos (semilla fija)
+2. Poblar una base de datos limpia
+3. Ejecutar el banco de pruebas
+4. Comparar contra el presupuesto
+5. Fallar si alguna operación lo supera en más de un 20 %
+```
+
+El margen del 20 % absorbe el ruido de los ejecutores compartidos de CI. Una regresión real lo supera con holgura.
+
+**Los resultados se registran históricamente** para poder detectar degradación lenta: tres regresiones del 15 % consecutivas no rompen ninguna compilación y duplican el tiempo.
+
+---
+
+## 6. Lo que NO se optimiza
+
+Optimizar lo que no lo necesita cuesta legibilidad, y la legibilidad es lo que permite auditar el producto (§140).
+
+| No se optimiza | Por qué |
+|---|---|
+| Velocidad de envío | **El cuello de botella es el límite del usuario, no nosotros.** 50 correos al día no exigen nada |
+| Pantallas de configuración | Se abren una vez |
+| Simulador | Es aritmética sobre números pequeños |
+| Tamaño del bundle más allá de 20 MB | Ya es 25 veces menor que Electron |
+| Arranque por debajo de 2 s | No se percibe la diferencia |
+
+---
+
+## 7. Señales de alarma
+
+Comportamientos que indican un problema de diseño, no de ajuste fino:
+
+- Memoria que **crece sin estabilizarse** con el motor corriendo → fuga
+- Desplazamiento que se degrada al bajar en la tabla → la virtualización no funciona
+- Tiempo de importación **no lineal** con el número de filas → falta un índice o el lote es incorrecto
+- La interfaz se congela al activar una campaña → trabajo en el hilo equivocado
+- Consultas que empeoran al crecer la base pese al índice → el plan de consulta no lo está usando
+
+Cada una de estas se investiga como bug, no como ajuste.
+
+---
+
+## 8. La diferencia entre las dos conexiones no se puede medir en este contenedor
+
+**Y la cifra que este apartado publicó el 03/11/2026 por la tarde —«la conexión
+de lectura es 12× más lenta»— se retira: no se reproduce.**
+
+Conviene contarlo entero, porque el error no fue medir mal una vez: fue
+**publicar una proporción y mover una decisión con ella** antes de comprobar
+que se repetía.
+
+### Las cinco corridas del mismo experimento
+
+Mismo contenedor, misma base de 54 638 contactos, misma consulta —el filtro de
+contactos por un texto que no existe, que recorre la tabla—:
+
+| | Qué cambió respecto a la anterior | Resultado |
+|---|---|---|
+| **1** | — (los caminos medidos **en bloques**) | la lectora **12× más lenta** |
+| **2** | intercalar las rondas en orden fijo | la lectora **10× más rápida** |
+| **3** | **rotar** el orden, nueve rondas | la lectora **11× más rápida** |
+| **4** | cada una **aislada**, nueve seguidas, en los dos órdenes | la lectora **11× más rápida** |
+| **5** | lo mismo **más dos `count(*)` al principio** | la lectora **11× más lenta** |
+
+**El signo cambió entre la 4 y la 5 por añadir dos recuentos antes de
+cronometrar**, que no debería influir en nada. Y en todas las corridas, dentro
+de cada una, la diferencia era limpia y plana: nueve de nueve a ~95 ms contra
+nueve de nueve a ~1 150. No es ruido; es que la variable que domina no es la
+que se quería medir.
+
+**Lo que domina es la caché**, y en un contenedor con la base en 50 MB y el
+`-wal` en 86 la conexión que recorrió antes se queda con ella. Rotar el orden
+no basta porque el efecto no es de posición dentro de una ronda: persiste entre
+bloques enteros.
+
+### Qué se descartó midiéndolo, y sigue descartado
+
+Esto sí se sostiene, porque las cifras van en la misma dirección en las cinco
+corridas:
+
+| Qué se sospechaba | Medido | Veredicto |
+|---|---|---|
+| El `ESCAPE` del patrón del `LIKE` | 302 ms con él, 315 sin él | **no es** |
+| El recuento sin tope | 335 ms aparte; con la página suman ~640 | **no es** |
+| Una diferencia de `PRAGMA` | las dos salen de `abrir_crudo`; sólo cambia `query_only` | **no hay** |
+| Que la lectora vea datos distintos | 54 638 filas por las dos, comprobado antes de cronometrar | **no es** |
+
+**La última es la que había que comprobar sin falta.** Una lectora que fuera
+rápida porque no ve las filas daría exactamente las mismas cifras, y sería un
+defecto de datos y no de rendimiento: la pantalla enseñaría una lista vacía con
+todo en verde. No lo es, y ahora lo comprueba el propio experimento antes de
+medir nada.
+
+### Qué se deshizo, y por qué
+
+Las dos lecturas que recorren tabla —`listar_contactos` y `Db::sucesos`—
+salieron a la conexión de escritura el 03/11 por la tarde con la cifra del 12×.
+**Vuelven a la lectora**, porque:
+
+- La cifra que las sacó no se reproduce.
+- Y el motivo por el que están en la lectora **sí está medido, y con una
+  medición que no depende de cachés ni de órdenes**: con una escritura de
+  800 ms en curso, una lectura por la lectora contesta en **0 ms** y por el
+  escritor en **650**. Eso mide un cerrojo, no un recorrido.
+
+**Una cifra que no se reproduce no puede mover una decisión que sí está
+medida.** Es el precedente del 52/1 del validador: se vio una vez, no se pudo
+reproducir, y lo que se publicó fue el **mecanismo** —esa comprobación escribe
+en el repositorio— y no la causa que se sospechaba.
+
+### Y la corrección que esto arrastra
+
+El §8 de esta tarde decía además que **los 1 151–1 257 ms de C-2 estaban
+medidos por el camino equivocado y que el coste real del filtro del registro
+era de catorce segundos**. Eso salía de la misma proporción invertida, así que
+**tampoco se sostiene**. Lo que hay son los 1 151–1 257 ms del 02/11, medidos
+tres veces, y una diferencia entre conexiones que aquí no se puede cuantificar.
+
+### Qué haría falta para cerrarlo
+
+- **Una máquina donde la caché no decida**: con memoria suficiente para que la
+  base, el `-wal` y las dos conexiones quepan sin expulsarse. La máquina de
+  referencia del §2 lo es; este contenedor no.
+- O **vaciar la caché del sistema entre corridas**, que necesita privilegios
+  que esta sesión no tiene.
+
+Hasta entonces, el experimento se queda en el repositorio —
+`arles-banco/src/lectora.rs`, con `banco lectora <n>`— y su cabecera lleva las
+cinco corridas. Quien lo retome no empieza por donde empecé yo.
+
+> **La lección del instrumento, por tercera vez en este proyecto.** La 8.5
+> descubrió que medía «un camino que el usuario nunca recorre». Hoy, que medía
+> el **orden** en vez de la conexión. Las dos veces el instrumento daba cifras
+> limpias, planas y creíbles. Lo único que las distinguió de una medición buena
+> fue **repetir el experimento cambiando algo que no debería importar** — y eso
+> es lo que hay que hacer antes de publicar una proporción, no después.
+
+---
+
+## 9. Restaurar un respaldo de un esquema anterior · medido el 04/11/2026
+
+Hasta hoy, cada migración dejaba sin poder restaurar todos los `.arles`
+anteriores: la limitación que la 8.3b dejó declarada y que la V11 disparó por
+primera vez. Ahora ARLES **pone el respaldo al día** antes de restaurarlo,
+pasando sus datos por las mismas migraciones que recorrió la base de quien
+actualizó.
+
+Eso recorre las filas tres veces en vez de una —del archivo a una base
+desechable, las migraciones sobre ella, y de ahí a la base real—, así que la
+cifra no se puede deducir de la del §0: se mide.
+
+**30 000 contactos (60 002 filas), respaldo del esquema V11, tres corridas de
+cada camino. `cargo test --release -p arles-app --lib presupuesto -- --ignored`:**
+
+| Qué | Corrida 1 | 2 | 3 |
+|---|---|---|---|
+| Poner al día (las cinco de la V11 a la V16) | 1 176 ms | 1 134 ms | 1 255 ms |
+| Restaurar desde la base desechable | 1 671 ms | 1 206 ms | 1 117 ms |
+| **Restaurar directo**, un respaldo del esquema de hoy | 1 410 ms | — | — |
+
+**Memoria residente: 16 → 19 MB tras poner al día → 23 MB tras restaurar**, las
+tres corridas igual. El cursor por tandas de 500 filas mantiene la promesa de
+memoria acotada de la 8.2b: la base desechable no se lee a un `Vec`.
+
+### Qué dicen estas cifras
+
+**El camino largo cuesta unos 2.4 s donde el corto cuesta 1.4: un 70 % más, una
+vez, y sólo si el respaldo es de una versión anterior.** Es lo que respalda la
+frase que la pantalla enseña antes de que nadie pulse —«tarda un poco más»—, y
+sin la cifra esa frase sería un adjetivo (§94).
+
+**Restaurar desde la base desechable cuesta lo mismo que restaurar desde el
+archivo** (1 117–1 671 contra 1 410 ms, con los rangos solapados). Es la cifra
+que había que comprobar y no dar por buena: el cursor por `rowid` podría haber
+sido más caro que leer un archivo secuencial, y no lo es. Lo que cuesta de más
+es el tramo de poner al día, que es trabajo nuevo y no una pérdida.
+
+**Extrapolado al techo declarado** —500 000 contactos, unas 16 veces estas
+filas— serían del orden de 40 s de puesta al día. No hay presupuesto declarado
+para esta operación porque no existía cuando se escribió el §0; se propone
+**120 s**, por lo mismo que el respaldo: es una operación que se hace una vez,
+a mano, con una pantalla delante que avisa.
+
+### Lo que no se midió, dicho en vez de darse por medido
+
+- **Un salto de muchas más migraciones.** Se midió V11 → V16, que son cinco. Un
+  respaldo de la V1 recorrería dieciséis, y dos de ellas —la V3 y la V4—
+  **transforman datos** en vez de añadir columnas. Esa prueba existe
+  (`una_migracion_que_mueve_datos_los_mueve_tambien_en_el_respaldo`, con un
+  respaldo V2) pero con un puñado de filas: lo que vigila es que el traslado
+  ocurra, no cuánto tarda.
+- **El disco.** La operación necesita espacio para una base del tamaño del
+  respaldo, a la vez que el respaldo y la base real. Con 30 000 contactos son
+  unos 8 MB de archivo; no se midió el pico de disco, y un disco lleno a mitad
+  falla con la base real intacta, que es el lado correcto.

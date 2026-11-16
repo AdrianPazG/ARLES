@@ -1,0 +1,1618 @@
+import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
+
+import { i18n } from '@/app/i18n'
+import { useCampanasStore, type Campana, type Revision } from '@/app/stores/campanas'
+import { useRemitentesStore, type Remitente } from '@/app/stores/remitentes'
+import {
+  useWhatsappStore,
+  type Numero,
+  type PlantillaDeMeta,
+} from '@/app/stores/whatsapp'
+
+import { AModal } from '@/design/componentes'
+
+import AsistenteDeCampana from './AsistenteDeCampana.vue'
+import PantallaCampanas from './PantallaCampanas.vue'
+
+/**
+ * Un router de verdad, no un `mock` de `$router`.
+ *
+ * Las pantallas usan `useRouter()`, que lee de la inyección y **no** de
+ * `$router`. Con el simulacro, Vue avisaba de que la inyección no existía y las
+ * pruebas pasaban igual — hasta que alguien pulsara un botón que navega, que es
+ * lo único que ese simulacro pretendía cubrir.
+ *
+ * Encontrado el 29/09/2026 leyendo los avisos de una tanda que estaba en verde.
+ */
+const router = createRouter({
+  history: createMemoryHistory(),
+  routes: [
+    { path: '/campanas', name: 'campanas', component: { template: '<div />' } },
+    { path: '/campanas/nueva', name: 'campanaNueva', component: { template: '<div />' } },
+  ],
+})
+
+const entorno = {
+  global: {
+    plugins: [i18n, router],
+    stubs: { Teleport: true },
+  },
+}
+
+const CUENTA: Remitente = {
+  id: '01900000-0000-7000-8000-00000000000a',
+  servidor: 'smtp.gmail.com',
+  puerto: 587,
+  cifrado: 'starttls',
+  usuario: 'ventas@telemetry.mx',
+  remitente: 'ventas@telemetry.mx',
+  nombreVisible: 'TELEMETRY',
+  estado: 'connected',
+  limiteDiario: 50,
+  limitePorHora: 10,
+}
+
+const CAMPANA: Campana = {
+  id: '01900000-0000-7000-8000-0000000000c1',
+  nombre: 'Septiembre',
+  estado: 'campana.estado.enviando',
+  audiencia: 1342,
+  aceptados: 87,
+}
+
+/** Un preflight con todo en orden menos lo que se le diga. */
+function revision(sobreescribe: Partial<Revision> = {}): Revision {
+  return {
+    preflight: {
+      puntos: [
+        { punto: 'laCuentaAutentica', veredicto: 'pasa' },
+        { punto: 'laCredencialSirve', veredicto: 'pasa' },
+        { punto: 'laAudienciaNoEstaVacia', veredicto: 'pasa' },
+        { punto: 'lasVariablesSeResuelven', veredicto: 'pasa' },
+        { punto: 'elHorarioAlcanza', veredicto: 'pasa' },
+        { punto: 'hayConexion', veredicto: 'pasa' },
+        { punto: 'seHizoElEnvioDePrueba', veredicto: 'pasa' },
+        { punto: 'losRegistrosDelDominio', veredicto: 'sinComprobar' },
+      ],
+      resultado: { resultado: 'lista', avisos: 1 },
+    },
+    audiencia: 1342,
+    contactosConHuecos: 34,
+    estimacion: {
+      // La forma de verdad que manda Rust: el enum va etiquetado con
+      // `desenlace`. Esta línea decía `{ resultado: 'termina' }` hasta la
+      // 8.6 E, igual que el tipo del store — y compilaba, porque nadie leía el
+      // campo. Al conectarlo, el tipo corregido dejó la prueba en rojo, que es
+      // lo que una prueba sobre un tipo que miente tenía que hacer desde el
+      // principio.
+      desenlace: { desenlace: 'termina', cuando: '24 de enero' },
+      audiencia: 1342,
+      techoDiario: 50,
+      quienManda: 'elTopeDelDia',
+      diasConEnvio: 27,
+    },
+    diagnostico: 'correo.prueba.correcto',
+    // Vacío por defecto: el remitente es sólo de esta campaña, que es el caso
+    // en el que el plazo de la estimación se puede creer tal cual.
+    compartenRemitente: [],
+    ...sobreescribe,
+  }
+}
+
+describe('la lista de campañas', () => {
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    // El router de memoria arranca sin ruta: sin esto avisa de que no encuentra
+    // «», y ese aviso taparía uno de verdad el día que lo haya.
+    await router.push('/campanas')
+    await router.isReady()
+  })
+
+  /**
+   * **La columna dice «Aceptados», y en ninguna parte dice «entregado»** (§65).
+   *
+   * Es la mentira más fácil de contar de todo el producto, y la más cara: ARLES
+   * sabe que el servidor se hizo cargo del mensaje, no que llegara a nadie.
+   *
+   * Verificada rompiéndola el 29/09/2026: cambiando el texto de
+   * `campanas.columna.aceptados` a «Entregados», esta prueba falla en las dos
+   * comprobaciones.
+   */
+  it('nunca dice «entregado»', () => {
+    const store = useCampanasStore()
+    store.campanas = [CAMPANA]
+    store.cargada = true
+
+    const texto = mount(PantallaCampanas, entorno).text()
+    expect(texto).toContain('Aceptados')
+    expect(texto.toLowerCase()).not.toContain('entregad')
+  })
+
+  /** Las cifras se enseñan como cifras (§94). */
+  it('enseña los números, no adjetivos', () => {
+    const store = useCampanasStore()
+    store.campanas = [CAMPANA]
+    store.cargada = true
+
+    const texto = mount(PantallaCampanas, entorno).text()
+    expect(texto).toContain('1,342')
+    expect(texto).toContain('87')
+  })
+})
+
+/**
+ * Borrar un borrador · 05/11/2026
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * LO QUE PIDIÓ DIRECCIÓN, Y LA PREGUNTA QUE HIZO CON ELLO
+ *
+ *   «no me gustaría ver esa campaña, me gustaría tener la oportunidad de poder
+ *    eliminarla, pero no sé qué tan recomendable sea hacer eso»
+ *
+ * Salió del asistente a mitad para hacer una comprobación y al volver encontró
+ * la campaña guardada en borrador. La respuesta a su pregunta es la regla que
+ * esta pantalla obedece: un borrador sí, lo demás no.
+ *
+ * ───────────────────────────────────────────────────────────────────────────
+ * LO QUE SÓLO ESTA CAPA PUEDE EQUIVOCAR
+ *
+ * Que el borrado respete las tres puertas lo prueban las cuatro pruebas de
+ * `arles-db::campanas`, y que la regla sea la que es, las dos del núcleo. Aquí
+ * se vigilan las tres cosas que ninguna de ellas puede ver:
+ *
+ * 1. Que el botón **no aparezca** en una campaña que envió. Aparecer y fallar
+ *    al pulsar se lee como una avería (§95).
+ * 2. Que la confirmación lleve el nombre, diga que no se deshace y explique
+ *    por qué sólo los borradores — las tres cosas que la pantalla de Archivar
+ *    aprendió el 07/10/2026 por las malas.
+ * 3. Que confirmar llame al comando con el id de **esa** campaña.
+ *
+ * **Vistas en rojo** con tres rupturas: enseñar el botón en todos los estados,
+ * quitar el párrafo de «sólo se borran los borradores», y borrar al pulsar el
+ * botón de la fila sin pasar por la confirmación.
+ */
+describe('borrar un borrador', () => {
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    await router.push('/campanas')
+    await router.isReady()
+  })
+
+  const BORRADOR: Campana = {
+    ...CAMPANA,
+    id: '01900000-0000-7000-8000-0000000000c9',
+    nombre: 'Pruebas',
+    estado: 'campana.estado.borrador',
+    audiencia: 0,
+    aceptados: 0,
+  }
+
+  /** Monta la lista con las campañas dadas y espía al almacén. */
+  function conLista(campanas: Campana[]): { pantalla: ReturnType<typeof mount>; pedidos: string[] } {
+    const store = useCampanasStore()
+    store.campanas = campanas
+    store.cargada = true
+    const pedidos: string[] = []
+    store.borrar = async (id) => {
+      pedidos.push(id)
+      return true
+    }
+    return { pantalla: mount(PantallaCampanas, entorno), pedidos }
+  }
+
+  /**
+   * Los botones de las filas, y **sólo** los de las filas.
+   *
+   * `AModal` no desmonta lo que lleva dentro al cerrarse —está documentado en
+   * `PantallaContactos.vue`—, así que su botón de confirmar existe en el DOM
+   * desde el montaje. La primera versión de estas pruebas buscaba «Borrar» en
+   * toda la pantalla y contaba dos con una sola campaña enviando: contaba el
+   * del diálogo cerrado.
+   */
+  function botonesDeFila(pantalla: ReturnType<typeof mount>, texto: string) {
+    return pantalla
+      .findAll('.campanas__acciones button')
+      .filter((b) => b.text() === texto)
+  }
+
+  /** El diálogo de borrar, por su título. */
+  function dialogo(pantalla: ReturnType<typeof mount>) {
+    const cual = pantalla.findAllComponents(AModal).find((m) => m.props('titulo') === 'Borrar')
+    expect(cual, 'el diálogo de borrar').toBeDefined()
+    return cual
+  }
+
+  it('la campaña que ya envió no enseña el botón de borrar', () => {
+    const { pantalla } = conLista([CAMPANA])
+    expect(
+      botonesDeFila(pantalla, 'Borrar').length,
+      'un botón que aparece y falla al pulsarlo se lee como una avería',
+    ).toBe(0)
+    expect(dialogo(pantalla)?.props('abierto'), 'y el diálogo está cerrado').toBe(false)
+  })
+
+  it('el borrador sí, y la confirmación dice el nombre, que no se deshace y por qué sólo los borradores', async () => {
+    const { pantalla, pedidos } = conLista([CAMPANA, BORRADOR])
+    const abrir = botonesDeFila(pantalla, 'Borrar')
+    expect(abrir.length, 'uno, el del borrador').toBe(1)
+
+    await abrir[0]?.trigger('click')
+    const modal = dialogo(pantalla)
+    expect(modal?.props('abierto')).toBe(true)
+
+    // El texto se mira **dentro del diálogo**: en toda la pantalla, dos de
+    // las tres frases estarían ahí desde el montaje y la prueba pasaría sin
+    // haber abierto nada.
+    const texto = modal?.text() ?? ''
+    expect(texto).toContain('«Pruebas»')
+    expect(texto).toContain('no se puede deshacer')
+    expect(texto).toContain('Sólo se borran los borradores')
+    // Una salida al lado del botón rojo: es lo que le faltaba a Archivar.
+    expect(texto).toContain('Mejor no')
+    expect(pedidos, 'abrir el diálogo no borra nada').toEqual([])
+  })
+
+  it('al confirmar borra esa campaña, y no otra', async () => {
+    const { pantalla, pedidos } = conLista([CAMPANA, BORRADOR])
+    await botonesDeFila(pantalla, 'Borrar')[0]?.trigger('click')
+    // Sin esta línea la prueba no distingue «borra al confirmar» de «borra al
+    // pulsar la fila»: con el botón de la fila llamando al almacén directo,
+    // pasaba en verde. Lo cazó romperlo.
+    expect(pedidos, 'el botón de la fila sólo abre la confirmación').toEqual([])
+
+    const confirmar = dialogo(pantalla)
+      ?.findAll('button')
+      .filter((b) => b.text() === 'Borrar')
+    await confirmar?.[confirmar.length - 1]?.trigger('click')
+
+    expect(pedidos).toEqual([BORRADOR.id])
+  })
+})
+
+describe('los estados de campaña', () => {
+  /**
+   * **Las siete claves que emite Rust tienen su rótulo, y el respaldo existe.**
+   *
+   * La lista viva está en `EstadoDeCampana::clave_i18n`. Una clave sin texto no
+   * da ningún error: la tabla enseñaría `campana.estado.enPausa` en crudo, y
+   * sólo se descubre con una campaña en ese estado concreto delante.
+   *
+   * El respaldo se comprueba aparte porque la pantalla cae en él cuando falta
+   * un texto — y si el respaldo tampoco existiera, la red de seguridad sería la
+   * que enseñara la clave.
+   */
+  it('las siete tienen rótulo, y hay respaldo', () => {
+    const ESTADOS = [
+      'borrador',
+      'lista',
+      'programada',
+      'enviando',
+      'enPausa',
+      'detenida',
+      'terminada',
+      'desconocido',
+    ]
+    for (const estado of ESTADOS) {
+      const clave = `campana.estado.${estado}`
+      expect(String(i18n.global.t(clave)), clave).not.toBe(clave)
+    }
+  })
+})
+
+describe('el asistente de campaña', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  /**
+   * **Los ocho pasos tienen título, y ninguno enseña su clave en crudo.**
+   *
+   * Sin esto, un paso sin texto sale como `asistente.paso.preflight.titulo` en
+   * la cabecera, y sólo se ve llegando a ese paso concreto — que es el séptimo.
+   *
+   * Ya pasó: al escribir estas pruebas faltaba justo el del preflight, y las
+   * demás pasaban en verde con el aviso de `vue-i18n` en la salida de error,
+   * donde nadie lo mira.
+   *
+   * **`prueba` sigue en la lista aunque ya no sea un paso** (05/11/2026): su
+   * bloque se pinta dentro del 7 y su título encabeza esa mitad, así que un
+   * texto que falte se vería igual de crudo que antes.
+   */
+  it('los ocho pasos tienen su título', () => {
+    const PASOS = [
+      'informacion',
+      'audiencia',
+      'remitente',
+      'mensaje',
+      'limites',
+      'simulacion',
+      'preflight',
+      'prueba',
+      'activacion',
+    ]
+    for (const paso of PASOS) {
+      const clave = `asistente.paso.${paso}.titulo`
+      expect(String(i18n.global.t(clave)), clave).not.toBe(clave)
+    }
+  })
+
+  function montar(): ReturnType<typeof mount> {
+    const remitentes = useRemitentesStore()
+    remitentes.remitentes = [CUENTA]
+    remitentes.cargada = true
+
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    return mount(AsistenteDeCampana, entorno)
+  }
+
+  /** §94: dónde estás, con números, no «ya casi». */
+  it('dice en qué paso vas de cuántos', () => {
+    expect(montar().text()).toContain('Paso 1 de 8')
+  })
+
+  /**
+   * **Sólo se ofrecen cuentas que ya conectan.**
+   *
+   * Ofrecer una cuenta rota construye una campaña entera que el preflight va a
+   * bloquear cuatro pasos después, y para entonces ya se escribió el mensaje y
+   * se eligió el horario.
+   */
+  it('no ofrece cuentas que no pueden enviar', async () => {
+    const remitentes = useRemitentesStore()
+    remitentes.remitentes = [{ ...CUENTA, estado: 'needs_reauth' }]
+    remitentes.cargada = true
+    useCampanasStore().cargada = true
+
+    const p = mount(AsistenteDeCampana, entorno)
+    // @ts-expect-error acceso al estado interno para situarse en el paso 3
+    p.vm.paso = 3
+    await p.vm.$nextTick()
+
+    expect(p.text()).toContain('No hay ninguna cuenta lista para enviar')
+    expect(p.text()).not.toContain('ventas@telemetry.mx')
+  })
+
+  /**
+   * **El aviso del §48 aparece a partir de 51, no de 50.**
+   *
+   * El umbral es «más de 50». Un `>=` obligaría a aceptar un riesgo en el caso
+   * que el propio §48 pone como seguro, y nadie lo notaría salvo por una
+   * casilla de más — que es justo lo que enseña a ignorar los avisos.
+   *
+   * Verificada rompiéndola el 29/09/2026: cambiando el `>` por `>=` en
+   * `avisaDelVolumen`, la primera comprobación falla.
+   */
+  it('avisa del volumen a partir de 51 diarios, y no antes', async () => {
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 5
+    p.vm.paso = 5
+    // @ts-expect-error idem
+    p.vm.limiteDiario = '50'
+    await p.vm.$nextTick()
+    expect(p.text()).not.toContain('tiene riesgo')
+
+    // @ts-expect-error idem
+    p.vm.limiteDiario = '51'
+    await p.vm.$nextTick()
+    expect(p.text()).toContain('tiene riesgo')
+    // §154: se informa, no se prohíbe. Y se dice que no se prohíbe.
+    expect(p.text()).toContain('la decisión es tuya')
+  })
+
+  /**
+   * **«Sin comprobar» no se lee como un aprobado… cuando de verdad bloquea.**
+   *
+   * Es la regla que gobierna el preflight: un punto sin comprobar bloquea
+   * igual que uno que falla. Si la pantalla lo pintara como un aviso menor, el
+   * botón apagado no tendría explicación visible.
+   *
+   * ── LO QUE ESTA PRUEBA AFIRMABA Y ERA FALSO (05/11/2026) ────────────────
+   *
+   * Lo pedía **siempre**, y siete de los ocho puntos bloquean: el de los
+   * registros del dominio es el único que no (§154). Visto mirando la
+   * demostración, con todo en verde menos ése: la pantalla decía «impide
+   * activar» justo debajo de una lista en la que **nada impedía activar**, y
+   * con el botón de continuar encendido.
+   *
+   * Así que ahora se comprueban los dos casos, y quien decide cuál es no es la
+   * pantalla: es el resultado que manda Rust.
+   */
+  it('con el preflight bloqueado dice que lo sin comprobar no es un aprobado', async () => {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.revision = revision({
+      preflight: {
+        puntos: [{ punto: 'hayConexion', veredicto: 'sinComprobar' }],
+        resultado: { resultado: 'bloqueada', fallan: 0, sinComprobar: 1 },
+      },
+    })
+
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 7
+    p.vm.paso = 7
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto).toContain('Sin comprobar')
+    expect(texto).toContain('no lo da por bueno')
+    expect(texto).toContain('impide activar')
+  })
+
+  /**
+   * **Y el único punto que no bloquea dice lo suyo, en vez de mentir.**
+   *
+   * `losRegistrosDelDominioAviso` llevaba escrito en el catálogo desde la Fase
+   * 6 **sin que ninguna pantalla lo llamara** — el patrón del §9. Es el texto
+   * que contesta la pregunta que deja la insignia amarilla cuando la campaña
+   * ya se puede activar: qué pasa si se activa así.
+   */
+  it('con la campaña lista, los registros del dominio avisan sin decir que bloquean', async () => {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    // El fixture por defecto: todo pasa menos los registros, y el resultado es
+    // «lista» — que es el caso real de un dominio sin DMARC.
+    campanas.revision = revision()
+
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 7
+    p.vm.paso = 7
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto, 'la insignia sigue amarilla').toContain('Sin comprobar')
+    expect(texto, 'y se dice qué significa').toContain('entregan peor, pero entregan')
+    expect(texto, 'con su frase: no impide activar').toContain('no impide activar')
+    // Se busca la nota **genérica** por su primera frase y no por «impide
+    // activar»: ese trozo está dentro de «no impide activar», que es justo lo
+    // que aquí tiene que leerse. La primera versión de este `assert` salió en
+    // rojo por eso — midiendo una subcadena de la frase correcta.
+    expect(
+      texto,
+      'la nota de «sin comprobar bloquea» no cabe donde nada bloquea',
+    ).not.toContain('no lo da por bueno')
+  })
+
+  /**
+   * **El botón de activar lo apaga el preflight, no la pantalla.**
+   *
+   * Con el veredicto en «bloqueada», activar no se puede pulsar — y se dice a
+   * dónde volver. Un botón apagado sin explicación se lee como una avería.
+   *
+   * Verificada rompiéndola el 29/09/2026: quitando el `:deshabilitado` del
+   * botón de activar, esta prueba falla.
+   */
+  it('con el preflight bloqueado no se puede activar', async () => {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.revision = revision({
+      preflight: {
+        puntos: [{ punto: 'hayConexion', veredicto: 'falla' }],
+        resultado: { resultado: 'bloqueada', fallan: 1, sinComprobar: 0 },
+      },
+    })
+
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 8
+    p.vm.paso = 8
+    await p.vm.$nextTick()
+
+    const boton = p.findAll('button').find((b) => b.text().includes('Activar campaña'))
+    expect(boton?.attributes('disabled')).toBeDefined()
+    expect(p.text()).toContain('Vuelve al paso 7')
+  })
+
+  /**
+   * **Antes de activar se dice que no se deshace, y a cuánta gente llega.**
+   *
+   * Una confirmación sin cifra no es una confirmación informada, y esto congela
+   * la audiencia y empieza a mandar correos que no vuelven.
+   */
+  it('avisa de lo que cuesta activar, con la cifra delante', async () => {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.revision = revision()
+
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 8
+    p.vm.paso = 8
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto).toContain('Activar no se puede deshacer')
+    expect(texto).toContain('1342')
+  })
+
+  /**
+   * **La simulación habla en castellano llano, con las dos cifras.**
+   *
+   * Es, según `UX_NAVEGACION.md` §5, la información más valiosa de ARLES: lo
+   * que hace que alguien reconsidere **antes** de lanzar. Y la cifra de a
+   * cuántos les falta un dato se enseña como cifra: con 34 de 1 342 se sigue,
+   * con 900 se para a revisar la lista.
+   */
+  it('la simulación dice cuántos, a qué ritmo y a cuántos les falta un dato', async () => {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.revision = revision()
+
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 6
+    p.vm.paso = 6
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto).toContain('1,342 correos')
+    expect(texto).toContain('50 al día')
+    expect(texto).toContain('27 días')
+    expect(texto).toContain('34 de 1342')
+  })
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // EL DESENLACE · conectado en la 8.6 E
+  //
+  // El núcleo calcula los tres desde la Fase 4 y los tres textos estaban
+  // escritos desde entonces. La pantalla pintaba el techo y los días, y nada
+  // más: con 451 196 personas a 50 diarios decía «1 303 días» —una cifra
+  // correcta— y NUNCA decía que 386 046 personas no iban a recibir nada.
+  //
+  // Las tres pruebas se vieron fallar quitando los `AAviso` del paso 6.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /** Pone el asistente en el paso de la simulación con la revisión que se diga. */
+  async function enLaSimulacion(rev: Revision): Promise<ReturnType<typeof mount>> {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.revision = rev
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 6
+    p.vm.paso = 6
+    await p.vm.$nextTick()
+    return p
+  }
+
+  /**
+   * **Una campaña que no termina lo dice, y dice a cuánta gente deja fuera.**
+   *
+   * Es la mitad que faltaba: sin la cifra, «no termina» no permite decidir
+   * entre subir el tope y partir la campaña (§94).
+   */
+  it('avisa cuando la campaña no termina en cinco años, con la cifra', async () => {
+    const p = await enLaSimulacion(
+      revision({
+        audiencia: 451_196,
+        estimacion: {
+          desenlace: { desenlace: 'noCabeEnElHorizonte', faltan: 386_046 },
+          audiencia: 451_196,
+          techoDiario: 50,
+          quienManda: 'elTopeDelDia',
+          diasConEnvio: 1303,
+        },
+      }),
+    )
+
+    const texto = p.text()
+    expect(texto).toContain('no termina en cinco años')
+    expect(texto, 'la cifra con separador de miles (§94, es-MX)').toContain('386,046')
+  })
+
+  /** **Y con el tope a cero también, que es el otro caso que el núcleo caza.** */
+  it('avisa cuando con esos topes no sale ni un mensaje', async () => {
+    const p = await enLaSimulacion(
+      revision({
+        estimacion: {
+          desenlace: { desenlace: 'noAvanza' },
+          audiencia: 1342,
+          techoDiario: 0,
+          quienManda: 'elTopeDelDia',
+          diasConEnvio: 0,
+        },
+      }),
+    )
+    expect(p.text()).toContain('no saldría ni un mensaje')
+  })
+
+  /**
+   * **El aviso de espera, por encima de 30 000 destinatarios.**
+   *
+   * Medido: 4 s con 45 000 y 73 s con 451 000. No es un tope —una campaña de
+   * 136 000 que termina en nueve meses es razonable— es convertir un cuelgue
+   * en una espera explicada (§95).
+   */
+  /**
+   * ── EL AVISO DEL REMITENTE COMPARTIDO, Y LO QUE CAMBIÓ EN UN DÍA ───────
+   *
+   * Lo vio Dirección la mañana del 22/10/2026: *«si coloco en la campaña uno un
+   * límite de 50 al día y otra campaña dos un límite de 50 al día con el mismo
+   * remitente... no se mandan 50 en ambas»*. Medido entonces: **25 y 25**, por
+   * orden de llegada. El aviso nació para decir que el plazo no valía.
+   *
+   * Esa misma tarde Dirección decidió que los topes **se sumen** (D-13), así
+   * que ahora salen 50 y 50 y el plazo se cumple. El aviso no se quitó: cambió
+   * de sentido. Lo que avisa es que **de ese buzón van a salir 100 al día**, y
+   * que el total es lo que arriesga el dominio — y hace más falta que antes,
+   * porque antes el agregado tenía un techo y ahora no.
+   *
+   * Esta prueba comprueba las tres cosas que el aviso necesita: que nombre la
+   * otra campaña, que explique que los topes se suman y que diga qué hacer
+   * (§95). La frase que exigía antes —«se reparten ese máximo»— describía un
+   * comportamiento retirado: si se hubiera dejado, la prueba habría seguido en
+   * verde protegiendo un texto falso.
+   */
+  it('avisa de que el plazo no vale si el remitente ya está enviando otra', async () => {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.revision = revision({
+      compartenRemitente: [{ nombre: 'La de octubre', limiteDiario: 50 }],
+    })
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 6
+    p.vm.paso = 6
+    await p.vm.$nextTick()
+    expect(p.text()).toContain('Este remitente ya está enviando «La de octubre»')
+    expect(p.text()).toContain('esos máximos se suman')
+    expect(p.text()).toContain('El plazo de arriba se cumple')
+    // Y dice qué hacer, que es la tercera parte del §95.
+    expect(p.text()).toContain('un remitente distinto para cada campaña')
+  })
+
+  it('nombra las dos cuando son dos, y lo dice en plural', async () => {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.revision = revision({
+      compartenRemitente: [
+        { nombre: 'La de octubre', limiteDiario: 50 },
+        { nombre: 'La de soporte', limiteDiario: 200 },
+      ],
+    })
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 6
+    p.vm.paso = 6
+    await p.vm.$nextTick()
+    expect(p.text()).toContain('ya está enviando 2 campañas')
+    expect(p.text()).toContain('La de octubre, La de soporte')
+  })
+
+  /** Con el remitente para ella sola, el plazo se puede creer y no se estorba. */
+  it('no avisa cuando el remitente es sólo de esta campaña', async () => {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.revision = revision()
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 6
+    p.vm.paso = 6
+    await p.vm.$nextTick()
+    expect(p.text()).not.toContain('Este remitente ya está enviando')
+  })
+
+  it('avisa de cuánto va a tardar en prepararse una campaña grande', async () => {
+    const p = await enLaSimulacion(
+      revision({
+        audiencia: 451_196,
+        estimacion: {
+          desenlace: { desenlace: 'termina', cuando: '3 de marzo' },
+          audiencia: 451_196,
+          techoDiario: 500,
+          quienManda: 'elTopeDelDia',
+          diasConEnvio: 903,
+        },
+      }),
+    )
+    const texto = p.text()
+    expect(texto).toContain('segundos en preparar')
+    expect(texto, 'no cerrar ARLES es la parte accionable (§95)').toContain('no cierres ARLES')
+  })
+
+  /** **Y una campaña normal no lo enseña**, o el aviso se deja de leer. */
+  it('no avisa de la espera con una audiencia normal', async () => {
+    const p = await enLaSimulacion(revision())
+    expect(p.text()).not.toContain('segundos en preparar')
+  })
+  // ═══════════════════════════════════════════════════════════════════════
+  // LA PARADA DE EMERGENCIA · enchufada en la 7.3
+  //
+  // La Fase 4 la construyó, la 7.0 le puso sus tres comandos con sus pruebas, y
+  // **ninguna pantalla los llamaba**. La comprobación que la 7.0 escribió para
+  // este patrón sólo miraba pausar, reanudar y detener: verificaba tres de seis
+  // y pasaba en verde. Estas dos pruebas miran los otros tres.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * **Con la parada puesta, la pantalla lo dice y ofrece levantarla.**
+   *
+   * Sin el aviso, cada cifra de la tabla es de algo que no está saliendo y no
+   * hay nada que lo diga: alguien mira «enviando, 340 de 1 342» y espera a que
+   * avance para siempre.
+   *
+   * Verificada rompiéndola el 30/09/2026 quitando el bloque del aviso: falla
+   * porque no encuentra el texto de la parada ni el botón de reanudar.
+   */
+  it('avisa de la parada de emergencia y ofrece reanudar', async () => {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.campanas = [CAMPANA]
+    campanas.parada = {
+      parado: true,
+      desde: '2026-09-30T16:40:00Z',
+      por: 'Adrián',
+      clave: 'campana.parada.puesta',
+    }
+
+    const w = mount(PantallaCampanas, entorno)
+    await w.vm.$nextTick()
+
+    expect(w.text()).toContain('no sale nada de ninguna campaña')
+    // §95: las tres partes, no sólo el qué.
+    expect(w.text()).toContain('sigue por enviar')
+    const botones = w.findAll('button').map((b) => b.text())
+    expect(botones.join(' | ')).toContain('Reanudar los envíos')
+    // Y no ofrece parar otra vez lo que ya está parado.
+    expect(botones.join(' | ')).not.toContain('Detener todos los envíos')
+  })
+
+  /**
+   * **Y sin la parada puesta, el botón de pararlo todo está.**
+   *
+   * Es la mitad que faltaba: un aviso que sólo aparece cuando ya está parado no
+   * sirve de nada si no hay forma de pararlo. Ésta es la prueba que habría
+   * fallado desde la 7.0.
+   */
+  it('con el envío activo ofrece la parada de emergencia', async () => {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.campanas = [CAMPANA]
+    campanas.parada = { parado: false, desde: null, por: null, clave: 'campana.parada.levantada' }
+
+    const w = mount(PantallaCampanas, entorno)
+    await w.vm.$nextTick()
+
+    const botones = w.findAll('button').map((b) => b.text())
+    expect(botones.join(' | ')).toContain('Detener todos los envíos')
+    expect(w.text()).not.toContain('no sale nada de ninguna campaña')
+  })
+
+  // ── R-29 · CÓMO QUEDA EL CORREO, EN EL PASO 4 (05/11/2026) ─────────────
+  //
+  // Dirección lo pidió para ver el mensaje antes de elegirlo. Lo que se vigila
+  // aquí son las dos cosas que sólo esta capa puede equivocar:
+  //
+  // 1. Que la previsualización **se pida** al elegir plantilla o firma. Sin
+  //    eso el comando existe y nadie lo llama — el patrón del §9.
+  // 2. Que lo que se enseña venga **de Rust**: el asunto y el cuerpo que
+  //    manda el comando, no un texto armado aquí. Que la sustitución sea
+  //    correcta lo prueban `arles-core` y `arles-db`; lo que esta prueba
+  //    puede ver es que la pantalla no se lo invente.
+  //
+  // **Vistas en rojo** con dos rupturas: quitando el `watch` que la pide, y
+  // dejando de pintar el asunto que llega.
+
+  const PREVIA = {
+    asunto: 'Hola Ana, gracias por escribirnos',
+    html: '<p>Hola Ana,</p>',
+    conQuien: 'Ana Ruiz',
+    faltaron: [],
+  }
+
+  /** Monta el asistente en el paso 4 con una plantilla elegida. */
+  async function enElPaso4(): Promise<{
+    p: ReturnType<typeof mount>
+    pedidas: { n: number }
+  }> {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.plantillas = [
+      {
+        id: 'pl-1',
+        nombre: 'Bienvenida',
+        version: {
+          id: 'v-1',
+          numero: 1,
+          asunto: 'Hola {{nombre}}',
+          cuerpoHtml: '<p>Hola {{nombre}}</p>',
+          variables: ['nombre'],
+        },
+      },
+    ]
+    const pedidas = { n: 0 }
+    campanas.previsualizar = async () => {
+      pedidas.n += 1
+      campanas.previsualizacion = PREVIA
+    }
+
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 4
+    p.vm.paso = 4
+    // @ts-expect-error la cuenta elegida en el paso 3
+    p.vm.cuenta = CUENTA.id
+    await p.vm.$nextTick()
+    return { p, pedidas }
+  }
+
+  it('al elegir la plantilla se pide cómo queda el correo', async () => {
+    const { p, pedidas } = await enElPaso4()
+    expect(pedidas.n, 'sin plantilla elegida no hay nada que enseñar').toBe(0)
+
+    // @ts-expect-error la versión que se elige en el desplegable
+    p.vm.versionDePlantilla = 'v-1'
+    await p.vm.$nextTick()
+    expect(pedidas.n, 'elegirla la pide').toBe(1)
+  })
+
+  it('enseña el asunto y con quién está hecha la muestra', async () => {
+    const { p } = await enElPaso4()
+    // @ts-expect-error la versión que se elige en el desplegable
+    p.vm.versionDePlantilla = 'v-1'
+    await p.vm.$nextTick()
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto, 'el asunto ya rellenado, tal como llega de Rust').toContain(
+      'Hola Ana, gracias por escribirnos',
+    )
+    // Con quién, porque el correo cambia con cada persona y ésta es una sola.
+    expect(texto).toContain('Ana Ruiz')
+    // El cuerpo va dentro de un iframe aislado: no se puede leer con `text()`,
+    // y eso es lo que queremos — el CSS de ARLES no maqueta el correo.
+    const marco = p.find('iframe')
+    expect(marco.exists(), 'el correo va en su marco').toBe(true)
+    expect(marco.attributes('srcdoc')).toContain('<p>Hola Ana,</p>')
+    expect(
+      marco.attributes('sandbox'),
+      'sin `allow-scripts`: el HTML queda inerte aunque el saneado fallara',
+    ).toBe('')
+  })
+
+  // ── COMPROBAR Y PROBAR SON UN SOLO PASO (05/11/2026) ───────────────────
+  //
+  // Dirección llegó al paso 7 con puntos «sin comprobar», no pudo activar, y
+  // **tuvo que retroceder para que la comprobación se repitiera**: salir del
+  // paso 5 era lo único que la disparaba. *«Por eso la solicitud de hacer la
+  // comprobación automática, para no tener que salir de la pestaña.»*
+  //
+  // Lo que se vigila aquí son las tres cosas que sólo esta pantalla puede
+  // equivocar, y que ninguna prueba de Rust ve:
+  //
+  // 1. Que al entrar en el 7 **sin revisión** se pida sola.
+  // 2. Que **no se pida otra vez** si ya hay una. No es ahorro: la revisión de
+  //    correo sondea el servidor SMTP y puede tardar un minuto, y en macOS
+  //    abre un diálogo del llavero. Es la sonda de más que la auditoría de la
+  //    Fase 6 quitó el 29/09/2026.
+  // 3. Que el botón la repita **estando ya hecha**, que es justo lo que no se
+  //    podía hacer sin retroceder.
+  //
+  // **Vistas en rojo el 05/11/2026** con tres rupturas: quitar el `watch`,
+  // llamar siempre al entrar, y dejar el botón sin su `@click`.
+
+  /** Monta el asistente situado en un paso, con la campaña ya creada. */
+  async function enElPaso(
+    n: number,
+    revision_: Revision | null = null,
+  ): Promise<{ p: ReturnType<typeof mount>; cuenta: { n: number } }> {
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    campanas.revision = revision_
+    const cuenta = { n: 0 }
+    campanas.revisar = async () => {
+      cuenta.n += 1
+      campanas.revision = revision()
+    }
+
+    const p = montar()
+    // @ts-expect-error la campaña ya creada: del 6 en adelante todo lee de ella
+    p.vm.creada = { id: 'c-1' }
+    // @ts-expect-error acceso al estado interno para situarse en el paso
+    p.vm.paso = n
+    await p.vm.$nextTick()
+    await p.vm.$nextTick()
+    return { p, cuenta }
+  }
+
+  it('al entrar en el paso 7 sin revisión, la comprobación se hace sola', async () => {
+    const { cuenta } = await enElPaso(7, null)
+    expect(cuenta.n, 'sin esto hay que retroceder al paso 5 para repetirla').toBe(1)
+  })
+
+  it('y no se repite si ya hay una: es una sonda SMTP de hasta un minuto', async () => {
+    const { cuenta } = await enElPaso(7, revision())
+    expect(cuenta.n).toBe(0)
+  })
+
+  it('el botón de volver a comprobar la repite sin salir del paso', async () => {
+    const { p, cuenta } = await enElPaso(7, revision())
+    expect(cuenta.n, 'con revisión puesta, entrar no la repite').toBe(0)
+
+    const boton = p.findAll('button').find((b) => b.text() === 'Volver a comprobar')
+    expect(boton, 'el botón de repetir la comprobación').toBeTruthy()
+    await boton?.trigger('click')
+    await p.vm.$nextTick()
+
+    expect(cuenta.n, 'pulsarlo sí la repite, que es lo que no se podía hacer').toBe(1)
+  })
+
+  /**
+   * **El envío de prueba está en el paso 7, y sigue siendo obligatorio.**
+   *
+   * Dirección pidió quitar su paso. No se quitó la prueba —es obligatoria
+   * (§45) y es uno de los ocho puntos del preflight de arriba—: se dejó de
+   * partir en dos pantallas lo que es una sola pregunta.
+   */
+  it('el envío de prueba vive en el paso 7, y sin él no se continúa', async () => {
+    const { p } = await enElPaso(7, revision())
+
+    const texto = p.text()
+    expect(texto, 'los puntos del preflight').toContain('Sin comprobar')
+    expect(texto, 'y el envío de prueba, en la misma pantalla').toContain(
+      'Mandar la prueba',
+    )
+
+    const seguir = p.findAll('button').find((b) => b.text() === 'Continuar')
+    expect(seguir?.attributes('disabled'), 'sin prueba aceptada no se sigue').toBeDefined()
+    expect(texto).toContain('Manda el envío de prueba')
+  })
+
+  // ── EL AVANCE DE LA ACTIVACIÓN (Fase 9) ────────────────────────────────
+
+  /**
+   * **El avance dice en qué va con palabras, y la cifra sólo donde la hay.**
+   *
+   * Medido el 28/10/2026: el bucle de la cola es el 52-57 % del tiempo y el
+   * único tramo contable. El `INSERT` de la audiencia (33-38 %) es una sola
+   * sentencia y el `COMMIT` (7-9 %) tampoco se subdivide, así que una barra de
+   * porcentaje estaría quieta el 45 % de la espera y después saltaría.
+   *
+   * En la fase de congelar **no puede aparecer ninguna cifra**: si apareciera,
+   * sería inventada.
+   */
+  it('mientras congela la audiencia dice qué hace y no da cifras', async () => {
+    const campanas = useCampanasStore()
+    const p = montar()
+    campanas.comoVa = { fase: 'congelando', sePuedeCancelar: true }
+    // @ts-expect-error acceso al estado interno para situarse en el paso 8
+    p.vm.paso = 8
+    // @ts-expect-error la campaña ya creada, para llegar al bloque de activar
+    p.vm.creada = { id: 'c-1' }
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto).toContain('Decidiendo quién entra en la campaña')
+    expect(texto, 'ni «de»: ahí no hay cifra que dar').not.toContain(' de 0')
+    expect(texto, 'y se puede cancelar').toContain('Cancelar la activación')
+  })
+
+  /** La fase de la cola sí lleva cifras, **con separador de miles**. */
+  it('al llenar la cola enseña van y de, con separador', async () => {
+    const campanas = useCampanasStore()
+    const p = montar()
+    campanas.comoVa = { fase: 'cola', van: 12000, de: 180552, sePuedeCancelar: true }
+    // @ts-expect-error acceso al estado interno para situarse en el paso 8
+    p.vm.paso = 8
+    // @ts-expect-error la campaña ya creada
+    p.vm.creada = { id: 'c-1' }
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto).toContain('Preparando los mensajes')
+    // Es el octavo defecto de este tipo del proyecto —«12536 filas» en la
+    // 8.2c, «1303 días» en la 8.6 E—, así que se comprueba y no se confía.
+    expect(texto, 'con separador').toContain('12,000')
+    expect(texto, 'y el total también').toContain('180,552')
+  })
+
+  /**
+   * **En la fase de cerrar, el botón de cancelar se apaga y dice por qué.**
+   *
+   * Un botón encendido que no hace nada es el §95 al revés. Y uno apagado sin
+   * motivo se lee como una avería — es el defecto que la 8.2c y la 8.3c
+   * tuvieron con «Repite la contraseña» y «Restaurar y reemplazar».
+   */
+  it('al cerrar apaga el botón de cancelar y explica el motivo', async () => {
+    const campanas = useCampanasStore()
+    const p = montar()
+    campanas.comoVa = { fase: 'cerrando', sePuedeCancelar: false }
+    // @ts-expect-error acceso al estado interno para situarse en el paso 8
+    p.vm.paso = 8
+    // @ts-expect-error la campaña ya creada
+    p.vm.creada = { id: 'c-1' }
+    await p.vm.$nextTick()
+
+    expect(p.text()).toContain('Ya no se puede cancelar')
+
+    const boton = p.findAll('button').find((b) => b.text().includes('Cancelar la activación'))
+    expect(boton, 'el botón sigue estando, para no mover la pantalla').toBeTruthy()
+    expect(boton?.attributes('disabled'), 'y está apagado').toBeDefined()
+    expect(
+      boton?.attributes('title'),
+      'con el motivo, que es lo que el §95 pide de un botón apagado',
+    ).toBeTruthy()
+  })
+
+  /** Sin activación en curso, el botón que se ve es el de activar. */
+  it('sin activación en curso no hay avance ni botón de cancelar', async () => {
+    const p = montar()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 8
+    p.vm.paso = 8
+    // @ts-expect-error la campaña ya creada
+    p.vm.creada = { id: 'c-1' }
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto).toContain('Activar campaña')
+    expect(texto).not.toContain('Cancelar la activación')
+    expect(texto).not.toContain('Preparando los mensajes')
+  })
+})
+
+/**
+ * ── LA FIRMA SE ELIGE AL CREAR LA CAMPAÑA (H-12, 22/10/2026) ───────────────
+ *
+ * `campaign_stage.signature_id` existía desde la V4 y la consulta del envío ya
+ * la miraba — con su caída a la de por defecto— **meses antes de que nada la
+ * escribiera**. Nada fallaba: simplemente todas las campañas salían con la
+ * misma firma y el asistente ni preguntaba.
+ *
+ * Esto comprueba la punta que es del frontend: que el desplegable exista con
+ * la opción de por defecto delante, y que un vacío viaje como `null` y no como
+ * cadena vacía — la clave ajena de `campaign_stage` rechazaría la cadena.
+ */
+describe('la firma del pie en el asistente', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  function enElPaso4(firmas: unknown[]) {
+    const remitentes = useRemitentesStore()
+    remitentes.remitentes = [CUENTA]
+    remitentes.cargada = true
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    // @ts-expect-error se fija el estado del store para el caso bajo prueba
+    campanas.firmas = firmas
+    const p = mount(AsistenteDeCampana, entorno)
+    // @ts-expect-error acceso al estado interno para situarse en el paso 4
+    p.vm.paso = 4
+    return p
+  }
+
+  /**
+   * ── SIN PLANTILLAS, EL PASO 4 DEJABA SIN SALIDA ────────────────────────
+   *
+   * El paso 3 avisa cuando no hay cuentas y el 5 cuando no hay horarios; éste
+   * dejaba un desplegable vacío, «Continuar» apagado y ninguna pista de que
+   * la plantilla se escribe en otra pantalla. Es el H-06 en el paso de al
+   * lado, encontrado mirando la demostración con las diez fases en verde.
+   */
+  it('NO deja a nadie sin salida: dice dónde se escriben las plantillas', async () => {
+    const p = enElPaso4([])
+    await p.vm.$nextTick()
+    expect(p.text()).toContain('Todavía no has escrito ninguna plantilla')
+    expect(p.text()).toContain('Ir a Plantillas y firmas')
+  })
+
+  it('con plantillas guardadas no estorba con el aviso', async () => {
+    const campanas = useCampanasStore()
+    const p = enElPaso4([])
+    campanas.plantillas = [
+      {
+        id: 'p1',
+        nombre: 'Oferta',
+        version: {
+          id: 'v1',
+          numero: 1,
+          asunto: 'A',
+          cuerpoHtml: '<p>Hola</p>',
+          variables: [],
+        },
+      },
+    ]
+    await p.vm.$nextTick()
+    expect(p.text()).not.toContain('Todavía no has escrito ninguna plantilla')
+  })
+
+  it('ofrece las firmas, con la de por defecto delante', async () => {
+    const p = enElPaso4([
+      { id: 'f1', nombre: 'La de ventas', cuerpoHtml: '<p>a</p>', porDefecto: true },
+      { id: 'f2', nombre: 'La de soporte', cuerpoHtml: '<p>b</p>', porDefecto: false },
+    ])
+    await p.vm.$nextTick()
+    expect(p.text()).toContain('Firma del pie')
+    // @ts-expect-error estado interno
+    const opciones = p.vm.opcionesDeFirma as { valor: string; texto: string }[]
+    expect(opciones[0]).toEqual({
+      valor: '',
+      texto: 'La firma marcada por defecto',
+    })
+    expect(opciones.map((o) => o.texto)).toContain('La de soporte')
+  })
+
+  /**
+   * **Vacío viaja como `null`, no como cadena vacía.** Una cadena vacía no es
+   * una firma que exista: la clave ajena de `campaign_stage` la rechazaría y
+   * la campaña entera fallaría al crearse, después del asistente entero.
+   */
+  it('sin elegir firma manda null y no una cadena vacía', async () => {
+    const p = enElPaso4([])
+    // @ts-expect-error estado interno
+    expect(p.vm.firma).toBe('')
+    // @ts-expect-error estado interno
+    const comoViaja = p.vm.firma === '' ? null : p.vm.firma
+    expect(comoViaja).toBeNull()
+  })
+})
+
+/**
+ * El paso 5, que dejaba la campaña sin salida · H-06 y H-10, 16/10/2026
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * DIRECCIÓN NO PUDO CREAR NINGUNA CAMPAÑA
+ *
+ * El desplegable de **Horario de envío** salía vacío, y sin elegir uno
+ * «Continuar» no deja pasar. Las opciones son las ventanas guardadas, y
+ * **ninguna pantalla podía crear una**: `guardar_ventana` existía, el store lo
+ * envolvía, y nadie lo llamaba. Es el patrón del §9 por decimoctava vez.
+ *
+ * La propia lista de Inicio lo decía —«Definir una ventana de envío · Llega en
+ * la entrega 6»— mientras el asistente la exigía para avanzar.
+ *
+ * **Y la vista previa no podía enseñarlo**: su demo trae una ventana ya
+ * guardada, así que ahí el desplegable nunca estuvo vacío. Un decorado con más
+ * datos que la realidad esconde justo los caminos de quien empieza.
+ */
+describe('el paso 5 sin ningún horario guardado', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  function enElPaso5(ventanas: unknown[] = []) {
+    const remitentes = useRemitentesStore()
+    remitentes.remitentes = [CUENTA]
+    remitentes.cargada = true
+    const campanas = useCampanasStore()
+    campanas.cargada = true
+    // @ts-expect-error se fija el estado del store para el caso bajo prueba
+    campanas.ventanas = ventanas
+    const p = mount(AsistenteDeCampana, entorno)
+    // @ts-expect-error acceso al estado interno para situarse en el paso 5
+    p.vm.paso = 5
+    return p
+  }
+
+  it('NO deja a nadie sin salida: ofrece crear uno', async () => {
+    const p = enElPaso5([])
+    await p.vm.$nextTick()
+    expect(p.text()).toContain('Todavía no has definido ningún horario')
+    expect(p.text()).toContain('Usar lunes a viernes')
+  })
+
+  it('con horarios guardados no estorba con el aviso', async () => {
+    const p = enElPaso5([
+      { id: 'v1', nombre: 'Días laborables', dias: 31, desde: 9, hasta: 18, zona: 'America/Monterrey' },
+    ])
+    await p.vm.$nextTick()
+    expect(p.text()).not.toContain('Todavía no has definido ningún horario')
+    expect(p.text()).toContain('Horario de envío')
+  })
+
+  /**
+   * ── «EL DE LA CUENTA» ES UN ADJETIVO; «50» ES UNA CIFRA (H-10) ──────────
+   *
+   * La ayuda decía «Déjalo en blanco para usar el de la cuenta» **sin decir
+   * cuál**, así que se aceptaba un número sin saberlo. Y es un número que
+   * importa: por encima de 50 ARLES exige aceptar un aviso (§48).
+   */
+  it('dice CUÁL es el máximo diario que se va a usar', async () => {
+    const p = enElPaso5([])
+    // @ts-expect-error se elige la cuenta, que es de donde sale la cifra
+    p.vm.cuenta = CUENTA.id
+    await p.vm.$nextTick()
+    expect(p.text()).toContain(`Tu cuenta viene con ${CUENTA.limiteDiario} al día`)
+  })
+
+  /**
+   * ── Y EL POR HORA YA NO ES EL DE LA CUENTA, SINO EL QUE HACE FALTA ──────
+   *
+   * Esta prueba exigía «Tu cuenta viene con 10 por hora», y ese número era
+   * exactamente el defecto: medido el 22/10/2026, con diez por hora y una
+   * ventana de nueve horas, un tope diario de 500 entregaba **90**, y la
+   * pantalla no lo decía. Cualquier tope por encima de noventa se quedaba sin
+   * cumplir.
+   *
+   * Ahora el campo se rellena con lo que hace falta para que el día se cumpla,
+   * y la ayuda dice de dónde sale. **Dejar la prueba vieja habría protegido el
+   * defecto**: estaba en verde sobre él.
+   */
+  it('el por hora se calcula para que el máximo del día se cumpla', async () => {
+    const p = enElPaso5([
+      { id: 'v1', nombre: 'Laborables', dias: 31, desde: 9, hasta: 18, zona: 'America/Monterrey' },
+    ])
+    // @ts-expect-error acceso al estado interno: la cuenta
+    p.vm.cuenta = CUENTA.id
+    // @ts-expect-error acceso al estado interno: el horario
+    p.vm.ventana = 'v1'
+    // @ts-expect-error acceso al estado interno: el tope diario
+    p.vm.limiteDiario = '500'
+    await p.vm.$nextTick()
+
+    // 500 en nueve horas son 55.5 → 56, que es lo que hace que quepan los 500.
+    // @ts-expect-error acceso al estado interno: el por hora que se calculó
+    expect(p.vm.limitePorHora).toBe('56')
+    // Y se enseña como consecuencia, no como campo: desde la D-17 no se puede
+    // escribir, así que el defecto de los 90 de 500 no tiene por dónde volver.
+    expect(p.text()).toContain('unos 56 por hora')
+    expect(p.text()).toContain('durante las 9 horas de envío')
+    // Y entonces no hay nada que avisar: el día se cumple.
+    expect(p.text()).not.toContain('no saldrán todos')
+  })
+
+  /**
+   * **El campo «máximo por hora» ya no existe** (D-17, 22/10/2026).
+   *
+   * Dirección pidió asignar sólo el horario y los correos por día. Esta prueba
+   * no comprueba una cifra: comprueba que **no haya por dónde escribir** el por
+   * hora, que es lo que convierte el arreglo de la auditoría H en algo que no
+   * puede volver.
+   *
+   * Se mira la etiqueta del campo y no el número de entradas del paso: contar
+   * entradas se rompería al añadir cualquier otra cosa, y entonces esta prueba
+   * saldría en rojo sobre código correcto.
+   */
+  it('no hay un campo para escribir el máximo por hora', async () => {
+    const p = enElPaso5([
+      { id: 'v1', nombre: 'Laborables', dias: 31, desde: 9, hasta: 18, zona: 'America/Monterrey' },
+    ])
+    // @ts-expect-error acceso al estado interno: la cuenta
+    p.vm.cuenta = CUENTA.id
+    // @ts-expect-error acceso al estado interno: el horario
+    p.vm.ventana = 'v1'
+    await p.vm.$nextTick()
+
+    const etiquetas = p.findAll('label').map((l) => l.text())
+    expect(etiquetas.some((e) => e.includes('Máximo al día'))).toBe(true)
+    expect(etiquetas.some((e) => e.includes('Máximo por hora'))).toBe(false)
+  })
+
+  /**
+   * **Y si alguien lo baja a mano, se le dice cuántos saldrán de verdad.**
+   *
+   * §154: bajarlo puede ser lo que se quiere —repartir más despacio levanta
+   * menos sospecha—, así que no se bloquea. Lo que no vale es que salgan 90 de
+   * 500 sin que nadie lo diga.
+   */
+  it('avisa con las dos cifras si el por hora deja el día sin cumplir', async () => {
+    const p = enElPaso5([
+      { id: 'v1', nombre: 'Laborables', dias: 31, desde: 9, hasta: 18, zona: 'America/Monterrey' },
+    ])
+    // @ts-expect-error acceso al estado interno: la cuenta
+    p.vm.cuenta = CUENTA.id
+    // @ts-expect-error acceso al estado interno: el horario
+    p.vm.ventana = 'v1'
+    // @ts-expect-error acceso al estado interno: el tope diario
+    p.vm.limiteDiario = '500'
+    await p.vm.$nextTick()
+    // Lo baja a mano DESPUÉS, que es el único caso en que esto puede pasar.
+    // @ts-expect-error acceso al estado interno: el por hora, bajado a mano
+    p.vm.limitePorHora = '10'
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto).toContain('no saldrán todos')
+    expect(texto).toContain('Pediste 500 al día')
+    expect(texto).toContain('sólo caben 90')
+    expect(texto).toContain('pon 56 por hora')
+  })
+
+  it('y sin cuenta elegida no se inventa una cifra', async () => {
+    const p = enElPaso5([])
+    await p.vm.$nextTick()
+    // Sin cuenta no hay cifra que nombrar, y decir una sería inventarla.
+    expect(p.text()).toContain('Déjalo en blanco para usar el de la cuenta')
+    expect(p.text()).not.toMatch(/Tu cuenta viene con \d+ al día/)
+  })
+
+  /**
+   * ── EL LÍMITE SE FIJA AL CREAR LA CAMPAÑA (Dirección, 22/10/2026) ───────
+   *
+   * El campo arrancaba vacío con un texto que decía «déjalo en blanco para
+   * usar el de la cuenta». Eso esconde detrás de una frase la cifra que de
+   * verdad se va a aplicar — y es lo contrario de lo que Dirección pidió.
+   * Ahora el número está delante, se ve y se cambia.
+   */
+  it('al elegir cuenta, los dos campos se rellenan con lo que trae', async () => {
+    const p = enElPaso5([])
+    // @ts-expect-error se elige la cuenta
+    p.vm.cuenta = CUENTA.id
+    await p.vm.$nextTick()
+    // @ts-expect-error estado interno
+    expect(p.vm.limiteDiario).toBe(String(CUENTA.limiteDiario))
+    // @ts-expect-error estado interno
+    expect(p.vm.limitePorHora).toBe(String(CUENTA.limitePorHora))
+  })
+
+  /**
+   * **Y no se pisa lo que alguien ya escribió.** Volver al paso 3 a cambiar de
+   * remitente no puede borrarle el 300 que puso: sería quitarle una decisión
+   * sin avisar, que es el defecto que esta entrega vino a arreglar.
+   */
+  it('no pisa un límite ya escrito al cambiar de remitente', async () => {
+    const p = enElPaso5([])
+    // @ts-expect-error estado interno
+    p.vm.limiteDiario = '300'
+    // @ts-expect-error se elige la cuenta después
+    p.vm.cuenta = CUENTA.id
+    await p.vm.$nextTick()
+    // @ts-expect-error estado interno
+    expect(p.vm.limiteDiario).toBe('300')
+  })
+
+  /**
+   * ── UN «0» ACTIVABA UNA CAMPAÑA QUE NO MANDABA NADA ────────────────────
+   *
+   * Se guardaba tal cual, y un negativo lo descartaba Rust para caer en el de
+   * la cuenta. Las dos, en silencio. Ahora se dice y no se deja seguir.
+   */
+  it('no deja seguir con un límite que no puede ser un máximo', async () => {
+    for (const malo of ['0', '-5', 'muchos']) {
+      const p = enElPaso5([
+        { id: 'v1', nombre: 'Laborables', dias: 31, desde: 9, hasta: 18, zona: 'America/Monterrey' },
+      ])
+      // La ventana se elige: sin ella `sePuedeSeguir` ya es false por su
+      // cuenta, y esta prueba pasaría sin que el límite bloqueara nada. Es el
+      // falso verde que la cazó al escribir la prueba gemela de debajo.
+      // @ts-expect-error estado interno
+      p.vm.ventana = 'v1'
+      // @ts-expect-error estado interno
+      p.vm.limiteDiario = malo
+      await p.vm.$nextTick()
+      expect(p.text(), malo).toContain('Ese número no puede ser un máximo de envíos')
+      // @ts-expect-error estado interno
+      expect(p.vm.sePuedeSeguir, malo).toBe(false)
+    }
+  })
+
+  it('y con un número válido no estorba', async () => {
+    const p = enElPaso5([
+      { id: 'v1', nombre: 'Laborables', dias: 31, desde: 9, hasta: 18, zona: 'America/Monterrey' },
+    ])
+    // @ts-expect-error estado interno
+    p.vm.ventana = 'v1'
+    // @ts-expect-error estado interno
+    p.vm.limiteDiario = '40'
+    await p.vm.$nextTick()
+    expect(p.text()).not.toContain('Ese número no puede ser un máximo de envíos')
+    // @ts-expect-error estado interno
+    expect(p.vm.sePuedeSeguir).toBe(true)
+  })
+})
+
+// ══ D-WA · EL ASISTENTE ELIGE CANAL (27/10/2026) ═════════════════════════
+//
+// Hasta hoy el canal estaba escrito a fuego en `'email'`, con el comentario
+// encima diciendo que la elección era este tramo. Todo lo de debajo funcionaba
+// —el motor, el alta, la activación, la frontera— y **el botón no existía**.
+
+describe('el asistente elige canal', () => {
+  const NUMERO: Numero = {
+    id: '01900000-0000-7000-8000-0000000000b1',
+    nombreVisible: 'Ventas',
+    telefonoE164: '+528112345678',
+    wabaId: 'waba-1',
+    modo: 'prospeccion_directa',
+    estado: 'connected',
+    coexistenciaConfirmada: '2026-10-01T00:00:00Z',
+    riesgoAceptado: '2026-10-01T00:00:00Z',
+    calidad: 'green',
+    limiteDeMeta: 1000,
+    calidadActualizada: '2026-10-27T00:00:00Z',
+    puedeEnviar: true,
+    escribeEnFrio: true,
+  }
+
+  const APROBADA: PlantillaDeMeta = {
+    id: '01900000-0000-7000-8000-0000000000e1',
+    nombre: 'bienvenida',
+    idioma: 'es_MX',
+    estado: 'approved',
+    cuerpo: 'Hola.',
+    huecos: ['nombre'],
+    sePuedeUsar: true,
+  }
+
+  /** El asistente recién abierto, en correo. */
+  function montarEnCorreo(): ReturnType<typeof mount> {
+    const remitentes = useRemitentesStore()
+    remitentes.remitentes = [CUENTA]
+    remitentes.cargada = true
+    useCampanasStore().cargada = true
+    return mount(AsistenteDeCampana, entorno)
+  }
+
+  /** El asistente en WhatsApp, con un número que puede enviar. */
+  function enWhatsapp(opciones?: {
+    numeros?: Numero[]
+    plantillas?: PlantillaDeMeta[]
+  }): ReturnType<typeof mount> {
+    const remitentes = useRemitentesStore()
+    remitentes.remitentes = [CUENTA]
+    remitentes.cargada = true
+
+    const wa = useWhatsappStore()
+    wa.numeros = opciones?.numeros ?? [NUMERO]
+    wa.plantillasDeMeta = opciones?.plantillas ?? [APROBADA]
+
+    useCampanasStore().cargada = true
+
+    const p = mount(AsistenteDeCampana, entorno)
+    // @ts-expect-error acceso al estado interno para elegir el canal
+    p.vm.canal = 'whatsapp'
+    return p
+  }
+
+  /**
+   * **El canal se pregunta en el paso 1, no se asume.**
+   *
+   * Es el paso donde tiene que estar porque decide tres pasos: el remitente, el
+   * mensaje y el envío de prueba. Y una campaña de WhatsApp mandada por correo
+   * sin que nadie lo eligiera es el error que no se puede deshacer.
+   */
+  it('el paso 1 pregunta por dónde sale', () => {
+    expect(montarEnCorreo().text()).toContain('Por dónde sale')
+  })
+
+  /**
+   * **Al elegir WhatsApp se dice qué cambia, antes de elegirlo y no después.**
+   *
+   * Por WhatsApp sólo se manda una plantilla que Meta aprobó, y eso no es un
+   * detalle de implementación: es a quién se le puede escribir y qué se le
+   * puede decir.
+   */
+  it('avisa de que WhatsApp no funciona como el correo', async () => {
+    const p = enWhatsapp()
+    await p.vm.$nextTick()
+    expect(p.text()).toContain('WhatsApp no funciona como el correo')
+  })
+
+  /**
+   * **El paso 3 ofrece números, con sus dos cifras.**
+   *
+   * La calidad y el tope de Meta son lo que decide si un número puede trabajar
+   * (§94). Elegir sin verlas es elegir a ciegas justo donde se juega el número,
+   * que no se recupera: se cambia de número.
+   */
+  it('el paso 3 ofrece los números con su calidad y su tope', async () => {
+    const p = enWhatsapp()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 3
+    p.vm.paso = 3
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto).toContain('+528112345678')
+    expect(texto, 'la calidad de Meta').toContain('Alta')
+    expect(texto, 'y cuántos permite al día, con separador').toContain('1,000')
+    expect(texto, 'ninguna cuenta de correo').not.toContain('ventas@telemetry.mx')
+  })
+
+  /**
+   * **Un número que no puede enviar no se ofrece.**
+   *
+   * `puedeEnviar` viene resuelto de Rust: la puerta del canal son tres
+   * condiciones y vive en `NumeroGuardado::puede_enviar`. Ofrecer uno que no
+   * pasa construye una campaña que el preflight va a bloquear cuatro pasos
+   * después — el mismo defecto que las cuentas rotas del paso 3.
+   *
+   * Y **se dice qué falta y se lleva allí**: un desplegable vacío sin salida es
+   * el H-06 del 22/10/2026.
+   */
+  it('no ofrece un número sin Coexistencia, y dice dónde se confirma', async () => {
+    const p = enWhatsapp({
+      numeros: [{ ...NUMERO, coexistenciaConfirmada: null, puedeEnviar: false }],
+    })
+    // @ts-expect-error acceso al estado interno para situarse en el paso 3
+    p.vm.paso = 3
+    await p.vm.$nextTick()
+
+    expect(p.text()).toContain('No hay ningún número de WhatsApp listo para enviar')
+    expect(p.text()).toContain('Coexistencia')
+    expect(p.text()).not.toContain('+528112345678')
+  })
+
+  /**
+   * **El paso 4 ofrece plantillas de Meta, y ninguna firma.**
+   *
+   * Una firma es cosa del correo y el esquema lo exige con un `CHECK` desde la
+   * V4. Ofrecerla aquí sería un campo que alguien rellenaría esperando que
+   * saliera en el mensaje.
+   */
+  it('el paso 4 ofrece plantillas de Meta y no pide firma', async () => {
+    const p = enWhatsapp()
+    // @ts-expect-error acceso al estado interno para situarse en el paso 4
+    p.vm.paso = 4
+    await p.vm.$nextTick()
+
+    expect(p.text()).toContain('Qué plantilla de Meta se manda')
+    expect(p.text(), 'en WhatsApp no hay firma').not.toContain('Firma')
+  })
+
+  /**
+   * **Una plantilla que Meta no ha aprobado no se ofrece, y se distingue de no
+   * tener ninguna.**
+   *
+   * `activar_campana` las rechaza (tramo 3a), así que ofrecerlas sería un
+   * camino que termina en un rechazo. Y los dos casos mandan a hacer cosas
+   * distintas: apuntar una, o esperar a que Meta revise la que ya está.
+   */
+  it('distingue «no hay ninguna» de «las que hay están en revisión»', async () => {
+    const enRevision = { ...APROBADA, estado: 'pending', sePuedeUsar: false }
+
+    const conUna = enWhatsapp({ plantillas: [enRevision] })
+    // @ts-expect-error acceso al estado interno para situarse en el paso 4
+    conUna.vm.paso = 4
+    await conUna.vm.$nextTick()
+    expect(conUna.text()).toContain('están en revisión o rechazadas')
+
+    const sinNinguna = enWhatsapp({ plantillas: [] })
+    // @ts-expect-error acceso al estado interno para situarse en el paso 4
+    sinNinguna.vm.paso = 4
+    await sinNinguna.vm.$nextTick()
+    expect(sinNinguna.text()).toContain('Administrador de WhatsApp de Meta')
+  })
+
+  /**
+   * **Cambiar de canal olvida lo elegido del otro.**
+   *
+   * Sin esto, quien empiece en correo, elija cuenta y plantilla y cambie a
+   * WhatsApp mandaría los dos juegos de datos — y la variante etiquetada de la
+   * frontera lo rechazaría **sin decir cuál sobra**, porque `deny_unknown_fields`
+   * sólo dice que hay un campo de más.
+   */
+  it('cambiar de canal olvida el remitente y el mensaje del otro', async () => {
+    const p = montarEnCorreo()
+    // @ts-expect-error acceso al estado interno
+    p.vm.cuenta = CUENTA.id
+    // @ts-expect-error acceso al estado interno
+    p.vm.versionDePlantilla = 'v-1'
+    // @ts-expect-error acceso al estado interno
+    p.vm.canal = 'whatsapp'
+    await p.vm.$nextTick()
+
+    // @ts-expect-error acceso al estado interno
+    expect(p.vm.cuenta, 'la cuenta de correo se olvida').toBe('')
+    // @ts-expect-error acceso al estado interno
+    expect(p.vm.versionDePlantilla, 'y su plantilla').toBe('')
+  })
+
+  /**
+   * **El paso 7 enseña la puerta del canal, con la cifra que decide delante.**
+   *
+   * No son los ocho puntos del correo. Y la cifra que importa es a cuánta gente
+   * **no** le consta permiso, porque es la que se paga en calidad del número si
+   * bloquean o reportan — y eso no se recupera.
+   */
+  it('el paso 7 enseña a cuánta gente no le consta permiso', async () => {
+    const p = enWhatsapp()
+    const campanas = useCampanasStore()
+    campanas.revisionDeWhatsapp = {
+      audiencia: 847,
+      conPermiso: 12,
+      sinPermiso: 835,
+      coexistencia: true,
+      riesgoAceptado: true,
+      escribeEnFrio: true,
+      plantillasAprobadas: 1,
+      sePuedeActivar: true,
+      pidePalabraDeConfirmacion: true,
+      calidad: 'yellow',
+    }
+    // @ts-expect-error acceso al estado interno para situarse en el paso 7
+    p.vm.paso = 7
+    await p.vm.$nextTick()
+
+    const texto = p.text()
+    expect(texto, 'la audiencia con separador').toContain('847')
+    expect(texto, 'y los que no dieron permiso').toContain('835')
+    expect(texto, 'con su aviso').toContain('Esta campaña escribe a gente que no lo pidió')
+    expect(
+      texto,
+      'y el «sin comprobar» del correo no aplica aquí',
+    ).not.toContain('Sin comprobar no es un aprobado')
+  })
+})

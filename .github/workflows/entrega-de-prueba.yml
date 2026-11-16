@@ -1,0 +1,335 @@
+# Construye una versión de prueba de ARLES para revisarla.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# QUÉ ES ESTO Y QUÉ NO ES
+#
+# Dirección pidió un ejecutable descargable para recorrer la checklist con la
+# aplicación de verdad en vez de con capturas. Esto lo produce.
+#
+# **No es la versión del producto.** Le faltan tres cosas, y ninguna es
+# programar:
+#
+#   1. Va SIN MONT. La licencia para incrustar la tipografía en una aplicación
+#      distribuida sigue sin confirmarse (P-01), así que se quita antes de
+#      compilar. La aplicación sale con Figtree o con la letra del sistema.
+#   2. Va SIN FIRMAR. Windows enseñará «editor desconocido» y SmartScreen
+#      pedirá confirmación; macOS exigirá abrirla con clic derecho → Abrir.
+#   3. No está notarizada por Apple.
+#
+# Por eso se publica como **prerelease** y con el nombre bien claro: para que
+# nadie la confunda con una entrega, y sobre todo para que nadie la instale en
+# el equipo de un cliente.
+#
+# ── Se lanza a mano, nunca sola ──
+#
+# Dos formas de lanzarlo, y las dos son deliberadas:
+#
+#   1. **Una etiqueta `prueba-*`.** Es la que funciona hoy, porque el trabajo
+#      vive en una rama de desarrollo. Crear la etiqueta es el acto explícito.
+#   2. **El botón «Run workflow»** de la pestaña Actions. GitHub **sólo enseña
+#      ese botón cuando el archivo del flujo está en la rama por defecto**
+#      (`main`). Mientras esto viva en `claude/…`, el botón no aparece — no es
+#      un fallo del flujo, es cómo funciona GitHub. Queda declarado para que
+#      funcione el día que esto llegue a `main`.
+#   3. **El mismo `workflow_dispatch`, pedido por la API** con `ref` apuntando
+#      a la rama de desarrollo. Eso sí funciona hoy, y es como se publicó la
+#      versión del 04/11/2026 (ejecución 14, `head_branch` =
+#      `claude/loving-faraday-5chmmy`). El punto 2 habla del BOTÓN, que no
+#      aparece; el flujo en sí se puede disparar. Queda escrito porque leer
+#      sólo el punto 2 hace creer que hay que fusionar a `main` para poder
+#      construir un instalador, y no hace falta.
+#
+# Lo que NO hay es un disparo por cada push. Una versión sin firmar que se
+# publica sola acaba instalada en algún sitio donde nadie la pidió.
+# ═══════════════════════════════════════════════════════════════════════════
+
+name: Entrega de prueba (sin firmar)
+
+on:
+  push:
+    tags:
+      - 'prueba-*'
+  workflow_dispatch:
+    inputs:
+      nota:
+        description: 'Para qué es esta versión (sale en las notas del release)'
+        required: true
+        default: 'Revisión de la checklist visual'
+      con_mont:
+        description: 'Incluir la tipografía Mont. SÓLO para revisión interna: P-01 impide distribuir un instalador con ella dentro'
+        type: boolean
+        required: false
+        default: false
+
+# Sólo para crear el release. Nada más.
+permissions:
+  contents: write
+
+jobs:
+  construir:
+    name: ${{ matrix.nombre }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Sin fail-fast: si macOS falla, Windows sigue. Es mejor tener una de las
+      # dos que ninguna, y el motivo del fallo suele ser específico del sistema.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            nombre: Windows
+          - os: macos-latest
+            nombre: macOS (Apple Silicon)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # ── El plan B de P-01 ──
+      #
+      # Se aplica sobre la copia del runner, que se tira al terminar. El
+      # repositorio no se toca.
+      #
+      # ── POR QUÉ SE PUEDE SALTAR, Y QUÉ SIGNIFICA SALTARLO ──
+      #
+      # Dirección pidió el 11/11/2026 un instalador «lo más parecido a lo que
+      # se quiere lanzar» para que su supervisor lo revise, y la tipografía es
+      # la mitad de lo que se revisa a ojo.
+      #
+      # **Saltarlo no resuelve P-01: lo esquiva para un caso.** Lo que P-01
+      # impide es DISTRIBUIR un instalador con Mont dentro; compilarlo y
+      # revisarlo en el equipo de quien lo pide es otra cosa. Así que este
+      # interruptor existe, va en `false` por defecto, y el release lo dice con
+      # esas palabras — para que nadie pase ese archivo a un cliente creyendo
+      # que es una entrega.
+      - name: Quitar Mont (licencia sin confirmar, P-01)
+        if: ${{ inputs.con_mont != true }}
+        run: python3 herramientas/marca/sin-mont.py --aplicar
+
+      # ── QUE LA LLEVA DE VERDAD ESTÁ MEDIDO, Y LAS DOS MITADES ──
+      #
+      # El 12/11/2026, con el CSS intacto y con él reescrito por `sin-mont.py`:
+      #
+      #   con Mont  → 4 fuentes en el paquete, 4 referencias en el CSS
+      #   sin Mont  → 0 y 0
+      #
+      # Y en el binario: 4 apariciones de «Mont-» y 5 de «woff2» dentro. Es la
+      # misma forma de medir que el 08/10/2026 usó para el `index.html`, y por
+      # la misma razón: una sola cifra no distingue nada.
+      #
+      # Lo que NO se pudo comprobar desde el contenedor es el `.exe` ya
+      # empaquetado —NSIS lo comprime con LZMA y ahí no hay herramienta para
+      # abrirlo—, así que eso queda dicho en vez de darse por hecho. La prueba
+      # final es abrirlo: si los títulos salen en Mont, está dentro.
+      - name: Avisar de que ESTA versión lleva Mont dentro
+        if: ${{ inputs.con_mont == true }}
+        run: |
+          echo "::warning title=P-01::Esta versión lleva la tipografía Mont incrustada. \
+          La licencia para distribuirla NO está confirmada (P-01): sirve para revisión \
+          interna y no se entrega a terceros."
+          test -f TIPOGRAFIA/Mont-Regular.woff2 || {
+            echo "::error::no encuentro las fuentes de Mont en TIPOGRAFIA/"; exit 1; }
+
+      - name: Instalar dependencias del frontend
+        run: npm ci
+        working-directory: app
+
+      # Se compila el frontend aquí y no se deja a `beforeBuildCommand` para
+      # que, si falla, el error salga en su propio paso y no enterrado dentro
+      # del registro de la compilación de Rust.
+      - name: Compilar el frontend
+        run: npm run build
+        working-directory: app
+
+      - name: Compilar la aplicación
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: crates/arles-app
+          # **Sin `tagName` a propósito.** Sin él, `tauri-action` sólo compila y
+          # no toca ningún release; el release lo crea el trabajo de abajo, una
+          # sola vez, con los binarios de los dos sistemas dentro. Si cada
+          # entrada de la matriz creara el suyo, saldrían dos releases a medias.
+          #
+          # Aquí había `includeRelease: false` y se ha quitado: esa entrada no
+          # significa «no publiques», significa qué binarios se adjuntan, y
+          # ponerla a false se arriesgaba a una compilación que no produce nada.
+
+      - name: Guardar los instaladores
+        uses: actions/upload-artifact@v4
+        with:
+          name: arles-${{ matrix.nombre }}
+          retention-days: 14
+          # Rutas de los dos sistemas; la que no exista se ignora.
+          path: |
+            target/release/bundle/nsis/*.exe
+            target/release/bundle/msi/*.msi
+            target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
+  publicar:
+    name: Publicar la prerelease
+    needs: construir
+    # `always()` con la comprobación de que algo se construyó: si macOS falló
+    # pero Windows salió, se publica lo que hay en vez de perder las dos.
+    if: ${{ always() && contains(needs.construir.result, 'success') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: instaladores
+          merge-multiple: true
+
+      # Si vino de una etiqueta, se reutiliza esa. Si vino del botón, se
+      # inventa una con la fecha. Sin esto, lanzarlo desde una etiqueta crearía
+      # una segunda con otro nombre y habría dos apuntando al mismo código.
+      - name: Decidir la etiqueta
+        id: etiqueta
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "valor=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "valor=prueba-$(date -u +'%Y%m%d-%H%M')" >> "$GITHUB_OUTPUT"
+          fi
+
+      # La fecha de la nota sale del commit que se empaqueta, no escrita a
+      # mano. La versión del 04/11 se publicó diciendo «al 29/10/2026» con
+      # cinco días de trabajo dentro: el filtro de contactos, el del registro,
+      # restaurar un respaldo de una versión anterior y la auditoría H. Una
+      # cifra escrita a mano en una plantilla se desfasa sin que nada falle, y
+      # ésta la lee Dirección para saber qué está probando.
+      - name: La fecha y el commit de lo que se empaqueta
+        id: origen
+        run: |
+          echo "fecha=$(git log -1 --format=%cd --date=format:'%d/%m/%Y')" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git log -1 --format=%h)" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.etiqueta.outputs.valor }}
+          name: Versión de prueba · ${{ steps.etiqueta.outputs.valor }}
+          prerelease: true
+          files: instaladores/**/*
+          body: |
+            > ⚠️ **Versión de prueba. No es una entrega y no se instala en el
+            > equipo de un cliente.**
+            ${{ inputs.con_mont == true && '
+            > ### 🔒 Y esta versión, además, no sale del equipo que la revisa
+
+            > **Lleva la tipografía Mont incrustada**, que es exactamente lo que
+            > **P-01** impide hacer en un instalador distribuido: la licencia
+            > para incrustarla en una aplicación que se entrega **no está
+            > confirmada**.
+            >
+            > Se construyó así a petición de Dirección para que la revisión se
+            > haga sobre la tipografía de verdad, que es la mitad de lo que se
+            > mira a ojo. Compilarla y revisarla en el equipo de quien la pide
+            > no es distribuirla; mandarla a un cliente, a una carpeta
+            > compartida o por correo, sí.
+            >
+            > **Mientras P-01 siga abierto, este archivo se queda en el equipo
+            > que lo revisa.** La versión que se puede repartir es cualquier
+            > otra de esta lista: salen sin Mont a propósito.' || '' }}
+
+            **Para qué es:** ${{ inputs.nota || 'Revisión de la checklist visual' }}
+
+            ### Tres cosas que le faltan, y ninguna es programar
+
+            | | Qué | Qué vas a ver |
+            |---|---|---|
+            | 1 | ${{ inputs.con_mont == true && '**Lleva Mont dentro** — ver el aviso de abajo, porque eso es justo lo que P-01 impide distribuir' || '**Va sin Mont** — la licencia para incrustarla sigue sin confirmarse (P-01)' }} | ${{ inputs.con_mont == true && 'La tipografía de la marca, como se quiere lanzar' || 'Otra tipografía. Los tamaños y pesos sí son los definitivos: salen de los tokens' }} |
+            | 2 | **Va sin firmar** | Windows dirá «editor desconocido» y SmartScreen pedirá confirmar |
+            | 3 | **No está notarizada** | En macOS hay que abrirla con clic derecho → Abrir la primera vez |
+
+            ### Qué se puede hacer con esto
+
+            **Las dieciocho pantallas, y ARLES manda de verdad.** Construido
+            del commit `${{ steps.origen.outputs.commit }}`, del
+            ${{ steps.origen.outputs.fecha }}, con las diez fases del validador
+            en verde y 0 fallos:
+
+            - Configurar la empresa y **cargar contactos** desde CSV o XLSX, con
+              los choques revisados antes de importar; bajas y derechos ARCO.
+            - Dar de alta una cuenta de correo y **mandarse un correo real**.
+            - Escribir plantillas y firmas, crear una campaña con el asistente
+              de ocho pasos y **activarla**.
+            - Verla enviar en Actividad, con sus cifras y **por qué no sale
+              nada**, y **pararla** en cualquier momento.
+            - Dar de alta un número de WhatsApp y **lanzar una campaña entera
+              por WhatsApp**, no sólo el mensaje de prueba (D-WA, 27/10/2026).
+            - **Respaldo cifrado, restauración, archivado del historial** y la
+              pantalla de recuperación del llavero perdido.
+            - **Comprobar SPF, DKIM y DMARC** del dominio del remitente, en el
+              preflight y en Remitentes (7.5).
+
+            ### Lo nuevo, del 22/10 al 11/11
+
+            | Qué | Cuándo |
+            |---|---|
+            | **Campañas enteras por WhatsApp**, con el canal elegido en el asistente y las plantillas de Meta registradas | 26 y 27/10 |
+            | **SPF, DKIM y DMARC**, con el punto 8 del preflight contestado | 26/10 |
+            | **Activar ya no congela la ventana**, enseña en qué va y **se puede cancelar** sin dejar nada a medias | 28/10 |
+            | Siete arreglos de diseño mirando las dieciocho pantallas, e Inicio deja de decir que el producto no está terminado | 28/10 |
+            | Las pantallas de Contactos, Registro, Actividad y Bajas **leen por su propia conexión**, así que no esperan al motor | 29/10 |
+            | **Buscar en el registro** deja de devolver todas las filas cuando se escribe un `%` o un `_` | 02/11 |
+            | **Filtrar la lista de contactos** por canal, dirección completa o un trozo de nombre | 03/11 |
+            | **Un respaldo tomado antes de una actualización ya se puede restaurar**, y eso incluye la pantalla de recuperación del llavero perdido | 04/11 |
+            | **Elegir a mano a quién va una campaña**: se marcan contactos en su pantalla y se guardan como lista, sin tope | 05/11 |
+            | **Borrar un borrador de campaña.** Una campaña con historial se niega a borrarse | 05/11 |
+            | El asistente pasa de nueve pasos a **ocho**: comprobar y mandar el correo de prueba viven en el mismo paso, y la comprobación **se repite sola** al entrar | 05/11 |
+            | El paso 4 **enseña cómo queda el correo**, con el asunto y la firma puestos y **con los datos de un contacto de verdad** | 05/11 |
+            | **El alta de un número de WhatsApp deja de rechazar tokens válidos.** ARLES preguntaba a Meta por un solo camino y, cuando ése venía vacío, acusaba al token | 05/11 |
+            | **Darse de baja contestando al correo.** ARLES manda la cabecera que pone el botón de Gmail y Outlook, y lee el buzón del remitente en **sólo lectura** para aplicar las bajas | 10/11 |
+            | **Y las aplica solo, cada 15 minutos**, con la ventana abierta o cerrada. Debajo de la casilla dice cuándo fue la última vez y **si falló** | 11/11 |
+            | **La baja por WhatsApp también se aplica sola.** Quien usa el control de WhatsApp para dejar de recibir promociones queda en la lista de bajas al siguiente envío, sin que nadie apunte nada | 12/11 |
+
+            ### Lo que todavía NO hace
+
+            - **Contar las respuestas de WhatsApp.** Meta las manda por
+              *webhook* y ARLES no tiene ninguna URL a la que llamar: la cifra
+              es cero en ese canal.
+            - **Leer un «BAJA» escrito a mano por WhatsApp.** Lo que llega por
+              ese canal sólo lo entrega Meta a una URL pública, y ARLES no
+              tiene ninguna. Lo que **sí** se aplica solo es a quien usa el
+              control de WhatsApp para dejar de recibir promociones: Meta lo
+              dice en la respuesta del siguiente envío y ARLES lo da de baja
+              ahí mismo (ver arriba).
+            - **Filtrar la audiencia desde dentro del asistente.** A quién va
+              una campaña se elige **antes**, marcando contactos en su pantalla
+              con el filtro delante; lo que no hay es un buscador dentro del
+              paso 2.
+            - **Editar una campaña ya creada.**
+            - **Gmail y Outlook con su botón.** Se dan de alta por SMTP con
+              contraseña de aplicación, que funciona y está probado contra una
+              cuenta real.
+            - **Tasas de rebote por buzón.** Dependen de la v1.3.
+
+            > **Activar una campaña grande sigue tardando** —73.5 s con 451 196
+            > destinatarios, y se nota hacia los 30 000—, pero desde el 28/10 la
+            > ventana responde, dice en qué va y deja cancelar. Lo que tarda es
+            > escribir ~900 000 filas, y eso no ha cambiado.
+
+            > **La primera vez, Windows te pedirá permiso para guardar una
+            > credencial.** Es correcto: ARLES cifra su base de datos con una
+            > llave que guarda en el Administrador de credenciales, nunca en un
+            > archivo. **Si el llavero no responde, ARLES no arranca** — nunca
+            > se degrada a texto plano.
+
+            Tus datos quedan en
+            `%APPDATA%\TelemetryInsight\ArlesRelay\data\arles.db`.
+
+            ### Cómo devolver los hallazgos
+
+            Con el código del renglón de la checklist. Por ejemplo:
+            *«B-3 — al plegar, el icono de Actividad se mueve»*.

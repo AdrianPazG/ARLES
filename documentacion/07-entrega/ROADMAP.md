@@ -1,0 +1,293 @@
+# Roadmap
+
+**Proyecto:** ARLES RELAY I · v1.2.0
+
+> Las 16 fases del §141 se consolidan en **10**. Los dos cambios estructurales respecto al brief están justificados en §3.
+
+---
+
+> 🟢 **Actualizado el 17/09/2026: WhatsApp entra en la v1.2.0** (P-15). Este
+> roadmap se escribió para un producto de un solo canal; esto es lo que cambia,
+> ya decidido y en parte construido:
+>
+> | Fase | Qué le hace WhatsApp | Estado |
+> |---|---|---|
+> | **1** | Migraciones **V3** (el contacto deja de ser un correo; consentimiento y supresión por canal) y **V4** (etapas de campaña, número de WhatsApp, calidad de Meta) | ✅ hechas |
+> | **2** | Nada | — |
+> | **3** | Gana una entrega nueva: la pantalla de **CANALES** y el alta del número con la casilla de Coexistencia (L-11) | ⬜ |
+> | **4** | El motor ejecuta **etapas**, no campañas, y cada etapa tiene su ritmo y su parada | ⬜ |
+> | **5** | Además del SMTP, el adaptador de **WhatsApp Cloud API** | ⬜ |
+> | **6** | El asistente ofrece una o dos etapas; en WhatsApp sólo plantillas aprobadas por Meta | ⬜ |
+> | **7** | **No** gana una séptima sección: P-13 se resolvió en que no hay bandeja. ACTIVIDAD gana **dos pestañas** y la línea de tiempo de la calificación | ⬜ |
+>
+> El detalle está en
+> [LOGISTICA_DE_CAMPANAS](../01-producto/LOGISTICA_DE_CAMPANAS.md), decisiones
+> L-1 a L-11. **El avance de la versión, con este alcance ampliado, se calcula
+> en [`avance.json`](avance.json).**
+
+## Fases
+
+### Fase 0 — Discovery y auditoría ✅ *en curso*
+
+Este cuerpo documental.
+
+**Puerta de salida:** ✅ **cruzada el 2026-09-11.** Dirección aprobó la auditoría, D-5 desbloqueó la tipografía y P-02 quedó cerrada.
+
+---
+
+### Fase 1 — Cimientos
+
+Workspace de Cargo con los crates de `ARQUITECTURA.md` · esqueleto de Tauri 2 con capabilities denegadas por defecto · `arles-db` con SQLCipher y `refinery` · integración con el llavero · `Secret<T>` y capa de redacción en `tracing` · andamiaje de Vue 3 con TypeScript estricto · i18n · CI completo.
+
+**Y en paralelo, lo que no depende de nosotros:**
+
+| Trámite | Por qué ahora |
+|---|---|
+| **Verificación OAuth de Google** | 4–8 semanas (D-1, P-05) |
+| **Certificado de firma de Windows** | 1–3 semanas |
+| **Apple Developer ID** | Trámite de alta |
+
+Arrancarlos aquí es la diferencia entre que estén listos cuando hagan falta y que congelen el release.
+
+---
+
+### Fase 2 — Design System ✅ cerrada
+
+Once primitivas, los cuatro estados de pantalla, Mont incrustada y el catálogo
+visual. **18/18 comprobaciones**, tres sondas de navegador y una revisión
+adversaria de 10 hallazgos. Resumen en
+[FASE-02-DESIGN-SYSTEM.md](../09-fases/FASE-02-DESIGN-SYSTEM.md).
+
+✅ **Desbloqueada por D-5.** Se desarrolla con Mont; la puerta de la licencia se traslada a antes de la demo.
+
+Tokens de color con verificación de contraste en CI · escala tipográfica sobre Mont · **logotipo tipográfico** (§21, ya producible) · primitivas: botón, entrada, selector, modal, tabla virtualizada, menú, insignia, aviso, pestañas · los cuatro estados por componente · accesibilidad AA verificada en Windows y macOS.
+
+Los tokens de color ya están operativos en [`herramientas/design-tokens/`](../../herramientas/design-tokens/README.md), con `--verificar` listo para el paso 5 del CI.
+
+---
+
+### Fase 3 — Empresa y contactos ✅ cerrada
+
+Configuración de empresa · lista de verificación de onboarding · contactos con listas, etiquetas y campos personalizados · tabla virtualizada a 500 k · filtros · importación XLSX/CSV completa con todas las defensas del modelo de amenazas · **lista de supresión** · derechos ARCO.
+
+**Primer valor tangible.** Al final de esta fase alguien puede cargar sus contactos y trabajar con ellos.
+
+#### Se parte en cinco entregas, cada una con su puerta
+
+| Entrega | Qué incluye | Puerta |
+|---|---|---|
+| **3.1** ✅ | Configuración de empresa · lista de onboarding · barra lateral fija y plegable (P-11) | **Cerrada el 15/09/2026**, 19/19. De los cuatro pendientes visuales de la Fase 2 se cerraron tres —ventana nativa, escalado de Windows y lector de pantalla—; **WKWebView sigue abierto** (R-07) y se declaró riesgo aceptado con fecha límite antes de la Fase 6 |
+| **3.2** ✅ | Contactos, listas, etiquetas, campos propios · filtros · la tabla virtualizada | **Cerrada el 19/09/2026.** La sonda encontró un fallo real: el diálogo conservaba el contacto anterior, así que la segunda alta chocaba contra una dirección que nadie había escrito. Ninguna prueba de unidad podía verlo — todas montan el diálogo limpio |
+| **3.3** ✅ | Importación XLSX/CSV con todas las defensas · purificación · informe de rechazados | **Cerrada el 18/09/2026.** 13 ataques con archivos construidos a propósito (`crates/arles-import/tests/ataques.rs` y `bomba.rs`). Encontraron **tres fallos reales**: la bomba de descompresión se comía 1 586 MB antes de que el tope reaccionara, 200 000 filas vacías colgaban la lectura, y un nombre de archivo con `U+202E` se dibujaba al revés en pantalla. Los tres arreglados y con su prueba |
+| **3.4** ✅ | Lista de supresión · derechos ARCO · borrado físico | **Cerrada el 22/09/2026.** La puerta pasa: `una_baja_sobrevive_a_borrar_el_contacto_y_a_reimportarlo`. El borrado recorre el esquema entero —tablas de `sqlite_master`, columnas de `PRAGMA table_info`— y exige que la dirección quede en **un solo sitio**: la lista de bajas, que es la que impide que vuelva. Salió de aquí **P-17**, la novena pregunta jurídica |
+| **3.5** ✅ | Cierre: documento de fase, informe para Dirección y PDF | **Cerrada el 22/09/2026.** `validar.py --fase 3` en **77/77, 0 omitidas**. Precedida de una auditoría de las diez pantallas que encontró que la **vista previa llevaba cuatro días mintiendo**: seguía mandando a Ajustes después de que el núcleo lo cambiara, así que Dirección reportó dos veces un defecto que la segunda vez ya no existía |
+
+**Decisiones que gobiernan esta fase:**
+[ADR-0013](../03-arquitectura/adr/0013-origen-de-contactos-y-purificacion.md) —
+origen de contactos, purificación corregida y envío canario.
+[ADR-0014](../03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md) — sólo
+su parte de esquema; el resto llega en las Fases 5 y 7.
+
+> ~~🔴 **La 3.3 está bloqueada por P-09**~~ → **desbloqueada por D-7 el
+> 17/09/2026.** La construcción no espera al abogado: el mecanismo se hace igual
+> y el texto legal se enseña **marcado como provisional y visible como tal**
+> (ADR-0013 §1). Lo que sigue esperando a P-09 es la **redacción definitiva** y
+> el primer envío real a terceros, no el código. La 3.1 y la 3.2 nunca
+> dependieron de ninguna pregunta abierta.
+
+---
+
+### Fase 4 — Motor de ejecución ⭐ ✅ cerrada el 23/09/2026
+
+**Adelantada a propósito. Concentra el 70 % del riesgo técnico.**
+
+**Arrancada el 22/09/2026.** Primero el dominio puro, sin base ni red: la
+máquina de estados ya estaba desde la Fase 1, con sus nueve estados y doce
+pruebas. Lo nuevo es `arles_core::ritmo` — el cubo de permisos, la ventana de
+trabajo y **la detección de suspensión**, que es la puerta de salida nombrada
+en esta fase. Once pruebas, y las cuatro garantías se vieron fallar antes de
+darlas por buenas, incluido el cubo ingenuo que suelta ocho horas de permisos
+de golpe al despertar el equipo.
+
+Cola persistente · máquina de estados · idempotencia con restricción única y CAS · política `presumed_sent` · cubo de tokens persistido · ventanas de ejecución en la zona de la empresa · **detección de suspensión sin ráfaga** · reintentos con backoff · disyuntor · pausar/reanudar/detener · parada de emergencia · independencia de la ventana.
+
+**Se construye contra un proveedor simulado**, sin enviar un solo correo real.
+
+**Puerta de salida:** todos los casos frontera de `ESTRATEGIA_QA.md` §3 pasan, en particular el de suspensión sin ráfaga y el de muerte del proceso sin duplicado.
+
+#### Se parte en seis entregas, cada una con su puerta
+
+| Entrega | Qué incluye | Puerta |
+|---|---|---|
+| **4.1** | El reloj y las reglas · máquina de estados, cubo de permisos, suspensión, **ventana con su zona horaria (D-10)** y política de reintentos | Cruzar el cambio de horario de verano sin hueco ni doble envío |
+| **4.2** ⭐ | La cola que no duplica · toma de trabajo con compare-and-swap, recuperación al arrancar, cubo persistido, instancia única | **Matar el proceso a mitad de un envío y que nadie reciba dos veces** |
+| **4.3** | El proveedor simulado y el bucle del worker · un proveedor al que se le puede ordenar que falle de seis formas distintas | Los casos de red y credenciales de `ESTRATEGIA_QA.md` §3 |
+| **4.4** | Pausar, reanudar, detener · y la parada de emergencia comprobada **antes de cada envío**, no entre lotes | Parar con un envío en curso y que no salga ni uno más |
+| **4.5** | El simulador de duración y el preflight · «terminará alrededor del 24 de enero» y las ocho comprobaciones previas | Los ocho puntos del preflight, con errores accionables (§95) |
+| **4.6** | Cierre: **auditoría de la fase**, documento, informe y PDF | `validar.py --fase 4` en verde, 0 omitidas ✅ **36/36** |
+
+**El orden no es negociable:** cada entrega se apoya en la anterior. La 4.2 es
+la que concentra el riesgo y la que lleva el tramo más largo.
+
+**Toda la fase se construye contra un proveedor simulado.** Al terminarla ARLES
+sabrá enviar perfectamente y no habrá mandado ni un correo real. Eso llega en la
+Fase 5.
+
+**Dependencia nueva que hace falta:** una base de datos de zonas horarias IANA.
+Sin ella no se puede cumplir D-10 —saber qué instante es «las 9:00 en
+`America/Mexico_City`»—. Pasa por `cargo deny check licenses` antes de entrar,
+como cualquier dependencia (CLAUDE.md §6).
+
+---
+
+### Fase 5 — Proveedores de envío · **la parte de correo, cerrada**
+
+Trait `EmailProvider` · `SmtpProvider` con TLS obligatorio · prueba de conexión · clasificación de errores SMTP · captura de rechazos 5xx síncronos hacia la supresión · guía de onboarding de contraseña de aplicación de Gmail.
+
+`GoogleProvider` entra **cuando Google verifique** (D-1), no antes.
+
+| Entrega | Estado | Qué trajo |
+|---|---|---|
+| **5.1** ✅ | Cerrada el 23/09/2026 | La traducción de códigos SMTP a los cinco fallos del motor —el texto libre **no decide nada**— y un servidor de mentira que habla el protocolo de verdad y sabe fallar a la orden. Existe porque a Gmail no se le puede pedir que conteste `550` |
+| **5.2** ✅ | Cerrada el 23/09/2026 | El adaptador. **Cifrado obligatorio sin forma de desactivarlo**, comprobado además contra el propio socket antes de mandar la contraseña. La conversación se lleva paso a paso para no confundir un rechazo del remitente con uno del destinatario, que es el único que da de baja a alguien |
+| **5.3** ✅ | Cerrada el 23/09/2026 | «Probar conexión» con seis diagnósticos accionables · migración V7 con las columnas de SMTP que faltaban desde la V1 · repositorio de cuentas **sin contraseñas** · llavero por cuenta · tres comandos · la pantalla de Remitentes con la guía de la contraseña de aplicación |
+| **5.4** ✅ | Cerrada el 28/09/2026 | **El motor corriendo de verdad.** Resultó ser más de lo que esta tabla decía: `arles-app` **ni siquiera dependía de `arles-motor`**, así que no había ningún trabajador al que darle el adaptador. Tres tramos: la fábrica que va de una cuenta guardada al `ProveedorSmtp` leyendo el llavero (5.4a) · la consulta de qué etapas están enviando y el hilo que las atiende, aparte de la ventana (5.4b) · el aviso de «esta ventana no envía» cuando hay otro ARLES abierto (5.4c) |
+| **5.5** ✅ | Cerrada el 29/09/2026 | **El envío de prueba, y ARLES mandando un correo entero por primera vez.** Dónde consta la prueba de una etapa y cuándo deja de valer —cambiar de remitente la invalida— (5.5a) · el comando, con una prueba de integración contra un servidor que habla **cifrado**, que mira lo que el servidor RECIBIÓ (5.5b) · el botón en Remitentes, que contesta «¿esta cuenta puede enviar?» sin campaña de por medio (5.5c) |
+| **5.6** ✅ | Cerrada el 29/09/2026 | Auditoría de la fase —dos hallazgos, §8 del documento—, documento de fase, informe para Dirección y PDF |
+
+**Lo que NO está y es de esta fase: el adaptador de WhatsApp Cloud API.** Sin
+empezar. La Fase 6 ofrece dos etapas en el asistente y la segunda no podrá
+enviar mientras esto falte; hay una decisión pendiente de Dirección sobre si se
+construye antes o después (ver el informe, «WhatsApp · lo que hay que
+decidir»).
+
+> **R-24 · CERRADO el 22/10/2026.** Esta línea decía «ARLES no ha hablado nunca
+> con un servidor real», y dejó de ser cierta: Dirección dio de alta
+> `enlace@telemetrymx.com` (Titan, SMTP real con TLS) y el correo llegó a la
+> **bandeja principal** de Outlook, Gmail y un corporativo — tres de tres.
+>
+> **Lo que costó no fue el código, y conviene que quede en el plan.** Desde una
+> dirección `@gmail.com` el correo caía en no deseados de Outlook con **toda la
+> autenticación en verde** (`spf`, `dkim`, `dmarc` y `compauth`, todos `pass`,
+> y aun así `SCL: 5`). Lo que pesaba era el patrón «marca + gmail personal».
+>
+> **Y eso corrige una suposición de este roadmap:** la entrega **7.5** (SPF,
+> DKIM y DMARC desde ARLES) estaba apuntada como la solución al spam, y **no lo
+> era** — las tres ya pasaban. Lo que la 7.5 sigue aportando es comprobar esos
+> registros desde la aplicación y decir qué poner si faltan, que es útil pero es
+> otra cosa. Su condición de verificación, en cambio, **ya se cumple**: hacía
+> falta R-24. Ver `ESTADO_ACTUAL.md` §7.
+
+---
+
+### Fase 6 — Campañas y mensajes
+
+Plantillas con versionado · motor de sustitución no Turing-completo · sanitizado con `ammonia` · firmas · ~~editor de texto enriquecido simple~~ · el asistente de campaña · simulador · preflight · envío de prueba obligatorio · aviso de más de 50 diarios con registro de aceptación.
+
+> ⚠️ **Nueve de los diez entregados. El editor de texto enriquecido no está**,
+> y con él tampoco la pantalla para escribir plantillas y firmas. Los comandos
+> `guardar_plantilla` y `guardar_firma` existen y están probados, pero **ninguna
+> pantalla los llama**, así que desde la aplicación no hay forma de crear una
+> plantilla — y el asistente exige una para pasar del paso 4 de 8
+> (`AsistenteDeCampana.vue`, `sePuedeSeguir`, caso 4).
+>
+> Consecuencia práctica: **un recorrido de punta a punta no llega al envío**
+> sin sembrar plantillas en la base por fuera. Queda como **entrega 6.8**.
+>
+> Detectado el 29/09/2026 auditando la fase contra esta misma lista. El
+> documento de cierre ya lo declaraba en su §7; esta línea del ROADMAP no, y
+> prometía los diez. Es la contradicción que se corrige aquí.
+
+**Sobre un motor ya probado.**
+
+---
+
+### Fase 7 — Actividad y entregabilidad
+
+Panel de INICIO · actividad en vivo · eventos y errores · métricas honestas (aceptado ≠ entregado) · comprobación de SPF, DKIM y DMARC.
+
+**Sin tasas de rebote** — dependen de v1.3 (ADR-0009). La limitación se declara en la interfaz.
+
+---
+
+### Fase 8 — Respaldos y endurecimiento
+
+Exportación e importación `.arles` · migración entre sistemas con manejo elegante del llavero (§75) · **las cuatro auditorías** (§140) · presupuestos de rendimiento a 500 k verificados.
+
+> **Los derechos ARCO estaban aquí y llevan construidos desde la 3.4**
+> (22/09/2026): los cuatro tienen comando y pantalla, y la auditoría B del §140
+> los verificó uno a uno el 07/10/2026 — `cancelar_datos_de`,
+> `que_se_borraria` y `editar_contacto`, con `/contactos/derechos` y
+> `/contactos/supresion`. Se quitan de esta fase porque un plan que pide dos
+> veces lo mismo hace perder el tiempo buscando lo que ya existe, que es
+> exactamente lo que le pasó a esta auditoría.
+
+---
+
+### Fase 9 — Release v1.2.0
+
+Instaladores firmados y notarizados · updater · `CHANGELOG.md` · despliegue interno en TELEMETRY (D-4).
+
+⚠️ **Puerta de la licencia de Mont (D-5).** Antes de generar el primer instalador destinado a enseñarse o instalarse fuera del equipo de desarrollo, se vuelve a plantear **P-01**. Sin comprobante, se activa el plan B de `TIPOGRAFIA.md` §3 — una línea en `--arles-font-family`.
+
+---
+
+## Los dos cambios respecto al brief
+
+### 1 · El motor se adelanta
+
+El §141 lo sitúa en la fase 9, después de las campañas. **Aquí ocupa la fase 4, antes.**
+
+Idempotencia, reanudación tras suspensión y respeto de ventanas horarias son problemas de sistemas distribuidos con ropa de aplicación de escritorio. Son el 70 % del valor y el 70 % del riesgo.
+
+Construir primero la interfaz de campañas significaría diseñarla sobre supuestos no validados sobre cómo se comporta el motor — y descubrir en la fase 9 que un supuesto era falso obliga a rehacer la interfaz. Al revés, la interfaz se construye sobre comportamiento conocido.
+
+**Y hay un riesgo de proceso que esto mitiga (R-12):** el motor no produce capturas de pantalla atractivas, así que la presión natural es dejarlo para después. Ponerlo en la fase 4 lo hace inevitable.
+
+### 2 · Los trámites externos arrancan en la Fase 1
+
+El §141 no los menciona. La verificación de Google (4–8 semanas) y los certificados de firma (1–3 semanas) tienen plazos que no dependen del equipo.
+
+Arrancarlos al final es la forma más común de que un producto terminado no se pueda entregar.
+
+---
+
+## Dependencias
+
+```
+Fase 0 ──► Fase 1 ──┬──► Fase 2 (desbloqueada por D-5)
+                    │         │
+                    ├──► Fase 3 ◄─┘
+                    │         │
+                    ├──► Fase 4 ⭐ (independiente de la UI)
+                    │         │
+                    └──► Fase 5 ◄─┘
+                              │
+                          Fase 6 ──► Fase 7 ──► Fase 8 ──► Fase 9
+
+Trámites externos (arrancan en Fase 1, terminan cuando terminan):
+  Verificación Google ····························► GoogleProvider (v1.2.x)
+  Firma Windows / Apple ··························► Fase 9
+```
+
+**Las fases 3 y 4 pueden avanzar en paralelo**: el motor no depende de la interfaz de contactos, y la interfaz de contactos no depende del motor.
+
+---
+
+## Después de v1.2.0
+
+| Versión | Contenido |
+|---|---|
+| **v1.2.x** | `GoogleProvider` cuando Google verifique |
+| **v1.3** | `MicrosoftProvider` · detección de rebotes por buzón dedicado + IMAP ([ADR-0014](../03-arquitectura/adr/0014-deteccion-de-rebotes-sin-verp.md)) · cifrado de respaldos · licenciamiento · **envío a la hora local de cada destinatario (D-11)**, cuando el contacto traiga su zona declarada · **lanzamiento comercial** |
+| **v1.4+** | White labeling · tracking opcional si se justifica |
+
+Detalle y motivos en `01-producto/FUERA_DE_ALCANCE.md`.
+
+---
+
+## Lo que este roadmap no dice
+
+**No hay fechas.** Ponerlas ahora sería inventarlas: dependen de la disponibilidad del equipo, de cuándo responda Dirección a P-01 a P-04, y de cuánto tarde Google.
+
+Lo que sí está fijado es el **orden** y las **puertas de salida**. Las fechas se añaden cuando la Fase 1 dé una medida real del ritmo del equipo.

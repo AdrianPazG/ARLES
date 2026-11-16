@@ -1,0 +1,70 @@
+/* Mont · la familia de ARLES (TIPOGRAFIA.md).
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * POR QUÉ CADA @font-face DECLARA SU font-weight EXPLÍCITAMENTE
+ *
+ * El `usWeightClass` interno de este kit está desplazado: medido en los TTF,
+ * Mont-Light declara 400, Mont-Regular declara 600, Mont-Bold declara 800 y
+ * Mont-Black declara 950. Además cada corte se empaquetó como una familia
+ * propia («Mont SemiBold», subfamilia «Regular»), que es como exporta
+ * Transfonter un archivo por peso.
+ *
+ * El grosor real sí corresponde al nombre del archivo —medido sobre el asta
+ * de la «I»: 87, 115, 152 y 238 por mil, monótono y en orden—, así que los
+ * archivos son los que dicen ser. Lo que no es de fiar es su metadato.
+ *
+ * Consecuencia práctica: el peso de cada corte lo fija ESTA hoja, no el
+ * archivo. Si alguien añade un corte, declara su font-weight aquí.
+ * ─────────────────────────────────────────────────────────────────────────
+ *
+ * Sólo .woff2: es lo único que WebView2 y WKWebView necesitan. El .eot, el
+ * .ttf y el .woff del kit no entran en el bundle.
+ *
+ * Los archivos se leen de /TIPOGRAFIA por el alias `@fuentes`, sin copiarlos
+ * dentro de app/. Una copia sería un segundo sitio del que retirarlos si P-01
+ * se cierra en negativo (ADR-0012: una sola fuente por artefacto).
+ *
+ * Sólo cuatro pesos. Ver §1 de este archivo y TIPOGRAFIA.md §2.
+ *
+ * ⚠ P-01 sigue abierta: la licencia que cubre incrustar la fuente en la
+ * aplicación distribuida no está verificada. D-5 autoriza desarrollar así;
+ * la puerta es antes de la demo. Si P-01 se cierra en negativo, se borran
+ * estas reglas y `--arles-font-family` cae en Figtree sin tocar nada más.
+ */
+
+@font-face {
+  font-family: 'Mont';
+  src: url('@fuentes/Mont-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Mont';
+  src: url('@fuentes/Mont-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Mont';
+  src: url('@fuentes/Mont-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Mont';
+  src: url('@fuentes/Mont-Black.woff2') format('woff2');
+  font-weight: 900;
+  font-style: normal;
+  font-display: block;
+}
+
+/* `font-display: block` y no `swap`: en una aplicación de escritorio la fuente
+ * es local, carga en milisegundos y no hay red que pueda retrasarla. `swap`
+ * provocaría un parpadeo de sustitución visible al abrir la ventana, que es
+ * justo lo que §98 prohíbe. */

@@ -1,0 +1,80 @@
+//! Acceso a datos de ARLES RELAY.
+//!
+//! SQLite cifrado con SQLCipher (T-3), migraciones versionadas y repositorios
+//! con consultas parametrizadas. Sin ORM: el SQL que se ejecuta se lee, que es
+//! lo que permite auditarlo (ADR-0002).
+
+// El §138 prohíbe `unwrap()` y `panic!()` indiscriminados. En los tests son
+// legítimos; la denegación sigue activa en el código de producción.
+#![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
+// SQLCipher se habla por FFI, pero la parte `unsafe` vive dentro de `rusqlite`,
+// que la audita y la envuelve. Aquí no entra ninguna.
+#![forbid(unsafe_code)]
+
+pub mod actividad;
+pub mod alta_de_campana;
+pub mod archivo;
+pub mod arco;
+pub mod buzon;
+mod campanas;
+pub mod cancelacion;
+pub mod cifras;
+pub mod cola;
+pub mod conexion;
+pub mod contactos;
+pub mod correo;
+pub mod cuentas;
+/// El experimento de D-19: ¿cuesta el total exacto, o cuesta el recorrido?
+///
+/// Sólo existe en pruebas y **no entra en el binario que se distribuye**, igual
+/// que `presupuesto_del_respaldo` en `arles-app`. Se corre a mano:
+/// `cargo test -p arles-db d19 -- --ignored --nocapture`.
+#[cfg(test)]
+mod d19_un_solo_recorrido;
+pub mod db;
+pub mod empresa;
+pub mod error;
+pub mod listas;
+pub mod migraciones;
+pub mod numero;
+pub mod plantillas;
+pub mod plantillas_whatsapp;
+pub mod preferencias;
+pub mod presupuesto;
+pub mod prueba;
+pub mod puesta_al_dia;
+pub mod respaldo;
+pub mod respuestas;
+pub mod restauracion;
+pub mod revision;
+pub mod revision_whatsapp;
+pub mod supresion;
+pub mod trabajo;
+pub mod ventanas;
+
+pub use campanas::ResumenDeAccion;
+pub use cola::{DatosParaLaPlantilla, Recuperacion, TrabajoTomado};
+pub use conexion::{ClaveMaestra, abrir};
+pub use contactos::{
+    ContactoGuardado, DatosDelLote, FiltroDeContactos, MAX_POR_PAGINA, PaginaDeContactos,
+    ResumenDeImportacion,
+};
+pub use cuentas::SaludDeLaCuenta;
+pub use db::{Db, ResumenArranque};
+pub use empresa::EmpresaGuardada;
+pub use error::DbError;
+pub use listas::ListaGuardada;
+pub use migraciones::ultima_version;
+pub use numero::{NumeroGuardado, NumeroNuevo};
+pub use plantillas::RedaccionDeLaCampana;
+pub use preferencias::CLAVES_DE_INTERFAZ;
+pub use respaldo::{
+    ColumnasPorTabla, Destino, FILAS_POR_AVISO, Inventario, QueSeLleva, RecuentoPorTabla,
+    TablaDelRespaldo,
+};
+pub use restauracion::{
+    ComparacionDeTabla, FilaDelRespaldo, LoQuePasaria, LoQuePaso, Origen, SeVaPorCascada,
+};
+pub use revision::LoQueSabeLaBase;
+pub use supresion::{MAX_SUPRESIONES_POR_PAGINA, ResumenDeSupresion, SupresionGuardada};
+pub use ventanas::VentanaGuardada;

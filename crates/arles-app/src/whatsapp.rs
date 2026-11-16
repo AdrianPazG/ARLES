@@ -1,0 +1,970 @@
+//! Los comandos del número de WhatsApp.
+//!
+//! ─────────────────────────────────────────────────────────────────────────
+//! LAS DOS MARCAS NO SE PUEDEN PONER AL DAR DE ALTA, Y ÉSE ES EL PUNTO
+//!
+//! Un número nace sin Coexistencia confirmada y sin riesgo aceptado, y por eso
+//! **no puede enviar todavía**. Las dos marcas se ponen con dos comandos
+//! aparte, cada uno con su propia pulsación.
+//!
+//! Si el alta las aceptara como dos casillas del mismo formulario, se marcarían
+//! con el resto de los campos sin leerlas — que es exactamente lo que estas dos
+//! marcas existen para impedir. Son la constancia de que a alguien se le avisó:
+//! una que el número saldrá de la app de WhatsApp Business (L-11), y otra que
+//! escribir a quien no lo pidió puede costar el número entero.
+//!
+//! Que cuesten un gesto más es el diseño, no un descuido.
+//!
+//! ─────────────────────────────────────────────────────────────────────────
+//! EL TOKEN ENTRA Y NO SALE
+//!
+//! Igual que la contraseña de correo. Entra por `guardar_numero_de_whatsapp`,
+//! va al llavero, y en la base queda una referencia opaca. Ningún comando de
+//! este módulo lo devuelve, y hay una prueba que serializa la salida y lo
+//! busca en el JSON — porque lo que importa es lo que cruza la frontera, no lo
+//! que creemos haber declarado.
+
+use serde::Serialize;
+
+use crate::comandos::empresa_actual;
+use crate::error::ErrorIpc;
+use crate::estado::EstadoApp;
+
+/// Un número tal como lo ve la pantalla. **Sin token.**
+///
+/// Lleva `puede_enviar` ya resuelto en vez de dejar que la pantalla lo deduzca
+/// de los tres campos. La regla —conectado, con Coexistencia, y con el riesgo
+/// aceptado si escribe en frío— vive en el núcleo y en `NumeroGuardado`; que la
+/// webview la reimplemente significa dos reglas que se separan en cuanto una de
+/// las dos cambie, y la que decide si se envía no sería la que se ve.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NumeroIpc {
+    pub id: String,
+    pub nombre_visible: String,
+    /// El número en E.164. No es un secreto: es la dirección desde la que se
+    /// escribe, y quien recibe el mensaje la ve.
+    pub telefono_e164: String,
+    /// El identificador de la cuenta de empresa en Meta. Tampoco es secreto —
+    /// Meta lo enseña en su propio panel—, y hace falta en la pantalla para
+    /// que alguien pueda comprobar que dio de alta el número correcto.
+    pub waba_id: String,
+    pub modo: String,
+    pub estado: String,
+    /// Cuándo se confirmó Coexistencia. `null` = no se ha confirmado.
+    pub coexistencia_confirmada: Option<String>,
+    /// Cuándo se aceptó el riesgo del modo en frío. `null` = no se ha aceptado.
+    pub riesgo_aceptado: Option<String>,
+    /// Lo que Meta dice de la calidad, o `null` si no consta.
+    ///
+    /// **`null` es «no consta», no «está bien».** La pantalla tiene que poder
+    /// distinguirlo: un semáforo en verde porque no ha podido mirar es peor que
+    /// no tener semáforo.
+    pub calidad: Option<String>,
+    /// El tope diario que impone Meta. Lo decide Meta, no ARLES.
+    pub limite_de_meta: Option<u32>,
+    /// Cuándo se le preguntó a Meta por última vez. `null` = nunca.
+    ///
+    /// **Una cifra sin fecha se lee como si fuera de hoy** (§94), y la calidad
+    /// de un número cambia sola: «verde» sin fecha no dice si se miró esta
+    /// mañana o el día que se conectó el número.
+    pub calidad_actualizada: Option<String>,
+    /// ¿Puede mandar una campaña hoy?
+    pub puede_enviar: bool,
+    /// ¿Este modo escribe a quien no lo pidió?
+    pub escribe_en_frio: bool,
+}
+
+impl From<arles_db::numero::NumeroGuardado> for NumeroIpc {
+    fn from(n: arles_db::numero::NumeroGuardado) -> Self {
+        Self {
+            puede_enviar: n.puede_enviar(),
+            escribe_en_frio: n.modo.escribe_en_frio(),
+            id: n.id.to_string(),
+            nombre_visible: n.nombre_visible,
+            telefono_e164: n.telefono_e164,
+            waba_id: n.waba_id,
+            modo: n.modo.como_se_guarda().to_owned(),
+            estado: n.estado,
+            coexistencia_confirmada: n.coexistencia_confirmada,
+            riesgo_aceptado: n.riesgo_aceptado,
+            calidad: n.calidad,
+            limite_de_meta: n.limite_de_meta,
+            calidad_actualizada: n.calidad_actualizada.clone(),
+            // `referencia_de_credencial` no se copia. Es lo único del registro
+            // que no cruza, y no cruza porque no le sirve a la pantalla para
+            // nada: no es el token, pero dice dónde está.
+        }
+    }
+}
+
+/// Los números dados de alta.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si no hay empresa configurada o si la lectura falla.
+#[tauri::command]
+pub fn numeros_de_whatsapp(
+    estado: tauri::State<'_, EstadoApp>,
+) -> Result<Vec<NumeroIpc>, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    Ok(estado
+        .db()
+        .numeros(empresa)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?
+        .into_iter()
+        .map(NumeroIpc::from)
+        .collect())
+}
+
+/// Un número que Meta dice que existe, listo para enseñar en una lista.
+///
+/// **No lleva el token** (regla 3 de la frontera): el token entró por el
+/// comando y no vuelve. Lo que vuelve son identificadores y un teléfono, que
+/// son públicos — están impresos en el panel de Meta.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NumeroDescubiertoIpc {
+    pub phone_number_id: String,
+    pub waba_id: String,
+    pub telefono: String,
+    pub nombre: String,
+    /// `GREEN`, `YELLOW`, `RED` o `UNKNOWN`, tal como lo manda Meta.
+    pub calidad: String,
+    pub tope_diario: Option<u32>,
+}
+
+/// Pregunta a Meta qué números tiene este token (D-WA, 26/10/2026).
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LO QUE ESTE COMANDO AHORRA
+///
+/// El alta pedía seis datos. Cuatro —WABA ID, Phone Number ID, teléfono y
+/// nombre visible— sólo existen en el panel de Meta, en tres pantallas
+/// distintas, y hay que copiarlos sin equivocarse: el WABA ID y el Phone
+/// Number ID son dos números largos y parecidos, y cambiarlos de campo da un
+/// error que no dice cuál de los dos está mal.
+///
+/// Con esto queda **un dato y una elección**. Y lo que se guarda viene
+/// verificado por la fuente, que es mejor que verificado por quien copia.
+///
+/// El token **entra y no se guarda**: se usa para preguntar y se tira. Quien
+/// lo guarda es el llavero, al dar de alta el número elegido.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] con la clave del motivo: el token no vale, no se llegó a Meta,
+/// o la cuenta no tiene ningún número dado de alta. Son tres y no uno porque
+/// mandan a hacer tres cosas distintas.
+#[tauri::command]
+pub fn descubrir_numeros_de_whatsapp(token: String) -> Result<Vec<NumeroDescubiertoIpc>, ErrorIpc> {
+    arles_whatsapp::numeros_del_token(arles_whatsapp::cloud::GRAPH, &token)
+        .map(|v| {
+            v.into_iter()
+                .map(|n| NumeroDescubiertoIpc {
+                    phone_number_id: n.phone_number_id,
+                    waba_id: n.waba_id,
+                    telefono: n.telefono,
+                    nombre: n.nombre,
+                    calidad: n.calidad,
+                    tope_diario: n.tope_diario,
+                })
+                .collect()
+        })
+        .map_err(|e| ErrorIpc {
+            clave: e.clave_i18n().to_owned(),
+            // El detalle NO lleva el token ni nada que venga de Meta: es texto
+            // de fuera, y la bitácora no es sitio para él (regla de redacción
+            // de `ErrorIpc`). Basta con cuál de los tres motivos fue.
+            detalle: e.clave_i18n().to_owned(),
+            campos: Vec::new(),
+            canales: Vec::new(),
+            campos_de_cuenta: Vec::new(),
+        })
+}
+
+/// Da de alta un número de WhatsApp.
+///
+/// El orden es el mismo que el de una cuenta de correo, y por la misma razón:
+/// **el secreto primero, la base después, y si la base falla el secreto se
+/// retira**. Al revés quedaría una fila apuntando a un llavero vacío, que es
+/// una cuenta que no puede enviar y que nadie sabe por qué.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si el número no es un E.164 válido, si el modo no se reconoce,
+/// si el llavero no está disponible o si la escritura falla.
+#[tauri::command]
+pub fn guardar_numero_de_whatsapp(
+    estado: tauri::State<'_, EstadoApp>,
+    nombre_visible: String,
+    telefono: String,
+    waba_id: String,
+    phone_number_id: String,
+    modo: String,
+    token: String,
+) -> Result<Vec<NumeroIpc>, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+
+    // El número se valida en el núcleo, no aquí. Un E.164 mal formado guardado
+    // ahora es un envío rechazado por Meta dentro de tres semanas. Se completa
+    // con el país de la empresa, igual que los teléfonos de los contactos: quien
+    // da de alta su propio número lo escribe como lo tiene en el móvil.
+    let pais = crate::comandos::pais_de_la_empresa(&estado)?;
+    let telefono = arles_core::canal::PhoneNumber::parse(&telefono, &pais)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    let modo = arles_core::whatsapp::ModoDelCanal::de_guardado(&modo)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    if token.trim().is_empty() {
+        return Err(ErrorIpc::from(crate::AppError::Db(
+            arles_db::DbError::DatoInvalido {
+                motivo: "el token de Meta no puede estar vacío",
+            },
+        )));
+    }
+
+    let id = arles_core::ids::WhatsappAccountId::nuevo();
+    let texto_del_id = id.to_string();
+
+    // 1 · El secreto.
+    let llavero = crate::llavero::Llavero::del_numero(&texto_del_id);
+    llavero.guardar_contrasena(&token).map_err(ErrorIpc::from)?;
+
+    // 2 · La base. Si falla, se retira lo que se acaba de escribir.
+    let escritura = estado.db().guardar_numero(
+        empresa,
+        id,
+        &arles_db::numero::NumeroNuevo {
+            nombre_visible: &nombre_visible,
+            telefono_e164: telefono.normalized(),
+            waba_id: &waba_id,
+            phone_number_id: &phone_number_id,
+            modo,
+        },
+        &crate::llavero::referencia_de_numero(&texto_del_id),
+    );
+
+    if let Err(e) = escritura {
+        let _ = llavero.borrar();
+        return Err(ErrorIpc::from(crate::AppError::Db(e)));
+    }
+
+    // 3 · Y se le pregunta a Meta cómo está el número (D-WA, 27/10/2026).
+    //
+    // ── POR QUÉ SE PREGUNTA AQUÍ Y NO LLEGA DESDE LA PANTALLA ───────────
+    //
+    // El descubrimiento del alta **ya trae la calidad y el escalón**: los
+    // enseña en la lista para poder elegir a la vista de las dos cifras que
+    // deciden si un número puede trabajar. Lo cómodo sería que la pantalla los
+    // mandara de vuelta al guardar.
+    //
+    // No se hace, y es la regla de la frontera: **lo que la webview dice no se
+    // guarda como si lo hubiera dicho Meta.** Un semáforo cuyo valor viene de
+    // la pantalla es un semáforo que la pantalla puede poner en verde.
+    //
+    // ── Y SI FALLA, NO PASA NADA MALO ──
+    //
+    // El número ya está dado de alta: esto es información añadida, no parte
+    // del alta. Si Meta no contesta, la calidad se queda sin anotar —que es lo
+    // que es— y el botón de refrescar de la ficha lo vuelve a intentar.
+    // Hacer fallar el alta entera por esto dejaría a alguien sin poder
+    // conectar su número porque Meta tardó tres segundos.
+    anotar_lo_que_meta_dice(&estado, empresa, id, &phone_number_id, &token);
+
+    numeros_de_whatsapp(estado)
+}
+
+/// Le pregunta a Meta la calidad y el tope de un número, y lo anota.
+///
+/// **No devuelve error a propósito.** Es información añadida: quien la llama ya
+/// tiene el número dado de alta, y una consulta que no se pudo hacer deja la
+/// calidad en «no se ha preguntado», que es lo que es. Un semáforo que se pone
+/// en verde cuando no ha podido mirar es peor que no tener semáforo.
+fn anotar_lo_que_meta_dice(
+    estado: &tauri::State<'_, EstadoApp>,
+    empresa: arles_core::ids::CompanyId,
+    id: arles_core::ids::WhatsappAccountId,
+    phone_number_id: &str,
+    token: &str,
+) {
+    let Some(dice) =
+        arles_whatsapp::estado::consultar(arles_whatsapp::cloud::GRAPH, phone_number_id, token)
+    else {
+        return;
+    };
+
+    // El error se traga a propósito y por el mismo motivo que arriba. Si la
+    // escritura falla, lo que queda es la calidad de antes — no una inventada.
+    let _ = estado
+        .db()
+        .anotar_calidad(empresa, id, &dice.calidad, dice.tope_diario);
+}
+
+/// Vuelve a preguntarle a Meta cómo está un número.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ HACE FALTA UN BOTÓN Y NO BASTA CON EL ALTA
+///
+/// **La calidad de Meta cambia sola.** Baja cuando la gente bloquea o reporta,
+/// y sube despacio cuando no pasa nada — y es la única señal que hay de que
+/// Meta está a punto de cerrar el número, que no se recupera: se cambia de
+/// número y el nuevo empieza desde el escalón más bajo.
+///
+/// Anotarla sólo al dar de alta daría un semáforo congelado en el día que se
+/// conectó, que es la peor clase de cifra: correcta sobre otra pregunta (§94).
+///
+/// ── Y POR QUÉ SE PREGUNTA Y NO SE ESPERA ──
+///
+/// Meta manda los cambios de calidad por *webhook*, y ARLES no tiene ninguna
+/// URL a la que Meta pueda llamar (`arles_whatsapp::entrante`). Preguntar es
+/// lo que sí funciona desde un escritorio, y es lo que la cabecera de
+/// `arles_whatsapp::estado` dice desde que se escribió.
+///
+/// Lo que esto **no** cubre: una caída en mitad de una campaña de mil
+/// mensajes. Para eso haría falta el «relay ciego» que Dirección decidió el
+/// 29/09/2026 y que no existe.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si el identificador no vale, si el número no es de esta
+/// empresa, o si el llavero no tiene su token — que es el caso en que hay que
+/// volver a conectar el número.
+#[tauri::command]
+pub fn refrescar_calidad_del_numero(
+    estado: tauri::State<'_, EstadoApp>,
+    id: String,
+) -> Result<Vec<NumeroIpc>, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let numero = id
+        .parse::<arles_core::ids::WhatsappAccountId>()
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    // El `phone_number_id` se lee **de la base** y no se recibe: es un dato de
+    // la cuenta, y aceptarlo de la pantalla dejaría preguntar por el número de
+    // otro. Es la misma razón por la que la lista de una campaña se lee aquí
+    // (D-15) y por la que la ruta de un respaldo no cruza la frontera.
+    let numeros = estado
+        .db()
+        .numeros(empresa)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+    let Some(guardado) = numeros.into_iter().find(|n| n.id == numero) else {
+        return Err(ErrorIpc::from(crate::AppError::Db(
+            arles_db::DbError::DatoInvalido {
+                motivo: "ese número de WhatsApp no existe",
+            },
+        )));
+    };
+
+    let token = crate::llavero::Llavero::del_numero(&numero.to_string())
+        .leer_contrasena()
+        .map_err(ErrorIpc::from)?;
+    let Some(token) = token else {
+        return Err(ErrorIpc::from(crate::AppError::Db(
+            arles_db::DbError::DatoInvalido {
+                motivo: "el llavero no tiene el token de ese número",
+            },
+        )));
+    };
+
+    anotar_lo_que_meta_dice(&estado, empresa, numero, &guardado.phone_number_id, &token);
+
+    numeros_de_whatsapp(estado)
+}
+
+/// Confirma que el número está en Coexistencia (L-11).
+///
+/// Se guarda **quién y cuándo**, no un simple «sí». Una marca sin autor no
+/// sirve de constancia el día que alguien pregunte quién dijo que este número
+/// podía seguir atendiéndose desde el móvil.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si el identificador no vale o si la escritura falla.
+#[tauri::command]
+pub fn confirmar_coexistencia(
+    estado: tauri::State<'_, EstadoApp>,
+    id: String,
+) -> Result<Vec<NumeroIpc>, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let numero = id
+        .parse::<arles_core::ids::WhatsappAccountId>()
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    estado
+        .db()
+        .confirmar_coexistencia(empresa, numero, USUARIO_LOCAL)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    numeros_de_whatsapp(estado)
+}
+
+/// Acepta el riesgo de escribir a quien no dio permiso.
+///
+/// Sólo tiene sentido en el modo de prospección directa. Se deja llamar igual
+/// en el otro —la marca queda puesta y no hace daño—, porque rechazarlo
+/// obligaría a la pantalla a conocer la regla del modo, y ésa vive en el
+/// núcleo.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si el identificador no vale o si la escritura falla.
+#[tauri::command]
+pub fn aceptar_riesgo_del_canal(
+    estado: tauri::State<'_, EstadoApp>,
+    id: String,
+) -> Result<Vec<NumeroIpc>, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let numero = id
+        .parse::<arles_core::ids::WhatsappAccountId>()
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    estado
+        .db()
+        .aceptar_el_riesgo(empresa, numero, USUARIO_LOCAL)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    numeros_de_whatsapp(estado)
+}
+
+/// El texto que explica un fallo de envío (§139).
+///
+/// `Fallo` vive en el núcleo y **no tiene `clave_i18n`**: es un tipo del motor,
+/// pensado para decidir si se reintenta, no para enseñarse. La traducción a
+/// algo que una persona pueda leer se hace aquí, en la frontera, que es donde
+/// hace falta.
+///
+/// Se escribe con un `match` exhaustivo a propósito: si mañana el núcleo añade
+/// una forma de fallar, esto **no compila** hasta que alguien decida qué se le
+/// dice al usuario. Un `_ =>` genérico la enseñaría como «error desconocido»
+/// para siempre, sin que nadie se enterara.
+const fn clave_del_fallo(fallo: &arles_core::reintento::Fallo) -> &'static str {
+    use arles_core::reintento::Fallo;
+    match fallo {
+        Fallo::Pasajero => "whatsapp.prueba.pasajero",
+        Fallo::NoMeMandesNadaDurante(_) => "whatsapp.prueba.demasiadoRapido",
+        Fallo::LaDireccionNoExiste => "whatsapp.prueba.numeroNoExiste",
+        Fallo::LaCuentaNoAutentica => "whatsapp.prueba.tokenNoVale",
+        Fallo::EsaPersonaPidioLaBaja => "whatsapp.prueba.pidioLaBaja",
+    }
+}
+
+/// Quién queda anotado en las dos marcas.
+///
+/// ARLES no tiene cuentas de usuario (está fuera de alcance en la v1.2), así
+/// que la constancia dice «el usuario de este equipo» y no inventa un nombre.
+/// Escribir aquí un identificador que no existe sería peor que esta cadena
+/// honesta: parecería una auditoría real.
+const USUARIO_LOCAL: &str = "usuario_local";
+
+/// Cómo salió el envío de prueba de WhatsApp.
+///
+/// **No dice «entregado»** (§65), igual que el de correo. Lo que ARLES sabe es
+/// que Meta se hizo cargo del mensaje. Si llegó al teléfono, y si la persona lo
+/// vio, son cosas que solo dirían los avisos — y los avisos todavía no tienen
+/// por dónde llegar.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResultadoDeLaPruebaDeWhatsApp {
+    /// ¿Meta lo aceptó?
+    pub aceptado: bool,
+    /// La clave del texto que explica qué pasó (§139). Nunca el texto crudo de
+    /// Meta: viene en inglés y a veces trae el número dentro.
+    pub clave: String,
+}
+
+/// Manda un mensaje de prueba a un número, con una plantilla aprobada.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// ESTE COMANDO ES EL QUE FALTABA PARA QUE EL CANAL EXISTIERA DE VERDAD
+///
+/// Hasta la W.8, ARLES sabía dar de alta un número, revisar una campaña y
+/// enseñar todas las cifras — y no tenía **ningún** camino por el que saliera
+/// un mensaje. El adaptador estaba probado contra el servidor de mentira y nadie
+/// lo llamaba.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// LA PLANTILLA LA ELIGE QUIEN LLAMA, Y TIENE QUE ESTAR APROBADA
+///
+/// Meta **no acepta texto libre** para iniciar una conversación. Para la
+/// demostración sirve `hello_world`, que viene aprobada con el número de prueba
+/// que Meta regala — y que por eso no depende del editor de plantillas, que
+/// sigue pendiente (entrega 6.8).
+///
+/// `base` permite apuntar al servidor de mentira en las pruebas. En producción
+/// es la constante `GRAPH`, y **no se deja elegir desde la webview**: una
+/// dirección que cruzara la frontera sería un sitio al que mandar el token.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si no hay empresa, si el identificador no vale, si el número no
+/// puede enviar todavía —le falta una de las dos confirmaciones— o si el
+/// llavero no tiene su token. **Que Meta rechace el mensaje no es un error del
+/// comando**: es un resultado con `aceptado: false` y su clave, porque eso es
+/// justo lo que la prueba venía a averiguar.
+#[tauri::command]
+pub fn enviar_whatsapp_de_prueba(
+    estado: tauri::State<'_, EstadoApp>,
+    id: String,
+    para: String,
+    plantilla: String,
+    idioma: String,
+) -> Result<ResultadoDeLaPruebaDeWhatsApp, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let pais = crate::comandos::pais_de_la_empresa(&estado)?;
+    prueba_con(
+        estado.db(),
+        &crate::fabrica::ElLlaveroDelSistema,
+        empresa,
+        &pais,
+        &id,
+        &para,
+        &plantilla,
+        &idioma,
+        arles_whatsapp::cloud::GRAPH,
+    )
+}
+
+/// El envío de prueba, con la fuente de secretos y la dirección que se le diga.
+///
+/// El comando de arriba le pasa el llavero del sistema y la dirección de Meta.
+/// Las pruebas le pasan las suyas y **recorren este mismo código**: la lectura
+/// del número, la puerta del canal, el armado del proveedor y la traducción del
+/// resultado. Una prueba con su propio camino no diría nada de éste — que es
+/// exactamente cómo el canal llegó a la W.7 sin poder enviar.
+///
+/// # Errores
+///
+/// Los de [`enviar_whatsapp_de_prueba`].
+#[allow(clippy::too_many_arguments)]
+pub fn prueba_con(
+    db: &arles_db::Db,
+    secretos: &dyn crate::fabrica::FuenteDeContrasenas,
+    empresa: arles_core::ids::CompanyId,
+    pais: &str,
+    id: &str,
+    para: &str,
+    plantilla: &str,
+    idioma: &str,
+    base: &str,
+) -> Result<ResultadoDeLaPruebaDeWhatsApp, ErrorIpc> {
+    use arles_motor::proveedor::{Mensaje, Proveedor};
+
+    let numero = id
+        .parse::<arles_core::ids::WhatsappAccountId>()
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    // El destino se valida en el núcleo, con el país de la empresa: quien
+    // escribe su propio móvil para probar lo escribe como lo tiene en el móvil.
+    let destino = arles_core::canal::PhoneNumber::parse(para, pais)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    let contenido = arles_core::whatsapp::MensajeDePlantilla {
+        nombre: plantilla.to_owned(),
+        idioma: idioma.to_owned(),
+        // `hello_world` no tiene huecos. Una plantilla con huecos necesitaría
+        // los valores, y ésos los elige la campaña — no una prueba.
+        valores: Vec::new(),
+        faltaron: Vec::new(),
+    };
+
+    let proveedor =
+        crate::fabrica::proveedor_del_numero(db, secretos, empresa, numero, contenido, base)
+            .map_err(ErrorIpc::from)?;
+
+    // La clave de idempotencia de una prueba no se guarda en ningún sitio: no
+    // hay envío que deduplicar, y reutilizar la de un envío real haría que el
+    // motor creyera que ese mensaje ya salió.
+    let clave = format!("prueba-{}", numero);
+    let mensaje = Mensaje {
+        para: destino.normalized(),
+        // **El envío de prueba manda los valores del proveedor**, no unos
+        // propios: es un mensaje suelto, armado para esta prueba, y su
+        // contenido se puso al construir el adaptador.
+        //
+        // Una lista vacía aquí no significa «sin valores»: el adaptador cae en
+        // los suyos cuando el mensaje no trae ninguno. Es la otra mitad de
+        // D-WA — una campaña sí los manda, uno por contacto.
+        contenido: arles_motor::proveedor::Contenido::Whatsapp { valores: &[] },
+        de_una_campana: false,
+        clave_de_idempotencia: &clave,
+    };
+
+    Ok(match proveedor.enviar(&mensaje) {
+        Ok(_) => ResultadoDeLaPruebaDeWhatsApp {
+            aceptado: true,
+            clave: "whatsapp.prueba.aceptado".to_owned(),
+        },
+        Err(fallo) => ResultadoDeLaPruebaDeWhatsApp {
+            aceptado: false,
+            clave: clave_del_fallo(&fallo).to_owned(),
+        },
+    })
+}
+
+/// Una plantilla aprobada de Meta, tal como la ve la pantalla.
+///
+/// **No lleva el token ni ningún identificador de Meta más que el nombre de la
+/// plantilla**, que es público: es lo que viaja por la API y lo que se ve en el
+/// panel de Meta.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlantillaDeMetaIpc {
+    pub id: String,
+    /// El `name` de Meta. **Es el identificador real del mensaje**: es lo que
+    /// se manda, no el texto.
+    pub nombre: String,
+    /// El idioma en la forma de Meta: `es_MX`.
+    pub idioma: String,
+    /// `approved`, `pending`, `rejected`, `paused` o `disabled`, tal como lo
+    /// dice Meta.
+    pub estado: String,
+    /// El texto aprobado, para poder leer lo que va a salir antes de elegirla.
+    pub cuerpo: String,
+    /// Qué variable de ARLES va en cada hueco, en orden. Son **claves de i18n**
+    /// y no nombres: la pantalla los traduce (§139).
+    pub huecos: Vec<String>,
+    /// ¿Se puede mandar una campaña con ésta?
+    ///
+    /// **Viene resuelto de Rust y aquí no se recalcula.** La regla vive en
+    /// `EstadoEnMeta::se_puede_usar`, escrita por lo que acepta: un estado
+    /// nuevo de Meta no debe empezar a enviar solo.
+    pub se_puede_usar: bool,
+}
+
+/// Estrecha las claves de i18n de los huecos a variables del núcleo.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// UNA VARIABLE QUE NO EXISTE HACE FALLAR EL APUNTE ENTERO
+///
+/// Lo cómodo sería saltarse la que no se reconoce y guardar las demás. Eso
+/// dejaría una plantilla con **un hueco menos del que tiene el texto**, y Meta
+/// manda los valores **por posición**: el hueco que falta saldría vacío en cada
+/// mensaje de la campaña, o peor, correría los demás un puesto —el nombre
+/// donde va la empresa— sin que nada fallara.
+///
+/// El fallo llegaría con la campaña ya activada y mil mensajes fuera. Así que
+/// se rechaza aquí, que es donde todavía se puede corregir.
+///
+/// Está aparte del comando **para poder probarlo**: un `tauri::State` no se
+/// construye en una prueba, así que lo que vive dentro de un comando sólo se
+/// puede mirar. Es el mismo reparto que `registro_de` y `crear_campana_en`.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] con `error.db.dato_invalido` si alguna clave no es de las que
+/// el núcleo conoce.
+fn variables_de(huecos: &[String]) -> Result<Vec<arles_core::plantilla::Variable>, ErrorIpc> {
+    let mut variables = Vec::with_capacity(huecos.len());
+    for h in huecos {
+        let Some(v) = arles_core::plantilla::Variable::de_clave(h) else {
+            return Err(ErrorIpc::from(crate::AppError::Db(
+                arles_db::DbError::DatoInvalido {
+                    motivo: "esa variable no existe",
+                },
+            )));
+        };
+        variables.push(v);
+    }
+    Ok(variables)
+}
+
+fn a_ipc(p: &arles_db::plantillas_whatsapp::PlantillaDeMetaGuardada) -> PlantillaDeMetaIpc {
+    PlantillaDeMetaIpc {
+        id: p.id.clone(),
+        nombre: p.meta_name.clone(),
+        idioma: p.idioma.clone(),
+        estado: p.estado.como_se_guarda().to_owned(),
+        cuerpo: p.cuerpo.clone(),
+        huecos: p.huecos.iter().map(|v| v.clave().to_owned()).collect(),
+        se_puede_usar: p.se_puede_usar(),
+    }
+}
+
+/// Las plantillas de Meta anotadas de un número.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// EXISTÍA EN `arles-db` DESDE LA 6.8 Y NO TENÍA COMANDO (D-WA, 27/10/2026)
+///
+/// `Db::plantillas_de_meta` y `Db::anotar_plantilla_de_meta` llevan ahí desde
+/// la 6.8, con sus pruebas, **y no las llamaba nadie**. Así que `CLAUDE.md`
+/// afirmaba de más al decir que la 6.8 cerró «el registro de las plantillas
+/// aprobadas de Meta»: la función existía y el registro no.
+///
+/// Lo que eso costaba no se ve hasta que hace falta: el paso 4 del asistente,
+/// al elegir WhatsApp, sería un desplegable vacío sin ninguna pista de dónde
+/// se registran — el H-06 del 22/10/2026, otra vez y en el mismo paso.
+///
+/// Devuelve **todas** y no sólo las aprobadas, a propósito: la pantalla tiene
+/// que poder decir «ésta está en revisión» en vez de hacerla desaparecer, que
+/// es como se pierde media hora buscando algo que sí se dio de alta.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si no hay empresa configurada, si el identificador no vale, o
+/// si la base trae un estado que el núcleo no reconoce.
+#[tauri::command]
+pub fn plantillas_de_meta(
+    estado: tauri::State<'_, EstadoApp>,
+    numero: String,
+) -> Result<Vec<PlantillaDeMetaIpc>, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let numero = numero
+        .parse::<arles_core::ids::WhatsappAccountId>()
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    let todas = estado
+        .db()
+        .plantillas_de_meta(empresa, numero)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    Ok(todas.iter().map(a_ipc).collect())
+}
+
+/// Anota una plantilla que Meta aprobó, o pone al día la que ya estaba.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// ARLES NO CREA PLANTILLAS EN META, Y ESTO NO LO CAMBIA
+///
+/// El texto de una plantilla lo aprueba Meta **palabra por palabra**, en su
+/// panel. Lo que ARLES guarda es el **apunte** de que existe: su nombre, su
+/// idioma, qué dice y en qué estado está — para poder ofrecerla al crear una
+/// campaña y para poder enseñar lo que va a salir.
+///
+/// Por eso el estado entra como dato y no se comprueba contra Meta: quien lo
+/// sabe es el panel, y preguntarlo aquí exigiría una consulta por plantilla
+/// cada vez que se abre la pantalla. Lo que sí hace ARLES es **no dejar
+/// activar** una campaña cuya plantilla no esté aprobada (tramo 3a).
+///
+/// ── SE ACTUALIZA EN VEZ DE DUPLICAR ──
+///
+/// Meta cambia el estado por su cuenta: una aprobada puede pasar a `paused` si
+/// la gente la reporta. Quien vuelva a anotarla está poniendo al día lo que
+/// Meta dice, no creando una segunda — y la clave única del esquema (número,
+/// nombre, idioma) es la misma que usa Meta, así que «la misma plantilla»
+/// significa lo mismo en los dos sitios.
+///
+/// # Errores
+///
+/// [`ErrorIpc`] si no hay empresa configurada, si el identificador no vale, si
+/// el nombre o el idioma vienen vacíos, o si una variable no es de las que el
+/// núcleo conoce.
+#[tauri::command]
+pub fn anotar_plantilla_de_meta(
+    estado: tauri::State<'_, EstadoApp>,
+    numero: String,
+    nombre: String,
+    idioma: String,
+    estado_en_meta: String,
+    cuerpo: String,
+    huecos: Vec<String>,
+) -> Result<Vec<PlantillaDeMetaIpc>, ErrorIpc> {
+    let empresa = empresa_actual(&estado)?;
+    let id_numero = numero
+        .parse::<arles_core::ids::WhatsappAccountId>()
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    let en_meta = arles_core::whatsapp::EstadoEnMeta::de_guardado(&estado_en_meta)
+        .map_err(|e| ErrorIpc::from(crate::AppError::Core(e)))?;
+
+    let variables = variables_de(&huecos)?;
+
+    estado
+        .db()
+        .anotar_plantilla_de_meta(
+            empresa,
+            id_numero,
+            &arles_db::plantillas_whatsapp::PlantillaDeMetaNueva {
+                meta_name: &nombre,
+                idioma: &idioma,
+                estado: en_meta,
+                cuerpo: &cuerpo,
+                huecos: &variables,
+            },
+        )
+        .map_err(|e| ErrorIpc::from(crate::AppError::Db(e)))?;
+
+    plantillas_de_meta(estado, numero)
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+
+    fn numero_de_muestra(coexistencia: Option<&str>, riesgo: Option<&str>) -> NumeroIpc {
+        NumeroIpc {
+            id: "01900000-0000-7000-8000-0000000000a1".to_owned(),
+            nombre_visible: "Ventas".to_owned(),
+            telefono_e164: "+528100000000".to_owned(),
+            waba_id: "123456".to_owned(),
+            modo: "prospeccion_directa".to_owned(),
+            estado: "connected".to_owned(),
+            coexistencia_confirmada: coexistencia.map(ToOwned::to_owned),
+            riesgo_aceptado: riesgo.map(ToOwned::to_owned),
+            calidad: None,
+            limite_de_meta: Some(250),
+            calidad_actualizada: None,
+            puede_enviar: coexistencia.is_some() && riesgo.is_some(),
+            escribe_en_frio: true,
+        }
+    }
+
+    /// **Lo que cruza la frontera no lleva el token ni dónde encontrarlo.**
+    ///
+    /// Se serializa de verdad y se busca en el JSON, en vez de leer la
+    /// definición del `struct`: si alguien añade un campo mañana, esta prueba
+    /// lo dice. Se busca también `llavero://`, que es la referencia: no es el
+    /// secreto, pero decir dónde está tampoco le sirve a la pantalla.
+    ///
+    /// Verificada rompiéndola el 29/09/2026: copiando
+    /// `referencia_de_credencial` al `From`, esta prueba falla.
+    #[test]
+    fn lo_que_sale_no_lleva_el_token_ni_la_referencia() {
+        let json = serde_json::to_string(&numero_de_muestra(None, None)).expect("serializa");
+
+        assert!(!json.contains("llavero://"), "ni la referencia: {json}");
+        assert!(!json.contains("token"), "ni la palabra token: {json}");
+        assert!(
+            json.contains("+528100000000"),
+            "pero sí el número, que no es secreto: {json}"
+        );
+    }
+
+    /// **Las dos marcas llegan como nulas cuando no constan, y no desaparecen.**
+    ///
+    /// La pantalla tiene que poder enseñar «sin confirmar» y no un hueco. Un
+    /// campo que desaparece del JSON se lee en la webview como `undefined`, y
+    /// `undefined` pinta igual que vacío — que es como una confirmación que
+    /// nadie dio pasaría por una que sí.
+    #[test]
+    fn las_marcas_sin_poner_llegan_nulas_y_no_desaparecen() {
+        let json = serde_json::to_string(&numero_de_muestra(None, None)).expect("serializa");
+
+        assert!(json.contains("\"coexistenciaConfirmada\":null"), "{json}");
+        assert!(json.contains("\"riesgoAceptado\":null"), "{json}");
+        assert!(json.contains("\"calidad\":null"), "{json}");
+    }
+
+    /// **`puedeEnviar` viaja resuelto, no se deduce en la pantalla.**
+    ///
+    /// Un número en frío con Coexistencia pero sin el riesgo aceptado **no**
+    /// puede enviar, y es el caso que una webview que mirara sólo la
+    /// Coexistencia daría por bueno.
+    #[test]
+    fn un_numero_en_frio_sin_riesgo_aceptado_no_puede_enviar() {
+        let solo_coexistencia = numero_de_muestra(Some("2026-09-29T00:00:00Z"), None);
+        assert!(!solo_coexistencia.puede_enviar);
+
+        let json = serde_json::to_string(&solo_coexistencia).expect("serializa");
+        assert!(json.contains("\"puedeEnviar\":false"), "{json}");
+
+        let ambas = numero_de_muestra(Some("2026-09-29T00:00:00Z"), Some("2026-09-29T00:01:00Z"));
+        assert!(ambas.puede_enviar);
+    }
+    // ══ D-WA · LAS PLANTILLAS DE META EN LA FRONTERA (27/10/2026) ═══════
+    //
+    // `Db::anotar_plantilla_de_meta` y `Db::plantillas_de_meta` existían desde
+    // la 6.8, con sus pruebas, **y no las llamaba nadie**: ni comando ni
+    // pantalla. Así que `CLAUDE.md` afirmaba de más al decir que la 6.8 cerró
+    // «el registro de las plantillas aprobadas de Meta».
+
+    /// **Una variable que no existe hace fallar el apunte entero.**
+    ///
+    /// Saltarse la que no se reconoce dejaría una plantilla con un hueco menos
+    /// del que tiene el texto, y Meta manda los valores **por posición**: el
+    /// que falta saldría vacío en cada mensaje, o correría los demás un puesto
+    /// —el nombre donde va la empresa— sin que nada fallara. El fallo llegaría
+    /// con la campaña activada y mil mensajes fuera.
+    ///
+    /// Verificada rompiéndola el 27/10/2026: cambiando el `else` que devuelve
+    /// el error por un `continue` que salta la clave, esta prueba falla.
+    #[test]
+    fn una_variable_inventada_no_entra_en_una_plantilla() {
+        let buenas = vec![
+            "nombre".to_owned(),
+            "apellido".to_owned(),
+            "empresa".to_owned(),
+            "mi_empresa".to_owned(),
+            "baja".to_owned(),
+        ];
+        assert_eq!(
+            variables_de(&buenas).expect("las cinco del núcleo").len(),
+            5
+        );
+
+        let con_una_mala = vec!["nombre".to_owned(), "codigo_postal".to_owned()];
+        let e = variables_de(&con_una_mala).expect_err("no existe");
+        assert_eq!(
+            e.clave, "error.db.dato_invalido",
+            "y dice que es un dato que no vale, no «falló la base»: {e:?}"
+        );
+    }
+
+    /// **Lo que cruza la frontera no lleva el token ni el identificador del
+    /// número en Meta.**
+    ///
+    /// Regla 3: ningún comando devuelve un secreto. El `phone_number_id` es con
+    /// lo que se envía en nombre de ese número, y el nombre de la plantilla sí
+    /// es público —es lo que viaja por la API y lo que se ve en el panel—.
+    ///
+    /// Se serializa de verdad en vez de leer la definición del `struct`: si
+    /// alguien añade un campo mañana, esta prueba lo dice.
+    #[test]
+    fn la_plantilla_de_meta_que_sale_no_lleva_secretos() {
+        let p = arles_db::plantillas_whatsapp::PlantillaDeMetaGuardada {
+            id: "01900000-0000-7000-8000-0000000000e1".to_owned(),
+            numero: "01900000-0000-7000-8000-0000000000a1".parse().expect("id"),
+            meta_name: "bienvenida".to_owned(),
+            idioma: "es_MX".to_owned(),
+            estado: arles_core::whatsapp::EstadoEnMeta::Aprobada,
+            cuerpo: "Hola {{1}}.".to_owned(),
+            huecos: vec![arles_core::plantilla::Variable::Nombre],
+        };
+
+        let json = serde_json::to_string(&a_ipc(&p)).expect("serializa");
+        assert!(!json.contains("llavero://"), "ni la referencia: {json}");
+        assert!(!json.contains("EAA"), "ni un token: {json}");
+        assert!(
+            !json.contains("phoneNumberId"),
+            "ni el id del número en Meta: {json}"
+        );
+        assert!(json.contains("bienvenida"), "pero sí el nombre: {json}");
+    }
+
+    /// **`sePuedeUsar` lo resuelve Rust, y sólo «aprobada» puede.**
+    ///
+    /// La pantalla no lo recalcula: la regla vive en
+    /// `EstadoEnMeta::se_puede_usar`, escrita por lo que acepta y no por lo que
+    /// rechaza — un estado nuevo de Meta no debe empezar a enviar solo.
+    ///
+    /// Y las cinco se devuelven, no sólo las aprobadas: la pantalla tiene que
+    /// poder decir «ésta está en revisión» en vez de hacerla desaparecer, que
+    /// es como se pierde media hora buscando algo que sí se dio de alta.
+    #[test]
+    fn solo_una_plantilla_aprobada_puede_enviar() {
+        use arles_core::whatsapp::EstadoEnMeta;
+
+        let de = |estado: EstadoEnMeta| {
+            a_ipc(&arles_db::plantillas_whatsapp::PlantillaDeMetaGuardada {
+                id: "01900000-0000-7000-8000-0000000000e1".to_owned(),
+                numero: "01900000-0000-7000-8000-0000000000a1".parse().expect("id"),
+                meta_name: "p".to_owned(),
+                idioma: "es_MX".to_owned(),
+                estado,
+                cuerpo: "x".to_owned(),
+                huecos: Vec::new(),
+            })
+        };
+
+        assert!(de(EstadoEnMeta::Aprobada).se_puede_usar);
+        assert!(!de(EstadoEnMeta::EnRevision).se_puede_usar);
+        assert!(!de(EstadoEnMeta::Rechazada).se_puede_usar);
+        assert!(
+            !de(EstadoEnMeta::Pausada).se_puede_usar,
+            "pausada por Meta no envía, y es el estado al que cae una aprobada \
+             cuando la gente la reporta"
+        );
+    }
+}

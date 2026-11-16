@@ -1,0 +1,1818 @@
+//! Plantillas con versiones, y firmas.
+//!
+//! ─────────────────────────────────────────────────────────────────────────
+//! UNA VERSIÓN NO SE EDITA NUNCA. SE CREA OTRA.
+//!
+//! En este módulo **no hay ni un `UPDATE` sobre `template_version`**, y esa
+//! ausencia es la regla entera.
+//!
+//! Una campaña no apunta a una plantilla: apunta a **una versión concreta**
+//! (§44). Editar la plantilla después de activar no altera lo que ya salió ni
+//! lo que está en cola, y eso es lo que permite contestar dentro de seis meses
+//! a «¿qué decía exactamente el correo que le llegó a este cliente?».
+//!
+//! Sin esto, la pregunta no tiene respuesta: el texto se habría reescrito
+//! encima, y el registro de envíos apuntaría a algo que ya no existe. No
+//! fallaría nada — simplemente la campaña dejaría de ser auditable, que es la
+//! mitad de lo que ARLES promete.
+//!
+//! ─────────────────────────────────────────────────────────────────────────
+//! LO QUE SE GUARDA NO ES LO QUE LLEGÓ
+//!
+//! Dos cosas se recalculan aquí y **no se aceptan de quien llama**:
+//!
+//! **El HTML se sanea** antes de escribirlo, con la lista blanca del núcleo.
+//! Quien llama es la frontera con la webview, y lo que la webview manda es un
+//! dato de entrada — incluido el resultado de su propio saneado.
+//!
+//! **Las variables se leen del texto**, no se copian de un campo. Si se
+//! aceptara la lista que manda la interfaz, una plantilla podría declarar que
+//! usa `{{nombre}}` sin usarlo —o al revés— y el preflight contaría mal a
+//! cuántos contactos les falta un dato.
+
+use arles_core::ids::{CompanyId, SignatureId, TemplateId, TemplateVersionId};
+use arles_core::plantilla::{Plantilla, SiFalta, Variable};
+use arles_core::sanear;
+use rusqlite::{OptionalExtension, params};
+
+use crate::db::Db;
+use crate::empresa::{ahora, auditar};
+use crate::error::DbError;
+
+/// Lo que alguien escribe al redactar un mensaje.
+///
+/// Llega **sin sanear y sin lista de variables**: las dos cosas las produce
+/// este módulo. Ver la nota de la cabecera.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Redaccion {
+    pub asunto: String,
+    pub cuerpo_html: String,
+}
+
+/// Una versión de plantilla tal como quedó guardada. **Inmutable.**
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VersionGuardada {
+    pub id: TemplateVersionId,
+    /// 1 la primera, 2 la siguiente. Se enseña: «versión 3» es una cifra (§94).
+    pub numero: u32,
+    pub asunto: String,
+    /// Ya saneado. Lo que salga de aquí se puede mandar.
+    pub cuerpo_html: String,
+    /// La alternativa en texto plano, derivada del HTML.
+    pub cuerpo_texto: String,
+    /// Las variables que este texto usa de verdad, leídas de él.
+    pub variables: Vec<Variable>,
+}
+
+/// Una plantilla con su versión vigente.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlantillaGuardada {
+    pub id: TemplateId,
+    pub nombre: String,
+    /// La versión que se usaría hoy. `None` sólo en una fila corrupta: una
+    /// plantilla se crea siempre con su primera versión, en la misma
+    /// transacción.
+    pub version_actual: Option<VersionGuardada>,
+}
+
+/// Una firma guardada.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FirmaGuardada {
+    pub id: SignatureId,
+    pub nombre: String,
+    pub cuerpo_html: String,
+    pub cuerpo_texto: String,
+    pub por_defecto: bool,
+}
+
+/// Prepara una redacción para guardarla: saneada, con su texto plano y sus
+/// variables leídas del contenido.
+fn preparar(r: &Redaccion) -> (String, String, String, Vec<Variable>) {
+    let html = sanear::html(&r.cuerpo_html);
+    let texto = sanear::a_texto_plano(&html);
+
+    // El asunto **no lleva HTML**: es una línea de texto, y sanearlo como HTML
+    // dejaría entrar entidades que el cliente de correo enseñaría en crudo. Se
+    // limpia de etiquetas pasándolo por el texto plano.
+    let asunto = sanear::a_texto_plano(&r.asunto);
+
+    // Las variables salen del asunto Y del cuerpo: una plantilla que sólo usa
+    // `{{nombre}}` en el asunto sigue necesitando ese dato.
+    let mut variables = Plantilla::nueva(&asunto, SiFalta::Nada).variables();
+    for v in Plantilla::nueva(&texto, SiFalta::Nada).variables() {
+        if !variables.contains(&v) {
+            variables.push(v);
+        }
+    }
+
+    (asunto, html, texto, variables)
+}
+
+/// Cómo se guarda la lista de variables en su columna.
+///
+/// Separadas por comas y por su clave, no por su nombre en Rust: la clave es lo
+/// que aparece en el texto y lo que sobrevive a renombrar una variante.
+fn variables_a_texto(vs: &[Variable]) -> String {
+    vs.iter().map(|v| v.clave()).collect::<Vec<_>>().join(",")
+}
+
+/// Y cómo se vuelven a leer.
+///
+/// Una clave que ya no existe **se ignora en silencio**, y es deliberado: pasa
+/// si una versión futura retira una variable, y una plantilla vieja que la usara
+/// no puede impedir que se lea el resto. El texto seguiría enseñando el
+/// `{{loquesea}}` en crudo, que es lo que el motor hace con lo desconocido.
+fn variables_de_texto(s: &str) -> Vec<Variable> {
+    s.split(',')
+        .filter(|t| !t.is_empty())
+        .filter_map(Variable::de_clave)
+        .collect()
+}
+
+impl Db {
+    /// Crea una plantilla con su **versión 1**, en una sola transacción.
+    ///
+    /// Las dos cosas juntas porque una plantilla sin versión no se puede usar
+    /// para nada: sería una fila que la interfaz enseñaría como elegible y que
+    /// reventaría al elegirla.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la escritura falla.
+    pub fn crear_plantilla(
+        &self,
+        empresa: CompanyId,
+        nombre: &str,
+        redaccion: &Redaccion,
+    ) -> Result<(TemplateId, TemplateVersionId), DbError> {
+        let (asunto, html, texto, variables) = preparar(redaccion);
+        let id = TemplateId::nuevo();
+        let version = TemplateVersionId::nuevo();
+
+        self.con(|conn| {
+            let tx = conn.unchecked_transaction()?;
+            let cuando = ahora();
+
+            tx.execute(
+                "INSERT INTO template (id, company_id, name, current_version_id,
+                                       created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+                params![
+                    id.to_string(),
+                    empresa.to_string(),
+                    nombre.trim(),
+                    version.to_string(),
+                    cuando
+                ],
+            )?;
+
+            tx.execute(
+                "INSERT INTO template_version (id, template_id, version_number, subject,
+                                               body_html, body_text, variables_used,
+                                               created_at)
+                 VALUES (?1, ?2, 1, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    version.to_string(),
+                    id.to_string(),
+                    asunto,
+                    html,
+                    texto,
+                    variables_a_texto(&variables),
+                    cuando
+                ],
+            )?;
+
+            auditar(
+                &tx,
+                &empresa.to_string(),
+                "crear",
+                "template",
+                &id.to_string(),
+            )?;
+            tx.commit()?;
+            Ok((id, version))
+        })
+    }
+
+    /// Guarda una redacción nueva como **la siguiente versión**.
+    ///
+    /// No toca la anterior. El número sale de contar las que hay, no de un
+    /// contador aparte que pudiera desincronizarse.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la escritura falla, o [`DbError::DatoInvalido`]
+    /// si la plantilla no existe — un `INSERT` con una clave foránea rota
+    /// fallaría, pero decirlo con el nombre del campo evita mandar a buscar el
+    /// problema al disco.
+    pub fn nueva_version_de_plantilla(
+        &self,
+        plantilla: TemplateId,
+        redaccion: &Redaccion,
+    ) -> Result<TemplateVersionId, DbError> {
+        let (asunto, html, texto, variables) = preparar(redaccion);
+        let version = TemplateVersionId::nuevo();
+
+        self.con_dominio(|conn| {
+            let tx = conn.unchecked_transaction()?;
+            let cuando = ahora();
+
+            let empresa: Option<String> = tx
+                .query_row(
+                    "SELECT company_id FROM template WHERE id = ?1",
+                    params![plantilla.to_string()],
+                    |f| f.get(0),
+                )
+                .optional()?;
+            let Some(empresa) = empresa else {
+                return Err(DbError::DatoInvalido {
+                    motivo: "template.id",
+                });
+            };
+
+            // El siguiente número sale de lo que hay. Un contador en `template`
+            // podría quedarse atrás si alguien insertara una versión sin
+            // tocarlo, y entonces habría dos «versión 3».
+            let siguiente: i64 = tx.query_row(
+                "SELECT COALESCE(MAX(version_number), 0) + 1
+                   FROM template_version WHERE template_id = ?1",
+                params![plantilla.to_string()],
+                |f| f.get(0),
+            )?;
+
+            tx.execute(
+                "INSERT INTO template_version (id, template_id, version_number, subject,
+                                               body_html, body_text, variables_used,
+                                               created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![
+                    version.to_string(),
+                    plantilla.to_string(),
+                    siguiente,
+                    asunto,
+                    html,
+                    texto,
+                    variables_a_texto(&variables),
+                    cuando
+                ],
+            )?;
+
+            // La plantilla pasa a apuntar a la nueva. Las campañas que ya
+            // apuntaban a la anterior **no se tocan**: ésa es la regla.
+            tx.execute(
+                "UPDATE template SET current_version_id = ?2, updated_at = ?3
+                  WHERE id = ?1",
+                params![plantilla.to_string(), version.to_string(), cuando],
+            )?;
+
+            auditar(
+                &tx,
+                &empresa,
+                "nueva_version",
+                "template",
+                &plantilla.to_string(),
+            )?;
+            tx.commit()?;
+            Ok(version)
+        })
+    }
+
+    /// Una versión concreta, tal como se guardó.
+    ///
+    /// Es lo que el motor pide al enviar: la campaña guarda el identificador de
+    /// la versión, no el de la plantilla.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla.
+    pub fn version_de_plantilla(
+        &self,
+        version: TemplateVersionId,
+    ) -> Result<Option<VersionGuardada>, DbError> {
+        self.con(|conn| {
+            conn.query_row(
+                "SELECT id, version_number, subject, body_html, body_text, variables_used
+                   FROM template_version WHERE id = ?1",
+                params![version.to_string()],
+                |f| {
+                    Ok(VersionGuardada {
+                        id: version,
+                        numero: u32::try_from(f.get::<_, i64>(1)?).unwrap_or(0),
+                        asunto: f.get(2)?,
+                        cuerpo_html: f.get(3)?,
+                        cuerpo_texto: f.get(4)?,
+                        variables: variables_de_texto(&f.get::<_, String>(5)?),
+                    })
+                },
+            )
+            .optional()
+        })
+    }
+
+    /// Las plantillas de una empresa, con su versión vigente.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla.
+    pub fn plantillas(&self, empresa: CompanyId) -> Result<Vec<PlantillaGuardada>, DbError> {
+        self.leer_dominio(|conn| {
+            let mut c = conn.prepare(
+                "SELECT t.id, t.name,
+                        v.id, v.version_number, v.subject, v.body_html, v.body_text,
+                        v.variables_used
+                   FROM template t
+                   LEFT JOIN template_version v ON v.id = t.current_version_id
+                  -- Lo retirado no se ofrece. **Sigue en la tabla**: el
+                  -- registro de envíos apunta a sus versiones, y eso es lo que
+                  -- contesta qué decía el correo que alguien recibió.
+                  WHERE t.company_id = ?1 AND t.retired_at IS NULL
+                  ORDER BY t.updated_at DESC",
+            )?;
+
+            let filas = c.query_map(params![empresa.to_string()], |f| {
+                Ok((
+                    f.get::<_, String>(0)?,
+                    f.get::<_, String>(1)?,
+                    f.get::<_, Option<String>>(2)?,
+                    f.get::<_, Option<i64>>(3)?,
+                    f.get::<_, Option<String>>(4)?,
+                    f.get::<_, Option<String>>(5)?,
+                    f.get::<_, Option<String>>(6)?,
+                    f.get::<_, Option<String>>(7)?,
+                ))
+            })?;
+
+            let mut salida = Vec::new();
+            for fila in filas {
+                let (id, nombre, vid, num, asunto, html, texto, vars) = fila?;
+                let id = id
+                    .parse::<TemplateId>()
+                    .map_err(|_| DbError::DatoInvalido {
+                        motivo: "template.id",
+                    })?;
+
+                let version_actual = match (vid, num, asunto, html, texto, vars) {
+                    (Some(vid), Some(num), Some(asunto), Some(html), Some(texto), Some(vars)) => {
+                        Some(VersionGuardada {
+                            id: vid.parse().map_err(|_| DbError::DatoInvalido {
+                                motivo: "template_version.id",
+                            })?,
+                            numero: u32::try_from(num).unwrap_or(0),
+                            asunto,
+                            cuerpo_html: html,
+                            cuerpo_texto: texto,
+                            variables: variables_de_texto(&vars),
+                        })
+                    }
+                    _ => None,
+                };
+
+                salida.push(PlantillaGuardada {
+                    id,
+                    nombre,
+                    version_actual,
+                });
+            }
+            Ok(salida)
+        })
+    }
+
+    /// Guarda una firma.
+    ///
+    /// **Sólo puede haber una por defecto**, y se impone aquí: marcar una
+    /// desmarca la anterior, en la misma transacción. Dos por defecto no
+    /// fallarían — la interfaz elegiría una de las dos según el orden de la
+    /// consulta, que puede cambiar entre versiones de SQLite.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la escritura falla.
+    pub fn crear_firma(
+        &self,
+        empresa: CompanyId,
+        nombre: &str,
+        cuerpo_html: &str,
+        por_defecto: bool,
+    ) -> Result<SignatureId, DbError> {
+        // ── LA GUARDA DE R-04, ANTES DE TOCAR LA BASE ─────────────────────
+        //
+        // Una firma con `{{nombre}}` pone el nombre de QUIEN RECIBE debajo del
+        // mensaje, en cada correo de la campaña. Se para aquí y no sólo en la
+        // pantalla porque una firma puede llegar por otro camino: escrita a
+        // mano, desde un respaldo, o desde un formulario futuro que olvide
+        // filtrar los botones.
+        //
+        // Va antes del saneado y de la transacción: no hay nada que deshacer.
+        arles_core::plantilla::revisar_firma(cuerpo_html).map_err(DbError::Nucleo)?;
+
+        let html = sanear::html(cuerpo_html);
+        let texto = sanear::a_texto_plano(&html);
+        let id = SignatureId::nuevo();
+
+        self.con(|conn| {
+            let tx = conn.unchecked_transaction()?;
+            let cuando = ahora();
+
+            if por_defecto {
+                tx.execute(
+                    "UPDATE signature SET is_default = 0, updated_at = ?2
+                      WHERE company_id = ?1",
+                    params![empresa.to_string(), cuando],
+                )?;
+            }
+
+            tx.execute(
+                "INSERT INTO signature (id, company_id, name, body_html, body_text,
+                                        is_default, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)",
+                params![
+                    id.to_string(),
+                    empresa.to_string(),
+                    nombre.trim(),
+                    html,
+                    texto,
+                    i32::from(por_defecto),
+                    cuando
+                ],
+            )?;
+
+            auditar(
+                &tx,
+                &empresa.to_string(),
+                "crear",
+                "signature",
+                &id.to_string(),
+            )?;
+            tx.commit()?;
+            Ok(id)
+        })
+    }
+
+    /// Reescribe una firma **en su sitio**, y es la única cosa de este módulo
+    /// que se edita encima.
+    ///
+    /// ── POR QUÉ AQUÍ SÍ Y EN UNA PLANTILLA NO ──────────────────────────────
+    ///
+    /// Una versión de plantilla no se toca porque es lo que contesta «¿qué
+    /// decía el correo que recibió este cliente?». Una firma **no tiene
+    /// versiones en el esquema**, así que esa pregunta no se le puede hacer, y
+    /// un `UPDATE` no destruye ninguna respuesta que hoy exista.
+    ///
+    /// Y hoy, además, **ninguna campaña apunta a una firma**: la columna
+    /// `campaign_stage.signature_id` existe desde la V4 y **nada la escribe**
+    /// —medido en el 17/10/2026 sobre los ocho crates—, igual que el cuerpo de
+    /// la plantilla no llega todavía al remitente (auditoría B). Así que
+    /// editar una firma no puede cambiar lo que va a salir de una campaña en
+    /// marcha, porque no sale ninguna firma.
+    ///
+    /// **El día que el contenido se conecte al envío, esto hay que decidirlo
+    /// otra vez**, y la decisión correcta será la de la plantilla: congelar en
+    /// la etapa lo que se va a mandar. Si en su lugar la etapa apunta a la
+    /// firma viva, editarla a media corrida cambiará la firma de los que
+    /// falten, y nada protestará. Está anotado como H-12.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Nucleo`] si el cuerpo lleva variables de quien recibe (R-04),
+    /// [`DbError::DatoInvalido`] si la firma no es de esta empresa — o no
+    /// existe, que desde fuera es lo mismo— y [`DbError::Sqlite`] si la
+    /// escritura falla.
+    pub fn actualizar_firma(
+        &self,
+        empresa: CompanyId,
+        firma: SignatureId,
+        nombre: &str,
+        cuerpo_html: &str,
+        por_defecto: bool,
+    ) -> Result<(), DbError> {
+        // La misma guarda que al crear, y por el mismo motivo: editar es otro
+        // camino hasta la base, y una guarda que sólo cubre uno de los dos no
+        // cubre ninguno.
+        arles_core::plantilla::revisar_firma(cuerpo_html).map_err(DbError::Nucleo)?;
+
+        let html = sanear::html(cuerpo_html);
+        let texto = sanear::a_texto_plano(&html);
+
+        // `con_dominio` y no `con`: la decisión de abortar se toma **dentro**
+        // de la transacción, cuando ya se sabe de quién es la firma.
+        self.con_dominio(|conn| {
+            let tx = conn.unchecked_transaction()?;
+            let cuando = ahora();
+
+            // Se comprueba la pertenencia **dentro** de la transacción. Un
+            // `UPDATE … WHERE id = ?1 AND company_id = ?2` que no encaja
+            // devuelve 0 filas y ningún error: la pantalla diría «guardado»
+            // sobre una firma de otra empresa que no se tocó.
+            let suya: Option<i64> = tx
+                .query_row(
+                    "SELECT 1 FROM signature WHERE id = ?1 AND company_id = ?2",
+                    params![firma.to_string(), empresa.to_string()],
+                    |f| f.get(0),
+                )
+                .optional()?;
+            if suya.is_none() {
+                return Err(DbError::DatoInvalido {
+                    motivo: "signature.id",
+                });
+            }
+
+            if por_defecto {
+                tx.execute(
+                    "UPDATE signature SET is_default = 0, updated_at = ?2
+                      WHERE company_id = ?1",
+                    params![empresa.to_string(), cuando],
+                )?;
+            }
+
+            tx.execute(
+                "UPDATE signature
+                    SET name = ?2, body_html = ?3, body_text = ?4,
+                        is_default = ?5, updated_at = ?6
+                  WHERE id = ?1",
+                params![
+                    firma.to_string(),
+                    nombre.trim(),
+                    html,
+                    texto,
+                    i32::from(por_defecto),
+                    cuando
+                ],
+            )?;
+
+            auditar(
+                &tx,
+                &empresa.to_string(),
+                "editar",
+                "signature",
+                &firma.to_string(),
+            )?;
+            tx.commit()?;
+            Ok(())
+        })
+    }
+
+    /// Retira una plantilla: **deja de ofrecerse, y no se borra**.
+    ///
+    /// ── DECISIÓN DE DIRECCIÓN DEL 21/10/2026 ──────────────────────────────
+    ///
+    /// *«Que quede registrado en algo que no podamos ver […] prácticamente no
+    /// quedaría borrada, sólo no se muestra porque se decidió "borrar" la
+    /// plantilla que ya no se quiere utilizar.»*
+    ///
+    /// Y es mejor que el `DELETE` que sustituye, por una razón concreta: aquel
+    /// tenía que **negarse** cuando una campaña había usado la plantilla,
+    /// porque el registro de envíos apunta a una versión concreta y sin ella
+    /// «¿qué decía el correo que recibió este cliente?» se queda sin
+    /// respuesta. Retirando, esa negativa desaparece: **se puede retirar
+    /// cualquiera**, porque el texto sigue ahí para quien tenga que
+    /// consultarlo.
+    ///
+    /// Es la misma forma que el contacto dado de baja y la cuenta
+    /// deshabilitada: en ARLES lo que se deja de usar no se destruye.
+    ///
+    /// **Retirar dos veces no es un error.** Se escribe la fecha sólo si no
+    /// había una: la segunda vez no mueve la primera, que es la que dice
+    /// cuándo se dejó de usar de verdad.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::DatoInvalido`] si no es de esta empresa — o no existe, que
+    /// desde fuera es lo mismo— y [`DbError::Sqlite`] si la escritura falla.
+    pub fn retirar_plantilla(
+        &self,
+        empresa: CompanyId,
+        plantilla: TemplateId,
+    ) -> Result<(), DbError> {
+        self.con_dominio(|conn| {
+            let tx = conn.unchecked_transaction()?;
+            let cuando = ahora();
+
+            let suya: Option<i64> = tx
+                .query_row(
+                    "SELECT 1 FROM template WHERE id = ?1 AND company_id = ?2",
+                    params![plantilla.to_string(), empresa.to_string()],
+                    |f| f.get(0),
+                )
+                .optional()?;
+            if suya.is_none() {
+                return Err(DbError::DatoInvalido {
+                    motivo: "template.id",
+                });
+            }
+
+            tx.execute(
+                "UPDATE template SET retired_at = ?2, updated_at = ?2
+                  WHERE id = ?1 AND retired_at IS NULL",
+                params![plantilla.to_string(), cuando],
+            )?;
+
+            auditar(
+                &tx,
+                &empresa.to_string(),
+                "retirar",
+                "template",
+                &plantilla.to_string(),
+            )?;
+            tx.commit()?;
+            Ok(())
+        })
+    }
+
+    /// Retira una firma. Mismo criterio que [`Db::retirar_plantilla`].
+    ///
+    /// **Si era la de por defecto, deja de serlo.** Una firma retirada que
+    /// siguiera marcada volvería por la puerta de atrás: la redacción de una
+    /// campaña busca la de por defecto, no mira si está en uso, y acabaría
+    /// pegando al pie de cada correo justo la que se decidió no usar más.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::DatoInvalido`] si no es de esta empresa, y
+    /// [`DbError::Sqlite`] si la escritura falla.
+    pub fn retirar_firma(&self, empresa: CompanyId, firma: SignatureId) -> Result<(), DbError> {
+        self.con_dominio(|conn| {
+            let tx = conn.unchecked_transaction()?;
+            let cuando = ahora();
+
+            let suya: Option<i64> = tx
+                .query_row(
+                    "SELECT 1 FROM signature WHERE id = ?1 AND company_id = ?2",
+                    params![firma.to_string(), empresa.to_string()],
+                    |f| f.get(0),
+                )
+                .optional()?;
+            if suya.is_none() {
+                return Err(DbError::DatoInvalido {
+                    motivo: "signature.id",
+                });
+            }
+
+            tx.execute(
+                "UPDATE signature
+                    SET retired_at = ?2, is_default = 0, updated_at = ?2
+                  WHERE id = ?1 AND retired_at IS NULL",
+                params![firma.to_string(), cuando],
+            )?;
+
+            auditar(
+                &tx,
+                &empresa.to_string(),
+                "retirar",
+                "signature",
+                &firma.to_string(),
+            )?;
+            tx.commit()?;
+            Ok(())
+        })
+    }
+
+    /// Las firmas de una empresa. La de por defecto, primero.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla.
+    pub fn firmas(&self, empresa: CompanyId) -> Result<Vec<FirmaGuardada>, DbError> {
+        self.leer_dominio(|conn| {
+            let mut c = conn.prepare(
+                "SELECT id, name, body_html, body_text, is_default
+                   FROM signature
+                  WHERE company_id = ?1 AND retired_at IS NULL
+                  ORDER BY is_default DESC, name",
+            )?;
+            let filas = c.query_map(params![empresa.to_string()], |f| {
+                Ok((
+                    f.get::<_, String>(0)?,
+                    f.get::<_, String>(1)?,
+                    f.get::<_, String>(2)?,
+                    f.get::<_, String>(3)?,
+                    f.get::<_, i64>(4)?,
+                ))
+            })?;
+
+            let mut salida = Vec::new();
+            for fila in filas {
+                let (id, nombre, html, texto, def) = fila?;
+                salida.push(FirmaGuardada {
+                    id: id.parse().map_err(|_| DbError::DatoInvalido {
+                        motivo: "signature.id",
+                    })?,
+                    nombre,
+                    cuerpo_html: html,
+                    cuerpo_texto: texto,
+                    por_defecto: def != 0,
+                });
+            }
+            Ok(salida)
+        })
+    }
+}
+
+/// Lo que una campaña manda, antes de ponerle los datos de cada persona.
+///
+/// Es **constante durante toda la campaña**: se lee una vez al arrancar el
+/// motor y no en cada envío. Lo que cambia por persona son los valores de las
+/// variables, y ésos vienen con el trabajo de la cola.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RedaccionDeLaCampana {
+    /// El asunto de la versión de plantilla **que la campaña congeló**.
+    pub asunto: String,
+    pub cuerpo_html: String,
+    /// La firma que se pega al final, si hay alguna.
+    pub firma_html: Option<String>,
+    /// El nombre comercial de la empresa: es `{{mi_empresa}}`.
+    pub mi_empresa: String,
+    /// La dirección del remitente de esta etapa, para la frase de `{{baja}}`.
+    ///
+    /// Sale de la etapa y no de la empresa a propósito: la salida tiene que
+    /// llevar **el buzón que mandó este correo**, porque es el que va a recibir
+    /// la respuesta. Con el corporativo de la empresa, la baja llegaría a un
+    /// sitio donde nadie la está esperando.
+    pub remitente: String,
+}
+
+/// Un contacto de verdad para enseñar cómo queda el mensaje.
+///
+/// ── POR QUÉ UN CONTACTO Y NO DATOS INVENTADOS ────────────────────────────
+///
+/// Porque lo que se mira en una previsualización es **si el texto encaja con
+/// los datos que hay**: «Hola {{nombre}},» con un contacto que se llama
+/// «FERRETERÍA EL TORNILLO SA DE CV» se lee distinto que con «Ana». Un
+/// decorado con nombres bonitos enseña una plantilla que funciona siempre.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MuestraDeContacto {
+    pub nombre: String,
+    pub apellido: String,
+    pub empresa: String,
+}
+
+impl Db {
+    /// Lo que mandaría una plantilla **que todavía no es de ninguna campaña**.
+    ///
+    /// ── POR QUÉ NO VALE `redaccion_de_la_campana` ────────────────────────
+    ///
+    /// Porque ésa lee de `campaign_stage`, y en el paso 4 del asistente **la
+    /// campaña no existe**: se crea al salir del paso 5. Lo que hay son las
+    /// piezas sueltas que se acaban de elegir —la versión, la firma y la
+    /// cuenta—, y con ellas se arma la misma estructura que el motor recibe,
+    /// para que lo que se enseña y lo que sale sean lo mismo.
+    ///
+    /// La firma es la elegida; si no se eligió ninguna, la de por defecto —el
+    /// mismo `COALESCE` que hace la consulta de la campaña, por la misma razón:
+    /// es lo que la casilla de esa firma promete.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::PlantillaNoExiste`] si la versión o la cuenta no son de
+    /// esta empresa — que es lo que convierte un id ajeno llegado por la
+    /// frontera en un error con su texto, y no en una pantalla en blanco.
+    /// [`DbError::Sqlite`] si la consulta falla.
+    ///
+    /// **POR LA DE ESCRITURA A PROPÓSITO:** no, lee; va por la de lectura.
+    pub fn redaccion_de_una_version(
+        &self,
+        empresa: CompanyId,
+        version: TemplateVersionId,
+        firma: Option<SignatureId>,
+        cuenta: &str,
+    ) -> Result<RedaccionDeLaCampana, DbError> {
+        let fila = self.leer(|conn| {
+            conn.query_row(
+                "SELECT tv.subject, tv.body_html, co.commercial_name,
+                        COALESCE(
+                            (SELECT s.body_html FROM signature s
+                              WHERE s.id = ?3 AND s.company_id = co.id
+                                AND s.retired_at IS NULL),
+                            (SELECT s.body_html FROM signature s
+                              WHERE s.company_id = co.id AND s.is_default = 1
+                                AND s.retired_at IS NULL
+                              LIMIT 1)
+                        ),
+                        ea.email_address
+                   FROM template_version tv
+                   JOIN template t ON t.id = tv.template_id
+                   JOIN company co ON co.id = t.company_id
+                   JOIN email_account ea ON ea.id = ?4 AND ea.company_id = co.id
+                  WHERE tv.id = ?1 AND t.company_id = ?2",
+                params![
+                    version.to_string(),
+                    empresa.to_string(),
+                    firma.map(|f| f.to_string()),
+                    cuenta
+                ],
+                |f| {
+                    Ok(RedaccionDeLaCampana {
+                        asunto: f.get(0)?,
+                        cuerpo_html: f.get(1)?,
+                        mi_empresa: f.get(2)?,
+                        firma_html: f
+                            .get::<_, Option<String>>(3)?
+                            .filter(|h| !h.trim().is_empty()),
+                        remitente: f.get(4)?,
+                    })
+                },
+            )
+            .optional()
+        })?;
+        fila.ok_or(DbError::PlantillaNoExiste)
+    }
+
+    /// Un contacto de la lista elegida —o de la empresa— para previsualizar.
+    ///
+    /// ── LO QUE ESTA CONSULTA NO HACE, Y NO ES UN OLVIDO ──────────────────
+    ///
+    /// **No aplica las bajas ni los filtros de la audiencia.** Quien decide a
+    /// quién se le escribe es `activar_campana` al congelarla, y esa regla no
+    /// se copia aquí: aquí no se decide nada, se elige a quién enseñar. Si el
+    /// contacto de muestra resultara estar de baja, el mensaje se vería igual
+    /// de bien y no le llegaría a nadie de más.
+    ///
+    /// Lo que sí exige es **tener correo**: un contacto sin canal de correo no
+    /// recibiría esta campaña, y enseñar su nombre haría creer que sí.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla. `None` cuando no hay ninguno,
+    /// que es el caso real de una empresa que todavía no ha importado nada.
+    ///
+    /// **POR LA DE ESCRITURA A PROPÓSITO:** no, lee; va por la de lectura.
+    pub fn contacto_de_muestra(
+        &self,
+        empresa: CompanyId,
+        lista: Option<&str>,
+    ) -> Result<Option<MuestraDeContacto>, DbError> {
+        self.leer(|conn| {
+            conn.query_row(
+                // `?2 IS NULL` deja la misma consulta servir para los dos
+                // casos —con lista y sin ella— en vez de dos textos que se
+                // desalinean el día que alguien toque uno.
+                "SELECT COALESCE(c.first_name, ''), COALESCE(c.last_name, ''),
+                        COALESCE(c.source, '')
+                   FROM contact c
+                  WHERE c.company_id = ?1
+                    AND c.deleted_at IS NULL
+                    AND EXISTS (SELECT 1 FROM contact_channel ch
+                                 WHERE ch.contact_id = c.id AND ch.channel = 'email')
+                    AND (?2 IS NULL
+                         OR EXISTS (SELECT 1 FROM contact_list_member m
+                                     WHERE m.contact_id = c.id AND m.list_id = ?2))
+                  ORDER BY c.created_at DESC, c.id
+                  LIMIT 1",
+                params![empresa.to_string(), lista],
+                |f| {
+                    Ok(MuestraDeContacto {
+                        nombre: f.get(0)?,
+                        apellido: f.get(1)?,
+                        empresa: f.get(2)?,
+                    })
+                },
+            )
+            .optional()
+        })
+    }
+
+    /// Qué manda esta campaña: su plantilla congelada, su firma y su empresa.
+    ///
+    /// ── LA VERSIÓN ES LA QUE LA CAMPAÑA ELIGIÓ, NO LA VIGENTE ──────────────
+    ///
+    /// Se lee de `campaign_stage.template_version_id`, que apunta a **una
+    /// versión concreta** (§44). Leer la vigente de la plantilla haría que
+    /// corregir el texto cambiara lo que está saliendo de una campaña ya
+    /// activa — que es exactamente lo que el versionado existe para evitar, y
+    /// lo que la pantalla promete que no pasa.
+    ///
+    /// ── LA FIRMA ES LA DE POR DEFECTO, Y ESO ES UNA LIMITACIÓN ─────────────
+    ///
+    /// `campaign_stage.signature_id` existe desde la V4 y **nada lo escribe**
+    /// (H-12): el asistente no pregunta por una firma. Así que se usa la que
+    /// la empresa marcó por defecto, que es literalmente lo que su casilla
+    /// promete: «usar esta firma cuando no se elija otra». Hoy nunca se elige
+    /// otra.
+    ///
+    /// El día que el asistente la pregunte, esta consulta mira primero
+    /// `signature_id` y cae en la de por defecto — y entonces habrá que
+    /// decidir si la etapa congela una copia, como hace con la plantilla.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError::Sqlite`] si la consulta falla. Devuelve `None` si la campaña
+    /// no tiene etapa de correo o su etapa no tiene plantilla, que es un
+    /// estado que `crear_campana` no produce.
+    pub fn redaccion_de_la_campana(
+        &self,
+        campana: &str,
+    ) -> Result<Option<RedaccionDeLaCampana>, DbError> {
+        self.con(|conn| redaccion_en(conn, campana))
+    }
+}
+
+/// Lo mismo que [`Db::redaccion_de_la_campana`], **sobre una conexión ya
+/// abierta**.
+///
+/// ── POR QUÉ EXISTE, Y NO ES UN GUSTO DE ESTILO ────────────────────────────
+///
+/// `activar_campana` necesita esta consulta **dentro de su transacción**, para
+/// decidir si la campaña tiene salida de baja antes de llenar la cola. Y el
+/// cerrojo de la conexión **no es reentrante**: llamar a un método público de
+/// `Db` desde dentro de `con` o `con_dominio` cuelga el programa sin error y
+/// sin traza — es la trampa 2 de la Fase 6, y por ella existe también
+/// `cuentas::salud_en`.
+///
+/// # Errores
+///
+/// [`DbError::Sqlite`] si la consulta falla.
+pub(crate) fn redaccion_en(
+    conn: &rusqlite::Connection,
+    campana: &str,
+) -> Result<Option<RedaccionDeLaCampana>, rusqlite::Error> {
+    conn.query_row(
+        "SELECT tv.subject, tv.body_html, co.commercial_name,
+                        COALESCE(
+                            (SELECT s.body_html FROM signature s
+                              WHERE s.id = cs.signature_id),
+                            (SELECT s.body_html FROM signature s
+                              WHERE s.company_id = co.id AND s.is_default = 1
+                                AND s.retired_at IS NULL
+                              LIMIT 1)
+                        ),
+                        ea.email_address
+                   FROM campaign_stage cs
+                   JOIN campaign ca ON ca.id = cs.campaign_id
+                   JOIN company co ON co.id = ca.company_id
+                   JOIN template_version tv ON tv.id = cs.template_version_id
+                   JOIN email_account ea ON ea.id = cs.email_account_id
+                  WHERE cs.campaign_id = ?1 AND cs.channel = 'email'
+                  ORDER BY cs.position
+                  LIMIT 1",
+        params![campana],
+        |f| {
+            Ok(RedaccionDeLaCampana {
+                asunto: f.get(0)?,
+                cuerpo_html: f.get(1)?,
+                mi_empresa: f.get(2)?,
+                // Una firma vacía y «no hay firma» son lo mismo para
+                // quien la pega, así que se unifican aquí en vez de
+                // dejar que cada lado lo decida.
+                firma_html: f
+                    .get::<_, Option<String>>(3)?
+                    .filter(|h| !h.trim().is_empty()),
+                remitente: f.get(4)?,
+            })
+        },
+    )
+    .optional()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::conexion::ClaveMaestra;
+
+    const EMPRESA: &str = "11111111-1111-4111-8111-111111111111";
+
+    fn base() -> (tempfile::TempDir, Db) {
+        let dir = tempfile::tempdir().expect("temporal");
+        let clave = ClaveMaestra::generar().expect("genera");
+        let db = Db::abrir(&dir.path().join("arles.db"), &clave).expect("abre");
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO company (id, commercial_name, country, timezone,
+                                      corporate_email, created_at, updated_at)
+                 VALUES ('{EMPRESA}', 'TELEMETRY', 'MX', 'America/Mexico_City',
+                         'hola@t.mx', '2026-09-29T00:00:00Z', '2026-09-29T00:00:00Z');"
+            ))
+        })
+        .expect("siembra");
+        (dir, db)
+    }
+
+    fn empresa() -> CompanyId {
+        EMPRESA.parse().expect("id")
+    }
+
+    fn redaccion(asunto: &str, html: &str) -> Redaccion {
+        Redaccion {
+            asunto: asunto.to_owned(),
+            cuerpo_html: html.to_owned(),
+        }
+    }
+
+    /// Una plantilla nace con su versión 1, y se lee entera.
+    #[test]
+    fn una_plantilla_nace_con_su_primera_version() {
+        let (_d, db) = base();
+        let (_, v) = db
+            .crear_plantilla(
+                empresa(),
+                "Bienvenida",
+                &redaccion("Hola {{nombre}}", "<p>Gracias, {{nombre}}</p>"),
+            )
+            .expect("crea");
+
+        let version = db
+            .version_de_plantilla(v)
+            .expect("consulta")
+            .expect("existe");
+        assert_eq!(version.numero, 1);
+        assert_eq!(version.asunto, "Hola {{nombre}}");
+        assert!(version.cuerpo_html.contains("<p>"));
+        assert_eq!(version.variables, vec![Variable::Nombre]);
+    }
+
+    /// **Guardar otra versión no toca la anterior.**
+    ///
+    /// Es la regla del módulo. Una campaña apunta a una versión concreta, y
+    /// editar la plantilla después no puede cambiar lo que ya salió — si
+    /// pudiera, «¿qué decía el correo que le llegó a este cliente?» dejaría de
+    /// tener respuesta, sin que nada fallara.
+    ///
+    /// Verificada rompiéndola el 29/09/2026: cambiando el `INSERT` de
+    /// `nueva_version_de_plantilla` por un `UPDATE` sobre la versión vigente,
+    /// esta prueba falla.
+    #[test]
+    fn una_version_nueva_no_altera_la_anterior() {
+        let (_d, db) = base();
+        let (p, v1) = db
+            .crear_plantilla(empresa(), "Bienvenida", &redaccion("Uno", "<p>Uno</p>"))
+            .expect("crea");
+
+        let v2 = db
+            .nueva_version_de_plantilla(p, &redaccion("Dos", "<p>Dos</p>"))
+            .expect("segunda versión");
+
+        let vieja = db.version_de_plantilla(v1).expect("c").expect("sigue ahí");
+        assert_eq!(vieja.asunto, "Uno", "la versión 1 no se toca");
+        assert_eq!(vieja.numero, 1);
+
+        let nueva = db.version_de_plantilla(v2).expect("c").expect("existe");
+        assert_eq!(nueva.asunto, "Dos");
+        assert_eq!(nueva.numero, 2);
+    }
+
+    /// **El HTML se sanea al guardar.**
+    ///
+    /// Quien llama es la frontera con la webview, y lo que la webview manda es
+    /// un dato de entrada — incluido el resultado de su propio saneado.
+    #[test]
+    fn el_html_se_sanea_antes_de_guardarlo() {
+        let (_d, db) = base();
+        let (_, v) = db
+            .crear_plantilla(
+                empresa(),
+                "Con script",
+                &redaccion(
+                    "Asunto",
+                    r#"<p onclick="alert(1)">Hola</p><script>x</script>"#,
+                ),
+            )
+            .expect("crea");
+
+        let guardada = db.version_de_plantilla(v).expect("c").expect("existe");
+        assert!(
+            !guardada.cuerpo_html.contains("script"),
+            "{}",
+            guardada.cuerpo_html
+        );
+        assert!(
+            !guardada.cuerpo_html.contains("onclick"),
+            "{}",
+            guardada.cuerpo_html
+        );
+        assert!(guardada.cuerpo_html.contains("Hola"));
+    }
+
+    /// **Y el asunto no lleva HTML.**
+    ///
+    /// Es una línea de texto. Un asunto con etiquetas se enseña en crudo en el
+    /// cliente de correo, con las etiquetas a la vista.
+    #[test]
+    fn el_asunto_sale_sin_etiquetas() {
+        let (_d, db) = base();
+        let (_, v) = db
+            .crear_plantilla(
+                empresa(),
+                "X",
+                &redaccion("<b>Oferta</b> <script>x</script>", "<p>Hola</p>"),
+            )
+            .expect("crea");
+
+        let g = db.version_de_plantilla(v).expect("c").expect("existe");
+        assert!(!g.asunto.contains('<'), "quedó una etiqueta: {}", g.asunto);
+        assert!(g.asunto.contains("Oferta"));
+    }
+
+    /// **Las variables se leen del texto, no se copian de un campo.**
+    ///
+    /// Si se aceptara la lista que manda la interfaz, una plantilla podría
+    /// declarar que usa `{{nombre}}` sin usarlo —o al revés— y el preflight
+    /// contaría mal a cuántos contactos les falta un dato.
+    ///
+    /// Se comprueba además que una variable que sólo está en el **asunto**
+    /// cuenta: una plantilla que personaliza sólo el asunto sigue necesitando
+    /// ese dato.
+    #[test]
+    fn las_variables_se_leen_del_contenido_incluido_el_asunto() {
+        let (_d, db) = base();
+        let (_, v) = db
+            .crear_plantilla(
+                empresa(),
+                "X",
+                &redaccion("Para {{empresa}}", "<p>Hola {{nombre}}</p>"),
+            )
+            .expect("crea");
+
+        let g = db.version_de_plantilla(v).expect("c").expect("existe");
+        assert!(g.variables.contains(&Variable::Empresa), "la del asunto");
+        assert!(g.variables.contains(&Variable::Nombre), "la del cuerpo");
+        assert_eq!(g.variables.len(), 2);
+    }
+
+    /// Se guarda también la versión en texto plano, derivada del HTML.
+    #[test]
+    fn se_guarda_la_version_en_texto_plano() {
+        let (_d, db) = base();
+        let (_, v) = db
+            .crear_plantilla(empresa(), "X", &redaccion("A", "<p>Hola</p><p>Adiós</p>"))
+            .expect("crea");
+
+        let g = db.version_de_plantilla(v).expect("c").expect("existe");
+        assert_eq!(g.cuerpo_texto, "Hola\n\nAdiós");
+        assert!(!g.cuerpo_texto.contains('<'));
+    }
+
+    /// La plantilla apunta a su versión vigente, y se lista con ella.
+    #[test]
+    fn la_plantilla_se_lista_con_su_version_vigente() {
+        let (_d, db) = base();
+        let (p, _) = db
+            .crear_plantilla(empresa(), "Bienvenida", &redaccion("Uno", "<p>Uno</p>"))
+            .expect("crea");
+        db.nueva_version_de_plantilla(p, &redaccion("Dos", "<p>Dos</p>"))
+            .expect("segunda");
+
+        let lista = db.plantillas(empresa()).expect("lista");
+        assert_eq!(lista.len(), 1);
+        let v = lista
+            .first()
+            .and_then(|p| p.version_actual.as_ref())
+            .expect("tiene versión");
+        assert_eq!(v.numero, 2, "la vigente es la última");
+        assert_eq!(v.asunto, "Dos");
+    }
+
+    /// Versionar una plantilla que no existe se dice, no se traga.
+    #[test]
+    fn versionar_una_plantilla_que_no_existe_da_error() {
+        let (_d, db) = base();
+        let error = db
+            .nueva_version_de_plantilla(TemplateId::nuevo(), &redaccion("X", "<p>x</p>"))
+            .expect_err("no existe");
+        assert_eq!(error.clave_i18n(), "error.db.dato_invalido");
+    }
+
+    /// **Sólo puede haber una firma por defecto.**
+    ///
+    /// Dos no fallarían: la interfaz elegiría una de las dos según el orden de
+    /// la consulta, que puede cambiar entre versiones de SQLite. Un correo
+    /// firmado con la firma de otro departamento no da ningún error.
+    ///
+    /// Verificada rompiéndola el 29/09/2026: quitando el `UPDATE` que desmarca
+    /// la anterior, esta prueba falla.
+    #[test]
+    fn marcar_una_firma_por_defecto_desmarca_la_anterior() {
+        let (_d, db) = base();
+        db.crear_firma(empresa(), "Ventas", "<p>Ventas</p>", true)
+            .expect("primera");
+        db.crear_firma(empresa(), "Soporte", "<p>Soporte</p>", true)
+            .expect("segunda");
+
+        let firmas = db.firmas(empresa()).expect("lista");
+        let por_defecto: Vec<_> = firmas.iter().filter(|f| f.por_defecto).collect();
+        assert_eq!(por_defecto.len(), 1, "sólo una: {firmas:?}");
+        assert_eq!(
+            por_defecto.first().expect("hay una").nombre,
+            "Soporte",
+            "la última marcada"
+        );
+    }
+
+    /// Y la firma también se sanea.
+    #[test]
+    fn la_firma_se_sanea_igual_que_la_plantilla() {
+        let (_d, db) = base();
+        db.crear_firma(empresa(), "Mala", r#"<p>Ana</p><script>x</script>"#, false)
+            .expect("crea");
+
+        let firmas = db.firmas(empresa()).expect("lista");
+        let f = firmas.first().expect("hay una firma");
+        assert!(!f.cuerpo_html.contains("script"), "{}", f.cuerpo_html);
+        assert!(f.cuerpo_html.contains("Ana"));
+        assert_eq!(f.cuerpo_texto, "Ana");
+    }
+
+    /// Las plantillas de otra empresa no se mezclan.
+    #[test]
+    fn las_plantillas_de_otra_empresa_no_aparecen() {
+        let (_d, db) = base();
+        let otra = "22222222-2222-4222-8222-222222222222";
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO company (id, commercial_name, country, timezone,
+                                      corporate_email, created_at, updated_at)
+                 VALUES ('{otra}', 'OTRA', 'MX', 'America/Monterrey',
+                         'h@o.mx', '2026-09-29T00:00:00Z', '2026-09-29T00:00:00Z');"
+            ))
+        })
+        .expect("segunda empresa");
+
+        db.crear_plantilla(empresa(), "Mía", &redaccion("A", "<p>a</p>"))
+            .expect("crea");
+
+        let suyas = db
+            .plantillas(otra.parse().expect("id"))
+            .expect("lista de la otra");
+        assert!(
+            suyas.is_empty(),
+            "no puede ver la plantilla de otra empresa"
+        );
+        assert_eq!(db.plantillas(empresa()).expect("lista").len(), 1);
+    }
+
+    // ── R-06 · EDITAR UNA FIRMA ───────────────────────────────────────────
+    //
+    // Dirección no podía arreglar una firma mal escrita: se creaban y no se
+    // tocaban. Las cuatro pruebas siguientes son las cuatro cosas que editar
+    // puede hacer mal, y ninguna de ellas falla por sí sola en la base.
+    //
+    // **Las cuatro se vieron en rojo el 17/10/2026**, con una ruptura cada una
+    // y cada una cazada sólo por la suya: que el `UPDATE` no escribiera el
+    // cuerpo, quitar el desmarcado del por defecto, quitar la guarda de R-04,
+    // y quitar la comprobación de a qué empresa pertenece la firma.
+
+    /// Lo que se edita se guarda, y **no nace una firma nueva**.
+    ///
+    /// La segunda mitad es la que importa: un `INSERT` en vez de un `UPDATE`
+    /// dejaría la firma arreglada en la lista junto a la mala, y quien la use
+    /// después elegiría entre dos cosas con el mismo nombre.
+    #[test]
+    fn editar_una_firma_la_reescribe_y_no_crea_otra() {
+        let (_d, db) = base();
+        let id = db
+            .crear_firma(empresa(), "Ventas", "<p>Con una errata</p>", false)
+            .expect("crea");
+
+        db.actualizar_firma(empresa(), id, "Ventas", "<p>Ya sin errata</p>", true)
+            .expect("edita");
+
+        let firmas = db.firmas(empresa()).expect("lista");
+        assert_eq!(firmas.len(), 1, "sigue habiendo una sola: {firmas:?}");
+        let f = firmas.first().expect("hay una");
+        assert_eq!(f.id, id, "la misma firma, no otra");
+        assert!(f.cuerpo_html.contains("Ya sin errata"), "{}", f.cuerpo_html);
+        assert!(f.por_defecto, "y el por defecto se aplicó");
+    }
+
+    /// Marcar por defecto **al editar** desmarca la anterior, igual que al
+    /// crear.
+    ///
+    /// Es la mitad que se olvida: la regla estaba escrita en `crear_firma`, y
+    /// un camino nuevo hasta la misma columna es un camino nuevo para
+    /// romperla. Dos firmas por defecto no dan ningún error.
+    #[test]
+    fn editar_marcando_por_defecto_desmarca_la_anterior() {
+        let (_d, db) = base();
+        db.crear_firma(empresa(), "Ventas", "<p>Ventas</p>", true)
+            .expect("primera");
+        let soporte = db
+            .crear_firma(empresa(), "Soporte", "<p>Soporte</p>", false)
+            .expect("segunda");
+
+        db.actualizar_firma(empresa(), soporte, "Soporte", "<p>Soporte</p>", true)
+            .expect("edita");
+
+        let firmas = db.firmas(empresa()).expect("lista");
+        let por_defecto: Vec<_> = firmas.iter().filter(|f| f.por_defecto).collect();
+        assert_eq!(por_defecto.len(), 1, "sólo una: {firmas:?}");
+        assert_eq!(por_defecto.first().expect("hay una").nombre, "Soporte");
+    }
+
+    /// La guarda de R-04 también cubre la edición.
+    ///
+    /// Sin esto, el camino para firmar con el nombre de quien recibe seguiría
+    /// abierto: se crea una firma limpia y se edita después.
+    #[test]
+    fn editar_no_deja_meter_variables_del_contacto() {
+        let (_d, db) = base();
+        let id = db
+            .crear_firma(empresa(), "Ventas", "<p>Ventas</p>", false)
+            .expect("crea");
+
+        let error = db
+            .actualizar_firma(empresa(), id, "Ventas", "<p>Atte. {{nombre}}</p>", false)
+            .expect_err("tiene que negarse");
+        assert_eq!(error.clave_i18n(), "error.firma_con_variables_del_contacto");
+
+        let f = db.firmas(empresa()).expect("lista");
+        let f = f.first().expect("sigue ahí");
+        assert!(
+            !f.cuerpo_html.contains("nombre"),
+            "y la firma buena no se tocó: {}",
+            f.cuerpo_html
+        );
+    }
+
+    /// Editar la firma de otra empresa **da error**, no cero filas.
+    ///
+    /// Un `UPDATE … WHERE id = ?1 AND company_id = ?2` que no encaja no falla:
+    /// afecta a cero filas y devuelve `Ok`. La pantalla diría «guardado» sobre
+    /// algo que no se guardó, que es la peor forma de fallar.
+    #[test]
+    fn editar_la_firma_de_otra_empresa_no_se_traga() {
+        let (_d, db) = base();
+        let otra = "22222222-2222-4222-8222-222222222222";
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO company (id, commercial_name, country, timezone,
+                                      corporate_email, created_at, updated_at)
+                 VALUES ('{otra}', 'OTRA', 'MX', 'America/Monterrey',
+                         'h@o.mx', '2026-09-29T00:00:00Z', '2026-09-29T00:00:00Z');"
+            ))
+        })
+        .expect("segunda empresa");
+
+        let mia = db
+            .crear_firma(empresa(), "Mía", "<p>Mía</p>", false)
+            .expect("crea");
+
+        let error = db
+            .actualizar_firma(
+                otra.parse().expect("id"),
+                mia,
+                "Robada",
+                "<p>Robada</p>",
+                true,
+            )
+            .expect_err("no es suya");
+        assert_eq!(error.clave_i18n(), "error.db.dato_invalido");
+
+        let f = db.firmas(empresa()).expect("lista");
+        let f = f.first().expect("sigue ahí");
+        assert_eq!(f.nombre, "Mía", "intacta");
+        assert!(!f.por_defecto, "y sin el por defecto que pedía la otra");
+    }
+
+    // ── R-08 · RETIRAR UNA PLANTILLA O UNA FIRMA (21/10/2026) ─────────────
+    //
+    // Dirección pidió primero «eliminar», y al ver cómo quedaba lo precisó:
+    // «que quede registrado en algo que no podamos ver […] prácticamente no
+    // quedaría borrada, sólo no se muestra». Eso es lo que se prueba aquí.
+
+    /// **Una plantilla retirada desaparece de la lista y NO de la base.**
+    ///
+    /// Las dos mitades importan, y la segunda es la que pidió Dirección: el
+    /// texto tiene que seguir ahí para contestar, dentro de un año, qué decía
+    /// el correo que alguien recibió.
+    #[test]
+    fn una_plantilla_retirada_se_esconde_pero_no_se_pierde() {
+        let (_d, db) = base();
+        let (p, v) = db
+            .crear_plantilla(empresa(), "Vieja", &redaccion("A", "<p>el texto</p>"))
+            .expect("crea");
+
+        db.retirar_plantilla(empresa(), p).expect("se retira");
+
+        assert!(
+            db.plantillas(empresa()).expect("lista").is_empty(),
+            "una plantilla retirada no se ofrece"
+        );
+        // Y lo que de verdad se pidió: la versión sigue consultable.
+        let guardada = db
+            .version_de_plantilla(v)
+            .expect("consulta")
+            .expect("la versión NO se borró");
+        assert!(guardada.cuerpo_html.contains("el texto"), "{guardada:?}");
+    }
+
+    /// **Se puede retirar aunque una campaña la haya usado.**
+    ///
+    /// Es la diferencia entera con el `DELETE` que esto sustituye: aquél tenía
+    /// que negarse —el esquema lo impide con `ON DELETE RESTRICT`— y obligaba
+    /// a convivir para siempre con una plantilla que ya no se quiere.
+    #[test]
+    fn se_retira_aunque_una_campana_la_haya_usado() {
+        let (_d, db) = base();
+        let (p, v) = db
+            .crear_plantilla(empresa(), "En uso", &redaccion("A", "<p>a</p>"))
+            .expect("crea");
+
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO email_account (id, company_id, display_name, email_address,
+                                            provider_kind, credential_ref, status,
+                                            daily_limit, hourly_limit,
+                                            created_at, updated_at)
+                 VALUES ('c-1', '{EMPRESA}', 'Ventas', 'v@t.mx', 'smtp',
+                         'llavero://v', 'connected', 50, 10,
+                         '2026-10-21T00:00:00Z', '2026-10-21T00:00:00Z');
+                 INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                 VALUES ('k-1', '{EMPRESA}', 'Septiembre', 'draft',
+                         '2026-10-21T00:00:00Z', '2026-10-21T00:00:00Z');
+                 -- La `CHECK` de la V4 exige la cuenta en una etapa de correo.
+                 INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                             email_account_id, template_version_id,
+                                             status, created_at, updated_at)
+                 VALUES ('st-1', 'k-1', 1, 'email', 'c-1', '{v}', 'draft',
+                         '2026-10-21T00:00:00Z', '2026-10-21T00:00:00Z');"
+            ))
+        })
+        .expect("campaña");
+
+        db.retirar_plantilla(empresa(), p)
+            .expect("retirar no se niega nunca");
+        assert!(db.plantillas(empresa()).expect("lista").is_empty());
+        // La campaña sigue sabiendo qué mandó.
+        let r = db
+            .redaccion_de_la_campana("k-1")
+            .expect("consulta")
+            .expect("la campaña conserva su texto");
+        assert_eq!(r.asunto, "A");
+    }
+
+    /// **La firma que elige la campaña gana a la de por defecto** (H-12).
+    ///
+    /// `campaign_stage.signature_id` existía desde la V4 y la consulta de
+    /// `redaccion_de_la_campana` ya la miraba — con su caída a la de por
+    /// defecto— **meses antes de que nada la escribiera**. El patrón del §9 en
+    /// su forma más silenciosa: nada fallaba, simplemente todas las campañas
+    /// salían con la misma firma, y la pantalla no ofrecía elegir.
+    ///
+    /// Esta prueba recorre las dos ramas del `COALESCE`, que es lo que ninguna
+    /// podía recorrer antes: con `signature_id` puesto gana esa firma, y con
+    /// `NULL` sigue ganando la de por defecto.
+    ///
+    /// **Lo que esta prueba NO cubre, y se dice porque se dio por hecho.** La
+    /// primera versión de este comentario afirmaba estar verificada quitando
+    /// `signature_id` del `INSERT` de `crear_campana`. Es falso: la etapa se
+    /// siembra aquí con SQL a mano, así que romper `crear_campana` la deja en
+    /// verde — se probó. Lo que cubre es **la consulta**, sus dos ramas; que la
+    /// columna se escriba lo cubre `la_firma_elegida_llega_hasta_el_correo` en
+    /// `alta_de_campana.rs`, que sí pasa por ahí.
+    ///
+    /// Es el patrón del §9 aplicado a sus propias pruebas: cada una pasa lo
+    /// suyo y el hueco vive entre las dos.
+    #[test]
+    fn la_campana_usa_la_firma_que_eligio_y_no_la_de_por_defecto() {
+        let (_d, db) = base();
+        let (_p, v) = db
+            .crear_plantilla(empresa(), "Oferta", &redaccion("A", "<p>a</p>"))
+            .expect("crea");
+        let por_defecto = db
+            .crear_firma(
+                empresa(),
+                "La de siempre",
+                "<p>Atentamente, Ventas</p>",
+                true,
+            )
+            .expect("firma por defecto");
+        let otra = db
+            .crear_firma(
+                empresa(),
+                "La de soporte",
+                "<p>Un saludo, Soporte</p>",
+                false,
+            )
+            .expect("otra firma");
+        assert_ne!(por_defecto, otra);
+
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO email_account (id, company_id, display_name, email_address,
+                                            provider_kind, credential_ref, status,
+                                            daily_limit, hourly_limit,
+                                            created_at, updated_at)
+                 VALUES ('c-1', '{EMPRESA}', 'Ventas', 'v@t.mx', 'smtp',
+                         'llavero://v', 'connected', 50, 10,
+                         '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');
+                 INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                 VALUES ('k-1', '{EMPRESA}', 'Con firma elegida', 'draft',
+                         '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');
+                 INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                             email_account_id, template_version_id,
+                                             signature_id, status, created_at, updated_at)
+                 VALUES ('st-1', 'k-1', 1, 'email', 'c-1', '{v}', '{otra}', 'draft',
+                         '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');
+
+                 INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                 VALUES ('k-2', '{EMPRESA}', 'Sin elegir', 'draft',
+                         '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');
+                 INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                             email_account_id, template_version_id,
+                                             signature_id, status, created_at, updated_at)
+                 VALUES ('st-2', 'k-2', 1, 'email', 'c-1', '{v}', NULL, 'draft',
+                         '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z');"
+            ))
+        })
+        .expect("las dos campañas");
+
+        let elegida = db
+            .redaccion_de_la_campana("k-1")
+            .expect("consulta")
+            .expect("hay redacción");
+        assert_eq!(
+            elegida.firma_html.as_deref(),
+            Some("<p>Un saludo, Soporte</p>"),
+            "la campaña eligió una firma y se usó la de por defecto"
+        );
+
+        let sin_elegir = db
+            .redaccion_de_la_campana("k-2")
+            .expect("consulta")
+            .expect("hay redacción");
+        assert_eq!(
+            sin_elegir.firma_html.as_deref(),
+            Some("<p>Atentamente, Ventas</p>"),
+            "sin elegir tiene que seguir cayendo en la de por defecto"
+        );
+    }
+
+    /// **Una firma retirada deja de ser la de por defecto.**
+    ///
+    /// Si siguiera marcada volvería por la puerta de atrás: la redacción de
+    /// una campaña busca la de por defecto, y acabaría pegando al pie de cada
+    /// correo justo la que se decidió no usar más.
+    #[test]
+    fn una_firma_retirada_deja_de_ser_la_de_por_defecto() {
+        let (_d, db) = base();
+        let f = db
+            .crear_firma(empresa(), "Vieja", "<p>La vieja</p>", true)
+            .expect("crea");
+
+        db.retirar_firma(empresa(), f).expect("se retira");
+
+        assert!(db.firmas(empresa()).expect("lista").is_empty());
+        // Y una campaña nueva no la pega.
+        let marcadas: i64 = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row(
+                    "SELECT COUNT(*) FROM signature WHERE is_default = 1",
+                    [],
+                    |f| f.get(0),
+                )
+            })
+            .expect("cuenta");
+        assert_eq!(marcadas, 0, "una firma retirada seguía marcada por defecto");
+    }
+
+    /// Retirar dos veces **no mueve la primera fecha**.
+    ///
+    /// Esa fecha es la que dice cuándo se dejó de usar de verdad; pisarla con
+    /// la del segundo clic contaría una historia falsa, y nada fallaría.
+    #[test]
+    fn retirar_dos_veces_conserva_la_primera_fecha() {
+        let (_d, db) = base();
+        let (p, _) = db
+            .crear_plantilla(empresa(), "X", &redaccion("A", "<p>a</p>"))
+            .expect("crea");
+
+        db.retirar_plantilla(empresa(), p).expect("primera");
+        let primera: String = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row(
+                    "SELECT retired_at FROM template WHERE id = ?1",
+                    params![p.to_string()],
+                    |f| f.get(0),
+                )
+            })
+            .expect("lee");
+
+        db.retirar_plantilla(empresa(), p).expect("segunda");
+        let segunda: String = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row(
+                    "SELECT retired_at FROM template WHERE id = ?1",
+                    params![p.to_string()],
+                    |f| f.get(0),
+                )
+            })
+            .expect("lee");
+
+        assert_eq!(primera, segunda, "la segunda vez movió la fecha");
+    }
+
+    /// Y **no se retira lo de otra empresa**, ni plantilla ni firma.
+    #[test]
+    fn no_se_retira_lo_de_otra_empresa() {
+        let (_d, db) = base();
+        let otra = "22222222-2222-4222-8222-222222222222";
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO company (id, commercial_name, country, timezone,
+                                      corporate_email, created_at, updated_at)
+                 VALUES ('{otra}', 'OTRA', 'MX', 'America/Monterrey',
+                         'h@o.mx', '2026-09-29T00:00:00Z', '2026-09-29T00:00:00Z');"
+            ))
+        })
+        .expect("segunda empresa");
+        let ajena: CompanyId = otra.parse().expect("id");
+
+        let (p, _) = db
+            .crear_plantilla(empresa(), "Mía", &redaccion("A", "<p>a</p>"))
+            .expect("crea");
+        let f = db
+            .crear_firma(empresa(), "Mía", "<p>Mía</p>", false)
+            .expect("crea");
+
+        assert_eq!(
+            db.retirar_plantilla(ajena, p)
+                .expect_err("no es suya")
+                .clave_i18n(),
+            "error.db.dato_invalido"
+        );
+        assert_eq!(
+            db.retirar_firma(ajena, f)
+                .expect_err("no es suya")
+                .clave_i18n(),
+            "error.db.dato_invalido"
+        );
+
+        assert_eq!(db.plantillas(empresa()).expect("lista").len(), 1, "intacta");
+        assert_eq!(db.firmas(empresa()).expect("lista").len(), 1, "intacta");
+    }
+
+    // ─── R-29 · previsualizar antes de que exista la campaña ───────────────
+
+    /// Siembra una cuenta de correo y devuelve su id.
+    fn cuenta(db: &Db) -> &'static str {
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO email_account (id, company_id, display_name, email_address,
+                                            provider_kind, credential_ref, status,
+                                            daily_limit, hourly_limit,
+                                            created_at, updated_at)
+                 VALUES ('cta-1', '{EMPRESA}', 'Ventas', 'ventas@t.mx', 'smtp',
+                         'llavero://v', 'connected', 50, 10,
+                         '2026-11-05T00:00:00Z', '2026-11-05T00:00:00Z');"
+            ))
+        })
+        .expect("cuenta");
+        "cta-1"
+    }
+
+    /// Siembra un contacto con su correo. `lista` lo mete además en una lista.
+    ///
+    /// La fecha entra como parámetro porque la muestra se elige por **el más
+    /// reciente**, y sin poder ordenarlos a propósito una prueba del filtro de
+    /// lista no distingue nada: ver `la_muestra_sale_de_la_lista_elegida`.
+    fn contacto_con_correo(db: &Db, id: &str, nombre: &str, cuando: &str, lista: Option<&str>) {
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO contact (id, company_id, first_name, last_name, source,
+                                      created_at, updated_at)
+                 VALUES ('{id}', '{EMPRESA}', '{nombre}', 'Ruiz', 'Ferretería',
+                         '{cuando}', '{cuando}');
+                 INSERT INTO contact_channel (id, company_id, contact_id, channel,
+                                              value_raw, value_normalized, status,
+                                              created_at, updated_at)
+                 VALUES ('ch-{id}', '{EMPRESA}', '{id}', 'email', '{id}@t.mx',
+                         '{id}@t.mx', 'active', '{cuando}', '{cuando}');"
+            ))
+        })
+        .expect("contacto");
+        if let Some(l) = lista {
+            db.ejecutar_en_pruebas(|c| {
+                c.execute_batch(&format!(
+                    "INSERT OR IGNORE INTO contact_list (id, company_id, name,
+                                                         created_at, updated_at)
+                     VALUES ('{l}', '{EMPRESA}', 'Prueba',
+                             '2026-11-05T00:00:00Z', '2026-11-05T00:00:00Z');
+                     INSERT INTO contact_list_member (list_id, contact_id, added_at)
+                     VALUES ('{l}', '{id}', '2026-11-05T00:00:00Z');"
+                ))
+            })
+            .expect("lista");
+        }
+    }
+
+    /// **La previsualización usa la firma de por defecto si no se elige otra.**
+    ///
+    /// Es el mismo `COALESCE` que la consulta de la campaña, y por la misma
+    /// razón: es literalmente lo que promete la casilla de esa firma. Si aquí
+    /// cayera en «sin firma», la previsualización enseñaría un correo sin
+    /// firma y saldría con ella.
+    #[test]
+    fn previsualizar_sin_elegir_firma_usa_la_de_por_defecto() {
+        let (_d, db) = base();
+        let cta = cuenta(&db);
+        let (_, v) = db
+            .crear_plantilla(
+                empresa(),
+                "Bienvenida",
+                &redaccion("Hola {{nombre}}", "<p>Hola</p>"),
+            )
+            .expect("crea");
+        db.crear_firma(empresa(), "Comercial", "<p>Equipo</p>", true)
+            .expect("crea");
+
+        let r = db
+            .redaccion_de_una_version(empresa(), v, None, cta)
+            .expect("lee");
+
+        assert_eq!(
+            r.asunto, "Hola {{nombre}}",
+            "sin rellenar: eso lo hace el núcleo"
+        );
+        assert_eq!(r.firma_html.as_deref(), Some("<p>Equipo</p>"));
+        assert_eq!(r.mi_empresa, "TELEMETRY");
+        assert_eq!(
+            r.remitente, "ventas@t.mx",
+            "la dirección de la cuenta elegida, que es la que va en la frase de baja"
+        );
+    }
+
+    /// **Y la elegida manda sobre la de por defecto.**
+    #[test]
+    fn previsualizar_con_firma_elegida_usa_esa() {
+        let (_d, db) = base();
+        let cta = cuenta(&db);
+        let (_, v) = db
+            .crear_plantilla(empresa(), "Bienvenida", &redaccion("A", "<p>a</p>"))
+            .expect("crea");
+        db.crear_firma(empresa(), "Comercial", "<p>Equipo</p>", true)
+            .expect("crea");
+        let otra = db
+            .crear_firma(empresa(), "Dirección", "<p>Adrián</p>", false)
+            .expect("crea");
+
+        let r = db
+            .redaccion_de_una_version(empresa(), v, Some(otra), cta)
+            .expect("lee");
+        assert_eq!(r.firma_html.as_deref(), Some("<p>Adrián</p>"));
+    }
+
+    /// **Una versión de otra empresa no se previsualiza.**
+    ///
+    /// La webview no es de fiar (regla 4 de la IPC): el id llega de fuera, y
+    /// sin el filtro de empresa esto enseñaría el correo de otra.
+    #[test]
+    fn una_version_ajena_no_se_previsualiza() {
+        let (_d, db) = base();
+        let cta = cuenta(&db);
+        let (_, v) = db
+            .crear_plantilla(empresa(), "Mía", &redaccion("A", "<p>a</p>"))
+            .expect("crea");
+
+        let ajena: CompanyId = "22222222-2222-4222-8222-222222222222".parse().expect("id");
+        let r = db.redaccion_de_una_version(ajena, v, None, cta);
+        assert!(matches!(r, Err(DbError::PlantillaNoExiste)), "{r:?}");
+    }
+
+    /// **El contacto de muestra sale de la lista cuando hay lista.**
+    ///
+    /// ── POR QUÉ BETO ES EL MÁS RECIENTE, Y NO ES UN DETALLE ─────────────
+    ///
+    /// Porque la muestra se elige por el más reciente, así que con los dos
+    /// sembrados el mismo día **la prueba pasaba con el filtro y sin él**:
+    /// quitar el `EXISTS` de la lista la dejaba en verde. Lo cazó romperla, no
+    /// leerla.
+    ///
+    /// Con Beto un día después, sin filtro la muestra sería él — y es dos
+    /// contactos y no uno por la misma razón que la prueba de la página de
+    /// contactos que este proyecto ya documenta.
+    #[test]
+    fn la_muestra_sale_de_la_lista_elegida() {
+        let (_d, db) = base();
+        contacto_con_correo(&db, "k1", "Ana", "2026-11-05T00:00:00Z", Some("lst-1"));
+        contacto_con_correo(&db, "k2", "Beto", "2026-11-06T00:00:00Z", None);
+
+        let m = db
+            .contacto_de_muestra(empresa(), Some("lst-1"))
+            .expect("lee")
+            .expect("hay uno");
+        assert_eq!(m.nombre, "Ana", "Beto no está en esa lista");
+        assert_eq!(m.empresa, "Ferretería", "la empresa vive en `source` (V1)");
+    }
+
+    /// **Un contacto sin correo no sirve de muestra.**
+    ///
+    /// No recibiría esta campaña, así que enseñar su nombre haría creer que
+    /// sí. Y sin contactos con correo se devuelve `None` en vez de inventar
+    /// uno: la pantalla lo dice.
+    #[test]
+    fn sin_contactos_con_correo_no_hay_muestra() {
+        let (_d, db) = base();
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO contact (id, company_id, first_name, created_at, updated_at)
+                 VALUES ('k9', '{EMPRESA}', 'Solo WhatsApp',
+                         '2026-11-05T00:00:00Z', '2026-11-05T00:00:00Z');"
+            ))
+        })
+        .expect("contacto");
+
+        assert!(
+            db.contacto_de_muestra(empresa(), None)
+                .expect("lee")
+                .is_none(),
+            "sin canal de correo no es una muestra de esta campaña"
+        );
+    }
+}

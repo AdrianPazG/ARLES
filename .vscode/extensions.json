@@ -1,0 +1,35 @@
+{
+  // ── LAS EXTENSIONES QUE ESTE PROYECTO NECESITA ───────────────────────────
+  //
+  // VS Code las ofrece al abrir la carpeta por primera vez, en un aviso de
+  // «Recomendaciones del área de trabajo». No instala nada por su cuenta.
+  //
+  // Creado el 11/11/2026, al auditar qué obtiene quien clona el repositorio:
+  // no existía, así que cada quien configuraba su editor a mano y las dos
+  // primeras —el analizador de Rust y el de Vue— son las que hacen que el
+  // código se entienda al abrirlo.
+  "recommendations": [
+    // Rust: autocompletado, errores en vivo y «ir a la definición». Sin esto,
+    // los ocho crates son texto.
+    "rust-lang.rust-analyzer",
+
+    // Vue 3 con TypeScript. El proyecto usa `exactOptionalPropertyTypes`, así
+    // que sin esto los errores de tipos de las plantillas no se ven hasta
+    // correr `vue-tsc`.
+    "Vue.volar",
+
+    // Tauri: completado de `tauri.conf.json` y de las capabilities.
+    "tauri-apps.tauri-vscode",
+
+    // ESLint, que es lo que el §6 exige antes de empujar.
+    "dbaeumer.vscode-eslint",
+
+    // TOML, que es el formato de `Cargo.toml`, `deny.toml` y
+    // `rust-toolchain.toml`.
+    "tamasfe.even-better-toml"
+  ],
+
+  // Ninguna que estorbe. Se deja la lista vacía y declarada: un archivo con
+  // sólo recomendaciones hace pensar que la otra mitad se olvidó.
+  "unwantedRecommendations": []
+}

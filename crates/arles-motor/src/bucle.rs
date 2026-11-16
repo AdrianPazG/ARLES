@@ -1,0 +1,2323 @@
+//! El bucle del trabajador: la pieza donde todo lo demás funciona junto.
+//!
+//! Sigue al pie de la letra `MOTOR_DE_EJECUCION.md` §13.
+//!
+//! ─────────────────────────────────────────────────────────────────────────
+//! LO QUE ESTE ARCHIVO NO HACE, Y ES DELIBERADO
+//!
+//! No sabe de SMTP, no sabe de WhatsApp, no sabe de SQL y no duerme. Pregunta,
+//! decide y anota; lo demás se lo pasan hecho:
+//!
+//! · las **reglas** —ritmo, ventana, reintentos— vienen de `arles-core`;
+//! · la **cola y el presupuesto**, de `arles-db`;
+//! · la **entrega**, de un [`Proveedor`], que en toda la Fase 4 es el simulador;
+//! · el **reloj y el azar**, de un [`Entorno`], que en las pruebas se controla.
+//!
+//! Sin esa última pieza, este archivo no se podría probar: cada ejecución
+//! caería en una hora distinta y sortearía números distintos, y habría que
+//! aceptar el resultado sin comprobarlo.
+//!
+//! ─────────────────────────────────────────────────────────────────────────
+//! UN PASO, NO UN BUCLE INFINITO
+//!
+//! La unidad pública es [`Trabajador::un_paso`]: mira una vez, hace como mucho
+//! un envío, y dice lo que pasó. El bucle de verdad —esperar y volver— es
+//! [`Trabajador::correr`], cuatro líneas construidas encima.
+//!
+//! Se separan porque un bucle infinito no se puede probar: habría que pararlo
+//! desde fuera y confiar en el azar del planificador. Un paso se prueba de
+//! frente, y cada rama del §13 tiene el suyo.
+
+use arles_core::canal::Canal;
+use arles_core::descanso::{DESCANSO_ENTRE_CAMPANAS_DIAS, Descanso, puede_salir};
+use arles_core::disyuntor::{Circuito, Efecto, tras_un_acierto, tras_un_fallo};
+use arles_core::ids::CompanyId;
+use arles_core::reintento::{Decision, Fallo, que_hacer};
+use arles_core::ritmo::{Limites, NoSePuede, cabe_uno_mas};
+use arles_core::supresion::{MotivoDeSupresion, OrigenDeSupresion};
+// `TimeZone` es de `jiff` y llega reexportada por el núcleo. El motor **no**
+// depende de `jiff`: la recibe ya resuelta por `arles_core::ventana::zona`, que
+// es el único sitio que la construye y el único que sabe de esa biblioteca.
+use arles_core::ventana::{TimeZone, Ventana, clave_de_dia, clave_de_hora};
+use arles_db::{Db, DbError, TrabajoTomado};
+use time::OffsetDateTime;
+
+use crate::proveedor::{Contenido, Mensaje, Proveedor, recortar_respuesta};
+
+/// Con qué se rellena un hueco de la plantilla de Meta cuando el contacto no
+/// tiene ese dato.
+///
+/// En correo lo que falta se queda en blanco (`SiFalta::Nada`): poner «cliente»
+/// por nuestra cuenta sería escribir en nombre de quien redactó. En WhatsApp
+/// **no hay esa opción**: Meta rechaza un parámetro vacío, y el mensaje no
+/// sale. Entre no mandar nada y mandar una palabra neutra, manda la palabra.
+const RESERVA_DE_WHATSAPP: &str = "Hola";
+use crate::tiempo::sello;
+
+/// Lo que el trabajador necesita saber de la campaña que está sirviendo.
+///
+/// Se le pasa entero al construirlo y no cambia mientras corre. Una campaña
+/// cuya ventana o cuyos límites cambiaran a mitad de un paso podría enviar
+/// fuera de horario sin que nada fallara; cambiarlos exige parar y volver a
+/// arrancar el trabajador, que es un acto visible.
+#[derive(Debug, Clone)]
+pub struct Ajustes {
+    /// La empresa. Es lo que acota la lista de bajas: la de una empresa no
+    /// bloquea ni protege en otra.
+    pub empresa: CompanyId,
+    /// La campaña de la que se toma trabajo.
+    pub campana: String,
+    /// La cuenta remitente: el buzón por el que sale el correo.
+    pub cuenta: String,
+    /// La etapa, que es **de quien cuelga el presupuesto** desde la V13.
+    ///
+    /// Antes colgaba de la cuenta, y dos campañas del mismo buzón compartían
+    /// los cincuenta diarios. Desde la D-13 (22/10/2026) cada campaña lleva su
+    /// propio recuento y los cupos **se suman**, para que el plazo que el paso
+    /// 6 le prometió al cliente se cumpla aunque haya otra campaña en marcha.
+    /// El porqué entero está en la cabecera de `arles-db/src/presupuesto.rs`.
+    pub etapa: String,
+    /// Por qué medio se manda.
+    pub canal: Canal,
+    /// Los días y horas en que esta campaña puede enviar, con su zona (D-10).
+    pub ventana: Ventana,
+    /// Cuántos por hora y cuántos por día.
+    pub limites: Limites,
+    /// La zona de **la empresa**, que es donde se cuentan las horas y los días
+    /// del presupuesto. No es necesariamente la de la campaña: una campaña
+    /// dirigida a Madrid se envía en horario de Madrid, pero gasta del cupo
+    /// diario de una cuenta que vive en México.
+    pub zona_de_la_empresa: TimeZone,
+    /// Qué manda esta campaña: su plantilla congelada, su firma y su empresa.
+    ///
+    /// Se lee **una vez al arrancar** y no en cada envío: es lo mismo para
+    /// toda la campaña, y lo que cambia por persona son los datos que vienen
+    /// con cada trabajo de la cola.
+    ///
+    /// `None` cuando la campaña no tiene redacción que mandar, que en el
+    /// producto no ocurre —`crear_campana` exige una plantilla— y en las
+    /// pruebas del motor sí: ahí lo que se ejercita es el ritmo, no el texto.
+    pub redaccion: Option<arles_db::RedaccionDeLaCampana>,
+    /// La plantilla de Meta de esta etapa, cuando el canal es WhatsApp.
+    ///
+    /// `None` en una etapa de correo, y también en una de WhatsApp a la que no
+    /// se le eligió plantilla — que no se puede activar, pero una base tocada
+    /// a mano sí lo permite. Por eso el motor lo trata como un paso visible y
+    /// no como un `unwrap`.
+    pub plantilla_de_whatsapp: Option<arles_core::whatsapp::PlantillaDeMeta>,
+}
+
+/// De dónde salen el reloj y el azar.
+///
+/// Existe por una razón y sólo una: **para poder probar el bucle**. Un motor
+/// que llama a `now()` por dentro sólo se puede probar a la hora que sea
+/// cuando alguien ejecute las pruebas, y uno que se sortea sus propios números
+/// da un resultado distinto cada vez.
+pub trait Entorno: Send + Sync {
+    /// Qué hora es, en UTC.
+    fn ahora(&self) -> OffsetDateTime;
+
+    /// Un número de 0.0 a 1.0 para repartir los reintentos.
+    ///
+    /// Sin él, cien envíos que fallan a la vez —porque se cayó la red— vuelven
+    /// todos a la vez cinco minutos después, y el servidor recibe la misma
+    /// ráfaga que acaba de rechazar.
+    fn azar(&self) -> f64;
+}
+
+/// El reloj y el azar de verdad.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct EntornoDelSistema;
+
+impl Entorno for EntornoDelSistema {
+    fn ahora(&self) -> OffsetDateTime {
+        OffsetDateTime::now_utc()
+    }
+
+    /// Ocho bytes del sistema operativo, llevados a 0.0..1.0.
+    ///
+    /// Si el sistema no pudiera darlos —no pasa, salvo en un sistema roto—, se
+    /// devuelve el punto medio: el reintento sale en su hora exacta, sin
+    /// reparto. Es peor que con azar y mucho mejor que no reintentar.
+    fn azar(&self) -> f64 {
+        let mut bytes = [0u8; 8];
+        if getrandom::fill(&mut bytes).is_err() {
+            return 0.5;
+        }
+        // Entre 0.0 y 1.0: se divide por el mayor valor posible.
+        #[allow(clippy::cast_precision_loss)]
+        {
+            u64::from_le_bytes(bytes) as f64 / u64::MAX as f64
+        }
+    }
+}
+
+/// El freno de verdad: el que pregunta a la base antes de cada envío.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ ESTO NO ES UNA BANDERA EN MEMORIA
+///
+/// El bucle pregunta «¿hay que parar?» dos veces por envío, y hasta la entrega
+/// 4.4 detrás de esa pregunta no había nada. Ahora hay dos cosas, y al
+/// trabajador le da igual cuál de las dos conteste que sí:
+///
+/// **La parada de emergencia**, que vale para toda la empresa y **sobrevive a
+/// cerrar el programa**. Una bandera en memoria se levantaría sola al
+/// arrancar, y quien la pulsó no estaría delante para verlo.
+///
+/// **El estado de la campaña.** Si alguien la pausó o la detuvo, este
+/// trabajador para. Sin esto, pausar cambiaría el rótulo de la pantalla y los
+/// correos seguirían saliendo.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// ANTE LA DUDA, SE PARA
+///
+/// Si la base no puede contestar, el freno dice **que sí hay que parar**. Los
+/// dos errores posibles no se parecen en nada: parar de más se ve —la campaña
+/// no avanza y alguien pregunta— y enviar de más no se ve hasta que los
+/// correos ya salieron.
+///
+/// Cuesta una consulta por envío, a un ritmo de cincuenta al día. No es un
+/// coste, es el precio de que el botón de parar signifique lo que dice.
+pub fn freno_de_la_base<'a>(
+    db: &'a Db,
+    empresa: CompanyId,
+    campana: &'a str,
+) -> impl Fn() -> bool + 'a {
+    move || db.hay_que_parar(empresa, campana).unwrap_or(true)
+}
+
+/// Lo que pasó en un paso. **Cifras y hechos, no adjetivos** (§94).
+///
+/// Es lo que la pantalla de Actividad va a enseñar, así que cada variante dice
+/// algo que una persona puede entender sin saber qué es una cola.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Paso {
+    /// Alguien pulsó parar. No sale nada más.
+    Parado,
+    /// Estamos fuera del horario de la campaña.
+    FueraDeVentana,
+    /// Se acabó el cupo de esta hora o de este día.
+    SinPresupuesto(NoSePuede),
+    /// No hay nada pendiente ahora mismo.
+    NoHayTrabajo,
+    /// Esa persona está en la lista de bajas. **No es un fallo.**
+    Baja { intento: String },
+    /// Se paró entre tomar el trabajo y enviarlo.
+    Cancelado { intento: String },
+    /// El proveedor se hizo cargo. **No significa «entregado»** (§65).
+    Aceptado { intento: String },
+    /// Falló y volverá a intentarse. «Reintento 2 de 3» es una cifra.
+    Reintentara { intento: String, cual: u8, de: u8 },
+    /// Se agotaron los reintentos.
+    Rendido { intento: String },
+    /// Esa dirección no existe: se rinde y **entra en la lista de bajas**.
+    DadoDeBaja { intento: String },
+    /// La cuenta no autentica. **Se detiene la cuenta entera**, no este envío.
+    CuentaParada { intento: String },
+    /// Esa persona recibió algo de **otra campaña** hace poco: espera (D-16).
+    ///
+    /// ── NO ES UN FALLO Y NO SE PIERDE NADA ────────────────────────────────
+    ///
+    /// El envío vuelve a la cola con fecha y sale cuando toca. Recibe las dos
+    /// campañas —son dos mensajes distintos—, sólo que no el mismo día, que es
+    /// lo que Dirección pidió el 22/10/2026 «para no hostigar».
+    ///
+    /// Lleva los días que faltan porque una cifra se entiende y «está
+    /// esperando» no (§94).
+    EnDescanso { intento: String, dias: i64 },
+    /// **Una etapa de WhatsApp sin plantilla de Meta elegida.**
+    ///
+    /// No es como el correo: ahí, si falta el cuerpo, se manda igual —la
+    /// decisión incómoda de la H-15— porque un correo vacío se ve y una
+    /// campaña muda no. En WhatsApp no hay esa salida: **sólo se puede mandar
+    /// una plantilla aprobada**, y sin ella Meta rechaza. Así que se para, y
+    /// se dice.
+    SinPlantillaDeWhatsapp,
+    /// El disyuntor de la cuenta está abierto: no se toma trabajo (§7).
+    ///
+    /// Lleva los segundos que faltan para poder decirlo con una cifra. «La
+    /// cuenta está parada» a secas se lee como una avería; «vuelve a intentarlo
+    /// en 23 minutos» es un hecho (§94).
+    CuentaEnPausa { segundos_restantes: u64 },
+}
+
+impl Paso {
+    /// ¿Tiene sentido volver a mirar inmediatamente?
+    ///
+    /// `false` significa «espera»: no hay trabajo, no es la hora, no hay cupo,
+    /// o hay que parar. `true` significa que acaba de pasar algo y puede haber
+    /// más detrás.
+    #[must_use]
+    pub const fn hay_mas_que_hacer(&self) -> bool {
+        !matches!(
+            self,
+            Self::Parado
+                | Self::FueraDeVentana
+                | Self::SinPresupuesto(_)
+                | Self::NoHayTrabajo
+                | Self::CuentaParada { .. }
+                | Self::CuentaEnPausa { .. }
+        )
+    }
+
+    /// La clave de texto para la pantalla (§139).
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// UN SUCESO, UN TEXTO
+    ///
+    /// La primera versión tenía una clave `motor.*` propia para cada paso, y
+    /// eso creaba **dos textos para el mismo suceso**: la pantalla de Actividad
+    /// habría dicho «Se volverá a intentar» y el detalle del envío, a un clic
+    /// de distancia, «Reintento 2 de 3». El mismo hecho contado de dos maneras
+    /// en dos sitios, y una de las dos sin la cifra que exige el §94.
+    ///
+    /// Se corrigió al auditar la fase (23/09/2026): cuando el paso **es** el
+    /// desenlace de un intento, la clave es la del desenlace; cuando el paso
+    /// **es** una razón para no enviar, la clave es la de esa razón. Las
+    /// `motor.*` que quedan son las que no existen en ningún otro sitio.
+    #[must_use]
+    pub fn clave_i18n(&self) -> &'static str {
+        match self {
+            // Estados del bucle. No los describe nadie más.
+            Self::Parado => "motor.parado",
+            Self::FueraDeVentana => "motor.fueraDeVentana",
+            Self::NoHayTrabajo => "motor.noHayTrabajo",
+            Self::Cancelado { .. } => "motor.cancelado",
+            Self::Aceptado { .. } => "motor.aceptadoPorElProveedor",
+            Self::CuentaEnPausa { .. } => "motor.laCuentaEstaEnPausa",
+            // Lleva su propia clave y no una de `reintento`: no es el
+            // desenlace de un intento —el intento no llegó a ocurrir— sino una
+            // razón para no enviar todavía, como estar fuera de la ventana.
+            Self::EnDescanso { .. } => "motor.enDescanso",
+            Self::SinPlantillaDeWhatsapp => "motor.sinPlantillaDeWhatsapp",
+
+            // El motivo por el que no cabe un envío ya tiene su texto, y lleva
+            // la cifra: «Se alcanzó el tope de 50 envíos al día».
+            Self::SinPresupuesto(motivo) => motivo.clave_i18n(),
+
+            // Los desenlaces de un intento los nombra `arles_core::reintento`,
+            // que es quien los decide. Repetirlos aquí era duplicar el texto.
+            Self::Baja { .. } => "reintento.pidioLaBaja",
+            Self::Reintentara { .. } => "reintento.seVolveraAIntentar",
+            Self::Rendido { .. } => "reintento.seAgotaronLosIntentos",
+            Self::DadoDeBaja { .. } => "reintento.direccionInexistente",
+            Self::CuentaParada { .. } => "reintento.laCuentaNoAutentica",
+        }
+    }
+}
+
+/// Quien manda: comprueba, toma, envía y anota.
+pub struct Trabajador<'a> {
+    db: &'a Db,
+    proveedor: &'a dyn Proveedor,
+    entorno: &'a dyn Entorno,
+    /// La parada de emergencia. Se le **pregunta dos veces** por paso.
+    ///
+    /// En la Fase 4.4 detrás de esto habrá una bandera en la base de datos,
+    /// para que parar sobreviva a cerrar el programa. El bucle no necesita
+    /// saber cuál de las dos es: pregunta y obedece.
+    freno: &'a dyn Fn() -> bool,
+    ajustes: Ajustes,
+}
+
+impl std::fmt::Debug for Trabajador<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // El proveedor, el entorno y el freno son objetos de trait: no se
+        // pueden imprimir. Los ajustes sí, y son lo que interesa en un
+        // diagnóstico.
+        f.debug_struct("Trabajador")
+            .field("ajustes", &self.ajustes)
+            .finish_non_exhaustive()
+    }
+}
+
+impl<'a> Trabajador<'a> {
+    /// Monta un trabajador con todo lo que necesita.
+    pub fn nuevo(
+        db: &'a Db,
+        proveedor: &'a dyn Proveedor,
+        entorno: &'a dyn Entorno,
+        freno: &'a dyn Fn() -> bool,
+        ajustes: Ajustes,
+    ) -> Self {
+        Self {
+            db,
+            proveedor,
+            entorno,
+            freno,
+            ajustes,
+        }
+    }
+
+    /// Un paso del §13: mira, toma como mucho uno, envía y anota.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// EL ORDEN NO ES ARBITRARIO
+    ///
+    /// **1 · La parada, primero de todo.** Lo más barato y lo más importante.
+    ///
+    /// **2 · La ventana y el presupuesto, antes de tomar nada.** Tomar un
+    /// trabajo que no se va a poder enviar lo deja marcado como `claimed` para
+    /// nadie, y hasta el siguiente arranque no vuelve a la cola.
+    ///
+    /// **3 · La lista de bajas, después de tomar y antes de enviar.** Tiene que
+    /// ser aquí: entre que la campaña se activó y este envío pueden haber
+    /// pasado meses, y alguien puede haber pedido la baja ayer.
+    ///
+    /// **4 · La parada, OTRA VEZ.** Entre la primera comprobación y este punto
+    /// ha habido dos consultas a la base de datos. Es tiempo de sobra para que
+    /// alguien pulse el botón, y el botón significa «ningún correo más», no
+    /// «ningún correo más dentro de un rato».
+    ///
+    /// **5 · `sending` en la base ANTES de llamar al proveedor.** Es lo único
+    /// que permite reconocer después un envío ambiguo (ADR-0004).
+    ///
+    /// # Errores
+    ///
+    /// [`DbError`] si la base falla. Un fallo del **proveedor** no es un error
+    /// de esta función: es un [`Paso`] con su desenlace ya anotado.
+    pub fn un_paso(&self) -> Result<Paso, DbError> {
+        if (self.freno)() {
+            return Ok(Paso::Parado);
+        }
+
+        let ahora = self.entorno.ahora();
+        // La ventana se mira **antes** de consultar el presupuesto, y por eso
+        // hay una vuelta aquí en vez de dejárselo entero a `cabe_uno_mas`:
+        // fuera de horario no hace falta tocar la base. Una campaña de fin de
+        // semana estaría consultándola sin parar para nada.
+        let dentro_de_ventana = self.ajustes.ventana.contiene(ahora);
+        if !dentro_de_ventana {
+            return Ok(Paso::FueraDeVentana);
+        }
+
+        let marca = sello(ahora);
+
+        // El disyuntor, antes del presupuesto y antes de tomar nada (§7, §13).
+        //
+        // Va aquí y no más abajo porque una cuenta con el circuito abierto no
+        // debe ni tocar la cola: tomar un trabajo que no se va a poder enviar
+        // lo deja marcado para nadie hasta el siguiente arranque.
+        if let Circuito::Abierto { segundos_restantes } = self
+            .db
+            .salud_de_la_cuenta(&self.ajustes.cuenta, &marca)?
+            .circuito
+        {
+            return Ok(Paso::CuentaEnPausa { segundos_restantes });
+        }
+
+        let hora = clave_de_hora(&self.ajustes.zona_de_la_empresa, ahora);
+        let dia = clave_de_dia(&self.ajustes.zona_de_la_empresa, ahora);
+        let gastado = self
+            .db
+            .gastado_de(&self.ajustes.cuenta, &self.ajustes.etapa, &hora, &dia)?;
+        if let Err(motivo) = cabe_uno_mas(self.ajustes.limites, gastado, dentro_de_ventana) {
+            // Se **pausa y se avisa**. No se busca otra cuenta: la rotación
+            // automática de remitentes está prohibida (T-1, ADR-0008).
+            return Ok(Paso::SinPresupuesto(motivo));
+        }
+
+        let Some(trabajo) = self.db.tomar_siguiente(&self.ajustes.campana, &marca)? else {
+            return Ok(Paso::NoHayTrabajo);
+        };
+
+        if self
+            .db
+            .esta_suprimida(self.ajustes.empresa, self.ajustes.canal, &trabajo.direccion)?
+        {
+            self.db.marcar_suprimido(&trabajo.id, &marca)?;
+            return Ok(Paso::Baja {
+                intento: trabajo.id,
+            });
+        }
+
+        // ── El descanso entre campañas (D-16) ────────────────────────────
+        //
+        // **Después de la baja y antes de enviar**, y el orden no es casual:
+        // una baja es definitiva y un descanso es una espera. Preguntar
+        // primero por el descanso dejaría a alguien que pidió no recibir
+        // esperando catorce días para que, al cabo, se le marque como baja —
+        // el mismo desenlace con dos semanas de retraso y una fila de más en
+        // la cola.
+        //
+        // Se pregunta **en el instante de enviar** y no al encolar, por la
+        // misma razón que la supresión: entre encolar y enviar pueden pasar
+        // meses, y en ese rato la otra campaña pudo escribirle.
+        if let Some(ultimo) = self.db.ultimo_envio_de_otra_campana(
+            &trabajo.direccion,
+            self.ajustes.canal,
+            &self.ajustes.campana,
+        )? {
+            let transcurrido = ahora.unix_timestamp() - ultimo;
+            if let Descanso::Espera { segundos } =
+                puede_salir(transcurrido, DESCANSO_ENTRE_CAMPANAS_DIAS)
+            {
+                // La fecha la calcula quien tiene reloj: el núcleo sólo dice
+                // cuántos segundos faltan (cero I/O).
+                let hasta = ahora + time::Duration::seconds(segundos);
+                let hasta = hasta
+                    .format(&time::format_description::well_known::Rfc3339)
+                    .unwrap_or_else(|_| marca.clone());
+                self.db.marcar_en_descanso(&trabajo.id, &hasta, &marca)?;
+                return Ok(Paso::EnDescanso {
+                    intento: trabajo.id,
+                    // Redondeado hacia arriba: «faltan 0 días» de algo que
+                    // todavía no puede salir se lee como una avería (§94).
+                    dias: segundos.div_euclid(86_400) + i64::from(segundos % 86_400 != 0),
+                });
+            }
+        }
+
+        if (self.freno)() {
+            self.db.marcar_cancelado(&trabajo.id, &marca)?;
+            return Ok(Paso::Cancelado {
+                intento: trabajo.id,
+            });
+        }
+
+        self.db.marcar_enviando(&trabajo.id, &marca)?;
+
+        // ── LO QUE SE MANDA, REDACTADO PARA ESTA PERSONA ──────────────────
+        //
+        // El núcleo pone las variables y escapa los datos; aquí sólo se juntan
+        // los de la campaña con los de la fila. Sin redacción —que en el
+        // producto no pasa— va vacío, y eso es lo que hacía ARLES para todo el
+        // mundo hasta hoy (H-15).
+        let correo = self.ajustes.redaccion.as_ref().map(|r| {
+            let valores = arles_core::plantilla::Valores::nuevos()
+                .con(
+                    arles_core::plantilla::Variable::Nombre,
+                    &trabajo.datos.nombre,
+                )
+                .con(
+                    arles_core::plantilla::Variable::Apellido,
+                    &trabajo.datos.apellido,
+                )
+                .con(
+                    arles_core::plantilla::Variable::Empresa,
+                    &trabajo.datos.empresa,
+                )
+                .con(arles_core::plantilla::Variable::MiEmpresa, &r.mi_empresa)
+                // La salida de quien recibe, con la dirección de ESTE
+                // remitente. Se arma aquí y no se guarda en la plantilla
+                // porque el remitente se elige después de escribirla: una
+                // plantilla con la dirección dentro queda mintiendo en cuanto
+                // se use con otra cuenta, y la baja llegaría a un buzón donde
+                // nadie la espera.
+                .con(
+                    arles_core::plantilla::Variable::Baja,
+                    &arles_core::plantilla::frase_de_baja(&r.remitente),
+                );
+            arles_core::plantilla::redactar(
+                &r.asunto,
+                &r.cuerpo_html,
+                r.firma_html.as_deref(),
+                &valores,
+                // Sin texto de reserva: lo que falta se queda en blanco. Poner
+                // «cliente» por nuestra cuenta es escribir en nombre de quien
+                // redactó, y el preflight ya dice a cuántos les falta un dato.
+                arles_core::plantilla::SiFalta::Nada,
+            )
+        });
+
+        // Los valores de la plantilla de Meta, **de esta persona**. Es lo que
+        // antes no cambiaba: el proveedor traía su contenido pegado, así que
+        // una campaña entera habría salido con los datos del primer contacto.
+        let valores_de_whatsapp = self
+            .ajustes
+            .plantilla_de_whatsapp
+            .as_ref()
+            .and_then(|p| {
+                let valores = arles_core::plantilla::Valores::nuevos()
+                    .con(
+                        arles_core::plantilla::Variable::Nombre,
+                        &trabajo.datos.nombre,
+                    )
+                    .con(
+                        arles_core::plantilla::Variable::Apellido,
+                        &trabajo.datos.apellido,
+                    )
+                    .con(
+                        arles_core::plantilla::Variable::Empresa,
+                        &trabajo.datos.empresa,
+                    );
+                // La reserva no es un adorno: Meta RECHAZA un hueco vacío, así
+                // que una plantilla con `{{1}}` y un contacto sin nombre no se
+                // puede mandar en blanco como un correo. Ver `preparar`.
+                p.preparar(&valores, RESERVA_DE_WHATSAPP).ok()
+            })
+            .map(|m| m.valores);
+
+        // ── EL CONTENIDO, SEGÚN EL CANAL (D-WA) ──────────────────────────
+        //
+        // En correo se manda aunque falte el cuerpo: es la decisión de la H-15
+        // —un correo vacío se ve, una campaña muda no—. En WhatsApp no cabe
+        // esa salida: sin plantilla aprobada, Meta rechaza. Se para antes de
+        // gastar un intento.
+        let contenido = match self.ajustes.canal {
+            arles_core::Canal::Correo => Contenido::Correo {
+                asunto: correo.as_ref().map_or("", |c| c.asunto.as_str()),
+                html: correo.as_ref().map_or("", |c| c.html.as_str()),
+            },
+            arles_core::Canal::WhatsApp => match &valores_de_whatsapp {
+                Some(v) => Contenido::Whatsapp { valores: v },
+                None => return Ok(Paso::SinPlantillaDeWhatsapp),
+            },
+        };
+
+        let mensaje = Mensaje {
+            para: &trabajo.direccion,
+            // Esto sale de una campaña: lleva su salida de baja.
+            de_una_campana: true,
+            contenido,
+            clave_de_idempotencia: &trabajo.clave_de_idempotencia,
+        };
+        match self.proveedor.enviar(&mensaje) {
+            Ok(aceptado) => {
+                // ─────────────────────────────────────────────────────────
+                // EL PRESUPUESTO SE ANOTA ANTES QUE EL ESTADO, Y ESO IMPORTA
+                //
+                // Si el programa muriera entre las dos escrituras:
+                //
+                //   · Presupuesto primero → queda un permiso gastado por un
+                //     envío que la fila no confirma. La campaña rinde uno
+                //     menos. **Se envía de menos.**
+                //   · Estado primero → queda un envío registrado que no gastó
+                //     permiso. La cuenta puede pasarse del límite del
+                //     proveedor. **Se envía de más.**
+                //
+                // Enviar de menos se ve y se arregla; pasarse del límite de
+                // Gmail cuesta la cuenta. Es la misma asimetría de ADR-0004,
+                // aplicada aquí.
+                self.db.anotar_un_envio(
+                    &self.ajustes.cuenta,
+                    &self.ajustes.etapa,
+                    &hora,
+                    &dia,
+                    &marca,
+                )?;
+
+                let id_del_proveedor = aceptado.id_del_proveedor.as_deref().map(recortar_respuesta);
+                self.db
+                    .marcar_enviado(&trabajo.id, id_del_proveedor.as_deref(), None, &marca)?;
+                // Un envío que sale borra la racha de fallos de la cuenta.
+                self.db.aplicar_al_disyuntor(
+                    &self.ajustes.cuenta,
+                    tras_un_acierto(),
+                    &marca,
+                    None,
+                )?;
+                Ok(Paso::Aceptado {
+                    intento: trabajo.id,
+                })
+            }
+            Err(fallo) => self.anotar_el_fallo(&trabajo, fallo, ahora, &marca),
+        }
+    }
+
+    /// Traduce un fallo del proveedor a una decisión, y la escribe.
+    ///
+    /// La decisión la toma `arles_core::reintento::que_hacer`, no este archivo:
+    /// la política de reintentos es una regla de negocio (D-12) y vive con las
+    /// demás. Aquí sólo se obedece.
+    fn anotar_el_fallo(
+        &self,
+        trabajo: &TrabajoTomado,
+        fallo: Fallo,
+        ahora: OffsetDateTime,
+        marca: &str,
+    ) -> Result<Paso, DbError> {
+        // El disyuntor primero: habla de la CUENTA, y la decisión de abajo
+        // habla de ESTE ENVÍO. Son dos cosas distintas y las dos ocurren.
+        let salud = self.db.salud_de_la_cuenta(&self.ajustes.cuenta, marca)?;
+        let efecto = tras_un_fallo(fallo, salud.fallos_seguidos);
+        let hasta = match efecto {
+            Efecto::Abrir { durante, .. } => Some(sello(
+                ahora.saturating_add(durante.try_into().unwrap_or(time::Duration::ZERO)),
+            )),
+            _ => None,
+        };
+        self.db
+            .aplicar_al_disyuntor(&self.ajustes.cuenta, efecto, marca, hasta.as_deref())?;
+
+        let decision = que_hacer(fallo, trabajo.reintentos_ya_hechos, self.entorno.azar());
+        let clave = decision.clave_i18n();
+        let id = trabajo.id.clone();
+
+        match decision {
+            Decision::Reintentar { espera, cual, de } => {
+                let cuando = sello(ahora.saturating_add(espera.try_into().unwrap_or_default()));
+                self.db.marcar_fallido(&id, clave, None, &cuando, marca)?;
+                Ok(Paso::Reintentara {
+                    intento: id,
+                    cual,
+                    de,
+                })
+            }
+            Decision::Rendirse => {
+                self.db.marcar_rendido(&id, clave, None, marca)?;
+                Ok(Paso::Rendido { intento: id })
+            }
+            Decision::RendirseYDarDeBaja => {
+                self.db.marcar_rendido(&id, clave, None, marca)?;
+                // Por dirección y no por contacto: el contacto puede haberse
+                // borrado, y el rebote puede venir de una dirección que nunca
+                // estuvo en la agenda. Lo que no se puede volver a escribir es
+                // **la dirección**.
+                self.db.suprimir_direccion(
+                    self.ajustes.empresa,
+                    self.ajustes.canal,
+                    &trabajo.direccion,
+                    MotivoDeSupresion::RebotePermanente,
+                    // Del canal y no fijo: escrito a mano, una baja de un
+                    // número de WhatsApp decía que la había dicho un servidor
+                    // de correo (arreglado en la V20).
+                    OrigenDeSupresion::lo_dijo_el_proveedor_de(self.ajustes.canal),
+                    // El motor no escribe notas: aquí no hay nadie escribiendo nada.
+                    None,
+                )?;
+                Ok(Paso::DadoDeBaja { intento: id })
+            }
+            Decision::PararLaCuenta => {
+                self.db
+                    .marcar_en_espera_de_la_cuenta(&id, clave, None, marca)?;
+                Ok(Paso::CuentaParada { intento: id })
+            }
+            // El proveedor dice que esa persona pidió la baja. No es un fallo
+            // nuestro, pero el envío ya empezó: la fila se cierra como
+            // definitiva —con la clave que dice por qué— y la dirección entra
+            // en la lista de bajas, que es lo que de verdad la protege.
+            //
+            // No se cierra como `suppressed` aunque lo parezca: ese estado no
+            // cuenta como envío consumido, y una fila que llegó a `sending`
+            // pudo salir. Está argumentado en `arles_core::attempt::puede_ir_a`.
+            Decision::NoEsUnFallo => {
+                self.db.marcar_rendido(&id, clave, None, marca)?;
+                self.db.suprimir_direccion(
+                    self.ajustes.empresa,
+                    self.ajustes.canal,
+                    &trabajo.direccion,
+                    MotivoDeSupresion::Baja,
+                    // Quien lo pidió fue la persona, por el camino que su canal
+                    // le ofrece: el botón de cancelar suscripción del correo o
+                    // el control de promociones de WhatsApp (131050).
+                    OrigenDeSupresion::lo_pidio_quien_recibe_por(self.ajustes.canal),
+                    // El motor no escribe notas: aquí no hay nadie escribiendo nada.
+                    None,
+                )?;
+                Ok(Paso::Baja { intento: id })
+            }
+        }
+    }
+
+    /// Da pasos hasta que no haya más que hacer ahora mismo.
+    ///
+    /// Devuelve el último paso, que dice **por qué** se detuvo: no hay trabajo,
+    /// no es la hora, no hay cupo, alguien paró, o la cuenta no autentica. Ese
+    /// «por qué» es lo que la pantalla enseña; un motor que se para sin decirlo
+    /// se lee como una avería (§95).
+    ///
+    /// Quien llama decide cuánto esperar antes de volver. El bucle **no
+    /// duerme**: dormir aquí haría que cada prueba tardara lo que tarda el
+    /// reloj de verdad.
+    ///
+    /// `tope` acota cuántos pasos se dan de una tacada, para que una cola de
+    /// quinientos mil no ocupe el hilo sin soltarlo nunca.
+    ///
+    /// # Errores
+    ///
+    /// [`DbError`] si la base falla.
+    pub fn correr(&self, tope: u32) -> Result<Paso, DbError> {
+        self.correr_contando(tope, &mut |_| {})
+    }
+
+    /// Lo mismo, pero **contando cada paso a quien quiera escucharlo**.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// POR QUÉ UN AVISO Y NO UN `Vec<Paso>` DEVUELTO
+    ///
+    /// Porque `correr` puede dar veinticinco pasos por vuelta y el bucle no
+    /// para nunca: acumular en memoria para devolverlo al final crece sin
+    /// techo mientras haya trabajo, y lo que quiere quien llama es escribir
+    /// cada suceso a medida que pasa, no un montón al terminar.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// Y POR QUÉ ESTE CRATE NO ESCRIBE EL REGISTRO ÉL MISMO
+    ///
+    /// Porque `arles-motor` **no escribe SQL** — pide a `arles-db` con métodos
+    /// tipados (`ARQUITECTURA.md`). Anotar la actividad es una escritura, y
+    /// quien la hace es `arles-app`, que es quien ya conoce la campaña, la
+    /// etapa y el canal que este trabajador está sirviendo.
+    ///
+    /// El aviso se llama **después** de cada paso, nunca antes: un suceso que
+    /// se anuncia y luego falla sería una bitácora que cuenta lo que no pasó.
+    ///
+    /// # Errores
+    ///
+    /// Los mismos que [`Self::un_paso`].
+    pub fn correr_contando(
+        &self,
+        tope: u32,
+        avisar: &mut dyn FnMut(&Paso),
+    ) -> Result<Paso, DbError> {
+        let mut ultimo = Paso::NoHayTrabajo;
+        for _ in 0..tope {
+            ultimo = self.un_paso()?;
+            avisar(&ultimo);
+            if !ultimo.hay_mas_que_hacer() {
+                break;
+            }
+        }
+        Ok(ultimo)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::Cell;
+
+    use arles_core::campana::AccionDeCampana::{Pausar, Reanudar};
+    use arles_core::disyuntor::FALLOS_PARA_ABRIR;
+    use arles_core::ritmo::Limites;
+    use arles_core::ventana::{Dias, zona};
+    use arles_db::ClaveMaestra;
+    use rusqlite::params;
+    use time::macros::datetime;
+
+    use crate::simulador::{ProveedorSimulado, Respuesta};
+
+    /// Un miércoles a las 10 de la mañana en Ciudad de México: dentro de una
+    /// ventana de lunes a viernes de 9 a 18.
+    const EN_HORARIO: OffsetDateTime = datetime!(2026-09-23 16:00:00 UTC);
+    /// El mismo día a las 23:00 de México. Fuera.
+    const DE_NOCHE: OffsetDateTime = datetime!(2026-09-24 05:00:00 UTC);
+
+    /// Reloj y azar bajo control. Ver [`Entorno`].
+    struct EntornoFijo {
+        ahora: OffsetDateTime,
+        azar: f64,
+    }
+
+    impl Entorno for EntornoFijo {
+        fn ahora(&self) -> OffsetDateTime {
+            self.ahora
+        }
+        fn azar(&self) -> f64 {
+            self.azar
+        }
+    }
+
+    /// El azar en el punto medio: el reintento sale en su hora exacta, sin
+    /// desplazamiento. Es lo que permite afirmar «a los cinco minutos» y que
+    /// sea verdad.
+    fn entorno(ahora: OffsetDateTime) -> EntornoFijo {
+        EntornoFijo { ahora, azar: 0.5 }
+    }
+
+    const EMPRESA: &str = "11111111-1111-4111-8111-111111111111";
+    const CUENTA: &str = "cuenta-1";
+    const CAMPANA: &str = "camp";
+    /// La etapa de la campaña de pruebas. Desde la V13 el presupuesto cuelga de
+    /// ella (D-13), y su clave ajena obliga a que exista: sin sembrarla, anotar
+    /// un envío falla con `FOREIGN KEY constraint failed`.
+    const ETAPA: &str = "etapa-1";
+
+    fn base() -> (tempfile::TempDir, Db) {
+        let dir = tempfile::tempdir().expect("temporal");
+        let clave = ClaveMaestra::generar().expect("genera");
+        let db = Db::abrir(&dir.path().join("arles.db"), &clave).expect("abre");
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "INSERT INTO company (id, commercial_name, country, timezone,
+                                      corporate_email, created_at, updated_at)
+                 VALUES (?1, 'TELEMETRY', 'MX', 'America/Mexico_City',
+                         'hola@t.mx', '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
+                params![EMPRESA],
+            )?;
+            c.execute(
+                "INSERT INTO email_account (id, company_id, display_name, email_address,
+                                            provider_kind, credential_ref, status,
+                                            daily_limit, hourly_limit, created_at, updated_at)
+                 VALUES (?1, ?2, 'Ventas', 'ventas@t.mx', 'smtp', 'llavero://ventas',
+                         'connected', 50, 10, '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
+                params![CUENTA, EMPRESA],
+            )?;
+            c.execute(
+                // `running`: una campaña activada. El estado importa desde la
+                // entrega 4.4 — el freno de la base lo consulta antes de cada
+                // envío, y una campaña en borrador no envía nada.
+                "INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                 VALUES (?1, ?2, 'Prueba', 'running',
+                         '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
+                params![CAMPANA, EMPRESA],
+            )?;
+            c.execute(
+                "INSERT INTO campaign_stage (id, campaign_id, position, channel,
+                                             email_account_id, status,
+                                             created_at, updated_at)
+                 VALUES (?1, ?2, 1, 'email', ?3, 'running',
+                         '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
+                params![ETAPA, CAMPANA, CUENTA],
+            )
+        })
+        .expect("siembra");
+        (dir, db)
+    }
+
+    fn encolar(db: &Db, id: &str, direccion: &str) {
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "INSERT INTO message_attempt
+                     (id, campaign_id, channel, contact_address, idempotency_key,
+                      state, attempt_count, created_at, updated_at)
+                 VALUES (?1, ?2, 'email', ?3, ?4, 'queued', 0,
+                         '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
+                params![id, CAMPANA, direccion, format!("msgid-{id}")],
+            )
+        })
+        .expect("encola");
+    }
+
+    fn fila(db: &Db, id: &str, columna: &str) -> Option<String> {
+        let sql = format!("SELECT {columna} FROM message_attempt WHERE id = ?1");
+        db.ejecutar_en_pruebas(|c| c.query_row(&sql, params![id], |f| f.get(0)))
+            .expect("lee")
+    }
+
+    fn ajustes() -> Ajustes {
+        let mx = zona("America/Mexico_City").expect("zona conocida");
+        Ajustes {
+            empresa: EMPRESA.parse().expect("id válido"),
+            campana: CAMPANA.to_owned(),
+            cuenta: CUENTA.to_owned(),
+            etapa: ETAPA.to_owned(),
+            canal: Canal::Correo,
+            ventana: Ventana::nueva(Dias::LABORABLES, 9, 18, mx.clone()).expect("ventana"),
+            limites: Limites::nuevos(10, 50),
+            zona_de_la_empresa: mx,
+            // Sin redacción: estas pruebas miden el ritmo, la cola y el
+            // freno. El texto se prueba donde se redacta —en el núcleo— y
+            // ponerlo aquí haría que cada aserción del bucle dependiera de
+            // una plantilla que no es lo que se está mirando.
+            redaccion: None,
+            plantilla_de_whatsapp: None,
+        }
+    }
+
+    /// Nadie ha pulsado parar.
+    fn sin_freno() -> impl Fn() -> bool {
+        || false
+    }
+
+    // ─── El camino que tiene que funcionar ──────────────────────────────────
+
+    #[test]
+    fn un_envio_normal_sale_y_gasta_presupuesto() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        let p = ProveedorSimulado::que_siempre(Respuesta::Acepta("prov-1"));
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes());
+
+        assert_eq!(
+            t.un_paso().expect("paso"),
+            Paso::Aceptado {
+                intento: "a".to_owned()
+            }
+        );
+        assert_eq!(fila(&db, "a", "state").as_deref(), Some("sent"));
+        assert_eq!(
+            fila(&db, "a", "provider_message_id").as_deref(),
+            Some("prov-1")
+        );
+        assert!(p.le_pidieron_enviar_a("ana@x.mx"));
+
+        let gastado = db
+            .gastado_de(
+                CUENTA,
+                ETAPA,
+                &clave_de_hora(&ajustes().zona_de_la_empresa, EN_HORARIO),
+                &clave_de_dia(&ajustes().zona_de_la_empresa, EN_HORARIO),
+            )
+            .expect("presupuesto");
+        assert_eq!(gastado.en_este_dia, 1);
+        assert_eq!(gastado.en_esta_hora, 1);
+    }
+
+    /// El `Message-Id` que se generó al encolar es el que viaja al proveedor.
+    ///
+    /// Es la tercera capa contra el duplicado (`arles_db::cola`): si el motor
+    /// se inventara uno nuevo en cada intento, un reintento de algo que sí
+    /// salió llegaría como un mensaje distinto y el proveedor no podría
+    /// reconocerlo.
+    #[test]
+    fn el_mensaje_lleva_la_clave_que_se_guardo_al_encolar() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+            .un_paso()
+            .expect("paso");
+
+        let pedido = p
+            .recibidos()
+            .into_iter()
+            .next()
+            .expect("el proveedor recibió el pedido");
+        assert_eq!(pedido.clave_de_idempotencia, "msgid-a");
+    }
+
+    // ─── EL CANAL DE WHATSAPP, QUE NINGUNA PRUEBA DEL MOTOR RECORRÍA ───────
+
+    /// Siembra dos contactos con sus móviles y encola un intento por WhatsApp
+    /// para cada uno. La etapa de la campaña pasa a ser de WhatsApp.
+    fn preparar_whatsapp(db: &Db) {
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "INSERT INTO whatsapp_account (id, company_id, display_name,
+                                               phone_e164, waba_id, phone_number_id,
+                                               credential_ref, status,
+                                               created_at, updated_at)
+                 VALUES ('wa-1', ?1, 'Ventas', '+525512340000', 'waba-1', '1234567890',
+                         'llavero://wa', 'connected',
+                         '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
+                params![EMPRESA],
+            )?;
+            // La etapa cambia de canal: la de correo se queda sin usar.
+            c.execute(
+                "UPDATE campaign_stage
+                    SET channel = 'whatsapp', email_account_id = NULL,
+                        whatsapp_account_id = 'wa-1'
+                  WHERE id = ?1",
+                params![ETAPA],
+            )?;
+            for (id, nombre, apellido, movil) in [
+                ("k1", "Ana", "Ruiz", "+5215512345678"),
+                ("k2", "Beto", "Nava", "+5215587654321"),
+            ] {
+                c.execute(
+                    "INSERT INTO contact (id, company_id, first_name, last_name,
+                                          source, created_at, updated_at)
+                     VALUES (?1, ?2, ?3, ?4, 'Telemetry',
+                             '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
+                    params![id, EMPRESA, nombre, apellido],
+                )?;
+                c.execute(
+                    "INSERT INTO message_attempt
+                         (id, campaign_id, channel, contact_id, contact_address,
+                          idempotency_key, state, attempt_count, created_at, updated_at)
+                     VALUES (?1, ?2, 'whatsapp', ?3, ?4, ?5, 'queued', 0,
+                             '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
+                    params![format!("i-{id}"), CAMPANA, id, movil, format!("msgid-{id}")],
+                )?;
+            }
+            Ok(0)
+        })
+        .expect("siembra de WhatsApp");
+    }
+
+    /// Una plantilla aprobada con dos huecos: nombre y empresa.
+    fn plantilla_aprobada() -> arles_core::whatsapp::PlantillaDeMeta {
+        arles_core::whatsapp::PlantillaDeMeta {
+            nombre: "aviso_de_servicio".to_owned(),
+            idioma: "es_MX".to_owned(),
+            estado: arles_core::whatsapp::EstadoEnMeta::Aprobada,
+            huecos: vec![
+                arles_core::plantilla::Variable::Nombre,
+                arles_core::plantilla::Variable::Apellido,
+            ],
+            cuerpo: "Hola {{1}} {{2}}".to_owned(),
+        }
+    }
+
+    fn ajustes_de_whatsapp() -> Ajustes {
+        Ajustes {
+            canal: Canal::WhatsApp,
+            plantilla_de_whatsapp: Some(plantilla_aprobada()),
+            ..ajustes()
+        }
+    }
+
+    /// **Cada persona recibe SUS datos, no los de la primera.**
+    ///
+    /// ── POR QUÉ ESTA PRUEBA EXISTE, Y QUÉ NO CUBRÍA NADIE ──────────────
+    ///
+    /// Auditoría H, 04/11/2026. El motor tiene su rama de WhatsApp desde D-WA
+    /// y **ninguna prueba de este módulo la recorría**: las diecisiete pruebas
+    /// de WhatsApp del taller miden el núcleo, el alta de campaña, la frontera
+    /// y el adaptador — cada capa la suya— y el motor, que es quien decide qué
+    /// sale y con qué contenido, se quedaba sin ninguna. Es el hueco entre dos
+    /// capas que cada una pasa lo suyo.
+    ///
+    /// Y lo que mide es justo lo que el comentario de `valores_de_whatsapp`
+    /// dice que antes fallaba: *«el proveedor traía su contenido pegado, así
+    /// que una campaña entera habría salido con los datos del primer
+    /// contacto»*. Con un solo contacto eso no se ve. Con dos, sí.
+    #[test]
+    fn por_whatsapp_cada_persona_recibe_sus_propios_datos() {
+        let (_d, db) = base();
+        preparar_whatsapp(&db);
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+
+        for _ in 0..2 {
+            let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes_de_whatsapp());
+            t.un_paso().expect("paso");
+        }
+
+        let pedidos = p.recibidos();
+        assert_eq!(pedidos.len(), 2, "no salieron los dos mensajes de WhatsApp");
+
+        // El simulador guarda los valores de la plantilla unidos por « · ».
+        let contenidos: Vec<String> = pedidos.iter().map(|x| x.html.clone()).collect();
+        assert!(
+            contenidos.contains(&"Ana · Ruiz".to_owned()),
+            "el primer mensaje no llevó los datos de Ana: {contenidos:?}"
+        );
+        assert!(
+            contenidos.contains(&"Beto · Nava".to_owned()),
+            "el segundo mensaje no llevó los datos de Beto —la campaña entera \
+             salió con los datos de una sola persona—: {contenidos:?}"
+        );
+    }
+
+    /// **La baja por WhatsApp se guarda como lo que es: la pidió esa persona,
+    /// por WhatsApp.**
+    ///
+    /// ── POR QUÉ ESTA PRUEBA, Y QUÉ NO CUBRÍA NADIE ─────────────────────
+    ///
+    /// Peticíón de Dirección del 11/11/2026. La mitad del camino ya estaba:
+    /// el núcleo tiene `Fallo::EsaPersonaPidioLaBaja` desde la Fase 4 y este
+    /// módulo ya suprimía al recibirlo. Lo que faltaba era **que la señal
+    /// llegara** —el `131050` de Meta caía en el cajón de lo desconocido— y
+    /// que la fila dijera la verdad.
+    ///
+    /// Porque el origen se escribía **fijo** en `RespuestaSmtp`, así que desde
+    /// que el motor recorre WhatsApp (D-WA, 26/10/2026) una baja de un número
+    /// de móvil se guardaba diciendo que la había dicho un servidor de correo.
+    /// Nada fallaba: la fila entraba y el número dejaba de recibir. Lo que
+    /// quedaba mal era justo aquello para lo que existe el campo — poder
+    /// defender de dónde salió cada baja.
+    ///
+    /// Lo que mide es el **par** canal→origen, y lo mide en los dos canales:
+    /// una prueba de uno solo pasa en verde con la constante de siempre.
+    #[test]
+    fn la_baja_dice_por_que_canal_la_pidieron() {
+        for (canal, ajustes_del_canal, origen_esperado) in [
+            (
+                Canal::WhatsApp,
+                ajustes_de_whatsapp(),
+                OrigenDeSupresion::PeticionPorWhatsApp,
+            ),
+            (
+                Canal::Correo,
+                ajustes(),
+                OrigenDeSupresion::PeticionPorCorreo,
+            ),
+        ] {
+            let (_d, db) = base();
+            // `preparar_whatsapp` cambia la etapa de canal y encola sus
+            // móviles; en correo hay que encolar a mano, como el resto de las
+            // pruebas de este módulo.
+            if canal == Canal::WhatsApp {
+                preparar_whatsapp(&db);
+            } else {
+                encolar(&db, "a", "ana@x.mx");
+            }
+
+            let p = ProveedorSimulado::que_siempre(Respuesta::PidioLaBaja);
+            let e = entorno(EN_HORARIO);
+            let f = sin_freno();
+
+            let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes_del_canal);
+            let paso = t.un_paso().expect("paso");
+            assert!(
+                matches!(paso, Paso::Baja { .. }),
+                "{canal:?}: el motor no cerró el intento como baja: {paso:?}"
+            );
+
+            let bajas = db
+                .listar_supresiones(EMPRESA.parse().expect("id"), 0, 10)
+                .expect("listar");
+            assert_eq!(bajas.len(), 1, "{canal:?}: no se guardó la baja");
+            let baja = bajas.first().expect("hay una");
+            assert_eq!(
+                baja.origen, origen_esperado,
+                "{canal:?}: la baja se guardó con el origen de otro canal"
+            );
+            assert_eq!(
+                baja.motivo,
+                MotivoDeSupresion::Baja,
+                "{canal:?}: el motivo tiene que ser la baja, no un rebote"
+            );
+            assert_eq!(baja.canal, canal, "{canal:?}: canal equivocado");
+        }
+    }
+
+    /// **Una etapa de WhatsApp sin plantilla no manda nada**, y se para antes
+    /// de gastar el intento.
+    ///
+    /// En correo se manda aunque falte el cuerpo (H-15: un correo vacío se ve,
+    /// una campaña muda no). En WhatsApp no cabe esa salida: Meta rechaza lo
+    /// que no es una plantilla aprobada, así que mandarlo gastaría el intento y
+    /// quemaría reputación del número para nada.
+    #[test]
+    fn por_whatsapp_sin_plantilla_no_se_manda_ni_se_gasta_el_intento() {
+        let (_d, db) = base();
+        preparar_whatsapp(&db);
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+
+        let sin_plantilla = Ajustes {
+            canal: Canal::WhatsApp,
+            plantilla_de_whatsapp: None,
+            ..ajustes()
+        };
+        let t = Trabajador::nuevo(&db, &p, &e, &f, sin_plantilla);
+
+        assert_eq!(t.un_paso().expect("paso"), Paso::SinPlantillaDeWhatsapp);
+        assert_eq!(
+            p.cuantos_pedidos(),
+            0,
+            "se llamó al proveedor sin una plantilla aprobada"
+        );
+    }
+
+    // ─── Las cuatro puertas de antes de enviar ──────────────────────────────
+
+    /// **Fuera de horario no sale nada, y ni siquiera se toma el trabajo.**
+    ///
+    /// Verificada rompiéndola el 23/09/2026: quitando el `return` de la
+    /// ventana, esta prueba falla en las tres comprobaciones — el paso pasa a
+    /// `Aceptado`, la fila a `sent` y el simulador recibe el pedido.
+    #[test]
+    fn de_noche_no_sale_nada_ni_se_toca_la_cola() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(DE_NOCHE);
+        let f = sin_freno();
+
+        assert_eq!(
+            Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+                .un_paso()
+                .expect("paso"),
+            Paso::FueraDeVentana
+        );
+        assert_eq!(
+            fila(&db, "a", "state").as_deref(),
+            Some("queued"),
+            "tomar un trabajo que no se va a enviar lo deja marcado para nadie"
+        );
+        assert_eq!(p.cuantos_pedidos(), 0);
+    }
+
+    /// **Agotado el cupo del día, se pausa y se avisa. No se busca otra
+    /// cuenta.**
+    ///
+    /// La rotación automática de remitentes está prohibida (T-1, ADR-0008): es
+    /// el comportamiento que distingue a una herramienta de envío legítima de
+    /// una de spam, y lo que hace que un proveedor cierre todas las cuentas de
+    /// un dominio a la vez en lugar de una.
+    #[test]
+    fn sin_cupo_del_dia_se_pausa_y_no_se_busca_otra_cuenta() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        let limites = Limites::nuevos(10, 2);
+        let hora = clave_de_hora(&ajustes().zona_de_la_empresa, EN_HORARIO);
+        let dia = clave_de_dia(&ajustes().zona_de_la_empresa, EN_HORARIO);
+        for _ in 0..2 {
+            db.anotar_un_envio(CUENTA, ETAPA, &hora, &dia, "2026-09-23T16:00:00Z")
+                .expect("gasta");
+        }
+
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let paso = Trabajador::nuevo(
+            &db,
+            &p,
+            &e,
+            &f,
+            Ajustes {
+                limites,
+                ..ajustes()
+            },
+        )
+        .un_paso()
+        .expect("paso");
+
+        assert_eq!(
+            paso,
+            Paso::SinPresupuesto(NoSePuede::TopeDelDia { cabian: 2 })
+        );
+        assert_eq!(p.cuantos_pedidos(), 0);
+        assert_eq!(fila(&db, "a", "state").as_deref(), Some("queued"));
+    }
+
+    /// **Quien pidió la baja no recibe, aunque estuviera en la audiencia
+    /// congelada.**
+    ///
+    /// Es el motivo por el que la lista de bajas se consulta en el instante de
+    /// enviar y no al encolar: entre las dos cosas pasan meses.
+    ///
+    /// Verificada rompiéndola el 23/09/2026: quitando la consulta,
+    /// `le_pidieron_enviar_a` pasa a devolver `true` y esta prueba falla
+    /// diciendo que se le escribió a quien había pedido no recibir.
+    /// Siembra un envío YA SALIDO de otra campaña a esa dirección.
+    ///
+    /// `sent_at` con la fecha que se pida: es lo que decide si el descanso ya
+    /// pasó. La campaña es otra a propósito —`otra-campana`— porque lo que
+    /// D-16 separa son campañas distintas; dos envíos de la misma no existen
+    /// (`idx_attempt_unique` lo impide).
+    fn ya_recibio_de_otra_campana(db: &Db, direccion: &str, cuando: &str) {
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(&format!(
+                "INSERT INTO campaign (id, company_id, name, status, created_at, updated_at)
+                 VALUES ('otra-campana', '{EMPRESA}', 'La otra', 'running',
+                         '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z');
+                 INSERT INTO message_attempt
+                     (id, campaign_id, channel, contact_address, idempotency_key,
+                      state, attempt_count, sent_at, created_at, updated_at)
+                 VALUES ('viejo', 'otra-campana', 'email', '{direccion}', 'msgid-viejo',
+                         'sent', 1, '{cuando}', '{cuando}', '{cuando}');"
+            ))
+        })
+        .expect("siembra el envío anterior");
+    }
+
+    /// **Dos campañas no le escriben a la misma persona el mismo día (D-16).**
+    ///
+    /// ─────────────────────────────────────────────────────────────────────
+    /// LO QUE PIDIÓ DIRECCIÓN, Y LO QUE ESTO NO HACE
+    ///
+    ///   «Me gustaría tener cuidado que no se envíen en el mismo día; si es
+    ///   posible que pase un lapso de 1 o 2 semanas para no hostigar.»
+    ///
+    /// **No se cancela nada.** El envío vuelve a la cola con fecha y sale
+    /// cuando toca: esa persona recibe las dos campañas, sólo que separadas.
+    /// Sacarla de la audiencia habría sido perder el envío sin que nadie lo
+    /// supiera — una audiencia más corta no se distingue de una lista más
+    /// corta.
+    ///
+    /// Se comprueban las tres cosas que tienen que pasar a la vez, porque cada
+    /// una se puede romper sola:
+    ///
+    ///   1. al proveedor **no se le pide nada**;
+    ///   2. el envío sigue en la cola, no se pierde;
+    ///   3. y tiene fecha para más tarde, o volvería a salir en el acto y el
+    ///      motor giraría en vacío.
+    ///
+    /// Verificada rompiéndola: sin la consulta del descanso sale
+    /// `Paso::Aceptado` y `le_pidieron_enviar_a` devuelve `true`.
+    #[test]
+    fn dos_campanas_no_escriben_el_mismo_dia() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        // Le escribimos hace dos horas desde la otra campaña.
+        ya_recibio_de_otra_campana(&db, "ana@x.mx", "2026-09-29T08:00:00Z");
+
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let paso = Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+            .un_paso()
+            .expect("paso");
+
+        assert!(
+            matches!(paso, Paso::EnDescanso { ref intento, .. } if intento == "a"),
+            "tenía que esperar, y salió {paso:?}"
+        );
+        assert!(
+            !p.le_pidieron_enviar_a("ana@x.mx"),
+            "no se le llegó a pedir nada al proveedor"
+        );
+        // Sigue en la cola: no se pierde.
+        assert_eq!(fila(&db, "a", "state").as_deref(), Some("queued"));
+        // Y con fecha, o volvería a salir en el acto.
+        assert!(
+            fila(&db, "a", "scheduled_for").is_some(),
+            "sin fecha, el motor lo tomaría otra vez y giraría en vacío"
+        );
+    }
+
+    /// **Y pasados los catorce días sale.**
+    ///
+    /// La pareja de la anterior. Sin ella, el descanso podría estar escrito
+    /// como «nunca sale si recibió algo alguna vez» y la de arriba seguiría en
+    /// verde — que es perder el envío con otra cara.
+    #[test]
+    fn pasado_el_descanso_el_segundo_correo_sale() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        // Hace más de catorce días: el reloj de las pruebas es el 29/09.
+        ya_recibio_de_otra_campana(&db, "ana@x.mx", "2026-09-01T08:00:00Z");
+
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let paso = Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+            .un_paso()
+            .expect("paso");
+
+        assert_eq!(
+            paso,
+            Paso::Aceptado {
+                intento: "a".to_owned()
+            },
+            "a los veintiocho días ya se le puede escribir"
+        );
+        assert!(p.le_pidieron_enviar_a("ana@x.mx"));
+    }
+
+    /// **El descanso NO frena los envíos de la propia campaña.**
+    ///
+    /// Es el caso que lo convertiría en un desastre: si la consulta no
+    /// excluyera la campaña en curso, el segundo correo de una campaña de mil
+    /// personas esperaría catorce días por culpa del primero, y la campaña
+    /// entera se pararía sola.
+    ///
+    /// No puede pasar por el esquema —`idx_attempt_unique` impide dos intentos
+    /// de la misma campaña a la misma dirección— pero la consulta mira **todas
+    /// las direcciones**, no sólo ésta. Lo que se comprueba es que un envío ya
+    /// salido de ESTA campaña a OTRA persona no frena a nadie.
+    #[test]
+    fn un_envio_de_la_propia_campana_no_frena_al_siguiente() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        // Un envío de ESTA campaña, hace un minuto, a otra persona.
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "INSERT INTO message_attempt
+                     (id, campaign_id, channel, contact_address, idempotency_key,
+                      state, attempt_count, sent_at, created_at, updated_at)
+                 VALUES ('previo', ?1, 'email', 'beto@x.mx', 'msgid-previo',
+                         'sent', 1, '2026-09-29T09:59:00Z', '2026-09-29T09:00:00Z',
+                         '2026-09-29T09:59:00Z')",
+                params![CAMPANA],
+            )
+        })
+        .expect("siembra");
+
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let paso = Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+            .un_paso()
+            .expect("paso");
+
+        assert_eq!(
+            paso,
+            Paso::Aceptado {
+                intento: "a".to_owned()
+            },
+            "la propia campaña no se frena a sí misma"
+        );
+    }
+
+    #[test]
+    fn quien_pidio_la_baja_no_recibe_nada() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        db.suprimir_direccion(
+            EMPRESA.parse().expect("id"),
+            Canal::Correo,
+            "ana@x.mx",
+            MotivoDeSupresion::Baja,
+            OrigenDeSupresion::Usuario,
+            None,
+        )
+        .expect("suprime");
+
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let paso = Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+            .un_paso()
+            .expect("paso");
+
+        assert_eq!(
+            paso,
+            Paso::Baja {
+                intento: "a".to_owned()
+            }
+        );
+        assert_eq!(fila(&db, "a", "state").as_deref(), Some("suppressed"));
+        assert!(
+            !p.le_pidieron_enviar_a("ana@x.mx"),
+            "al proveedor no se le llegó a pedir nada: esa persona pidió no \
+             recibir"
+        );
+    }
+
+    /// **La parada se comprueba OTRA VEZ justo antes de enviar.**
+    ///
+    /// Entre la primera comprobación y el envío hay dos consultas a la base de
+    /// datos: tiempo de sobra para que alguien pulse el botón. Sin la segunda,
+    /// «parar» significaría «parar dentro de un correo más», y ese correo sale
+    /// de verdad.
+    ///
+    /// El freno de esta prueba dice «no» la primera vez y «sí» la segunda, que
+    /// es exactamente lo que pasa cuando alguien pulsa en medio.
+    ///
+    /// Verificada rompiéndola el 23/09/2026: quitando la segunda comprobación,
+    /// el paso pasa a `Aceptado` y el simulador recibe el pedido.
+    #[test]
+    fn la_parada_se_comprueba_otra_vez_justo_antes_de_enviar() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        let veces = Cell::new(0u32);
+        let freno = || {
+            let n = veces.get();
+            veces.set(n + 1);
+            // La primera vez todavía no ha pulsado. La segunda, sí.
+            n > 0
+        };
+
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let paso = Trabajador::nuevo(&db, &p, &e, &freno, ajustes())
+            .un_paso()
+            .expect("paso");
+
+        assert_eq!(
+            paso,
+            Paso::Cancelado {
+                intento: "a".to_owned()
+            }
+        );
+        assert_eq!(fila(&db, "a", "state").as_deref(), Some("cancelled"));
+        assert_eq!(
+            p.cuantos_pedidos(),
+            0,
+            "«parar» significa ningún correo más, no un correo más"
+        );
+    }
+
+    #[test]
+    fn con_la_parada_puesta_no_se_mira_ni_la_cola() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = || true;
+        assert_eq!(
+            Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+                .un_paso()
+                .expect("paso"),
+            Paso::Parado
+        );
+        assert_eq!(fila(&db, "a", "state").as_deref(), Some("queued"));
+    }
+
+    // ─── Los desenlaces de un fallo ─────────────────────────────────────────
+
+    /// Un fallo pasajero programa el primer reintento a los cinco minutos
+    /// (D-12), con el azar en el punto medio.
+    #[test]
+    fn un_fallo_pasajero_reintenta_a_los_cinco_minutos() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        let p = ProveedorSimulado::que_siempre(Respuesta::SeCayoLaRed);
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+
+        let paso = Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+            .un_paso()
+            .expect("paso");
+
+        assert_eq!(
+            paso,
+            Paso::Reintentara {
+                intento: "a".to_owned(),
+                cual: 1,
+                de: 3
+            }
+        );
+        assert_eq!(fila(&db, "a", "state").as_deref(), Some("failed"));
+        assert_eq!(
+            fila(&db, "a", "next_retry_at").as_deref(),
+            Some("2026-09-23T16:05:00Z")
+        );
+    }
+
+    /// **Un envío que falló no gasta presupuesto.**
+    ///
+    /// Un permiso gastado por un correo que no salió hace que la campaña rinda
+    /// menos de lo que el usuario configuró, y esa diferencia no se puede
+    /// explicar mirando la pantalla.
+    #[test]
+    fn un_envio_que_fallo_no_gasta_presupuesto() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        let p = ProveedorSimulado::que_siempre(Respuesta::SeCayoLaRed);
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+            .un_paso()
+            .expect("paso");
+
+        let gastado = db
+            .gastado_de(
+                CUENTA,
+                ETAPA,
+                &clave_de_hora(&ajustes().zona_de_la_empresa, EN_HORARIO),
+                &clave_de_dia(&ajustes().zona_de_la_empresa, EN_HORARIO),
+            )
+            .expect("presupuesto");
+        assert_eq!(gastado.en_este_dia, 0);
+    }
+
+    /// Agotados los tres reintentos, se rinde.
+    #[test]
+    fn al_cuarto_fallo_se_rinde() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        // Ya se reintentó las tres veces que permite D-12.
+        db.ejecutar_en_pruebas(|c| {
+            c.execute(
+                "UPDATE message_attempt SET attempt_count = 3 WHERE id = 'a'",
+                [],
+            )
+        })
+        .expect("avanza el contador");
+
+        let p = ProveedorSimulado::que_siempre(Respuesta::TardaDemasiado);
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        assert_eq!(
+            Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+                .un_paso()
+                .expect("paso"),
+            Paso::Rendido {
+                intento: "a".to_owned()
+            }
+        );
+        assert_eq!(
+            fila(&db, "a", "state").as_deref(),
+            Some("permanently_failed")
+        );
+    }
+
+    /// **Una dirección que no existe entra en la lista de bajas a la primera.**
+    ///
+    /// No se reintenta: insistir sobre una dirección muerta sube el contador
+    /// que los proveedores usan para marcar a un remitente como spam.
+    #[test]
+    fn una_direccion_que_no_existe_se_da_de_baja_sin_reintentar() {
+        let (_d, db) = base();
+        encolar(&db, "a", "nadie@x.mx");
+        let p = ProveedorSimulado::que_siempre(Respuesta::NoExisteEsaDireccion);
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+
+        assert_eq!(
+            Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+                .un_paso()
+                .expect("paso"),
+            Paso::DadoDeBaja {
+                intento: "a".to_owned()
+            }
+        );
+        assert_eq!(
+            fila(&db, "a", "state").as_deref(),
+            Some("permanently_failed")
+        );
+        assert!(
+            db.esta_suprimida(EMPRESA.parse().expect("id"), Canal::Correo, "nadie@x.mx")
+                .expect("consulta"),
+            "una dirección que no existe tiene que dejar de intentarse en ésta \
+             y en todas las campañas siguientes"
+        );
+    }
+
+    /// Y si el proveedor dice que esa persona pidió la baja, tampoco se
+    /// reintenta: se cierra y se registra la baja.
+    #[test]
+    fn si_el_proveedor_dice_que_pidio_la_baja_se_registra() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        let p = ProveedorSimulado::que_siempre(Respuesta::PidioLaBaja);
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+
+        assert_eq!(
+            Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+                .un_paso()
+                .expect("paso"),
+            Paso::Baja {
+                intento: "a".to_owned()
+            }
+        );
+        assert!(
+            db.esta_suprimida(EMPRESA.parse().expect("id"), Canal::Correo, "ana@x.mx")
+                .expect("consulta")
+        );
+    }
+
+    /// **Una credencial caducada para la cuenta entera y no gasta reintentos.**
+    ///
+    /// Ningún envío de esa cuenta va a funcionar hasta que una persona la
+    /// arregle. Seguir intentándolo gastaría los tres reintentos de media
+    /// audiencia contra una puerta cerrada.
+    #[test]
+    fn una_credencial_caducada_para_la_cuenta_y_no_gasta_reintentos() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        let p = ProveedorSimulado::que_siempre(Respuesta::LaCredencialNoSirve);
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+
+        let paso = Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+            .un_paso()
+            .expect("paso");
+        assert_eq!(
+            paso,
+            Paso::CuentaParada {
+                intento: "a".to_owned()
+            }
+        );
+        assert!(
+            !paso.hay_mas_que_hacer(),
+            "seguir dando pasos contra una cuenta que no autentica sólo gasta \
+             los reintentos de todo el que venga detrás"
+        );
+        let reintentos: i64 = db
+            .ejecutar_en_pruebas(|c| {
+                c.query_row(
+                    "SELECT attempt_count FROM message_attempt WHERE id = 'a'",
+                    [],
+                    |f| f.get(0),
+                )
+            })
+            .expect("lee");
+        assert_eq!(reintentos, 0, "lo que falló fue la cuenta, no el envío");
+    }
+
+    /// El proveedor dijo cuánto esperar, y se respeta **literalmente**.
+    #[test]
+    fn cuando_el_proveedor_dice_cuanto_esperar_se_le_hace_caso() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        let p = ProveedorSimulado::que_siempre(Respuesta::EsperaDurante(
+            std::time::Duration::from_secs(20 * 60),
+        ));
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+            .un_paso()
+            .expect("paso");
+
+        assert_eq!(
+            fila(&db, "a", "next_retry_at").as_deref(),
+            Some("2026-09-23T16:20:00Z"),
+            "acortar lo que pide un servidor es lo que hace el software de \
+             spam, y es como se consigue que te bloqueen"
+        );
+    }
+
+    // ─── El bucle ───────────────────────────────────────────────────────────
+
+    /// Tres en cola salen los tres, y el bucle para diciendo por qué.
+    #[test]
+    fn el_bucle_vacia_la_cola_y_dice_por_que_se_para() {
+        let (_d, db) = base();
+        for (id, quien) in [("a", "ana@x.mx"), ("b", "beto@x.mx"), ("c", "cris@x.mx")] {
+            encolar(&db, id, quien);
+        }
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+
+        let ultimo = Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+            .correr(100)
+            .expect("corre");
+
+        assert_eq!(ultimo, Paso::NoHayTrabajo);
+        assert_eq!(p.cuantos_pedidos(), 3);
+    }
+
+    /// **El tope del bucle existe y se respeta.**
+    ///
+    /// Sin él, una campaña de quinientos mil ocuparía el hilo sin soltarlo: ni
+    /// se podría parar, ni se podría cerrar el programa.
+    #[test]
+    fn el_bucle_suelta_el_hilo_al_llegar_al_tope() {
+        let (_d, db) = base();
+        for (id, quien) in [("a", "ana@x.mx"), ("b", "beto@x.mx"), ("c", "cris@x.mx")] {
+            encolar(&db, id, quien);
+        }
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+
+        Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+            .correr(2)
+            .expect("corre");
+
+        assert_eq!(
+            p.cuantos_pedidos(),
+            2,
+            "el tope tiene que cortar, o el bucle no suelta nunca"
+        );
+    }
+
+    // ─── El freno conectado a la base (entrega 4.4) ─────────────────────────
+
+    /// **Pausar para el motor de verdad, no sólo en la pantalla.**
+    ///
+    /// Es la prueba de punta a punta de la entrega 4.4: se manda uno, alguien
+    /// pausa, y no sale ni uno más. Sin el freno conectado a la base, la
+    /// campaña diría «en pausa» y el proveedor seguiría recibiendo pedidos.
+    ///
+    /// Verificada rompiéndola el 23/09/2026: sustituyendo `freno_de_la_base`
+    /// por un freno que siempre dice que no, el simulador recibe los tres.
+    #[test]
+    fn pausar_la_campana_detiene_el_bucle_de_verdad() {
+        let (_d, db) = base();
+        for (id, quien) in [("a", "ana@x.mx"), ("b", "beto@x.mx"), ("c", "cris@x.mx")] {
+            encolar(&db, id, quien);
+        }
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = freno_de_la_base(&db, EMPRESA.parse().expect("id"), CAMPANA);
+        let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes());
+
+        assert!(matches!(t.un_paso().expect("paso"), Paso::Aceptado { .. }));
+
+        db.aplicar_a_la_campana(EMPRESA.parse().expect("id"), CAMPANA, Pausar)
+            .expect("pausa");
+
+        assert_eq!(t.un_paso().expect("paso"), Paso::Parado);
+        assert_eq!(t.correr(100).expect("corre"), Paso::Parado);
+        assert_eq!(
+            p.cuantos_pedidos(),
+            1,
+            "salió el de antes de pausar, y ninguno después"
+        );
+    }
+
+    /// Y reanudar la vuelve a poner en marcha con la cola intacta.
+    #[test]
+    fn reanudar_devuelve_el_motor_al_trabajo() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let empresa: CompanyId = EMPRESA.parse().expect("id");
+        let f = freno_de_la_base(&db, empresa, CAMPANA);
+        let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes());
+
+        db.aplicar_a_la_campana(empresa, CAMPANA, Pausar)
+            .expect("pausa");
+        assert_eq!(t.un_paso().expect("paso"), Paso::Parado);
+
+        db.aplicar_a_la_campana(empresa, CAMPANA, Reanudar)
+            .expect("reanuda");
+        assert!(matches!(t.un_paso().expect("paso"), Paso::Aceptado { .. }));
+    }
+
+    /// **La parada de emergencia para cualquier campaña, esté como esté.**
+    #[test]
+    fn la_parada_de_emergencia_para_el_bucle() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let empresa: CompanyId = EMPRESA.parse().expect("id");
+        let f = freno_de_la_base(&db, empresa, CAMPANA);
+        let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes());
+
+        db.poner_parada_de_emergencia(empresa, Some("adrian"))
+            .expect("para");
+        assert_eq!(t.un_paso().expect("paso"), Paso::Parado);
+        assert_eq!(p.cuantos_pedidos(), 0);
+
+        db.levantar_parada_de_emergencia(empresa).expect("levanta");
+        assert!(matches!(t.un_paso().expect("paso"), Paso::Aceptado { .. }));
+    }
+
+    /// **Si la base no sabe contestar, el motor para.**
+    ///
+    /// Se corrompe el estado de la campaña —lo que pasaría con una base editada
+    /// por fuera o una migración a medias— y se comprueba que el freno decide
+    /// parar en vez de seguir. Parar de más se ve; enviar de más no se ve hasta
+    /// que los correos ya salieron.
+    ///
+    /// Verificada rompiéndola el 23/09/2026: cambiando el `unwrap_or(true)` de
+    /// `freno_de_la_base` por `unwrap_or(false)`, el correo sale sobre una
+    /// campaña cuyo estado el programa no entiende.
+    #[test]
+    fn si_la_base_no_sabe_contestar_el_motor_para() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch("PRAGMA ignore_check_constraints = ON")?;
+            let r = c.execute(
+                "UPDATE campaign SET status = 'halted' WHERE id = ?1",
+                params![CAMPANA],
+            );
+            c.execute_batch("PRAGMA ignore_check_constraints = OFF")?;
+            r
+        })
+        .expect("corrompe");
+
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = freno_de_la_base(&db, EMPRESA.parse().expect("id"), CAMPANA);
+
+        assert_eq!(
+            Trabajador::nuevo(&db, &p, &e, &f, ajustes())
+                .un_paso()
+                .expect("paso"),
+            Paso::Parado
+        );
+        assert_eq!(p.cuantos_pedidos(), 0, "ante la duda, no se envía");
+    }
+
+    // ─── Un suceso, un texto (auditoría de la fase) ─────────────────────────
+
+    /// **Cada paso apunta al texto de quien decide ese suceso, no a una copia.**
+    ///
+    /// Antes de la auditoría había una clave `motor.*` por cada paso, y eso
+    /// creaba dos textos para el mismo hecho: la pantalla de Actividad habría
+    /// dicho «Se volverá a intentar» y el detalle del envío, a un clic,
+    /// «Reintento 2 de 3». El mismo suceso contado de dos maneras, y una de las
+    /// dos sin la cifra que exige el §94.
+    ///
+    /// Esta prueba fija a quién pertenece cada texto, para que la duplicación
+    /// no vuelva la próxima vez que alguien añada un paso.
+    #[test]
+    fn cada_paso_apunta_al_texto_de_quien_decide_ese_suceso() {
+        let casos: Vec<(Paso, &str)> = vec![
+            // Estados del bucle: sólo existen aquí.
+            (Paso::Parado, "motor."),
+            (Paso::FueraDeVentana, "motor."),
+            (Paso::NoHayTrabajo, "motor."),
+            (
+                Paso::CuentaEnPausa {
+                    segundos_restantes: 60,
+                },
+                "motor.",
+            ),
+            (
+                Paso::Cancelado {
+                    intento: "a".into(),
+                },
+                "motor.",
+            ),
+            (
+                Paso::Aceptado {
+                    intento: "a".into(),
+                },
+                "motor.",
+            ),
+            // El motivo por el que no cabe un envío lo nombra `ritmo`, con su
+            // cifra: «Se alcanzó el tope de 50 envíos al día».
+            (
+                Paso::SinPresupuesto(NoSePuede::TopeDelDia { cabian: 50 }),
+                "ritmo.",
+            ),
+            (
+                Paso::SinPresupuesto(NoSePuede::TopeDeLaHora { cabian: 10 }),
+                "ritmo.",
+            ),
+            // Los desenlaces de un intento los nombra `reintento`, que es quien
+            // los decide.
+            (
+                Paso::Baja {
+                    intento: "a".into(),
+                },
+                "reintento.",
+            ),
+            (
+                Paso::Reintentara {
+                    intento: "a".into(),
+                    cual: 2,
+                    de: 3,
+                },
+                "reintento.",
+            ),
+            (
+                Paso::Rendido {
+                    intento: "a".into(),
+                },
+                "reintento.",
+            ),
+            (
+                Paso::DadoDeBaja {
+                    intento: "a".into(),
+                },
+                "reintento.",
+            ),
+            (
+                Paso::CuentaParada {
+                    intento: "a".into(),
+                },
+                "reintento.",
+            ),
+        ];
+
+        for (paso, familia) in casos {
+            assert!(
+                paso.clave_i18n().starts_with(familia),
+                "{paso:?} debería usar el texto de «{familia}» y usa «{}»",
+                paso.clave_i18n()
+            );
+        }
+    }
+
+    /// Y ningún paso se queda sin texto.
+    #[test]
+    fn ningun_paso_se_queda_sin_texto() {
+        for paso in [
+            Paso::Parado,
+            Paso::FueraDeVentana,
+            Paso::NoHayTrabajo,
+            Paso::SinPresupuesto(NoSePuede::FueraDeVentana),
+            Paso::CuentaEnPausa {
+                segundos_restantes: 0,
+            },
+            Paso::Baja {
+                intento: "a".into(),
+            },
+            Paso::Cancelado {
+                intento: "a".into(),
+            },
+            Paso::Aceptado {
+                intento: "a".into(),
+            },
+            Paso::Reintentara {
+                intento: "a".into(),
+                cual: 1,
+                de: 3,
+            },
+            Paso::Rendido {
+                intento: "a".into(),
+            },
+            Paso::DadoDeBaja {
+                intento: "a".into(),
+            },
+            Paso::CuentaParada {
+                intento: "a".into(),
+            },
+        ] {
+            let clave = paso.clave_i18n();
+            assert!(clave.contains('.'), "{paso:?} sin clave");
+            assert!(!clave.is_empty());
+        }
+    }
+
+    // ─── El disyuntor por cuenta (§7, auditoría de la fase) ─────────────────
+
+    /// **Cinco fallos de red seguidos paran la cuenta, y el bucle lo respeta.**
+    ///
+    /// Sin esto, cada envío de la cola gastaría sus tres reintentos contra un
+    /// servidor que no está: quince intentos para descubrir lo que ya se sabía
+    /// al quinto, y un proveedor tomando nota de que ese remitente insiste.
+    ///
+    /// Verificada rompiéndola el 23/09/2026: quitando la comprobación del
+    /// circuito en `un_paso`, el bucle sigue pidiendo envíos al proveedor con
+    /// el disyuntor abierto y esta prueba falla.
+    #[test]
+    fn el_disyuntor_abierto_detiene_el_bucle() {
+        let (_d, db) = base();
+        // Seis en cola: más que los cinco fallos que abren el disyuntor. Con
+        // menos, la cola se vaciaría antes —cada fallo programa su reintento a
+        // cinco minutos— y la prueba mediría eso en vez del circuito.
+        for (id, quien) in [
+            ("a", "a@x.mx"),
+            ("b", "b@x.mx"),
+            ("c", "c@x.mx"),
+            ("d", "d@x.mx"),
+            ("e", "e@x.mx"),
+            ("f", "f@x.mx"),
+        ] {
+            encolar(&db, id, quien);
+        }
+        let p = ProveedorSimulado::que_siempre(Respuesta::SeCayoLaRed);
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes());
+
+        // Se dan pasos hasta que el disyuntor corta. Con tres en cola y
+        // reintentos programados a cinco minutos, lo que corta es el circuito.
+        let mut pasos = 0;
+        let mut ultimo = Paso::NoHayTrabajo;
+        while pasos < 20 {
+            ultimo = t.un_paso().expect("paso");
+            pasos += 1;
+            if matches!(ultimo, Paso::CuentaEnPausa { .. }) {
+                break;
+            }
+        }
+
+        assert!(
+            matches!(ultimo, Paso::CuentaEnPausa { .. }),
+            "tras una racha de fallos de red la cuenta tiene que pararse, no              seguir insistiendo: fue {ultimo:?}"
+        );
+        assert!(
+            p.cuantos_pedidos() <= FALLOS_PARA_ABRIR as usize,
+            "no se puede llamar al proveedor más veces de las que el disyuntor              tolera: fueron {}",
+            p.cuantos_pedidos()
+        );
+        assert!(!ultimo.hay_mas_que_hacer(), "y el bucle deja de girar");
+    }
+
+    /// **Una racha de direcciones muertas NO para la cuenta.**
+    ///
+    /// Es la mitad que rompería el producto: una lista importada con
+    /// direcciones viejas tiene rachas de rebotes, y si contaran, la campaña se
+    /// pararía sola cada pocos minutos sin que el usuario entendiera por qué.
+    #[test]
+    fn una_racha_de_rebotes_no_para_la_cuenta() {
+        let (_d, db) = base();
+        for (id, quien) in [
+            ("a", "a@x.mx"),
+            ("b", "b@x.mx"),
+            ("c", "c@x.mx"),
+            ("d", "d@x.mx"),
+            ("e", "e@x.mx"),
+            ("f", "f@x.mx"),
+        ] {
+            encolar(&db, id, quien);
+        }
+        let p = ProveedorSimulado::que_siempre(Respuesta::NoExisteEsaDireccion);
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes());
+
+        let ultimo = t.correr(100).expect("corre");
+
+        assert_eq!(
+            p.cuantos_pedidos(),
+            6,
+            "las seis direcciones se intentan: que no existan no dice nada              malo del remitente"
+        );
+        assert_eq!(ultimo, Paso::NoHayTrabajo, "la cola se vacía entera");
+        assert!(
+            db.salud_de_la_cuenta(CUENTA, "2026-09-23T16:00:00Z")
+                .expect("lee")
+                .circuito
+                .puede_enviar()
+        );
+    }
+
+    /// **Una credencial caducada para la cuenta a la primera**, y la marca para
+    /// que el usuario sepa que hay que renovarla, no esperar.
+    ///
+    /// ── LA AUDITORÍA DE LA 5.6 PASÓ POR AQUÍ ──
+    ///
+    /// Al cerrar la fase se sospechó que esta cadena —credencial mala → la
+    /// cuenta se marca → nadie la vuelve a usar— sólo estaba probada por
+    /// tramos, y se llegó a escribir una prueba nueva para recorrerla entera.
+    /// Al romper `tras_un_fallo` a propósito falló **ésta también**: ya la
+    /// cubría, y con una aserción más fuerte —`cuantos_pedidos() == 1`— que la
+    /// que se estaba escribiendo. La prueba nueva se borró.
+    ///
+    /// Queda anotado porque el resultado útil de una auditoría también es
+    /// «esto ya estaba», y porque una prueba redundante no es gratis: da una
+    /// falsa sensación de cobertura y hace creer que hay dos garantías donde
+    /// hay una.
+    #[test]
+    fn una_credencial_caducada_para_la_cuenta_a_la_primera() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        encolar(&db, "b", "beto@x.mx");
+        let p = ProveedorSimulado::que_siempre(Respuesta::LaCredencialNoSirve);
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes());
+
+        t.un_paso().expect("paso");
+
+        let salud = db
+            .salud_de_la_cuenta(CUENTA, "2026-09-23T16:00:00Z")
+            .expect("lee");
+        assert!(salud.hay_que_renovar_la_credencial());
+        assert!(matches!(
+            t.un_paso().expect("paso"),
+            Paso::CuentaEnPausa { .. }
+        ));
+        assert_eq!(
+            p.cuantos_pedidos(),
+            1,
+            "esperar a cinco cuando ya sabemos que la contraseña no sirve sólo              gasta los reintentos de otros cuatro envíos"
+        );
+    }
+
+    /// **Un envío que sale borra la racha.**
+    ///
+    /// Sin esto, una campaña de cuatro meses acabaría abriendo el disyuntor por
+    /// cinco tropiezos de red repartidos a lo largo de semanas.
+    #[test]
+    fn un_envio_que_sale_borra_la_racha_de_fallos() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        encolar(&db, "b", "beto@x.mx");
+        // Falla el primero, acepta el segundo.
+        let p =
+            ProveedorSimulado::con_guion(vec![Respuesta::SeCayoLaRed, Respuesta::Acepta("prov-1")]);
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes());
+
+        t.un_paso().expect("falla");
+        assert_eq!(
+            db.salud_de_la_cuenta(CUENTA, "2026-09-23T16:00:00Z")
+                .expect("lee")
+                .fallos_seguidos,
+            1
+        );
+
+        t.un_paso().expect("acierta");
+        assert_eq!(
+            db.salud_de_la_cuenta(CUENTA, "2026-09-23T16:00:00Z")
+                .expect("lee")
+                .fallos_seguidos,
+            0,
+            "un envío que sale prueba que la cuenta funciona"
+        );
+    }
+
+    /// **Nadie recibe dos veces aunque el bucle pase mil veces.**
+    ///
+    /// Es la garantía que gobierna el motor entero, y aquí se mide de punta a
+    /// punta: tres personas, cien vueltas, tres correos.
+    #[test]
+    fn por_mucho_que_gire_el_bucle_nadie_recibe_dos_veces() {
+        let (_d, db) = base();
+        for (id, quien) in [("a", "ana@x.mx"), ("b", "beto@x.mx"), ("c", "cris@x.mx")] {
+            encolar(&db, id, quien);
+        }
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let t = Trabajador::nuevo(&db, &p, &e, &f, ajustes());
+
+        for _ in 0..100 {
+            t.un_paso().expect("paso");
+        }
+
+        let destinatarios: Vec<String> = p.recibidos().into_iter().map(|r| r.para).collect();
+        assert_eq!(destinatarios.len(), 3, "tres personas, tres correos");
+        for quien in ["ana@x.mx", "beto@x.mx", "cris@x.mx"] {
+            assert_eq!(
+                destinatarios.iter().filter(|d| *d == quien).count(),
+                1,
+                "{quien} recibió más de un correo"
+            );
+        }
+    }
+
+    // ─── Lo que de verdad se manda (R-07 paso 2b, 20/10/2026) ──────────────
+
+    /// **La prueba que este proyecto no podía escribir hasta hoy: el cuerpo de
+    /// la plantilla llega al proveedor, con los datos de esa persona.**
+    ///
+    /// Hasta el 20/10/2026 el contenido lo guardaba el adaptador —uno para
+    /// toda la campaña— y el mensaje no lo llevaba, así que `arles-app` le
+    /// pasaba uno vacío y **ninguna campaña mandaba el texto de su
+    /// plantilla**. Ninguna prueba podía verlo: el mensaje no tenía dónde
+    /// llevarlo, así que no había nada que mirar. Es el patrón del §9 en su
+    /// versión más larga, y lo encontró medir, no leer.
+    ///
+    /// Se mira **lo que recibió el proveedor**, que es el único sitio donde
+    /// esto se puede afirmar.
+    #[test]
+    fn el_cuerpo_de_la_plantilla_llega_con_los_datos_de_cada_persona() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+        // El contacto de la fila, para que haya datos que poner.
+        db.ejecutar_en_pruebas(|c| {
+            c.execute_batch(
+                "INSERT INTO contact (id, company_id, status, first_name, last_name,
+                                      source, created_at, updated_at)
+                 VALUES ('c-ana', '11111111-1111-4111-8111-111111111111', 'active',
+                         'Ana', 'Ruiz', 'Fábrica',
+                         '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z');
+                 UPDATE message_attempt SET contact_id = 'c-ana' WHERE id = 'a';",
+            )
+        })
+        .expect("contacto");
+
+        let mut a = ajustes();
+        a.redaccion = Some(arles_db::RedaccionDeLaCampana {
+            // La dirección de ESTE remitente, que es la que la frase de
+            // `{{baja}}` lleva dentro: la respuesta tiene que llegar al buzón
+            // que mandó el correo.
+            remitente: "ventas@t.mx".to_owned(),
+            asunto: "Hola {{nombre}}".to_owned(),
+            cuerpo_html: "<p>Buenas, {{nombre}} de {{empresa}}.</p>".to_owned(),
+            firma_html: Some("<p>Equipo de {{mi_empresa}}</p>".to_owned()),
+            mi_empresa: "TELEMETRY".to_owned(),
+        });
+
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let t = Trabajador::nuevo(&db, &p, &e, &f, a);
+        t.un_paso().expect("paso");
+
+        let pedido = p.recibidos().into_iter().next().expect("se pidió un envío");
+        assert_eq!(pedido.asunto, "Hola Ana");
+        assert!(
+            pedido.html.contains("Buenas, Ana de Fábrica."),
+            "el cuerpo no llevaba sus datos: {}",
+            pedido.html
+        );
+        assert!(
+            pedido.html.contains("Equipo de TELEMETRY"),
+            "la firma no llegó: {}",
+            pedido.html
+        );
+    }
+
+    /// Y **sin contacto se manda igual**, con lo que falte en blanco.
+    ///
+    /// `contact_id` es `ON DELETE SET NULL` a propósito: borrar un contacto no
+    /// borra la prueba de que se le escribió. Así que un intento puede
+    /// sobrevivir a su contacto, y entonces no hay nombre que poner.
+    ///
+    /// Lo que **no** puede pasar es que esa fila desaparezca de la cola — con
+    /// un `JOIN` en vez de un `LEFT JOIN` sería un envío que no sale y que
+    /// nada explica.
+    #[test]
+    fn un_intento_sin_contacto_se_manda_con_los_huecos_en_blanco() {
+        let (_d, db) = base();
+        encolar(&db, "a", "ana@x.mx");
+
+        let mut a = ajustes();
+        a.redaccion = Some(arles_db::RedaccionDeLaCampana {
+            // La dirección de ESTE remitente, que es la que la frase de
+            // `{{baja}}` lleva dentro: la respuesta tiene que llegar al buzón
+            // que mandó el correo.
+            remitente: "ventas@t.mx".to_owned(),
+            asunto: "Hola {{nombre}}".to_owned(),
+            cuerpo_html: "<p>Buenas, {{nombre}}.</p>".to_owned(),
+            firma_html: None,
+            mi_empresa: "TELEMETRY".to_owned(),
+        });
+
+        let p = ProveedorSimulado::que_siempre_acepta();
+        let e = entorno(EN_HORARIO);
+        let f = sin_freno();
+        let t = Trabajador::nuevo(&db, &p, &e, &f, a);
+        t.un_paso().expect("paso");
+
+        let pedido = p
+            .recibidos()
+            .into_iter()
+            .next()
+            .expect("la fila no puede desaparecer de la cola");
+        assert_eq!(pedido.asunto, "Hola ");
+        assert_eq!(pedido.html, "<p>Buenas, .</p>");
+    }
+}
